@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#66B5F9"></stop><stop offset="1" stop-color="#3E95F6"></stop></linearGradient>
+    <linearGradient id="mid" x1="0.1" y1="0.2" x2="0.9" y2="1"><stop offset="0" stop-color="#1B79F8"></stop><stop offset="1" stop-color="#0C5CF3"></stop></linearGradient>
+    <linearGradient id="deep" x1="0" y1="0.3" x2="0.8" y2="1"><stop offset="0" stop-color="#0F5FF5"></stop><stop offset="1" stop-color="#0745EE"></stop></linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.22"></stop><stop offset="0.55" stop-color="#ffffff" stop-opacity="0.05"></stop><stop offset="1" stop-color="#ffffff" stop-opacity="0"></stop></linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#base)"></rect>
+  <path d="M0 0 H1024 V52 C 830 78 640 176 440 268 C 300 332 140 356 0 330 Z" fill="#A9DCFD"></path>
+  <path d="M0 448 C 150 452 300 404 452 320 C 640 216 812 96 1024 62 V180 C 852 236 690 356 540 470 C 372 596 196 660 0 648 Z" fill="url(#sheen)"></path>
+  <path d="M0 500 C 110 424 246 412 356 494 C 470 578 520 782 664 1024 H0 Z" fill="url(#mid)"></path>
+  <path d="M0 672 C 92 626 196 662 268 786 C 320 876 352 968 372 1024 H0 Z" fill="url(#deep)"></path>
+  <path d="M664 1024 C 520 782 470 578 356 494 C 292 448 220 442 156 464 C 246 470 320 528 374 630 C 452 780 528 918 580 1024 Z" fill="#ffffff" fill-opacity="0.10"></path>
+</svg>

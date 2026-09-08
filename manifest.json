@@ -1,0 +1,35 @@
+{
+  "name": "Pulse 2.0",
+  "short_name": "Pulse",
+  "start_url": "/pulse2_mobile_product_mockup_v2/",
+  "scope": "/pulse2_mobile_product_mockup_v2/",
+  "display": "standalone",
+  "background_color": "#12086F",
+  "theme_color": "#0B95F8",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "app-icon/pulse2-app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "app-icon/pulse2-app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "app-icon/pulse2-app-icon-1024-square.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

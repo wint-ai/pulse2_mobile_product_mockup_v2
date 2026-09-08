@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>WINT — Opening Splash (Navy)</title>
+<!--
+  ════════════════════════════════════════════════════════════════════════
+  WINT app opening splash — NAVY backdrop
+  Animation: "Assemble"  ·  Speed: 1.2×   (locked, per design sign-off)
+
+  The w·i·n·t letters slide in from the sides, then the water drop falls
+  straight down from the middle (the gap between the n and t) and settles.
+
+  Self-contained: no external CSS/JS/fonts. The logo is inline SVG.
+  Drop in as your launch / splash screen.
+
+  WHEN THE ANIMATION FINISHES it will, once:
+    • dispatch a DOM event:  window.dispatchEvent(new CustomEvent('wint-splash-complete'))
+    • call, if defined:      window.onWintSplashComplete()
+  Use either to navigate to your first real screen.
+
+  Example (React Native WebView / web):
+    window.addEventListener('wint-splash-complete', () => navigate('Home'));
+
+  Accessibility: honours prefers-reduced-motion (shows the final logo, then
+  fires complete after a short hold).
+
+  Tunables — see the CONFIG block in the script below:
+    SPEED        playback rate (1.2 = sign-off)
+    HOLD_MS      pause on the finished logo before firing complete
+    AUTOPLAY     start on load (true) or wait for window.wintSplash.play()
+  ════════════════════════════════════════════════════════════════════════
+-->
+<style>
+  :root {
+    --wint-navy: #20294c;   /* wordmark ink */
+    --wint-drop: #0b95f8;   /* water drop / accent */
+    --splash-bg: #1e294c;   /* NAVY backdrop (brand navy) */
+    --logo-ink: #ffffff;     /* white wordmark on navy */
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  html { background: var(--splash-bg); }
+  body {
+    min-height: 100%;
+    background: var(--splash-bg);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wint-splash {
+    width: 100%; height: 100vh; height: 100dvh;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo {
+    width: min(56vw, 300px); height: auto; overflow: visible;
+    transform: translateY(-2%);
+  }
+  .glyph { fill: var(--logo-ink); opacity: 0; }
+  .drop  { fill: var(--wint-drop); opacity: 0; }
+  .ripple { fill: none; stroke: var(--wint-drop); stroke-width: 3; opacity: 0; }
+</style>
+</head>
+<body>
+  <div class="wint-splash" role="img" aria-label="WINT">
+    <svg class="logo" id="logo" viewBox="0 0 417 233" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+      <circle class="ripple" id="ripple" cx="336.5" cy="220" r="10"></circle>
+      <path class="glyph" id="g-w" data-from="left"  d="M162.58 31.29L127.14 144.91H103.3L81.18 69.37L57.77 144.91H35.43L0 31.08L24.06 31.29L47.47 106.62L71.1 31.29H91.72L115.34 106.62L138.75 31.29H162.59H162.58Z"></path>
+      <path class="glyph" id="g-i" data-from="left"  d="M199.77 31.29V144.91H175.5V31.29H199.77Z"></path>
+      <path class="glyph" id="g-n" data-from="right" d="M333.35 156.12C328.48 154.74 324.88 150.39 324.88 145.19L324.83 145.17V80.9C324.83 51.57 300.47 27.71 270.53 27.71C240.59 27.71 216.23 51.57 216.23 80.9V145.36H240.79V80.9C240.79 64.84 254.13 51.77 270.52 51.77C286.91 51.77 300.26 64.84 300.26 80.9V145.36H300.32C300.41 163.79 314.92 178.9 333.34 180.5V156.12H333.35Z"></path>
+      <path class="glyph" id="g-t" data-from="right" d="M372.89 31.53V0H348.26V145.18H348.25C348.25 150.33 344.74 154.63 339.96 156.06V180.48C358.34 178.8 372.8 163.65 372.81 145.21C372.86 145.21 372.89 145.21 372.89 145.21V55.31H416.04V31.53H372.89Z"></path>
+      <path class="drop" id="g-drop" d="M352.75 219.56C351.29 226.85 344.68 232.52 336.65 232.52C328.62 232.52 322.01 226.85 320.56 219.56C319.66 215.03 321.45 209.78 326.31 204.34L336.65 192.78L347 204.34C351.86 209.78 353.65 215.03 352.75 219.56Z"></path>
+    </svg>
+  </div>
+
+<script>
+(function () {
+  // ─── CONFIG ──────────────────────────────────────────────────────────
+  var SPEED    = 1.2;    // playback rate (design sign-off)
+  var HOLD_MS  = 650;    // hold on finished logo before firing complete
+  var AUTOPLAY = true;   // false → call window.wintSplash.play() yourself
+  // ─────────────────────────────────────────────────────────────────────
+
+  var logo   = document.getElementById('logo');
+  var glyphs = ['g-w', 'g-i', 'g-n', 'g-t'].map(function (id) { return document.getElementById(id); });
+  var drop   = document.getElementById('g-drop');
+  var ripple = document.getElementById('ripple');
+
+  [].concat(glyphs, [drop, ripple]).forEach(function (el) { el.style.transformBox = 'fill-box'; });
+  drop.style.transformOrigin = '50% 0%';
+  ripple.style.transformOrigin = '50% 50%';
+
+  var running = [], doneFired = false;
+  function track(a) { running.push(a); return a; }
+  function dur(ms) { return ms / SPEED; }
+  var OUT  = 'cubic-bezier(.18,.9,.32,1.08)';  // settle with tiny overshoot
+  var GRAV = 'cubic-bezier(.45,.05,.55,.95)';  // gravity for the falling drop
+
+  function fireComplete() {
+    if (doneFired) return; doneFired = true;
+    try { window.dispatchEvent(new CustomEvent('wint-splash-complete')); } catch (e) {}
+    if (typeof window.onWintSplashComplete === 'function') {
+      try { window.onWintSplashComplete(); } catch (e) {}
+    }
+  }
+
+  function showFinalState() {
+    glyphs.forEach(function (g) { g.style.opacity = '1'; g.style.transform = 'none'; });
+    drop.style.opacity = '1'; drop.style.transform = 'none';
+  }
+
+  // the drop falls straight down from the middle (the n/t gap) and squashes on landing
+  function animateDrop(startDelay) {
+    track(drop.animate([
+      { opacity: 0, transform: 'translateY(-46px) scaleY(.55) scaleX(.85)' },
+      { opacity: 1, transform: 'translateY(-30px) scaleY(.7) scaleX(.9)', offset: .25 },
+      { opacity: 1, transform: 'translateY(0px) scaleY(1.18) scaleX(.9)', offset: .72 },
+      { opacity: 1, transform: 'translateY(0px) scaleY(.94) scaleX(1.05)', offset: .86 },
+      { opacity: 1, transform: 'translateY(0) scale(1)' },
+    ], { duration: dur(720), delay: dur(startDelay), easing: GRAV, fill: 'both' }));
+
+    track(ripple.animate([
+      { opacity: 0, transform: 'scale(.3)' },
+      { opacity: .55, transform: 'scale(.6)', offset: .15 },
+      { opacity: 0, transform: 'scale(2.4)' },
+    ], { duration: dur(620), delay: dur(startDelay + 470), easing: 'ease-out', fill: 'both' }));
+  }
+
+  // "Assemble": letters converge from the sides, then the drop falls.
+  function play() {
+    // reduced motion → skip the motion, hold, then signal complete
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      showFinalState();
+      setTimeout(fireComplete, HOLD_MS);
+      return;
+    }
+
+    var delays = [0, 130, 80, 230]; // w, i, n, t
+    glyphs.forEach(function (g, i) {
+      var dx = g.getAttribute('data-from') === 'left' ? -300 : 300;
+      track(g.animate([
+        { opacity: 0, transform: 'translateX(' + dx + 'px)' },
+        { opacity: 1, transform: 'translateX(0)' },
+      ], { duration: dur(620), delay: dur(delays[i]), easing: OUT, fill: 'both' }));
+    });
+    animateDrop(950);
+
+    // fire complete after the whole sequence + hold
+    var total = running.reduce(function (m, a) {
+      var t = a.effect.getTiming();
+      return Math.max(m, (t.delay || 0) + (t.duration || 0));
+    }, 0);
+    setTimeout(fireComplete, total + HOLD_MS);
+  }
+
+  // public handle for manual control / re-trigger
+  window.wintSplash = { play: play, complete: fireComplete };
+
+  function start() {
+    void logo.getBoundingClientRect();
+    play();
+  }
+  if (AUTOPLAY) {
+    if (document.readyState === 'complete') start();
+    else window.addEventListener('load', start);
+  }
+})();
+</script>
+</body>
+</html>
