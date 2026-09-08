@@ -1,13 +1,16 @@
-# Wint Pulse 2.0 — Mobile Mockup
+# Wint Pulse 2.0 — Mobile Mockup · v2 (UI exploration)
 
 Working React + Vite mockup of the Wint Pulse 2.0 mobile app. A water-leak / system-monitoring app for facility managers, building managers, and tenants.
 
-**This repo is the deployable mockup only.** All product requirements (PRDs), HTML design mockups, and design explorations live in the private repo `wint-ai/pulse2_mobile_product_sandbox`.
+**This is the v2 UI exploration fork of [`pulse2_mobile_product_mockup`](https://github.com/wint-ai/pulse2_mobile_product_mockup).** Both repos are kept alive in parallel — the original repo continues to serve the current shipped mockup at its own URL, and this repo is where the new UI direction is prototyped without disturbing that demo.
+
+All product requirements (PRDs), HTML design mockups, and design explorations still live in the private repo `wint-ai/pulse2_mobile_product_sandbox` (shared by both v1 and v2 forks).
 
 ## Live URLs
 
-- **Mockup app:** https://wint-ai.github.io/pulse2_mobile_product_mockup/
-- **Push pusher:** https://wint-ai.github.io/pulse2_mobile_product_mockup/push-panel
+- **v2 mockup app (this repo):** https://wint-ai.github.io/pulse2_mobile_product_mockup_v2/
+- **v2 push pusher:** https://wint-ai.github.io/pulse2_mobile_product_mockup_v2/push-panel
+- **v1 mockup app (original, unchanged):** https://wint-ai.github.io/pulse2_mobile_product_mockup/
 
 ## Develop
 
@@ -23,7 +26,7 @@ npm test             # vitest run
 npm run deploy       # builds + pushes dist/ to gh-pages branch
 ```
 
-GitHub Pages serves the `gh-pages` branch automatically. Bundle lands at `https://wint-ai.github.io/pulse2_mobile_product_mockup/` within ~1 minute.
+GitHub Pages serves the `gh-pages` branch automatically. Bundle lands at `https://wint-ai.github.io/pulse2_mobile_product_mockup_v2/` within ~1 minute.
 
 ## Source of truth
 

@@ -107,7 +107,7 @@ export default function ControlPanel({ title = 'Push Simulator' }) {
   // Always point at the deployed app's BASE_URL (the mockup root), NOT the
   // current pathname. The pusher is served at /push-panel and /control;
   // the QR target is the mockup itself with ?p=<pairCode> for pairing.
-  // Vite's import.meta.env.BASE_URL resolves to '/pulse2_mobile_product_mockup/'
+  // Vite's import.meta.env.BASE_URL resolves to '/pulse2_mobile_product_mockup_v2/'
   // in prod and '/' in dev — both correct.
   const [qrDataUrl, setQrDataUrl] = useState('');
   useEffect(() => {

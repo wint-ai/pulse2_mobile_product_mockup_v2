@@ -1,8 +1,8 @@
 {
   "name": "Pulse 2.0",
   "short_name": "Pulse",
-  "start_url": "/pulse2_mobile_product_mockup/",
-  "scope": "/pulse2_mobile_product_mockup/",
+  "start_url": "/pulse2_mobile_product_mockup_v2/",
+  "scope": "/pulse2_mobile_product_mockup_v2/",
   "display": "standalone",
   "background_color": "#12086F",
   "theme_color": "#0B95F8",
