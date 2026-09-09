@@ -106,7 +106,7 @@ export default function HomeAccountOverview() {
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
-    <div className="h-full overflow-y-auto pb-8" style={{ background: PAGE_BG }}>
+    <div dir="ltr" className="h-full overflow-y-auto pb-8 text-left" style={{ background: PAGE_BG }}>
       {/* Top bar — h ≈ 42, matches Figma header cluster (not sticky per source) */}
       <div className="flex items-center justify-between px-4 py-3">
         <button className="p-1 -ml-1 rounded-md" aria-label="Menu" onClick={() => setMenuOpen(true)}>
@@ -658,7 +658,8 @@ function SideMenu({ open, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50"
+      dir="ltr"
+      className="absolute inset-0 z-50"
       onClick={onClose}
       style={{ background: 'rgba(20,21,26,0.42)', backdropFilter: 'blur(2px)' }}
     >
