@@ -1,10 +1,92 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
+@import "tailwindcss";
+
+/* ── Wint palette + shadcn tokens ─────────────────────────────────
+   Wint brand rules (from CLAUDE.md):
+     brand blue   #0B95F8   primary
+     severity high #DB4670  High Flow Water Event
+     severity low  #F05C25  Low Flow Water Event
+     danger       #A5455E   valve errors, generic danger
+     success      #5C9E1A   healthy states
+*/
+
+:root {
+  --radius: 0.625rem;
+
+  /* Neutral surfaces (light theme) */
+  --background: #F4F6F9;
+  --foreground: #14151A;
+  --card: #FFFFFF;
+  --card-foreground: #14151A;
+  --popover: #FFFFFF;
+  --popover-foreground: #14151A;
+  --muted: #F1F3F6;
+  --muted-foreground: #6B7280;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #0B95F8;
+  --accent: #EBF5FE;
+  --accent-foreground: #036AB5;
+
+  /* Wint brand + semantics */
+  --primary: #0B95F8;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EBF5FE;
+  --secondary-foreground: #0B4A7A;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+
+  /* Wint-specific severity colors — bind these directly in components */
+  --severity-high: #DB4670;      /* High Flow Water Event */
+  --severity-low: #F05C25;       /* Low Flow Water Event */
+  --danger: #A5455E;             /* valve errors */
+  --success: #5C9E1A;
+
+  --wave-bg-from: #66B5F9;
+  --wave-bg-to: #3E95F6;
+  --wave-mid: #1B79F8;
+  --wave-deep: #0F5FF5;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-severity-high: var(--severity-high);
+  --color-severity-low: var(--severity-low);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
-@import "tailwindcss";
 
 * {
   box-sizing: border-box;
@@ -15,38 +97,16 @@
 html, body, #root {
   height: 100%;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #DDE1E8;
-  color: #14151A;
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
 }
 
-::-webkit-scrollbar { width: 3px; }
-::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
-
-/* Horizontally-scrollable chip / pill strips — hide the WebKit scrollbar
-   completely so the row reads as a clean rail. Used by .hide-scrollbar
-   in the Alerts filter pills and similar surfaces. */
-.hide-scrollbar::-webkit-scrollbar { display: none; }
-
-/* ──────────────────────────────────────────────────────────────────────
-   Accessibility · prefers-reduced-motion (ui-improvements-take-1)
-   ──────────────────────────────────────────────────────────────────────
-   When the OS / user has asked for reduced motion, neutralize ALL
-   non-essential animations and transitions across the app. We keep
-   `prefers-reduced-motion: no-preference` motion durations (the default
-   ~280 ms for screen transitions); for users who opt out we collapse
-   transitions to near-instant (10 ms) so the change still feels like a
-   state change, not an instant cut, but doesn't trigger vestibular issues.
-   Critical for iOS App Store accessibility compliance (Apple HIG · Reduced
-   Motion API) and aligns with WCAG 2.1 SC 2.3.3 Animation from Interactions.
-   ────────────────────────────────────────────────────────────────────── */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+button {
+  font-family: inherit;
 }
 
+/* RTL support flip for legacy inline-styled components */
+[dir="rtl"] {
+  text-align: right;
+}

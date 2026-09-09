@@ -21,6 +21,7 @@ import SystemsTab2 from './screens/systems/SystemsTab2';
 import SystemsTab3 from './screens/systems/SystemsTab3';
 import L4Screen from './screens/systems/L4Screen';
 import SystemDetail from './screens/systems/SystemDetail';
+import SystemPageV2 from './v2/pages/SystemPage';
 import LeakDetail from './screens/leak/LeakDetail';
 import EventHistory from './screens/EventHistory';
 import AccountScreen from './screens/AccountScreen';
@@ -76,7 +77,8 @@ function AppRoutes() {
         {/* Systems hierarchy — view mode from settings */}
         <Route path="/systems" element={<SystemsRouter />} />
         <Route path="/l4/:l4id" element={<L4Screen />} />
-        <Route path="/system/:systemId" element={<SystemDetail />} />
+        <Route path="/system/:systemId" element={<SystemPageV2 />} />
+        <Route path="/v1/system/:systemId" element={<SystemDetail />} />{/* v1 kept for reference */}
 
         {/* KPI detail */}
         <Route path="/kpi/:type" element={<KPIDetailScreen />} />
