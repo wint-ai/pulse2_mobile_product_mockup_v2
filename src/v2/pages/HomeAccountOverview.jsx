@@ -15,12 +15,14 @@
  *     URLs expire in ~7 days and would need re-download on every port pass).
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card } from '@/components/ui/card'
+import { useUserContext } from '@/context/UserContext'
 import {
   Menu, Headphones, ChevronDown, ChevronUp, Waves, WifiOff,
   BellOff, PowerOff, Wrench, Droplet, TrendingDown, MapPin,
-  MoreHorizontal,
+  MoreHorizontal, Settings, UserCog, LogOut, X, ChevronRight,
 } from 'lucide-react'
 
 // ── Wint + Figma palette ───────────────────────────────────────────────────
@@ -101,18 +103,21 @@ export default function HomeAccountOverview() {
   const [tab, setTab]         = useState('overview')
   const [healthy, setHealthy] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div className="h-full overflow-y-auto pb-8" style={{ background: PAGE_BG }}>
       {/* Top bar — h ≈ 42, matches Figma header cluster (not sticky per source) */}
       <div className="flex items-center justify-between px-4 py-3">
-        <button className="p-1 -ml-1 rounded-md" aria-label="Menu">
+        <button className="p-1 -ml-1 rounded-md" aria-label="Menu" onClick={() => setMenuOpen(true)}>
           <Menu size={20} style={{ color: SLATE_800 }} />
         </button>
         <button className="p-1 -mr-1 rounded-md" aria-label="Support">
           <Headphones size={20} style={{ color: SLATE_800 }} />
         </button>
       </div>
+
+      <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
 
       {/* Page title + tab strip */}
       <div className="px-4 pt-2 pb-3">
@@ -619,5 +624,121 @@ function Donut({ slices, total }) {
         <div style={{ fontSize: 9, color: '#737373', letterSpacing: '0.5px' }}>TOTAL LITERS</div>
       </div>
     </div>
+  )
+}
+
+// ── Side menu (hamburger drawer) ───────────────────────────────────────────
+// Opens from the left with the current persona at the top, then the standard
+// account actions. This is where user preferences live (Account & Preferences
+// links to /account, which is the More page per PRD 17).
+function SideMenu({ open, onClose }) {
+  const navigate = useNavigate()
+  const { persona, setPersona } = useUserContext() || {}
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  const go = (path) => { onClose(); setTimeout(() => navigate(path), 0) }
+
+  const logOut = () => {
+    try {
+      sessionStorage.removeItem('pulse2-auth')
+      sessionStorage.removeItem('wint-splash-shown')
+      if (typeof setPersona === 'function') setPersona(null)
+    } catch { /* ignore */ }
+    onClose()
+    setTimeout(() => navigate('/'), 0)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50"
+      onClick={onClose}
+      style={{ background: 'rgba(20,21,26,0.42)', backdropFilter: 'blur(2px)' }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="absolute left-0 top-0 bottom-0 flex flex-col"
+        style={{ width: 300, maxWidth: '85%', background: '#fff', boxShadow: '4px 0 20px rgba(0,0,0,0.18)' }}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 pt-5 pb-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="shrink-0 flex items-center justify-center"
+              style={{
+                width: 40, height: 40, borderRadius: 12,
+                background: persona?.bg || '#F1F5F9',
+                fontSize: 20,
+              }}
+            >{persona?.icon || '👤'}</div>
+            <div className="min-w-0">
+              <div className="truncate" style={{ fontSize: 15, fontWeight: 700, color: SLATE_900, letterSpacing: '-0.2px' }}>
+                {persona?.name || 'Signed in'}
+              </div>
+              <div className="truncate" style={{ fontSize: 12, fontWeight: 600, color: persona?.color || SLATE_500 }}>
+                {persona?.role || ''}
+              </div>
+              {persona?.sub && (
+                <div className="truncate" style={{ fontSize: 11, color: SLATE_500, marginTop: 2 }}>{persona.sub}</div>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} aria-label="Close menu" className="p-1 -mr-1 -mt-1 rounded-md">
+            <X size={18} style={{ color: SLATE_500 }} />
+          </button>
+        </div>
+
+        <div className="mx-5 border-t" style={{ borderColor: '#E5E7EB' }} />
+
+        {/* Actions */}
+        <nav className="flex-1 overflow-y-auto py-2">
+          <SideMenuItem
+            icon={<Settings size={18} />}
+            label="Account & preferences"
+            hint="Units, notifications, account details"
+            onClick={() => go('/account')}
+          />
+          <SideMenuItem
+            icon={<UserCog size={18} />}
+            label="Switch profile"
+            hint="Pick another demo persona"
+            onClick={() => go('/select')}
+          />
+        </nav>
+
+        {/* Footer */}
+        <div className="mx-5 border-t" style={{ borderColor: '#E5E7EB' }} />
+        <button
+          onClick={logOut}
+          className="flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-50"
+        >
+          <LogOut size={18} style={{ color: SEV_HIGH }} />
+          <span style={{ fontSize: 14, fontWeight: 600, color: SEV_HIGH }}>Log out</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SideMenuItem({ icon, label, hint, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-slate-50"
+    >
+      <span className="shrink-0" style={{ color: SLATE_600 }}>{icon}</span>
+      <span className="flex-1 min-w-0">
+        <span className="block" style={{ fontSize: 14, fontWeight: 600, color: SLATE_900 }}>{label}</span>
+        {hint && <span className="block truncate" style={{ fontSize: 12, color: SLATE_500, marginTop: 1 }}>{hint}</span>}
+      </span>
+      <ChevronRight size={16} style={{ color: SLATE_400 }} />
+    </button>
   )
 }
