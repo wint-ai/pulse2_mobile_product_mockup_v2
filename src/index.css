@@ -88,11 +88,11 @@
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* NOTE: no `* { padding: 0 }` reset here. Tailwind v4's preflight
+   already normalizes margin/padding/border to 0 — a second wildcard
+   reset AFTER the @import "tailwindcss" line wins the cascade and
+   nukes every .p-*/.px-*/.py-* utility silently. Let Tailwind
+   handle the reset. */
 
 html, body, #root {
   height: 100%;
