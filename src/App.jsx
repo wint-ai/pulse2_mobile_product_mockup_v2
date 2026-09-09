@@ -22,6 +22,7 @@ import SystemsTab3 from './screens/systems/SystemsTab3';
 import L4Screen from './screens/systems/L4Screen';
 import SystemDetail from './screens/systems/SystemDetail';
 import SystemPageV2 from './v2/pages/SystemPage';
+import HomeAccountOverview from './v2/pages/HomeAccountOverview';
 import LeakDetail from './screens/leak/LeakDetail';
 import EventHistory from './screens/EventHistory';
 import AccountScreen from './screens/AccountScreen';
@@ -62,7 +63,8 @@ function AppRoutes() {
         <Route path="/select" element={<PersonaSelect />} />
 
         {/* Home variants */}
-        <Route path="/" element={<HomeUnified />} />
+        <Route path="/" element={<HomeAccountOverview />} />
+        <Route path="/v1/" element={<HomeUnified />} />{/* v1 kept for reference */}
         <Route path="/home-clear" element={<HomeClear />} />
         <Route path="/tenant" element={<TenantHome />} />
         <Route path="/home-multi" element={<HomeMultiAccount />} />
