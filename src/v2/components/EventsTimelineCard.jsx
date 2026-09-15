@@ -330,10 +330,10 @@ function EventRow({ event, eventId, isLast, isOpen, onToggle }) {
           <div className="[word-break:break-word] content-stretch flex flex-wrap font-[var(--font\/weight\/font-normal,400)] gap-x-[13px] gap-y-[6px] items-start relative shrink-0">
             {event.metrics.map(m => (
               <div key={m.label} className="content-stretch flex gap-[5px] items-center relative shrink-0">
-                <span className="leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden shrink-0 text-[color:#737373] text-[length:var(--text\/xs\/size,12px)] text-ellipsis whitespace-nowrap">
+                <span className="leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden min-w-px text-[color:#737373] text-[length:var(--text\/xs\/size,12px)] text-ellipsis whitespace-nowrap">
                   {m.label}
                 </span>
-                <span className="leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden shrink-0 text-[12px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis whitespace-nowrap">
+                <span className="leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden min-w-px text-[12px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis whitespace-nowrap">
                   {m.value}
                 </span>
               </div>
@@ -363,7 +363,7 @@ function EventRow({ event, eventId, isLast, isOpen, onToggle }) {
         {/* Footer — timestamp (198352:121468) plus the Tag / "n sent" chip the
             design right-aligns beneath it. See the mobile note in the header. */}
         <div className="content-stretch flex gap-[var(--spacing\/0\,5,2px)] items-center justify-between relative w-full">
-          <span className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden shrink-0 text-[color:#737373] text-[length:var(--text\/xs\/size,12px)] text-ellipsis whitespace-nowrap">
+          <span className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden min-w-px text-[color:#737373] text-[length:var(--text\/xs\/size,12px)] text-ellipsis whitespace-nowrap">
             {event.timestamp}
           </span>
 
@@ -391,7 +391,7 @@ function EventRow({ event, eventId, isLast, isOpen, onToggle }) {
             >
               <div className="content-stretch flex gap-[3px] items-center relative shrink-0">
                 <Bell12 />
-                <span className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden shrink-0 text-[12px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis whitespace-nowrap">
+                <span className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden min-w-px text-[12px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis whitespace-nowrap">
                   {event.notifications.count} sent
                 </span>
               </div>

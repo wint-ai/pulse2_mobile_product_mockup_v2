@@ -276,7 +276,7 @@ function ValvePill({ state, label }) {
             <ValveErrorOnRed />
           </div>
         </div>
-        <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[number:var(--font\/weight\/font-medium,500)] leading-[19.2px] overflow-hidden relative shrink-0 text-[#fafbfc] text-[14.4px] text-ellipsis whitespace-nowrap">
+        <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[number:var(--font\/weight\/font-medium,500)] leading-[19.2px] overflow-hidden relative min-w-px text-[#fafbfc] text-[14.4px] text-ellipsis whitespace-nowrap">
           {text}
         </p>
       </div>
@@ -293,7 +293,7 @@ function ValvePill({ state, label }) {
           <ValveStatus state={state} size={16.766} />
         </div>
       </div>
-      <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[number:var(--font\/weight\/font-medium,500)] leading-[19.2px] overflow-hidden relative shrink-0 text-[14.4px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis whitespace-nowrap">
+      <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[number:var(--font\/weight\/font-medium,500)] leading-[19.2px] overflow-hidden relative min-w-px text-[14.4px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis whitespace-nowrap">
         {text}
       </p>
     </div>

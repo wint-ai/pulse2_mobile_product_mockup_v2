@@ -317,7 +317,7 @@ function EventRow({ event }) {
           </div>
 
           <div className="content-stretch flex gap-[13px] items-center relative shrink-0">
-            <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal leading-[var(--text\/xs\/lh-snug,16.5px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis text-left whitespace-nowrap">
+            <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal leading-[var(--text\/xs\/lh-snug,16.5px)] overflow-hidden relative min-w-px text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis text-left whitespace-nowrap">
               {event.detectedAt}
             </p>
             {/* Figma's "Duration" caption above this value is hidden in the
@@ -325,7 +325,7 @@ function EventRow({ event }) {
                 (HomeAllAccounts' rows do not). */}
             {event.duration ? (
               <div className="content-stretch flex gap-[5px] items-center relative shrink-0">
-                <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis text-left whitespace-nowrap">
+                <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative min-w-px text-[12px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis text-left whitespace-nowrap">
                   {event.duration}
                 </p>
               </div>
@@ -374,11 +374,11 @@ function FilterChip({ tone, label, count, active, onClick }) {
       <div className="content-stretch flex flex-[1_0_0] items-center justify-between min-w-px relative">
         <div className="content-stretch flex gap-[6px] items-center relative shrink-0">
           {disc}
-          <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[var(--text\/sm\/lh-tight,18px)] overflow-hidden relative shrink-0 text-[14px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis whitespace-nowrap" dir="auto">
+          <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[var(--text\/sm\/lh-tight,18px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis whitespace-nowrap" dir="auto">
             {label}
           </p>
         </div>
-        <p className="[word-break:break-word] font-[family-name:var(--font\/family\/heading,'Geist:Bold'),'Figtree','Inter',sans-serif] font-bold leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative shrink-0 text-[16px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis tracking-[var(--text\/base\/heading-tracking,-0.4px)] whitespace-nowrap">
+        <p className="[word-break:break-word] font-[family-name:var(--font\/family\/heading,'Geist:Bold'),'Figtree','Inter',sans-serif] font-bold leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative min-w-px text-[16px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis tracking-[var(--text\/base\/heading-tracking,-0.4px)] whitespace-nowrap">
           {count}
         </p>
       </div>

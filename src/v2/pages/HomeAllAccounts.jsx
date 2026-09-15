@@ -203,7 +203,7 @@ function TabTrigger({ label, active, onClick }) {
         data-node-id="I198314:73491;101485:143349;198314:73487"
       >
         <span className="content-stretch drop-shadow-[0px_0px_0px_var(--ring-focus,rgba(161,161,161,0.5))] flex gap-[var(--component\/tabs\/trigger\/gap,6px)] items-center overflow-clip px-[var(--component\/tabs\/trigger\/px,8px)] py-[var(--component\/tabs\/trigger\/py,4px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)] shrink-0">
-          <span className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative shrink-0 text-[14px] text-[color:var(--wint-blue-accent,#0b81f8)] text-center text-ellipsis whitespace-nowrap">
+          <span className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--wint-blue-accent,#0b81f8)] text-center text-ellipsis whitespace-nowrap">
             {label}
           </span>
         </span>
@@ -221,7 +221,7 @@ function TabTrigger({ label, active, onClick }) {
       className="content-stretch cursor-pointer flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center justify-center min-w-[56px] px-[var(--spacing\/2,8px)] py-[var(--spacing\/1,4px)] relative rounded-[var(--component\/tabs\/list\/radius-horizontal,26px)]"
       data-node-id="I198314:73491;101485:143349;198314:73490"
     >
-      <span className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative shrink-0 text-[14px] text-[color:var(--colors\/slate\/500,#62748e)] text-center text-ellipsis whitespace-nowrap">
+      <span className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--colors\/slate\/500,#62748e)] text-center text-ellipsis whitespace-nowrap">
         {label}
       </span>
     </button>
@@ -381,19 +381,19 @@ function TopUsageCard({ data, onSelect, onPeriodChange }) {
                 className="relative rounded-[var(--component\/pro\/marketing\/tagline\/chip\/py,2px)] shrink-0 size-[8px]"
                 style={{ background: row.key }}
               />
-              <p className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative shrink-0 text-[#737373] text-[12px] text-ellipsis whitespace-nowrap">
+              <p className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative min-w-px text-[#737373] text-[12px] text-ellipsis whitespace-nowrap">
                 {row.label}
               </p>
             </div>
             <div className="content-stretch flex gap-[8px] items-center relative shrink-0">
               <div className="[word-break:break-word] content-stretch flex font-[var(--font\/weight\/font-normal,400)] gap-[var(--spacing\/0\,5,2px)] items-center leading-[var(--text\/xs\/lh-none,12px)] relative shrink-0 text-[12px] whitespace-nowrap">
-                <p className="overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-ellipsis">
+                <p className="overflow-hidden relative min-w-px text-[color:var(--colors\/slate\/800,#1d293d)] text-ellipsis">
                   {row.value}
                 </p>
-                <p className="overflow-hidden relative shrink-0 text-[#737373] text-ellipsis">{row.unit}</p>
+                <p className="overflow-hidden relative min-w-px text-[#737373] text-ellipsis">{row.unit}</p>
               </div>
               <div className="bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch flex gap-[var(--component\/badge\/gap,4px)] h-[20px] items-center justify-center overflow-clip px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0">
-                <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[12px] text-ellipsis whitespace-nowrap">
+                <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative min-w-px text-[color:var(--colors\/slate\/800,#1d293d)] text-[12px] text-ellipsis whitespace-nowrap">
                   {row.share}
                 </p>
               </div>

@@ -194,7 +194,7 @@ function PolicyStateBadge({ label, tone }) {
           <LocationDot fill={DOT_FILL[tone] ?? DOT_FILL.off} />
         </div>
       </div>
-      <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis whitespace-nowrap">
+      <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative min-w-px text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis whitespace-nowrap">
         {label}
       </p>
     </div>
@@ -384,7 +384,7 @@ function TabsRow({ value, onChange }) {
                 className="content-stretch cursor-pointer flex flex-[1_0_0] flex-col items-center min-w-[56px] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)]"
               >
                 <div className="content-stretch flex gap-[var(--component\/tabs\/trigger\/gap,6px)] items-center overflow-clip px-[var(--component\/tabs\/trigger\/px,8px)] py-[var(--component\/tabs\/trigger\/py,4px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)] shrink-0">
-                  <p className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative shrink-0 text-[14px] text-[color:var(--wint-blue-accent,#0b81f8)] text-center text-ellipsis whitespace-nowrap">
+                  <p className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--wint-blue-accent,#0b81f8)] text-center text-ellipsis whitespace-nowrap">
                     {tab.label}
                   </p>
                 </div>
@@ -401,7 +401,7 @@ function TabsRow({ value, onChange }) {
                 onClick={() => onChange(tab.id)}
                 className="content-stretch cursor-pointer flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center justify-center min-w-[56px] px-[var(--spacing\/2,8px)] py-[var(--spacing\/1,4px)] relative rounded-[var(--component\/tabs\/list\/radius-horizontal,26px)]"
               >
-                <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative shrink-0 text-[14px] text-[color:var(--colors\/slate\/500,#62748e)] text-center text-ellipsis whitespace-nowrap">
+                <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--colors\/slate\/500,#62748e)] text-center text-ellipsis whitespace-nowrap">
                   {tab.label}
                 </p>
               </button>

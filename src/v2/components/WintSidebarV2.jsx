@@ -761,7 +761,7 @@ export default function WintSidebarV2({ open, onClose }) {
                 {persona.icon || '👤'}
               </span>
               <span className="[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col items-start justify-center min-w-px relative text-[color:var(--colors\/slate\/700,#314158)] whitespace-nowrap">
-                <span className="font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh-tight,18px)] overflow-hidden relative shrink-0 text-[14px] text-ellipsis w-full">
+                <span className="font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh-tight,18px)] overflow-hidden relative min-w-px text-[14px] text-ellipsis w-full">
                   {persona.name}
                 </span>
                 <span className="font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-tight,15px)] overflow-hidden relative shrink-0 text-[12px] text-ellipsis w-full">
@@ -928,7 +928,7 @@ function TreeRow({
           className="content-stretch flex h-[20px] items-center justify-center min-w-[34px] overflow-clip pl-[var(--component\/badge\/px,8px)] pr-[var(--spacing\/0\,5,2px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0"
           style={isActive ? BADGE_TONE_ACTIVE : BADGE_TONE_REST}
         >
-          <span className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative shrink-0 tabular-nums text-[12px] text-ellipsis whitespace-nowrap">
+          <span className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative min-w-px tabular-nums text-[12px] text-ellipsis whitespace-nowrap">
             {node.systems.length}
           </span>
           {isOpen ? <ArrowDropDown size={16} /> : <ArrowDropRight size={16} />}
