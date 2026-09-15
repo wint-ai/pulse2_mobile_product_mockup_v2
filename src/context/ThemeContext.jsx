@@ -115,7 +115,9 @@ const WINT = {
   label: 'Wint Blue', icon: '\uD83D\uDCA7', preview: '#0B95F8',
   // Backgrounds
   bg: 'linear-gradient(145deg, #E1EDF7 0%, #E8F0F8 40%, #EDF3F9 70%, #F2F6FA 100%)',
-  bgSolid: '#E5EEF6',
+  // On a real phone the shell IS the screen, so it carries the design wash
+  // rather than a flat fill. See the statusBarBg note below.
+  bgSolid: 'var(--app-bg)',
   bgFlat: '#F0F5FA',
   card: '#F7FAFC',
   cardBorder: '1px solid #D0DFED',
@@ -160,10 +162,14 @@ const WINT = {
   // Badges
   badgeBg: 'rgba(11,149,248,0.08)',
   badgeText: '#6B7A8D',
-  // Status bar (phone frame)
-  statusBarBg: '#0B95F8',
-  statusBarColor: '#fff',
-  phoneBg: '#E1EBF5',
+  // Status bar (phone frame).
+  // The Figma frames have no status-bar band — the app wash runs to the top
+  // edge of the 375x874 screen. A solid blue bar here (and an #E1EBF5 body
+  // behind the screen) was the most visible way the v2 screens read as "not
+  // the design", so both defer to --app-bg. Other themes keep their own chrome.
+  statusBarBg: 'transparent',
+  statusBarColor: '#0f172b',
+  phoneBg: 'var(--app-bg)',
 };
 
 const MIDNIGHT = {
