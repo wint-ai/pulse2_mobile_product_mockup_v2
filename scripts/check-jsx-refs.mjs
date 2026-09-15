@@ -54,8 +54,19 @@ for (const root of ROOTS) {
     // function Foo() / const Foo = / let Foo = / class Foo
     for (const m of src.matchAll(/(?:function|class)\s+([A-Z][A-Za-z0-9_]*)/g)) defined.add(m[1])
     for (const m of src.matchAll(/(?:const|let|var)\s+([A-Z][A-Za-z0-9_]*)\s*=/g)) defined.add(m[1])
-    // destructured locals and params: { Icon } = ... / ({ Icon })
+    // Destructured locals and params, both shapes:
+    //   object  { Icon } = ... / ({ Icon })
+    //   array   for (const [name, Sidebar] of SIDEBARS)
+    // The array form was missed at first and reported a parameterised test's
+    // component as undefined — a false positive, which is the one failure mode
+    // that makes a checker like this get ignored.
     for (const m of src.matchAll(/[{,]\s*([A-Z][A-Za-z0-9_]*)\s*[,}:=]/g)) defined.add(m[1])
+    for (const m of src.matchAll(/\[\s*([^\]]*?)\s*\]\s*(?:of|=)/g)) {
+      for (const part of m[1].split(',')) {
+        const name = part.trim()
+        if (/^[A-Z][A-Za-z0-9_]*$/.test(name)) defined.add(name)
+      }
+    }
 
     const missing = [...used].filter(u => !defined.has(u.split('.')[0]))
     if (missing.length) {

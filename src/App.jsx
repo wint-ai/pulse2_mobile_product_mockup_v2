@@ -67,7 +67,11 @@ function AppRoutes() {
         <Route path="/select" element={<PersonaSelect />} />
 
         {/* Home variants */}
-        <Route path="/" element={<HomeAccountOverview />} />
+        {/* PREVIEW TREE ONLY — these two lines are the swap. On main they
+            still point at HomeAccountOverview / SystemPageV2. The originals
+            stay reachable at /old and /old/system/:systemId for comparison. */}
+        <Route path="/" element={<HomeAllAccounts />} />
+        <Route path="/old" element={<HomeAccountOverview />} />
         <Route path="/v1/" element={<HomeUnified />} />{/* v1 kept for reference */}
 
         {/* ── Pixel-match preview ──────────────────────────────────────────
@@ -81,7 +85,7 @@ function AppRoutes() {
         <Route path="/pixel/location/:locationName" element={<HomeAllAccounts />} />
         <Route path="/pixel/system/:systemId" element={<SystemPageV2Screen />} />
         {/* Figma "Location opt b" (198328:88654) — same screen, scoped title. */}
-        <Route path="/location/:locationName" element={<HomeAccountOverview />} />
+        <Route path="/location/:locationName" element={<HomeAllAccounts />} />
         <Route path="/home-clear" element={<HomeClear />} />
         <Route path="/tenant" element={<TenantHome />} />
         <Route path="/home-multi" element={<HomeMultiAccount />} />
@@ -96,7 +100,8 @@ function AppRoutes() {
         {/* Systems hierarchy — view mode from settings */}
         <Route path="/systems" element={<SystemsRouter />} />
         <Route path="/l4/:l4id" element={<L4Screen />} />
-        <Route path="/system/:systemId" element={<SystemPageV2 />} />
+        <Route path="/system/:systemId" element={<SystemPageV2Screen />} />
+        <Route path="/old/system/:systemId" element={<SystemPageV2 />} />
         <Route path="/v1/system/:systemId" element={<SystemDetail />} />{/* v1 kept for reference */}
 
         {/* KPI detail */}
