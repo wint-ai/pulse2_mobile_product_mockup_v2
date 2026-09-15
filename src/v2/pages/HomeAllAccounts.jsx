@@ -59,7 +59,7 @@
  * so the project's Phosphor caret-down is used instead of shipping a smiley.
  */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import TabBar from '@/components/TabBar'
 import ActiveWaterEventsCard from '@/v2/components/ActiveWaterEventsCard'
@@ -211,7 +211,38 @@ function TabTrigger({ label, active, onClick }) {
  * both h-[407px] overflow-clip) are Figma layout scaffolding around a 380px
  * card and are dropped — the card is the thing.
  */
-function TopUsageCard({ data }) {
+const TOP_USAGE_PERIODS = [
+  { id: '7d', label: 'Last 7 days', days: 7 },
+  { id: '30d', label: 'Last 30 days', days: 30 },
+  { id: '90d', label: 'Last 90 days', days: 90 },
+  { id: '12m', label: 'Last 12 months', days: 365 },
+]
+
+function TopUsageCard({ data, onPeriodChange }) {
+  const [periodId, setPeriodId] = useState('30d')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const period = TOP_USAGE_PERIODS.find(p => p.id === periodId) ?? TOP_USAGE_PERIODS[1]
+
+  // Close on Escape and on any outside click — a popover that can only be
+  // dismissed by re-tapping its own trigger is a trap on a touch screen.
+  useEffect(() => {
+    if (!menuOpen) return
+    const onKey = e => { if (e.key === 'Escape') setMenuOpen(false) }
+    const onDown = () => setMenuOpen(false)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('pointerdown', onDown)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('pointerdown', onDown)
+    }
+  }, [menuOpen])
+
+  const choose = (p) => {
+    setPeriodId(p.id)
+    setMenuOpen(false)
+    onPeriodChange?.(p)
+  }
+
   return (
     <div
       className="bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[var(--p-0,0px)] items-start min-h-[380px] overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] shadow-[var(--shadow\/x,0px)_var(--shadow\/popover\/layer-2\/y,0px)_var(--shadow\/popover\/layer-2\/blur,0px)_var(--shadow\/popover\/layer-2\/spread,0px)_var(--shadow\/popover\/layer-2\/color,rgba(0,0,0,0))] w-full"
@@ -225,21 +256,53 @@ function TopUsageCard({ data }) {
             Top usage
           </p>
         </div>
-        {/* Deliberately inert, not forgotten: the comp draws this as a period
-            selector but no frame anywhere on the delivery canvas shows the menu
-            it would open, and this repo's standing rule is to ASK rather than
-            invent a destination. It renders as the design draws it and does
-            nothing; give it an onClick the day the menu exists. */}
-        <span
-          aria-disabled="true"
-          className="bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-center px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0"
-          data-node-id="I198314:73655;197412:209455;198314:73654"
-        >
-          <span className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] relative shrink-0 text-[#171717] text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap">
-            Last 30 days
-          </span>
-          <CaretDown size={16} className="relative shrink-0 text-[#171717]" />
-        </span>
+        {/* The PILL is Figma verbatim — same classes, same geometry, now a real
+            button. The POPOVER below it is invented: the comp draws no menu
+            anywhere on the delivery canvas, so its styling follows the project's
+            card conventions rather than a frame. Swap it for the designed menu
+            when one exists. */}
+        <div className="relative shrink-0" onPointerDown={e => e.stopPropagation()}>
+          <button
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(v => !v)}
+            className="bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-center px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 cursor-pointer"
+            data-node-id="I198314:73655;197412:209455;198314:73654"
+          >
+            <span className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] relative shrink-0 text-[#171717] text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap">
+              {period.label}
+            </span>
+            <CaretDown
+              size={16}
+              className="relative shrink-0 text-[#171717] transition-transform"
+              style={{ transform: menuOpen ? 'rotate(180deg)' : undefined }}
+            />
+          </button>
+
+          {menuOpen && (
+            <ul
+              role="listbox"
+              aria-label="Usage period"
+              className="absolute right-0 top-[40px] z-30 min-w-[168px] overflow-hidden rounded-[14px] border border-slate-200 bg-white py-1 shadow-[0_8px_24px_rgba(15,23,42,0.12)]"
+            >
+              {TOP_USAGE_PERIODS.map(p => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={p.id === periodId}
+                    onClick={() => choose(p)}
+                    className="flex w-full items-center justify-between px-3 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
+                  >
+                    {p.label}
+                    {p.id === periodId && <span className="text-[#0b81f8]">✓</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {/* cardContent — 198314:73656 */}
