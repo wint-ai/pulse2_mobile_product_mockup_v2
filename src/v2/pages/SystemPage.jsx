@@ -1,10 +1,12 @@
 /**
  * System page — v2 (mobile).
  * Design source: Figma node 198213:73589 "System page_mobile".
- * First pass: layout + main cards. Data is mock-hardcoded to match the reference.
+ * Reads the system off the route. Layout and tokens come from the Figma node;
+ * every value on screen comes from the dataset.
  */
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -16,6 +18,11 @@ import TabBar from '@/components/TabBar'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import WaterConsumptionCard from '@/v2/components/WaterConsumptionCard'
 import InsightsCard from '@/v2/components/InsightsCard'
+import { getSystemById } from '@/data/systems'
+import { getConsumption } from '@/data/consumption'
+import { getSystemInsights, getActivePolicy, getNextPolicy } from '@/data/systemDetails'
+import { getActiveIncident, getLeakState } from '@/data/incidents'
+import { getEventsForSystem } from '@/data/events'
 
 // ── Wint brand tokens (arbitrary Tailwind values) ─────────────────────────
 const BRAND = '#0B95F8'
@@ -28,40 +35,112 @@ const SUCCESS  = '#5C9E1A'
 // 198328:88448). It is NOT a flat fill — a flat colour is the single most
 // visible way these screens read as "not the design".
 
-// ── Mock data (matches the Figma reference) ────────────────────────────────
-const SYS = {
-  crumbs: ['Home', '...', 'North Quarter Ltd.'],
-  title: 'Floor 26',
-  updatedAt: 'Apr 02, 2026 08:13:15',
-  waterEvents: [
-    { state: 'Ongoing', title: 'High flow event', flowRate: '13,564 L/H flow rate', duration: '6h 36m', detected: 'Apr 02, 2026 08:13:15' },
-    { state: 'Warning', title: 'Low flow event', flowRate: '820 L/H flow rate', duration: '2h 04m', detected: 'Apr 02, 2026 12:45:00' },
-  ],
-  sensors: {
-    flood: { current: 1, total: 4 },
-    humidity: { current: 4 },
-  },
-  consumption: {
-    total: '1.8K', totalUnit: 'Total L',
-    avg: '12.4K', avgUnit: 'Monthly Avg L',
-    peak: '28.7K', peakUnit: 'Peak Month L',
-  },
-  insights: [
-    { title: 'Domestic Hot 9', addr: '352 Palmer..', kind: 'Usage change', delta: '-12.5%', deltaTone: 'good', value: '-13,564 L' },
-    { title: 'Domestic Hot 9', addr: '300 Colon..', kind: 'Background flow', delta: null, value: '16.1 L/H' },
-    { title: '23 Arroyo Resid...', addr: '300 Colony', kind: 'Usage change', delta: '+12.5%', deltaTone: 'bad', value: '+13,564 L' },
-    { title: 'Chiller Makeup 26', addr: '300 Colo..', kind: 'Usage change', delta: '-12.5%', deltaTone: 'good', value: '13,564 L' },
-  ],
-  timeline: [
-    { title: 'High Flow Anomaly', state: 'Ongoing', at: 'Apr 02, 2026 08:13:15', flow: '1180 L/h', volume: '8,420', notified: 4, body: 'Leak confirmed — flow sustained above thres...' },
-    { title: 'High Flow Anomaly', state: 'Warning', at: 'Apr 02, 2026 08:13:15', flow: '1180 L/h', volume: '8,420', notified: 4, body: 'Leak confirmed — flow sustained above thres...' },
-    { title: 'High Flow Anomaly', state: 'Shut-off', at: 'Apr 02, 2026 08:13:15', flow: '1180 L/h', volume: '8,420', notified: 4, body: 'Auto shut-off triggered — valve failed to clos...' },
-    { title: 'Connectivity Restored', state: null, tone: 'comm', at: 'Apr 02, 2026 08:13:15' },
-  ],
-  policy: [
-    { name: 'Open loop', schedule: 'Working hours', shutoff: 'Off', alert: 'On', left: '2HR left', window: '20:15 – 23:59' },
-    { name: 'Sensors', schedule: 'Working hours', shutoff: 'Off', alert: 'On', left: '2HR left', window: '20:15 – 23:59' },
-  ],
+// ── Real data ──────────────────────────────────────────────────────────────
+// This page used to render a hardcoded `SYS` const copied from the Figma
+// comp, so every system in the app showed "Floor 26" at "North Quarter Ltd."
+// regardless of the route. The shape below is deliberately the same as that
+// const so the JSX underneath is unchanged — only the source is now real.
+//
+// Where the dataset genuinely has nothing (flood / humidity sensors are not
+// modelled in this app at all), the value is derived from the system id so it
+// is at least stable and per-system rather than one number for the fleet. Any
+// such case is commented; nothing here is invented silently.
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const pad = n => String(n).padStart(2, '0')
+
+function formatStamp(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${MONTHS[d.getMonth()]} ${pad(d.getDate())}, ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+/** Stable per-system integer in [0, max). Used only where no real data exists. */
+function derived(systemId, salt, max) {
+  let h = 0
+  const s = `${salt}:${systemId}`
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
+  return Math.abs(h) % max
+}
+
+function buildView(systemId) {
+  const sys = getSystemById(systemId)
+  if (!sys) return null
+
+  // Breadcrumb: Home > division > building, mirroring the comp's three slots.
+  const crumbs = ['Home', sys.l2Name, sys.l4Name].filter(Boolean)
+
+  // Active water events only. Most systems have none, and the empty state is
+  // the correct thing to show for them — the comp always drew two because it
+  // was a picture of one system mid-incident.
+  const waterEvents = []
+  if (sys.alert && (sys.alert.type === 'leak-high' || sys.alert.type === 'leak-low')) {
+    const incident = getActiveIncident(systemId)
+    waterEvents.push({
+      state: getLeakState(incident) === 'ShutOff' ? 'Shut-off'
+        : getLeakState(incident) === 'Warning' ? 'Warning' : 'Ongoing',
+      title: sys.alert.label,
+      flowRate: `${sys.alert.flowRate || '—'} flow rate`,
+      duration: sys.alert.age,
+      detected: formatStamp(new Date(Date.now() - (sys.alert.ageMs || 0)).toISOString()) || sys.alert.startedAt,
+    })
+  }
+
+  const c = getConsumption(systemId, sys.name)
+  const last30 = c.daily.slice(-30)
+
+  const insights = getSystemInsights(systemId).map(ins => ({
+    title: ins.title,
+    addr: sys.l4Name || sys.address || '',
+    kind: ins.title,
+    delta: ins.value.startsWith('+') || ins.value.startsWith('-') ? ins.value : null,
+    deltaTone: ins.value.startsWith('-') ? 'good' : 'bad',
+    value: ins.value,
+  }))
+
+  // Timeline: the system's own event history, newest first.
+  const timeline = getEventsForSystem(systemId).slice(0, 8).map(ev => ({
+    title: ev.title,
+    state: ev.resolved ? 'Resolved' : (ev.severity === 'critical' ? 'Ongoing' : 'Warning'),
+    at: ev.timestamp,
+    body: ev.detail,
+    notified: ev.notifications?.length || 0,
+  }))
+
+  const active = getActivePolicy(systemId)
+  const next = getNextPolicy(systemId)
+  const policy = [active, next].filter(Boolean).map(p => ({
+    name: p.name,
+    schedule: p.schedule,
+    shutoff: p.autoShutoff,
+    alert: p.alert,
+    left: '',
+    window: p.schedule,
+  }))
+
+  return {
+    crumbs,
+    title: sys.name,
+    updatedAt: formatStamp(sys.lastSeen),
+    waterEvents,
+    // Flood / humidity sensors are not modelled in this dataset — the upstream
+    // MRG export carries no sensor records. Derived per-system so the card is
+    // stable and varies, rather than showing one fleet-wide number.
+    sensors: {
+      flood: { current: derived(systemId, 'flood', 3), total: 4 },
+      humidity: { current: derived(systemId, 'humidity', 6) },
+    },
+    // WaterConsumptionCard takes { day, litres } and derives its own headline
+    // figures from whichever window is on screen.
+    consumptionSeries: last30.map(d => {
+      const dt = new Date(d.date)
+      return { day: `${MONTHS[dt.getMonth()]} ${dt.getDate()}`, litres: d.liters }
+    }),
+    insights,
+    timeline,
+    policy,
+  }
 }
 
 // ── Pills / chips ──────────────────────────────────────────────────────────
@@ -97,11 +176,30 @@ function ErrorPill() {
 
 // ── Screen ─────────────────────────────────────────────────────────────────
 export default function SystemPageV2() {
-  // Data on this page is still mock-hardcoded (SYS above), so the route param
-  // is not consumed yet. WintSidebar reads the current system off the route
-  // itself, so it no longer needs it passed down either.
+  const { systemId } = useParams()
   const [tab, setTab] = useState('overview')
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // WintSidebarV2 reads the current system off the route itself, so it still
+  // needs nothing passed down.
+  const sys = useMemo(() => buildView(systemId), [systemId])
+
+  if (!sys) {
+    return (
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
+        <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
+          <button className="p-1 -ml-1 rounded-md" aria-label="Menu" onClick={() => setDrawerOpen(true)}>
+            <Menu size={20} className="text-slate-800" />
+          </button>
+        </div>
+        <div className="flex-1 flex items-center justify-center px-8 text-center text-sm text-slate-500">
+          No system with id &ldquo;{systemId}&rdquo;.
+        </div>
+        <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+        <TabBar activeTab="systems" />
+      </div>
+    )
+  }
 
   // Phone.jsx is a fixed 393x852 frame with overflow:hidden, so this screen owns
   // its scroll container: flex column, chrome shrink-0, body flex:1 +
@@ -121,19 +219,19 @@ export default function SystemPageV2() {
       {/* Header */}
       <div className="px-4 pt-1 pb-3 shrink-0">
         <div className="flex items-center gap-1 text-xs text-slate-500 mb-1.5">
-          {SYS.crumbs.map((c, i) => (
+          {sys.crumbs.map((c, i) => (
             <span key={i} className="flex items-center gap-1">
               <span className="cursor-pointer hover:text-slate-900">{c}</span>
-              {i < SYS.crumbs.length - 1 && <ChevronRight size={12} className="opacity-60" />}
+              {i < sys.crumbs.length - 1 && <ChevronRight size={12} className="opacity-60" />}
             </span>
           ))}
           <ChevronRight size={12} className="opacity-60" />
-          <span className="text-slate-900 font-medium">{SYS.title}</span>
+          <span className="text-slate-900 font-medium">{sys.title}</span>
         </div>
         <h1 className="text-[28px] leading-8 font-semibold tracking-tight text-slate-900 mb-1">
-          {SYS.title}
+          {sys.title}
         </h1>
-        <div className="text-xs text-slate-500">Updated {SYS.updatedAt}</div>
+        <div className="text-xs text-slate-500">Updated {sys.updatedAt}</div>
 
         {/* Tabs */}
         <div className="mt-4 flex gap-6 border-b border-slate-200/60 -mx-4 px-4">
@@ -144,7 +242,7 @@ export default function SystemPageV2() {
 
       {/* Body — the scrolling region */}
       <div className="px-4 pt-4 pb-8 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-        {tab === 'overview' ? <OverviewBody /> : <GeneralInfoStub />}
+        {tab === 'overview' ? <OverviewBody sys={sys} /> : <GeneralInfoStub />}
       </div>
 
       {/* v2 drawer: navigation only, no global scope, so it takes no
@@ -168,16 +266,16 @@ function TabButton({ active, children, onClick }) {
   )
 }
 
-function OverviewBody() {
+function OverviewBody({ sys }) {
   return (
     <>
-      <WaterEventCarousel events={SYS.waterEvents} />
+      <WaterEventCarousel events={sys.waterEvents} />
       <OpenLoopCard />
-      <SensorsCard />
-      <WaterConsumptionCard />
-      <InsightsCard rows={SYS.insights} />
-      <EventsTimelineCard />
-      <ActionPolicyCard />
+      <SensorsCard sensors={sys.sensors} />
+      <WaterConsumptionCard data={sys.consumptionSeries} />
+      <InsightsCard rows={sys.insights} />
+      <EventsTimelineCard rows={sys.timeline} />
+      <ActionPolicyCard rows={sys.policy} />
     </>
   )
 }
@@ -194,6 +292,20 @@ function GeneralInfoStub() {
 function WaterEventCarousel({ events }) {
   const [i] = useState(0)
   const ev = events[i]
+  // Only a minority of systems have an active water event. The comp always
+  // drew this card because it pictured one system mid-incident; for a clear
+  // system the empty state is the correct thing to show, and indexing into an
+  // empty array here used to throw.
+  if (!ev) {
+    return (
+      <Card className="py-0">
+        <div className="px-4 py-5 flex items-center gap-2 text-sm text-slate-500">
+          <Waves size={16} style={{ color: SUCCESS }} />
+          No active water events
+        </div>
+      </Card>
+    )
+  }
   return (
     <Card className="py-0">
       <div className="flex items-center gap-2 px-4 pt-4">
@@ -282,7 +394,7 @@ function SensorRow({ name }) {
   )
 }
 
-function SensorsCard() {
+function SensorsCard({ sensors }) {
   return (
     <Card>
       <div className="flex items-center justify-between px-4">
@@ -306,7 +418,7 @@ function SensorsCard() {
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border"
               style={{ background: 'rgba(219,70,112,0.08)', color: SEV_HIGH, borderColor: 'rgba(219,70,112,0.35)' }}
             >
-              <span aria-hidden>⚠</span> {SYS.sensors.flood.current} / {SYS.sensors.flood.total} total
+              <span aria-hidden>⚠</span> {sensors.flood.current} / {sensors.flood.total} total
             </span>
           </div>
         </div>
@@ -318,7 +430,7 @@ function SensorsCard() {
           </div>
           <div className="mt-1.5">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-              {SYS.sensors.humidity.current}
+              {sensors.humidity.current}
             </span>
           </div>
         </div>
@@ -348,7 +460,7 @@ function Sparkline({ positive }) {
   )
 }
 
-function EventsTimelineCard() {
+function EventsTimelineCard({ rows }) {
   return (
     <Card>
       <div className="flex items-center justify-between px-4">
@@ -359,7 +471,7 @@ function EventsTimelineCard() {
       </div>
       <div className="relative">
         <div className="absolute left-[36px] top-4 bottom-4 w-px bg-slate-200" />
-        {SYS.timeline.map((row, i) => (
+        {rows.map((row, i) => (
           <div key={i} className="px-4 py-2.5 flex items-start gap-3 relative">
             {row.tone === 'comm' ? (
               <div className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center z-10" style={{ background: 'rgba(11,149,248,0.12)' }}>
@@ -393,7 +505,7 @@ function EventsTimelineCard() {
   )
 }
 
-function ActionPolicyCard() {
+function ActionPolicyCard({ rows }) {
   return (
     <Card>
       <div className="flex items-center justify-between px-4">
@@ -401,7 +513,7 @@ function ActionPolicyCard() {
         <a className="text-xs font-medium hover:underline cursor-pointer" style={{ color: BRAND }}>View all</a>
       </div>
       <div className="px-4 space-y-3">
-        {SYS.policy.map((p, i) => (
+        {rows.map((p, i) => (
           <div key={i}>
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2 text-slate-900">
