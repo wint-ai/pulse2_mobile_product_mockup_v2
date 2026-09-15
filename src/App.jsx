@@ -22,6 +22,10 @@ import SystemsTab3 from './screens/systems/SystemsTab3';
 import L4Screen from './screens/systems/L4Screen';
 import SystemDetail from './screens/systems/SystemDetail';
 import SystemPageV2 from './v2/pages/SystemPage';
+// Pixel-matched rebuilds, reachable at /pixel/* for review. Not yet wired to
+// the default routes — see the preview block in the route table below.
+import HomeAllAccounts from './v2/pages/HomeAllAccounts';
+import SystemPageV2Screen from './v2/pages/SystemPageV2Screen';
 import HomeAccountOverview from './v2/pages/HomeAccountOverview';
 import LeakDetail from './screens/leak/LeakDetail';
 import EventHistory from './screens/EventHistory';
@@ -65,6 +69,17 @@ function AppRoutes() {
         {/* Home variants */}
         <Route path="/" element={<HomeAccountOverview />} />
         <Route path="/v1/" element={<HomeUnified />} />{/* v1 kept for reference */}
+
+        {/* ── Pixel-match preview ──────────────────────────────────────────
+            Rebuilt verbatim from the Figma delivery canvas. Additive on
+            purpose: / and /system/:systemId still render the existing pages,
+            so nothing that works today changes. Repointing those is the
+            functionality change Rule 0 covers and needs the owner's sign-off.
+            Delete this block once the swap happens. */}
+        <Route path="/pixel" element={<HomeAllAccounts />} />
+        <Route path="/pixel/expanded" element={<HomeAllAccounts expanded />} />
+        <Route path="/pixel/location/:locationName" element={<HomeAllAccounts />} />
+        <Route path="/pixel/system/:systemId" element={<SystemPageV2Screen />} />
         {/* Figma "Location opt b" (198328:88654) — same screen, scoped title. */}
         <Route path="/location/:locationName" element={<HomeAccountOverview />} />
         <Route path="/home-clear" element={<HomeClear />} />
