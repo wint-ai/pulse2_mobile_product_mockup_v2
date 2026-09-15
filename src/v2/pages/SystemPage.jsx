@@ -5,14 +5,17 @@
  */
 
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   Menu, Headphones, ChevronRight, ChevronDown, Waves, Bell,
-  Droplet, ThermometerSun, Filter, TrendingDown, TrendingUp,
+  Droplet, ThermometerSun, TrendingDown, TrendingUp,
   Wifi, MoreHorizontal, Power, Home as HomeIcon,
 } from 'lucide-react'
+import TabBar from '@/components/TabBar'
+import WintSidebar from '@/v2/components/WintSidebar'
+import WaterConsumptionCard from '@/v2/components/WaterConsumptionCard'
+import InsightsCard from '@/v2/components/InsightsCard'
 
 // ── Wint brand tokens (arbitrary Tailwind values) ─────────────────────────
 const BRAND = '#0B95F8'
@@ -20,8 +23,10 @@ const SEV_HIGH = '#DB4670'
 const SEV_LOW  = '#F05C25'
 const DANGER   = '#A5455E'
 const SUCCESS  = '#5C9E1A'
-const PAGE_BG  = '#F4F6F9'
-const HEADER_BG = '#EDF2F7'
+// The screen background is the five-stop wash the comp puts on every screen
+// root (var(--app-bg) in index.css, copied out of the design context for
+// 198328:88448). It is NOT a flat fill — a flat colour is the single most
+// visible way these screens read as "not the design".
 
 // ── Mock data (matches the Figma reference) ────────────────────────────────
 const SYS = {
@@ -92,14 +97,20 @@ function ErrorPill() {
 
 // ── Screen ─────────────────────────────────────────────────────────────────
 export default function SystemPageV2() {
-  const { systemId } = useParams()
+  // Data on this page is still mock-hardcoded (SYS above), so the route param
+  // is not consumed yet. WintSidebar reads the current system off the route
+  // itself, so it no longer needs it passed down either.
   const [tab, setTab] = useState('overview')
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
+  // Phone.jsx is a fixed 393x852 frame with overflow:hidden, so this screen owns
+  // its scroll container: flex column, chrome shrink-0, body flex:1 +
+  // overflowY:auto + minHeight:0. `min-h-screen` here would just be clipped.
   return (
-    <div className="min-h-screen pb-8" style={{ background: PAGE_BG }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
       {/* Top bar */}
-      <div className="sticky top-0 z-30 flex items-center justify-between px-4 pt-3 pb-2" style={{ background: HEADER_BG }}>
-        <button className="p-1 -ml-1 rounded-md" aria-label="Menu">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
+        <button className="p-1 -ml-1 rounded-md" aria-label="Menu" onClick={() => setDrawerOpen(true)}>
           <Menu size={20} className="text-slate-800" />
         </button>
         <button className="p-1 -mr-1 rounded-md" aria-label="Support">
@@ -108,7 +119,7 @@ export default function SystemPageV2() {
       </div>
 
       {/* Header */}
-      <div className="px-4 pt-1 pb-3" style={{ background: HEADER_BG }}>
+      <div className="px-4 pt-1 pb-3 shrink-0">
         <div className="flex items-center gap-1 text-xs text-slate-500 mb-1.5">
           {SYS.crumbs.map((c, i) => (
             <span key={i} className="flex items-center gap-1">
@@ -131,10 +142,16 @@ export default function SystemPageV2() {
         </div>
       </div>
 
-      {/* Body */}
-      <div className="px-4 pt-4 pb-4 flex flex-col gap-3">
+      {/* Body — the scrolling region */}
+      <div className="px-4 pt-4 pb-8 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {tab === 'overview' ? <OverviewBody /> : <GeneralInfoStub />}
       </div>
+
+      {/* v2 drawer: navigation only, no global scope, so it takes no
+          currentSystemId / onSelectLocation contract the way v1's did. */}
+      <WintSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
+      <TabBar activeTab="systems" />
     </div>
   )
 }
@@ -158,7 +175,7 @@ function OverviewBody() {
       <OpenLoopCard />
       <SensorsCard />
       <WaterConsumptionCard />
-      <InsightsCard />
+      <InsightsCard rows={SYS.insights} />
       <EventsTimelineCard />
       <ActionPolicyCard />
     </>
@@ -310,81 +327,12 @@ function SensorsCard() {
   )
 }
 
-function WaterConsumptionCard() {
-  const bars = [45, 35, 55, 25, 40, 60, 20, 35, 45, 30, 42, 38, 55, 42, 28, 92, 70, 50, 40, 33, 25, 20, 18, 25, 30, 15]
-  return (
-    <Card>
-      <div className="flex items-center justify-between px-4">
-        <div className="text-base font-semibold text-slate-900">Water consumption</div>
-        <Filter size={16} className="text-slate-500" />
-      </div>
-      <div className="px-4 grid grid-cols-3 gap-2">
-        <Stat top={SYS.consumption.total} bot={SYS.consumption.totalUnit} />
-        <Stat top={SYS.consumption.avg} bot={SYS.consumption.avgUnit} />
-        <Stat top={SYS.consumption.peak} bot={SYS.consumption.peakUnit} />
-      </div>
-      <div className="px-4 pt-1 h-32 flex items-end gap-1">
-        {bars.map((h, i) => (
-          <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${h}%`, background: 'rgba(11,149,248,0.65)' }} />
-        ))}
-      </div>
-      <div className="px-4 flex justify-between text-[10px] text-slate-500">
-        <span>Apr 1</span><span>Apr 6</span><span>Apr 11</span><span>Apr 16</span><span>A…</span>
-      </div>
-    </Card>
-  )
-}
-
 function Stat({ top, bot }) {
   return (
     <div>
       <div className="text-lg font-semibold text-slate-900 leading-tight">{top}</div>
       <div className="text-[11px] text-slate-500 mt-0.5">{bot}</div>
     </div>
-  )
-}
-
-function InsightsCard() {
-  return (
-    <Card>
-      <div className="flex items-center justify-between px-4">
-        <div className="text-base font-semibold text-slate-900">Insights</div>
-        <a className="text-xs font-medium hover:underline cursor-pointer" style={{ color: BRAND }}>View all</a>
-      </div>
-      <div>
-        {SYS.insights.map((row, i) => (
-          <div key={i} className="mx-4 py-3 border-t border-slate-100 first:border-t-0 flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-sm">
-                <span className="font-semibold text-slate-900 truncate">{row.title}</span>
-                <span className="text-slate-500 text-xs truncate">{row.addr}</span>
-              </div>
-              <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
-                <Droplet size={11} className="opacity-60" /> {row.kind}
-              </div>
-            </div>
-            <div className="w-14 h-8 rounded flex items-center justify-center" style={{ background: 'rgba(11,149,248,0.08)' }}>
-              <Sparkline positive={row.deltaTone === 'good'} />
-            </div>
-            <div className="text-right min-w-16">
-              {row.delta && (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
-                  style={row.deltaTone === 'good'
-                    ? { background: '#DCFCE7', color: '#166534' }
-                    : { background: '#FEE2E2', color: '#991B1B' }
-                  }
-                >
-                  {row.deltaTone === 'good' ? <TrendingDown size={11} /> : <TrendingUp size={11} />}
-                  {row.delta}
-                </span>
-              )}
-              <div className="text-[11px] text-slate-500 mt-0.5">{row.value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
   )
 }
 

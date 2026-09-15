@@ -6,20 +6,29 @@
  */
 
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { Card } from '@/components/ui/card'
 import {
   Menu, Headphones, ChevronDown, ChevronUp, Waves, Wifi, WifiOff,
   BellOff, PowerOff, Timer, Droplet, TrendingDown,
 } from 'lucide-react'
+import TabBar from '@/components/TabBar'
+import WintSidebar from '@/v2/components/WintSidebar'
+import EventOverlay from '@/v2/components/EventOverlay'
+import WaterConsumptionCard from '@/v2/components/WaterConsumptionCard'
+import InsightsCard from '@/v2/components/InsightsCard'
 
 // ── Wint tokens ────────────────────────────────────────────────────────────
 const BRAND     = '#0B95F8'
 const SEV_HIGH  = '#DB4670'
 const SEV_LOW   = '#F05C25'
 const SUCCESS   = '#5C9E1A'
-const PAGE_BG   = '#EEF2F7'    // header + page bg (slightly bluer than the pure gray)
-const HEADER_BG = '#EDF2F7'
+// The screen background is the five-stop wash the comp puts on every screen
+// root (var(--app-bg) in index.css, copied out of the design context for
+// 198328:88448). It is NOT a flat fill — a flat colour is the single most
+// visible way these screens read as "not the design".
+// The header sits on the same wash rather than its own fill, so it does not
+// paint a background at all.
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 const MOCK = {
@@ -42,23 +51,40 @@ const MOCK = {
     { id: '751-poplar-b',  title: '751 Poplar Court', addr: 'Los Angeles | 700 Oak Street, Brockton...', flow: 'High Flow', at: 'Apr 02, 2026 08:13:15', dur: '6h 36m' },
     { id: '751-poplar-c',  title: '751 Poplar Court', addr: 'Los Angeles | 700 Oak Street, Brockton...', flow: 'High Flow', at: 'Apr 02, 2026 08:13:15', dur: '6h 36m' },
   ],
+  // Four rows, as the comp draws them. Two tones and one row with no delta:
+  // "Background flow" states a rate, it has no change to report.
   insights: [
-    { title: 'Domestic Hot 9', addr: '352 Palmer..', kind: 'Usage change', delta: '-12.5%', deltaTone: 'good', value: '-13,564 L' },
+    { title: 'Domestic Hot 9',    addr: '352 Palmer..', kind: 'Usage change',    delta: '-12.5%', deltaTone: 'good', value: '-13,564 L' },
+    { title: 'Domestic Hot 9',    addr: '300 Colon..',  kind: 'Background flow', delta: null,     deltaTone: 'good', value: '16.1 L/H' },
+    { title: '23 Arroyo Resid...', addr: '300 Colony',  kind: 'Usage change',    delta: '+12.5%', deltaTone: 'bad',  value: '+13,564 L' },
+    { title: 'Chiller Makeup 26', addr: '300 Colo..',   kind: 'Usage change',    delta: '-12.5%', deltaTone: 'good', value: '13,564 L' },
   ],
 }
 
 // ── Screen ─────────────────────────────────────────────────────────────────
 export default function HomeAccountOverview() {
+  // Figma "Location opt b" (198328:88654) is this exact screen with the title
+  // swapped — same cards, same data — so it is a route param, not a screen.
+  // Reachable at /location/:locationName; bare / stays "All Accounts".
+  const { locationName } = useParams()
+  const scopeTitle = locationName ? decodeURIComponent(locationName) : 'All Accounts'
+
   const [tab, setTab] = useState('overview')
   // Demo state toggle: healthy = show empty state, otherwise alerts state
   const [healthy, setHealthy] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  // null | 'water' | 'alerts' — which dataset the full-list overlay is showing.
+  const [overlay, setOverlay] = useState(null)
 
+  // Phone.jsx is a fixed 393x852 frame with overflow:hidden, so this screen owns
+  // its scroll container: flex column, chrome shrink-0, body flex:1 +
+  // overflowY:auto + minHeight:0. `min-h-screen` here would just be clipped.
   return (
-    <div className="min-h-screen pb-8" style={{ background: PAGE_BG }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
       {/* Top bar */}
-      <div className="sticky top-0 z-30 flex items-center justify-between px-4 pt-3 pb-2" style={{ background: HEADER_BG }}>
-        <button className="p-1 -ml-1 rounded-md" aria-label="Menu">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
+        <button className="p-1 -ml-1 rounded-md" aria-label="Menu" onClick={() => setDrawerOpen(true)}>
           <Menu size={20} className="text-slate-800" />
         </button>
         <button className="p-1 -mr-1 rounded-md" aria-label="Support">
@@ -67,9 +93,9 @@ export default function HomeAccountOverview() {
       </div>
 
       {/* Title + Tabs */}
-      <div className="px-4 pt-2 pb-3" style={{ background: HEADER_BG }}>
+      <div className="px-4 pt-2 pb-3 shrink-0">
         <h1 className="text-[28px] leading-8 font-semibold tracking-tight text-slate-900 mb-4">
-          All Accounts
+          {scopeTitle}
         </h1>
         <div className="flex gap-8 border-b border-slate-200/60 -mx-4 px-4">
           <TabButton active={tab === 'overview'} onClick={() => setTab('overview')}>Overview</TabButton>
@@ -77,8 +103,8 @@ export default function HomeAccountOverview() {
         </div>
       </div>
 
-      {/* Body */}
-      <div className="px-4 pt-4 pb-4 flex flex-col gap-3">
+      {/* Body — the scrolling region */}
+      <div className="px-4 pt-4 pb-8 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {tab === 'overview' ? (
           <>
             {/* Demo controls — quick toggles so we can switch states in the mockup */}
@@ -86,20 +112,51 @@ export default function HomeAccountOverview() {
 
             {/* Water Events card */}
             {healthy
-              ? <WaterEventsHealthy />
-              : <WaterEventsCard expanded={expanded} setExpanded={setExpanded} events={MOCK.waterEvents} count={MOCK.waterEventsCount} />
+              ? <WaterEventsHealthy onShowPast={() => setOverlay('water')} />
+              : <WaterEventsCard expanded={expanded} setExpanded={setExpanded} events={MOCK.waterEvents} count={MOCK.waterEventsCount} onShowAll={() => setOverlay('water')} />
             }
 
             {/* Systems Health card */}
-            <SystemsHealthCard healthy={healthy} />
+            <SystemsHealthCard healthy={healthy} onShowPast={() => setOverlay('alerts')} />
 
-            {/* Insights */}
-            <InsightsCard />
+            {/* Insights — shared with the system page. No onViewAll: there is
+                no Insights list screen designed, so it renders inert. */}
+            <InsightsCard rows={MOCK.insights} />
+
+            {/* Water consumption — present in the Figma home comp (the layer is
+                named "Balance", a leftover shadcn template name). */}
+            <WaterConsumptionCard />
           </>
         ) : (
-          <Card><div className="py-8 text-center text-sm text-slate-500">General Info tab (coming)</div></Card>
+          /* NOT DESIGNED. The delivery canvas has the tab but no content frame
+             for it anywhere, and Rule 0 forbids inventing one. Honest placeholder
+             until a comp exists — do not fill this with plausible-looking fields. */
+          <Card>
+            <div className="py-10 px-4 text-center">
+              <div className="text-sm font-medium text-slate-600">General Info</div>
+              <div className="text-xs text-slate-400 mt-1">No design yet for this tab.</div>
+            </div>
+          </Card>
         )}
       </div>
+
+      {/* v2 drawer: navigation only, no global scope. v1 screens still mount
+          NavigationDrawer and keep their scope behaviour — the two coexist. */}
+      <WintSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
+      {/* Figma 198328:89685 / :90254 are these same overlays in location scope:
+          a breadcrumb instead of a bare close, and rows drop the system name and
+          address because the scope already implies them. Driven by where this
+          screen is, not by a second component. */}
+      <EventOverlay
+        open={overlay !== null}
+        onClose={() => setOverlay(null)}
+        dataset={overlay ?? 'water'}
+        scope={locationName ? 'location' : 'account'}
+        scopeName={scopeTitle}
+      />
+
+      <TabBar activeTab="home" />
     </div>
   )
 }
@@ -140,7 +197,7 @@ function DemoToggle({ healthy, setHealthy, expanded, setExpanded }) {
 }
 
 // Water Events - alert state (collapsed OR expanded)
-function WaterEventsCard({ expanded, setExpanded, events, count }) {
+function WaterEventsCard({ expanded, setExpanded, events, count, onShowAll }) {
   return (
     <Card className="p-4">
       <button className="flex items-center gap-3 w-full text-left" onClick={() => setExpanded(v => !v)}>
@@ -172,7 +229,7 @@ function WaterEventsCard({ expanded, setExpanded, events, count }) {
             <WaterEventRow key={ev.id} ev={ev} withDivider={i > 0} />
           ))}
           <div className="text-center pt-3 pb-1">
-            <a className="text-sm font-medium text-slate-500 hover:text-[#0B95F8] cursor-pointer">Show all</a>
+            <button type="button" onClick={onShowAll} className="text-sm font-medium text-slate-500 hover:text-[#0B95F8] cursor-pointer">Show all</button>
           </div>
         </div>
       )}
@@ -224,7 +281,7 @@ function WaterEventRow({ ev, withDivider }) {
 }
 
 // Water Events - healthy state (empty)
-function WaterEventsHealthy() {
+function WaterEventsHealthy({ onShowPast }) {
   return (
     <Card className="px-4 py-4">
       <div className="flex items-center gap-3">
@@ -232,9 +289,9 @@ function WaterEventsHealthy() {
         <div className="flex-1 min-w-0">
           <div className="text-base font-semibold text-slate-900 leading-tight">Everything looks good!</div>
           <div className="text-xs text-slate-500 mt-0.5">No active water events</div>
-          <a className="text-xs font-medium mt-2 inline-block cursor-pointer hover:underline" style={{ color: BRAND }}>
+          <button type="button" onClick={onShowPast} className="text-xs font-medium mt-2 inline-block cursor-pointer hover:underline" style={{ color: BRAND }}>
             Show past events
-          </a>
+          </button>
         </div>
       </div>
     </Card>
@@ -260,7 +317,7 @@ function PipeShieldIllustration() {
   )
 }
 
-function SystemsHealthCard({ healthy }) {
+function SystemsHealthCard({ healthy, onShowPast }) {
   const pct = healthy ? 96 : MOCK.systemsHealthPct
   const attention = healthy ? 0 : MOCK.systemsAttention
   const issues = healthy
@@ -314,7 +371,7 @@ function SystemsHealthCard({ healthy }) {
 
       {healthy && (
         <div className="px-4 mt-3">
-          <a className="text-sm font-medium cursor-pointer hover:underline" style={{ color: BRAND }}>Show past alerts</a>
+          <button type="button" onClick={onShowPast} className="text-sm font-medium cursor-pointer hover:underline" style={{ color: BRAND }}>Show past alerts</button>
         </div>
       )}
     </Card>
@@ -332,41 +389,5 @@ function IssueTile({ icon, label, count }) {
       </div>
       <div className="text-[11px] text-slate-500 mt-1 pl-1">{label}</div>
     </div>
-  )
-}
-
-function InsightsCard() {
-  return (
-    <Card className="py-4">
-      <div className="flex items-center justify-between px-4">
-        <div className="text-base font-semibold text-slate-900">Insights</div>
-        <a className="text-xs font-medium cursor-pointer hover:underline" style={{ color: '#6B7280' }}>View all</a>
-      </div>
-      <div>
-        {MOCK.insights.map((row, i) => (
-          <div key={i} className="mx-4 py-3 border-t border-slate-100 first:border-t-0 flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-sm">
-                <span className="font-semibold text-slate-900 truncate">{row.title}</span>
-                <span className="text-slate-500 text-xs truncate">{row.addr}</span>
-              </div>
-              <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
-                <Droplet size={11} className="opacity-60" /> {row.kind}
-              </div>
-            </div>
-            <div className="w-14 h-8 rounded flex items-center justify-center" style={{ background: 'rgba(11,149,248,0.08)' }}>
-              <svg viewBox="0 0 64 18" width="52" height="14">
-                <path d="M 2 14 L 12 8 L 22 10 L 32 4 L 42 6 L 52 3 L 62 8" stroke={SUCCESS} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div className="text-right min-w-16">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium" style={{ background: '#DCFCE7', color: '#166534' }}>
-                <TrendingDown size={11} /> {row.delta}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
   )
 }
