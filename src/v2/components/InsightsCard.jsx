@@ -8,11 +8,30 @@
  * delta ("Background flow") still got a badge. Tone is data now, not decoration.
  */
 
-import { Card } from '@/components/ui/card'
 import { Droplet, TrendingDown, TrendingUp } from 'lucide-react'
 
 const SUCCESS = '#5C9E1A'
 const SEV_HIGH = '#DB4670'
+
+/**
+ * Cap a string the way the comp does — "352 Palmer.." — rather than relying on
+ * CSS alone. Breaks on a word boundary when one is close to the limit so the
+ * result reads as a name rather than a severed string, and never returns
+ * something longer than the input.
+ */
+function cap(text, max) {
+  const s = String(text ?? '').trim()
+  if (s.length <= max) return s
+  const cut = s.slice(0, max)
+  const lastSpace = cut.lastIndexOf(' ')
+  const body = lastSpace > max - 8 ? cut.slice(0, lastSpace) : cut
+  return `${body.replace(/[\s\u2013\u2014·,-]+$/, '')}..`
+}
+
+// Budgets for a 375px row. The title gets the larger share because it is the
+// thing being identified; the address is context and degrades gracefully.
+const TITLE_MAX = 22
+const ADDR_MAX = 16
 
 const TONE = {
   good: { chip: { background: '#DCFCE7', color: '#166534' }, stroke: SUCCESS, Icon: TrendingDown },
@@ -41,8 +60,12 @@ function Sparkline({ tone }) {
  */
 export default function InsightsCard({ rows = [], title = 'Insights', onViewAll, className }) {
   return (
-    <Card className={className}>
-      <div className="flex items-center justify-between px-4">
+    /* Figma's card shell, identical to the sibling widgets on this page. This
+       used to be the shadcn <Card>, which gave it a different ground, border,
+       radius and padding from every card around it — visibly a different size
+       and shape in the stack. */
+    <div className={["bg-[#fafbfc] border-[length:var(--border-width\\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[var(--p-0,0px)] items-start overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] w-full", className].filter(Boolean).join(' ')}>
+      <div className="flex items-center justify-between w-full px-[var(--pro\/space\/4,16px)] py-[var(--spacing\/3,12px)]">
         <div className="text-base font-semibold text-slate-900">{title}</div>
         {onViewAll ? (
           <button
@@ -72,12 +95,29 @@ export default function InsightsCard({ rows = [], title = 'Insights', onViewAll,
               className="mx-4 py-3 border-t border-slate-100 first:border-t-0 flex items-center gap-3"
             >
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 text-sm">
-                  <span className="font-semibold text-slate-900 truncate">{row.title}</span>
-                  <span className="text-slate-500 text-xs truncate">{row.addr}</span>
+                {/* Capped, not just CSS-truncated. Two competing `truncate`
+                    siblings shrink each other until neither is readable; the
+                    comp's own "352 Palmer.." shows the intended behaviour.
+                    title= carries the full string for hover and a11y. */}
+                <div className="flex items-center gap-1.5 text-sm min-w-0">
+                  <span
+                    className="font-semibold text-slate-900 whitespace-nowrap"
+                    title={row.title}
+                  >
+                    {cap(row.title, TITLE_MAX)}
+                  </span>
+                  {row.addr && (
+                    <span
+                      className="text-slate-500 text-xs whitespace-nowrap"
+                      title={row.addr}
+                    >
+                      {cap(row.addr, ADDR_MAX)}
+                    </span>
+                  )}
                 </div>
-                <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
-                  <Droplet size={11} className="opacity-60" /> {row.kind}
+                <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500 min-w-0">
+                  <Droplet size={11} className="opacity-60 shrink-0" />
+                  <span className="truncate" title={row.kind}>{row.kind}</span>
                 </div>
               </div>
 
@@ -106,6 +146,6 @@ export default function InsightsCard({ rows = [], title = 'Insights', onViewAll,
           )
         })}
       </div>
-    </Card>
+    </div>
   )
 }

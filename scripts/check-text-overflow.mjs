@@ -38,6 +38,7 @@ function* files(dir) {
 const RENDERS_DATA = /\{[a-zA-Z_$][\w$.?[\]]*\}/
 
 let violations = 0
+let warnings = 0
 let checked = 0
 
 for (const root of ROOTS) {
@@ -62,28 +63,39 @@ for (const root of ROOTS) {
       const wantsEllipsis = /truncate|text-ellipsis/.test(line)
       const nowrap = /whitespace-nowrap|truncate/.test(line)
 
-      if (!canShrink && (wantsEllipsis || nowrap)) {
-        bad.push({
-          line: i + 1,
-          why: wantsEllipsis
-            ? 'has text-ellipsis/truncate but shrink-0 stops it engaging'
-            : 'whitespace-nowrap + shrink-0 will push or overlap its siblings',
-        })
+      if (canShrink) return
+
+      if (wantsEllipsis) {
+        // FAILS the build. The element asks to truncate and shrink-0 forbids
+        // it — there is no reading of that which is intentional.
+        bad.push({ line: i + 1, fatal: true, why: 'has text-ellipsis/truncate but shrink-0 stops it engaging' })
+      } else if (nowrap) {
+        // WARNS only. On a short fixed label — a duration, a status pill —
+        // shrink-0 is correct and stops it being squeezed. Whether this one
+        // collides depends on how long its data gets, which a regex cannot
+        // know. Failing the build on it would train people to ignore this
+        // checker, which is worse than the bug.
+        bad.push({ line: i + 1, fatal: false, why: 'whitespace-nowrap + shrink-0 — check it cannot collide once data is long' })
       }
     })
 
     if (bad.length) {
-      violations += bad.length
+      violations += bad.filter(b => b.fatal).length
+      warnings += bad.filter(b => !b.fatal).length
       console.log(`\n${file}`)
-      for (const b of bad) console.log(`  L${String(b.line).padEnd(5)} ${b.why}`)
+      for (const b of bad) {
+        console.log(`  ${b.fatal ? 'FAIL' : 'warn'}  L${String(b.line).padEnd(5)} ${b.why}`)
+      }
     }
   }
 }
 
 console.log(
   violations
-    ? `\n${violations} shrink-0 text node(s) that render data, across ${checked} file(s)\n` +
-      'Fix: replace shrink-0 with min-w-px (or min-w-0) so the ellipsis can engage.'
-    : `text overflow ok — ${checked} file(s) checked`,
+    ? `\n${violations} element(s) ask to truncate but carry shrink-0 — that never works.\n` +
+      `Fix: replace shrink-0 with min-w-px (or min-w-0).` +
+      (warnings ? `\n${warnings} further nowrap case(s) worth an eye, not failing the build.` : '')
+    : `text overflow ok — ${checked} file(s) checked` +
+      (warnings ? `, ${warnings} nowrap case(s) worth an eye` : ''),
 )
 process.exit(violations ? 1 : 0)

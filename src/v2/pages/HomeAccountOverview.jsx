@@ -1,4 +1,11 @@
 /**
+ * @superseded  Replaced by HomeAllAccounts.jsx, which is pixel-matched to the
+ * delivery canvas and reads the real dataset. This file is kept ONLY as a
+ * frozen before/after reference at /old, so its hardcoded MOCK is deliberate
+ * rather than a bug — that is why it carries the @superseded marker that
+ * exempts it from the reads-real-data rule in scripts/check-shell-contract.mjs.
+ * Do not wire it to live data; delete it when the comparison stops being useful.
+ *
  * Home — Account Overview (v2 mobile).
  * Design source: Figma nodes 198235:82043 (alerts), 198235:81421 (healthy),
  * 198229:74815 (expanded water events).

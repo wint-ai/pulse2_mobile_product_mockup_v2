@@ -120,7 +120,16 @@ function stripComments(src) {
 }
 
 for (const file of files(ROOT)) {
-  const src = stripComments(readFileSync(file, 'utf8'))
+  const rawSrc = readFileSync(file, 'utf8')
+
+  // A page may declare itself superseded — kept only as a frozen before/after
+  // reference, not as a live screen. That is an honest reason to hold mock
+  // data, and it has to be DECLARED in the file rather than inferred from a
+  // path, so it stays visible to the next reader and to review. Anything not
+  // carrying the marker is held to the full contract.
+  if (/@superseded\b/.test(rawSrc)) { checked++; continue }
+
+  const src = stripComments(rawSrc)
   checked++
   const bad = RULES.filter(r => !r.test(src))
   if (!bad.length) continue

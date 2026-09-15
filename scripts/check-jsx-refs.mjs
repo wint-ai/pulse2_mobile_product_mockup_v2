@@ -33,9 +33,18 @@ for (const root of ROOTS) {
   for (const file of files(root)) {
     const src = readFileSync(file, 'utf8')
 
+    // Comments are stripped ONLY for finding what is USED, never for finding
+    // what is DEFINED. These files legitimately mention components in prose —
+    // "this used to be the shadcn <Card>" — which read as usages and get
+    // reported as undefined. But stripping before collecting imports ate real
+    // import lines and turned 1 false positive into 8. Two views, one file.
+    const forUsage = src
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ')
+
     // Components referenced in JSX, including namespaced <Foo.Bar />.
     const used = new Set(
-      [...src.matchAll(/<([A-Z][A-Za-z0-9_]*)/g)].map(m => m[1]),
+      [...forUsage.matchAll(/<([A-Z][A-Za-z0-9_]*)/g)].map(m => m[1]),
     )
     if (!used.size) continue
 

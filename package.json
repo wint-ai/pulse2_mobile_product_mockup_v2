@@ -9,7 +9,7 @@
     "postbuild": "node -e \"require('fs').copyFileSync('dist/index.html', 'dist/404.html')\"",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node scripts/check-jsx-refs.mjs src && node scripts/check-shell-contract.mjs src/v2/pages && vitest run",
+    "test": "node scripts/check-jsx-refs.mjs src && node scripts/check-shell-contract.mjs src/v2/pages && node scripts/check-text-overflow.mjs src/v2 && vitest run",
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "deploy": "npm run build && npx gh-pages -d dist"
