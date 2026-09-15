@@ -12,8 +12,10 @@ import {
   Menu, Headphones, ChevronDown, ChevronUp, Waves, Wifi, WifiOff,
   BellOff, PowerOff, Timer, Droplet, TrendingDown,
 } from 'lucide-react'
-import NavigationDrawer from '@/components/NavigationDrawer'
 import TabBar from '@/components/TabBar'
+import WintSidebar from '@/v2/components/WintSidebar'
+import EventOverlay from '@/v2/components/EventOverlay'
+import WaterConsumptionCard from '@/v2/components/WaterConsumptionCard'
 
 // ── Wint tokens ────────────────────────────────────────────────────────────
 const BRAND     = '#0B95F8'
@@ -56,6 +58,8 @@ export default function HomeAccountOverview() {
   const [healthy, setHealthy] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  // null | 'water' | 'alerts' — which dataset the full-list overlay is showing.
+  const [overlay, setOverlay] = useState(null)
 
   // Phone.jsx is a fixed 393x852 frame with overflow:hidden, so this screen owns
   // its scroll container: flex column, chrome shrink-0, body flex:1 +
@@ -92,25 +96,34 @@ export default function HomeAccountOverview() {
 
             {/* Water Events card */}
             {healthy
-              ? <WaterEventsHealthy />
-              : <WaterEventsCard expanded={expanded} setExpanded={setExpanded} events={MOCK.waterEvents} count={MOCK.waterEventsCount} />
+              ? <WaterEventsHealthy onShowPast={() => setOverlay('water')} />
+              : <WaterEventsCard expanded={expanded} setExpanded={setExpanded} events={MOCK.waterEvents} count={MOCK.waterEventsCount} onShowAll={() => setOverlay('water')} />
             }
 
             {/* Systems Health card */}
-            <SystemsHealthCard healthy={healthy} />
+            <SystemsHealthCard healthy={healthy} onShowPast={() => setOverlay('alerts')} />
 
             {/* Insights */}
             <InsightsCard />
+
+            {/* Water consumption — present in the Figma home comp (the layer is
+                named "Balance", a leftover shadcn template name). */}
+            <WaterConsumptionCard />
           </>
         ) : (
           <Card><div className="py-8 text-center text-sm text-slate-500">General Info tab (coming)</div></Card>
         )}
       </div>
 
-      <NavigationDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        onSelectLocation={() => setDrawerOpen(false)}
+      {/* v2 drawer: navigation only, no global scope. v1 screens still mount
+          NavigationDrawer and keep their scope behaviour — the two coexist. */}
+      <WintSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
+      <EventOverlay
+        open={overlay !== null}
+        onClose={() => setOverlay(null)}
+        dataset={overlay ?? 'water'}
+        scope="account"
       />
 
       <TabBar activeTab="home" />
@@ -154,7 +167,7 @@ function DemoToggle({ healthy, setHealthy, expanded, setExpanded }) {
 }
 
 // Water Events - alert state (collapsed OR expanded)
-function WaterEventsCard({ expanded, setExpanded, events, count }) {
+function WaterEventsCard({ expanded, setExpanded, events, count, onShowAll }) {
   return (
     <Card className="p-4">
       <button className="flex items-center gap-3 w-full text-left" onClick={() => setExpanded(v => !v)}>
@@ -186,7 +199,7 @@ function WaterEventsCard({ expanded, setExpanded, events, count }) {
             <WaterEventRow key={ev.id} ev={ev} withDivider={i > 0} />
           ))}
           <div className="text-center pt-3 pb-1">
-            <a className="text-sm font-medium text-slate-500 hover:text-[#0B95F8] cursor-pointer">Show all</a>
+            <button type="button" onClick={onShowAll} className="text-sm font-medium text-slate-500 hover:text-[#0B95F8] cursor-pointer">Show all</button>
           </div>
         </div>
       )}
@@ -238,7 +251,7 @@ function WaterEventRow({ ev, withDivider }) {
 }
 
 // Water Events - healthy state (empty)
-function WaterEventsHealthy() {
+function WaterEventsHealthy({ onShowPast }) {
   return (
     <Card className="px-4 py-4">
       <div className="flex items-center gap-3">
@@ -246,9 +259,9 @@ function WaterEventsHealthy() {
         <div className="flex-1 min-w-0">
           <div className="text-base font-semibold text-slate-900 leading-tight">Everything looks good!</div>
           <div className="text-xs text-slate-500 mt-0.5">No active water events</div>
-          <a className="text-xs font-medium mt-2 inline-block cursor-pointer hover:underline" style={{ color: BRAND }}>
+          <button type="button" onClick={onShowPast} className="text-xs font-medium mt-2 inline-block cursor-pointer hover:underline" style={{ color: BRAND }}>
             Show past events
-          </a>
+          </button>
         </div>
       </div>
     </Card>
@@ -274,7 +287,7 @@ function PipeShieldIllustration() {
   )
 }
 
-function SystemsHealthCard({ healthy }) {
+function SystemsHealthCard({ healthy, onShowPast }) {
   const pct = healthy ? 96 : MOCK.systemsHealthPct
   const attention = healthy ? 0 : MOCK.systemsAttention
   const issues = healthy
@@ -328,7 +341,7 @@ function SystemsHealthCard({ healthy }) {
 
       {healthy && (
         <div className="px-4 mt-3">
-          <a className="text-sm font-medium cursor-pointer hover:underline" style={{ color: BRAND }}>Show past alerts</a>
+          <button type="button" onClick={onShowPast} className="text-sm font-medium cursor-pointer hover:underline" style={{ color: BRAND }}>Show past alerts</button>
         </div>
       )}
     </Card>
@@ -354,7 +367,10 @@ function InsightsCard() {
     <Card className="py-4">
       <div className="flex items-center justify-between px-4">
         <div className="text-base font-semibold text-slate-900">Insights</div>
-        <a className="text-xs font-medium cursor-pointer hover:underline" style={{ color: '#6B7280' }}>View all</a>
+        {/* Deliberately inert: there is no Insights list screen on the delivery
+            canvas and no PRD for one. Do not wire this to a guessed route —
+            see .claude/skills/v2-page-parity Rule 0. */}
+        <span className="text-xs font-medium" style={{ color: '#6B7280' }} aria-disabled="true">View all</span>
       </div>
       <div>
         {MOCK.insights.map((row, i) => (

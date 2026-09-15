@@ -10,11 +10,12 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   Menu, Headphones, ChevronRight, ChevronDown, Waves, Bell,
-  Droplet, ThermometerSun, Filter, TrendingDown, TrendingUp,
+  Droplet, ThermometerSun, TrendingDown, TrendingUp,
   Wifi, MoreHorizontal, Power, Home as HomeIcon,
 } from 'lucide-react'
-import NavigationDrawer from '@/components/NavigationDrawer'
 import TabBar from '@/components/TabBar'
+import WintSidebar from '@/v2/components/WintSidebar'
+import WaterConsumptionCard from '@/v2/components/WaterConsumptionCard'
 
 // ── Wint brand tokens (arbitrary Tailwind values) ─────────────────────────
 const BRAND = '#0B95F8'
@@ -142,14 +143,9 @@ export default function SystemPageV2() {
         {tab === 'overview' ? <OverviewBody /> : <GeneralInfoStub />}
       </div>
 
-      {/* currentSystemId drives the drawer's system-row highlight + path
-          expansion — same contract v1 SystemDetail uses. */}
-      <NavigationDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        onSelectLocation={() => setDrawerOpen(false)}
-        currentSystemId={systemId}
-      />
+      {/* v2 drawer: navigation only, no global scope, so it takes no
+          currentSystemId / onSelectLocation contract the way v1's did. */}
+      <WintSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       <TabBar activeTab="systems" />
     </div>
@@ -322,31 +318,6 @@ function SensorsCard() {
             </span>
           </div>
         </div>
-      </div>
-    </Card>
-  )
-}
-
-function WaterConsumptionCard() {
-  const bars = [45, 35, 55, 25, 40, 60, 20, 35, 45, 30, 42, 38, 55, 42, 28, 92, 70, 50, 40, 33, 25, 20, 18, 25, 30, 15]
-  return (
-    <Card>
-      <div className="flex items-center justify-between px-4">
-        <div className="text-base font-semibold text-slate-900">Water consumption</div>
-        <Filter size={16} className="text-slate-500" />
-      </div>
-      <div className="px-4 grid grid-cols-3 gap-2">
-        <Stat top={SYS.consumption.total} bot={SYS.consumption.totalUnit} />
-        <Stat top={SYS.consumption.avg} bot={SYS.consumption.avgUnit} />
-        <Stat top={SYS.consumption.peak} bot={SYS.consumption.peakUnit} />
-      </div>
-      <div className="px-4 pt-1 h-32 flex items-end gap-1">
-        {bars.map((h, i) => (
-          <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${h}%`, background: 'rgba(11,149,248,0.65)' }} />
-        ))}
-      </div>
-      <div className="px-4 flex justify-between text-[10px] text-slate-500">
-        <span>Apr 1</span><span>Apr 6</span><span>Apr 11</span><span>Apr 16</span><span>A…</span>
       </div>
     </Card>
   )
