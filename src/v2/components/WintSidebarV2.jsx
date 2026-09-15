@@ -563,7 +563,16 @@ export default function WintSidebarV2({ open, onClose }) {
     // /l4/:l4id screen. Above L4 there is no designed location screen and the
     // drawer is forbidden from re-scoping, so those rows expand instead of
     // navigating nowhere — their caret pill is the same affordance.
-    if (node.l4Id) { go(`/l4/${node.l4Id}`); return }
+    // A leaf location goes to the v2 location screen, NOT /l4/:l4id — that
+    // route renders the v1 L4Screen, so a pixel-matched drawer used to hand the
+    // user the old design in a single tap. Figma "Location opt b"
+    // (198328:88654) is this app's location screen: the home screen retitled.
+    // Note it does not list the apartments under the location the way the v1
+    // screen did; no frame on the delivery canvas draws that list.
+    if (node.l4Id || node.kind === 'location') {
+      go(`/location/${encodeURIComponent(node.name)}`)
+      return
+    }
     toggleExpanded(node.id)
   }, [go, toggleExpanded])
 
