@@ -49,7 +49,11 @@ function openDrawer() {
 }
 
 function expandFirstAccount() {
-  // The AccountCard's chevron has aria-label "Expand account".
+  // When every visible system sits under ONE account, the drawer prunes the
+  // redundant account level and renders location rows straight away — there is
+  // no account card to expand. Only click a chevron if one is actually there
+  // and nothing is rendered yet.
+  if (document.querySelectorAll('.nav-drawer-row').length > 0) return;
   const chevron = document.querySelector('[aria-label="Expand account"]');
   if (!chevron) throw new Error('Account chevron not found');
   act(() => { chevron.click(); });

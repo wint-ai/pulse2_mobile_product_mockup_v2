@@ -121,7 +121,7 @@ export default function AlertCard({ system, hideLocation = false }) {
         {!hideLocation && (
           <Row
             label="Location"
-            value={`${system.l4Name} · ${system.l3Name}`}
+            value={[system.l4Name || system.l3Name, system.l3Name || system.l2Name].filter(Boolean).join(' · ')}
             theme={theme}
           />
         )}

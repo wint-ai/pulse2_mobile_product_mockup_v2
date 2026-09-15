@@ -26,6 +26,7 @@ const { getSimulatedAlert } = await import('../data/simulatedAlerts.js');
 const { getSimulatedEvents } = await import('../data/simulatedEvents.js');
 const { ignoreIncident, isIgnored } = await import('../data/ignoredIncidents.js');
 const { startInvestigating, isInvestigating } = await import('../data/investigatingStore.js');
+import { APT_CLEAR, APT_WITH_EVENT } from './fixtures';
 
 const SYS = 'test_sys_1';
 
@@ -259,7 +260,7 @@ describe('applyDemoReset wipes all demo state', () => {
 describe('end-to-end: push -> Timeline row appears', () => {
   // Use a real system from the static mock data so getLifeEventsForSystem
   // has a base cache to merge into.
-  const REAL_SYS = 'dl_apt_sea_view';
+  const REAL_SYS = APT_WITH_EVENT;
 
   it('after a Warning push, the Timeline shows the new event', async () => {
     const { getLifeEventsForSystem } = await import('../data/lifeEvents.js');
@@ -357,11 +358,11 @@ describe('applyDemoReset sets mock-suppressed flag (Rami 2026-06-06)', () => {
 
   it('suppressed: getSystemById returns alert=null even for systems with static alerts', async () => {
     const { getSystemById } = await import('../data/systems.js');
-    // dl_apt_sea_view has a static leak-low alert in mock data
-    const before = getSystemById('dl_apt_sea_view');
+    // This system has a static leak-low alert.
+    const before = getSystemById(APT_WITH_EVENT);
     expect(before.alert).not.toBeNull();
     applyDemoReset();
-    const after = getSystemById('dl_apt_sea_view');
+    const after = getSystemById(APT_WITH_EVENT);
     expect(after.alert).toBeNull();
   });
 
@@ -392,10 +393,10 @@ describe('applyDemoReset sets mock-suppressed flag (Rami 2026-06-06)', () => {
     // real system in mock data, so the alert overlay can't be observed).
     applyPushEvent({
       type: 'push',
-      payload: { type: 'leak', state: 'Warning', severity: 'High Flow', systemId: 'dl_apt_sea_view' },
+      payload: { type: 'leak', state: 'Warning', severity: 'High Flow', systemId: APT_WITH_EVENT },
     });
-    expect(getSystemById('dl_apt_sea_view').alert).not.toBeNull();
+    expect(getSystemById(APT_WITH_EVENT).alert).not.toBeNull();
     // Leumi Tower had a static alert too - should still be suppressed.
-    expect(getSystemById('dl_apt_leumi_tower').alert).toBeNull();
+    expect(getSystemById(APT_CLEAR).alert).toBeNull();
   });
 });

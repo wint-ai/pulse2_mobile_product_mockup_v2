@@ -30,8 +30,9 @@ const { computeActiveEvents } = await import('../data/events.js');
 const { getActiveIncident } = await import('../data/incidents.js');
 const { getLifeEventsForSystem } = await import('../data/lifeEvents.js');
 const { hasSimActivity } = await import('../data/systems.js');
+import { APT_CLEAR, APT_WITH_EVENT , LOW_FLOW_VALVE_ERROR } from './fixtures';
 
-const SYS = 'dl_apt_sea_view';
+const SYS = APT_WITH_EVENT;
 
 beforeEach(() => {
   globalThis.localStorage = makeStorageStub();
@@ -132,7 +133,7 @@ describe('Journey: every closure push restores the system to its static state', 
   });
 
   it('valve-error -> valve-error-cleared restores valve to static state', () => {
-    // dl_apt_sea_view static valve = 'error' (from mock). So this test
+    // This system's static valve is 'error'. So this test
     // verifies the overlay is removed, not that the valve becomes 'open'.
     push({ type: 'valve-error' });
     const overlaidValve = getSystemById(SYS).valve;
@@ -188,15 +189,13 @@ describe('Journey: computeActiveEvents respects the resolved tombstone', () => {
   });
 
   it('After End of Leak, secondary issues on the same system still show', () => {
-    // Set up: water event Warning on a system that also has a static valve
-    // error (e.g. tidhar_apt_47 has comm=offline + leak-low in static mock).
-    // Actually use Sea View whose static valve is 'error' to confirm
-    // secondary issues survive the tombstone.
-    const SEA = 'dl_apt_sea_view';
+    // Set up: a water event on a system that ALSO has a static valve error,
+    // to confirm the secondary issue survives the water event's tombstone.
+    const SEA = LOW_FLOW_VALVE_ERROR;
     applyPushEvent({ type: 'push', payload: { type: 'leak', state: 'Warning',     severity: 'High Flow', systemId: SEA } });
     applyPushEvent({ type: 'push', payload: { type: 'leak', state: 'End of Leak', severity: 'High Flow', systemId: SEA } });
 
-    // Sea View has static valve='error'. So after tombstone, the secondary
+    // Its static valve is 'error', so after the tombstone the secondary
     // valve-error issue should still appear in active events.
     const events = computeActiveEvents().filter(e => e.system === SEA);
     const types = events.map(e => e.type);
@@ -224,9 +223,9 @@ describe('Journey: computeActiveEvents respects the resolved tombstone', () => {
 // "Clear all" on the pusher restores the static data.
 
 describe('Pusher activity suppresses static mock data', () => {
-  // Pick a system that HAS static data (Sea View has a static leak-low alert
-  // + an incident timeline).
-  const STATIC_SYS = 'dl_apt_sea_view';
+  // Pick a system that HAS static data: a static leak-low alert, an incident
+  // timeline, and a valve error underneath it as a secondary issue.
+  const STATIC_SYS = LOW_FLOW_VALVE_ERROR;
 
   it('Before any push: getActiveIncident returns static incident, hasSimActivity is false', () => {
     expect(hasSimActivity(STATIC_SYS)).toBe(false);
@@ -274,7 +273,7 @@ describe('Pusher activity suppresses static mock data', () => {
   it('Other systems with NO pusher activity keep their static data', () => {
     // Fire on Sea View - should NOT affect Leumi's static data.
     applyPushEvent({ type: 'push', payload: { type: 'leak', state: 'Warning', severity: 'High Flow', systemId: STATIC_SYS } });
-    const LEUMI = 'dl_apt_leumi_tower';
+    const LEUMI = APT_CLEAR;
     expect(hasSimActivity(LEUMI)).toBe(false);
     // Leumi's static behavior is unchanged
   });

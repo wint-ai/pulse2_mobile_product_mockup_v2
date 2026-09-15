@@ -116,7 +116,7 @@ function AlertStyleRow({ sys, navigate, theme }) {
         </span>
       </div>
       <div style={{ fontSize: 15, fontWeight: 600, color: theme.text, marginBottom: 2 }}>{sys.name}</div>
-      <div style={{ fontSize: 15, color: theme.textTertiary }}>{sys.l4Name} {'\u00B7'} {sys.l3Name}</div>
+      <div style={{ fontSize: 15, color: theme.textTertiary }}>{sys.l4Name || sys.l3Name} {'\u00B7'} {sys.l3Name || sys.l2Name}</div>
     </div>
   );
 }
@@ -149,7 +149,7 @@ function ErrorRow({ sys, navigate, theme }) {
         )}
       </div>
       <div style={{ fontSize: 15, fontWeight: 600, color: theme.text, marginBottom: 2 }}>{sys.name}</div>
-      <div style={{ fontSize: 15, color: theme.textTertiary }}>{sys.l4Name} {'\u00B7'} {sys.l3Name}</div>
+      <div style={{ fontSize: 15, color: theme.textTertiary }}>{sys.l4Name || sys.l3Name} {'\u00B7'} {sys.l3Name || sys.l2Name}</div>
     </div>
   );
 }
@@ -170,7 +170,7 @@ function ConsumptionRow({ sys, mtd, navigate, theme }) {
           {formatNumber(mtd)} L
         </div>
       </div>
-      <div style={{ fontSize: 15, color: theme.textTertiary }}>{sys.l4Name} {'\u00B7'} {sys.l3Name}</div>
+      <div style={{ fontSize: 15, color: theme.textTertiary }}>{sys.l4Name || sys.l3Name} {'\u00B7'} {sys.l3Name || sys.l2Name}</div>
     </div>
   );
 }

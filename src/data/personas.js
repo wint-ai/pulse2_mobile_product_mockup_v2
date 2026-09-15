@@ -5,7 +5,7 @@
 // what each one is *for* is the thing worth keeping — but they now point at
 // real MRG locations so a persona can be compared against the same scope in
 // the web app:
-//   1. Tenant · 1 apartment            — Building D, which is deliberately all-clear (happy path)
+//   1. Tenant · 1 apartment            — Building A Apt 3: clear, and inside the managed building
 //   2. Tenant · 2 apartments           — one with an active event, one clear
 //   3. Building manager · residential  — Building A (10 apartments, 2 with active events)
 //   4. Location manager · 1 site       — 100 Meridian Plaza
@@ -49,8 +49,8 @@ export const PERSONAS = [
     id: 'tenant-1apt',
     name: 'Sofia Marchetti',
     role: 'Tenant',
-    sub: 'Apartment 3 · Building D',
-    description: 'Tenant in Building D, which is deliberately all-clear. Happy-path demo: nothing active, every empty state reachable.',
+    sub: 'Apartment 3 · Building A',
+    description: 'Tenant in Apartment 3, Building A — the same building the building manager covers, so the demo can flip between tenant and manager views of one building. Her own apartment is all clear.',
     email: 's.marchetti@example.com',
     phone: '+1 212 555 0148',
     icon: '🏠',
@@ -59,14 +59,14 @@ export const PERSONAS = [
     isWint: false,
     homePath: '/tenant',
     tabMode: 'tenant',
-    systemFilter: (s) => s.id === 'esrt-bldg-D-apt-3',
+    systemFilter: (s) => s.id === 'esrt-bldg-A-apt-3',
   },
   {
     id: 'tenant-2apts',
     name: 'Nadia Oyelaran',
     role: 'Property Owner',
     sub: '2 apartments · Buildings A & E',
-    description: 'Owns two apartments in different buildings. Building A Apt 2 has an active High Flow water event; Building E Apt 6 is all clear.',
+    description: 'Owns two apartments in different buildings. Building A Apt 2 has an active High Flow water event; Building E Apt 7 is all clear.',
     email: 'n.oyelaran@example.com',
     phone: '+1 212 555 0176',
     icon: '🏠',
@@ -75,7 +75,7 @@ export const PERSONAS = [
     isWint: false,
     homePath: '/tenant',
     tabMode: 'tenant',
-    systemFilter: (s) => s.id === 'esrt-bldg-A-apt-2' || s.id === 'esrt-bldg-E-apt-6',
+    systemFilter: (s) => s.id === 'esrt-bldg-A-apt-2' || s.id === 'esrt-bldg-E-apt-7',
   },
 
   // ── MANAGERS ───────────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ export const PERSONAS = [
     isWint: false,
     homePath: '/',
     tabMode: 'manager',
-    systemFilter: (s) => s.l3 === 'esrt-bldg-A',
+    systemFilter: (s) => s.l4 === 'esrt-bldg-A',
   },
   {
     id: 'location-manager',
@@ -110,7 +110,7 @@ export const PERSONAS = [
     isWint: false,
     homePath: '/',
     tabMode: 'manager',
-    systemFilter: (s) => s.l3 === SITE_100_MERIDIAN,
+    systemFilter: (s) => s.l4 === SITE_100_MERIDIAN,
   },
   {
     id: 'portfolio-manager-office',

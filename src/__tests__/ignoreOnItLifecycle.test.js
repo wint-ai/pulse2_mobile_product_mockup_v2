@@ -21,8 +21,9 @@ globalThis.localStorage = makeStorageStub();
 const { applyPushEvent, applyDemoReset } = await import('../lib/pushEvents.js');
 const { ignoreIncident, isIgnored, clearIgnored } = await import('../data/ignoredIncidents.js');
 const { startInvestigating, isInvestigating, stopInvestigating } = await import('../data/investigatingStore.js');
+import { APT_WITH_EVENT } from './fixtures';
 
-const SYS = 'dl_apt_sea_view';
+const SYS = APT_WITH_EVENT;
 
 beforeEach(() => {
   globalThis.localStorage = makeStorageStub();

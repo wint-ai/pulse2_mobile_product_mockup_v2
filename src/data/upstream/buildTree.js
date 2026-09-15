@@ -9,35 +9,48 @@
  *
  * LEVEL MAPPING
  *   The web tree is three location levels deep:
- *     L1 Country ("United States")
- *     L2 Division ("Office" | "Residential")
- *     L3 Site/Building ("100 Meridian Plaza" | "Building A")
- *     → systems hang off L3
- *   This app's shape allows four. Rather than invent a level to fill L4, L3
- *   holds the deepest location and `l4`/`l4Name` are null. Call sites render
- *   `l4Name || l3Name`.
+ *     Country  ("United States")
+ *     Division ("Office" | "Residential")
+ *     Site / Building ("100 Meridian Plaza" | "Building A")  ← systems hang here
+ *   This app's shape allows four, and treats L4 as "the building that holds
+ *   systems": `/l4/:l4id` is the leaf-location route, L4Screen filters on
+ *   `s.l4`, and WintSidebar reads `systems[0].l4`. So the leaf location is
+ *   mapped to L4 and the UNUSED level is the middle one — `l3`/`l3Name` are
+ *   null. Mapping the leaf to L3 instead would have left `/l4/:l4id` pointing
+ *   at nothing and broken leaf-location navigation.
+ *
+ *   General rule: l4 = the system's immediate parent location; l1/l2/l3 = the
+ *   locations above it, in order. A deeper tree fills l3 in naturally.
  */
 import snapshot from './mrg-snapshot.json';
-import { stableHash, systemEventType, eventTypeToLeak, resolvedVariant } from './parity';
+import {
+  stableHash,
+  mix32,
+  systemEventType,
+  eventTypeToLeak,
+  resolvedVariant,
+  systemErrorKind,
+} from './parity';
 
 export const SNAPSHOT_META = snapshot._meta;
 export const ROOT_ACCOUNT_ID = snapshot.rootAccountId;
 
-// ── Derived per-system hardware state ────────────────────────────────────────
-// The web's CRM dataset carries no live valve/comm/power state — the web app
-// derives what it shows from the system id. We do the same, with a salt per
-// field so the three don't correlate. NOT parity-guaranteed with the web (the
-// web has no published per-system value to match); leak state IS — it comes
-// from the ported `systemEventType`.
+// ── Derived per-system device state ──────────────────────────────────────────
+// WHICH systems carry an error comes from the web's own `generateBadges` flag
+// (see systemErrorKind in parity.js); WHICH error it is, and the benign
+// variations below (a closed valve, a system on battery), are derived here.
+// Leak state is full parity — it comes from the ported `systemEventType`.
+//
+// A closed valve and a battery-powered system are NOT faults (project rule:
+// "Valve closed is NOT an issue"), so they are drawn independently of the
+// error flag and never produce an alert on their own.
 function derived(id, salt, buckets) {
-  return buckets[stableHash(`${salt}:${id}`) % buckets.length];
+  // Through mix32 so these don't correlate with the leak hash — see parity.js.
+  return buckets[mix32(stableHash(`${salt}:${id}`)) % buckets.length];
 }
 
-// Weighted by repetition: mostly healthy, with a few systems in each bad state
-// so the fleet views have something to show.
-const VALVE_BUCKETS = ['open', 'open', 'open', 'open', 'open', 'open', 'open', 'closed', 'error'];
-const COMM_BUCKETS = ['online', 'online', 'online', 'online', 'online', 'online', 'online', 'online', 'offline'];
-const POWER_BUCKETS = ['ac', 'ac', 'ac', 'ac', 'ac', 'ac', 'ac', 'ac', 'battery', 'ac-lost'];
+const BENIGN_VALVE = ['open', 'open', 'open', 'open', 'open', 'open', 'open', 'closed'];
+const BENIGN_POWER = ['ac', 'ac', 'ac', 'ac', 'ac', 'ac', 'ac', 'ac', 'battery'];
 
 function relativeAge(hoursAgo) {
   if (hoursAgo < 1) return `${Math.round(hoursAgo * 60)}m`;
@@ -95,7 +108,12 @@ const TYPE_FOR_DEPTH = ['level1', 'level2', 'level3', 'level4'];
 
 function walk(node, ancestors) {
   if (node.type === 'system') {
-    const [l1, l2, l3] = ancestors;
+    // l4 is the immediate parent (the location that holds systems); everything
+    // above it fills l1/l2/l3 in order. See the LEVEL MAPPING note above.
+    const parent = ancestors[ancestors.length - 1];
+    const above = ancestors.slice(0, -1);
+    const [l1, l2, l3] = above;
+    const l4 = parent;
     const id = node.id;
     const leak = eventTypeToLeak(systemEventType(id));
     const isResidential = Boolean(node.system?.residential);
@@ -105,25 +123,32 @@ function walk(node, ancestors) {
     // valve tab both filter on it), so honour the upstream fact rather than
     // inventing a valve. Residential apartments are synthetic and all have one.
     const hasValve = isResidential || Boolean(node.system?.valveType);
-    const valve = hasValve ? derived(id, 'valve', VALVE_BUCKETS) : null;
-    const comm = derived(id, 'comm', COMM_BUCKETS);
-    const power = derived(id, 'power', POWER_BUCKETS);
+
+    // One error at most per system, decided by the web's error flag.
+    const errorKind = systemErrorKind(id, node.system?.waterSystemId ?? null);
+    const valveError = errorKind === 'valve' && hasValve;
+    const commError = errorKind === 'comm';
+    const powerError = errorKind === 'power';
+
+    const valve = !hasValve ? null : valveError ? 'error' : derived(id, 'valve', BENIGN_VALVE);
+    const comm = commError ? 'offline' : 'online';
+    const power = powerError ? 'ac-lost' : derived(id, 'power', BENIGN_POWER);
 
     systems.push({
       id,
-      account: node.system?.accountSfId || l3?.site?.accountSfId || ROOT_ACCOUNT_ID,
+      account: node.system?.accountSfId || l4?.site?.accountSfId || ROOT_ACCOUNT_ID,
       name: node.name,
 
       l1: l1?.id ?? null, l1Name: l1?.name ?? null,
       l2: l2?.id ?? null, l2Name: l2?.name ?? null,
       l3: l3?.id ?? null, l3Name: l3?.name ?? null,
-      l4: null, l4Name: null,
+      l4: l4?.id ?? null, l4Name: l4?.name ?? null,
 
-      // Street address of the deepest location, when upstream has one. The
+      // Street address of the leaf location, when upstream has one. The
       // Residential buildings carry real NYC addresses; the Office sites do
       // not (the CRM export has no street field), so those fall back to the
       // breadcrumb in `addressFor`.
-      l3Address: l3?.address ?? null,
+      locationAddress: l4?.address ?? null,
 
       valve,
       comm,
@@ -153,10 +178,13 @@ function walk(node, ancestors) {
   }
 
   const depth = ancestors.length;
+  // A location whose children are systems is the leaf — the app calls that L4
+  // regardless of how deep it sits, and the `/l4/:l4id` route keys off it.
+  const isLeafLocation = (node.children || []).some(c => c.type === 'system');
   const out = {
     id: node.id,
     name: node.name,
-    type: TYPE_FOR_DEPTH[depth] || 'level4',
+    type: isLeafLocation ? 'level4' : TYPE_FOR_DEPTH[depth] || 'level4',
     levelType: node.levelName || 'Location',
     ...(node.address ? { address: node.address } : {}),
     ...(node.site ? { site: node.site } : {}),

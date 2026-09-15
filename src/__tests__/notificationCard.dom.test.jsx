@@ -15,6 +15,7 @@ import { buildActions } from '../utils/notificationActions';
 import { ignoreIncident, isIgnored, clearIgnored } from '../data/ignoredIncidents';
 import { startInvestigating, isInvestigating, stopInvestigating } from '../data/investigatingStore';
 import { addTag, isTagged, clearTags } from '../data/tagsStore';
+import { APT_WITH_EVENT } from './fixtures';
 
 beforeEach(() => {
   localStorage.clear();
@@ -31,7 +32,7 @@ function buildFor(n, sysId) {
 }
 
 describe('action set reflects persisted state per system', () => {
-  const SYS = 'dl_apt_sea_view';
+  const SYS = APT_WITH_EVENT;
   const N_WARNING = { type: 'leak', state: 'Warning', systemId: SYS };
   const N_END_OF_LEAK = { type: 'leak', state: 'End of Leak', systemId: SYS };
 
@@ -81,7 +82,7 @@ describe('action set reflects persisted state per system', () => {
 // are correct.
 
 describe('action labels are user-readable (never internal keys)', () => {
-  const SYS = 'dl_apt_sea_view';
+  const SYS = APT_WITH_EVENT;
   it('Warning labels are exactly View, On it, Ignore', () => {
     const a = buildActions({ type: 'leak', state: 'Warning', systemId: SYS }, { investigating: false, ignored: false, tagged: false });
     expect(a.map(x => x.label)).toEqual(['View', 'On it', 'Ignore']);

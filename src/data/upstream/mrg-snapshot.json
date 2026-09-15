@@ -2,14 +2,15 @@
   "_meta": {
     "description": "MRG demo scope imported from the Pulse 2.0 WEB sandbox. Generated file — do not edit by hand.",
     "generator": "scripts/sync-upstream-data.mjs",
-    "generatedAt": "2026-09-15T10:57:05.153Z",
+    "generatedAt": "2026-09-15T11:14:27.415Z",
     "source": {
       "repo": "wint-ai/pulse2_product_sandbox",
       "commit": "0734751ec429b9190c544a22f6c47fe05e3d9c14",
       "uncommittedDataFiles": [
-        "rc/data/insightsMockData.ts",
+        "src/data/insightsMockData.ts",
         "src/data/mockData.ts",
-        "src/demoMode.ts"
+        "src/demoMode.ts",
+        "src/system-page/data/eventsTimelineMockData.ts"
       ]
     },
     "demo": {

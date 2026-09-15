@@ -11,13 +11,14 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { computeActiveEvents, computeIgnoredEvents } from '../data/events';
 import { ignoreIncident } from '../data/ignoredIncidents';
 import { applyPushEvent } from '../lib/pushEvents';
+import { APT_WITH_EVENT } from './fixtures';
 
 beforeEach(() => {
   localStorage.clear();
 });
 
 describe('Ignored Water Events stay on Active (data layer)', () => {
-  const SYS_ID = 'dl_apt_sea_view';
+  const SYS_ID = APT_WITH_EVENT;
 
   function setupActiveWarning() {
     applyPushEvent({

@@ -12,8 +12,9 @@ import { ThemeProvider } from '../context/ThemeContext';
 import { UserProvider } from '../context/UserContext';
 import { applyPushEvent } from '../lib/pushEvents';
 import { getSystemById } from '../data/systems';
+import { APT_WITH_EVENT } from './fixtures';
 
-const SYS_ID = 'dl_apt_sea_view';
+const SYS_ID = APT_WITH_EVENT;
 
 beforeEach(() => {
   localStorage.clear();

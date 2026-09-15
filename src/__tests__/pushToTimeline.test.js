@@ -25,8 +25,9 @@ globalThis.localStorage = makeStorageStub();
 const { applyPushEvent } = await import('../lib/pushEvents.js');
 const { getLifeEventsForSystem } = await import('../data/lifeEvents.js');
 const { classify } = await import('../utils/classifyEvent.js');
+import { APT_WITH_EVENT } from './fixtures';
 
-const SYS = 'dl_apt_sea_view';
+const SYS = APT_WITH_EVENT;
 
 beforeEach(() => {
   globalThis.localStorage = makeStorageStub();
@@ -186,7 +187,7 @@ describe('sim alert overlays a system the same way UserContext does', () => {
   it('a fresh sim alert appears as sys.alert on every overlay read', async () => {
     const { SYSTEMS } = await import('../data/systems.js');
     const { getSimulatedAlerts } = await import('../data/simulatedAlerts.js');
-    const SYS_ID = 'dl_apt_sea_view';
+    const SYS_ID = APT_WITH_EVENT;
 
     // Baseline: SYSTEMS has the static alert (no sim).
     const before = SYSTEMS.find(s => s.id === SYS_ID);
@@ -212,7 +213,7 @@ describe('sim alert overlays a system the same way UserContext does', () => {
   it('valveOverride flips sys.valve when overlay applies', async () => {
     const { SYSTEMS } = await import('../data/systems.js');
     const { getSimulatedAlerts } = await import('../data/simulatedAlerts.js');
-    const SYS_ID = 'dl_apt_sea_view';
+    const SYS_ID = APT_WITH_EVENT;
 
     applyPushEvent({ type: 'push', payload: { type: 'leak', state: 'Warning', severity: 'High Flow', systemId: SYS_ID } });
     applyPushEvent({ type: 'push', payload: { type: 'leak', state: 'Shutoff', severity: 'High Flow', systemId: SYS_ID } });

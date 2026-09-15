@@ -18,6 +18,7 @@ import SystemDetail from '../screens/systems/SystemDetail';
 import EventsScreen from '../screens/events/EventsScreen';
 import HomeUnified from '../screens/home/HomeUnified';
 import TabBar from '../components/TabBar';
+import { APT_WITH_EVENT, OFFICE_HIGH_FLOW } from './fixtures';
 
 beforeEach(() => {
   localStorage.clear();
@@ -61,43 +62,43 @@ function findTabButton(label) {
 
 describe('Viewing /system/<id> implicitly scopes Alerts (and Home) to that one system', () => {
   it('SystemDetail mount sets selectedScope to the single system', () => {
-    renderApp('wint-admin', '/system/ct1');
+    renderApp('wint-admin', `/system/${OFFICE_HIGH_FLOW}`);
     // After SystemDetail's mount effect runs, scope = single-system.
     expect(exposedCtx.selectedScope).toBeTruthy();
     expect(exposedCtx.selectedScope.levelType).toBe('system');
-    expect(exposedCtx.selectedScope.systemIds).toEqual(['ct1']);
+    expect(exposedCtx.selectedScope.systemIds).toEqual([OFFICE_HIGH_FLOW]);
     expect(exposedCtx.selectedScope.systems).toHaveLength(1);
-    expect(exposedCtx.selectedScope.systems[0].id).toBe('ct1');
+    expect(exposedCtx.selectedScope.systems[0].id).toBe(OFFICE_HIGH_FLOW);
   });
 
   it('System -> Alerts via bottom TabBar: Alerts is scoped to just that system', () => {
-    renderApp('wint-admin', '/system/ct1');
+    renderApp('wint-admin', `/system/${OFFICE_HIGH_FLOW}`);
     const ctxScopedSystemId = exposedCtx.selectedScope.systemIds[0];
-    expect(ctxScopedSystemId).toBe('ct1');
+    expect(ctxScopedSystemId).toBe(OFFICE_HIGH_FLOW);
 
     // Tap Alerts in the bottom TabBar.
     act(() => { findTabButton('Alerts').click(); });
 
     // Scope MUST still be the single system after navigation.
-    expect(exposedCtx.selectedScope?.systemIds).toEqual(['ct1']);
+    expect(exposedCtx.selectedScope?.systemIds).toEqual([OFFICE_HIGH_FLOW]);
     expect(exposedCtx.selectedScope?.levelType).toBe('system');
   });
 
   it('Switching between systems (different /system/<id>) updates the implicit scope', () => {
     // Start on system A.
-    const { unmount } = renderApp('wint-admin', '/system/ct1');
-    expect(exposedCtx.selectedScope.systemIds).toEqual(['ct1']);
+    const { unmount } = renderApp('wint-admin', `/system/${OFFICE_HIGH_FLOW}`);
+    expect(exposedCtx.selectedScope.systemIds).toEqual([OFFICE_HIGH_FLOW]);
     unmount();
     cleanup();
 
     // Start on a different system - scope re-derives.
-    renderApp('wint-admin', '/system/dl_apt_sea_view');
-    expect(exposedCtx.selectedScope.systemIds).toEqual(['dl_apt_sea_view']);
-    expect(exposedCtx.selectedScope.systems[0].id).toBe('dl_apt_sea_view');
+    renderApp('wint-admin', `/system/${APT_WITH_EVENT}`);
+    expect(exposedCtx.selectedScope.systemIds).toEqual([APT_WITH_EVENT]);
+    expect(exposedCtx.selectedScope.systems[0].id).toBe(APT_WITH_EVENT);
   });
 
   it('Header title on Alerts shows the system name (not the parent location)', () => {
-    renderApp('wint-admin', '/system/ct1');
+    renderApp('wint-admin', `/system/${OFFICE_HIGH_FLOW}`);
     const sysName = exposedCtx.selectedScope.name;
     expect(sysName).toBeTruthy();
 

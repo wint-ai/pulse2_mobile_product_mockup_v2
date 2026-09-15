@@ -47,9 +47,10 @@ const {
 const { applyPushEvent } = await import('../lib/pushEvents.js');
 const { getSystemById } = await import('../data/systems.js');
 const { getLifeEventsForSystem } = await import('../data/lifeEvents.js');
+import { LOW_FLOW_VALVE_ERROR } from './fixtures';
 
 // Pick a system that exists in the static mock data for our tests.
-const TEST_SYS_ID = 'dl_apt_sea_view'; // Maya Tal's Sea View Apt (static leak-low alert)
+const TEST_SYS_ID = LOW_FLOW_VALVE_ERROR; // static leak-low alert + valve in error
 
 beforeEach(() => {
   globalThis.localStorage = makeStorageStub();
@@ -104,12 +105,12 @@ describe('getSystemById sim alert overlay', () => {
 
   it('returns static state when no sim alert is set', () => {
     const sys = getSystemById(TEST_SYS_ID);
-    // Sea View has a static leak-low alert in mock data
+    // This system carries a static leak-low alert.
     expect(sys.alert.type).toBe('leak-low');
   });
 
   it('applies valveOverride from the sim alert to sys.valve', () => {
-    // Without valveOverride - sys.valve stays 'error' (the static value)
+    // Without valveOverride - sys.valve stays 'error' (its static value)
     setSimulatedAlert(TEST_SYS_ID, { type: 'leak-high', phase: 'warning' });
     let sys = getSystemById(TEST_SYS_ID);
     expect(sys.valve).toBe('error');

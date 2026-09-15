@@ -23,8 +23,9 @@ globalThis.localStorage = makeStorageStub();
 const { applyPushEvent } = await import('../lib/pushEvents.js');
 const { getLifeEventsForSystem } = await import('../data/lifeEvents.js');
 const { classify } = await import('../utils/classifyEvent.js');
+import { APT_WITH_EVENT } from './fixtures';
 
-const SYS = 'dl_apt_sea_view';
+const SYS = APT_WITH_EVENT;
 
 beforeEach(() => {
   globalThis.localStorage = makeStorageStub();

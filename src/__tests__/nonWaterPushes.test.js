@@ -21,8 +21,9 @@ globalThis.localStorage = makeStorageStub();
 const { applyPushEvent } = await import('../lib/pushEvents.js');
 const { getSimulatedAlert } = await import('../data/simulatedAlerts.js');
 const { getSystemById, SYSTEMS } = await import('../data/systems.js');
+import { APT_CLEAR, APT_WITH_EVENT, HAPPY_PATH_APT } from './fixtures';
 
-const SYS = 'tidhar_apt_47';
+const SYS = HAPPY_PATH_APT;
 
 beforeEach(() => {
   globalThis.localStorage = makeStorageStub();
@@ -114,7 +115,7 @@ describe('all non-water push types are recognized (no falling through to null)',
 // sys.valve = 'error' from the sim alert type.
 
 describe('non-water sim alerts overlay the System page state pills', () => {
-  const TEST_SYS = 'dl_apt_sea_view';
+  const TEST_SYS = APT_WITH_EVENT;
 
   it('power-lost push flips sys.power to "ac-lost"', () => {
     applyPushEvent({ type: 'push', payload: { type: 'power-lost', systemId: TEST_SYS } });
@@ -173,7 +174,7 @@ function SYSTEMS_FOR_CLEAN_TESTING() {
 // null so isWaterEvent guard hides the widget. Lifecycle stays on Activity.
 
 describe('resolved water event tombstones sys.alert', () => {
-  const TEST_SYS = 'dl_apt_sea_view';
+  const TEST_SYS = APT_WITH_EVENT;
 
   it('Warning -> End of Leak: sys.alert is null after resolution', () => {
     applyPushEvent({ type: 'push', payload: { type: 'leak', state: 'Warning',     severity: 'High Flow', systemId: TEST_SYS } });
@@ -183,7 +184,7 @@ describe('resolved water event tombstones sys.alert', () => {
   });
 
   it('resolution suppresses even a STATIC water alert on the same system', () => {
-    // dl_apt_sea_view has a static leak-low alert in mock data. After the
+    // This system has a static leak-low alert.. After the
     // sim End of Leak, the tombstone must keep that hidden too - otherwise
     // closing out a tested event would bounce back to the pre-existing leak.
     applyPushEvent({ type: 'push', payload: { type: 'leak', state: 'Warning',     severity: 'High Flow', systemId: TEST_SYS } });
@@ -222,8 +223,8 @@ describe('resolved water event tombstones sys.alert', () => {
   // Tombstone is per-system, not global - resolving Sea View must NOT hide
   // active alerts on other systems.
   it('tombstone is per-system - resolving Sea View leaves Leumi untouched', () => {
-    const SEA  = 'dl_apt_sea_view';
-    const LEUM = 'dl_apt_leumi_tower';
+    const SEA  = APT_WITH_EVENT;
+    const LEUM = APT_CLEAR;
     applyPushEvent({ type: 'push', payload: { type: 'leak', state: 'Warning', severity: 'High Flow', systemId: SEA  } });
     applyPushEvent({ type: 'push', payload: { type: 'leak', state: 'Warning', severity: 'Low Flow',  systemId: LEUM } });
     applyPushEvent({ type: 'push', payload: { type: 'leak', state: 'End of Leak', severity: 'High Flow', systemId: SEA } });

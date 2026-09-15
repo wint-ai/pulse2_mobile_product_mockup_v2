@@ -12,6 +12,7 @@ import NavigationDrawer from '../components/NavigationDrawer';
 import { ThemeProvider } from '../context/ThemeContext';
 import { UserProvider } from '../context/UserContext';
 import { applyPushEvent } from '../lib/pushEvents';
+import { HAPPY_PATH_APT } from './fixtures';
 
 beforeEach(() => {
   localStorage.clear();
@@ -48,7 +49,7 @@ describe('NavigationDrawer reflects live sim alerts', () => {
     applyPushEvent({
       type: 'push',
       payload: { type: 'leak', state: 'Warning', severity: 'High Flow',
-                 systemId: 'tidhar_apt_47', v10_9_id: 'WA_01' },
+                 systemId: HAPPY_PATH_APT, v10_9_id: 'WA_01' },
     });
     const { container } = renderDrawer();
     expect(container.textContent.length).toBeGreaterThan(50);

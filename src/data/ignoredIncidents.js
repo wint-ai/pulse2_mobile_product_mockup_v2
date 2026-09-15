@@ -5,14 +5,17 @@ const KEY = 'pulse2-ignored-incidents';
 
 // Demo-guaranteed non-ignored systems. On every page load we clear these
 // two systems from the ignored list so the fresh mock state always includes
-// one active High Flow event (ct1 -- Suffolk Cooling Tower #1) and one
-// active Low Flow event (sp -- Suffolk Sump Pump B1). Any ignore action
-// the user performs mid-session on these systems still applies for that
-// session; the wipe only runs once at module load. Rationale: the pusher
-// republishes ignore state across sessions, so clearing app data on the
-// phone doesn't always yield a truly-fresh baseline -- this fallback
+// one active High Flow event and one active Low Flow event. Any ignore
+// action the user performs mid-session on these systems still applies for
+// that session; the wipe only runs once at module load. Rationale: the
+// pusher republishes ignore state across sessions, so clearing app data on
+// the phone doesn't always yield a truly-fresh baseline -- this fallback
 // guarantees at least one visible active water event of each severity.
-const DEMO_UNIGNORE_ON_LOAD = ['ct1', 'sp'];
+//
+// Building A Apartment 2 is High Flow and Apartment 5 is Low Flow by the
+// web's own demo rule (see upstream/parity.js systemEventType), so these two
+// are guaranteed to carry one event of each severity in both apps.
+const DEMO_UNIGNORE_ON_LOAD = ['esrt-bldg-A-apt-2', 'esrt-bldg-A-apt-5'];
 
 function load() {
   try { return JSON.parse(localStorage.getItem(KEY)) || {}; }

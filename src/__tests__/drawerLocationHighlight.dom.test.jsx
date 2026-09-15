@@ -21,6 +21,7 @@ import HomeUnified from '../screens/home/HomeUnified';
 import EventsScreen from '../screens/events/EventsScreen';
 import SystemDetail from '../screens/systems/SystemDetail';
 import TabBar from '../components/TabBar';
+import { OFFICE_HIGH_FLOW } from './fixtures';
 
 beforeEach(() => {
   localStorage.clear();
@@ -194,7 +195,7 @@ describe('Drawer location-highlight parity with system-highlight', () => {
     // SystemDetail mount effect sets selectedScope to a system scope.
     localStorage.setItem('pulse2-persona-id', 'wint-admin');
     render(
-      <MemoryRouter initialEntries={['/system/ct1']}>
+      <MemoryRouter initialEntries={[`/system/${OFFICE_HIGH_FLOW}`]}>
         <ThemeProvider>
           <UserProvider>
             <ContextProbe />
@@ -210,17 +211,17 @@ describe('Drawer location-highlight parity with system-highlight', () => {
 
     // Scope should be a system-scope after SystemDetail mount.
     expect(exposedCtx.selectedScope?.levelType).toBe('system');
-    expect(exposedCtx.selectedScope?.systemIds).toEqual(['ct1']);
+    expect(exposedCtx.selectedScope?.systemIds).toEqual([OFFICE_HIGH_FLOW]);
 
     // Tap Home in the bottom TabBar (preserves scope per the 2026-06-15
-    // rule; selectedScope is still 'system-ct1').
+    // rule; selectedScope is still the system scope).
     act(() => { findTabButton('Home').click(); });
 
     // Open the drawer on Home.
     openDrawer();
 
     // The system row should be visible (path expanded) and highlighted.
-    const row = findRowByTargetId('ct1');
+    const row = findRowByTargetId(OFFICE_HIGH_FLOW);
     expect(row, 'system row missing - drawer did not expand path').toBeTruthy();
     expect(
       hasAccentStripe(row),

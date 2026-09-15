@@ -88,15 +88,21 @@ function getAccountTiles(systems) {
   });
   Object.keys(map).forEach(rootId => {
     const childAccounts = getChildAccounts(rootId);
-    if (childAccounts.length > 0) {
-      map[rootId].children = childAccounts.map(ca => ({
+    // An account's OWN locations always belong under it. Previously they were
+    // attached only when it had no child accounts, so a parent account that
+    // holds both (MRG: 16 sub-accounts plus its own United States tree) lost
+    // its entire location tree from the drawer.
+    const ownHierarchy = getHierarchyForAccount(rootId) || [];
+    const subAccountTiles = childAccounts
+      .map(ca => ({
         id: ca.id, name: ca.name, type: 'sub-account', levelType: 'Sub-account',
         systems: map[rootId].systems.filter(s => s.account === ca.id),
         children: getHierarchyForAccount(ca.id),
-      }));
-    } else {
-      map[rootId].children = getHierarchyForAccount(rootId);
-    }
+      }))
+      // Drop sub-accounts with nothing under them rather than rendering a row
+      // that expands to nothing.
+      .filter(t => t.systems.length > 0 || (t.children && t.children.length > 0));
+    map[rootId].children = [...ownHierarchy, ...subAccountTiles];
   });
   return Object.values(map).sort((a, b) => b.systems.length - a.systems.length);
 }
@@ -127,6 +133,30 @@ function pruneRootTiles(accountTiles, visibleSystems) {
     return node.children.filter(c => c.type !== 'system').flatMap(c => collectLeaves(c));
   }
 
+  /**
+   * Descend past levels that offer no choice (a single child location) and
+   * stop at the first level that actually branches.
+   *
+   * This used to flatten straight to leaf locations. With a single-account
+   * dataset that threw away every intermediate level: MRG's "Office" and
+   * "Residential" divisions collapsed into one flat list of 17 buildings, and
+   * the drawer had no nested rows at all. Skipping only redundant levels keeps
+   * the split the web's sidebar shows.
+   */
+  function descendToFirstBranch(nodes) {
+    let level = (nodes || []).filter(n => n.type !== 'system');
+    while (level.length === 1) {
+      const only = level[0];
+      const kids = only.children || [];
+      // A node that holds systems directly is a real destination — stop here.
+      if (kids.some(c => c.type === 'system')) break;
+      const childLocations = kids.filter(c => c.type !== 'system');
+      if (childLocations.length === 0) break;
+      level = childLocations;
+    }
+    return level;
+  }
+
   if (accountTiles.length > 1) {
     return { prunedTiles: accountTiles.map(a => ({ id: a.id, name: a.name, levelType: a.levelType, systems: a.systems, children: a.children })), prunedPath: [] };
   }
@@ -134,6 +164,14 @@ function pruneRootTiles(accountTiles, visibleSystems) {
   const acc = accountTiles[0];
   if (!acc) return { prunedTiles: [], prunedPath: [] };
 
+  const branch = descendToFirstBranch(acc.children);
+  const branchTiles = getHierarchyTiles(branch, visibleSystems);
+  if (branchTiles.length > 0) {
+    return { prunedTiles: branchTiles, prunedPath: [{ name: acc.name, systems: visibleSystems, children: null }] };
+  }
+
+  // Nothing branched (or nothing visible under it) — fall back to the old
+  // leaf-flattening behaviour so a flat single-account dataset still renders.
   const leaves = (acc.children || []).flatMap(c => collectLeaves(c));
   if (leaves.length === 0) {
     return { prunedTiles: [{ id: acc.id, name: acc.name, levelType: acc.levelType, systems: acc.systems, children: acc.children }], prunedPath: [] };

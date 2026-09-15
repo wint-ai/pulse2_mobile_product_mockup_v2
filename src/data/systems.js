@@ -50,7 +50,7 @@ function hasNoRecipients(id) {
 }
 
 function addressFor(s) {
-  if (s.l3Address) return s.l3Address;
+  if (s.locationAddress) return s.locationAddress;
   // No street address upstream for the Office sites — synthesize from the
   // breadcrumb so the Summary widget's second line is never empty.
   return [s.l4Name, s.l3Name, s.l2Name].filter(Boolean).join(', ');

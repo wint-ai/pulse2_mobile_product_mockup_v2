@@ -39,7 +39,7 @@ function OtherAlertRow({ sys, navigate }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: theme.text }}>{sys.name}</div>
-          <div style={{ fontSize: 14, color: theme.textTertiary, marginTop: 1 }}>{sys.l4Name} · {sys.l3Name}</div>
+          <div style={{ fontSize: 14, color: theme.textTertiary, marginTop: 1 }}>{[sys.l4Name || sys.l3Name, sys.l3Name || sys.l2Name].filter(Boolean).join(' · ')}</div>
         </div>
         <span style={{
           fontSize: 13, fontWeight: 600, padding: '2px 7px', borderRadius: 6,
