@@ -301,7 +301,7 @@ function EventRow({ event }) {
           {/* Figma has no truncation on the name; max-w-full + ellipsis is
               added so a long system name cannot push the row past 375px. */}
           <div className="content-stretch flex items-center max-w-full relative shrink-0">
-            <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:SemiBold'),'Figtree','Inter',sans-serif] font-semibold leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] text-ellipsis text-left whitespace-nowrap">
+            <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:SemiBold'),'Figtree','Inter',sans-serif] font-semibold leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative min-w-px text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] text-ellipsis text-left whitespace-nowrap">
               {event.systemName}
             </p>
           </div>
