@@ -23,8 +23,12 @@ const BRAND     = '#0B95F8'
 const SEV_HIGH  = '#DB4670'
 const SEV_LOW   = '#F05C25'
 const SUCCESS   = '#5C9E1A'
-const PAGE_BG   = '#EEF2F7'    // header + page bg (slightly bluer than the pure gray)
-const HEADER_BG = '#EDF2F7'
+// The screen background is the five-stop wash the comp puts on every screen
+// root (var(--app-bg) in index.css, copied out of the design context for
+// 198328:88448). It is NOT a flat fill — a flat colour is the single most
+// visible way these screens read as "not the design".
+// The header sits on the same wash rather than its own fill, so it does not
+// paint a background at all.
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 const MOCK = {
@@ -77,9 +81,9 @@ export default function HomeAccountOverview() {
   // its scroll container: flex column, chrome shrink-0, body flex:1 +
   // overflowY:auto + minHeight:0. `min-h-screen` here would just be clipped.
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: PAGE_BG }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0" style={{ background: HEADER_BG }}>
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
         <button className="p-1 -ml-1 rounded-md" aria-label="Menu" onClick={() => setDrawerOpen(true)}>
           <Menu size={20} className="text-slate-800" />
         </button>
@@ -89,7 +93,7 @@ export default function HomeAccountOverview() {
       </div>
 
       {/* Title + Tabs */}
-      <div className="px-4 pt-2 pb-3 shrink-0" style={{ background: HEADER_BG }}>
+      <div className="px-4 pt-2 pb-3 shrink-0">
         <h1 className="text-[28px] leading-8 font-semibold tracking-tight text-slate-900 mb-4">
           {scopeTitle}
         </h1>

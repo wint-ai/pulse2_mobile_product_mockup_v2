@@ -23,8 +23,10 @@ const SEV_HIGH = '#DB4670'
 const SEV_LOW  = '#F05C25'
 const DANGER   = '#A5455E'
 const SUCCESS  = '#5C9E1A'
-const PAGE_BG  = '#F4F6F9'
-const HEADER_BG = '#EDF2F7'
+// The screen background is the five-stop wash the comp puts on every screen
+// root (var(--app-bg) in index.css, copied out of the design context for
+// 198328:88448). It is NOT a flat fill — a flat colour is the single most
+// visible way these screens read as "not the design".
 
 // ── Mock data (matches the Figma reference) ────────────────────────────────
 const SYS = {
@@ -105,9 +107,9 @@ export default function SystemPageV2() {
   // its scroll container: flex column, chrome shrink-0, body flex:1 +
   // overflowY:auto + minHeight:0. `min-h-screen` here would just be clipped.
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: PAGE_BG }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0" style={{ background: HEADER_BG }}>
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
         <button className="p-1 -ml-1 rounded-md" aria-label="Menu" onClick={() => setDrawerOpen(true)}>
           <Menu size={20} className="text-slate-800" />
         </button>
@@ -117,7 +119,7 @@ export default function SystemPageV2() {
       </div>
 
       {/* Header */}
-      <div className="px-4 pt-1 pb-3 shrink-0" style={{ background: HEADER_BG }}>
+      <div className="px-4 pt-1 pb-3 shrink-0">
         <div className="flex items-center gap-1 text-xs text-slate-500 mb-1.5">
           {SYS.crumbs.map((c, i) => (
             <span key={i} className="flex items-center gap-1">

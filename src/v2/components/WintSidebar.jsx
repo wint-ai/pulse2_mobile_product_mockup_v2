@@ -44,7 +44,7 @@ import { computeSystemHealth } from '@/utils/systemHealth'
 // gradient at all. Its only fills are var(--card,white) on the active row,
 // #f0f4fb on the count badge and #e2e8f0 on the rules. The panel itself is a
 // flat near-white wash.
-const PANEL_BG = '#F7F9FC'
+const PANEL_BG = 'var(--sidebar, #ffffff)'
 const DIVIDER = '#E2E8F0'
 const ALERT_RED = '#E7000B'
 const BRAND = '#0B95F8'

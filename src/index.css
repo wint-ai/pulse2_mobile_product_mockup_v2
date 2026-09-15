@@ -1,3 +1,8 @@
+/* Figtree is the design system's sans (font/family/sans in the Figma tokens);
+   Geist is used for the topology and chart axis labels. Inter is kept only as
+   a fallback for the v1 screens that were built against it. */
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
@@ -10,46 +15,102 @@
    without also stripping those utilities. */
 @custom-variant dark (&:is(.dark *));
 
-/* ── Wint palette + shadcn tokens ─────────────────────────────────
-   Wint brand rules (from CLAUDE.md):
-     brand blue   #0B95F8   primary
-     severity high #DB4670  High Flow Water Event
-     severity low  #F05C25  Low Flow Water Event
-     danger       #A5455E   valve errors, generic danger
-     success      #5C9E1A   healthy states
+/* ── Design tokens ────────────────────────────────────────────────────
+   Values below are READ OUT OF the Figma design context for the Wint
+   delivery canvas (file YEmjkKS4xaA827Zm8w3oXx), not sampled from a
+   screenshot. The neutral ramp is Tailwind v4 slate, which is what the
+   design system binds to — it is noticeably cooler than the v3-era greys
+   this file used to carry, and that mismatch was visible on every screen.
+
+   Figma token            value      used as
+   ─────────────────────  ─────────  ──────────────────────────────
+   wint-blue-accent       #0b81f8    primary / ring / accent-foreground
+   colors/slate/900       #0f172b    foreground
+   colors/slate/800       #1d293d    strong body text
+   colors/slate/700       #314158
+   colors/slate/600       #45556c    secondary body text
+   colors/slate/500       #62748e    muted-foreground
+   colors/slate/400       #90a1b9    placeholder
+   colors/slate/200       #e2e8f0    border / input / separator
+   colors/slate/100       #f1f5f9    muted surface
+   colors/red/600         #e7000b    alert dot
+   colors/red/500         #fb2c36    destructive
+   colors/red/400         #ff6467    error badge fill
+   colors/red/100         #ffe2e2    destructive surface
+   colors/orange/100      #ffedd4    low-flow chip surface
+   colors/blue/100        #dbeafe
+
+   Wint severity colours are product semantics and stay as CLAUDE.md
+   defines them: high #DB4670, low #F05C25, danger #A5455E, ok #5C9E1A.
 */
 
 :root {
   --radius: 0.625rem;
 
-  /* Neutral surfaces (light theme) */
+  /* Slate ramp — exactly as the design tokens resolve. */
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-400: #90a1b9;
+  --slate-500: #62748e;
+  --slate-600: #45556c;
+  --slate-700: #314158;
+  --slate-800: #1d293d;
+  --slate-900: #0f172b;
+
+  /* Neutral surfaces */
   --background: #F4F6F9;
-  --foreground: #14151A;
+  --foreground: #0f172b;
   --card: #FFFFFF;
-  --card-foreground: #14151A;
+  --card-foreground: #0f172b;
   --popover: #FFFFFF;
-  --popover-foreground: #14151A;
-  --muted: #F1F3F6;
-  --muted-foreground: #6B7280;
-  --border: #E5E7EB;
-  --input: #E5E7EB;
-  --ring: #0B95F8;
-  --accent: #EBF5FE;
-  --accent-foreground: #036AB5;
+  --popover-foreground: #0f172b;
+  --muted: #f1f5f9;
+  --muted-foreground: #62748e;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #0b81f8;
+  --accent: #f2f6ff;
+  --accent-foreground: #0b81f8;
 
   /* Wint brand + semantics */
-  --primary: #0B95F8;
+  --primary: #0b81f8;
   --primary-foreground: #FFFFFF;
-  --secondary: #EBF5FE;
-  --secondary-foreground: #0B4A7A;
-  --destructive: #DC2626;
+  --secondary: #f2f6ff;
+  --secondary-foreground: #0b81f8;
+  --destructive: #fb2c36;
   --destructive-foreground: #FFFFFF;
+
+  /* Red ramp — the alert dot and the error badge are different reds. */
+  --red-100: #ffe2e2;
+  --red-400: #ff6467;
+  --red-500: #fb2c36;
+  --red-600: #e7000b;
+  --orange-100: #ffedd4;
 
   /* Wint-specific severity colors — bind these directly in components */
   --severity-high: #DB4670;      /* High Flow Water Event */
   --severity-low: #F05C25;       /* Low Flow Water Event */
   --danger: #A5455E;             /* valve errors */
   --success: #5C9E1A;
+
+  /* App background — screen roots. 129.43deg in the comp. */
+  --app-bg:
+    linear-gradient(129.43deg,
+      rgba(233, 238, 248, 0.8) 8.3855%,
+      rgba(227, 235, 249, 0.8) 32.2%,
+      rgba(228, 235, 250, 0.8) 40.822%,
+      rgba(212, 226, 255, 0.8) 71.236%,
+      rgba(233, 237, 243, 0.8) 82.858%),
+    linear-gradient(90deg, #ffffff 0%, #ffffff 100%);
+
+  /* Same ramp, steeper — the 2x2 issue tiles and the small status pills. */
+  --tile-bg:
+    linear-gradient(170.67deg,
+      rgba(233, 238, 248, 0.8) 8.3855%,
+      rgba(227, 235, 249, 0.8) 32.2%,
+      rgba(228, 235, 250, 0.8) 40.822%,
+      rgba(212, 226, 255, 0.8) 71.236%),
+    linear-gradient(90deg, #ffffff 0%, #ffffff 100%);
 
   --wave-bg-from: #66B5F9;
   --wave-bg-to: #3E95F6;
@@ -59,18 +120,18 @@
      The stock shadcn values are neutral grays; these bind the drawer to
      the Wint palette above so it matches the rest of the app. */
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #14151A;
-  --sidebar-primary: #0B95F8;
+  --sidebar-foreground: #0a0a0a;
+  --sidebar-primary: #0b81f8;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #EBF5FE;
-  --sidebar-accent-foreground: #036AB5;
-  --sidebar-border: #E5E7EB;
-  --sidebar-ring: #0B95F8;
+  --sidebar-accent: #f2f6ff;
+  --sidebar-accent-foreground: #0b81f8;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #0b81f8;
 
   /* Chart series — water consumption reads as one blue material, so the
      scale is a blue ramp rather than a categorical rainbow. 4 and 5 are
      the semantic escapes for a series that must read as good / critical. */
-  --chart-1: #0B95F8;
+  --chart-1: #0b81f8;
   --chart-2: #66B5F9;
   --chart-3: #1B79F8;
   --chart-4: #5C9E1A;
@@ -103,7 +164,8 @@
   --color-danger: var(--danger);
   --color-success: var(--success);
 
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Figtree', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono-label: 'Geist', ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -117,6 +179,19 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+
+  --color-slate-100: var(--slate-100);
+  --color-slate-200: var(--slate-200);
+  --color-slate-400: var(--slate-400);
+  --color-slate-500: var(--slate-500);
+  --color-slate-600: var(--slate-600);
+  --color-slate-700: var(--slate-700);
+  --color-slate-800: var(--slate-800);
+  --color-slate-900: var(--slate-900);
+  --color-red-100: var(--red-100);
+  --color-red-400: var(--red-400);
+  --color-red-500: var(--red-500);
+  --color-red-600: var(--red-600);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -137,7 +212,7 @@
 
 html, body, #root {
   height: 100%;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Figtree', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--background);
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
