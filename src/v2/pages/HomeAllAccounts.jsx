@@ -60,7 +60,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import TabBar from '@/components/TabBar'
 import ActiveWaterEventsCard from '@/v2/components/ActiveWaterEventsCard'
 import EventOverlay from '@/v2/components/EventOverlay'
@@ -70,7 +70,8 @@ import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import { CaretDown, CustomerSupport, Menu10 } from '@/v2/icons'
 import { SYSTEMS, computeWidgets, computeKPIs } from '@/data/systems'
-import { getSystemInsights } from '@/data/systemDetails'
+import { getConsumption } from '@/data/consumption'
+import { getInsightRows, insightValueLabel, INSIGHT_KIND } from '@/data/upstream/insightsModel'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 // MOCK — replace with the real account roll-up. Every value is the comp's own.
@@ -108,6 +109,38 @@ const MOCK_INSIGHTS = [
    gives the keys colours that do not match the plot's own arcs; both are kept
    as drawn. Row 1 is bg-[var(--chart\/chart-5,#193cb8)], which resolves to the
    fallback here because this project defines --chart-5, not --chart\/chart-5. */
+/**
+ * Top usage — the five heaviest systems over the last 30 days, by the real
+ * consumption model. The comp ships five identical "Apartment 2 / 13,564 L /
+ * 12.5%" rows because it is a picture; every figure here is computed.
+ *
+ * Ring colours stay the comp's five keys, in its order.
+ */
+const TOP_USAGE_KEYS = ['#193cb8', '#2b7fff', '#8ec5ff', '#193cb8', '#155dfc']
+
+function buildTopUsage(systems, days = 30) {
+  const scored = systems
+    .map(s => {
+      const daily = getConsumption(s.id, s.name).daily.slice(-days)
+      return { system: s, litres: daily.reduce((t, d) => t + d.liters, 0) }
+    })
+    .sort((a, b) => b.litres - a.litres)
+    .slice(0, 5)
+
+  const total = scored.reduce((t, r) => t + r.litres, 0)
+  return {
+    total: total.toLocaleString('en-US'),
+    rows: scored.map((r, i) => ({
+      id: r.system.id,
+      key: TOP_USAGE_KEYS[i % TOP_USAGE_KEYS.length],
+      label: r.system.name,
+      value: r.litres.toLocaleString('en-US'),
+      unit: 'L',
+      share: total ? `${((r.litres / total) * 100).toFixed(1)}%` : '0%',
+    })),
+  }
+}
+
 const MOCK_TOP_USAGE = {
   total: '23,374',
   rows: [
@@ -218,7 +251,7 @@ const TOP_USAGE_PERIODS = [
   { id: '12m', label: 'Last 12 months', days: 365 },
 ]
 
-function TopUsageCard({ data, onPeriodChange }) {
+function TopUsageCard({ data, onSelect, onPeriodChange }) {
   const [periodId, setPeriodId] = useState('30d')
   const [menuOpen, setMenuOpen] = useState(false)
   const period = TOP_USAGE_PERIODS.find(p => p.id === periodId) ?? TOP_USAGE_PERIODS[1]
@@ -328,9 +361,18 @@ function TopUsageCard({ data, onPeriodChange }) {
       {/* Legend — 198314:73663, five "Chart / Tooltip / Tooltip Item" rows. */}
       <div className="content-stretch flex flex-col gap-[9px] items-start pb-[var(--spacing\/4,16px)] px-[var(--spacing\/4,16px)] relative shrink-0 w-full" data-node-id="198314:73663">
         {data.rows.map((row) => (
-          <div
+          /* Each legend row names a real system, so it navigates to it. The
+             comp draws these as static text because a Figma frame has no
+             routing; leaving them inert made the card look like a picture of
+             a list. Rendered as a real <button> rather than a clickable div so
+             it is keyboard-reachable and announced as an action. */
+          <button
             key={row.id}
-            className="content-stretch flex items-center justify-between p-[var(--p-0,0px)] relative shrink-0 w-full"
+            type="button"
+            onClick={onSelect ? () => onSelect(row.id) : undefined}
+            disabled={!onSelect}
+            aria-label={`${row.label} — ${row.value} litres, ${row.share} of top usage`}
+            className="content-stretch flex items-center justify-between p-[var(--p-0,0px)] relative shrink-0 w-full text-left enabled:cursor-pointer enabled:hover:opacity-70 disabled:cursor-default"
           >
             <div className="content-stretch flex gap-[8px] items-center min-w-px relative">
               {/* The key's colour is per-row data, so it is an inline style —
@@ -356,7 +398,7 @@ function TopUsageCard({ data, onPeriodChange }) {
                 </p>
               </div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -404,10 +446,29 @@ export default function HomeAllAccounts({ expanded = false }) {
         power: widgets.powerLost ?? kpis.powerLost ?? MOCK_HEALTH_ISSUES.power,
         recipients: widgets.noRecipients ?? kpis.noRecipients ?? MOCK_HEALTH_ISSUES.recipients,
       },
-      insights: systems.slice(0, 4).flatMap(s => getSystemInsights(s.id) ?? []).slice(0, 4),
+      // The web guarantees a MIX of insight kinds rather than the first four
+      // it finds — without that the list reads as repeats of whichever kind
+      // dominates. See src/data/upstream/insightsModel.js.
+      insights: getInsightRows(systems, 4).map(row => ({
+        title: row.name,
+        addr: row.address,
+        kind: row.label,
+        delta: row.kind === INSIGHT_KIND.BACKGROUND_FLOW ? null : insightValueLabel(row),
+        deltaTone: row.kind === INSIGHT_KIND.USAGE_UP ? 'bad' : 'good',
+        value: insightValueLabel(row),
+        systemId: row.systemId,
+        series: row.series,
+        baseline: row.baseline,
+        insightKind: row.kind,
+      })),
     }
   }, [])
 
+  const navigate = useNavigate()
+  // Days shown by the Top usage card. Held here rather than in the card because
+  // the figures come from the dataset, and a screen must never be the thing
+  // holding data the card only displays.
+  const [topUsageDays, setTopUsageDays] = useState(30)
   const [tab, setTab] = useState('overview')
   const [drawerOpen, setDrawerOpen] = useState(false)
   // null | 'water' | 'alerts' — which dataset the full-list overlay is showing.
@@ -415,6 +476,11 @@ export default function HomeAllAccounts({ expanded = false }) {
 
   // Expanded shows the live list; collapsed shows none, per the two frames.
   const waterEvents = expanded ? (live?.waterEvents ?? MOCK_WATER_EVENTS) : []
+
+  const topUsage = useMemo(
+    () => (SYSTEMS?.length ? buildTopUsage(SYSTEMS, topUsageDays) : null),
+    [topUsageDays],
+  )
 
   /* The five cards of the Body wrapper, in the comp's order. Held in a variable
      because the two states wrap them in two different Body wrappers (the gap
@@ -447,7 +513,11 @@ export default function HomeAllAccounts({ expanded = false }) {
       <WaterConsumptionCardV2 />
 
       {/* 198314:73650 */}
-      <TopUsageCard data={MOCK_TOP_USAGE} />
+      <TopUsageCard
+        data={topUsage ?? MOCK_TOP_USAGE}
+        onSelect={id => navigate(`/system/${id}`)}
+        onPeriodChange={p => setTopUsageDays(p.days)}
+      />
     </>
   )
 

@@ -1,59 +1,9 @@
 // System details: topology, device info, meter, active policy, insights
 // Modelled after the desktop pulse2_product_sandbox
 import { SYSTEMS } from './systems';
+import { getInsightsForSystem } from './upstream/insightsModel';
 
 // ── Insights per system (seeded, deterministic) ─────────────────────────────
-
-const INSIGHT_TEMPLATES = [
-  { title: 'Night-time flow',   unit: 'L/h' },
-  { title: 'Background flow',   unit: 'L/h' },
-  { title: 'Usage decreased',   unit: '%' },
-  { title: 'Usage increased',   unit: '%' },
-  { title: 'Consumption spike', unit: '%' },
-  { title: 'Continuous flow',   unit: 'L/h' },
-];
-
-function hash(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) - h) + str.charCodeAt(i);
-    h |= 0;
-  }
-  return Math.abs(h);
-}
-
-function seeded(seed) {
-  let t = seed + 0x6D2B79F5;
-  return () => {
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function generateInsights(systemId) {
-  const rand = seeded(hash(systemId) + 42);
-  const count = Math.floor(rand() * 3); // 0–2 insights
-  if (count === 0) return [];
-  const insights = [];
-  const used = new Set();
-  for (let i = 0; i < count; i++) {
-    let idx;
-    do { idx = Math.floor(rand() * INSIGHT_TEMPLATES.length); } while (used.has(idx));
-    used.add(idx);
-    const tpl = INSIGHT_TEMPLATES[idx];
-    const value = tpl.unit === 'L/h'
-      ? (2 + rand() * 26).toFixed(1)
-      : Math.round(8 + rand() * 50);
-    const day = Math.floor(1 + rand() * 25);
-    insights.push({
-      title: tpl.title,
-      value: tpl.unit === '%' ? `+${value}%` : `${value} ${tpl.unit}`,
-      detectedAt: `Mar ${day}, 2026`,
-    });
-  }
-  return insights;
-}
 
 // ── System topology / device details ────────────────────────────────────────
 
@@ -164,8 +114,17 @@ function getNextPolicyForSystem(systemId) {
 
 // ── Exports ─────────────────────────────────────────────────────────────────
 
+/**
+ * Insights for a system, in the web sandbox's model.
+ *
+ * The local generator this replaced invented titles from a six-entry template
+ * list ("Night-time flow", "Consumption spike") with random values and no link
+ * to the system's consumption, so the card showed template names where the web
+ * shows the system name and could repeat a title twice in four rows.
+ * See src/data/upstream/insightsModel.js.
+ */
 export function getSystemInsights(systemId) {
-  return generateInsights(systemId);
+  return getInsightsForSystem(SYSTEMS.find(s => s.id === systemId));
 }
 
 export function getSystemTopology(systemId) {
