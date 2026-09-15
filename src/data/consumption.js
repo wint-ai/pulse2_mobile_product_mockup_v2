@@ -1,5 +1,6 @@
 // Per-system consumption data with deterministic pseudo-random generation
 // Seeded by system ID so output is stable across renders
+import { systemHasActiveLeak } from './upstream/parity';
 
 function hashCode(str) {
   let hash = 0;
@@ -67,12 +68,10 @@ function getBaseRange(systemId, name) {
   return { min: 200, max: 1000 };
 }
 
-// Systems with active leak alerts
-const LEAK_SYSTEM_IDS = new Set([
-  'ct1', 'ctt2', 'shc',     // leak-high
-  'sp', 'f11a', 'csf',      // leak-low
-  'tidhar_apt_47',           // leak-low (Tidhar)
-]);
+// Systems with an active water event get a spike on the most recent day.
+// Derived from the same function the web uses (see upstream/parity.js) rather
+// than a hand-kept id list, so the spike lands on exactly the systems the web
+// shows as leaking.
 
 export function getConsumption(systemId, systemName) {
   const seed = hashCode(systemId);
@@ -95,7 +94,7 @@ export function getConsumption(systemId, systemName) {
 
     let liters = Math.round((range.min + rand() * (range.max - range.min)) * weekendFactor);
 
-    if (i === 0 && LEAK_SYSTEM_IDS.has(systemId)) {
+    if (i === 0 && systemHasActiveLeak(systemId)) {
       liters = Math.round(liters * (1.8 + rand() * 0.7));
     }
 

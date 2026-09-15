@@ -1,24 +1,35 @@
 // Personas — the demo profile picker.
 //
-// Locked 2026-06-04 to a focused 6-persona set:
-//   1. Tenant · 1 apartment            — Sarah Cohen (Apt 47 Tidhar Towers — same building Oren manages, so the demo can flip between tenant view + building-manager view of the same active leak)
-//   2. Tenant · 2 apartments           — Maya Tal (Sea View + Leumi Tower)
-//   3. Building manager · residential  — Oren Tidhar (200 apts, Tidhar Towers)
-//   4. Location manager · 1 building   — Mark Chen (Tower One, Manchester)
-//   5. Account manager · Suffolk       — James Lee (Suffolk Construction)
-//   6. Account manager · CBRE          — Rachel Adams (CBRE — Israel + UK)
+// Rehomed onto the MRG dataset (2026-09-15) when the app switched to the web
+// sandbox's Meridian Realty Group scope. The six archetypes are unchanged —
+// what each one is *for* is the thing worth keeping — but they now point at
+// real MRG locations so a persona can be compared against the same scope in
+// the web app:
+//   1. Tenant · 1 apartment            — Building D, which is deliberately all-clear (happy path)
+//   2. Tenant · 2 apartments           — one with an active event, one clear
+//   3. Building manager · residential  — Building A (10 apartments, 2 with active events)
+//   4. Location manager · 1 site       — 100 Meridian Plaza
+//   5. Portfolio manager · Office      — all 11 Office sites
+//   6. Account manager · sub-account   — Southbridge Health
 //
-// + DEFAULT_PERSONA (Rami / Wint staff) — kept for the internal admin view.
+// + DEFAULT_PERSONA (Rami / Wint staff) — the internal admin view, all of MRG.
 //
-// All prior demo personas were dropped on the same date. If we need them
-// back, git history has them.
+// The previous Suffolk / Heathrow / CBRE / Tidhar personas were dropped with
+// their fixtures. git history has them.
+
+import { ROOT_ACCOUNT_ID } from './upstream/buildTree';
+
+// Real upstream ids, so a persona's scope resolves to the same records the web
+// app shows. See src/data/upstream/mrg-snapshot.json.
+const SITE_100_MERIDIAN = 'a0c8e000000L9jyAAC';
+const ACCOUNT_SOUTHBRIDGE = '0014H000049GnStQAK';
 
 export const DEFAULT_PERSONA = {
   id: 'wint-admin',
   name: 'Rami Kletshevsky',
   role: 'Wint Admin',
-  sub: '4 accounts in scope',
-  description: 'Wint staff — scope: Suffolk, Heathrow, CBRE, Tidhar. Can explore all.',
+  sub: 'Meridian Realty Group',
+  description: 'Wint staff — full scope across MRG: Office and Residential. Can explore all.',
   email: 'rami.kletshevsky@wint.ai',
   phone: '+972528542617',
   icon: '⚡',
@@ -27,7 +38,7 @@ export const DEFAULT_PERSONA = {
   isWint: true,
   homePath: '/',
   tabMode: 'manager',
-  systemFilter: (s) => s.account === 'sc' || s.account === 'ha' || s.account === 'cbre_il' || s.account === 'cbre_uk' || s.account === 'tidhar',
+  systemFilter: () => true,
 };
 
 export const PERSONAS = [
@@ -36,108 +47,110 @@ export const PERSONAS = [
 
   {
     id: 'tenant-1apt',
-    name: 'Sarah Cohen',
+    name: 'Sofia Marchetti',
     role: 'Tenant',
-    sub: 'Apt 47 · Tidhar Towers',
-    description: 'Tenant in Apt 47, Tidhar Towers — same building Oren Tidhar manages. Happy-path demo: all clear, no events.',
-    email: 'sarah.cohen@gmail.com',
-    phone: '+972501234567',
+    sub: 'Apartment 3 · Building D',
+    description: 'Tenant in Building D, which is deliberately all-clear. Happy-path demo: nothing active, every empty state reachable.',
+    email: 's.marchetti@example.com',
+    phone: '+1 212 555 0148',
     icon: '🏠',
     color: '#A1D246',
     bg: '#F0FDF4',
     isWint: false,
     homePath: '/tenant',
     tabMode: 'tenant',
-    systemFilter: (s) => s.id === 'tidhar_apt_47',
+    systemFilter: (s) => s.id === 'esrt-bldg-D-apt-3',
   },
   {
     id: 'tenant-2apts',
-    name: 'Maya Tal',
+    name: 'Nadia Oyelaran',
     role: 'Property Owner',
-    sub: '2 apartments · Netanya & Tel Aviv',
-    description: 'Owns two apartments in different cities. Sea View has an active Low Flow water event + valve error; Leumi Tower is all clear. Both communicating.',
-    email: 'maya.tal@gmail.com',
-    phone: '+972504567890',
+    sub: '2 apartments · Buildings A & E',
+    description: 'Owns two apartments in different buildings. Building A Apt 2 has an active High Flow water event; Building E Apt 6 is all clear.',
+    email: 'n.oyelaran@example.com',
+    phone: '+1 212 555 0176',
     icon: '🏠',
     color: '#A1D246',
     bg: '#F0FDF4',
     isWint: false,
     homePath: '/tenant',
     tabMode: 'tenant',
-    systemFilter: (s) => s.id === 'dl_apt_sea_view' || s.id === 'dl_apt_leumi_tower',
+    systemFilter: (s) => s.id === 'esrt-bldg-A-apt-2' || s.id === 'esrt-bldg-E-apt-6',
   },
 
   // ── MANAGERS ───────────────────────────────────────────────────────────────
 
   {
     id: 'building-manager-residential',
-    name: 'Oren Tidhar',
+    name: 'Marcus Ellery',
     role: 'Building Manager',
-    sub: 'Tidhar Towers · 200 apartments',
-    description: 'Manages all apartments in one residential building. Includes one active Water Event + one offline unit.',
-    email: 'oren@tidhar.co.il',
-    phone: '+972541234567',
+    sub: 'Building A · 10 apartments',
+    description: 'Manages every apartment in one residential building. Two apartments have active water events (Apt 2 High Flow, Apt 5 Low Flow).',
+    email: 'm.ellery@meridianrealty.com',
+    phone: '+1 212 555 0133',
     icon: '🏢',
     color: '#8B5CF6',
     bg: '#F5F3FF',
     isWint: false,
     homePath: '/',
     tabMode: 'manager',
-    systemFilter: (s) => s.account === 'tidhar' && s.l4 === 'tidhar_towers',
+    systemFilter: (s) => s.l3 === 'esrt-bldg-A',
   },
   {
     id: 'location-manager',
-    name: 'Mark Chen',
+    name: 'Dana Whitfield',
     role: 'Location Manager',
-    sub: 'Tower One · Manchester',
-    description: 'Manages a single commercial building. Mix of cooling towers, sump pumps and supply lines.',
-    email: 'mark.chen@suffolk.com',
-    phone: '+44 7700 900222',
+    sub: '100 Meridian Plaza',
+    description: 'Manages a single commercial site. Mix of supply lines, cooling tower makeup and hot water systems.',
+    email: 'd.whitfield@meridianrealty.com',
+    phone: '+1 212 555 0101',
     icon: '🏢',
     color: '#04ADEF',
     bg: '#EFF6FF',
     isWint: false,
     homePath: '/',
     tabMode: 'manager',
-    systemFilter: (s) => s.account === 'sc' && s.l4 === 'towerone',
+    systemFilter: (s) => s.l3 === SITE_100_MERIDIAN,
   },
   {
-    id: 'account-manager-suffolk',
-    name: 'James Lee',
-    role: 'Account Manager',
-    sub: 'Suffolk Construction · 5 sites',
-    description: 'Manages every Suffolk Construction site across the UK + Germany. Multi-location scope, mixed alerts.',
-    email: 'james.lee@suffolk.com',
-    phone: '+44 7700 900123',
+    id: 'portfolio-manager-office',
+    name: 'Grant Halloway',
+    role: 'Portfolio Manager',
+    sub: 'Office · 11 sites',
+    description: 'Manages the whole commercial portfolio across every Office site. Multi-location scope, mixed alerts.',
+    email: 'g.halloway@meridianrealty.com',
+    phone: '+1 212 555 0119',
     icon: '🏢',
     color: '#04ADEF',
     bg: '#EFF6FF',
     isWint: false,
     homePath: '/',
     tabMode: 'manager',
-    systemFilter: (s) => s.account === 'sc',
+    systemFilter: (s) => s.l2 === 'esrt-office',
   },
   {
-    id: 'account-manager-cbre',
-    name: 'Rachel Adams',
+    id: 'account-manager-subaccount',
+    name: 'Priya Raman',
     role: 'Account Manager',
-    sub: 'CBRE · Israel & UK',
-    description: 'Manages CBRE properties across Israel and UK sub-accounts. Multi-sub-account scope, mixed alerts.',
-    email: 'rachel.adams@cbre.com',
-    phone: '+1 212 555 0199',
+    sub: 'Southbridge Health',
+    description: 'Manages one MRG sub-account. Demonstrates account-scoped visibility inside a parent portfolio.',
+    email: 'p.raman@meridianrealty.com',
+    phone: '+1 212 555 0164',
     icon: '🌐',
     color: '#0D9488',
     bg: '#F0FDFA',
     isWint: false,
     homePath: '/',
     tabMode: 'manager',
-    systemFilter: (s) => s.account?.startsWith('cbre'),
+    systemFilter: (s) => s.account === ACCOUNT_SOUTHBRIDGE,
   },
 
   // ── WINT STAFF ─────────────────────────────────────────────────────────────
 
   DEFAULT_PERSONA,
 ];
+
+export { ROOT_ACCOUNT_ID };
 
 export function getPersonaById(id) {
   return PERSONAS.find(p => p.id === id);

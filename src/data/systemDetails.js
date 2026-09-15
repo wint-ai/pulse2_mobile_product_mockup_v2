@@ -1,5 +1,6 @@
 // System details: topology, device info, meter, active policy, insights
 // Modelled after the desktop pulse2_product_sandbox
+import { SYSTEMS } from './systems';
 
 // ── Insights per system (seeded, deterministic) ─────────────────────────────
 
@@ -103,7 +104,11 @@ function getDefaultDetails(systemId) {
 // uses the fields above.
 
 // Some systems have no valve — auto shutoff / valve state collapse to 'N/A'.
-const NO_VALVE_SYSTEMS = new Set(['dhw1', 'sp', 'f11a']);
+// Metering-only systems — upstream records no valve_type for them. Derived from
+// the fleet rather than a hand-kept id list so it survives a dataset refresh.
+const NO_VALVE_SYSTEMS = new Set(
+  SYSTEMS.filter(s => s.valve === null).map(s => s.id),
+);
 
 function buildPolicy(kind, hasValve) {
   if (kind === 'working') {

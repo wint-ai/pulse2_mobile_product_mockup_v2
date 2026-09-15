@@ -1,0 +1,1764 @@
+{
+  "_meta": {
+    "description": "MRG demo scope imported from the Pulse 2.0 WEB sandbox. Generated file — do not edit by hand.",
+    "generator": "scripts/sync-upstream-data.mjs",
+    "generatedAt": "2026-09-15T10:57:05.153Z",
+    "source": {
+      "repo": "wint-ai/pulse2_product_sandbox",
+      "commit": "0734751ec429b9190c544a22f6c47fe05e3d9c14",
+      "uncommittedDataFiles": [
+        "rc/data/insightsMockData.ts",
+        "src/data/mockData.ts",
+        "src/demoMode.ts"
+      ]
+    },
+    "demo": {
+      "accountId": "0015800001fvUFkAAM",
+      "allClearLocationIds": [
+        "esrt-bldg-D",
+        "esrt-bldg-E"
+      ]
+    },
+    "counts": {
+      "accounts": 17,
+      "sites": 11,
+      "waterSystemsFromCrm": 53,
+      "systemNodesInTree": 103
+    }
+  },
+  "rootAccountId": "0015800001fvUFkAAM",
+  "allClearLocationIds": [
+    "esrt-bldg-D",
+    "esrt-bldg-E"
+  ],
+  "accounts": [
+    {
+      "id": "0014H000049GqHEQA0",
+      "name": "100 Meridian Plaza",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0014H000049GnB8QAK",
+      "name": "220 Harborview Ave",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0014H00004AMSl1QAH",
+      "name": "240 Harborview Ave",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0018e00000IF8cLAAT",
+      "name": "739 Elm St",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0014H00004AKwn0QAD",
+      "name": "Wildmont Estates",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Non Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0014H000049GhxGQAS",
+      "name": "Valehaven Ventures",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0014H000049GqKEQA0",
+      "name": "Southpoint Development",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0018e00000IF82pAAD",
+      "name": "Southshore Group",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Non Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0014H000049Gq8dQAC",
+      "name": "Clearland Ventures",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0014H000049GYzdQAG",
+      "name": "Ambermont Management",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0014H00003nUdFjQAK",
+      "name": "Harbormont Ventures",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0014H000049Gel8QAC",
+      "name": "Goldcrest Holdings",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0018e00000IF8dQAAT",
+      "name": "Summitcrest Hospitality",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0014H000049GXB8QAO",
+      "name": "Northpoint Estates",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0015800001fvUFkAAM",
+      "name": "Meridian Realty Group (MRG)",
+      "parentId": null,
+      "status": "Active",
+      "type": "Property Management",
+      "region": "North America",
+      "industry": "Real Estate",
+      "numberOfActiveSites": 12
+    },
+    {
+      "id": "0014H00004AMSVwQAP",
+      "name": "Westhill Properties",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    },
+    {
+      "id": "0014H000049GnStQAK",
+      "name": "Southbridge Health",
+      "parentId": "0015800001fvUFkAAM",
+      "status": "Non Active",
+      "type": "Enterprise",
+      "region": "North America",
+      "industry": null,
+      "numberOfActiveSites": null
+    }
+  ],
+  "tree": [
+    {
+      "id": "country-0015800001fvUFkAAM-united-states",
+      "name": "United States",
+      "type": "level1",
+      "levelName": "Country",
+      "children": [
+        {
+          "id": "esrt-office",
+          "name": "Office",
+          "type": "level2",
+          "levelName": "Division",
+          "count": 12,
+          "children": [
+            {
+              "id": "a0c8e000000L9jyAAC",
+              "name": "100 Meridian Plaza",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 5,
+              "site": {
+                "flowlessSiteNumber": "2414",
+                "siteStatus": "Active",
+                "typeOfSite": "Operational",
+                "country": "United States",
+                "accountSfId": "0015800001fvUFkAAM"
+              },
+              "children": [
+                {
+                  "id": "ws-9623",
+                  "name": "Basement Supply — Floor 29",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0yxAAC",
+                    "waterSystemId": 9623,
+                    "siteSfId": "a0c8e000000L9jyAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9622",
+                  "name": "Main Supply — Zone 8",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0yjAAC",
+                    "waterSystemId": 9622,
+                    "siteSfId": "a0c8e000000L9jyAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Ball",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9624",
+                  "name": "Roof Tank Feed — Floor 5",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0yaAAC",
+                    "waterSystemId": 9624,
+                    "siteSfId": "a0c8e000000L9jyAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9618",
+                  "name": "Domestic Hot Water — Building A",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LpBNAA0",
+                    "waterSystemId": 9618,
+                    "siteSfId": "a0c8e000000L9jyAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": "UltraSonic clamp on",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-15062",
+                  "name": "Domestic Hot Water — Zone 2",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ2000000ySizIAE",
+                    "waterSystemId": 15062,
+                    "siteSfId": "a0c8e000000L9jyAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": null,
+                    "country": "United States"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "a0c8e000000L8YIAA0",
+              "name": "210 Harborview Ave",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 5,
+              "site": {
+                "flowlessSiteNumber": "2404",
+                "siteStatus": "Active",
+                "typeOfSite": "Operational",
+                "country": "United States",
+                "accountSfId": "0015800001fvUFkAAM"
+              },
+              "children": [
+                {
+                  "id": "ws-17402",
+                  "name": "Basement Supply — Wing E",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ2000003H09xIAC",
+                    "waterSystemId": 17402,
+                    "siteSfId": "a0c8e000000L8YIAA0",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": "Ultrasonic",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-17403",
+                  "name": "Cooling Tower Blowdown — Building E",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ2000002YAWrIAO",
+                    "waterSystemId": 17403,
+                    "siteSfId": "a0c8e000000L8YIAA0",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": null,
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9542",
+                  "name": "Cooling Tower Makeup",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LpApAAK",
+                    "waterSystemId": 9542,
+                    "siteSfId": "a0c8e000000L8YIAA0",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9545",
+                  "name": "Kitchen Supply — Wing E",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LlooAAC",
+                    "waterSystemId": 9545,
+                    "siteSfId": "a0c8e000000L8YIAA0",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9546",
+                  "name": "Fire Line — Wing N",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LloUAAS",
+                    "waterSystemId": 9546,
+                    "siteSfId": "a0c8e000000L8YIAA0",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "a0c8e000000L9jeAAC",
+              "name": "220 Harborview Ave",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 5,
+              "site": {
+                "flowlessSiteNumber": "2411",
+                "siteStatus": "Active",
+                "typeOfSite": "Operational",
+                "country": "United States",
+                "accountSfId": "0015800001fvUFkAAM"
+              },
+              "children": [
+                {
+                  "id": "ws-17405",
+                  "name": "Cooling Tower Blowdown — Building E",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0rhAAC",
+                    "waterSystemId": 17405,
+                    "siteSfId": "a0c8e000000L9jeAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": "Ultrasonic",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-17404",
+                  "name": "HVAC Loop — Floor 14",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ20000038Aq5IAE",
+                    "waterSystemId": 17404,
+                    "siteSfId": "a0c8e000000L9jeAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": "Ultrasonic",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9602",
+                  "name": "Cooling Tower Makeup",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LloOAAS",
+                    "waterSystemId": 9602,
+                    "siteSfId": "a0c8e000000L9jeAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9627",
+                  "name": "Domestic Cold Water",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LlobAAC",
+                    "waterSystemId": 9627,
+                    "siteSfId": "a0c8e000000L9jeAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9597",
+                  "name": "Domestic Cold Water — Zone 2",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LlopAAC",
+                    "waterSystemId": 9597,
+                    "siteSfId": "a0c8e000000L9jeAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Ball",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "a0c8e000000LBaKAAW",
+              "name": "230 Harborview Ave",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 5,
+              "site": {
+                "flowlessSiteNumber": "2473",
+                "siteStatus": "Active",
+                "typeOfSite": "Operational",
+                "country": "United States",
+                "accountSfId": "0015800001fvUFkAAM"
+              },
+              "children": [
+                {
+                  "id": "ws-9886",
+                  "name": "Chiller Loop 8",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000Ll5gAAC",
+                    "waterSystemId": 9886,
+                    "siteSfId": "a0c8e000000LBaKAAW",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9885",
+                  "name": "Cooling Tower Blowdown",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0qcAAC",
+                    "waterSystemId": 9885,
+                    "siteSfId": "a0c8e000000LBaKAAW",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9881",
+                  "name": "Chiller Loop 4",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000Ll5bAAC",
+                    "waterSystemId": 9881,
+                    "siteSfId": "a0c8e000000LBaKAAW",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9882",
+                  "name": "Main Supply — Building B",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000Ll5cAAC",
+                    "waterSystemId": 9882,
+                    "siteSfId": "a0c8e000000LBaKAAW",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-10788",
+                  "name": "Roof Tank Feed — Wing N",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LloSAAS",
+                    "waterSystemId": 10788,
+                    "siteSfId": "a0c8e000000LBaKAAW",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Ball",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "a0c8e000000L9jjAAC",
+              "name": "240 Harborview Ave",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 5,
+              "site": {
+                "flowlessSiteNumber": "2412",
+                "siteStatus": "Active",
+                "typeOfSite": "Operational",
+                "country": "United States",
+                "accountSfId": "0015800001fvUFkAAM"
+              },
+              "children": [
+                {
+                  "id": "ws-9609",
+                  "name": "Domestic Cold Water",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LloIAAS",
+                    "waterSystemId": 9609,
+                    "siteSfId": "a0c8e000000L9jjAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9629",
+                  "name": "Main Supply — Zone 6",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LpCBAA0",
+                    "waterSystemId": 9629,
+                    "siteSfId": "a0c8e000000L9jjAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9628",
+                  "name": "Irrigation Line — Zone 4",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LpCAAA0",
+                    "waterSystemId": 9628,
+                    "siteSfId": "a0c8e000000L9jjAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9605",
+                  "name": "Cooling Tower Makeup — Zone 5",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000Ll5XAAS",
+                    "waterSystemId": 9605,
+                    "siteSfId": "a0c8e000000L9jjAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9604",
+                  "name": "Fire Line 6",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000Ll5WAAS",
+                    "waterSystemId": 9604,
+                    "siteSfId": "a0c8e000000L9jjAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "a0c8e000000L9iqAAC",
+              "name": "320 Summit Blvd",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 5,
+              "site": {
+                "flowlessSiteNumber": "2410",
+                "siteStatus": "Active",
+                "typeOfSite": "Operational",
+                "country": "United States",
+                "accountSfId": "0015800001fvUFkAAM"
+              },
+              "children": [
+                {
+                  "id": "ws-9578",
+                  "name": "Roof Tank Feed — Wing N",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0ruAAC",
+                    "waterSystemId": 9578,
+                    "siteSfId": "a0c8e000000L9iqAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9579",
+                  "name": "Kitchen Supply — Floor 6",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0tFAAS",
+                    "waterSystemId": 9579,
+                    "siteSfId": "a0c8e000000L9iqAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9580",
+                  "name": "Boiler Makeup — Building E",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0x3AAC",
+                    "waterSystemId": 9580,
+                    "siteSfId": "a0c8e000000L9iqAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-17004",
+                  "name": "Roof Tank Feed 9",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ2000002qdc2IAA",
+                    "waterSystemId": 17004,
+                    "siteSfId": "a0c8e000000L9iqAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": "Ultrasonic",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-17003",
+                  "name": "HVAC Loop 3",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ2000002qdc1IAA",
+                    "waterSystemId": 17003,
+                    "siteSfId": "a0c8e000000L9iqAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": "Ultrasonic",
+                    "country": "United States"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "a0c8e0000005cVcAAI",
+              "name": "45 Cedarline Way",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 4,
+              "site": {
+                "flowlessSiteNumber": "2902",
+                "siteStatus": "Active",
+                "typeOfSite": "Operational",
+                "country": "United States",
+                "accountSfId": "0015800001fvUFkAAM"
+              },
+              "children": [
+                {
+                  "id": "ws-13259",
+                  "name": "Domestic Hot Water",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000EBRKAA4",
+                    "waterSystemId": 13259,
+                    "siteSfId": "a0c8e0000005cVcAAI",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": null,
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-13891",
+                  "name": "Kitchen Supply — Floor 30",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ2000003FxFlIAK",
+                    "waterSystemId": 13891,
+                    "siteSfId": "a0c8e0000005cVcAAI",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": "Ultrasonic",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-13258",
+                  "name": "Irrigation Line — Building B",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000EBRPAA4",
+                    "waterSystemId": 13258,
+                    "siteSfId": "a0c8e0000005cVcAAI",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": null,
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-15102",
+                  "name": "Fire Line — Wing S",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000EBQfAAO",
+                    "waterSystemId": 15102,
+                    "siteSfId": "a0c8e0000005cVcAAI",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": null,
+                    "country": "United States"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "a0c8e0000005cVSAAY",
+              "name": "510 Lakeview Dr",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 4,
+              "site": {
+                "flowlessSiteNumber": "2903",
+                "siteStatus": "Active",
+                "typeOfSite": "Operational",
+                "country": "United States",
+                "accountSfId": "0015800001fvUFkAAM"
+              },
+              "children": [
+                {
+                  "id": "ws-13256",
+                  "name": "Fire Line — Floor 21",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000EBQUAA4",
+                    "waterSystemId": 13256,
+                    "siteSfId": "a0c8e0000005cVSAAY",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": null,
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-13255",
+                  "name": "Cooling Tower Blowdown",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000EBQZAA4",
+                    "waterSystemId": 13255,
+                    "siteSfId": "a0c8e0000005cVSAAY",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": null,
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-13254",
+                  "name": "Roof Tank Feed — Wing S",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000EBQeAAO",
+                    "waterSystemId": 13254,
+                    "siteSfId": "a0c8e0000005cVSAAY",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": false,
+                    "valveType": null,
+                    "meterType": null,
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-15110",
+                  "name": "Irrigation Line — Zone 4",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ2000003GeNxIAK",
+                    "waterSystemId": 15110,
+                    "siteSfId": "a0c8e0000005cVSAAY",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": "Ultrasonic",
+                    "country": "United States"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "a0c8e000000LFXKAA4",
+              "name": "967 Alder Dr",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 5,
+              "site": {
+                "flowlessSiteNumber": "2512",
+                "siteStatus": "Non Active",
+                "typeOfSite": "Operational",
+                "country": "United States",
+                "accountSfId": "0015800001fvUFkAAM"
+              },
+              "children": [
+                {
+                  "id": "ws-10021",
+                  "name": "Cooling Tower Blowdown — Building E",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0viAAC",
+                    "waterSystemId": 10021,
+                    "siteSfId": "a0c8e000000LFXKAA4",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": false,
+                    "valveType": "Ball",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-10026",
+                  "name": "Laundry Line 8",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0y5AAC",
+                    "waterSystemId": 10026,
+                    "siteSfId": "a0c8e000000LFXKAA4",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": false,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-10023",
+                  "name": "Cooling Tower Makeup — Building A",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0tgAAC",
+                    "waterSystemId": 10023,
+                    "siteSfId": "a0c8e000000LFXKAA4",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": false,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-10024",
+                  "name": "Cooling Tower Makeup — Zone 8",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0yUAAS",
+                    "waterSystemId": 10024,
+                    "siteSfId": "a0c8e000000LFXKAA4",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": false,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-10022",
+                  "name": "Domestic Cold Water — Zone 1",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000M0xWAAS",
+                    "waterSystemId": 10022,
+                    "siteSfId": "a0c8e000000LFXKAA4",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": false,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "a0c8e000000L9joAAC",
+              "name": "700 Garnet St",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 5,
+              "site": {
+                "flowlessSiteNumber": "2413",
+                "siteStatus": "Active",
+                "typeOfSite": "Operational",
+                "country": "United States",
+                "accountSfId": "0015800001fvUFkAAM"
+              },
+              "children": [
+                {
+                  "id": "ws-9610",
+                  "name": "Roof Tank Feed — Wing E",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LpBKAA0",
+                    "waterSystemId": 9610,
+                    "siteSfId": "a0c8e000000L9joAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9626",
+                  "name": "Kitchen Supply — Floor 37",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LpBTAA0",
+                    "waterSystemId": 9626,
+                    "siteSfId": "a0c8e000000L9joAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9612",
+                  "name": "Irrigation Line",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LpBJAA0",
+                    "waterSystemId": 9612,
+                    "siteSfId": "a0c8e000000L9joAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9614",
+                  "name": "Boiler Makeup — Building C",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LpB7AAK",
+                    "waterSystemId": 9614,
+                    "siteSfId": "a0c8e000000L9joAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-9611",
+                  "name": "Cooling Tower Blowdown — Zone 1",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LpBPAA0",
+                    "waterSystemId": 9611,
+                    "siteSfId": "a0c8e000000L9joAAC",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "Impeller",
+                    "country": "United States"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "a0cQ2000000GnzFIAS",
+              "name": "30 Dogwood Dr",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 2,
+              "site": {
+                "flowlessSiteNumber": "3200",
+                "siteStatus": "Non Active",
+                "typeOfSite": "Operational",
+                "country": "United States",
+                "accountSfId": "0014H000049GnStQAK"
+              },
+              "children": [
+                {
+                  "id": "ws-15059",
+                  "name": "Domestic Cold Water — Building F",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ2000000xRXHIA2",
+                    "waterSystemId": 15059,
+                    "siteSfId": "a0cQ2000000GnzFIAS",
+                    "accountSfId": "0014H000049GnStQAK",
+                    "active": false,
+                    "valveType": null,
+                    "meterType": null,
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-15058",
+                  "name": "Irrigation Line",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ2000000xSoHIAU",
+                    "waterSystemId": 15058,
+                    "siteSfId": "a0cQ2000000GnzFIAS",
+                    "accountSfId": "0014H000049GnStQAK",
+                    "active": false,
+                    "valveType": null,
+                    "meterType": null,
+                    "country": "United States"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "siteless-0015800001fvUFkAAM-united-states",
+              "name": "Unassigned Systems",
+              "type": "level2",
+              "levelName": "Site",
+              "count": 3,
+              "children": [
+                {
+                  "id": "ws-9581",
+                  "name": "Fire Line — Wing E",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02i8e000000LpB9AAK",
+                    "waterSystemId": 9581,
+                    "siteSfId": "a0c8e000000L9jUAAS",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": "Plastic",
+                    "meterType": "EMAG",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-14155",
+                  "name": "Basement Supply — Floor 24",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ2000002t2srIAA",
+                    "waterSystemId": 14155,
+                    "siteSfId": "a0c4H00000VgiEUQAZ",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": "Ultrasonic",
+                    "country": "United States"
+                  }
+                },
+                {
+                  "id": "ws-14160",
+                  "name": "Main Supply",
+                  "type": "system",
+                  "system": {
+                    "salesforceId": "02iQ2000002X7CrIAK",
+                    "waterSystemId": 14160,
+                    "siteSfId": "a0c4H00000VgiEUQAZ",
+                    "accountSfId": "0015800001fvUFkAAM",
+                    "active": true,
+                    "valveType": null,
+                    "meterType": "Ultrasonic",
+                    "country": "United States"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "esrt-residential",
+          "name": "Residential",
+          "type": "level2",
+          "levelName": "Division",
+          "count": 5,
+          "children": [
+            {
+              "id": "esrt-bldg-A",
+              "name": "Building A",
+              "type": "level3",
+              "levelName": "Building",
+              "address": "350 5th Avenue, New York, NY 10118",
+              "count": 10,
+              "children": [
+                {
+                  "id": "esrt-bldg-A-apt-1",
+                  "name": "Apartment 1",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-A-apt-2",
+                  "name": "Apartment 2",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-A-apt-3",
+                  "name": "Apartment 3",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-A-apt-4",
+                  "name": "Apartment 4",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-A-apt-5",
+                  "name": "Apartment 5",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-A-apt-6",
+                  "name": "Apartment 6",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-A-apt-7",
+                  "name": "Apartment 7",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-A-apt-8",
+                  "name": "Apartment 8",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-A-apt-9",
+                  "name": "Apartment 9",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-A-apt-10",
+                  "name": "Apartment 10",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                }
+              ]
+            },
+            {
+              "id": "esrt-bldg-B",
+              "name": "Building B",
+              "type": "level3",
+              "levelName": "Building",
+              "address": "20 West 34th Street, New York, NY 10001",
+              "count": 10,
+              "children": [
+                {
+                  "id": "esrt-bldg-B-apt-1",
+                  "name": "Apartment 1",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-B-apt-2",
+                  "name": "Apartment 2",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-B-apt-3",
+                  "name": "Apartment 3",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-B-apt-4",
+                  "name": "Apartment 4",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-B-apt-5",
+                  "name": "Apartment 5",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-B-apt-6",
+                  "name": "Apartment 6",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-B-apt-7",
+                  "name": "Apartment 7",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-B-apt-8",
+                  "name": "Apartment 8",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-B-apt-9",
+                  "name": "Apartment 9",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-B-apt-10",
+                  "name": "Apartment 10",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                }
+              ]
+            },
+            {
+              "id": "esrt-bldg-C",
+              "name": "Building C",
+              "type": "level3",
+              "levelName": "Building",
+              "address": "1 Bryant Park, New York, NY 10036",
+              "count": 10,
+              "children": [
+                {
+                  "id": "esrt-bldg-C-apt-1",
+                  "name": "Apartment 1",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-C-apt-2",
+                  "name": "Apartment 2",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-C-apt-3",
+                  "name": "Apartment 3",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-C-apt-4",
+                  "name": "Apartment 4",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-C-apt-5",
+                  "name": "Apartment 5",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-C-apt-6",
+                  "name": "Apartment 6",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-C-apt-7",
+                  "name": "Apartment 7",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-C-apt-8",
+                  "name": "Apartment 8",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-C-apt-9",
+                  "name": "Apartment 9",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-C-apt-10",
+                  "name": "Apartment 10",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                }
+              ]
+            },
+            {
+              "id": "esrt-bldg-D",
+              "name": "Building D",
+              "type": "level3",
+              "levelName": "Building",
+              "address": "11 Madison Avenue, New York, NY 10010",
+              "count": 10,
+              "children": [
+                {
+                  "id": "esrt-bldg-D-apt-1",
+                  "name": "Apartment 1",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-D-apt-2",
+                  "name": "Apartment 2",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-D-apt-3",
+                  "name": "Apartment 3",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-D-apt-4",
+                  "name": "Apartment 4",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-D-apt-5",
+                  "name": "Apartment 5",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-D-apt-6",
+                  "name": "Apartment 6",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-D-apt-7",
+                  "name": "Apartment 7",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-D-apt-8",
+                  "name": "Apartment 8",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-D-apt-9",
+                  "name": "Apartment 9",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-D-apt-10",
+                  "name": "Apartment 10",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                }
+              ]
+            },
+            {
+              "id": "esrt-bldg-E",
+              "name": "Building E",
+              "type": "level3",
+              "levelName": "Building",
+              "address": "200 Park Avenue, New York, NY 10166",
+              "count": 10,
+              "children": [
+                {
+                  "id": "esrt-bldg-E-apt-1",
+                  "name": "Apartment 1",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-E-apt-2",
+                  "name": "Apartment 2",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-E-apt-3",
+                  "name": "Apartment 3",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-E-apt-4",
+                  "name": "Apartment 4",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-E-apt-5",
+                  "name": "Apartment 5",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-E-apt-6",
+                  "name": "Apartment 6",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-E-apt-7",
+                  "name": "Apartment 7",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-E-apt-8",
+                  "name": "Apartment 8",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-E-apt-9",
+                  "name": "Apartment 9",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                },
+                {
+                  "id": "esrt-bldg-E-apt-10",
+                  "name": "Apartment 10",
+                  "type": "system",
+                  "system": {
+                    "residential": true,
+                    "salesforceId": null,
+                    "waterSystemId": null
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
