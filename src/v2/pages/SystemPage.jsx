@@ -5,7 +5,6 @@
  */
 
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -95,7 +94,9 @@ function ErrorPill() {
 
 // ── Screen ─────────────────────────────────────────────────────────────────
 export default function SystemPageV2() {
-  const { systemId } = useParams()
+  // Data on this page is still mock-hardcoded (SYS above), so the route param
+  // is not consumed yet. WintSidebar reads the current system off the route
+  // itself, so it no longer needs it passed down either.
   const [tab, setTab] = useState('overview')
   const [drawerOpen, setDrawerOpen] = useState(false)
 

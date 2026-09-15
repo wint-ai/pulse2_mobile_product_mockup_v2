@@ -6,7 +6,6 @@
  */
 
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Card } from '@/components/ui/card'
 import {
   Menu, Headphones, ChevronDown, ChevronUp, Waves, Wifi, WifiOff,

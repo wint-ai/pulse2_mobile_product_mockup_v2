@@ -399,6 +399,7 @@ export default function WintSidebar({ open, onClose }) {
                   expandedIds={openIds}
                   alertingIds={alertingIds}
                   favourites={favourites}
+                  currentSystemId={currentSystemId}
                   onActivate={activate}
                   onToggleExpanded={toggleExpanded}
                   onToggleFavourite={toggleFavourite}
@@ -453,7 +454,7 @@ export default function WintSidebar({ open, onClose }) {
 // ── Tree ───────────────────────────────────────────────────────────────────
 
 function TreeNode({
-  node, depth, expandedIds, alertingIds, favourites,
+  node, depth, expandedIds, alertingIds, favourites, currentSystemId,
   onActivate, onToggleExpanded, onToggleFavourite,
 }) {
   const isOpen = expandedIds.has(node.id)
@@ -489,6 +490,7 @@ function TreeNode({
               expandedIds={expandedIds}
               alertingIds={alertingIds}
               favourites={favourites}
+              currentSystemId={currentSystemId}
               onActivate={onActivate}
               onToggleExpanded={onToggleExpanded}
               onToggleFavourite={onToggleFavourite}
