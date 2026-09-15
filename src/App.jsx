@@ -65,6 +65,8 @@ function AppRoutes() {
         {/* Home variants */}
         <Route path="/" element={<HomeAccountOverview />} />
         <Route path="/v1/" element={<HomeUnified />} />{/* v1 kept for reference */}
+        {/* Figma "Location opt b" (198328:88654) — same screen, scoped title. */}
+        <Route path="/location/:locationName" element={<HomeAccountOverview />} />
         <Route path="/home-clear" element={<HomeClear />} />
         <Route path="/tenant" element={<TenantHome />} />
         <Route path="/home-multi" element={<HomeMultiAccount />} />

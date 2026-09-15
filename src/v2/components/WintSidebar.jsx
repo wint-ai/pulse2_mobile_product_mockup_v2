@@ -13,10 +13,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  BellDot, Briefcase, Building2, ChevronDown, ChevronRight, ChevronsUpDown,
-  ClipboardList, Focus, FoldVertical, MapPin, Search, Star, Users, X,
+  BellDot, Building2, ChevronRight, ChevronsUpDown,
+  ClipboardList, Focus, FoldVertical, Star, Users, X,
 } from 'lucide-react'
-import { Funnel } from '@/v2/icons'
+// The frame specifies these four explicitly — Lucide lookalikes read noticeably
+// different at 14px, which is why the first pass looked off.
+import {
+  Funnel, Briefcase08, PinLocation03, Search01, ArrowDropDownLine,
+} from '@/v2/icons'
 import { badgeVariants } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
@@ -36,7 +40,11 @@ import { computeSystemHealth } from '@/utils/systemHealth'
 // ── Tokens sampled off the Figma frame ─────────────────────────────────────
 // The panel is a cool blue-grey wash, lightest at the top-left and deepest
 // just above the footer — a flat fill reads noticeably flatter than the frame.
-const PANEL_BG = 'linear-gradient(168deg,#F1F4FA 0%,#E9EFFC 52%,#E3EDFE 82%,#ECF1FA 100%)'
+// Measured, not sampled: the design context for this subtree contains no
+// gradient at all. Its only fills are var(--card,white) on the active row,
+// #f0f4fb on the count badge and #e2e8f0 on the rules. The panel itself is a
+// flat near-white wash.
+const PANEL_BG = '#F7F9FC'
 const DIVIDER = '#E2E8F0'
 const ALERT_RED = '#E7000B'
 const BRAND = '#0B95F8'
@@ -170,13 +178,14 @@ function collectMatchPath(nodes, query, into) {
  * static across renders.
  */
 function NodeIcon({ node, className }) {
-  if (node.kind === 'system') return <Focus size={16} className={className} />
+  // 14px, not 16 — the frame sizes every row glyph at 14.
+  if (node.kind === 'system') return <Focus size={14} className={className} />
   if (node.kind === 'account') {
     return node.levelType === 'Sub-account'
-      ? <Building2 size={16} className={className} />
-      : <Briefcase size={16} className={className} style={{ color: BRAND }} />
+      ? <Building2 size={14} className={className} />
+      : <Briefcase08 size={14} className={className} style={{ color: BRAND }} />
   }
-  return <MapPin size={16} className={className} />
+  return <PinLocation03 size={14} className={className} />
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -350,7 +359,7 @@ export default function WintSidebar({ open, onClose }) {
               searchOpen ? 'bg-white/70 text-slate-700' : 'text-slate-500',
             )}
           >
-            <Search size={18} />
+            <Search01 size={18} />
           </button>
           {/* INERT: the filter sheet has no PRD and no designed contents, so
               there is nothing honest to open. Rendered for parity only. */}
@@ -515,13 +524,15 @@ function TreeRow({
       // takes it when it is the one currently on screen (v1 parity).
       isActive={(isAccount && isOpen) || current}
       className={cn(
-        'h-9 w-full gap-2.5 rounded-lg px-2 text-[15px] font-normal text-slate-800',
+        // Measured off 198378:74031: h-36 gap-8 px-6 radius-8 text-14/500 #0a0a0a.
+        'h-9 w-full gap-2 rounded-[8px] px-1.5 text-[14px] font-medium leading-[14px]',
+        'text-[#0a0a0a]',
         // sidebarMenuButtonVariants ships hover:/active:text-sidebar-accent-foreground,
         // which outranks a bare text-slate-800 on specificity — every row flashed
         // blue on hover, and on touch that fires on every single tap. Pin the
         // colour in those states too.
-        'hover:bg-white/60 hover:text-slate-800 active:bg-white/80 active:text-slate-800',
-        'data-[active=true]:bg-white data-[active=true]:font-semibold data-[active=true]:text-slate-900',
+        'hover:bg-white/60 hover:text-[#0a0a0a] active:bg-white/80 active:text-[#0a0a0a]',
+        'data-[active=true]:bg-[var(--card,white)] data-[active=true]:font-medium data-[active=true]:text-[#0a0a0a]',
         'data-[active=true]:shadow-[0_1px_3px_rgba(15,23,42,0.08)] data-[active=true]:hover:bg-white',
         'data-[active=true]:hover:text-slate-900',
       )}
@@ -587,7 +598,7 @@ function TreeRow({
           >
             {node.systems.length}
             {isOpen
-              ? <ChevronDown size={13} className="text-slate-400" />
+              ? <ArrowDropDownLine size={13} className="text-slate-400" />
               : <ChevronRight size={13} className="text-slate-400" />}
           </button>
         )}

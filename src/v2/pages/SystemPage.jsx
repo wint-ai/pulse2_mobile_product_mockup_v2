@@ -15,6 +15,7 @@ import {
 import TabBar from '@/components/TabBar'
 import WintSidebar from '@/v2/components/WintSidebar'
 import WaterConsumptionCard from '@/v2/components/WaterConsumptionCard'
+import InsightsCard from '@/v2/components/InsightsCard'
 
 // ── Wint brand tokens (arbitrary Tailwind values) ─────────────────────────
 const BRAND = '#0B95F8'
@@ -172,7 +173,7 @@ function OverviewBody() {
       <OpenLoopCard />
       <SensorsCard />
       <WaterConsumptionCard />
-      <InsightsCard />
+      <InsightsCard rows={SYS.insights} />
       <EventsTimelineCard />
       <ActionPolicyCard />
     </>
@@ -330,50 +331,6 @@ function Stat({ top, bot }) {
       <div className="text-lg font-semibold text-slate-900 leading-tight">{top}</div>
       <div className="text-[11px] text-slate-500 mt-0.5">{bot}</div>
     </div>
-  )
-}
-
-function InsightsCard() {
-  return (
-    <Card>
-      <div className="flex items-center justify-between px-4">
-        <div className="text-base font-semibold text-slate-900">Insights</div>
-        <a className="text-xs font-medium hover:underline cursor-pointer" style={{ color: BRAND }}>View all</a>
-      </div>
-      <div>
-        {SYS.insights.map((row, i) => (
-          <div key={i} className="mx-4 py-3 border-t border-slate-100 first:border-t-0 flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-sm">
-                <span className="font-semibold text-slate-900 truncate">{row.title}</span>
-                <span className="text-slate-500 text-xs truncate">{row.addr}</span>
-              </div>
-              <div className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
-                <Droplet size={11} className="opacity-60" /> {row.kind}
-              </div>
-            </div>
-            <div className="w-14 h-8 rounded flex items-center justify-center" style={{ background: 'rgba(11,149,248,0.08)' }}>
-              <Sparkline positive={row.deltaTone === 'good'} />
-            </div>
-            <div className="text-right min-w-16">
-              {row.delta && (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
-                  style={row.deltaTone === 'good'
-                    ? { background: '#DCFCE7', color: '#166534' }
-                    : { background: '#FEE2E2', color: '#991B1B' }
-                  }
-                >
-                  {row.deltaTone === 'good' ? <TrendingDown size={11} /> : <TrendingUp size={11} />}
-                  {row.delta}
-                </span>
-              )}
-              <div className="text-[11px] text-slate-500 mt-0.5">{row.value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
   )
 }
 
