@@ -10,8 +10,13 @@
  * never mounted TabBar. Three functions died silently on the default routes and
  * nobody noticed until a user opened the app.
  *
- * A screen is any file under src/v2/pages/. Components are exempt — they do not
- * own the shell.
+ * A screen is any file under src/v2/pages/. Components are exempt and this must
+ * stay pointed at pages only — not because components are unimportant, but
+ * because the rules mean different things there. A component taking
+ * `events = MOCK_EVENTS` as a prop default is CORRECT: it renders standalone
+ * and takes real data from its parent. A screen doing the same is the Floor 26
+ * bug, because a screen has no parent to hand it the route's data. Running this
+ * over src/v2/components reports 33 violations, all of them false.
  *
  * usage: node scripts/check-shell-contract.mjs [dir]   (default: src/v2/pages)
  * exit 1 on any violation.
@@ -77,6 +82,23 @@ const RULES = [
     id: 'no-expiring-assets',
     test: src => !/figma\.com\/api\/mcp\/asset/.test(src),
     msg: 'references a figma.com asset URL at runtime — those expire in about 7 days; inline the SVG instead',
+  },
+  {
+    id: 'reads-real-data',
+    // The worst failure in this codebase was not a dead control — it was a
+    // screen that looked perfect and showed the wrong building. SystemPage.jsx
+    // rendered a `const SYS` mock with no useParams and no @/data import at
+    // all, so every system in the app was "Floor 26 at North Quarter Ltd."
+    // A dead burger announces itself; wrong-but-plausible data does not.
+    //
+    // A mock is fine as a default so a component renders standalone. A SCREEN
+    // that never reads the dataset is not.
+    test: src => {
+      const hasMock = /const\s+(?:SYS|MOCK|MOCK_[A-Z_]+)\s*=/.test(src)
+      const readsData = /from\s+['"]@\/data\//.test(src)
+      return readsData || !hasMock
+    },
+    msg: 'renders a hardcoded mock and imports nothing from @/data — the screen will show the same content for every route. Read the dataset; keep the mock only as a default',
   },
 ]
 
