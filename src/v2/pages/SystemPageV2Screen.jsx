@@ -39,7 +39,7 @@ import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import { Menu10, CustomerSupport } from '@/v2/icons'
 import { getSystemById } from '@/data/systems'
-import { getConsumption } from '@/data/consumption'
+import { getConsumption, getConsumptionWindow, getConsumptionWindowLabel } from '@/data/consumption'
 import { getSystemInsights, getSystemTopology, getActivePolicy } from '@/data/systemDetails'
 
 /* ── Mock data ──────────────────────────────────────────────────────────────
@@ -453,6 +453,25 @@ export default function SystemPageV2Screen() {
 
   const [tab, setTab] = useState('overview')
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  /* The consumption card is presentational: uncontrolled it has one hardcoded
+     window and blanks the moment the period or month is steered. The host owns
+     the scope so every period plots real data. 'M' = a month of daily bars,
+     which is the window the card already drew. */
+  const [period, setPeriod] = useState('M')
+  const [windowOffset, setWindowOffset] = useState(0)
+  // Hoisted out of the dependency arrays: optional chaining in a dep list
+  // defeats the React Compiler's memoization check.
+  const chartSystemId = system ? system.id : null
+  const chartSystemName = system ? system.title : ''
+  const consumptionSeries = useMemo(
+    () => (chartSystemId ? getConsumptionWindow(chartSystemId, chartSystemName, period, windowOffset) : []),
+    [chartSystemId, chartSystemName, period, windowOffset],
+  )
+  const consumptionLabel = useMemo(
+    () => (chartSystemId ? getConsumptionWindowLabel(chartSystemId, chartSystemName, period, windowOffset) : ''),
+    [chartSystemId, chartSystemName, period, windowOffset],
+  )
   const carouselRef = useRef(null)
 
   /* The frame draws two 308px alert cards side by side in a 339px column, i.e.
@@ -626,7 +645,14 @@ export default function SystemPageV2Screen() {
                     className="content-stretch flex flex-col items-center min-w-[288px] overflow-clip relative shrink-0 w-full"
                     data-node-id="198378:74362"
                   >
-                    <WaterConsumptionCardV2 className="w-full" />
+                    <WaterConsumptionCardV2
+                      className="w-full"
+                      data={consumptionSeries}
+                      period={period}
+                      onPeriodChange={setPeriod}
+                      monthLabel={consumptionLabel}
+                      onMonthChange={delta => setWindowOffset(o => Math.max(0, o - delta))}
+                    />
                   </div>
 
                   {/* Events Timeline 198378:74533 */}

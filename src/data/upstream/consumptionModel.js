@@ -157,3 +157,74 @@ export function getSystemConsumption(systemId, system, days = 730) {
 
   return { isLoop, topology, monitoring, daily };
 }
+
+// ── Bucketing ────────────────────────────────────────────────────────────────
+/**
+ * Bucket a profile for a chart granularity. Upstream: bucketConsumption.
+ *
+ * Buckets match the card's own Y / M / D / H selector:
+ *   Y = 12 months · M = days of a month · D = 24 hours of a day ·
+ *   H = 5-minute slices of an hour. `pageOffset` steps back one window.
+ *
+ * This is what lets the consumption card serve every period from one profile.
+ * Without it the card had a single hardcoded window — June 2026 daily — and
+ * deliberately rendered its empty state the moment you touched the period
+ * segments or stepped the month, because it had nothing else to show.
+ */
+export function bucketConsumption(profile, granularity, pageOffset = 0) {
+  const rows = profile.daily.map(p => ({ ...p, d: new Date(p.date) }));
+  const mk = (label, date, supply, ret) => ({
+    label,
+    date,
+    supply: Math.round(supply),
+    ...(ret != null ? { return: Math.round(ret), delta: Math.round(supply - ret) } : {}),
+  });
+
+  if (granularity === 'Y') {
+    const months = [];
+    for (const r of rows) {
+      const last = months[months.length - 1];
+      const sameMonth = last && last.date.getMonth() === r.d.getMonth() && last.date.getFullYear() === r.d.getFullYear();
+      if (sameMonth) {
+        last.supply += r.liters;
+        if (r.returnLiters != null) last.return = (last.return ?? 0) + r.returnLiters;
+      } else {
+        months.push(mk(r.d.toLocaleString('en-US', { month: 'short' }), r.d, r.liters, r.returnLiters));
+      }
+    }
+    months.forEach(m => { if (m.return != null) m.delta = m.supply - m.return; });
+    const end = months.length - 12 * pageOffset;
+    return months.slice(Math.max(0, end - 12), end);
+  }
+
+  if (granularity === 'M') {
+    const end = rows.length - 30 * pageOffset;
+    return rows.slice(Math.max(0, end - 30), end).map(r =>
+      mk(r.d.toLocaleString('en-US', { month: 'short', day: 'numeric' }), r.d, r.liters, r.returnLiters));
+  }
+
+  // Intraday shapes derive from the day's total, so they stay consistent.
+  const HOURLY = [2, 1, 1, 1, 1, 2, 3, 5, 6, 6, 5, 5, 4, 4, 4, 5, 6, 7, 7, 6, 5, 4, 3, 2];
+  const hSum = HOURLY.reduce((a, b) => a + b, 0);
+
+  if (granularity === 'D') {
+    const idx = Math.max(0, rows.length - 1 - pageOffset);
+    const day = rows[idx];
+    if (!day) return [];
+    return HOURLY.map((f, h) =>
+      mk(`${h}:00`, day.d, (day.liters * f) / hSum,
+        day.returnLiters != null ? (day.returnLiters * f) / hSum : undefined));
+  }
+
+  // H — one hour split into 5-minute slices.
+  const day = rows[rows.length - 1];
+  if (!day) return [];
+  const hour = Math.max(0, Math.min(23, 18 - pageOffset));
+  const hourSupply = (day.liters * HOURLY[hour]) / hSum;
+  const hourReturn = day.returnLiters != null ? (day.returnLiters * HOURLY[hour]) / hSum : undefined;
+  const MIN = [3, 4, 5, 4, 3, 4, 5, 6, 5, 4, 4, 5];
+  const mSum = MIN.reduce((a, b) => a + b, 0);
+  return MIN.map((f, i) =>
+    mk(`:${String(i * 5).padStart(2, '0')}`, day.d, (hourSupply * f) / mSum,
+      hourReturn != null ? (hourReturn * f) / mSum : undefined));
+}

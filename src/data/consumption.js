@@ -14,7 +14,7 @@
  * system pages read `.daily`.
  */
 import { SYSTEMS } from './systems';
-import { getSystemConsumption } from './upstream/consumptionModel';
+import { getSystemConsumption, bucketConsumption } from './upstream/consumptionModel';
 
 const byId = new Map(SYSTEMS.map(s => [s.id, s]));
 
@@ -49,4 +49,44 @@ export function getConsumption(systemId, systemName) {
     topology: profile.topology,
     monitoring: profile.monitoring,
   };
+}
+
+/**
+ * A chart window for one system, in the shape WaterConsumptionCardV2 plots.
+ *
+ * Granularity uses the WEB's meaning of the selector, which is the period you
+ * are looking AT, not the width of a bar:
+ *   Y  12 months        M  30 days of a month
+ *   D  24 hours of a day   H  5-minute slices of an hour
+ *
+ * The card ships 'D' as its default with 30 day-numbered bars, i.e. it treats
+ * 'D' as "daily bars". That is the one place it disagrees with the web, so the
+ * pages open on 'M' — a month of daily bars, which is what the card was already
+ * drawing and what the comp shows.
+ *
+ * `offset` steps back one whole window, so the month stepper works for real
+ * instead of replaying the same bars under a different heading.
+ */
+export function getConsumptionWindow(systemId, systemName, granularity = 'M', offset = 0) {
+  const system = byId.get(systemId) || { id: systemId, name: systemName || systemId };
+  const profile = getSystemConsumption(systemId, system, 730);
+  return bucketConsumption(profile, granularity, offset).map(b => ({
+    day: b.label,
+    litres: b.supply,
+    // Loops carry a return line; the card ignores these unless it plots them.
+    returnLitres: b.return,
+    deltaLitres: b.delta,
+  }));
+}
+
+/** Label for the window the stepper is currently on. */
+export function getConsumptionWindowLabel(systemId, systemName, granularity = 'M', offset = 0) {
+  const system = byId.get(systemId) || { id: systemId, name: systemName || systemId };
+  const profile = getSystemConsumption(systemId, system, 730);
+  const buckets = bucketConsumption(profile, granularity, offset);
+  if (!buckets.length) return '';
+  const d = buckets[buckets.length - 1].date;
+  if (granularity === 'Y') return String(d.getFullYear());
+  if (granularity === 'M') return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }

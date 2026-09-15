@@ -70,7 +70,7 @@ import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import { CaretDown, CustomerSupport, Menu10 } from '@/v2/icons'
 import { SYSTEMS, computeWidgets, computeKPIs } from '@/data/systems'
-import { getConsumption } from '@/data/consumption'
+import { getConsumption, getConsumptionWindow, getConsumptionWindowLabel } from '@/data/consumption'
 import { getInsightRows, insightValueLabel, INSIGHT_KIND } from '@/data/upstream/insightsModel'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
@@ -469,6 +469,25 @@ export default function HomeAllAccounts({ expanded = false }) {
   // the figures come from the dataset, and a screen must never be the thing
   // holding data the card only displays.
   const [topUsageDays, setTopUsageDays] = useState(30)
+  /* Same reason as the system page: the card blanks when steered unless the
+     host owns the scope. Home has no single system, so it plots the heaviest
+     one — the card is an account-level summary and that is the line that
+     dominates it. */
+  const [period, setPeriod] = useState('M')
+  const [windowOffset, setWindowOffset] = useState(0)
+  const consumptionSubject = useMemo(() => {
+    const ranked = (SYSTEMS ?? []).map(s => ({ s, l: getConsumption(s.id, s.name).mtd }))
+    ranked.sort((a, b) => b.l - a.l)
+    return ranked[0]?.s ?? null
+  }, [])
+  const consumptionSeries = useMemo(
+    () => (consumptionSubject ? getConsumptionWindow(consumptionSubject.id, consumptionSubject.name, period, windowOffset) : []),
+    [consumptionSubject, period, windowOffset],
+  )
+  const consumptionLabel = useMemo(
+    () => (consumptionSubject ? getConsumptionWindowLabel(consumptionSubject.id, consumptionSubject.name, period, windowOffset) : ''),
+    [consumptionSubject, period, windowOffset],
+  )
   const [tab, setTab] = useState('overview')
   const [drawerOpen, setDrawerOpen] = useState(false)
   // null | 'water' | 'alerts' — which dataset the full-list overlay is showing.
@@ -510,7 +529,13 @@ export default function HomeAllAccounts({ expanded = false }) {
       {/* 198314:73649 — the layer is named "Balance", a leftover shadcn
           template name; the card is Water consumption. It ships its own traced
           series and derives its own headline figures, so nothing is passed. */}
-      <WaterConsumptionCardV2 />
+      <WaterConsumptionCardV2
+        data={consumptionSeries}
+        period={period}
+        onPeriodChange={setPeriod}
+        monthLabel={consumptionLabel}
+        onMonthChange={delta => setWindowOffset(o => Math.max(0, o - delta))}
+      />
 
       {/* 198314:73650 */}
       <TopUsageCard
