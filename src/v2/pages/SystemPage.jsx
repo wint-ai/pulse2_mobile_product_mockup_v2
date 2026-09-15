@@ -13,7 +13,7 @@ import {
   Wifi, MoreHorizontal, Power, Home as HomeIcon,
 } from 'lucide-react'
 import TabBar from '@/components/TabBar'
-import WintSidebar from '@/v2/components/WintSidebar'
+import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import WaterConsumptionCard from '@/v2/components/WaterConsumptionCard'
 import InsightsCard from '@/v2/components/InsightsCard'
 
@@ -149,7 +149,7 @@ export default function SystemPageV2() {
 
       {/* v2 drawer: navigation only, no global scope, so it takes no
           currentSystemId / onSelectLocation contract the way v1's did. */}
-      <WintSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       <TabBar activeTab="systems" />
     </div>

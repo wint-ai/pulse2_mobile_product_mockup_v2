@@ -13,7 +13,7 @@ import {
   BellOff, PowerOff, Timer, Droplet, TrendingDown,
 } from 'lucide-react'
 import TabBar from '@/components/TabBar'
-import WintSidebar from '@/v2/components/WintSidebar'
+import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import EventOverlay from '@/v2/components/EventOverlay'
 import WaterConsumptionCard from '@/v2/components/WaterConsumptionCard'
 import InsightsCard from '@/v2/components/InsightsCard'
@@ -142,7 +142,7 @@ export default function HomeAccountOverview() {
 
       {/* v2 drawer: navigation only, no global scope. v1 screens still mount
           NavigationDrawer and keep their scope behaviour — the two coexist. */}
-      <WintSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       {/* Figma 198328:89685 / :90254 are these same overlays in location scope:
           a breadcrumb instead of a bare close, and rows drop the system name and

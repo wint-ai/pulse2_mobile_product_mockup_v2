@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 import { useUserContext } from '@/context/UserContext'
-import { getAccountById, getChildAccounts } from '@/data/accounts'
+import { getAccountById, getChildAccounts, getRootAccounts } from '@/data/accounts'
 import { getHierarchyForAccount } from '@/data/hierarchy'
 import { isIgnored } from '@/data/ignoredIncidents'
 import { DEFAULT_PERSONA } from '@/data/personas'
@@ -93,7 +93,19 @@ function buildNode(node, systemById) {
   }
 
   const children = (node.children || []).map(c => buildNode(c, systemById)).filter(Boolean)
-  if (children.length === 0) return null
+
+  // A location is kept even when it currently holds no visible system.
+  //
+  // This used to `return null` on an empty branch, which silently collapsed the
+  // whole tree the moment the dataset had locations but no systems — exactly
+  // what happens mid-migration, and it left the drawer showing one bare account
+  // row with no navigation at all. This drawer navigates LOCATIONS; systems are
+  // leaves and only drive counts and the alert dot. An empty location is a real
+  // place the user can still go to, so it stays.
+  //
+  // The one thing genuinely worth pruning is a location with no children AND no
+  // name to show, which is a malformed node rather than an empty place.
+  if (children.length === 0 && !node.name) return null
 
   const systems = children.flatMap(c => c.systems)
   const isLeafLocation = children.every(c => c.kind === 'system')
@@ -105,8 +117,10 @@ function buildNode(node, systemById) {
     children,
     systems,
     // /l4/:l4id keys off the SYSTEM's l4 slug, which is not reliably the same
-    // string as the hierarchy node id ('sc-towerone' vs 'towerone'), so read it
-    // off a system rather than off the node.
+    // string as the hierarchy node id, so read it off a system rather than off
+    // the node. Deliberately id-scheme agnostic: this holds whatever the
+    // dataset numbers things as, which matters while the fixtures are being
+    // migrated onto the web sandbox's MRG ids.
     l4Id: isLeafLocation ? (systems[0]?.l4 ?? null) : null,
   }
 }
@@ -123,15 +137,34 @@ function buildTree(systems) {
     byRoot.get(rootId).push(sys)
   }
 
+  // Roots were derived ONLY from systems, so a dataset with accounts but no
+  // systems produced no roots and the drawer had nothing to navigate. Accounts
+  // exist independently of whether a system has been provisioned in them yet —
+  // seed the roots from the account list too, and let systems refine the order.
+  for (const acct of getRootAccounts()) {
+    if (!byRoot.has(acct.id)) { byRoot.set(acct.id, []); order.push(acct.id) }
+  }
+
   return order.map(rootId => {
     const account = getAccountById(rootId)
-    const subAccounts = getChildAccounts(rootId)
-    const sources = subAccounts.length > 0
-      ? subAccounts.map(sub => ({
-          id: sub.id, name: sub.name, type: 'sub-account', levelType: 'Sub-account',
-          children: getHierarchyForAccount(sub.id),
-        }))
-      : getHierarchyForAccount(rootId)
+    // An account can have BOTH child accounts and a location tree of its own.
+    // This was an either/or ternary, which meant a root with child accounts had
+    // its own locations silently dropped — under MRG (16 child accounts plus a
+    // United States tree) that removed the entire location hierarchy and left
+    // the drawer with nothing to navigate. Take both.
+    //
+    // A sub-account that owns neither systems nor locations is noise rather
+    // than a place, so it is dropped here. That is different from an empty
+    // LOCATION, which buildNode deliberately keeps: a location with no system
+    // provisioned yet is still somewhere the user can go.
+    const subAccountNodes = getChildAccounts(rootId)
+      .map(sub => ({
+        id: sub.id, name: sub.name, type: 'sub-account', levelType: 'Sub-account',
+        children: getHierarchyForAccount(sub.id),
+      }))
+      .filter(n => (n.children || []).length > 0)
+
+    const sources = [...subAccountNodes, ...(getHierarchyForAccount(rootId) || [])]
 
     const children = sources.map(n => buildNode(n, systemById)).filter(Boolean)
     return {
@@ -142,7 +175,9 @@ function buildTree(systems) {
       children,
       // Fall back to the raw bucket for an account whose hierarchy is missing,
       // so the row still shows a truthful system count.
-      systems: children.length > 0 ? children.flatMap(c => c.systems) : byRoot.get(rootId),
+      // `?? []` matters now that roots can be seeded from the account list:
+      // such a root has no bucket, and the sort below reads .length.
+      systems: children.length > 0 ? children.flatMap(c => c.systems) : (byRoot.get(rootId) ?? []),
       l4Id: null,
     }
   }).sort((a, b) => b.systems.length - a.systems.length)
@@ -210,9 +245,27 @@ export default function WintSidebar({ open, onClose }) {
     [systems],
   )
 
-  // The biggest account starts open — the frame shows one expanded root, and
-  // opening onto a wall of collapsed rows wastes the user's first tap.
-  const [expandedIds, setExpandedIds] = useState(() => new Set(tree[0] ? [tree[0].id] : []))
+  // Open down to the first level that offers a choice.
+  //
+  // Seeding only the root looked fine under the old fixtures, where the root
+  // had several children. MRG has exactly one (United States), so the drawer
+  // opened showing two rows and a wall of white — every real destination was
+  // two taps away. Descending through single-child chains costs the user
+  // nothing (there was no decision to make at those levels) and stops as soon
+  // as there is something to choose between, which is what the frame shows.
+  const [expandedIds, setExpandedIds] = useState(() => {
+    const open = new Set()
+    for (const root of tree) {
+      let node = root
+      while (node) {
+        open.add(node.id)
+        const kids = (node.children || []).filter(c => c.kind !== 'system')
+        if (kids.length !== 1) break
+        node = kids[0]
+      }
+    }
+    return open
+  })
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
   // The favourite Star is new state with no spec behind it. PERSISTENCE IS
