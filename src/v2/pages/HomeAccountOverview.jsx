@@ -12,6 +12,8 @@ import {
   Menu, Headphones, ChevronDown, ChevronUp, Waves, Wifi, WifiOff,
   BellOff, PowerOff, Timer, Droplet, TrendingDown,
 } from 'lucide-react'
+import NavigationDrawer from '@/components/NavigationDrawer'
+import TabBar from '@/components/TabBar'
 
 // ── Wint tokens ────────────────────────────────────────────────────────────
 const BRAND     = '#0B95F8'
@@ -53,12 +55,16 @@ export default function HomeAccountOverview() {
   // Demo state toggle: healthy = show empty state, otherwise alerts state
   const [healthy, setHealthy] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
+  // Phone.jsx is a fixed 393x852 frame with overflow:hidden, so this screen owns
+  // its scroll container: flex column, chrome shrink-0, body flex:1 +
+  // overflowY:auto + minHeight:0. `min-h-screen` here would just be clipped.
   return (
-    <div className="min-h-screen pb-8" style={{ background: PAGE_BG }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: PAGE_BG }}>
       {/* Top bar */}
-      <div className="sticky top-0 z-30 flex items-center justify-between px-4 pt-3 pb-2" style={{ background: HEADER_BG }}>
-        <button className="p-1 -ml-1 rounded-md" aria-label="Menu">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0" style={{ background: HEADER_BG }}>
+        <button className="p-1 -ml-1 rounded-md" aria-label="Menu" onClick={() => setDrawerOpen(true)}>
           <Menu size={20} className="text-slate-800" />
         </button>
         <button className="p-1 -mr-1 rounded-md" aria-label="Support">
@@ -67,7 +73,7 @@ export default function HomeAccountOverview() {
       </div>
 
       {/* Title + Tabs */}
-      <div className="px-4 pt-2 pb-3" style={{ background: HEADER_BG }}>
+      <div className="px-4 pt-2 pb-3 shrink-0" style={{ background: HEADER_BG }}>
         <h1 className="text-[28px] leading-8 font-semibold tracking-tight text-slate-900 mb-4">
           All Accounts
         </h1>
@@ -77,8 +83,8 @@ export default function HomeAccountOverview() {
         </div>
       </div>
 
-      {/* Body */}
-      <div className="px-4 pt-4 pb-4 flex flex-col gap-3">
+      {/* Body — the scrolling region */}
+      <div className="px-4 pt-4 pb-8 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {tab === 'overview' ? (
           <>
             {/* Demo controls — quick toggles so we can switch states in the mockup */}
@@ -100,6 +106,14 @@ export default function HomeAccountOverview() {
           <Card><div className="py-8 text-center text-sm text-slate-500">General Info tab (coming)</div></Card>
         )}
       </div>
+
+      <NavigationDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onSelectLocation={() => setDrawerOpen(false)}
+      />
+
+      <TabBar activeTab="home" />
     </div>
   )
 }
