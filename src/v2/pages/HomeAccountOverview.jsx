@@ -140,11 +140,16 @@ export default function HomeAccountOverview() {
           NavigationDrawer and keep their scope behaviour — the two coexist. */}
       <WintSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
+      {/* Figma 198328:89685 / :90254 are these same overlays in location scope:
+          a breadcrumb instead of a bare close, and rows drop the system name and
+          address because the scope already implies them. Driven by where this
+          screen is, not by a second component. */}
       <EventOverlay
         open={overlay !== null}
         onClose={() => setOverlay(null)}
         dataset={overlay ?? 'water'}
-        scope="account"
+        scope={locationName ? 'location' : 'account'}
+        scopeName={scopeTitle}
       />
 
       <TabBar activeTab="home" />
