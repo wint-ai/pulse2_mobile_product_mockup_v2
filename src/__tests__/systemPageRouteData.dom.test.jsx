@@ -13,10 +13,11 @@
  * actually render two different systems.
  */
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import { SYSTEMS } from '@/data/systems'
+import { getConsumptionSeries } from '@/data/consumptionSeries'
 
 function mountAt(systemId) {
   return render(
@@ -79,5 +80,47 @@ describe('SystemPageV2Screen reads the route', () => {
 
   it('still renders for an unknown id rather than crashing', () => {
     expect(() => mountAt('definitely-not-a-system-id')).not.toThrow()
+  })
+})
+
+/* The card's own formatter. Duplicated rather than exported: the point of this
+   test is that the SCREEN shows this system's litres, so it should fail if the
+   card's formatting changes under it rather than silently follow along. */
+function fmtL(n) {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1).replace(/\.0$/, '')}M`
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1).replace(/\.0$/, '')}K`
+  return String(Math.round(n))
+}
+
+describe('the consumption chart plots the routed system', () => {
+  it('shows this system\u2019s own total, not the traced comp series', () => {
+    for (const system of distinct) {
+      const { series } = getConsumptionSeries(system.id, system.name, 'D', 0)
+      const expected = fmtL(series.reduce((sum, p) => sum + p.litres, 0))
+
+      const { container, unmount } = mountAt(system.id)
+      const view = within(container)
+      // "Total L" is the card's first headline figure.
+      expect(view.getAllByText('Total L').length, system.id).toBeGreaterThan(0)
+      expect(view.getAllByText(expected).length, `${system.id} total ${expected}`).toBeGreaterThan(0)
+      unmount()
+    }
+  })
+
+  it('plots different numbers for different systems', () => {
+    const [a, b] = distinct
+    const totalFor = (s) =>
+      getConsumptionSeries(s.id, s.name, 'D', 0).series.reduce((sum, p) => sum + p.litres, 0)
+
+    // If this ever ties, the guard below is vacuous rather than wrong — say so.
+    expect(totalFor(a)).not.toBe(totalFor(b))
+  })
+
+  it('offers the scope control, and keeps it closed until asked', () => {
+    const { container, unmount } = mountAt(distinct[0].id)
+    const view = within(container)
+    expect(view.getAllByRole('button', { name: 'Consumption scope' }).length).toBe(1)
+    expect(view.queryByRole('dialog', { name: 'Consumption scope' })).toBeNull()
+    unmount()
   })
 })

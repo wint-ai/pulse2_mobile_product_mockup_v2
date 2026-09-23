@@ -40,6 +40,7 @@ import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import { Menu10, CustomerSupport } from '@/v2/icons'
 import { getSystemById } from '@/data/systems'
 import { getConsumption } from '@/data/consumption'
+import { getConsumptionSeries } from '@/data/consumptionSeries'
 import { getSystemInsights, getSystemTopology, getActivePolicy } from '@/data/systemDetails'
 
 /* ── Mock data ──────────────────────────────────────────────────────────────
@@ -455,6 +456,18 @@ export default function SystemPageV2Screen() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const carouselRef = useRef(null)
 
+  /* Consumption scope. The card draws the controls; the screen owns what they
+     mean, because only the screen knows which system is on the route.
+     Switching granularity resets the offset: "three months back" does not
+     carry over into a year view. */
+  const [period, setPeriod] = useState('D')
+  const [periodOffset, setPeriodOffset] = useState(0)
+
+  const consumptionView = useMemo(
+    () => getConsumptionSeries(system.id, system.title, period, periodOffset),
+    [system.id, system.title, period, periodOffset],
+  )
+
   /* The frame draws two 308px alert cards side by side in a 339px column, i.e.
      a swipe carousel with the second card peeking. The pager inside AlertCard
      reports 'paginate'; scrolling the row is the real behaviour behind it.
@@ -626,7 +639,19 @@ export default function SystemPageV2Screen() {
                     className="content-stretch flex flex-col items-center min-w-[288px] overflow-clip relative shrink-0 w-full"
                     data-node-id="198378:74362"
                   >
-                    <WaterConsumptionCardV2 className="w-full" />
+                    <WaterConsumptionCardV2
+                      className="w-full"
+                      data={consumptionView.series}
+                      period={period}
+                      monthLabel={consumptionView.label}
+                      onPeriodChange={(next) => {
+                        setPeriod(next)
+                        setPeriodOffset(0)
+                      }}
+                      onMonthChange={(delta) =>
+                        setPeriodOffset((offset) => Math.min(0, offset + delta))
+                      }
+                    />
                   </div>
 
                   {/* Events Timeline 198378:74533 */}

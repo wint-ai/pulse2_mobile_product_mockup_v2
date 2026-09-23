@@ -18,6 +18,12 @@ import { getSystemConsumption } from './upstream/consumptionModel';
 
 const byId = new Map(SYSTEMS.map(s => [s.id, s]));
 
+/* getSystemConsumption() regenerates 730 days on every call, and the home
+   screen asks for the whole fleet — twice, once for Top Usage and once for the
+   consumption chart. The model is deterministic, so a cached profile and a
+   fresh one are equal by value; callers treat the result as read-only. */
+const profileCache = new Map();
+
 /**
  * @param systemId   the system to profile
  * @param systemName kept for signature compatibility. The model reads the
@@ -25,6 +31,9 @@ const byId = new Map(SYSTEMS.map(s => [s.id, s]));
  *                   that aren't in the fleet.
  */
 export function getConsumption(systemId, systemName) {
+  const cached = profileCache.get(systemId);
+  if (cached) return cached;
+
   const system = byId.get(systemId) || { id: systemId, name: systemName || systemId };
   const profile = getSystemConsumption(systemId, system, 730);
   const daily = profile.daily;
@@ -37,7 +46,7 @@ export function getConsumption(systemId, systemName) {
   const prev7 = daily.slice(-14, -7).reduce((t, d) => t + d.liters, 0) / 7;
   const trend = prev7 > 0 ? Math.round(((last7 - prev7) / prev7) * 100) : 0;
 
-  return {
+  const result = {
     daily,
     mtd,
     trend,
@@ -49,4 +58,7 @@ export function getConsumption(systemId, systemName) {
     topology: profile.topology,
     monitoring: profile.monitoring,
   };
+
+  profileCache.set(systemId, result);
+  return result;
 }

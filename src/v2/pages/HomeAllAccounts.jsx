@@ -71,6 +71,7 @@ import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import { CaretDown, CustomerSupport, Menu10 } from '@/v2/icons'
 import { SYSTEMS, computeWidgets, computeKPIs } from '@/data/systems'
 import { getConsumption } from '@/data/consumption'
+import { getFleetConsumptionSeries } from '@/data/consumptionSeries'
 import { getInsightRows, insightValueLabel, INSIGHT_KIND } from '@/data/upstream/insightsModel'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
@@ -482,6 +483,18 @@ export default function HomeAllAccounts({ expanded = false }) {
     [topUsageDays],
   )
 
+  /* All-accounts home, so the consumption card plots the whole fleet summed.
+     Memoised on (period, offset) only: SYSTEMS is a module constant and the
+     per-system profiles behind this are cached, so switching granularity is a
+     re-bucket rather than 100-odd regenerated series. */
+  const [consumptionPeriod, setConsumptionPeriod] = useState('D')
+  const [consumptionOffset, setConsumptionOffset] = useState(0)
+
+  const consumptionView = useMemo(
+    () => getFleetConsumptionSeries(SYSTEMS ?? [], consumptionPeriod, consumptionOffset),
+    [consumptionPeriod, consumptionOffset],
+  )
+
   /* The five cards of the Body wrapper, in the comp's order. Held in a variable
      because the two states wrap them in two different Body wrappers (the gap
      differs) and the wrapper's class string must stay a literal attribute. */
@@ -508,9 +521,19 @@ export default function HomeAllAccounts({ expanded = false }) {
       <InsightsCard rows={live?.insights?.length ? live.insights : MOCK_INSIGHTS} />
 
       {/* 198314:73649 — the layer is named "Balance", a leftover shadcn
-          template name; the card is Water consumption. It ships its own traced
-          series and derives its own headline figures, so nothing is passed. */}
-      <WaterConsumptionCardV2 />
+          template name; the card is Water consumption. It used to ship its own
+          traced series; it now plots the fleet, so the figures under it belong
+          to the systems this screen is actually reporting on. */}
+      <WaterConsumptionCardV2
+        data={consumptionView.series}
+        period={consumptionPeriod}
+        monthLabel={consumptionView.label}
+        onPeriodChange={(next) => {
+          setConsumptionPeriod(next)
+          setConsumptionOffset(0)
+        }}
+        onMonthChange={(delta) => setConsumptionOffset((offset) => Math.min(0, offset + delta))}
+      />
 
       {/* 198314:73650 */}
       <TopUsageCard

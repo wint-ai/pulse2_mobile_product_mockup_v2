@@ -63,13 +63,14 @@
  * as a box-shadow.
  */
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
+import FunnelSimple from '@/v2/icons/FunnelSimple'
 
 /* ── Inlined Figma assets ──────────────────────────────────────────────────
    Figma's asset URLs expire in ~7 days, so nothing may reference them at
@@ -178,7 +179,12 @@ function fmtL(n) {
   return String(Math.round(n))
 }
 
-function deriveStats(series) {
+/* What one bar means, per granularity. Without this the headline reads
+   "Daily Avg" over a chart of months. */
+const BUCKET_NOUN = { H: 'Hour', D: 'Day', M: 'Month', Y: 'Year' }
+const BUCKET_ADJ = { H: 'Hourly', D: 'Daily', M: 'Monthly', Y: 'Yearly' }
+
+function deriveStats(series, period = 'D') {
   if (!series.length) return []
   const total = series.reduce((sum, d) => sum + d.litres, 0)
   return [
@@ -188,10 +194,14 @@ function deriveStats(series) {
        neighbour. min-w- keeps the comp's column rhythm and lets the rare wide
        value push instead of collide. */
     { value: fmtL(total), label: 'Total L', width: 'min-w-[62px]' },
-    { value: fmtL(total / series.length), label: 'Daily Avg L', width: 'min-w-[100px]' },
+    {
+      value: fmtL(total / series.length),
+      label: `${BUCKET_ADJ[period] ?? 'Daily'} Avg L`,
+      width: 'min-w-[100px]',
+    },
     {
       value: fmtL(Math.max(...series.map((d) => d.litres))),
-      label: 'Peak Day L',
+      label: `Peak ${BUCKET_NOUN[period] ?? 'Day'} L`,
       width: 'min-w-[100px]',
     },
   ]
@@ -243,6 +253,34 @@ export default function WaterConsumptionCardV2({
   const [periodState, setPeriodState] = useState('D')
   const [monthOffset, setMonthOffset] = useState(0)
 
+  /* The scope controls are disclosed, not inline — see the funnel button below
+     for the Figma evidence. Two refs rather than one wrapper: the trigger sits
+     in the header and the panel is a sibling after it, so a dismiss has to ask
+     both whether the click was theirs. Closing on outside-click and on Escape
+     is what makes this a disclosure instead of a panel that, once opened,
+     covers the chart with no way back. */
+  const [scopeOpen, setScopeOpen] = useState(false)
+  const triggerRef = useRef(null)
+  const panelRef = useRef(null)
+
+  useEffect(() => {
+    if (!scopeOpen) return undefined
+    const onPointerDown = (event) => {
+      const inside =
+        triggerRef.current?.contains(event.target) || panelRef.current?.contains(event.target)
+      if (!inside) setScopeOpen(false)
+    }
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setScopeOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [scopeOpen])
+
   const hostOwnsScope = Boolean(onPeriodChange || onMonthChange)
   const period = periodProp ?? periodState
   const monthLabel = monthLabelProp ?? formatMonth(monthOffset)
@@ -261,7 +299,17 @@ export default function WaterConsumptionCardV2({
      stay put so they can steer back; hiding them would be a dead end. */
   const showControls = !isEmpty || scopeSteered
 
-  const headline = stats ?? deriveStats(series)
+  const headline = stats ?? deriveStats(series, period)
+
+  /* Tooltip heading per granularity. H carries ":00" so "14" cannot be read as
+     a day number, and Y needs no scope prefix at all — the bar label already
+     IS the year. */
+  const formatBucket = (bucket) => {
+    if (period === 'H') return `${monthLabel} ${bucket}:00`
+    if (period === 'M') return `${bucket} ${monthLabel}`
+    if (period === 'Y') return String(bucket)
+    return `${monthLabel} ${bucket}`
+  }
   const { domainMax, ticks } = niceScale(Math.max(0, ...series.map((d) => d.litres)))
   // ~8 x-axis labels at any window; 30 day numbers do not fit across 375px.
   const tickInterval = Math.max(0, Math.ceil(series.length / 8) - 1)
@@ -281,7 +329,8 @@ export default function WaterConsumptionCardV2({
     <Card
       className={cn(
         String.raw`gap-0 border-white bg-[#fafbfc] py-0 rounded-[var(--rounded-2xl,18px)]`,
-        'shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.1)]',
+        // relative: the scope panel is absolutely positioned against the card
+        'relative shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.1)]',
         className,
       )}
       data-node-id={isEmpty && !scopeSteered ? '198424:63772' : '198424:63770'}
@@ -303,17 +352,60 @@ export default function WaterConsumptionCardV2({
         >
           Water consumption
         </CardTitle>
+
+        {/* 57x32 Button holding a single 16px funnel — the mobile comp's
+            CardAction2 (…;197412:209455;198378:74361). One divergence from the
+            emitted code: items-center, where Figma emits items-start. A 16px
+            glyph in a 32px box pinned to the top is not what the comp renders,
+            and the node's own screenshot shows it centred.
+            FunnelSimple is this project's export of the very glyph that node
+            references (Phosphor funnel-simple), so the asset is reused rather
+            than redrawn or re-downloaded to an expiring URL. */}
+        {showControls && (
+          <CardAction className="self-center">
+            <button
+              ref={triggerRef}
+              type="button"
+              aria-label="Consumption scope"
+              aria-expanded={scopeOpen}
+              aria-haspopup="dialog"
+              onClick={() => setScopeOpen((open) => !open)}
+              className={cn(
+                'flex h-[32px] w-[57px] shrink-0 cursor-pointer items-center justify-end',
+                String.raw`gap-[var(--component\/button\/gap,6px)]`,
+                String.raw`px-[var(--component\/button\/size-default\/px,10px)]`,
+                String.raw`rounded-[var(--component\/button\/size-default\/radius,10px)]`,
+                String.raw`text-[color:var(--colors\/slate\/800,#1d293d)]`,
+                'outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                scopeOpen && 'bg-[rgba(0,0,0,0.06)]',
+              )}
+            >
+              <span className="flex size-[16px] shrink-0 items-center justify-center overflow-clip">
+                <FunnelSimple size={16} />
+              </span>
+            </button>
+          </CardAction>
+        )}
       </CardHeader>
 
-      {showControls && (
-        /* Desktop puts the stepper and the segmented control on the title row.
-           At 375px the title (~150px) plus both clusters (~273px) overflows, so
-           the cluster drops to its own row — the 12px gap between them is the
-           comp's. Nothing else about either control changes. */
+      {showControls && scopeOpen && (
+        /* The stepper and the segmented control, unchanged — only re-anchored.
+           Desktop shows both on the title row; the mobile comp hides them and
+           gives the header a funnel button instead, so on a phone they belong
+           under that button.
+           top-[56px] is the header's own height, not a guess: pt 12 + the 32px
+           action row + pb 12. right-[24px] is the card's horizontal padding
+           token, so the panel's right edge lines up with the funnel above it. */
         <div
+          ref={panelRef}
+          role="dialog"
+          aria-label="Consumption scope"
           className={cn(
-            'flex flex-wrap items-center justify-between gap-[12px]',
-            String.raw`px-[var(--component\/card\/padding,24px)] pb-[var(--spacing\/3,12px)]`,
+            'absolute right-[24px] top-[56px] z-30 flex flex-col items-stretch gap-[10px]',
+            'bg-white p-[12px]',
+            String.raw`rounded-[var(--rounded-2xl,18px)]`,
+            String.raw`border border-solid border-[var(--colors\/slate\/200,#e2e8f0)]`,
+            'shadow-[0px_10px_25px_-5px_rgba(0,0,0,0.15)]',
           )}
         >
           {/* Figma maps this to data-slot="button", so it is the Button
@@ -341,6 +433,11 @@ export default function WaterConsumptionCardV2({
               String.raw`text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)]`,
               // design --secondary-foreground is #171717; this project's is #0b81f8
               'text-[#171717]',
+              /* Y plots every year in the window at once, so there is no
+                 previous year to step to. Hidden rather than left inert: a
+                 stepper that looks live and does nothing is exactly what
+                 check-shell-contract.mjs was written to stop shipping. */
+              period === 'Y' && 'hidden',
             )}
           >
             <div role="group" aria-label="Period">
@@ -539,7 +636,10 @@ export default function WaterConsumptionCardV2({
                 />
                 <ChartTooltip
                   cursor={{ fill: 'var(--color-litres)', fillOpacity: 0.12 }}
-                  content={<ChartTooltipContent labelFormatter={(day) => `${monthLabel} ${day}`} />}
+                  /* Each granularity needs its own phrasing. Blindly
+                     prefixing the scope label gives "2025 2024–2026" on Y and
+                     "14 Sep 22, 2026" on H. */
+                  content={<ChartTooltipContent labelFormatter={formatBucket} />}
                 />
                 {/* radius 100 is the comp's rounded-t-[100px]; recharts clamps it
                     to min(width, height) / 2, the same half-round cap the 16.6px

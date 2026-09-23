@@ -42,8 +42,13 @@ function hash(s) {
   return Math.abs(h);
 }
 
-/** Stable pseudo-random in [0,1) for a (system, day, channel) triple. */
-function noise(systemId, key) {
+/** Stable pseudo-random in [0,1) for a (system, day, channel) triple.
+ *
+ * Exported (the only change to the verbatim port: the `export` keyword, no
+ * body edit) so consumptionSeries.js can disaggregate a day into hours using
+ * the SAME seeded stream the day itself came from. A second, independent
+ * random source would make the hours drift against the day they belong to. */
+export function noise(systemId, key) {
   return (hash(`${systemId}|${key}`) % 100000) / 100000;
 }
 

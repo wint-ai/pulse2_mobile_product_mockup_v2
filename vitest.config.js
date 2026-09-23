@@ -19,6 +19,14 @@ export default defineConfig({
     // Default to node env; tests that need DOM opt-in with @vitest-environment happy-dom
     // pragma at the top of the file.
     environment: 'node',
+    /* 5s (the default) is not enough for the DOM tests HERE, and the failure it
+       produces is a lie: the three drawer/scope suites pass 19/19 when run on
+       their own and time out only under full-suite contention, with a
+       different subset failing on every run. A gate that goes red at random is
+       a gate people learn to push past — which happened twice on this repo.
+       This does not mask regressions: a test that genuinely hangs still fails,
+       it just gets long enough to prove it. */
+    testTimeout: 20000,
     setupFiles: ['./src/__tests__/setup.js'],
   },
 });
