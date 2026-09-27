@@ -116,11 +116,12 @@ describe('the consumption chart plots the routed system', () => {
     expect(totalFor(a)).not.toBe(totalFor(b))
   })
 
-  it('offers the scope control, and keeps it closed until asked', () => {
+  it('offers the granularity segments inline', () => {
     const { container, unmount } = mountAt(distinct[0].id)
     const view = within(container)
-    expect(view.getAllByRole('button', { name: 'Consumption scope' }).length).toBe(1)
-    expect(view.queryByRole('dialog', { name: 'Consumption scope' })).toBeNull()
+    // Inline since 198601:86152 replaced the deleted funnel-disclosure node.
+    expect(view.getAllByRole('radio', { name: 'Hour' }).length).toBeGreaterThan(0)
+    expect(view.queryByRole('button', { name: 'Consumption scope' })).toBeNull()
     unmount()
   })
 })

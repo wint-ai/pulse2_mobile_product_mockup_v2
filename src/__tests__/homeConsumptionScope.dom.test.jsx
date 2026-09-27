@@ -47,29 +47,24 @@ describe('home screen consumption', () => {
     expect(view.getAllByText(expected).length, `fleet total ${expected}`).toBeGreaterThan(0)
   })
 
-  it('keeps the granularity control behind the funnel', () => {
+  it('shows the granularity segments inline, not behind a disclosure', () => {
     const { container } = mount()
     const view = within(container)
 
-    expect(view.queryByRole('dialog', { name: 'Consumption scope' })).toBeNull()
-    for (const name of ['Year', 'Month', 'Day', 'Hour']) {
-      expect(view.queryByRole('radio', { name })).toBeNull()
+    /* The funnel disclosure was built from a card instance that has since been
+       deleted from the Figma file; 198601:86152 "Water consumption_M" replaces
+       it and puts the segments back inline as words. */
+    for (const name of ['Hour', 'Day', 'Month', 'Year']) {
+      expect(view.getAllByRole('radio', { name }).length).toBeGreaterThan(0)
     }
-
-    fireEvent.click(view.getByRole('button', { name: 'Consumption scope' }))
-
-    expect(view.getByRole('dialog', { name: 'Consumption scope' })).toBeTruthy()
-    for (const name of ['Year', 'Month', 'Day', 'Hour']) {
-      expect(view.getByRole('radio', { name })).toBeTruthy()
-    }
+    expect(view.queryByRole('button', { name: 'Consumption scope' })).toBeNull()
   })
 
   it('switches granularity without emptying the chart', () => {
     const { container } = mount()
     const view = within(container)
 
-    fireEvent.click(view.getByRole('button', { name: 'Consumption scope' }))
-    fireEvent.click(view.getByRole('radio', { name: 'Month' }))
+    fireEvent.click(view.getAllByRole('radio', { name: 'Month' })[0])
 
     // The regression this replaces: Y / M / H used to land on the empty state.
     expect(view.queryByText(/Nothing flowed in yet/i)).toBeNull()

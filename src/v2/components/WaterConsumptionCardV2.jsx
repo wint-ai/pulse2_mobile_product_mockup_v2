@@ -63,9 +63,9 @@
  * as a box-shadow.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -159,12 +159,16 @@ const MOCK_DAILY_SERIES = [
 // MOCK — the month MOCK_DAILY_SERIES covers. The comp's stepper reads "June 2026".
 const MOCK_MONTH = { year: 2026, monthIndex: 5 }
 
-// Y / M / D / H in the comp. The letter is the label; the word is the a11y name.
+/* Hour / Day / Month / Year, spelled out and in that order — 198583:58957.
+   The desktop card (198424:63600) draws single letters Y M D H in the opposite
+   order; the mobile component set is the one that ships here. The ids stay
+   H/D/M/Y so consumptionSeries.js and every caller are unaffected — only the
+   label and the order are the design's. */
 const PERIODS = [
-  { id: 'Y', name: 'Year' },
-  { id: 'M', name: 'Month' },
-  { id: 'D', name: 'Day' },
   { id: 'H', name: 'Hour' },
+  { id: 'D', name: 'Day' },
+  { id: 'M', name: 'Month' },
+  { id: 'Y', name: 'Year' },
 ]
 
 /* The comp prints 1.8K Total / 12.4K Daily Avg / 28.7K Peak Day, and those
@@ -253,33 +257,6 @@ export default function WaterConsumptionCardV2({
   const [periodState, setPeriodState] = useState('D')
   const [monthOffset, setMonthOffset] = useState(0)
 
-  /* The scope controls are disclosed, not inline — see the funnel button below
-     for the Figma evidence. Two refs rather than one wrapper: the trigger sits
-     in the header and the panel is a sibling after it, so a dismiss has to ask
-     both whether the click was theirs. Closing on outside-click and on Escape
-     is what makes this a disclosure instead of a panel that, once opened,
-     covers the chart with no way back. */
-  const [scopeOpen, setScopeOpen] = useState(false)
-  const triggerRef = useRef(null)
-  const panelRef = useRef(null)
-
-  useEffect(() => {
-    if (!scopeOpen) return undefined
-    const onPointerDown = (event) => {
-      const inside =
-        triggerRef.current?.contains(event.target) || panelRef.current?.contains(event.target)
-      if (!inside) setScopeOpen(false)
-    }
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') setScopeOpen(false)
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [scopeOpen])
 
   const hostOwnsScope = Boolean(onPeriodChange || onMonthChange)
   const period = periodProp ?? periodState
@@ -353,119 +330,16 @@ export default function WaterConsumptionCardV2({
           Water consumption
         </CardTitle>
 
-        {/* 57x32 Button holding a single 16px funnel — the mobile comp's
-            CardAction2 (…;197412:209455;198378:74361). One divergence from the
-            emitted code: items-center, where Figma emits items-start. A 16px
-            glyph in a 32px box pinned to the top is not what the comp renders,
-            and the node's own screenshot shows it centred.
-            FunnelSimple is this project's export of the very glyph that node
-            references (Phosphor funnel-simple), so the asset is reused rather
-            than redrawn or re-downloaded to an expiring URL. */}
-        {showControls && (
-          <CardAction className="self-center">
-            <button
-              ref={triggerRef}
-              type="button"
-              aria-label="Consumption scope"
-              aria-expanded={scopeOpen}
-              aria-haspopup="dialog"
-              onClick={() => setScopeOpen((open) => !open)}
-              className={cn(
-                'flex h-[32px] w-[57px] shrink-0 cursor-pointer items-center justify-end',
-                String.raw`gap-[var(--component\/button\/gap,6px)]`,
-                String.raw`px-[var(--component\/button\/size-default\/px,10px)]`,
-                String.raw`rounded-[var(--component\/button\/size-default\/radius,10px)]`,
-                String.raw`text-[color:var(--colors\/slate\/800,#1d293d)]`,
-                'outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                scopeOpen && 'bg-[rgba(0,0,0,0.06)]',
-              )}
-            >
-              <span className="flex size-[16px] shrink-0 items-center justify-center overflow-clip">
-                <FunnelSimple size={16} />
-              </span>
-            </button>
-          </CardAction>
-        )}
       </CardHeader>
 
-      {showControls && scopeOpen && (
-        /* The stepper and the segmented control, unchanged — only re-anchored.
-           Desktop shows both on the title row; the mobile comp hides them and
-           gives the header a funnel button instead, so on a phone they belong
-           under that button.
-           top-[56px] is the header's own height, not a guess: pt 12 + the 32px
-           action row + pb 12. right-[24px] is the card's horizontal padding
-           token, so the panel's right edge lines up with the funnel above it. */
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-label="Consumption scope"
-          className={cn(
-            'absolute right-[24px] top-[56px] z-30 flex flex-col items-stretch gap-[10px]',
-            'bg-white p-[12px]',
-            String.raw`rounded-[var(--rounded-2xl,18px)]`,
-            String.raw`border border-solid border-[var(--colors\/slate\/200,#e2e8f0)]`,
-            'shadow-[0px_10px_25px_-5px_rgba(0,0,0,0.15)]',
-          )}
-        >
-          {/* Figma maps this to data-slot="button", so it is the Button
-              primitive — but the comp's pill carries a chevron at EACH end, and
-              one <button> cannot hold two actions. `asChild` keeps the
-              primitive's styling and data-slot on the pill while letting the two
-              chevrons be real buttons inside it. The month label between them is
-              deliberately inert: it reports the scope, it does not change it. */}
-          <Button
-            asChild
-            variant="secondary"
-            className={cn(
-              String.raw`h-[var(--component\/button\/size-default\/height,36px)]`,
-              String.raw`gap-[var(--component\/button\/gap,6px)]`,
-              String.raw`rounded-[var(--component\/button\/size-default\/radius,26px)]`,
-              // both spellings: the primitive's own has-[>svg]:px-3 carries a
-              // modifier a plain px-* cannot out-specify
-              String.raw`px-[var(--component\/button\/size-default\/px,12px)]`,
-              String.raw`has-[>svg]:px-[var(--component\/button\/size-default\/px,12px)]`,
-              // the pill is no longer the tap target — the two chevrons are, and
-              // they light up on their own — so its hover is pinned to the rest
-              // colour. Left alone it would inherit hover:bg-secondary/80, and
-              // this project's --secondary (#f2f6ff) is blue, not slate.
-              String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] hover:bg-[var(--colors\/slate\/100,#f1f5f9)]`,
-              String.raw`text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)]`,
-              // design --secondary-foreground is #171717; this project's is #0b81f8
-              'text-[#171717]',
-              /* Y plots every year in the window at once, so there is no
-                 previous year to step to. Hidden rather than left inert: a
-                 stepper that looks live and does nothing is exactly what
-                 check-shell-contract.mjs was written to stop shipping. */
-              period === 'Y' && 'hidden',
-            )}
-          >
-            <div role="group" aria-label="Period">
-              <button
-                type="button"
-                aria-label="Previous month"
-                onClick={() => stepMonth(-1)}
-                // -m-1/p-1 buys a 24px tap target without moving the 16px glyph
-                className="-m-1 rounded-full p-1 outline-none hover:bg-[rgba(0,0,0,0.06)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              >
-                <ChevronLeft16 className="size-4" />
-              </button>
-              <span>{monthLabel}</span>
-              <button
-                type="button"
-                aria-label="Next month"
-                onClick={() => stepMonth(1)}
-                className="-m-1 rounded-full p-1 outline-none hover:bg-[rgba(0,0,0,0.06)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              >
-                <ChevronRight16 className="size-4" />
-              </button>
-            </div>
-          </Button>
-
-          {/* Figma marks each segment data-slot="toggle" inside a shared "slot"
-              row: that is ToggleGroup variant=outline spacing=0, whose
-              first:rounded-l / last:rounded-r / border-l-0 rules are exactly the
-              border pattern the four comp segments draw. */}
+      {showControls && (
+        /* Granularity + period, inline — 198583:58957. Figma draws a
+           full-width slate/100 track at rounded-[34px] holding four flex-1
+           32px segments, with the period stepper as its own 28px row 12px
+           below. The funnel disclosure that used to live here came from
+           I198378:74362;119647:3846;149:2490, a node no longer in the file;
+           this component set is its replacement. */
+        <div className="flex w-full flex-col gap-[12px] px-[var(--component\/card\/padding,16px)] pb-[var(--spacing\/3,12px)]">
           <ToggleGroup
             type="single"
             variant="outline"
@@ -473,38 +347,49 @@ export default function WaterConsumptionCardV2({
             value={period}
             onValueChange={selectPeriod}
             aria-label="Consumption granularity"
-            className="shrink-0"
+            className="w-full bg-[var(--colors\/slate\/100,#f1f5f9)] rounded-[34px] p-0"
           >
             {PERIODS.map((p) => (
               <ToggleGroupItem
                 key={p.id}
                 value={p.id}
                 aria-label={p.name}
-                className={cn(
-                  /* Re-pulled from I198424:63600;194656:347290 on 2026-09-27.
-                     The segment shrank and stopped being a pill: height 36 -> 32
-                     (Figma now emits a literal h-[32px] + min-h-[32px] rather
-                     than the height token), padding 12 -> 10, and radius
-                     26 -> 10, which is the visible one — 26px rounded the 32px
-                     segment into a lozenge, 10px is the rounded rectangle the
-                     comp now draws. Token names are unchanged; only the
-                     fallbacks moved, and fallbacks are what render here. */
-                  String.raw`h-[32px] min-h-[32px]`,
-                  String.raw`px-[var(--component\/toggle\/size-default\/padding,10px)]`,
-                  String.raw`gap-[var(--component\/toggle\/gap,4px)]`,
-                  String.raw`data-[spacing=0]:first:rounded-l-[var(--component\/toggle\/radius,10px)]`,
-                  String.raw`data-[spacing=0]:last:rounded-r-[var(--component\/toggle\/radius,10px)]`,
-                  String.raw`border-[var(--colors\/slate\/200,#e2e8f0)]`,
-                  String.raw`text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)]`,
-                  String.raw`text-[color:var(--colors\/slate\/800,#1d293d)]`,
-                  String.raw`data-[state=on]:bg-[var(--colors\/blue\/50,#eff6ff)]`,
-                  String.raw`data-[state=on]:text-[color:var(--wint-blue-accent,#0b81f8)]`,
-                )}
+                className="flex-1 min-w-0 h-[32px] min-h-[32px] rounded-[34px] border-0 bg-transparent shadow-none gap-[var(--component\/toggle\/gap,4px)] text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)] data-[state=on]:bg-[var(--card,white)] data-[state=on]:border data-[state=on]:border-[var(--wint-blue-accent,#0b81f8)] data-[state=on]:text-[color:var(--wint-blue-accent,#0b81f8)]"
               >
-                {p.id}
+                {p.name}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
+
+          {/* Hidden on Y for the same reason as before: the yearly view is
+              the whole window at once, so there is no previous year to step
+              to, and a stepper that cannot act is the thing
+              check-shell-contract.mjs exists to stop shipping. */}
+          {period !== 'Y' && (
+            <div
+              role="group"
+              aria-label="Period"
+              className="flex h-[28px] w-full items-center justify-between px-[var(--spacing\/1\,5,6px)]"
+            >
+              <button
+                type="button"
+                aria-label="Previous period"
+                onClick={() => stepMonth(-1)}
+                className="flex size-[28px] items-center justify-center rounded-full opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <ChevronLeft16 className="size-4" />
+              </button>
+              <span className="text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]">{monthLabel}</span>
+              <button
+                type="button"
+                aria-label="Next period"
+                onClick={() => stepMonth(1)}
+                className="flex size-[28px] items-center justify-center rounded-full opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <ChevronRight16 className="size-4" />
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,21 +1,25 @@
 // @vitest-environment happy-dom
 //
-// The consumption card's Y / M / D / H segments and its period stepper are
-// DISCLOSED on mobile, not inline.
+// The consumption card's granularity control, per the CURRENT mobile design.
 //
-// That is the Figma mobile variant, not a preference: on the desktop card
-// (198424:63770) the CardAction slot holds four Toggle instances on the title
-// row, but on the card that actually ships in the mobile system page
-// (I198378:74362;119647:3846;149:2490) that same slot is hidden="true" and
-// CardAction2 holds a single 57x32 Button whose only child is a 16px Phosphor
-// funnel-simple glyph.
+// History, because this reversed once and the reason matters: the control was
+// briefly a funnel-button disclosure, built from the mobile card instance
+// I198378:74362;119647:3846;149:2490 where the Y/M/D/H CardAction slot is
+// hidden="true" and CardAction2 holds a 57x32 funnel. That node has since been
+// DELETED from the file. Its replacement is the component set 198601:86152
+// "Water consumption_M" (198583:58957 Default + two variants), which puts the
+// segments back inline, spells them as words, and reverses the order.
 //
-// These tests pin the three things that can regress silently: the controls are
-// not in the DOM until the funnel is pressed, the funnel actually reveals
-// them, and the stepper disappears on Y — where there is nothing to step.
+// So these tests pin the design as it is now:
+//   - segments are visible at rest, no disclosure to open
+//   - they read Hour / Day / Month / Year, in that order
+//   - the stepper is a separate row, hidden on Year
+//
+// The period IDS are still H/D/M/Y — only the labels and order are the
+// design's — so nothing in consumptionSeries.js moves.
 
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 
 afterEach(cleanup)
@@ -39,72 +43,72 @@ function renderCard(props = {}) {
   )
 }
 
-const funnel = () => screen.getByRole('button', { name: 'Consumption scope' })
+describe('granularity segments are inline', () => {
+  it('shows all four segments at rest, with no disclosure to open', () => {
+    const { container } = renderCard()
+    const view = within(container)
 
-describe('consumption scope is behind the funnel', () => {
-  it('does not render the granularity segments until the funnel is pressed', () => {
-    renderCard()
-
-    // The card is mounted and plotting — this is not an empty-state pass.
-    expect(screen.getByText('Water consumption')).toBeTruthy()
-    expect(funnel()).toBeTruthy()
-
-    for (const name of ['Year', 'Month', 'Day', 'Hour']) {
-      expect(screen.queryByRole('radio', { name })).toBeNull()
+    expect(view.getByText('Water consumption')).toBeTruthy()
+    for (const name of ['Hour', 'Day', 'Month', 'Year']) {
+      expect(view.getByRole('radio', { name })).toBeTruthy()
     }
-    expect(screen.queryByRole('dialog', { name: 'Consumption scope' })).toBeNull()
+
+    // The funnel is gone, and so is the dialog it used to open.
+    expect(view.queryByRole('button', { name: 'Consumption scope' })).toBeNull()
+    expect(view.queryByRole('dialog', { name: 'Consumption scope' })).toBeNull()
   })
 
-  it('reveals the segments and the stepper when the funnel is pressed', () => {
-    renderCard()
-    fireEvent.click(funnel())
+  it('reads Hour, Day, Month, Year in that order', () => {
+    const { container } = renderCard()
+    const labels = within(container)
+      .getAllByRole('radio')
+      .map((el) => el.textContent.trim())
 
-    expect(screen.getByRole('dialog', { name: 'Consumption scope' })).toBeTruthy()
-    for (const name of ['Year', 'Month', 'Day', 'Hour']) {
-      expect(screen.getByRole('radio', { name })).toBeTruthy()
-    }
-    expect(screen.getByRole('group', { name: 'Period' })).toBeTruthy()
-    expect(funnel().getAttribute('aria-expanded')).toBe('true')
+    // The DESKTOP node (198424:63600) draws "Y M D H" — the reverse, as single
+    // letters. Getting these two nodes mixed up is what made this wrong twice.
+    expect(labels).toEqual(['Hour', 'Day', 'Month', 'Year'])
   })
 
-  it('closes again on a second press and on Escape', () => {
-    renderCard()
-
-    fireEvent.click(funnel())
-    fireEvent.click(funnel())
-    expect(screen.queryByRole('dialog', { name: 'Consumption scope' })).toBeNull()
-
-    fireEvent.click(funnel())
-    expect(screen.getByRole('dialog', { name: 'Consumption scope' })).toBeTruthy()
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('dialog', { name: 'Consumption scope' })).toBeNull()
-  })
-
-  it('reports the granularity the viewer picks', () => {
+  it('reports the granularity the viewer picks, still as H/D/M/Y ids', () => {
     const picked = []
-    renderCard({ onPeriodChange: (next) => picked.push(next) })
+    const { container } = renderCard({ onPeriodChange: (next) => picked.push(next) })
 
-    fireEvent.click(funnel())
-    fireEvent.click(screen.getByRole('radio', { name: 'Month' }))
-
+    fireEvent.click(within(container).getByRole('radio', { name: 'Month' }))
     expect(picked).toEqual(['M'])
   })
 
-  it('hides the stepper on Y, where there is no previous window to step to', () => {
-    renderCard({ period: 'Y', monthLabel: '2024–2026' })
-    fireEvent.click(funnel())
+  it('shows the period stepper below the segments, and hides it on Year', () => {
+    const { container, rerender } = renderCard()
+    expect(within(container).getByRole('group', { name: 'Period' })).toBeTruthy()
+    expect(within(container).getByText('Jun 2026')).toBeTruthy()
 
-    // Still disclosed, still switchable — only the stepper is gone.
-    expect(screen.getByRole('radio', { name: 'Year' })).toBeTruthy()
+    rerender(
+      <WaterConsumptionCardV2
+        data={SERIES}
+        period="Y"
+        monthLabel="2024–2026"
+        onPeriodChange={() => {}}
+        onMonthChange={() => {}}
+      />,
+    )
+    // Year plots the whole window at once — nothing to step to.
+    expect(within(container).queryByRole('group', { name: 'Period' })).toBeNull()
+  })
 
-    const stepper = screen.getByRole('group', { name: 'Period' })
-    expect(stepper.closest('.hidden')).not.toBeNull()
+  it('steps the period from the chevrons', () => {
+    const steps = []
+    const { container } = renderCard({ onMonthChange: (d) => steps.push(d) })
+    const view = within(container)
+
+    fireEvent.click(view.getByRole('button', { name: 'Previous period' }))
+    fireEvent.click(view.getByRole('button', { name: 'Next period' }))
+    expect(steps).toEqual([-1, 1])
   })
 
   it('labels the headline figures for the bucket being plotted', () => {
-    const { rerender } = renderCard()
-    expect(screen.getByText('Daily Avg L')).toBeTruthy()
-    expect(screen.getByText('Peak Day L')).toBeTruthy()
+    const { container, rerender } = renderCard()
+    expect(within(container).getByText('Daily Avg L')).toBeTruthy()
+    expect(within(container).getByText('Peak Day L')).toBeTruthy()
 
     rerender(
       <WaterConsumptionCardV2
@@ -115,7 +119,7 @@ describe('consumption scope is behind the funnel', () => {
         onMonthChange={() => {}}
       />,
     )
-    expect(screen.getByText('Monthly Avg L')).toBeTruthy()
-    expect(screen.getByText('Peak Month L')).toBeTruthy()
+    expect(within(container).getByText('Monthly Avg L')).toBeTruthy()
+    expect(within(container).getByText('Peak Month L')).toBeTruthy()
   })
 })
