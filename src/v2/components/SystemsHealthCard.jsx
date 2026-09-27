@@ -267,7 +267,7 @@ const CAPSULE_HOT = String.raw`relative isolate flex h-[43px] w-full min-w-[50px
    drawn in a pointer-events-none overlay so the content above stays crisp. */
 function HotWash() {
   return (
-    <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[31.2px]">
+    <span aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 rounded-[31.2px]">
       <span className="absolute inset-0 rounded-[31.2px]" style={CAPSULE_FILL} />
       <span className="absolute inset-0 rounded-[31.2px] bg-[rgba(255,58,58,0.01)] mix-blend-multiply" />
       <span className="absolute inset-0 rounded-[31.2px] bg-[#ff1717] mix-blend-color" />
@@ -287,10 +287,16 @@ function Capsule({ hot, children }) {
       </div>
     )
   }
+  /* The wash is position:absolute, and positioned elements paint ABOVE
+     non-positioned in-flow siblings regardless of DOM order — so without this
+     wrapper the wash covered the very number it is meant to sit behind, and
+     "Require attention" rendered as an empty pink pill. (The 2x2 issue tiles
+     escaped it only because IssueCount happens to carry `relative`.)
+     z-0/z-10 inside the capsule's own `isolate` keeps the fix local. */
   return (
     <div className={CAPSULE_HOT}>
       <HotWash />
-      {children}
+      <span className="relative z-10 flex items-center gap-[4.8px]">{children}</span>
     </div>
   )
 }
