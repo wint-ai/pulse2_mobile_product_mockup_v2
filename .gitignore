@@ -29,7 +29,10 @@ dist-ssr
 # Claude Code session config (auto-generated tool permissions)
 .claude/settings.json
 
-# Shared Figma MCP fetch cache (scripts/figma-cache.mjs). Local only: entries
-# embed figma.com asset URLs that expire in ~7 days, so a committed cache would
-# hand the next reader dead links.
+# Figma MCP fetch cache (scripts/figma-cache.mjs). It normally lives outside the
+# repo, in %LOCALAPPDATA%/figma-mcp-cache, because Figma meters per seat and the
+# sandbox project draws on the same daily budget. This entry covers the case
+# where someone points FIGMA_CACHE_DIR back inside the tree: entries embed
+# figma.com asset URLs that expire in ~7 days, so a committed cache would hand
+# the next reader dead links.
 .figma-cache/

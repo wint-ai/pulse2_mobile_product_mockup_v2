@@ -50,7 +50,13 @@ The same run made **739** node-addressed calls against only **396** distinct
 fetched **16 times** because `WintSidebar`, `WintSidebarV2` and each of their
 verifier agents pulled it independently.
 
-Parallel agents cannot share memory. They can share a directory.
+Parallel agents cannot share memory. They can share a directory — and they do:
+the cache and the ledger live in `%LOCALAPPDATA%/figma-mcp-cache` (or `$HOME`),
+**not** inside any repo. Figma meters per *seat*, so `pulse2_mobile_product_
+mockup_v2` and `pulse2_mobile_product_sandbox` spend the same 200/day. A
+repo-local ledger would cheerfully report "199 remaining" while a session in the
+other project had already spent the lot. One cache also means a node fetched in
+either project is free in the other. `FIGMA_CACHE_DIR` overrides it.
 
 ```bash
 node scripts/figma-cache.mjs plan src/v2/components/*.jsx

@@ -30,8 +30,15 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 
-const ROOT = process.cwd()
-const CACHE_DIR = path.join(ROOT, '.figma-cache')
+/* The cache and the ledger live OUTSIDE the repo, in one place per machine.
+   Figma meters per seat, not per project: pulse2_mobile_product_mockup_v2 and
+   pulse2_mobile_product_sandbox draw on the same 200/day. A repo-local ledger
+   would report "199 remaining" here while a session in the sandbox had already
+   spent the lot — the same shape of confidently-wrong answer this file exists
+   to prevent. One cache also means a node fetched in either repo is free in
+   the other. Override with FIGMA_CACHE_DIR if you need an isolated run. */
+const CACHE_DIR = process.env.FIGMA_CACHE_DIR
+  || path.join(process.env.LOCALAPPDATA || process.env.HOME || process.cwd(), 'figma-mcp-cache')
 const LEDGER = path.join(CACHE_DIR, 'ledger.jsonl')
 
 const DAILY_CAP = Number(process.env.FIGMA_MCP_DAILY_CAP || 200)
