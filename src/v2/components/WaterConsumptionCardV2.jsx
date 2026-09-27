@@ -354,7 +354,7 @@ export default function WaterConsumptionCardV2({
                 key={p.id}
                 value={p.id}
                 aria-label={p.name}
-                className="flex-1 min-w-0 h-[32px] min-h-[32px] rounded-[34px] border-0 bg-transparent shadow-none gap-[var(--component\/toggle\/gap,4px)] text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)] data-[state=on]:bg-[var(--card,white)] data-[state=on]:border data-[state=on]:border-[var(--wint-blue-accent,#0b81f8)] data-[state=on]:text-[color:var(--wint-blue-accent,#0b81f8)]"
+                className="flex-1 min-w-0 h-[32px] min-h-[32px] overflow-clip border-0 bg-transparent shadow-none rounded-none px-[var(--component\/toggle\/size-default\/padding,10px)] py-[var(--p-0,0px)] gap-[var(--component\/toggle\/gap,4px)] font-medium text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--foreground,#0a0a0a)] first:rounded-l-[var(--component\/toggle\/radius,10px)] last:rounded-r-[var(--component\/toggle\/radius,10px)] data-[state=on]:border data-[state=on]:border-solid data-[state=on]:border-[var(--wint-blue-accent,#0b81f8)] data-[state=on]:bg-[var(--card,white)] data-[state=on]:text-[color:var(--wint-blue-accent,#0b81f8)]"
               >
                 {p.name}
               </ToggleGroupItem>
@@ -399,7 +399,7 @@ export default function WaterConsumptionCardV2({
            trims the empty canvas above the pipe. Both numbers are the comp's. */
         <div
           className={cn(
-            'flex min-h-[213px] flex-1 flex-col items-center justify-center',
+            'flex min-h-[185px] flex-1 flex-col items-center justify-center',
             String.raw`gap-[var(--pro\/space\/4,16px)]`,
             String.raw`px-[var(--component\/card\/padding,24px)] pb-[var(--spacing\/5,20px)]`,
           )}
@@ -447,43 +447,6 @@ export default function WaterConsumptionCardV2({
         <>
           <CardContent
             className={cn(
-              'flex items-start gap-[10px]',
-              String.raw`px-[var(--component\/card\/padding,24px)]`,
-            )}
-          >
-            {headline.map((stat) => (
-              <div
-                key={stat.label}
-                className={cn(
-                  String.raw`flex shrink-0 flex-col gap-[var(--pro\/space\/0\,5,2px)]`,
-                  stat.width ?? 'min-w-[100px]',
-                )}
-              >
-                <p
-                  className={cn(
-                    'whitespace-nowrap font-medium tabular-nums',
-                    String.raw`text-[length:var(--text\/xl\/size,20px)] leading-[var(--text\/xl\/lh-snug,27.5px)]`,
-                    String.raw`tracking-[var(--text\/xl\/heading-tracking,-0.5px)]`,
-                    String.raw`text-[color:var(--colors\/slate\/800,#1d293d)]`,
-                  )}
-                >
-                  {stat.value}
-                </p>
-                <p
-                  className={cn(
-                    'whitespace-nowrap font-medium',
-                    String.raw`text-[length:var(--text\/base\/size,14px)] leading-[var(--text\/base\/lh,18px)]`,
-                    String.raw`text-[color:var(--colors\/slate\/400,#90a1b9)]`,
-                  )}
-                >
-                  {stat.label}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-
-          <CardContent
-            className={cn(
               String.raw`px-[var(--component\/card\/padding,24px)]`,
               String.raw`pt-[var(--pro\/space\/4,16px)] pb-[var(--spacing\/5,20px)]`,
             )}
@@ -496,7 +459,7 @@ export default function WaterConsumptionCardV2({
             <ChartContainer
               config={CHART_CONFIG}
               className={cn(
-                'aspect-auto h-[213px] w-full',
+                'aspect-auto h-[185px] w-full',
                 '[&_.recharts-cartesian-axis-tick_text]:fill-[#737373]',
               )}
             >
@@ -516,7 +479,7 @@ export default function WaterConsumptionCardV2({
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={fmtAxis}
-                  tick={{ fontFamily: 'var(--font-mono-label)', fontSize: 12 }}
+                  tick={{ fontFamily: 'var(--font-sans)', fontSize: 12 }}
                 />
                 <XAxis
                   dataKey="day"
@@ -525,7 +488,7 @@ export default function WaterConsumptionCardV2({
                   axisLine={false}
                   tickMargin={8}
                   interval={tickInterval}
-                  tick={{ fontFamily: 'var(--font-mono-label)', fontSize: 12 }}
+                  tick={{ fontFamily: 'var(--font-sans)', fontSize: 12 }}
                 />
                 <ChartTooltip
                   cursor={{ fill: 'var(--color-litres)', fillOpacity: 0.12 }}
@@ -547,6 +510,48 @@ export default function WaterConsumptionCardV2({
                 />
               </BarChart>
             </ChartContainer>
+          </CardContent>
+
+          {/* Figures BELOW the chart. All three variants of 198601:86152
+              ("Water consumption_M") put Total / Avg / Peak under the plot;
+              they sat above it here, carried over from the 932px desktop
+              card where the header has room for them. */}
+          <CardContent
+            className={cn(
+              'flex items-start gap-[10px]',
+              String.raw`px-[var(--component\/card\/padding,24px)]`,
+            )}
+          >
+            {headline.map((stat) => (
+              <div
+                key={stat.label}
+                className={cn(
+                  String.raw`flex shrink-0 flex-col gap-[var(--pro\/space\/0\,5,2px)]`,
+                  stat.width ?? 'min-w-[100px]',
+                )}
+              >
+                <p
+                  className={cn(
+                    'whitespace-nowrap font-medium tabular-nums',
+                    String.raw`text-[length:var(--text\/xl\/size,20px)] leading-[var(--text\/xl\/lh-snug,27.5px)]`,
+                    String.raw`tracking-[var(--text\/xl\/heading-tracking,-0.5px)]`,
+                    String.raw`tracking-[var(--text\/xl\/heading-tracking,-0.5px)]`,
+                    String.raw`text-[color:var(--colors\/slate\/800,#1d293d)]`,
+                  )}
+                >
+                  {stat.value}
+                </p>
+                <p
+                  className={cn(
+                    'whitespace-nowrap font-medium',
+                    String.raw`text-[length:var(--text\/base\/size,14px)] leading-[var(--text\/base\/lh,18px)]`,
+                    String.raw`text-[color:var(--colors\/slate\/400,#90a1b9)]`,
+                  )}
+                >
+                  {stat.label}
+                </p>
+              </div>
+            ))}
           </CardContent>
         </>
       )}
