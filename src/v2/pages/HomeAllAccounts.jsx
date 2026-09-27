@@ -638,6 +638,10 @@ export default function HomeAllAccounts({ expanded = false }) {
         events={waterEvents}
         onShowAll={() => setOverlay('water')}
         onShowPast={() => setOverlay('water')}
+        /* The row docblock names /alert/:systemId as the destination it was
+           waiting for. Row ids are system ids here — see the waterEvents
+           mapping in `live` — so the detail screen resolves directly. */
+        onSelectEvent={event => navigate(`/alert/${event.id}`)}
       />
 
       {/* 198601:62957 — the card's current node (198314:73505, which this file

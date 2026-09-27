@@ -283,10 +283,15 @@ function TypeBadge({ type }) {
  * ({ events, onShowAll, onShowPast, className }) so the page that consumes it
  * keeps working, and there is no row-level callback in it. Rather than invent a
  * destination or silently fire onShowAll, the row renders as a non-interactive
- * <div>: no cursor-pointer, no role, nothing that promises a tap. Add an
- * onSelectEvent prop and turn this back into a <button> when the page has
- * somewhere to send it. (The pointer-cursor decoration is a design-time
- * annotation and is deliberately not drawn.)
+ * <div>: no cursor-pointer, no role, nothing that promises a tap.
+ *
+ * RESOLVED 2026-09-27. There is now a destination — /alert/:systemId is in the
+ * route table and is the water-event detail — so the card takes an optional
+ * `onSelectEvent` and the CALL SITE wraps the row in a <button> when the host
+ * supplies one. EventRow itself is untouched and still renders the same
+ * markup, so a wired row and an unwired one are pixel-identical at rest.
+ * Without the prop, nothing about this row changes. (The pointer-cursor
+ * decoration is a design-time annotation and is deliberately not drawn.)
  *
  * Figma's own rows disagree about width — row 1 runs the full 307px while rows
  * 2..5 carry an extra pr-16 and run 291px. That is a stray resize in the comp,
@@ -372,13 +377,18 @@ function FilterChip({ tone, label, count, active, onClick }) {
       className="bg-[#fafbfc] border border-[var(--colors\/slate\/200,#e2e8f0)] border-solid content-stretch cursor-pointer data-[active=true]:border-[#90a1b9] flex flex-[1_0_0] h-[36px] items-center min-w-px pl-[5px] pr-[11px] relative rounded-[var(--rounded-3xl,26px)]"
     >
       <div className="content-stretch flex flex-[1_0_0] items-center justify-between min-w-px relative">
-        <div className="content-stretch flex gap-[6px] items-center relative shrink-0">
+        {/* min-w-0, not shrink-0: with two-digit counts the chip cannot fit
+            label + count, and whichever side is allowed to shrink is the one
+            that ellipsises. The comp only ever drew single digits, so it never
+            had to choose. The COUNT is the information here, so the label
+            group gives way instead. */}
+        <div className="content-stretch flex gap-[6px] items-center relative min-w-0">
           {disc}
           <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[var(--text\/sm\/lh-tight,18px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis whitespace-nowrap" dir="auto">
             {label}
           </p>
         </div>
-        <p className="[word-break:break-word] font-[family-name:var(--font\/family\/heading,'Geist:Bold'),'Figtree','Inter',sans-serif] font-bold leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative min-w-px text-[16px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis tracking-[var(--text\/base\/heading-tracking,-0.4px)] whitespace-nowrap">
+        <p className="[word-break:break-word] font-[family-name:var(--font\/family\/heading,'Geist:Bold'),'Figtree','Inter',sans-serif] font-bold leading-[var(--text\/base\/lh-relaxed,26px)] relative shrink-0 text-[16px] text-[color:var(--colors\/slate\/600,#45556c)] tracking-[var(--text\/base\/heading-tracking,-0.4px)] whitespace-nowrap">
           {count}
         </p>
       </div>
@@ -450,7 +460,7 @@ const ROOT_CLASS = String.raw`bg-[#fafbfc] border-[length:var(--border-width\/bo
  * @param {Function} [props.onShowPast]  "Show past events", healthy state only.
  * @param {string}   [props.className]   appended to the card root.
  */
-export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll, onShowPast, className }) {
+export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll, onShowPast, onSelectEvent, className }) {
   // Figma's header chevron points up, i.e. this card collapses. There is no
   // collapsed variant node, so the collapsed form is simply the header alone.
   const [collapsed, setCollapsed] = useState(false)
@@ -517,7 +527,21 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
             <RowRule />
             {rows.map((event, i) => (
               <div key={event.id ?? i} className="content-stretch flex flex-col items-center relative shrink-0 w-full">
-                <EventRow event={event} />
+                {/* The <button> wraps the row rather than replacing its root, so
+                    EventRow's geometry is untouched; w-full keeps the row the
+                    same width it renders at unwired. */}
+                {onSelectEvent ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectEvent(event)}
+                    aria-label={`Open ${event.systemName ?? 'event'}`}
+                    className="w-full cursor-pointer text-left outline-none transition-colors hover:bg-[rgba(11,129,248,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  >
+                    <EventRow event={event} />
+                  </button>
+                ) : (
+                  <EventRow event={event} />
+                )}
                 <RowRule />
               </div>
             ))}

@@ -22,6 +22,14 @@ import { SYSTEMS } from '@/data/systems'
 import { getEventsForSystem } from '@/data/events'
 import { isIgnored, clearIgnored } from '@/data/ignoredIncidents'
 import { isInvestigating, stopInvestigating } from '@/data/investigatingStore'
+import { useParams } from 'react-router-dom'
+
+/** Stands in for the alert detail screen so the test can assert where a row went. */
+function LandingProbe({ onLand }) {
+  const { systemId } = useParams()
+  onLand(systemId)
+  return <div>landed</div>
+}
 
 afterEach(cleanup)
 
@@ -62,6 +70,32 @@ describe('home water events use real data', () => {
 
     // The card is mounted (not in its healthy state), so a filter chip exists.
     expect(view.queryByText('No active water events')).toBeNull()
+  })
+})
+
+describe('water event rows open the event', () => {
+  it('renders each row as a real button that navigates to the event detail', () => {
+    let landedOn = null
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<HomeAllAccounts />} />
+          <Route
+            path="/alert/:systemId"
+            element={<LandingProbe onLand={(id) => { landedOn = id }} />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Figma marks the row as a <button>; it used to render as an inert <div>
+    // because there was no agreed destination. /alert/:systemId is one.
+    const rows = screen.getAllByRole('button', { name: /^Open / })
+    expect(rows.length, 'no tappable event rows').toBeGreaterThan(0)
+
+    fireEvent.click(rows[0])
+    expect(landedOn, 'row tap did not reach /alert/:systemId').toBeTruthy()
+    expect(SYSTEMS.some((s) => s.id === landedOn)).toBe(true)
   })
 })
 
