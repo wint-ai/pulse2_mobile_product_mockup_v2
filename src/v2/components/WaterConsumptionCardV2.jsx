@@ -314,7 +314,8 @@ function CompareSwitch({ checked, onChange, label }) {
         aria-label={label}
         onClick={() => onChange(!checked)}
         className={cn(
-          'relative inline-flex h-[20px] w-[36px] shrink-0 cursor-pointer items-center rounded-[9999px]',
+          // 32 x 18.4 is the node's own size (I198583:54997;...;198710:67116).
+          'relative inline-flex h-[18.4px] w-[32px] shrink-0 cursor-pointer items-center rounded-[9999px]',
           'border border-solid border-transparent transition-colors outline-none',
           'focus-visible:ring-[3px] focus-visible:ring-ring/50',
           checked
@@ -324,9 +325,9 @@ function CompareSwitch({ checked, onChange, label }) {
       >
         <span
           className={cn(
-            'block size-[16px] rounded-[9999px] bg-white transition-transform',
+            'block size-[14.4px] rounded-[9999px] bg-white transition-transform',
             'shadow-[0px_1px_2px_0px_rgba(0,0,0,0.08)]',
-            checked ? 'translate-x-[17px]' : 'translate-x-[1px]',
+            checked ? 'translate-x-[15.6px]' : 'translate-x-[2px]',
           )}
         />
       </button>
@@ -498,7 +499,8 @@ export default function WaterConsumptionCardV2({
            segment render square-cornered, which is visibly wrong. The selected
            segment is a rounded rect on all four corners; unselected ones carry
            no border or fill, so their radius never shows. */
-        <div className="flex w-full flex-col gap-[12px] px-[var(--component\/card\/padding,16px)] pb-[var(--spacing\/3,12px)]">
+        <div className="flex w-full flex-col gap-[20px] px-[var(--component\/card\/padding,16px)] pt-[var(--component\/calendar\/padding,8px)] pb-[var(--component\/card\/padding,16px)]">
+          <div className="flex w-full flex-col gap-[12px]">
           <ToggleGroup
             type="single"
             variant="outline"
@@ -519,20 +521,6 @@ export default function WaterConsumptionCardV2({
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-
-          {/* I198583:54997;101006:7299;198710:67116 — the row the card gained
-              when 198583:58957 grew from 477px to 517px.
-              MONTHLY ONLY. "The previous period" is only a meaningful
-              comparison month-over-month here; on Hour and Day the windows are
-              too short to read against each other, and Year already plots the
-              whole span at once so there is no previous year to compare with. */}
-          {period === 'M' && (
-            <CompareSwitch
-              checked={compareOn}
-              onChange={setCompare}
-              label="Compare previous period"
-            />
-          )}
 
           {/* Hidden on Y for the same reason as before: the yearly view is
               the whole window at once, so there is no previous year to step
@@ -578,6 +566,25 @@ export default function WaterConsumptionCardV2({
                 <ChevronRight16 className="size-4" />
               </button>
             </div>
+          )}
+
+          </div>
+
+          {/* I198583:54997;101006:7299;198710:67116 — the row the card gained
+              when 198583:58957 grew from 477px to 517px. It is a child of
+              cardContent, NOT of the gap-12 control wrapper above, so it sits
+              20px below the caption rather than 12 — and it comes AFTER the
+              caption, which is the order the node lists.
+              MONTHLY ONLY. "The previous period" is only a meaningful
+              comparison month-over-month here; on Hour and Day the windows are
+              too short to read against each other, and Year already plots the
+              whole span at once so there is no previous year to compare with. */}
+          {period === 'M' && (
+            <CompareSwitch
+              checked={compareOn}
+              onChange={setCompare}
+              label="Compare previous period"
+            />
           )}
         </div>
       )}
