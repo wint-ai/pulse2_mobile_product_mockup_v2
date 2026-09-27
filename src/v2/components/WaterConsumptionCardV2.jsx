@@ -522,7 +522,15 @@ export default function WaterConsumptionCardV2({
             ))}
           </ToggleGroup>
 
-          {/* Hidden on Y for the same reason as before: the yearly view is
+          {/* CalendarNavButton — I198583:54997;101006:7299;198583:56390;6912:3858:
+              size-28, opacity 50, radius component/button/size-default (10px),
+              and NO fill. We drew rounded-full. A sibling agent reported a
+              slate/100 fill at 10px radius on these; that is Variant2's
+              treatment (198601:86153), not Default's, so only the radius is
+              taken here. The hover tint is ours — Figma has no hover state —
+              and stays, since a 28px target with no feedback reads as dead.
+
+              Hidden on Y for the same reason as before: the yearly view is
               the whole window at once, so there is no previous year to step
               to, and a stepper that cannot act is the thing
               check-shell-contract.mjs exists to stop shipping. */}
@@ -536,7 +544,7 @@ export default function WaterConsumptionCardV2({
                 type="button"
                 aria-label="Previous period"
                 onClick={() => stepMonth(-1)}
-                className="flex size-[28px] items-center justify-center rounded-full opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="flex size-[28px] items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
                 <ChevronLeft16 className="size-4" />
               </button>
@@ -561,7 +569,7 @@ export default function WaterConsumptionCardV2({
                 type="button"
                 aria-label="Next period"
                 onClick={() => stepMonth(1)}
-                className="flex size-[28px] items-center justify-center rounded-full opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="flex size-[28px] items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
                 <ChevronRight16 className="size-4" />
               </button>
