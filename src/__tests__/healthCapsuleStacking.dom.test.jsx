@@ -49,6 +49,48 @@ describe('health capsule stacking', () => {
     expect(String(wash.className)).toContain('z-0')
   })
 
+  it('lifts EVERY glyph and figure in a hot capsule, not just the headline one', () => {
+    /* The first version of this test only checked "Require attention". The
+       four issue pills had the same defect one level down — their IssueCount
+       carries `relative` so the NUMBER survived, while the glyph span did not
+       and vanished under the wash. Numbers present, icons gone. So assert over
+       every washed capsule, not one of them. */
+    const { container } = render(
+      <SystemsHealthCard
+        healthy={{ percent: 13 }}
+        stats={{ requireAttention: 46, total: 53 }}
+        issues={{ offline: 10, valve: 12, power: 10, recipients: 2 }}
+        systemTypes={{ topology: 53, flood: 0, humidity: 0 }}
+      />,
+    )
+
+    const washes = [...container.querySelectorAll('[aria-hidden="true"].absolute.z-0')]
+    expect(washes.length, 'expected a wash on every non-zero capsule').toBe(5)
+
+    for (const wash of washes) {
+      const capsule = wash.parentElement
+      const lifted = [...capsule.children].filter((el) =>
+        String(el.className || '').includes('z-10'),
+      )
+      expect(
+        lifted.length,
+        `a washed capsule has content outside the z-10 layer: ${capsule.textContent.trim()}`,
+      ).toBeGreaterThan(0)
+
+      // Nothing may sit beside the wash except the lifted layer.
+      const strays = [...capsule.children].filter(
+        (el) => el !== wash && !String(el.className || '').includes('z-10'),
+      )
+      expect(
+        strays.map((el) => el.tagName),
+        `unlifted children would paint under the wash: ${capsule.textContent.trim()}`,
+      ).toEqual([])
+    }
+
+    // And the glyphs really are on screen, one per issue tile plus the headline.
+    expect(container.querySelectorAll('svg').length).toBeGreaterThanOrEqual(9)
+  })
+
   it('a zero count needs no wash at all', () => {
     const { container } = render(
       <SystemsHealthCard

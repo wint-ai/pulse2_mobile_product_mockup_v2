@@ -358,11 +358,19 @@ function TileLabel({ children }) {
  */
 function IssueTile({ glyph, count, label, align = 'center', onSelect }) {
   const hot = count !== 0
+  /* Lifted into a positioned layer, exactly as Capsule does. HotWash is
+     position:absolute and therefore paints above non-positioned in-flow
+     siblings whatever the DOM order, so without this the GLYPH vanished under
+     the wash while the number survived — IssueCount carries `relative` and the
+     glyph span does not. That asymmetry is why the four issue pills lost their
+     icons but kept their figures.
+     The gap mirrors the capsule it sits in (CAPSULE_HOT 4.8px / COOL 8px),
+     since the wrapper now owns the spacing between glyph and count. */
   const body = (
-    <>
+    <span className={cn('relative z-10 flex items-center', hot ? 'gap-[4.8px]' : 'gap-[8px]')}>
       {glyph}
       <IssueCount zero={!hot}>{count}</IssueCount>
-    </>
+    </span>
   )
 
   return (
