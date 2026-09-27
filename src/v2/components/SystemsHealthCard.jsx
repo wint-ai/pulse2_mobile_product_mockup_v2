@@ -299,16 +299,51 @@ function IssueCount({ zero, children }) {
  * stretches each tile to its column (135.5px at a 28px gutter inside the
  * 299px content box — node 198235:82096).
  */
-function IssueTile({ glyph, count, label }) {
+/* The capsule's own classes, lifted out of the JSX so both the static and the
+   tappable branch render the SAME pill. String.raw is mandatory here: the `\/`
+   in these Figma token names survives verbatim inside a JSX string attribute,
+   but a plain JS literal eats the backslash and the class silently never
+   matches anything in the built CSS. */
+const ISSUE_CAPSULE = String.raw`flex gap-[8px] h-[43px] items-center justify-center min-w-[50px] px-[var(--spacing\/3,12px)] py-[20px] rounded-[var(--rounded-3xl,26px)] w-full text-[color:var(--colors\/slate\/400,#90a1b9)]`
+
+/**
+ * One issue capsule.
+ *
+ * `onSelect` is what makes it a control. Without it the tile stays exactly the
+ * div it always was — no button semantics, no pointer cursor, nothing that
+ * promises an affordance the host has not supplied. With it the capsule becomes
+ * a real <button> carrying an aria-label that reads the count aloud, because
+ * "12" beside a valve glyph tells a screen reader nothing on its own.
+ */
+function IssueTile({ glyph, count, label, onSelect }) {
+  const body = (
+    <>
+      {glyph}
+      <IssueCount zero={count === 0}>{count}</IssueCount>
+    </>
+  )
+
   return (
     <div className="flex flex-col gap-[var(--pro\/space\/2\,5,8px)] items-start">
-      <div
-        className="flex gap-[8px] h-[43px] items-center justify-center min-w-[50px] px-[var(--spacing\/3,12px)] py-[20px] rounded-[var(--rounded-3xl,26px)] w-full text-[color:var(--colors\/slate\/400,#90a1b9)]"
-        style={CAPSULE_ISSUE}
-      >
-        {glyph}
-        <IssueCount zero={count === 0}>{count}</IssueCount>
-      </div>
+      {onSelect ? (
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-label={`${label}: ${count}. Show these systems`}
+          className={cn(
+            ISSUE_CAPSULE,
+            'cursor-pointer outline-none transition-[filter,box-shadow] hover:brightness-[0.97]',
+            'active:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50',
+          )}
+          style={CAPSULE_ISSUE}
+        >
+          {body}
+        </button>
+      ) : (
+        <div className={ISSUE_CAPSULE} style={CAPSULE_ISSUE}>
+          {body}
+        </div>
+      )}
       <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh-tight,15px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/xs\/size,12px)] whitespace-nowrap">
         {label}
       </p>
@@ -339,8 +374,13 @@ export default function SystemsHealthCard({
   stats = MOCK_STATS,
   issues = MOCK_ISSUES,
   onShowPast,
+  onSelectIssue,
   className,
 }) {
+  /* Each capsule reports which dimension was tapped; the page decides where
+     that goes. Omit onSelectIssue and every tile stays a plain div, so this
+     card never promises an affordance its host has not wired. */
+  const pick = (kind) => (onSelectIssue ? () => onSelectIssue(kind) : undefined)
   const health = typeof healthy === 'number' ? { percent: healthy } : (healthy ?? {})
   const percent = health.percent ?? 0
   const requireAttention = stats?.requireAttention ?? 0
@@ -432,6 +472,7 @@ export default function SystemsHealthCard({
           }
           count={offline}
           label="Offline systems"
+          onSelect={pick('offline')}
         />
         <IssueTile
           glyph={
@@ -441,6 +482,7 @@ export default function SystemsHealthCard({
           }
           count={valve}
           label="Valve errors"
+          onSelect={pick('valve')}
         />
         <IssueTile
           glyph={
@@ -450,6 +492,7 @@ export default function SystemsHealthCard({
           }
           count={power}
           label="Disconnected power"
+          onSelect={pick('power')}
         />
         <IssueTile
           glyph={
@@ -459,6 +502,7 @@ export default function SystemsHealthCard({
           }
           count={recipients}
           label="Missing recipients"
+          onSelect={pick('recipients')}
         />
       </div>
 

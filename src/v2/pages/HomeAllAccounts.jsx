@@ -107,6 +107,18 @@ const MOCK_HEALTH_ISSUES = { offline: 4, valve: 2, power: 1, recipients: 1 }
    reference and an unreachable fallback, never something to render. */
 const MOCK_HEALTH_TYPES = { topology: 3, flood: 3, humidity: 4 }
 
+/* Which /kpi/:type screen each health capsule opens. Every slug here already
+   exists in KPIDetailScreen's filter chain, so none of this invents a route:
+   comm-offline, valve-error, power-ac-lost and recipients-missing all resolve.
+   The capsules were the page's only figures with no destination at all. */
+const KPI_ROUTE = {
+  attention: 'needs-attention',
+  offline: 'comm-offline',
+  valve: 'valve-error',
+  power: 'power-ac-lost',
+  recipients: 'recipients-missing',
+}
+
 /* 198314:73639 — four rows. Row 1's address is the literal "352 Palmer.." the
    comp types; rows 2-4 carry the full string and the card truncates it. Row 2
    states a rate, so it has no delta and gets no badge. */
@@ -433,13 +445,58 @@ export default function HomeAllAccounts({ expanded = false }) {
   const { locationName } = useParams()
   const scopeTitle = locationName ? decodeURIComponent(locationName) : 'All Accounts'
 
+  /* THE ROUTE IS THE SCOPE.
+     WintSidebarV2's header states the v2 model explicitly: the drawer is
+     navigation only and never mutates UserContext scope the way v1's did
+     ("which is why Home silently re-scoped itself behind the user's back").
+     Scope therefore arrives as this route param and nothing else.
+     That was only half-built. `locationName` reached `scopeTitle` and stopped
+     there — every aggregate below read the whole of SYSTEMS — so /location/Office
+     retitled the page to "Office" and still reported all 103 systems, the same
+     six pills and the same fleet consumption. Every location looked identical
+     because every location WAS the fleet.
+     Only location rows route here (WintSidebarV2.activate: systems go to
+     /system/:id, nodes above a location just expand), and the drawer passes
+     node.name, so matching the three location levels on the system record is
+     the whole resolution step. */
+  const scopedSystems = useMemo(() => {
+    const all = SYSTEMS ?? []
+    if (!locationName) return all
+    const name = decodeURIComponent(locationName)
+    return all.filter(s => s.l4Name === name || s.l3Name === name || s.l2Name === name)
+  }, [locationName])
+
+  /* A name that matches nothing yields an empty scope, NOT the fleet. An empty
+     location is a real state here — the drawer deliberately keeps locations
+     with no systems — and the cards all have zero states. Falling back to the
+     fleet is what produced the bug above: fleet numbers under a location's
+     name, which reads as truth and is not. */
+
   /* Real aggregates. The MOCK_* constants below are SHAPE references and
      fallbacks only — rendering them directly is the Floor-26 bug: a screen that
      looks right and reports numbers belonging to nothing. computeWidgets and
-     computeKPIs already derive these from SYSTEMS; the page just wasn't asking. */
+     computeKPIs already derive these from the scoped set; the page just wasn't
+     asking, and then was asking with the wrong set. */
   const live = useMemo(() => {
-    const systems = SYSTEMS ?? []
-    if (!systems.length) return null
+    const systems = scopedSystems
+    /* An empty SCOPE is a real state — the drawer deliberately keeps locations
+       that hold no systems — and it has to render zeros. Returning null here
+       hands every card its `?? MOCK_*` fallback instead, so an empty location
+       would report 96%% health over 3,431 systems: the Floor-26 bug wearing a
+       location's name. Only a completely absent dataset returns null, which is
+       what those fallbacks are actually for. */
+    if (!systems.length) {
+      return locationName
+        ? {
+            waterEvents: [],
+            health: { percent: 100, tone: 'healthy' },
+            stats: { requireAttention: 0, total: 0 },
+            issues: { offline: 0, valve: 0, power: 0, recipients: 0 },
+            systemTypes: { topology: 0, flood: 0, humidity: 0 },
+            insights: [],
+          }
+        : null
+    }
 
     const widgets = computeWidgets(systems) ?? {}
     const kpis = computeKPIs(systems) ?? {}
@@ -449,7 +506,24 @@ export default function HomeAllAccounts({ expanded = false }) {
     const percent = Math.round((healthy / systems.length) * 100)
 
     return {
-      waterEvents: activeEvents,
+      /* Mapped into the row shape ActiveWaterEventsCard actually reads
+         (id / systemName / location / address / type / detectedAt / duration).
+         It used to receive raw system records, so `e.type` was undefined on
+         every row: the card's High and Low filter chips counted 0 while All
+         counted every alert. The alert type lives at s.alert.type. */
+      waterEvents: activeEvents.map(s => ({
+        id: s.id,
+        systemName: s.name,
+        location: s.l4Name || s.l3Name || s.l2Name || '',
+        address: s.locationAddress || s.address || '',
+        type: s.alert?.type ?? null,
+        valve: s.valve ?? null,
+        detectedAt: s.alert?.startedAt ?? '',
+        duration: s.alert?.age ?? '',
+        notifiedBy: null,
+        ignored: false,
+        resolved: false,
+      })),
       health: { percent, tone: percent >= 90 ? 'healthy' : 'attention' },
       stats: { requireAttention: activeEvents.length, total: systems.length },
       /* The four issue pills of 198601:62957 — Offline systems / Valve errors /
@@ -511,7 +585,7 @@ export default function HomeAllAccounts({ expanded = false }) {
         insightKind: row.kind,
       })),
     }
-  }, [])
+  }, [scopedSystems, locationName])
 
   const navigate = useNavigate()
   // Days shown by the Top usage card. Held here rather than in the card because
@@ -523,15 +597,26 @@ export default function HomeAllAccounts({ expanded = false }) {
   // null | 'water' | 'alerts' — which dataset the full-list overlay is showing.
   const [overlay, setOverlay] = useState(null)
 
-  // Expanded shows the live list; collapsed shows none, per the two frames.
-  const waterEvents = expanded ? (live?.waterEvents ?? MOCK_WATER_EVENTS) : []
+  /* The data decides, not the route. 198314:73471 and 198328:89061 are two
+     STATES of one card — healthy, and has-events — so pinning the default route
+     to [] made the card claim "No active water events" above a health card
+     reporting 52 that need attention. MOCK_WATER_EVENTS stays reachable only
+     when there is no dataset at all (live === null), which is what it is for. */
+  const waterEvents = live ? live.waterEvents : (expanded ? MOCK_WATER_EVENTS : [])
 
   const topUsage = useMemo(
-    () => (SYSTEMS?.length ? buildTopUsage(SYSTEMS, topUsageDays) : null),
-    [topUsageDays],
+    () =>
+      scopedSystems.length
+        ? buildTopUsage(scopedSystems, topUsageDays)
+        // Same rule as `live`: scoped-but-empty renders empty, never MOCK_TOP_USAGE.
+        : locationName
+          ? { total: '0', rows: [] }
+          : null,
+    [scopedSystems, topUsageDays, locationName],
   )
 
-  /* All-accounts home, so the consumption card plots the whole fleet summed.
+  /* Plots whatever is in scope — the whole fleet on /, one location on
+     /location/:name.
      Memoised on (period, offset) only: SYSTEMS is a module constant and the
      per-system profiles behind this are cached, so switching granularity is a
      re-bucket rather than 100-odd regenerated series. */
@@ -539,8 +624,8 @@ export default function HomeAllAccounts({ expanded = false }) {
   const [consumptionOffset, setConsumptionOffset] = useState(0)
 
   const consumptionView = useMemo(
-    () => getFleetConsumptionSeries(SYSTEMS ?? [], consumptionPeriod, consumptionOffset),
-    [consumptionPeriod, consumptionOffset],
+    () => getFleetConsumptionSeries(scopedSystems, consumptionPeriod, consumptionOffset),
+    [scopedSystems, consumptionPeriod, consumptionOffset],
   )
 
   /* The five cards of the Body wrapper, in the comp's order. Held in a variable
@@ -567,12 +652,17 @@ export default function HomeAllAccounts({ expanded = false }) {
         issues={live?.issues ?? MOCK_HEALTH_ISSUES}
         systemTypes={live?.systemTypes ?? MOCK_HEALTH_TYPES}
         onShowPast={() => setOverlay('alerts')}
+        onSelectIssue={kind => navigate(`/kpi/${KPI_ROUTE[kind]}`)}
       />
 
       {/* 198314:73639. No onViewAll: the delivery canvas has no Insights list
           screen, so the card renders its "View all" inert rather than this page
           inventing a route for it. */}
-      <InsightsCard rows={live?.insights?.length ? live.insights : MOCK_INSIGHTS} />
+      {/* `live ?` not `live?.insights?.length ?` — a scope with no insights is a
+          real, renderable state, and the length test turned it into the comp's
+          four invented rows. MOCK_INSIGHTS is reachable only when there is no
+          dataset at all, which is what it is for. */}
+      <InsightsCard rows={live ? live.insights : MOCK_INSIGHTS} />
 
       {/* 198314:73649 — the layer is named "Balance", a leftover shadcn
           template name; the card is Water consumption. It used to ship its own

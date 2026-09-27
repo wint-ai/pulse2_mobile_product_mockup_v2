@@ -54,6 +54,9 @@ import { getSystemById } from '@/data/systems'
 import { getConsumption } from '@/data/consumption'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
 import { getSystemInsights, getSystemTopology, getActivePolicy } from '@/data/systemDetails'
+import { getEventsForSystem } from '@/data/events'
+import { ignoreIncident, clearIgnored, isIgnored } from '@/data/ignoredIncidents'
+import { startInvestigating, isInvestigating } from '@/data/investigatingStore'
 
 /* ── Mock data ──────────────────────────────────────────────────────────────
    Verbatim from the frame, including the repeated policy figures. */
@@ -439,6 +442,24 @@ export default function SystemPageV2Screen() {
     const sys = systemId ? getSystemById(systemId) : null
     if (!sys) return SYSTEM
 
+    /* The Events Timeline card defaults to `events = MOCK_EVENTS`, and this
+       screen mounted it bare — so every system on every route rendered the same
+       five invented rows. getEventsForSystem returns this system's real
+       current + history events; they are mapped into the shape the card reads.
+       kind drives the avatar tint (KIND_TONE has water | network), and the
+       badge is derived from `resolved` rather than invented per row. */
+    const timeline = (getEventsForSystem(sys.id) ?? []).map(ev => ({
+      id: ev.id,
+      kind: String(ev.type ?? '').startsWith('leak') ? 'water' : 'network',
+      title: ev.title,
+      description: ev.detail,
+      timestamp: ev.timestamp,
+      notifications: ev.notifications,
+      badge: ev.resolved
+        ? { label: 'Ended', tone: 'ended' }
+        : { label: 'Ongoing', tone: 'warning' },
+    }))
+
     const insights = getSystemInsights(sys.id) ?? []
     const topology = getSystemTopology(sys.id) ?? null
     const policy = getActivePolicy(sys.id) ?? null
@@ -458,6 +479,7 @@ export default function SystemPageV2Screen() {
       updatedAt: sys.updatedAt ?? SYSTEM.updatedAt,
       alert: sys.alert ?? null,
       insights,
+      timeline,
       topology,
       policy,
       consumption,
@@ -480,18 +502,60 @@ export default function SystemPageV2Screen() {
     [system.id, system.title, period, periodOffset],
   )
 
-  /* The frame draws two 308px alert cards side by side in a 339px column, i.e.
-     a swipe carousel with the second card peeking. The pager inside AlertCard
-     reports 'paginate'; scrolling the row is the real behaviour behind it.
-     'on-it' / 'ignore' have no designed destination in this frame, so they stay
-     no-ops rather than being wired to invented state. */
-  const handleAlertAction = (actionId) => {
-    if (actionId !== 'paginate') return
-    const row = carouselRef.current
-    if (!row) return
-    const step = 308 + 14 // card width + the row's gap-[14px]
-    const atEnd = row.scrollLeft + row.clientWidth >= row.scrollWidth - 1
-    row.scrollTo({ left: atEnd ? 0 : row.scrollLeft + step, behavior: 'smooth' })
+  /* AlertCard reports every tap through onAction(actionId, event) and reads no
+     store itself — it is presentational, and the screen decides what each id
+     means. This handler used to open with `if (actionId !== 'paginate') return`,
+     so six of the seven ids it can emit did nothing: "On it" and "Ignore" are
+     the card's two primary buttons, fully styled, and tapping them was inert.
+     The earlier note here said they had "no designed destination", which was
+     true of a route but not of state — ignoredIncidents.js and
+     investigatingStore.js already back exactly these two actions for the v1
+     screens. */
+  const [, setAlertTick] = useState(0)
+  const bump = () => setAlertTick(n => n + 1) // stores are module-level, so ask for a repaint
+
+  const handleAlertAction = (actionId, event) => {
+    const sysId = event?.systemId ?? system.id
+
+    switch (actionId) {
+      case 'paginate': {
+        const row = carouselRef.current
+        if (!row) return
+        const step = 308 + 14 // card width + the row's gap-[14px]
+        const atEnd = row.scrollLeft + row.clientWidth >= row.scrollWidth - 1
+        row.scrollTo({ left: atEnd ? 0 : row.scrollLeft + step, behavior: 'smooth' })
+        return
+      }
+
+      // "On it" — claim the incident. Idempotent: tapping it twice is not an error.
+      case 'on-it':
+        if (!isInvestigating(sysId)) startInvestigating(sysId)
+        bump()
+        return
+
+      // "Ignore" / "Unignore" — the same pair the v1 alert screens drive.
+      case 'ignore':
+        if (!isIgnored(sysId)) ignoreIncident(sysId)
+        bump()
+        return
+      case 'unignore':
+        clearIgnored(sysId)
+        bump()
+        return
+
+      case 'show-past-events':
+        navigate(`/events/system/${sysId}`)
+        return
+      case 'action':
+        navigate(`/alert/${sysId}`)
+        return
+
+      default:
+        /* 'sensor-more' is the only id left unhandled. It opens a sensor group,
+           and no frame on the delivery canvas draws that expanded state — so it
+           stays a no-op rather than being pointed at an invented screen. Named
+           explicitly here so the next reader knows it was a decision. */
+    }
   }
 
   /* Phone.jsx is a fixed 393x852 frame with overflow:hidden, so this screen
@@ -668,8 +732,11 @@ export default function SystemPageV2Screen() {
                     />
                   </div>
 
-                  {/* Events Timeline 198379:80615 */}
-                  <EventsTimelineCard />
+                  {/* Events Timeline 198379:80615. Passing `events` is what
+                      stops the card falling back to MOCK_EVENTS; an empty array
+                      is a legitimate state (a system with no history) and the
+                      card renders its own empty state for it. */}
+                  <EventsTimelineCard events={system.timeline} />
 
                   {/* Action Policy 198379:80616 */}
                   <ActionPolicyCard policies={system.policies} />
