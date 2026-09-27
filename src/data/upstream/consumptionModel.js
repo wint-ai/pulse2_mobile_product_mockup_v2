@@ -92,10 +92,32 @@ export function topologyFor(system) {
 }
 
 /**
+ * Profiles are pure functions of (systemId, days), and a profile is 730 days of
+ * arithmetic. Home ranks all 103 systems by consumption and then picks a
+ * subject the same way, so an uncached render generated ~150,000 day-values —
+ * enough to push DOM tests past their timeouts and to stall the first paint.
+ *
+ * Note you cannot economise by generating fewer days instead: `spikeDays` is
+ * drawn modulo `days`, so a 30-day profile puts its anomalies on different
+ * dates than the same system's 730-day profile. Truncating would make the
+ * ranking disagree with the chart. Caching keeps the values identical.
+ */
+const profileCache = new Map();
+
+/**
  * Whole-system consumption profile, deterministic per system id.
  * Upstream: getSystemConsumption.
  */
 export function getSystemConsumption(systemId, system, days = 730) {
+  const cacheKey = `${systemId}|${days}`;
+  const hit = profileCache.get(cacheKey);
+  if (hit) return hit;
+  const built = buildSystemConsumption(systemId, system, days);
+  profileCache.set(cacheKey, built);
+  return built;
+}
+
+function buildSystemConsumption(systemId, system, days) {
   const topology = topologyFor(system);
   const monitoring = monitoringFor(system);
   const isLoop = topology === 'Open Loop' || topology === 'Closed Loop';
