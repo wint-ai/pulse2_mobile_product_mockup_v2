@@ -1,81 +1,81 @@
 /**
  * Systems Health card — v2 (mobile). Pixel rebuild, not a screenshot trace.
  *
- * Design source: Figma file YEmjkKS4xaA827Zm8w3oXx. Every node below was
- * fetched INDIVIDUALLY — never through the parent that holds the variants,
- * which merges them and hands back the wrong assets.
+ * Design source: Figma file YEmjkKS4xaA827Zm8w3oXx.
  *
- *   197704:5707   Systems Health  Property 1=Healthy       (99%, blue gauge)
- *   197704:5709   Systems Health  Property 1=Variant2      (93%, amber gauge)
- *   197704:5731   Systems Health  Property 1=Variant3      (91%, red gauge)
- *   197662:13086  Status bar      Property 1=Default       (four issue tiles)
- *   198209:69852  Status bar      Property 1=no errors 2   (zero state + link)
- *   197697:5670 / 197700:5672 / 197700:5678  — the three gauge symbols.
+ *   198601:62957  "Status bar_M" — THE card's current node (all counts zero).
+ *   198328:88448  Account_overview tab, ALERT state. Holds this card as
+ *                 198601:62829 — 95%, 8 of 3,431, 4 / 2 / 1 / 1.
+ *   198328:88860  Account_overview tab, HEALTHY state. Holds it as
+ *                 198601:63085 — 100%, every count zero.
  *
- * The five nodes above are 1140px-wide desktop bars: one row of
- * gauge + two capsules + divider + four issue capsules. The 375px home frames
- * (198235:81421 zero, 198235:82043 alerts) re-flow that same content into a
- * card — wave banner, two stat tiles, a 2x2 grid of issue counts — so the
- * *styling* below is the desktop nodes verbatim and only the *arrangement*
- * numbers are measured off the two mobile frames at native resolution:
+ * This REPLACES a build made from 197704:5707 / 197662:13086 / 198209:69852 /
+ * 198235:*, none of which resolve in the file any more. Three things about the
+ * card changed with that redesign and none of them is cosmetic:
  *
- *   card          bg #fafbfc, 1px white border, radius 22  (node 197662:13086)
- *                 padding 20 on all four sides            (node 198235:82076)
- *   wave banner   full width x 95, radius 11              (node 198235:82078)
- *   -> stat row   28 below the banner                     (measured)
- *   stat tiles    2 cols, 26 gutter, capsule h43          (node 198235:82080)
- *   separator     20 above, 21 below, #e2e8f0             (measured; = --border)
- *   issue grid    2 cols, 28 gutter, 14 row gap           (node 198235:82095)
- *   past-alerts   24 below the grid                       (measured)
+ *  1. The wave is no longer a full-width 95px banner above the stats. It is a
+ *     135.5 x 69 tile sitting BESIDE the percent capsule, radius 18, with the
+ *     171x110 source box centred on it at +3.5px (I198601:62957;197649:9417).
+ *  2. The single "n / all" capsule labelled "Require attention / all" is now
+ *     TWO separate tiles: "All Systems" (the fleet total) and "Require
+ *     attention" (a warning glyph + the count).
+ *  3. A third section, "Systems types", hangs below a second divider: a label
+ *     and three counted chips — Topology / Flood / Humidity — that wrap.
  *
- * Landmarks that these numbers reproduce exactly on the 375 frame: banner top,
- * both capsule-row tops, the separator, and the second grid row. The card's
- * own height lands within ~3px of the comp in each state — Figma's text boxes
- * round differently to the browser's and the residue collects in the last row.
+ * ── The colour rule is a STATE SIGNAL, verified against all three nodes ────
+ * A count renders red ONLY when it is non-zero, and the capsule behind it
+ * gains a red wash at the same moment — #ff1717 at mix-blend-color over
+ * rgba(255,58,58,0.01) at mix-blend-multiply, both over the usual gradient
+ * (198328:88448 -> I198601:62829;198601:62424, and ;62436 for the issue
+ * tiles). A zero renders colors/slate/300 #cad5e2 on the plain gradient
+ * (198601:62957 — every tile in that node is zero). Nothing here derives a
+ * threshold: zero vs non-zero is the whole rule, and the gauge tone is a
+ * separate opt-in prop because the ALERT frame keeps an amber gauge while
+ * showing 8 red systems, i.e. the gauge is NOT driven by the counts.
+ * The zero used to ship slate-400 at opacity-70 here, inherited from the
+ * retired 198235:81462; the live nodes carry no opacity on a zero at all.
  *
  * ── What is verbatim and what is not ──────────────────────────────────────
  * Figma emits every token as `var(--name, <literal>)` and this project defines
  * none of those names, so the literal is what renders — the exact design value
  * with no token wiring. Those classes are copied across untouched: colours,
- * spacing, radii, font sizes, line heights, tracking, weights, the three
- * capsule gradients. Three things could NOT be kept:
+ * spacing, radii, font sizes, line heights, tracking, weights, the capsule
+ * gradient. Three things could NOT be kept:
  *
- *  1. The font-family utility, whose literal reads 'Geist:SemiBold'.
- *     get_variable_defs resolves font/family/sans AND font/family/heading to
- *     **Figtree**; 'Geist:SemiBold' is Figma's family:style notation, not a
- *     real family, so the literal fallback would drop the browser to its serif
- *     default. Body text therefore carries no font-family at all and inherits
- *     Figtree from `html, body, #root`. The font-weight utility IS kept as
- *     emitted — Tailwind cannot type-infer a var() and falls through to
- *     font-weight, which is what the design means.
- *  2. The drop-shadow on every capsule. get_variable_defs resolves both
- *     layers to `#00000000` at 0 blur / 0 spread — it paints nothing, which
- *     the 375 render confirms (no halo at any capsule edge). It also carries
- *     an unescaped `/` inside calc(), which Tailwind's candidate parser reads
- *     as a modifier delimiter. Dropped as a verified no-op.
+ *  1. The font-family utility, whose literal reads 'Figtree:SemiBold' in the
+ *     two frames and 'Geist:SemiBold' in the older standalone emit. Both are
+ *     Figma's family:style notation, not a real CSS family, so the literal
+ *     fallback would drop the browser to its serif default. Body text
+ *     therefore carries no font-family at all and inherits Figtree from
+ *     `html, body, #root`. The font-WEIGHT utility IS kept as emitted.
+ *  2. The drop-shadow on every capsule. Both layers resolve to #00000000 at
+ *     0 blur / 0 spread — it paints nothing — and it carries an unescaped `/`
+ *     inside calc(), which Tailwind's candidate parser reads as a modifier
+ *     delimiter. Dropped as a verified no-op.
  *  3. Figma's two-element text wrapper — an outer flex column at zero leading
  *     around a paragraph carrying the real leading — is flattened to one
  *     element with that leading. Identical box, half the markup.
  *
- * ── Where the mobile frame disagrees with the named desktop nodes ─────────
- * Node 198209:69852 painted every zero `colors/slate/300 #cad5e2` with no
- * opacity on the issue counts, and that used to win here as the binding
- * spec. It no longer resolves in the Figma file, so the mobile zero frame is
- * the only reachable spec left: 198235:81421 paints all four grid zeros
- * opacity-70 over slate-400, and IssueCount now follows it. AttentionCount's
- * zero is a separate node, was not re-verified, and still ships slate-300.
- * Likewise the ⓘ after "Systems Health": all five named nodes carry it, the
- * 375 home instance does not. Kept, and deliberately inert (see below).
+ * Two token literals disagree between the standalone node and the two state
+ * frames: --pro/space/2,5 is 8px in 198601:62957 but 10px in both frames, and
+ * --pro/space/1,5 is 4px vs 6px. The FRAMES win — they are the two states this
+ * card is being matched to.
  *
- * Assets: Figma's URLs expire in ~7 days, so nothing here references one.
- * Every glyph is the downloaded artwork with its viewBox verbatim, and the
- * wave is inlined as a data URI. Nothing is redrawn or substituted.
+ * Assets: Figma's URLs expire in ~7 days, so nothing here references one. The
+ * wave is inlined as a data URI below and every glyph is a project component.
  */
 
 import { PowerOff } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { MessageBlocked, WifiDisconnected02 } from '@/v2/icons'
+import {
+  BrandDrops,
+  FloodLine,
+  MessageBlocked,
+  PhotoSensor3,
+  Warning,
+  WifiDisconnected02,
+} from '@/v2/icons'
 import { cn } from '@/lib/utils'
 
 /* ── Inlined Figma assets ──────────────────────────────────────────────── */
@@ -185,103 +185,141 @@ function ValveErrorGlyph({ className }) {
   )
 }
 
-/* ── Capsule fills ─────────────────────────────────────────────────────────
+/* ── Capsule fill ──────────────────────────────────────────────────────────
    Figma's "Data capsule" style: a translucent blue wash over a white base.
-   Three instances with three different angles — kept to the digit, because
-   the angle is what puts the light corner opposite the text in each one.
-   Verified against the 375 render: the left end samples (237,241,251) and the
-   right (229,237,254), which is this gradient composited over white. */
-const CAPSULE_PERCENT = {
+   198601:62957 and both state frames emit the SAME angle on every capsule —
+   the percent, the two stat tiles and all four issue tiles. The three
+   per-capsule angles this file used to carry (168.67 / 169.58 / 162.23) came
+   from the retired desktop nodes and are gone. */
+const CAPSULE_FILL = {
   backgroundImage:
-    'linear-gradient(168.67331019152374deg, rgba(233, 238, 248, 0.8) 8.3855%, rgba(227, 235, 249, 0.8) 32.2%, rgba(228, 235, 250, 0.8) 40.822%, rgba(212, 226, 255, 0.8) 71.236%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
-}
-const CAPSULE_ATTENTION = {
-  backgroundImage:
-    'linear-gradient(169.58051988406555deg, rgba(233, 238, 248, 0.8) 8.3855%, rgba(227, 235, 249, 0.8) 32.2%, rgba(228, 235, 250, 0.8) 40.822%, rgba(212, 226, 255, 0.8) 71.236%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
-}
-const CAPSULE_ISSUE = {
-  backgroundImage:
-    'linear-gradient(162.23003637965758deg, rgba(233, 238, 248, 0.8) 8.3855%, rgba(227, 235, 249, 0.8) 32.2%, rgba(228, 235, 250, 0.8) 40.822%, rgba(212, 226, 255, 0.8) 71.236%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
+    'linear-gradient(170.59909890034055deg, rgba(233, 238, 248, 0.8) 8.3855%, rgba(227, 235, 249, 0.8) 32.2%, rgba(228, 235, 250, 0.8) 40.822%, rgba(212, 226, 255, 0.8) 71.236%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
 }
 
 /* ── MOCK DATA ─────────────────────────────────────────────────────────────
-   MOCK — replace with the real account roll-up. Values are the comp's own:
-   197704:5707 reads 99% / 8 of 3,431, and 197662:13086 reads 4 / 2 / 1 / 1. */
-const MOCK_HEALTHY = { percent: 99, tone: 'healthy' }
+   MOCK — replace with the real account roll-up. Values are the ALERT frame's
+   own: 198601:62829 reads 95% / 8 of 3,431 and 4 / 2 / 1 / 1. */
+const MOCK_HEALTHY = { percent: 95, tone: 'healthy' }
 const MOCK_STATS = { requireAttention: 8, total: 3431 }
 const MOCK_ISSUES = { offline: 4, valve: 2, power: 1, recipients: 1 }
 
+/* NOT mock. The comp draws Topology 3 / Flood 3 / Humidity 4, but those are
+   picture figures — HomeAllAccounts, this card's only data supplier, derives
+   the real counts and documents why flood and humidity are honestly 0 against
+   today's dataset. A component default must not invent a fleet, so the
+   fallback here is zeros and the caller's numbers always win. */
+const NO_SYSTEM_TYPES = { topology: 0, flood: 0, humidity: 0 }
+
 /**
- * The wave banner. Desktop draws it as a 69x69 tile; the 375 frame stretches
- * it to a full-width 95px band. Both are the same construction: an #ddf1ff
- * ground with the raster multiplied onto it, clipped by the rounded box.
+ * The wave tile — I198601:62957;197697:5670, 135.5 x 69 at radius 18.
  *
- * Framing was solved off the 375 render rather than guessed. Sampling nine
- * columns of the comp's banner and the same nine of the source scaled to the
- * banner's width puts every tone boundary within ~2px at a constant offset of
- * -44px on a 193px-tall render — i.e. `cover` (which at this aspect scales by
- * width) anchored 45% down. The pale corners then land on (217,241,255),
- * which is #ddf1ff x the source's #faffff ground: the multiply is confirmed,
- * not assumed.
+ * Construction is the design's own, not a background-position guess: an
+ * #ddf1ff ground with a 171x110 box centred on it at `top: calc(50% + 3.5px)`,
+ * the raster filling that box under `object-cover` at mix-blend-multiply. The
+ * source has no alpha — its ground is #faffff, which is exactly why the design
+ * multiplies it onto #ddf1ff.
  *
- * `isolation: isolate` is not decoration — without it the multiply and the
- * tint's `mix-blend-color` would reach past the banner into the card.
+ * `isolation: isolate` is not decoration: without it the multiply and the
+ * tone tint's mix-blend-color would reach past the tile into the card.
  */
 function WaveGauge({ tone }) {
   return (
     <div
-      className="relative isolate w-full overflow-hidden rounded-[11px] bg-[#ddf1ff]"
-      style={{ height: 95 }}
+      className="relative isolate h-[69px] w-[135.5px] shrink-0 overflow-hidden rounded-[18px] bg-[#ddf1ff]"
       aria-hidden="true"
     >
-      <div
-        className="absolute inset-0 mix-blend-multiply"
-        style={{
-          backgroundImage: `url(${WAVE_SRC})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center 45%',
-          backgroundRepeat: 'no-repeat',
-        }}
-      />
-      {/* Node 197701:5683 — a flat #ed9557 square at mix-blend-color, which
-          keeps the wave's luminosity and swaps its hue for amber. */}
-      {tone === 'intermediate' ? (
-        <div className="absolute inset-0 mix-blend-color bg-[#ed9557]" />
-      ) : null}
-      {/* Node 197701:5688 — same trick, colors/red/500. */}
-      {tone === 'error' ? (
-        <div className="absolute inset-0 mix-blend-color bg-[var(--colors\/red\/500,#fb2c36)]" />
-      ) : null}
+      <div className="absolute left-1/2 top-[calc(50%+3.5px)] h-[110px] w-[171px] -translate-x-1/2 -translate-y-1/2 mix-blend-multiply">
+        <div className="pointer-events-none absolute inset-0">
+          <img alt="" className="absolute inset-0 size-full max-w-none object-cover" src={WAVE_SRC} />
+          {/* The ALERT frame's tile, I198601:62829;198601:62405: two layers —
+              colors/orange/400 #ff8904 at mix-blend-color to swap the hue, and
+              the same colour at 30% multiplied over it to deepen it. Not one
+              layer of #ed9557, which is what this file used to guess. */}
+          {tone === 'intermediate' ? (
+            <>
+              <div className="absolute inset-0 bg-[#ff8904] mix-blend-color" />
+              <div className="absolute inset-0 bg-[rgba(255,137,4,0.3)] mix-blend-multiply" />
+            </>
+          ) : null}
+          {/* The red tone had its own node (197701:5688) in the retired set and
+              has none in the current one, so it keeps the single-layer
+              colors/red/500 it always had. UNVERIFIED against the redesign —
+              re-fetch before trusting it. */}
+          {tone === 'error' ? (
+            <div className="absolute inset-0 bg-[var(--colors\/red\/500,#fb2c36)] mix-blend-color" />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* The capsule in its two states, lifted out of the JSX so every tile renders
+   the same pill. String.raw is mandatory: the `\/` in these Figma token names
+   survives verbatim inside a JSX string attribute, but a plain JS literal eats
+   the backslash and the class silently never matches anything in the built
+   CSS. The HOT geometry is not a typo — Figma stamps the red instance at 1.2x
+   (radius 31.2, gap 4.8, px 10), and h-43 pins the height either way. */
+const CAPSULE_COOL = String.raw`flex h-[43px] w-full min-w-[50px] items-center justify-center gap-[8px] px-[var(--spacing\/3,12px)] rounded-[var(--rounded-3xl,26px)]`
+const CAPSULE_HOT = String.raw`relative isolate flex h-[43px] w-full min-w-[50px] items-center justify-center gap-[4.8px] px-[10px] rounded-[31.2px]`
+
+/* The red wash Figma paints behind a non-zero count. Three stacked layers,
+   drawn in a pointer-events-none overlay so the content above stays crisp. */
+function HotWash() {
+  return (
+    <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[31.2px]">
+      <span className="absolute inset-0 rounded-[31.2px]" style={CAPSULE_FILL} />
+      <span className="absolute inset-0 rounded-[31.2px] bg-[rgba(255,58,58,0.01)] mix-blend-multiply" />
+      <span className="absolute inset-0 rounded-[31.2px] bg-[#ff1717] mix-blend-color" />
+    </span>
+  )
+}
+
+/**
+ * One stat capsule. `hot` is the state signal: a non-zero count paints the
+ * pill with the design's red wash, a zero leaves it on the plain gradient.
+ */
+function Capsule({ hot, children }) {
+  if (!hot) {
+    return (
+      <div className={CAPSULE_COOL} style={CAPSULE_FILL}>
+        {children}
+      </div>
+    )
+  }
+  return (
+    <div className={CAPSULE_HOT}>
+      <HotWash />
+      {children}
     </div>
   )
 }
 
 /**
- * The "Require attention" numerator. Node 197697:5662 paints it
- * colors/red/500 at full strength; node 198209:69854;197697:5662 paints the
- * zero colors/slate/300. Both classes are written out rather than switched on
- * a variable, so each stays exactly as Figma emitted it.
+ * The "Require attention" numerator. I198601:62829;198601:62427 paints it
+ * colors/red/500 at FULL strength; 198601:62957;198601:62323 paints the zero
+ * colors/slate/300 with no opacity. Both classes are written out rather than
+ * switched on a variable, so each stays exactly as Figma emitted it.
  */
 function AttentionCount({ zero, children }) {
   return zero ? (
-    <p className="leading-[var(--text\/2xl\/lh-relaxed,39px)] text-center text-[color:var(--colors\/slate\/300,#cad5e2)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)]">
+    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] text-center text-[color:var(--colors\/slate\/300,#cad5e2)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
       {children}
     </p>
   ) : (
-    <p className="leading-[var(--text\/2xl\/lh-relaxed,39px)] text-center text-[color:var(--colors\/red\/500,#fb2c36)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)]">
+    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] text-center text-[color:var(--colors\/red\/500,#fb2c36)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
       {children}
     </p>
   )
 }
 
-/** Issue-tile count. Node 198235:82103 adds opacity-70 to the red, and the
- *  mobile zero frame carries the SAME opacity-70 over colors/slate/400 on
- *  all four counts (198235:81462 / :81474 / :81482 / :81489). The desktop
- *  node 198209:69862 this used to follow — slate-300, no opacity — no
- *  longer resolves in the file, so the mobile frame is the only spec left. */
+/** Issue-tile count. I198601:62829;198601:62439 adds opacity-70 to the red —
+ *  the attention count above does NOT, which is a real difference between the
+ *  two rather than an oversight. 198601:62957;198601:62148 paints the zero
+ *  colors/slate/300 at full strength. */
 function IssueCount({ zero, children }) {
   return zero ? (
-    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] opacity-70 text-center text-[color:var(--colors\/slate\/400,#90a1b9)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
+    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] text-center text-[color:var(--colors\/slate\/300,#cad5e2)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
       {children}
     </p>
   ) : (
@@ -291,88 +329,123 @@ function IssueCount({ zero, children }) {
   )
 }
 
-/**
- * One of the four issue tiles: capsule (glyph + count) over an xs label.
- * The capsule keeps Figma's height-43 plus 12/20 padding verbatim — the height
- * wins over the padding under border-box, which is what the comp does. Only
- * the desktop's fixed 70px width is replaced by `w-full`: the 375 grid
- * stretches each tile to its column (135.5px at a 28px gutter inside the
- * 299px content box — node 198235:82096).
- */
-/* The capsule's own classes, lifted out of the JSX so both the static and the
-   tappable branch render the SAME pill. String.raw is mandatory here: the `\/`
-   in these Figma token names survives verbatim inside a JSX string attribute,
-   but a plain JS literal eats the backslash and the class silently never
-   matches anything in the built CSS. */
-const ISSUE_CAPSULE = String.raw`flex gap-[8px] h-[43px] items-center justify-center min-w-[50px] px-[var(--spacing\/3,12px)] py-[20px] rounded-[var(--rounded-3xl,26px)] w-full text-[color:var(--colors\/slate\/400,#90a1b9)]`
+/** The xs caption under every capsule. */
+function TileLabel({ children }) {
+  return (
+    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh-tight,15px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/xs\/size,12px)] whitespace-nowrap">
+      {children}
+    </p>
+  )
+}
 
 /**
- * One issue capsule.
+ * One issue tile: capsule (glyph + count) over an xs label.
  *
- * `onSelect` is what makes it a control. Without it the tile stays exactly the
+ * `onSelect` is what makes it a control. Without it the tile stays the plain
  * div it always was — no button semantics, no pointer cursor, nothing that
- * promises an affordance the host has not supplied. With it the capsule becomes
- * a real <button> carrying an aria-label that reads the count aloud, because
- * "12" beside a valve glyph tells a screen reader nothing on its own.
+ * promises an affordance the host has not supplied. With it the capsule
+ * becomes a real <button> carrying an aria-label that reads the count aloud,
+ * because "12" beside a valve glyph tells a screen reader nothing on its own.
+ *
+ * `align` is Figma's, per tile: the Offline copy is items-start and the other
+ * three are items-center (198601:62957 ;62144 / ;62152 / ;62164 / ;62171).
  */
-function IssueTile({ glyph, count, label, onSelect }) {
+function IssueTile({ glyph, count, label, align = 'center', onSelect }) {
+  const hot = count !== 0
   const body = (
     <>
       {glyph}
-      <IssueCount zero={count === 0}>{count}</IssueCount>
+      <IssueCount zero={!hot}>{count}</IssueCount>
     </>
   )
 
   return (
-    <div className="flex flex-col gap-[var(--pro\/space\/2\,5,8px)] items-start">
+    <div
+      className={cn(
+        String.raw`flex flex-col gap-[6px] text-[color:var(--colors\/slate\/400,#90a1b9)]`,
+        align === 'start' ? 'items-start' : 'items-center',
+      )}
+    >
       {onSelect ? (
         <button
           type="button"
           onClick={onSelect}
           aria-label={`${label}: ${count}. Show these systems`}
           className={cn(
-            ISSUE_CAPSULE,
+            hot ? CAPSULE_HOT : CAPSULE_COOL,
             'cursor-pointer outline-none transition-[filter,box-shadow] hover:brightness-[0.97]',
             'active:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50',
           )}
-          style={CAPSULE_ISSUE}
+          style={hot ? undefined : CAPSULE_FILL}
         >
+          {hot ? <HotWash /> : null}
           {body}
         </button>
       ) : (
-        <div className={ISSUE_CAPSULE} style={CAPSULE_ISSUE}>
-          {body}
-        </div>
+        <Capsule hot={hot}>{body}</Capsule>
       )}
-      <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh-tight,15px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/xs\/size,12px)] whitespace-nowrap">
-        {label}
-      </p>
+      <TileLabel>{label}</TileLabel>
+    </div>
+  )
+}
+
+/**
+ * One "Systems types" chip — I198601:62957;198601:62351 and its two siblings.
+ *
+ * The badge is the one place the comp's geometry could not be taken literally:
+ * Figma pins it to 19x18 because it only ever drew a single digit, and
+ * `topology` here is the whole fleet, which is four digits on real data. So
+ * the 19 becomes a min-width with 4px of side padding and the badge grows
+ * instead of clipping. Everything else — h-35, the 5px gap, radius 6, the
+ * slate/200 ground, 16/24 semibold slate/900 — is verbatim.
+ */
+function SystemTypeChip({ glyph, label, count }) {
+  return (
+    <div className="flex h-[35px] items-center gap-[4px] rounded-[18px]">
+      <div className="flex items-center gap-[5px]">
+        <span className="flex shrink-0 items-center justify-center text-[color:var(--colors\/slate\/400,#90a1b9)]">
+          {glyph}
+        </span>
+        <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/base\/lh,24px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/base\/size,16px)] whitespace-nowrap">
+          {label}
+        </p>
+        <div className="flex h-[18px] min-w-[19px] shrink-0 flex-col items-center justify-center rounded-[6px] bg-[var(--colors\/slate\/200,#e2e8f0)] px-[4px]">
+          <p className="[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh,24px)] text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/base\/size,16px)] text-center w-full">
+            {count}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
 
 /**
  * @param healthy   `{ percent, tone }`, or a bare number for the percent.
- *                  `tone` selects the gauge: 'healthy' (197697:5670, blue) |
- *                  'intermediate' (197700:5672, amber) | 'error'
- *                  (197700:5678, red). Defaults to 'healthy' because that is
- *                  what the 375 comps do: 198235:82043 keeps the blue gauge
- *                  while showing 8 systems in red, so the gauge is NOT driven
- *                  by the counts on this screen. The variants read 99 / 93 /
- *                  91%, which is not a threshold either, so the amber and red
- *                  gauges are opt-in rather than derived from an invented
- *                  cutoff — pass `tone` to reach them.
- * @param stats     `{ requireAttention, total }` — the "n / all" capsule.
+ *                  `tone` selects the wave tint: 'healthy' (untinted blue) |
+ *                  'intermediate' (amber, I198601:62829;198601:62405) |
+ *                  'error' (red, unverified against the redesign). Defaults to
+ *                  'healthy' because that is what the comps do: the ALERT
+ *                  frame 198328:88448 tints the tile amber while showing 8
+ *                  systems in RED, so the tile is not driven by the counts,
+ *                  and the two percentages (95 / 100) are not a threshold
+ *                  either. Pass `tone` explicitly to reach the other two.
+ * @param stats     `{ requireAttention, total }` — the two stat tiles.
  * @param issues    `{ offline, valve, power, recipients }` — the 2x2 grid.
- * @param onShowPast  handler for "Show past alerts". The link belongs to the
- *                  zero state only (it exists in node 198209:69852 and not in
- *                  197662:13086). Omit the handler and the link renders inert.
+ * @param systemTypes `{ topology, flood, humidity }` — the "Systems types"
+ *                  chips. Falls back to zeros, never to the comp's figures.
+ * @param onShowPast  handler for "Show past alerts". NOT in the current design
+ *                  — 198328:88860 ends the card at the Systems types chips —
+ *                  but HomeAllAccounts still wires it to the alerts-history
+ *                  overlay, so the link is kept and now renders ONLY when a
+ *                  handler is supplied. Unwired, the card matches the comp.
+ * @param onSelectIssue  `(kind) => void` for a tapped issue tile.
  * @param className merged onto the card.
  */
 export default function SystemsHealthCard({
   healthy = MOCK_HEALTHY,
   stats = MOCK_STATS,
   issues = MOCK_ISSUES,
+  systemTypes = NO_SYSTEM_TYPES,
   onShowPast,
   onSelectIssue,
   className,
@@ -391,8 +464,12 @@ export default function SystemsHealthCard({
   const power = issues?.power ?? 0
   const recipients = issues?.recipients ?? 0
 
+  const topology = systemTypes?.topology ?? 0
+  const flood = systemTypes?.flood ?? 0
+  const humidity = systemTypes?.humidity ?? 0
+
   // The whole card's empty state: nothing needs attention anywhere. This is
-  // what swaps every red for grey and reveals "Show past alerts".
+  // what reveals "Show past alerts"; the per-count red is decided per tile.
   const zero =
     requireAttention === 0 && offline === 0 && valve === 0 && power === 0 && recipients === 0
 
@@ -401,67 +478,75 @@ export default function SystemsHealthCard({
   return (
     <Card
       className={cn(
-        'gap-0 rounded-[var(--rounded-3xl,22px)] border border-solid border-white bg-[#fafbfc] px-5 py-5',
+        'gap-[14px] rounded-[var(--rounded-3xl,22px)] border border-solid border-white bg-[#fafbfc] px-5 py-5',
         className,
       )}
     >
-      <WaveGauge tone={tone} />
-
-      {/* Stat row — nodes 197697:5653 (percent) and 197697:5659 (attention). */}
-      <div className="mt-[28px] grid grid-cols-2 gap-x-[26px]">
-        <div className="flex flex-col gap-[var(--pro\/space\/2\,5,8px)] items-start">
-          <div
-            className="flex gap-[8px] h-[43px] items-center px-[var(--spacing\/3,12px)] py-[20px] rounded-[var(--rounded-3xl,26px)] w-full"
-            style={CAPSULE_PERCENT}
-          >
-            <LocationDot27 className="shrink-0 size-[27px]" />
-            <p className="[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/3xl\/lh-none,30px)] text-right text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--font\/size\/text-3xl,30px)] tracking-[-0.75px] whitespace-nowrap">
-              {percent}%
-            </p>
-          </div>
-          <div className="flex gap-[2px] items-center">
-            <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh-tight,18px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
-              Systems Health
-            </p>
-            {/* Deliberately inert. All five named nodes draw this ⓘ but none
-                carries tooltip copy, and this repo's standing rule is to ASK
-                before inventing product text — so it stays a mark, not a
-                button. Give it a handler the day the copy exists. */}
-            <InformationLine14 className="shrink-0 size-[14px]" />
+      {/* I198601:62957;198601:62122 — the gauge block, one column at gap 28. */}
+      <div className="flex w-full flex-col gap-[28px]">
+        {/* Row 1 — the wave tile beside the percent capsule, ;198601:62289. */}
+        <div className="flex w-full items-start gap-[28px]">
+          <WaveGauge tone={tone} />
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-[10px]">
+            <div
+              className="flex h-[43px] w-full items-center justify-center gap-[8px] px-[var(--spacing\/2,8px)] rounded-[var(--rounded-3xl,26px)]"
+              style={CAPSULE_FILL}
+            >
+              <LocationDot27 className="shrink-0 size-[27px]" />
+              <p className="[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/3xl\/lh-none,30px)] text-right text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--font\/size\/text-3xl,30px)] tracking-[-0.75px] whitespace-nowrap">
+                {percent}%
+              </p>
+            </div>
+            <div className="flex items-center gap-[2px]">
+              <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh-tight,18px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
+                Systems Health
+              </p>
+              {/* Deliberately inert. Every node draws this mark but none
+                  carries tooltip copy, and this repo's standing rule is to ASK
+                  before inventing product text — so it stays a mark, not a
+                  button. Give it a handler the day the copy exists. */}
+              <InformationLine14 className="shrink-0 size-[14px]" />
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-[var(--pro\/space\/2\,5,8px)] items-start font-[var(--font\/weight\/font-medium,500)] whitespace-nowrap">
-          <div
-            className="flex gap-[8px] h-[43px] items-center justify-center px-[var(--spacing\/3,12px)] py-[20px] rounded-[var(--rounded-3xl,26px)] w-full"
-            style={CAPSULE_ATTENTION}
-          >
-            <AttentionCount zero={requireAttention === 0}>{requireAttention}</AttentionCount>
-            <p className="leading-[var(--text\/sm\/lh-tight,18px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm\/size,14px)]">
-              /
-            </p>
-            <p className="leading-[var(--text\/2xl\/lh-relaxed,39px)] opacity-70 text-center text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)]">
-              {total.toLocaleString('en-US')}
-            </p>
+        {/* Row 2 — "All Systems" and "Require attention", ;198601:62304. The
+            old single "n / all" capsule is gone; these are two tiles now. */}
+        <div className="flex w-full items-center gap-[28px]">
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-[6px]">
+            <Capsule>
+              <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] opacity-70 text-center text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
+                {total.toLocaleString('en-US')}
+              </p>
+            </Capsule>
+            <TileLabel>All Systems</TileLabel>
           </div>
-          <p className="leading-[var(--text\/sm\/lh-tight,18px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm\/size,14px)]">
-            Require attention / all
-          </p>
+          <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-[6px]">
+            <Capsule hot={requireAttention !== 0}>
+              <span className="flex shrink-0 items-center text-[color:var(--colors\/slate\/400,#90a1b9)]">
+                <Warning size={18} />
+              </span>
+              <AttentionCount zero={requireAttention === 0}>{requireAttention}</AttentionCount>
+            </Capsule>
+            <TileLabel>Require attention</TileLabel>
+          </div>
         </div>
       </div>
 
-      {/* Node 197662:13025 is a 90px rule between the two halves of the
-          desktop bar; the 375 frame turns it horizontal and runs it the full
-          content width. Its #e2e8f0 is this project's --border to the byte, so
-          the primitive's own `bg-border` is exact — no override needed. */}
-      <Separator className="mt-5 mb-[21px]" />
+      {/* I198601:62957;198601:62139 — a full-width 1px rule. Its #e2e8f0 is
+          this project's --border to the byte, so the primitive's own
+          `bg-border` is exact and needs no override. The card's own gap-14
+          supplies the 14px above and below; the old mt-5/mb-21 pair came from
+          the retired 375 frame. */}
+      <Separator />
 
+      {/* I198601:62957;198601:62140 — the 2x2 issue grid at 28 / 14. */}
       <div className="grid grid-cols-2 gap-x-[28px] gap-y-[14px]">
         {/* Each glyph is drawn at the exact leaf size Figma nests it at, inside
             the icon box Figma gives it — 18px for three of them, 21px for the
-            valve (node 198235:82109 "Layer_1"). The project's wifi and
-            message-blocked components are the same exports as the ones this
-            node returned, path for path, so they are reused rather than
+            valve (;198601:62154 "Layer_1"). The project's wifi and
+            message-blocked components are the same exports as the ones these
+            nodes return, path for path, so they are reused rather than
             re-exported; both default to a square, hence the explicit leaf
             width/height that restores their real 16.5x13.5 and 16.5x16.875. */}
         <IssueTile
@@ -472,6 +557,7 @@ export default function SystemsHealthCard({
           }
           count={offline}
           label="Offline systems"
+          align="start"
           onSelect={pick('offline')}
         />
         <IssueTile
@@ -506,27 +592,40 @@ export default function SystemsHealthCard({
         />
       </div>
 
-      {/* Node 198278:341835 — present only in the "no errors 2" variant. */}
-      {zero ? (
-        onShowPast ? (
-          <button
-            type="button"
-            onClick={onShowPast}
-            className="mt-6 self-start cursor-pointer font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh-tight,15px)] text-[12px] text-[color:var(--wint-blue-accent,#0b81f8)] hover:underline"
-          >
-            Show past alerts
-          </button>
-        ) : (
-          /* Inert by decision, not by omission: the page owns the past-alerts
-             destination and Rule 0 of v2-page-parity forbids inventing a
-             route. Pass onShowPast and this becomes a real button. */
-          <span
-            aria-disabled="true"
-            className="mt-6 self-start font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh-tight,15px)] text-[12px] text-[color:var(--wint-blue-accent,#0b81f8)]"
-          >
-            Show past alerts
-          </span>
-        )
+      {/* I198601:62957;198601:62344 — the second rule. */}
+      <Separator />
+
+      {/* "Systems types" — I198601:62957;198601:62347, the section the card
+          gained in the redesign. Figma draws two hard rows (Topology + Flood,
+          then Humidity) at gap 20; a single wrapping flex row reproduces that
+          exactly at the comp's 299px content width AND keeps working when the
+          counts grow, which a hard 2-then-1 split would not. The chips are
+          static: the comp gives them no affordance and this card has no
+          per-type handler to wire one to. */}
+      <div className="flex w-full flex-col items-start justify-center gap-[9px]">
+        <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh-tight,18px)] text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
+          Systems types
+        </p>
+        <div className="flex w-full flex-wrap items-center gap-x-[20px]">
+          <SystemTypeChip glyph={<PhotoSensor3 size={16.842} />} label="Topology" count={topology} />
+          <SystemTypeChip glyph={<FloodLine size={16} />} label="Flood" count={flood} />
+          <SystemTypeChip glyph={<BrandDrops size={16} />} label="Humidity" count={humidity} />
+        </div>
+      </div>
+
+      {/* Not in 198601:62957 or either state frame — the redesign dropped it.
+          Kept because HomeAllAccounts still wires onShowPast to the alerts
+          history overlay and silently orphaning a live handler is worse than
+          one extra link. Unwired, nothing renders and the card matches the
+          comp exactly. */}
+      {zero && onShowPast ? (
+        <button
+          type="button"
+          onClick={onShowPast}
+          className="self-start cursor-pointer font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh-tight,15px)] text-[12px] text-[color:var(--wint-blue-accent,#0b81f8)] hover:underline"
+        >
+          Show past alerts
+        </button>
       ) : null}
     </Card>
   )

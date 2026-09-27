@@ -20,6 +20,11 @@ import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
 import { SYSTEMS } from '@/data/systems'
 import { getAccountById, getRootAccounts } from '@/data/accounts'
 
+/* NOTE: the health card renders TWO tiles — "<total> All Systems" and
+   "<n> Require attention" — since 198601:62829 replaced the single "n / all"
+   capsule. These assertions target the total tile; what they actually guard is
+   the SCOPE (Office must report 53, not the fleet's 103), which is unchanged. */
+
 afterEach(cleanup)
 
 const locationNameOf = (s) => s.l4Name || s.l3Name || s.l2Name || s.l1Name
@@ -79,7 +84,7 @@ describe('account scoping', () => {
     // MRG owns 101 systems directly; 2 more sit under Southbridge Health, a
     // child account. Scoping to the root must see all 103, not just the 101 —
     // an account scope has to roll its children up.
-    expect(text).toContain(`/${SYSTEMS.length}Require attention / all`)
+    expect(text).toContain(`${SYSTEMS.length}All Systems`)
   })
 
   it('a sub-account scopes to just its own systems', () => {
@@ -94,8 +99,8 @@ describe('account scoping', () => {
 
     const { container } = mountAt(`/location/${encodeURIComponent(subName)}`)
     const text = (container.textContent || '').replace(/\s+/g, ' ')
-    expect(text).toContain(`/${subCount}Require attention / all`)
-    expect(text).not.toContain(`/${SYSTEMS.length}Require attention / all`)
+    expect(text).toContain(`${subCount}All Systems`)
+    expect(text).not.toContain(`${SYSTEMS.length}All Systems`)
   })
 })
 
@@ -118,8 +123,8 @@ describe('location scoping', () => {
     const text = (container.textContent || '').replace(/\s+/g, ' ')
 
     // The reported symptom: "United States" rendered 0 / 0 and six zero pills.
-    expect(text).not.toContain('0/0Require attention / all')
-    expect(text).toContain(`/${own}Require attention / all`)
+    expect(text).not.toContain('0All Systems')
+    expect(text).toContain(`${own}All Systems`)
   })
 
   it('the dataset offers two locations of different sizes', () => {
@@ -136,7 +141,7 @@ describe('location scoping', () => {
     const view = within(container)
 
     expect(view.getAllByText(locA).length).toBeGreaterThan(0)
-    // The "n / all" capsule's denominator is the scope size.
+    // The "All Systems" tile reports the scope size.
     expect(
       view.getAllByText(String(scoped.length)).length,
       `expected the scoped total ${scoped.length}, not the fleet's ${SYSTEMS.length}`,
@@ -172,7 +177,7 @@ describe('location scoping', () => {
        103"), so a whole-document search for the fleet total can never pass —
        my first version of this test failed for exactly that reason, and the
        code was right. */
-    expect(text).toContain('0/0Require attention / all')
+    expect(text).toContain('0All Systems0Require attention')
 
     // MOCK_HEALTH_STATS is 8 of 3,431 and MOCK_INSIGHTS leads with a row the
     // real data never produces. Neither may reach the screen for a real scope.
@@ -190,7 +195,7 @@ describe('location scoping', () => {
 
     const { container } = mountAt(`/location/${encodeURIComponent(office)}`)
     const text = (container.textContent || '').replace(/\s+/g, ' ')
-    expect(text).toContain(`/${own}Require attention / all`)
-    expect(text).not.toContain(`/${SYSTEMS.length}Require attention / all`)
+    expect(text).toContain(`${own}All Systems`)
+    expect(text).not.toContain(`${SYSTEMS.length}All Systems`)
   })
 })

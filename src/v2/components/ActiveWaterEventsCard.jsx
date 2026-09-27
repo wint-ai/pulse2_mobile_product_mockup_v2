@@ -343,6 +343,57 @@ function EventRow({ event }) {
 }
 
 /**
+ * The chip/pill disc: a 24px tinted circle holding the 13px waves glyph.
+ * Shared by the expanded card's filter chips (198368:56180) and by the
+ * collapsed card's summary pills (198328:88478 / :88485), which Figma draws
+ * with byte-identical markup. High and All are colors/red/100 behind the
+ * three-trace glyph; Low is colors/orange/100 behind the two-trace one, and
+ * its items-start pt-[4px] is Figma's own - it recentres the shorter glyph.
+ */
+function WaveDisc({ tone }) {
+  return tone === 'low' ? (
+    <div className="bg-[var(--colors\/orange\/100,#ffedd4)] content-stretch flex items-start justify-center pt-[4px] relative rounded-[17.19px] shrink-0 size-[24px]">
+      <Waves13Low className="relative shrink-0 size-[13px] text-[#ff6900]" />
+    </div>
+  ) : (
+    <div className="bg-[var(--colors\/red\/100,#ffe2e2)] content-stretch flex items-center justify-center relative rounded-[17.19px] shrink-0 size-[24px]">
+      <Waves13 className="relative shrink-0 size-[13px] text-[#fb2c36]" />
+    </div>
+  )
+}
+
+/**
+ * One collapsed-state summary pill - 198328:88476 (High Flow) and
+ * 198328:88483 (Low Flow) inside the ALERT frame 198328:88448.
+ *
+ * Deliberately NOT a button. Figma gives these no affordance, and the header
+ * chevron already owns opening the list; a pill that silently changed the
+ * filter would be an invented interaction. Same geometry as FilterChip -
+ * h-36, pl-5 / pr-11, radius 26, slate/200 hairline - because Figma reuses
+ * the same component for both.
+ */
+function SummaryPill({ tone, label, count }) {
+  return (
+    <div className="bg-[#fafbfc] border border-[var(--colors\/slate\/200,#e2e8f0)] border-solid content-stretch flex flex-[1_0_0] h-[36px] items-center min-w-px pl-[5px] pr-[11px] relative rounded-[var(--rounded-3xl,26px)]">
+      <div className="content-stretch flex flex-[1_0_0] items-center justify-between min-w-px relative">
+        <div className="content-stretch flex gap-[6px] items-center relative min-w-0">
+          <WaveDisc tone={tone} />
+          {/* min-w-0, not shrink-0: with real data these counts run to three
+              digits and the label is the half that must give way, exactly as
+              in FilterChip. The comp only ever drew a single digit. */}
+          <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[var(--text\/sm\/lh-tight,18px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis whitespace-nowrap" dir="auto">
+            {label}
+          </p>
+        </div>
+        <p className="[word-break:break-word] font-[family-name:var(--font\/family\/heading,'Geist:Bold'),'Figtree','Inter',sans-serif] font-bold leading-[var(--text\/base\/lh-relaxed,26px)] relative shrink-0 text-[16px] text-[color:var(--colors\/slate\/600,#45556c)] tracking-[var(--text\/base\/heading-tracking,-0.4px)] whitespace-nowrap">
+          {count}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Filter chip — 198368:56181 / :56232 / :56188.
  *
  * The comp ships a single appearance for all three chips; it has no selected
@@ -357,16 +408,7 @@ function EventRow({ event }) {
  * shorter two-trace glyph.
  */
 function FilterChip({ tone, label, count, active, onClick }) {
-  const disc =
-    tone === 'low' ? (
-      <div className="bg-[var(--colors\/orange\/100,#ffedd4)] content-stretch flex items-start justify-center pt-[4px] relative rounded-[17.19px] shrink-0 size-[24px]">
-        <Waves13Low className="relative shrink-0 size-[13px] text-[#ff6900]" />
-      </div>
-    ) : (
-      <div className="bg-[var(--colors\/red\/100,#ffe2e2)] content-stretch flex items-center justify-center relative rounded-[17.19px] shrink-0 size-[24px]">
-        <Waves13 className="relative shrink-0 size-[13px] text-[#fb2c36]" />
-      </div>
-    )
+  const disc = <WaveDisc tone={tone} />
 
   return (
     <button
@@ -408,13 +450,13 @@ function FilterChip({ tone, label, count, active, onClick }) {
 function HealthyState({ onShowPast }) {
   return (
     <div className="bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[40px] items-start justify-center min-h-[133px] pl-[18px] pr-[20px] py-[12px] relative rounded-[var(--rounded-3xl,22px)] w-full">
-      <div className="content-stretch flex flex-[1_0_0] gap-[var(--pro\/space\/4,12px)] items-center min-h-px relative w-full">
+      <div className="content-stretch flex flex-[1_0_0] gap-[var(--pro\/space\/4,16px)] items-center min-h-px relative w-full">
         <div className="h-[66px] relative shrink-0 w-[138px]">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <img alt="" className="absolute h-[156.82%] left-0 max-w-none top-[-23.45%] w-full" src={ILLUSTRATION} />
           </div>
         </div>
-        <div className="[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col gap-[var(--pro\/space\/2,6px)] items-start justify-center min-w-px relative">
+        <div className="[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col gap-[var(--pro\/space\/2,8px)] items-start justify-center min-w-px relative">
           <div className="content-stretch flex flex-col gap-[4px] items-start leading-[0] relative shrink-0 w-full">
             <div className="flex flex-col font-[family-name:var(--font\/family\/sans,'Geist:SemiBold'),'Figtree','Inter',sans-serif] font-semibold justify-center relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/base\/size,16px)] w-full">
               <p className="leading-[var(--text\/base\/lh,24px)]">No active water events</p>
@@ -454,7 +496,16 @@ function HealthyState({ onShowPast }) {
 //
 // size-full from Figma is deliberately w-full here: a height would crop the
 // list, which is the exact bug this rewrite exists to remove.
-const ROOT_CLASS = String.raw`bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[14px] items-center overflow-clip pb-[var(--spacing\/6,24px)] pt-[var(--p-0,0px)] px-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] shadow-[var(--shadow\/x,0px)_var(--shadow\/popover\/layer-2\/y,2px)_var(--shadow\/popover\/layer-2\/blur,4px)_var(--shadow\/popover\/layer-2\/spread,-2px)_var(--shadow\/popover\/layer-2\/color,rgba(0,0,0,0.1))] w-full`
+const ROOT_CLASS = String.raw`bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[14px] items-center overflow-clip pt-[var(--p-0,0px)] px-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] shadow-[var(--shadow\/x,0px)_var(--shadow\/popover\/layer-2\/y,2px)_var(--shadow\/popover\/layer-2\/blur,4px)_var(--shadow\/popover\/layer-2\/spread,-2px)_var(--shadow\/popover\/layer-2\/color,rgba(0,0,0,0.1))] w-full`
+
+/* The bottom padding is the one measurement the two states do not share.
+   Expanded, 198328:89083 pads 24 below the \"Show all\" link. Collapsed,
+   198328:88470 is pinned to h-125 and what that leaves under the summary
+   pills is 15 (16 top + 44 header + 14 gap + 36 pills + 15 = 125). The
+   height is NOT reproduced - a fixed height would crop if the title wrapped
+   - so the padding carries the difference instead. */
+const PB_COLLAPSED = 'pb-[15px]'
+const PB_EXPANDED = String.raw`pb-[var(--spacing\/6,24px)]`
 
 /**
  * @param {object}   props
@@ -489,13 +540,13 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
   if (list.length === 0) return <HealthyState onShowPast={onShowPast} />
 
   return (
-    <div className={className ? ROOT_CLASS + ' ' + className : ROOT_CLASS}>
+    <div className={[ROOT_CLASS, collapsed ? PB_COLLAPSED : PB_EXPANDED, className].filter(Boolean).join(' ')}>
       {/* CardHeader 198328:89086. Figma makes the whole header the button. */}
       <button
         type="button"
         aria-expanded={!collapsed}
         onClick={() => setCollapsed((v) => !v)}
-        className="bg-[#fafbfc] content-stretch cursor-pointer flex gap-[var(--spacing\/3,12px)] items-center pb-[var(--p-0,0px)] pt-[var(--component\/card\/padding-sm,12px)] px-[var(--component\/card\/padding-sm,12px)] relative shrink-0 w-full"
+        className="bg-[#fafbfc] content-stretch cursor-pointer flex gap-[var(--spacing\/3,12px)] items-center pb-[var(--p-0,0px)] pt-[var(--component\/card\/padding-sm,16px)] px-[var(--component\/card\/padding-sm,16px)] relative shrink-0 w-full"
       >
         <LocationDot size={44} className="relative shrink-0 text-[#fb2c36]" />
         <div className="content-stretch flex flex-[1_0_0] flex-col gap-[var(--component\/card\/header\/gap,4px)] items-start min-w-px relative">
@@ -513,7 +564,7 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
                 appears if the tokens land. Byte-identical to AlertCard.jsx's
                 CTRL_SHADOW, which is module-local there, so it is spelled out
                 here — a literal JSX attribute, which keeps the backslashes. */}
-            <div className="content-stretch drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex gap-[var(--component\/button\/gap,6px)] h-[32px] items-center justify-end px-[var(--component\/button\/size-default\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10px)] shrink-0 w-full">
+            <div className="content-stretch drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-end px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 w-full">
               <div className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]">
                 {collapsed ? <ChevronDown16 /> : <ChevronUp16 />}
               </div>
@@ -522,7 +573,16 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
         </div>
       </button>
 
-      {collapsed ? null : (
+      {collapsed ? (
+        /* 198328:88475 - the collapsed card's summary row, which this build
+           was missing entirely: two pills reporting the High and Low counts
+           under the header. Both read the SAME `counts` the filter chips do,
+           so they are the live totals, never the comp's 5 / 5. */
+        <div className="content-stretch flex gap-[15px] items-center px-[16px] relative shrink-0 w-full">
+          <SummaryPill tone="high" label="High Flow" count={counts.high} />
+          <SummaryPill tone="low" label="Low Flow" count={counts.low} />
+        </div>
+      ) : (
         <>
           {/* Filter chips 198368:56180. */}
           <div className="content-stretch flex gap-[8px] items-center px-[16px] relative shrink-0 w-full">

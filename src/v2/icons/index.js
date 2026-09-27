@@ -36,3 +36,10 @@ export { default as ArrowDropDownLine } from './ArrowDropDownLine'
 export { default as CaretDown } from './CaretDown'
 export { default as ArrowsInLineVertical } from './ArrowsInLineVertical'
 export { default as FunnelSimple } from './FunnelSimple'
+
+// ── Systems Health "Systems types" chips (Figma 198601:62957) ──────────────
+// Duplicates of module-local glyphs in WintSidebarV2.jsx / AlertCard.jsx,
+// which do not export them. See each file's PROVENANCE note.
+export { default as PhotoSensor3 } from './PhotoSensor3'
+export { default as FloodLine } from './FloodLine'
+export { default as BrandDrops } from './BrandDrops'

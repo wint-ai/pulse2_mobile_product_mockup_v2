@@ -19,6 +19,22 @@
  *             severity label into the first line;
  *   the Active/History switch is a ToggleGroup in the design, not Tabs.
  *
+ * RE-RECONCILED 2026-09-27 against the CURRENT 198328:90116 (Active) and
+ * 198378:73254 (History). Both still resolve and both still emit the structure
+ * below class-for-class; nothing in either frame had moved. Three literal
+ * classes were restored that the earlier pass had dropped as visual no-ops —
+ * the card's "Liquid" shadow, the ToggleGroup's `shadows/control` drop-shadow,
+ * and `text-left` on the Active toggle label.
+ *
+ * NOT reproduced from those two frames, on purpose:
+ *   - the FOURTH chip (198328:90169 / 198378:73289, "All alerts 25"): its
+ *     content frame is `w-px`, i.e. collapsed to a ~24px empty pill, and the
+ *     frame render shows it clipped off the right edge. It is a design
+ *     leftover, not a filter this overlay offers.
+ *   - the FOUR stacked trailing rules after the last row (198328:90250..90253,
+ *     198378:73370..73373): placeholders for the frame's unfilled rows. The
+ *     rule that matters is the one ABOVE each row, which is drawn.
+ *
  * KNOWN DESIGN BUG, deliberately NOT reproduced: frame 198328:90254 is titled
  * "Active Alerts" but draws the water chips (High Flow / Low Flow). The chips
  * here come off `dataset`, so the alerts scope gets alert chips.
@@ -526,7 +542,7 @@ export default function EventOverlayV2({
                 // Radix single-select emits '' when the pressed item is pressed
                 // again; this switch has no "neither" state.
                 onValueChange={(v) => { if (v) setTab(v) }}
-                className="flex gap-[var(--p-0,0px)] items-center overflow-hidden p-[var(--p-0,0px)] relative rounded-[var(--component\/toggle\/radius,26px)] shrink-0 w-full"
+                className="content-stretch drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex gap-[var(--p-0,0px)] items-center overflow-hidden p-[var(--p-0,0px)] relative rounded-[var(--component\/toggle\/radius,26px)] shrink-0 w-full"
               >
                 <ToggleGroupItem
                   value="active"
@@ -537,7 +553,9 @@ export default function EventOverlayV2({
                     color: isHistory ? SLATE_800 : WINT_BLUE,
                   }}
                 >
-                  <span className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] relative shrink-0 text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap">
+                  {/* `text-left` is the design's own asymmetry: it sits on the
+                      Active label and not on History, in both frames. */}
+                  <span className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] relative shrink-0 text-[length:var(--text\/sm-tight\/size,14px)] text-left whitespace-nowrap">
                     Active
                   </span>
                 </ToggleGroupItem>
@@ -606,7 +624,11 @@ export default function EventOverlayV2({
         className="px-[var(--pro\/space\/2\,5,10px)] pt-[22px] pb-[var(--spacing\/2,8px)] w-full"
         style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
       >
-        <div className="bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col items-center overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full">
+        {/* The "Liquid" effect style. Every component of it resolves to 0 /
+            rgba(0,0,0,0) today, so it paints nothing — it is carried verbatim
+            so the card picks the shadow up the moment the project defines
+            --shadow/popover/layer-2/*, exactly as the design intends. */}
+        <div className="bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col items-center overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] shadow-[var(--shadow\/x,0px)_var(--shadow\/popover\/layer-2\/y,0px)_var(--shadow\/popover\/layer-2\/blur,0px)_var(--shadow\/popover\/layer-2\/spread,0px)_var(--shadow\/popover\/layer-2\/color,rgba(0,0,0,0))] shrink-0 w-full">
           <div className="content-stretch flex flex-col items-center px-[var(--spacing\/4,16px)] relative shrink-0 w-full">
             {visible.length === 0 ? (
               <p

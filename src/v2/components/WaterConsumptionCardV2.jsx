@@ -164,6 +164,68 @@ const MOCK_MONTH = { year: 2026, monthIndex: 5 }
    order; the mobile component set is the one that ships here. The ids stay
    H/D/M/Y so consumptionSeries.js and every caller are unaffected — only the
    label and the order are the design's. */
+/* Period picker shape — Figma component set 198601:86152 "Water consumption_M".
+   That set holds exactly TWO variants, and they differ in ONE place: the 28px
+   CalendarCaption row between the chevrons.
+
+     'stepper'   198583:58957 Default  — the plain month label. Today's behaviour.
+     'dropdown'  198601:86153 Variant2 — one Select Trigger reading the year.
+
+   'dropdowns' (month + year, two triggers in one gap-8px group) is the Double
+   case of CalendarCaption's documented "Dropdowns: Single/Double" property. No
+   node for it was fetchable, so it reuses the Single trigger's emitted styling
+   verbatim, twice — no new geometry is invented. Any other value degrades to
+   'stepper', so a caller cannot silently lose the label.
+
+   There is NO calendar-icon-button variant: get_metadata on 198601:86152
+   returns only Default and Variant2. */
+const DROPDOWN_PICKERS = new Set(['dropdown', 'dropdowns'])
+
+/* monthLabel is the single source of truth for both triggers — it is either
+   what the host passed or "June 2026" from formatMonth — so the month and the
+   year are split out of it rather than re-derived from monthOffset, which
+   would disagree with a host-supplied label. A label with no trailing token
+   yields an empty year, and the year trigger is then simply not drawn. */
+function splitPeriodLabel(label) {
+  const m = /^(.*\S)\s+(\S+)$/.exec(String(label ?? '').trim())
+  return m ? { month: m[1], year: m[2] } : { month: String(label ?? ''), year: '' }
+}
+
+/* Select Trigger — Figma I198601:86154;101006:7299;198601:86158;6912:3952.
+   Figma emits no caret asset inside it and the 339px render shows bare text,
+   so none is drawn here. The node's own font-[var(--font/weight/font-medium)]
+   is read by Tailwind v4 as a font-FAMILY, so it is respelled font-[number:…].
+   Its two drop-shadow layers both resolve to rgba(0,0,0,0) at 0 blur — i.e. no
+   shadow at all — so they are dropped rather than emitted as a no-op filter.
+
+   This is a CONTROL. Given onOpen it is a real button that opens the host's
+   month sheet; given none it renders INERT — a plain span, no button role, no
+   handler, no hover affordance — so the card never ships a tappable thing that
+   does nothing. That is the contract the stepper already keeps on the Year
+   granularity, where it is withheld rather than drawn dead. */
+function PeriodDropdown({ label, ariaLabel, onOpen }) {
+  const box = String.raw`flex h-[24px] max-w-[224px] shrink-0 items-center gap-[var(--p-0,0px)] overflow-clip bg-[var(--component\/calendar\/dropdown\/bg,rgba(0,0,0,0))] py-[var(--p-0,0px)] pl-[8px] pr-[var(--component\/calendar\/caption-label\/pr,4px)] rounded-[var(--component\/calendar\/day-radius,8px)]`
+  const text = String.raw`overflow-hidden text-ellipsis whitespace-nowrap font-[number:var(--font\/weight\/font-medium,500)] text-[14px] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)]`
+
+  if (!onOpen) return <span className={cn(box, text)}>{label}</span>
+
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      aria-haspopup="dialog"
+      onClick={onOpen}
+      className={cn(
+        box,
+        text,
+        'outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50',
+      )}
+    >
+      {label}
+    </button>
+  )
+}
+
 const PERIODS = [
   { id: 'H', name: 'Hour' },
   { id: 'D', name: 'Day' },
@@ -253,6 +315,12 @@ export default function WaterConsumptionCardV2({
   onPeriodChange,
   monthLabel: monthLabelProp,
   onMonthChange,
+  /* Which picker the caption row draws — see DROPDOWN_PICKERS above. Defaults
+     to the shipped stepper, so no existing caller changes. */
+  picker = 'stepper',
+  /* Called with 'month' | 'year' when a dropdown trigger is tapped. The sheet
+     it opens lives in the host; without this the triggers render inert. */
+  onOpenPicker,
 }) {
   const [periodState, setPeriodState] = useState('D')
   const [monthOffset, setMonthOffset] = useState(0)
@@ -296,6 +364,18 @@ export default function WaterConsumptionCardV2({
     setPeriodState(next)
     onPeriodChange?.(next)
   }
+
+  /* Variant2 prints the year alone; the Double case prints month + year. Both
+     read out of monthLabel, so a host-supplied label wins over monthOffset. */
+  const usesDropdowns = DROPDOWN_PICKERS.has(picker)
+  const { month: monthName, year: yearName } = splitPeriodLabel(monthLabel)
+  const dropdowns =
+    picker === 'dropdowns'
+      ? [
+          { key: 'month', label: monthName, aria: 'Select month' },
+          { key: 'year', label: yearName, aria: 'Select year' },
+        ].filter((d) => d.label)
+      : [{ key: 'year', label: yearName || monthLabel, aria: 'Select year' }]
 
   const stepMonth = (delta) => {
     setMonthOffset((offset) => offset + delta)
@@ -379,7 +459,23 @@ export default function WaterConsumptionCardV2({
               >
                 <ChevronLeft16 className="size-4" />
               </button>
-              <span className="text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]">{monthLabel}</span>
+              {usesDropdowns ? (
+                /* Dropdown group — Figma I198601:86154;101006:7299;198601:86158;198674:177605.
+                   gap-8px even at one child: the node carries the gap for the
+                   Double case and the Single case sits in the same box. */
+                <div className="flex shrink-0 items-center gap-[8px]">
+                  {dropdowns.map((d) => (
+                    <PeriodDropdown
+                      key={d.key}
+                      label={d.label}
+                      ariaLabel={d.aria}
+                      onOpen={onOpenPicker ? () => onOpenPicker(d.key) : undefined}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <span className="text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]">{monthLabel}</span>
+              )}
               <button
                 type="button"
                 aria-label="Next period"
