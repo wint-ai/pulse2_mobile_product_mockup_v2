@@ -656,6 +656,17 @@ export default function HomeAllAccounts({ expanded = false }) {
      overlay because the capsule that was tapped is what decides it. */
   const [overlayFilter, setOverlayFilter] = useState('all')
 
+  /* Which side of the Active/History toggle the overlay opens on. "Show past
+     events" and "Show past alerts" say PAST in their own labels and were
+     landing on Active, which is the one tab that cannot answer them. */
+  const [overlayTab, setOverlayTab] = useState('active')
+
+  const openOverlay = (dataset, { filter = 'all', tab = 'active' } = {}) => {
+    setOverlayFilter(filter)
+    setOverlayTab(tab)
+    setOverlay(dataset)
+  }
+
   /* Rows for the overlay, both families in one array — it selects by
      `TYPES[e.type].dataset === family` itself, so water and alert rows can
      travel together. Without this the overlay fell back to its own MOCK_EVENTS
@@ -710,8 +721,8 @@ export default function HomeAllAccounts({ expanded = false }) {
       {/* 198314:73493 (no events) / 198328:89083 (25 events). */}
       <ActiveWaterEventsCard
         events={waterEvents}
-        onShowAll={() => setOverlay('water')}
-        onShowPast={() => setOverlay('water')}
+        onShowAll={() => openOverlay('water')}
+        onShowPast={() => openOverlay('water', { tab: 'history' })}
         /* The row docblock names /alert/:systemId as the destination it was
            waiting for. Row ids are system ids here — see the waterEvents
            mapping in `live` — so the detail screen resolves directly. */
@@ -729,11 +740,8 @@ export default function HomeAllAccounts({ expanded = false }) {
         stats={live?.stats ?? MOCK_HEALTH_STATS}
         issues={live?.issues ?? MOCK_HEALTH_ISSUES}
         systemTypes={live?.systemTypes ?? MOCK_HEALTH_TYPES}
-        onShowPast={() => setOverlay('alerts')}
-        onSelectIssue={kind => {
-          setOverlayFilter(ISSUE_FILTER[kind] ?? 'all')
-          setOverlay('alerts')
-        }}
+        onShowPast={() => openOverlay('alerts', { tab: 'history' })}
+        onSelectIssue={kind => openOverlay('alerts', { filter: ISSUE_FILTER[kind] ?? 'all' })}
       />
 
       {/* 198314:73639. No onViewAll: the delivery canvas has no Insights list
@@ -906,8 +914,9 @@ export default function HomeAllAccounts({ expanded = false }) {
         /* key: initialFilter seeds the overlay's state once per mount, so
            changing the key is what lets a second tap on a different capsule
            open a different chip. See the note on those props in EventOverlay. */
-        key={`${overlay ?? 'water'}:${overlayFilter}`}
+        key={`${overlay ?? 'water'}:${overlayFilter}:${overlayTab}`}
         initialFilter={overlayFilter}
+        initialTab={overlayTab}
         events={overlayEvents}
       />
 

@@ -417,11 +417,16 @@ function HealthyState({ onShowPast }) {
         <div className="[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col gap-[var(--pro\/space\/2,6px)] items-start justify-center min-w-px relative">
           <div className="content-stretch flex flex-col gap-[4px] items-start leading-[0] relative shrink-0 w-full">
             <div className="flex flex-col font-[family-name:var(--font\/family\/sans,'Geist:SemiBold'),'Figtree','Inter',sans-serif] font-semibold justify-center relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/base\/size,16px)] w-full">
-              <p className="leading-[var(--text\/base\/lh,24px)]">Everything looks good!</p>
+              <p className="leading-[var(--text\/base\/lh,24px)]">No active water events</p>
             </div>
             <div className="flex flex-col font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal justify-center relative shrink-0 text-[color:var(--muted-foreground,#737373)] text-[length:var(--text\/sm\/size,14px)] w-full">
+              {/* Heading and subtitle were the wrong way round: the comp
+                  (198328:88860) leads with the FACT — "No active water events"
+                  at 24px — and puts the reassurance under it at 20px. We had
+                  "Everything looks good!" as the headline, which announces a
+                  mood before it reports the state. */}
               <p className="leading-[var(--text\/sm\/lh,20px)]" dir="auto">
-                No active water events
+                Everything looks good!
               </p>
             </div>
           </div>
