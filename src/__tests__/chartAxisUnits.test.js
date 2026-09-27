@@ -11,7 +11,7 @@
 // no axis renders under happy-dom.
 
 import { describe, it, expect } from 'vitest'
-import { axisFormatter } from '@/v2/components/WaterConsumptionCardV2'
+import { axisFormatter } from '@/v2/components/chartAxis'
 
 const ladder = (max) => {
   const f = axisFormatter(max)

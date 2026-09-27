@@ -70,6 +70,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
+import { axisFormatter } from './chartAxis'
 import FunnelSimple from '@/v2/icons/FunnelSimple'
 
 /* ── Inlined Figma assets ──────────────────────────────────────────────────
@@ -295,15 +296,6 @@ function niceScale(max, divisions = 4) {
    axis, which clipped it to "000K". Deriving the unit once from domainMax
    keeps the ladder readable at any scale and makes it end "0K" / "0M" rather
    than a bare 0, which is what the design draws. */
-/* Exported for test: recharts needs real layout, so no axis renders under
-   happy-dom and the ladder cannot be asserted through the DOM. The bug lived
-   in this function, so this is what gets pinned. */
-export function axisFormatter(domainMax) {
-  if (domainMax >= 1e6) return (v) => `${Number((v / 1e6).toFixed(1))}M`
-  if (domainMax >= 1e3) return (v) => `${Number((v / 1e3).toFixed(1))}K`
-  return (v) => String(Math.round(v))
-}
-
 // ChartStyle turns this into --color-litres on the container, which is why the
 // Bar fill below is a var() and not the literal rgba.
 /* Switch — I198583:54997;101006:7299;198710:67116. Figma emits a <button>
@@ -752,12 +744,20 @@ export default function WaterConsumptionCardV2({
           <CardContent
             className={cn(
               /* Figma fixes these columns at 62 / 100 / 100 with gap-10
-                 (I198583:54997;101006:7299;198583:54825). They were min-w-,
-                 which let them drift apart once the real values reached fleet
-                 scale. flex-wrap is the PRD's mobile allowance: three across
-                 if they fit, otherwise two rows — never a collision. */
-              'flex flex-wrap items-start gap-[10px]',
-              String.raw`px-[var(--component\/card\/padding,24px)]`,
+                 (I198583:54997;101006:7299;198583:54825) and sets the copy
+                 inside to whitespace-nowrap — so a value wider than its box
+                 overflows into the gap. It never wraps the ROW.
+                 I briefly added flex-wrap here on top of the fixed widths,
+                 which is the one combination the comp does not do: with real
+                 values ("194.1K Total L") the third metric dropped to a second
+                 line. shrink-0 keeps the three across, as drawn. */
+              'flex items-start gap-[10px]',
+              /* Figma's cardContent is px-16 and pb-16; the metric row is its
+                 LAST child, so that 16px is the gap between the labels and
+                 the card's bottom border. This row carried px-24 and no
+                 bottom padding at all, so the labels sat on the edge. */
+              String.raw`px-[var(--component\/card\/padding,16px)]`,
+              String.raw`pb-[var(--component\/card\/padding,16px)]`,
             )}
           >
             {headline.map((stat) => (
@@ -765,6 +765,7 @@ export default function WaterConsumptionCardV2({
                 key={stat.label}
                 className={cn(
                   String.raw`flex shrink-0 flex-col gap-[var(--pro\/space\/0\,5,2px)]`,
+                  'shrink-0',
                   stat.width ?? 'w-[100px]',
                 )}
               >
