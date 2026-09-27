@@ -16,6 +16,15 @@
  * Known bug in the design, deliberately NOT reproduced: frame 198328:90254 is
  * titled "Active Alerts" but shows the water chips (High Flow / Low Flow). The
  * chips here come off `dataset`, so the alerts scope gets alert chips.
+ *
+ * Also deliberately NOT reproduced: the centred "Show all" line Figma draws as
+ * the last child of the card body (198328:90115). This overlay IS the designed
+ * destination of the home card's "Show all", and unlike the comp — a fixed
+ * 815px frame that can only draw ~7 rows, which is why 198328:90115 sits at
+ * y=721 and is clipped out of its own render — the list here scrolls and
+ * already shows every matching event. A footer would therefore have no target,
+ * and this file does not ship controls that do nothing. Add it only if a real
+ * destination appears.
  */
 
 import { useEffect, useState } from 'react'
@@ -37,6 +46,17 @@ const SLATE_200  = '#E2E8F0'
 const RED_600    = '#E7000B'
 const RED_500    = '#FB2C36'
 const RED_100    = '#FFE2E2'
+// Alert-family severity labels are red/900, not red/600. Sampled off the
+// "AC Unplugged" label at Figma 198328:90191, inside frame 198328:90116
+// (Overlay_Alerts, 375px — the mobile frame this file already cites).
+// The water family keeps red/600 (198328:89964 "High Flow").
+const RED_900    = '#82181A'
+// The Valve error CHIP disc only. Figma 198328:90165 (and 198378:73285 in the
+// history frame) paint it with a raw, unbound #fcd7db, while the AC Unplugged
+// disc beside it at 198328:90158 uses the red/100 token. The 48px ROW disc for
+// the same type stays red/100. Flagged for the designer — an unbound one-off
+// next to a tokenised neighbour reads like a token slip — but it is what ships.
+const VALVE_100  = '#FCD7DB'
 const ORANGE_600 = '#F54900'
 const ORANGE_100 = '#FFEDD4'
 const CARD_BG    = '#FAFBFC'
@@ -55,11 +75,21 @@ const SHEET_BG =
 // family. The Figma rows draw a plug glyph for AC Unplugged and a valve glyph
 // for Valve error; neither is in src/v2/icons and neither is worth a new
 // dependency, so the alert family shares Warning.
+//
+// Four colour fields, because the alert family needs the disc and the text to
+// come apart where the water family does not:
+//   fg       glyph colour, and the severity label unless `labelFg` overrides it
+//   labelFg  severity-label colour when the design differs from the glyph
+//   bg       the 48px row disc
+//   chipBg   the 24px chip disc, when the design differs from the row disc
 const TYPES = {
   'leak-high':   { dataset: 'water',  label: 'High Flow',    Icon: Waves,   fg: RED_600,    bg: RED_100 },
   'leak-low':    { dataset: 'water',  label: 'Low Flow',     Icon: Waves,   fg: ORANGE_600, bg: ORANGE_100 },
-  'power-lost':  { dataset: 'alerts', label: 'AC Unplugged', Icon: Warning, fg: RED_600,    bg: RED_100 },
-  'valve-error': { dataset: 'alerts', label: 'Valve error',  Icon: Warning, fg: RED_600,    bg: RED_100 },
+  // Alert family: label red/900 for both. The glyph differs — Figma's plug is
+  // red/900, its ValveStatus glyph carries its own red/500 strokes — so the
+  // shared Warning stand-in is tinted to match each.
+  'power-lost':  { dataset: 'alerts', label: 'AC Unplugged', Icon: Warning, fg: RED_900,    bg: RED_100 },
+  'valve-error': { dataset: 'alerts', label: 'Valve error',  Icon: Warning, fg: RED_500,    bg: RED_100, labelFg: RED_900, chipBg: VALVE_100 },
 }
 
 // Chip order per dataset — fixed, so a chip that currently matches nothing
@@ -167,8 +197,11 @@ export default function EventOverlay({
         className="absolute inset-x-0 bottom-0 top-3 rounded-t-[26px] overflow-hidden flex flex-col"
         style={{ background: SHEET_BG }}
       >
-        {/* Header — breadcrumb only in location scope; account scope implies it */}
-        <div className="shrink-0 flex items-center gap-2 px-[18px] pt-3 pb-1">
+        {/* Header — breadcrumb only in location scope; account scope implies it.
+            Figma 198328:89905 puts 22px between the 28px close glyph and the
+            title block. The button's own p-1 hit-target padding eats 4 of it,
+            so pb-[10px] here + pt-2 on the block below make up the rest. */}
+        <div className="shrink-0 flex items-center gap-2 px-[18px] pt-3 pb-[10px]">
           {isLocation && (
             <Breadcrumb className="min-w-0 flex-1">
               <BreadcrumbList className="gap-1.5 sm:gap-1.5 flex-nowrap text-sm" style={{ color: SLATE_500 }}>
@@ -191,12 +224,16 @@ export default function EventOverlay({
             className="ml-auto shrink-0 p-1 -mr-1 rounded-md"
             style={{ color: SLATE_900 }}
           >
-            <CloseFill size={26} />
+            {/* 28px is the icon frame itself in Figma (198328:89906) */}
+            <CloseFill size={28} />
           </button>
         </div>
 
-        {/* Title + controls — fixed chrome, outside the scroller */}
-        <div className="shrink-0 px-[18px] pt-2 flex flex-col gap-[18px]">
+        {/* Title + controls — fixed chrome, outside the scroller.
+            22px is the column gap on Figma 198328:89907 (title → toggle →
+            chips). The chips → "Showing N of M" seam is NOT 22px; see the
+            funnel row below. */}
+        <div className="shrink-0 px-[18px] pt-2 flex flex-col gap-[22px]">
           <div className="flex items-center gap-2">
             {/* Same construction as the Home water-events dot; resolved events
                 aren't ongoing, so History shows it static and grey. */}
@@ -239,7 +276,7 @@ export default function EventOverlay({
           {/* Filter chips — this row is the only thing allowed to scroll
               sideways; the bleed keeps chips running under the sheet edge. */}
           <div className="-mx-[18px] px-[18px] overflow-x-auto [&::-webkit-scrollbar]:h-0">
-            <div className="flex items-center gap-[3px] w-max pr-[18px]">
+            <div className="flex items-center gap-[2px] w-max pr-[18px]">
               <FilterChip
                 selected={activeFilter === 'all'}
                 onClick={() => setFilter('all')}
@@ -257,14 +294,17 @@ export default function EventOverlay({
                     count={inTab.filter((e) => e.type === type).length}
                     Icon={t.Icon}
                     fg={t.fg}
-                    bg={t.bg}
+                    bg={t.chipBg ?? t.bg}
                   />
                 )
               })}
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 text-sm" style={{ color: SLATE_500 }}>
+          {/* Figma 198328:89920 is a 92px column, justify-between, holding a
+              36px chip row and this 20px row — so the seam above it is 36px,
+              not the column's 22px. mt-[14px] tops the gap up. */}
+          <div className="mt-[14px] flex items-center gap-1.5 text-sm" style={{ color: SLATE_500 }}>
             <Funnel size={16} className="shrink-0" />
             {/* M is every event in this dataset, both tabs — the denominator
                 the design's "Showing 8 of 62" implies. */}
@@ -371,13 +411,13 @@ function EventRow({ ev, isLocation, divider }) {
         {/* Account rows stack the severity under the disc so the name can own
             the first line; location rows have no name, so it moves up. */}
         {!isLocation && (
-          <span className="text-xs font-medium whitespace-nowrap" style={{ color: t.fg }}>{t.label}</span>
+          <span className="text-xs font-medium whitespace-nowrap" style={{ color: t.labelFg ?? t.fg }}>{t.label}</span>
         )}
       </div>
 
       <div className="flex-1 min-w-0 flex flex-col gap-[7px]">
         {isLocation ? (
-          <span className="text-sm font-medium" style={{ color: t.fg }}>{t.label}</span>
+          <span className="text-sm font-medium" style={{ color: t.labelFg ?? t.fg }}>{t.label}</span>
         ) : (
           <>
             <span className="text-sm font-semibold truncate" style={{ color: '#0A0A0A' }}>{ev.systemName}</span>

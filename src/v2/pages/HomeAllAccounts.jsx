@@ -91,10 +91,21 @@ const MOCK_WATER_EVENTS = [
   { id: 'wae-5', systemName: '751 Poplar Court', location: 'Los Angeles',   address: '700 Oak Street, Brockton MA 2301',    type: 'leak-high', valve: null, detectedAt: 'Apr 02, 2026 08:13:15', notifiedBy: 'CN', ignored: false, resolved: false },
 ]
 
-/* 198314:73505 — 96% / 8 of 3,431 / 4 · 2 · 1 · 1. */
+/* 198314:73505 — 96% / 8 of 3,431 / 4 · 2 · 1 · 1. That node no longer resolves
+   in Figma: the home health card is now 198601:62957 ("Status bar_M", 339 wide,
+   which is this page's card width of 375 - 2x8 root - 2x10 content), and it
+   draws 100% / 0 of 3,431 / 0 · 0 · 0 · 0 plus a new "Systems types" section.
+   The figures below are kept as the SHAPE reference and as the unreachable
+   fallback only — `live` resolves whenever SYSTEMS is non-empty, and rendering
+   these instead of the fleet is the Floor-26 bug the screen comment warns of. */
 const MOCK_HEALTH = { percent: 96, tone: 'healthy' }
 const MOCK_HEALTH_STATS = { requireAttention: 8, total: 3431 }
 const MOCK_HEALTH_ISSUES = { offline: 4, valve: 2, power: 1, recipients: 1 }
+
+/* I198601:62957;198601:62347 — the three "Systems types" chips (Topology 3,
+   Flood 3, Humidity 4). Same contract as the constants above: a shape
+   reference and an unreachable fallback, never something to render. */
+const MOCK_HEALTH_TYPES = { topology: 3, flood: 3, humidity: 4 }
 
 /* 198314:73639 — four rows. Row 1's address is the literal "352 Palmer.." the
    comp types; rows 2-4 carry the full string and the card truncates it. Row 2
@@ -441,11 +452,48 @@ export default function HomeAllAccounts({ expanded = false }) {
       waterEvents: activeEvents,
       health: { percent, tone: percent >= 90 ? 'healthy' : 'attention' },
       stats: { requireAttention: activeEvents.length, total: systems.length },
+      /* The four issue pills of 198601:62957 — Offline systems / Valve errors /
+         Disconnected power / Missing recipients.
+         computeWidgets NESTS these (`widgets.valves.error`,
+         `widgets.power.acLost`, `widgets.comm.offline`); the flat
+         `widgets.valveErrors` / `.powerLost` / `.noRecipients` this used to read
+         exist on neither rollup, so three of the four `??` chains fell all the
+         way through to MOCK_HEALTH_ISSUES on EVERY render — the card reported
+         the constants 2 · 1 · 1 rather than the fleet's 12 · 10 · 4. That is the
+         Floor-26 bug named above, so the real paths are read now.
+         "Missing recipients" has no rollup at all; it is counted here off the
+         same `notificationRecipients` field the web's home uses for that
+         dimension (src/screens/home/HomeUnified.jsx), and a .length needs no
+         fallback. The `?? MOCK_*` tails that remain are shape guards only: each
+         left-hand side resolves, and 0 is not nullish, so a genuine zero now
+         reaches the card — which also makes its designed all-clear state and
+         "Show past alerts" link reachable for the first time, since valve/power/
+         recipients could never be 0 while they were pinned to the constants. */
       issues: {
-        offline: widgets.offline ?? kpis.offline ?? MOCK_HEALTH_ISSUES.offline,
-        valve: widgets.valveErrors ?? kpis.valveErrors ?? MOCK_HEALTH_ISSUES.valve,
-        power: widgets.powerLost ?? kpis.powerLost ?? MOCK_HEALTH_ISSUES.power,
-        recipients: widgets.noRecipients ?? kpis.noRecipients ?? MOCK_HEALTH_ISSUES.recipients,
+        offline: widgets.comm?.offline ?? kpis.offline ?? MOCK_HEALTH_ISSUES.offline,
+        valve: widgets.valves?.error ?? MOCK_HEALTH_ISSUES.valve,
+        power: widgets.power?.acLost ?? MOCK_HEALTH_ISSUES.power,
+        recipients: systems.filter(s => (s.notificationRecipients || 0) === 0).length,
+      },
+
+      /* "Systems types" — the labelled section 198601:62957 gained below its
+         second divider (rule I198601:62957;198601:62344, frame ;62347): three
+         chips, Topology / Flood / Humidity, each with a count badge, wrapped
+         onto two rows (Topology + Flood, then Humidity). The markup belongs to
+         SystemsHealthCard.jsx; this page is that card's only data supplier, so
+         the counts originate here.
+         The comp draws 3 · 3 · 4. Those are picture figures. What is actually
+         knowable: the MRG snapshot behind SYSTEMS is a water-system export —
+         every record carries a valve, a meter and a pipe topology — and it holds
+         no flood and no humidity device records at all (the same gap
+         src/v2/pages/SystemPage.jsx documents at its `sensors` block). So
+         Topology is the whole fleet and the other two are honestly 0 here. Do
+         NOT paste the comp's 3 and 4 back in and do not synthesise them from a
+         hash; ASK for a sensor dataset instead. */
+      systemTypes: {
+        topology: systems.length,
+        flood: 0,
+        humidity: 0,
       },
       // The web guarantees a MIX of insight kinds rather than the first four
       // it finds — without that the list reads as repeats of whichever kind
@@ -507,11 +555,17 @@ export default function HomeAllAccounts({ expanded = false }) {
         onShowPast={() => setOverlay('water')}
       />
 
-      {/* 198314:73505 */}
+      {/* 198601:62957 — the card's current node (198314:73505, which this file
+          used to name, no longer resolves; it was replaced by this redesign).
+          `systemTypes` feeds the new labelled "Systems types" row at the foot of
+          that node. The chips are SystemsHealthCard.jsx's markup to add; the
+          prop is supplied from here because this screen is the card's only
+          caller and its only source of fleet data. */}
       <SystemsHealthCard
         healthy={live?.health ?? MOCK_HEALTH}
         stats={live?.stats ?? MOCK_HEALTH_STATS}
         issues={live?.issues ?? MOCK_HEALTH_ISSUES}
+        systemTypes={live?.systemTypes ?? MOCK_HEALTH_TYPES}
         onShowPast={() => setOverlay('alerts')}
       />
 

@@ -1,8 +1,14 @@
 /**
  * System page — v2 (mobile), pixel rebuild.
  *
- * Design source: Figma node 198378:74090 "System page_mobile" (375x2763).
- * 198379:80447 is a second instance of the same screen — identical, unused.
+ * Design source: Figma node 198379:80447 "System tab_mobile" (375x2763).
+ * The screen was rebuilt in Figma under new ids. The frame this file was
+ * first traced from, 198378:74090, has been deleted — get_metadata on it now
+ * answers "node ID was not found" — so every id below was re-derived from the
+ * live 198379:80447 tree rather than re-pointed by guesswork.
+ * Ids of the form `I<instance>;<slot>;<node>` are instance-internal: the
+ * header bar, the tab strip and the policy blocks are component instances
+ * now, so their innards have no standalone page-level id.
  *
  * The frame is too large for get_design_context to return inline, so the page
  * tree was mined out of the saved overflow file. Every class below that Figma
@@ -21,13 +27,19 @@
  *     tabs       h-[36px] py-[3px], 2px underline      underline y=197..199
  *     body       gap-[14px] pb-[16px]                  first card top y=218
  *
- * Cards on this page, in order (Body wrapper 198378:74119):
- *   198378:74120  alert carousel — two AlertCard "Mobile" (198374:72716)
- *   198378:74362  "Balance" wrapper -> WaterConsumptionCardV2
- *   198378:74533  Events Timeline -> EventsTimelineCard
- *   198378:74617  Action Policy   -> built here, it has no component yet
+ * Cards on this page, in order (Body wrapper 198379:80459):
+ *   198379:80460  alert carousel — two AlertCard "Mobile" (198374:72716)
+ *   198629:57165  Topology        -> NOT BUILT HERE, see below
+ *   198629:51874  "Water consumption_M" -> WaterConsumptionCardV2
+ *   198379:80615  Events Timeline -> EventsTimelineCard
+ *   198379:80616  Action Policy   -> built here, it has no component yet
  *
- * There is no Topology card and no Insights card on this frame.
+ * The rebuilt frame gained a Topology card (198629:57165, 339x188, sitting
+ * between the alert row and the consumption card) that this file does not
+ * render. That is a content divergence, not a provenance one, and it is left
+ * open deliberately: getSystemTopology(sys.id) below already returns real
+ * data for it, and it must never be filled with invented figures to close
+ * the gap. There is still no Insights card on this frame.
  */
 
 import { useMemo, useRef, useState } from 'react'
@@ -116,7 +128,7 @@ function MoreHorizontal() {
   )
 }
 
-// Valve status (198378:74545) — the gate-valve wheel beside "Open loop".
+// Valve status (I198379:80616;101006:7299;198379:80867) — the gate-valve wheel beside "Open loop".
 // 11.7451x11.25 drawn inside a 15px box.
 function ValveStatusGlyph() {
   return (
@@ -183,7 +195,7 @@ function LocationDot({ fill }) {
 
 const DOT_FILL = { off: '#FB2C36', on: '#008236' }
 
-/* ── Action Policy card (198378:74617) ─────────────────────────────────────
+/* ── Action Policy card (198379:80616) ─────────────────────────────────────
    No component exists for this one yet, so it is built here from the frame.
    Two policy blocks, each a header row plus a slate-100 panel. */
 
@@ -204,7 +216,7 @@ function PolicyStateBadge({ label, tone }) {
 
 function PolicyBlock({ policy }) {
   return (
-    <div className="content-stretch flex flex-col items-start relative shrink-0 w-full" data-node-id="198378:74536">
+    <div className="content-stretch flex flex-col items-start relative shrink-0 w-full" data-node-id="I198379:80616;101006:7299;198379:80857">
       <div className="content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full">
         {/* Header row — glyph + name on the left, schedule on the right */}
         <div className="content-stretch flex flex-col items-start relative shrink-0 w-full">
@@ -310,7 +322,7 @@ function ActionPolicyCard({ policies }) {
   return (
     <div
       className="bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[var(--p-0,0px)] items-start overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] shadow-[var(--shadow\/x,0px)_var(--shadow\/popover\/layer-2\/y,0px)_var(--shadow\/popover\/layer-2\/blur,0px)_var(--shadow\/popover\/layer-2\/spread,0px)_var(--shadow\/popover\/layer-2\/color,rgba(0,0,0,0))] shrink-0 w-full"
-      data-node-id="198378:74617"
+      data-node-id="198379:80616"
     >
       {/* CardHeader */}
       <div className="content-stretch flex h-[62px] items-center justify-between px-[var(--spacing\/6,24px)] py-[var(--spacing\/3,12px)] relative shrink-0 w-full">
@@ -352,7 +364,7 @@ function ActionPolicyCard({ policies }) {
   )
 }
 
-/* ── Tabs (198378:74118) ────────────────────────────────────────────────────
+/* ── Tabs (198379:80458) ────────────────────────────────────────────────────
    The active and inactive triggers are two different frames in the design —
    the active one nests a content box and an absolutely positioned 2px rule,
    the inactive one is flat — so they are written as two branches rather than
@@ -366,12 +378,12 @@ const TABS = [
 
 function TabsRow({ value, onChange }) {
   return (
-    <div className="content-stretch flex items-center justify-between relative shrink-0 w-full" data-node-id="198378:74112">
+    <div className="content-stretch flex items-center justify-between relative shrink-0 w-full" data-node-id="198379:80457">
       <div
         role="tablist"
         aria-label="System sections"
         className="content-stretch flex flex-[1_0_0] gap-[var(--p-0,0px)] h-[36px] items-start min-w-px pr-[var(--component\/tabs\/list\/padding,3px)] py-[var(--component\/tabs\/list\/padding,3px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)]"
-        data-node-id="198378:74118"
+        data-node-id="198379:80458"
       >
         <div className="content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center min-w-px relative">
           {TABS.map((tab) =>
@@ -488,18 +500,18 @@ export default function SystemPageV2Screen() {
      frame's 2763px height is a canvas artefact, never a page height. */
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
-      {/* Figma root 198378:74090. The five-stop wash lives in --app-bg on the
+      {/* Figma root 198379:80447. The five-stop wash lives in --app-bg on the
           outer shell so TabBar sits on the same ground; this node keeps the
           frame's 8px inset only. */}
       <div
         className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-start p-[var(--spacing\/2,8px)] relative w-full"
         style={{ flex: 1, minHeight: 0 }}
-        data-node-id="198378:74090"
+        data-node-id="198379:80447"
       >
-        {/* Mobile Header Bar 198378:74097 */}
+        {/* Mobile Header Bar 198379:80448 */}
         <div
           className="content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[42px] items-center justify-center px-[var(--pro\/space\/4,16px)] py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full"
-          data-node-id="198378:74097"
+          data-node-id="198379:80448"
         >
           {/* Figma emits this row's gap as the two-value token
               `gap-[var(--pro\/space\/4,4px_16px)]`. Tailwind drops that class
@@ -514,7 +526,7 @@ export default function SystemPageV2Screen() {
               onClick={() => setDrawerOpen(true)}
               aria-label="Open navigation"
               className="content-stretch cursor-pointer flex gap-[var(--pro\/space\/1\,5,6.40148663520813px)] h-[34.141px] items-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,27.74px)] shrink-0 w-[287px]"
-              data-node-id="198378:74092"
+              data-node-id="I198379:80448;50600:52769;198379:80618"
             >
               <span className="flex items-center justify-center overflow-clip relative shrink-0 size-[17.071px] text-[#0a0a0a]">
                 <Menu10 size={11.3769} />
@@ -528,24 +540,24 @@ export default function SystemPageV2Screen() {
               aria-disabled="true"
               aria-label="Customer support"
               className="cursor-default flex items-center justify-center overflow-clip relative shrink-0 size-[24px] text-[#0a0a0a]"
-              data-node-id="198378:74096"
+              data-node-id="I198379:80448;50600:52769;198379:80622"
             >
               <CustomerSupport width={21.995} height={19.995} />
             </button>
           </div>
         </div>
 
-        {/* Content 198378:74098 — the one scrolling region on this screen */}
+        {/* Content 198379:80449 — the one scrolling region on this screen */}
         <div
           className="content-stretch flex flex-col gap-[22px] items-start pt-[20px] px-[var(--pro\/space\/2\,5,10px)] relative w-full"
           style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
-          data-node-id="198378:74098"
+          data-node-id="198379:80449"
         >
-          {/* Breadcrumb + title 198378:74099 */}
-          <div className="content-stretch flex flex-col items-start justify-center relative shrink-0 w-full" data-node-id="198378:74099">
-            {/* Header 198378:74106 — h-[44px] is what lands the breadcrumb
+          {/* Breadcrumb + title 198379:80450 */}
+          <div className="content-stretch flex flex-col items-start justify-center relative shrink-0 w-full" data-node-id="198379:80450">
+            {/* Header 198379:80451 — h-[44px] is what lands the breadcrumb
                 baseline on the comp's y=97. */}
-            <div className="content-stretch flex gap-[var(--spacing\/2,8px)] h-[44px] items-center py-[var(--p-0,0px)] relative shrink-0 w-full" data-node-id="198378:74106">
+            <div className="content-stretch flex gap-[var(--spacing\/2,8px)] h-[44px] items-center py-[var(--p-0,0px)] relative shrink-0 w-full" data-node-id="198379:80451">
               <nav
                 aria-label="Breadcrumb"
                 className="content-center flex flex-wrap gap-[var(--component\/breadcrumb\/item\/gap,6px)] gap-y-[4px] items-center p-[var(--p-0,0px)] relative shrink-0"
@@ -595,36 +607,36 @@ export default function SystemPageV2Screen() {
               </nav>
             </div>
 
-            {/* Title 198378:74108 */}
-            <div className="content-stretch flex items-center justify-between relative shrink-0 w-full" data-node-id="198378:74108">
+            {/* Title 198379:80453 */}
+            <div className="content-stretch flex items-center justify-between relative shrink-0 w-full" data-node-id="198379:80453">
               <h1
                 className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh,32px)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/2xl\/size,24px)] tracking-[-0.6px] whitespace-nowrap"
                 dir="auto"
-                data-node-id="198378:74109"
+                data-node-id="198379:80454"
               >
                 {system.title}
               </h1>
             </div>
           </div>
 
-          {/* Tabs + body 198378:74111 */}
-          <div className="content-stretch flex flex-col gap-[14px] items-start relative shrink-0 w-full" data-node-id="198378:74111">
+          {/* Tabs + body 198379:80456 */}
+          <div className="content-stretch flex flex-col gap-[14px] items-start relative shrink-0 w-full" data-node-id="198379:80456">
             <TabsRow value={tab} onChange={setTab} />
 
-            {/* Body wrapper 198378:74119 */}
+            {/* Body wrapper 198379:80459 */}
             <div
               className="content-stretch flex flex-col gap-[14px] items-start justify-center pb-[var(--spacing\/4,16px)] px-[var(--p-0,0px)] relative shrink-0 w-full"
-              data-node-id="198378:74119"
+              data-node-id="198379:80459"
             >
               {tab === 'overview' ? (
                 <>
-                  {/* Alert carousel 198378:74120. Two 308px cards in a 339px
+                  {/* Alert carousel 198379:80460. Two 308px cards in a 339px
                       column is a swipe row in the comp; overflow-x-auto plus
                       scroll-snap is what makes that real on a phone. */}
                   <div
                     ref={carouselRef}
                     className="content-stretch flex gap-[14px] items-center overflow-x-auto relative shrink-0 w-full snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                    data-node-id="198378:74120"
+                    data-node-id="198379:80460"
                   >
                     {system.alerts.map((alert) => (
                       <div key={alert.page} className="shrink-0 snap-start">
@@ -633,11 +645,13 @@ export default function SystemPageV2Screen() {
                     ))}
                   </div>
 
-                  {/* "Balance" 198378:74362 — the frame's leftover shadcn layer
-                      name for the water consumption card. */}
+                  {/* "Water consumption_M" 198629:51874 — the card instance in
+                      the live Body wrapper. The frame's old leftover shadcn
+                      layer name ("Balance") is gone; this wrapper stays for
+                      the min-w / overflow-clip the column needs. */}
                   <div
                     className="content-stretch flex flex-col items-center min-w-[288px] overflow-clip relative shrink-0 w-full"
-                    data-node-id="198378:74362"
+                    data-node-id="198629:51874"
                   >
                     <WaterConsumptionCardV2
                       className="w-full"
@@ -654,10 +668,10 @@ export default function SystemPageV2Screen() {
                     />
                   </div>
 
-                  {/* Events Timeline 198378:74533 */}
+                  {/* Events Timeline 198379:80615 */}
                   <EventsTimelineCard />
 
-                  {/* Action Policy 198378:74617 */}
+                  {/* Action Policy 198379:80616 */}
                   <ActionPolicyCard policies={system.policies} />
                 </>
               ) : (

@@ -37,8 +37,11 @@ const SensorB = (props) => (
   <svg viewBox="0 0 10.9398 9.94578" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}><g> <circle cx="5.46988" cy="7.95482" r="1.49096" stroke="#45556C"/> <path d="M5.46988 6.46386V3.97892" stroke="#45556C" strokeLinecap="round"/> <path d="M10.4398 5.46988C10.4398 2.72509 8.21467 0.5 5.46988 0.5C2.72509 0.5 0.5 2.72509 0.5 5.46988" stroke="#45556C" strokeLinecap="round"/> </g></svg>
 )
 
-const ChevronRight = (props) => (
-  <svg viewBox="0 0 11.9277 11.9277" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}><g> <path d="M4.47289 2.98193L7.45482 5.96386L4.47289 8.94578" stroke="#45556C" strokeLinecap="round" strokeLinejoin="round"/> </g></svg>
+// The loop chevrons are slate-600 (61dea.svg); the water line's is slate-500
+// (198453:40248 -> 2ee74.svg, which is this exact path at 1.4x, stroke and all),
+// so the stroke is a prop rather than a second near-identical component.
+const ChevronRight = ({ stroke = '#45556C', ...props }) => (
+  <svg viewBox="0 0 11.9277 11.9277" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" {...props}><g> <path d="M4.47289 2.98193L7.45482 5.96386L4.47289 8.94578" stroke={stroke} strokeLinecap="round" strokeLinejoin="round"/> </g></svg>
 )
 
 const ChevronLeft = (props) => (
@@ -57,59 +60,83 @@ function At({ left, top, w, h, children }) {
   )
 }
 
+// No `color` here on purpose: Figma's 14px water line label is slate-500
+// (198453:40249) while the two 10px loop labels are slate-600 (198453:40549,
+// 198453:40550). Each call site supplies its own tone.
 const LABEL = {
   position: 'absolute',
   fontFamily: "'Geist', ui-sans-serif, system-ui, sans-serif",
   fontWeight: 400,
-  color: 'var(--slate-600, #45556c)',
   textTransform: 'uppercase',
   whiteSpace: 'nowrap',
 }
 
 function WaterLine({ valve }) {
+  // Figma ships two symbols here: "Water Line With Valve" (198453:40479) and
+  // "Water Line No Valve" (198453:40481). The no-valve one has no valve node at
+  // all, and nudges the rest of the run over to re-centre it.
+  const noValve = valve === 'no-valve'
   return (
     <>
       {/* h-0 in the comp with the rule drawn by a -0.7px inset overlay, i.e. a
           1.4px tall run spanning 116.893px. */}
-      <At left={9.5} top={43.12} w={116.893} h={1.4}>
+      <At left={noValve ? 9.7 : 9.5} top={noValve ? 43.09 : 43.12} w={116.893} h={1.4}>
         <WaterLinePipe width="100%" height="100%" preserveAspectRatio="none" />
       </At>
-      <At left={77.2} top={30.16} w={22.771} h={22.771}>
+      {!noValve && (
+        <At left={77.2} top={30.16} w={22.771} h={22.771}>
+          <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <ValveStatus state={valve} size={16.57} />
+          </div>
+        </At>
+      )}
+      {/* 34.7 -> 58.7 once the valve is gone: the sensor re-centres the run. */}
+      <At left={noValve ? 58.7 : 34.7} top={noValve ? 32.22 : 32.24} w={18.217} h={21.253}>
         <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-          <ValveStatus state={valve} size={16.57} />
+          {/* 16.699 is the icon FRAME; 42b8e.svg's own root is 15.3039x13.9123.
+              Flex-centring the art in the frame reproduces Figma's 0.759/2.277. */}
+          <SensorA width={15.3039} height={13.9123} />
         </div>
       </At>
-      <At left={34.7} top={32.24} w={18.217} h={21.253}>
+      <At left={0} top={noValve ? 32.69 : 32.72} w={9.109} h={21.253}>
         <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-          <SensorA width={16.699} height={16.699} />
-        </div>
-      </At>
-      <At left={0} top={32.72} w={9.109} h={21.253}>
-        <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-          <ChevronRight width={16.699} height={16.699} />
+          <ChevronRight width={16.699} height={16.699} stroke="#62748E" />
         </div>
       </At>
       {/* 14px here, not the 10px the loops use — the water line label is larger. */}
-      <p style={{ ...LABEL, left: 36.7, top: 0, fontSize: 14, lineHeight: '24.289px', letterSpacing: '0.14px' }}>Supply</p>
+      <p style={{ ...LABEL, left: noValve ? 36.8 : 36.7, top: 0, fontSize: 14, lineHeight: '24.289px', letterSpacing: '0.14px', color: 'var(--slate-500, #62748e)' }}>Supply</p>
     </>
   )
 }
 
 function Loop({ valve, junction }) {
   const Pipe = junction ? OpenLoopPipe : ClosedLoopPipe
+  // "Open Loop No Valve" (198453:40586) and "Closed Loop No Valve"
+  // (198453:40849) carry no valve node at all and park both sensors on a common
+  // ml-34.5; every other offset is identical to the with-valve symbols.
+  const noValve = valve === 'no-valve'
   return (
     <>
-      <At left={6.51} top={23.09} w={83.494} h={47.711}>
+      {/* Figma's layer box is the 83.494x47.711 centreline, and the vector
+          overhangs it by half a stroke top, bottom and right
+          (inset-[-1.05%_-0.6%_-1.05%_0]) - the same trick the water line run
+          uses above. So the box is 48e7b.svg's own 83.994x48.7108, drawn 1:1. */}
+      <At left={6.51} top={22.59} w={83.994} h={48.7108}>
         <Pipe width="100%" height="100%" preserveAspectRatio="none" />
       </At>
-      <At left={48.8} top={13.33} w={16.265} h={16.265}>
+      {!noValve && (
+        <At left={48.8} top={13.33} w={16.265} h={16.265}>
+          <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <ValveStatus state={valve} size={11.836} />
+          </div>
+        </At>
+      )}
+      {/* Both loop sensors are slate-600 - the supply row is 8eb79.svg, the
+          return row d3428.svg, which SensorB matches byte for byte. 11.928 is
+          the icon frame; 10.9398x9.94578 is the art inside it. */}
+      <At left={noValve ? 34.5 : 18.43} top={14.82} w={13.012} h={15.181}>
         <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-          <ValveStatus state={valve} size={11.836} />
-        </div>
-      </At>
-      <At left={18.43} top={14.82} w={13.012} h={15.181}>
-        <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-          <SensorA width={11.928} height={11.928} />
+          <SensorB width={10.9398} height={9.94578} />
         </div>
       </At>
       <At left={0} top={15.16} w={6.506} h={15.181}>
@@ -122,23 +149,25 @@ function Loop({ valve, junction }) {
           <ChevronLeft width={11.928} height={11.928} />
         </div>
       </At>
-      <At left={49.88} top={62.53} w={13.012} h={15.181}>
+      <At left={noValve ? 34.5 : 49.88} top={62.53} w={13.012} h={15.181}>
         <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-          <SensorB width={11.928} height={11.928} />
+          <SensorB width={10.9398} height={9.94578} />
         </div>
       </At>
-      <At left={17.35} top={60.77} w={16.265} h={16.265}>
-        <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-          <ValveStatus state={valve} size={11.836} />
-        </div>
-      </At>
+      {!noValve && (
+        <At left={17.35} top={60.77} w={16.265} h={16.265}>
+          <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+            <ValveStatus state={valve} size={11.836} />
+          </div>
+        </At>
+      )}
       {junction && (
         <At left={80} top={40} w={20} h={14}>
           <Junction width="100%" height="100%" />
         </At>
       )}
-      <p style={{ ...LABEL, left: 22, top: 0, fontSize: 10, lineHeight: '17.349px', letterSpacing: '0.1px' }}>Supply</p>
-      <p style={{ ...LABEL, left: 22, top: 76, fontSize: 10, lineHeight: '17.349px', letterSpacing: '0.1px' }}>return</p>
+      <p style={{ ...LABEL, left: 22, top: 0, fontSize: 10, lineHeight: '17.349px', letterSpacing: '0.1px', color: 'var(--slate-600, #45556c)' }}>Supply</p>
+      <p style={{ ...LABEL, left: 22, top: 76, fontSize: 10, lineHeight: '17.349px', letterSpacing: '0.1px', color: 'var(--slate-600, #45556c)' }}>return</p>
     </>
   )
 }

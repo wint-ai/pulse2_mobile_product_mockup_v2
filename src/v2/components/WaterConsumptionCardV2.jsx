@@ -481,11 +481,19 @@ export default function WaterConsumptionCardV2({
                 value={p.id}
                 aria-label={p.name}
                 className={cn(
-                  String.raw`h-[var(--component\/toggle\/size-default\/height,36px)]`,
-                  String.raw`px-[var(--component\/toggle\/size-default\/padding,12px)]`,
+                  /* Re-pulled from I198424:63600;194656:347290 on 2026-09-27.
+                     The segment shrank and stopped being a pill: height 36 -> 32
+                     (Figma now emits a literal h-[32px] + min-h-[32px] rather
+                     than the height token), padding 12 -> 10, and radius
+                     26 -> 10, which is the visible one — 26px rounded the 32px
+                     segment into a lozenge, 10px is the rounded rectangle the
+                     comp now draws. Token names are unchanged; only the
+                     fallbacks moved, and fallbacks are what render here. */
+                  String.raw`h-[32px] min-h-[32px]`,
+                  String.raw`px-[var(--component\/toggle\/size-default\/padding,10px)]`,
                   String.raw`gap-[var(--component\/toggle\/gap,4px)]`,
-                  String.raw`data-[spacing=0]:first:rounded-l-[var(--component\/toggle\/radius,26px)]`,
-                  String.raw`data-[spacing=0]:last:rounded-r-[var(--component\/toggle\/radius,26px)]`,
+                  String.raw`data-[spacing=0]:first:rounded-l-[var(--component\/toggle\/radius,10px)]`,
+                  String.raw`data-[spacing=0]:last:rounded-r-[var(--component\/toggle\/radius,10px)]`,
                   String.raw`border-[var(--colors\/slate\/200,#e2e8f0)]`,
                   String.raw`text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)]`,
                   String.raw`text-[color:var(--colors\/slate\/800,#1d293d)]`,

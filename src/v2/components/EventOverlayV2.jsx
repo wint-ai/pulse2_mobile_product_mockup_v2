@@ -55,7 +55,11 @@ import ValveStatus from './ValveStatus'
 // ── Wint tokens, as the Figma variables on these frames name them ──────────
 // Used only where a value has to reach an inline style (a two-state bit, or an
 // SVG fill). Everything static keeps its var(...) class instead.
-const SLATE_900 = '#0f172b'
+// The close glyph's fill. Node 198328:89906 binds exactly one colour,
+// --foreground #0a0a0a (confirmed by get_variable_defs and by its b5b2b.svg
+// export, `fill="#0A0A0A"`) — the same token the row's system name uses. It is
+// NOT slate-900; an earlier pass painted it #0f172b.
+const FOREGROUND = '#0a0a0a'
 const SLATE_800 = '#1d293d'
 const SLATE_600 = '#45556c'
 const SLATE_500 = '#62748e'
@@ -124,6 +128,34 @@ const WavesLow = ({ size = 13, ...props }) => (
   </svg>
 )
 
+/** Phosphor "waves" with three traces on a 13-unit box — the High Flow *chip*.
+ *  Node 198328:89932 exports aa607.svg as a purpose-made 13x13 with its strokes
+ *  still 1.08063. The 21-unit `Waves` in @/v2/icons carries the same artwork and
+ *  the same stroke width, so drawing IT at 13px would scale the stroke down to
+ *  1.08063 x 13/21 = 0.67px — visibly thinner than the Low Flow chip beside it.
+ *  Hence a separate 13-viewBox copy, exactly as ActiveWaterEventsCard does. The
+ *  row badge keeps the 21-unit `Waves`, which is what Figma draws there. */
+const WavesHigh = ({ size = 13, ...props }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 13 13"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+    {...props}
+  >
+    <g clipPath="url(#eov2_waves_high)">
+      <path d="M2.03125 9.42551C5.6875 6.39437 7.3125 12.2931 10.9688 9.26199" stroke="currentColor" strokeWidth="1.08063" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2.03125 6.58176C5.6875 3.55062 7.3125 9.44937 10.9688 6.41824" stroke="currentColor" strokeWidth="1.08063" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2.03125 3.73801C5.6875 0.706875 7.3125 6.60562 10.9688 3.57449" stroke="currentColor" strokeWidth="1.08063" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+    <defs>
+      <clipPath id="eov2_waves_high"><rect width="13" height="13" fill="white" /></clipPath>
+    </defs>
+  </svg>
+)
+
 /** Huge Icons / electric-plugs — the AC Unplugged row badge. Figma draws it
  *  12.4556 x 18.5806 inside a 21px box (inset 8.33%/22.92%, grown by the half
  *  stroke), so `size` here means that box and the glyph keeps its own aspect. */
@@ -165,7 +197,12 @@ const PlugSocket = ({ size = 13, ...props }) => (
   </svg>
 )
 
-/** Remix Icons / arrow-right-s-line — the breadcrumb separator, slate-400. */
+/** Remix Icons / arrow-right-s-line — the breadcrumb separator. Figma ships ONE
+ *  glyph at TWO fills, so the caller sets the colour: node 198328:90274 (after
+ *  "Home") exports 454b9.svg fill="#90A1B9" (slate-400), node 198328:90276
+ *  (immediately before the current-page crumb) exports 450b4.svg fill="#1D293D"
+ *  (slate-800). Identical path geometry in both — the separator takes the ink of
+ *  the crumb that follows it. Same two-tone treatment as SystemPageV2Screen. */
 const ArrowRightSLine = ({ size = 16, ...props }) => (
   <svg
     width={size}
@@ -232,8 +269,10 @@ const TYPES = {
   'leak-high': {
     dataset: 'water',
     label: 'High Flow',
+    // Two exports of one glyph: the row draws the 21-unit Waves, the chip the
+    // 13-unit WavesHigh, so the 1.08063 stroke renders at full weight in both.
     RowIcon: Waves,
-    ChipIcon: Waves,
+    ChipIcon: WavesHigh,
     badge: '#ffe2e2',
     chipTint: '#ffe2e2',
     glyph: RED_500,
@@ -384,7 +423,7 @@ export default function EventOverlayV2({
       onClick={onClose}
       aria-label="Close"
       className="relative shrink-0 size-[28px] cursor-pointer"
-      style={{ color: SLATE_900 }}
+      style={{ color: FOREGROUND }}
     >
       <CloseFill size={28} />
     </button>
@@ -432,7 +471,9 @@ export default function EventOverlayV2({
                         <MoreHorizontal size={16} />
                       </span>
                     </span>
-                    <span className="relative shrink-0 size-[16px] flex items-center justify-center" style={{ color: SLATE_400 }}>
+                    {/* slate-800, not slate-400 — this separator leads the
+                        current-page crumb (node 198328:90276 / 450b4.svg). */}
+                    <span className="relative shrink-0 size-[16px] flex items-center justify-center" style={{ color: SLATE_800 }}>
                       <ArrowRightSLine size={16} />
                     </span>
                     <span
@@ -571,6 +612,9 @@ export default function EventOverlayV2({
                   key={ev.id ?? i}
                   ev={ev}
                   isLocation={isLocation}
+                  // Only the first row goes without the 16px right padding —
+                  // see ROW_WRAP_FIRST.
+                  first={i === 0}
                   // Figma draws a rule above every row including the first, so
                   // the card opens on a hairline.
                   rule
@@ -614,7 +658,13 @@ function FilterChip({ selected, onClick, label, count, type }) {
               style={{ background: t.chipTint, color: t.glyph }}
             >
               {t.valve
-                ? <ValveStatus state="error" size={16} className="relative shrink-0" />
+                // `size` is the ARTWORK box, not the frame box: ValveStatus's
+                // error variant has a 12.5281x12 viewBox, so 12.5281 draws it
+                // 1:1. Figma agrees — node 198378:73285 is a 24px disc holding
+                // a 16px ValveStatus frame whose group is 11.643x11.115, which
+                // is 12.5281x12 once the 0.4426 half-stroke halo is added.
+                // Passing 16 here meet-fit the artwork to 16x15.33, ~28% large.
+                ? <ValveStatus state="error" size={12.5281} className="relative shrink-0" />
                 : <t.ChipIcon size={13} className="relative shrink-0" />}
             </span>
           ) : (
@@ -642,6 +692,20 @@ function FilterChip({ selected, onClick, label, count, type }) {
   )
 }
 
+/** The row wrapper, in its two Figma spellings. Every frame gives rows 2..n a
+ *  16px right padding and the FIRST row none (198328:89955 vs 198328:89978, and
+ *  again 198378:73302 vs 198378:73325) — the row's inner content frame measures
+ *  307 on row 1 and 291 below it, so the truncating address string gets 16px
+ *  less room from row 2 down. This is ADDITIVE to the list container's own
+ *  px-[var(--spacing\/4,16px)]; it is not a restatement of it.
+ *
+ *  A ternary cannot hold these inline: `\/` survives in a JSX string attribute
+ *  but a plain JS string literal eats the backslash at parse time while
+ *  Tailwind's scanner still emits the escaped selector, so the rule would
+ *  silently stop matching. String.raw keeps the two in sync (see header note). */
+const ROW_WRAP_FIRST = String.raw`content-stretch flex flex-col gap-[var(--spacing\/2,8px)] items-start py-[16px] relative shrink-0 w-full`
+const ROW_WRAP = String.raw`content-stretch flex flex-col gap-[var(--spacing\/2,8px)] items-start pr-[var(--spacing\/4,16px)] py-[16px] relative shrink-0 w-full`
+
 /** One event row.
  *  Account scope stacks the severity label under the 48px badge so the system
  *  name can own the first line. Location scope drops the name and the address
@@ -651,7 +715,7 @@ function FilterChip({ selected, onClick, label, count, type }) {
  *  Rows are deliberately inert: this overlay's contract carries no event-detail
  *  callback, and the design gives the row no affordance (no chevron, no press
  *  state). */
-function EventRow({ ev, isLocation, rule }) {
+function EventRow({ ev, isLocation, rule, first }) {
   const t = TYPES[ev.type] ?? {
     label: ev.type,
     RowIcon: ElectricPlugs,
@@ -690,7 +754,7 @@ function EventRow({ ev, isLocation, rule }) {
   return (
     <>
       {rule && <RowRule />}
-      <div className="content-stretch flex flex-col gap-[var(--spacing\/2,8px)] items-start py-[16px] relative shrink-0 w-full">
+      <div className={first ? ROW_WRAP_FIRST : ROW_WRAP}>
         <div className="content-stretch flex gap-[17px] items-center relative shrink-0 w-full">
 
           {isLocation ? (

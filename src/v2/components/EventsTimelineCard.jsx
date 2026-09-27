@@ -127,25 +127,43 @@ function Bell12() {
  * Status pill. `variant` is the shadcn prop the Figma Badge description maps to
  * its own "Type" property (Default / Secondary / Outline / Destructive); the
  * className carries the literal fill and label colour the node specifies.
+ *
+ * The two "Warning" pills are separate entries on purpose: Figma recoloured the
+ * one that trails the title (`warning`) but left the row-5 pill that leads it
+ * (`warningLead`) orange. They are distinct instances in the comp.
  */
 const BADGE_TONE = {
-  // Figma Type=Destructive. 198352:121453 collapsed; 198355:121806 expanded —
-  // the same pill de-emphasises while its row is open. That is a real variant
-  // difference between the two nodes, not a stray override.
-  ongoing: {
-    variant: 'destructive',
-    className: String.raw`bg-[var(--colors\/red\/400,#ff6467)] text-[#fafbfc]`,
-    openClassName: String.raw`bg-[var(--colors\/red\/100,#ffe2e2)] text-[color:var(--colors\/red\/900,#82181a)]`,
+  // Figma Type=Secondary. 198352:121453 (Default) / 198601:86817 (Expanded).
+  // Both variants now emit the same slate/100 chip with a #509fef label reading
+  // "Ended", so there is no openClassName any more. The pill used to be
+  // Type=Destructive (red/400 fill, white label) and de-emphasise to red/100
+  // while its row was open; the design dropped that distinction entirely, and
+  // the node the old comment cited for the expanded badge (198355:121806) no
+  // longer exists. #509fef is a per-instance override, not a token.
+  ended: {
+    variant: 'secondary',
+    className: String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] text-[#509fef]`,
   },
-  // Figma Type=Secondary. 198352:121482
+  // Figma Type=Secondary. 198352:121482 (Default) / 198511:66361 (Expanded) —
+  // the pill that TRAILS the title. Recoloured from orange/100 + orange/600 to
+  // the same slate/100 + red/400 pair shutoff now uses.
   warning: {
+    variant: 'secondary',
+    className: String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] text-[color:var(--colors\/red\/400,#ff6467)]`,
+  },
+  // Figma Type=Secondary. 198352:121557 — the badgeFirst pill on the last row,
+  // which LEADS the title. Re-fetched and still orange on orange, so it keeps
+  // the treatment `warning` just lost. Folding the two back together would
+  // break this one.
+  warningLead: {
     variant: 'secondary',
     className: String.raw`bg-[var(--colors\/orange\/100,#ffedd4)] text-[color:var(--colors\/orange\/600,#f54900)]`,
   },
-  // Figma Type=Secondary. 198352:121511
+  // Figma Type=Secondary. 198352:121511 (Default) / 198511:66354 (Expanded).
+  // Recoloured from indigo/100 + indigo/600 to slate/100 + red/400.
   shutoff: {
     variant: 'secondary',
-    className: String.raw`bg-[var(--colors\/indigo\/100,#e0e7ff)] text-[color:var(--colors\/indigo\/600,#4f39f6)]`,
+    className: String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] text-[color:var(--colors\/red\/400,#ff6467)]`,
   },
 }
 
@@ -188,7 +206,7 @@ const MOCK_EVENTS = [
     id: 'evt-1',
     kind: 'water',
     title: 'High Flow Anomaly',
-    badge: { label: 'Ongoing', tone: 'ongoing' },
+    badge: { label: 'Ended', tone: 'ended' },
     metrics: MOCK_METRICS,
     description: 'Leak confirmed — flow sustained above threshold',
     timestamp: 'Apr 02, 2026 08:13:15',
@@ -227,8 +245,12 @@ const MOCK_EVENTS = [
     id: 'evt-5',
     kind: 'water',
     title: 'High Flow Anomaly',
-    badge: { label: 'Warning', tone: 'warning' },
+    badge: { label: 'Warning', tone: 'warningLead' },
     badgeFirst: true, // 198352:121556 — this row leads with the pill.
+    // 198352:121550 (Default) / 198355:121903 (Expanded): this row's avatar is
+    // the one drawn as a squircle. Every other avatar in both variants is
+    // rounded-[30px].
+    avatarShape: 'squircle',
     metrics: MOCK_METRICS,
     description: 'Leak confirmed — flow sustained above threshold',
     timestamp: 'Apr 02, 2026 08:13:15',
@@ -258,6 +280,9 @@ function EventRow({ event, eventId, isLast, isOpen, onToggle }) {
   )
 
   const pill = event.badge ? (
+    /* No tone defines openClassName today: Figma's Default and Expanded
+       variants now draw every pill identically. The branch stays so a future
+       variant-specific treatment has somewhere to go. */
     <Badge
       variant={tone.variant}
       className={cn(BADGE_BASE, isOpen && tone.openClassName ? tone.openClassName : tone.className)}
@@ -272,7 +297,10 @@ function EventRow({ event, eventId, isLast, isOpen, onToggle }) {
       <div className="content-stretch flex flex-col gap-[var(--pro\/space\/1,4px)] items-center relative shrink-0">
         <div
           className={cn(
-            'content-stretch flex items-center justify-center relative rounded-[30px] shrink-0 size-[24px]',
+            'content-stretch flex items-center justify-center relative shrink-0 size-[24px]',
+            /* Every avatar is a full circle except the last row's, which Figma
+               draws as a squircle — 198352:121550 / 198355:121903. */
+            event.avatarShape === 'squircle' ? 'rounded-[8.19px]' : 'rounded-[30px]',
             KIND_TONE[event.kind] ?? KIND_TONE.water,
           )}
         >
@@ -406,8 +434,12 @@ function EventRow({ event, eventId, isLast, isOpen, onToggle }) {
 
 /**
  * @param events            [{ id, kind:'water'|'network', title, badge:{label,tone},
- *                             badgeFirst, metrics:[{label,value}], description,
- *                             timestamp, tag, notifications:{count}, steps:[] }]
+ *                             badgeFirst, avatarShape:'squircle', metrics:[{label,value}],
+ *                             description, timestamp, tag, notifications:{count},
+ *                             steps:[] }]
+ *                          tone is a BADGE_TONE key: ended | warning |
+ *                          warningLead | shutoff. An unknown tone falls back to
+ *                          warning.
  *                          Pass `[]` to reach the empty state.
  * @param expanded          event id, `true` (first expandable row) or false.
  *                          This is the one prop that switches the card between
@@ -475,8 +507,9 @@ export default function EventsTimelineCard({
         </CardAction>
       </CardHeader>
 
-      {/* cardContent — 101006:7299 */}
-      <CardContent className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-start justify-center overflow-clip px-[var(--text\/title\/size,16px)] py-[var(--component\/calendar\/padding,12px)] relative shrink-0 w-full">
+      {/* cardContent — 101006:7299. items-end is the node's own cross-axis
+          value; it changes nothing on screen because every child is w-full. */}
+      <CardContent className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-end justify-center overflow-clip px-[var(--text\/title\/size,16px)] py-[var(--component\/calendar\/padding,12px)] relative shrink-0 w-full">
         {events.length === 0 ? (
           /* Empty state. The node list has no empty variant, so this is the
              minimum honest statement, set in the card's own muted xs type. */

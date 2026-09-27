@@ -13,7 +13,7 @@ import { useState } from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
-import { Funnel } from '@/v2/icons'
+import { FunnelSimple } from '@/v2/icons'
 import { cn } from '@/lib/utils'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
@@ -65,9 +65,15 @@ const PERIODS = [
 ]
 
 // ChartStyle turns this into --color-litres on the container, which is why the
-// bar fill below is a var() and not a hex.
+// bar fill below is a var() and not the literal rgba.
+// The comp paints every bar a flat #6bb2fa (node I198328:88634;…;198328:88633,
+// all 91 plots). That hex is Figma flattening the brand blue at 60% over the
+// white card — rgba(11,129,248,0.6) composites to #6db3fb — so carry the alpha
+// rather than the flattened hex, which also keeps this identical to
+// WaterConsumptionCardV2. The saturated --chart-1 (#0b81f8) this replaced was
+// two shades too dark.
 const CHART_CONFIG = {
-  litres: { label: 'Litres', color: 'var(--chart-1)' },
+  litres: { label: 'Litres', color: 'rgba(11,129,248,0.6)' },
 }
 
 export default function WaterConsumptionCard({
@@ -89,7 +95,11 @@ export default function WaterConsumptionCard({
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle className="text-slate-900">{title}</CardTitle>
+        {/* CardTitle's shared default is text-base/slate-900; the comp's Title
+            node (…;149:2490;2780:50631) is 18px #1d293d. text-lg + slate-800
+            gets there, and the inherited leading-none/tracking-tight then
+            resolve to the comp's 18px line-height and -0.45px tracking. */}
+        <CardTitle className="text-lg text-slate-800">{title}</CardTitle>
         <CardAction>
           <button
             type="button"
@@ -101,7 +111,7 @@ export default function WaterConsumptionCard({
               periodOpen ? 'text-[#0B95F8]' : 'text-slate-500 hover:text-slate-700',
             )}
           >
-            <Funnel size={16} />
+            <FunnelSimple size={16} />
           </button>
         </CardAction>
       </CardHeader>
@@ -138,17 +148,21 @@ export default function WaterConsumptionCard({
 
       <CardContent>
         {/* aspect-auto cancels ChartContainer's default aspect-video; the phone
-            frame needs a fixed height, not a 16:9 box. */}
-        <ChartContainer config={CHART_CONFIG} className="aspect-auto h-[180px] w-full">
+            frame needs a fixed height, not a 16:9 box. 250px is the comp's own
+            chart frame ("Content" …;198328:88632 is 291x250, with the Plots row
+            inside it at 220px), not a guess. */}
+        <ChartContainer config={CHART_CONFIG} className="aspect-auto h-[250px] w-full">
           <BarChart accessibilityLayer data={series} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
             <CartesianGrid vertical={false} />
+            {/* No fontSize here on purpose: ChartContainer's text-xs is already
+                the comp's tick size (text/xs/size = 12px on …;6922:4859). The
+                10px override this replaced was shrinking them below spec. */}
             <XAxis
               dataKey="day"
               tickLine={false}
               axisLine={{ stroke: 'var(--border)' }}
               tickMargin={8}
               interval={tickInterval}
-              fontSize={10}
             />
             <ChartTooltip
               cursor={{ fill: 'var(--color-litres)', fillOpacity: 0.08 }}

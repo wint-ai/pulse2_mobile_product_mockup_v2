@@ -51,14 +51,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { BellDot, ChevronsUpDown, X } from 'lucide-react'
+import { BellDot, ChevronsUpDown } from 'lucide-react'
 // Verified byte-identical to the assets these nodes export: Briefcase08 ==
 // 224ec0b8 (viewBox 12.9974x11.8302, #0B82F8), PinLocation03 == f6d90c51
 // (11.6637x12.8304, #90A1B9), Search01 == d2961388 (13.33x13.33, #90A1B9).
+// CloseFill is this frame's close glyph too: src/v2/icons/CloseFill.jsx is the
+// same Remix close-fill export as 198378:74018, scaled x1.75 into a 28 viewBox
+// and recoloured to currentColor.
 // The rest of the frame's glyphs are inlined below because src/v2/icons has no
 // match — and note src/v2/icons/ArrowDropDownLine.jsx actually holds Remix
 // arrow-drop-RIGHT-line, so neither caret is imported from there.
-import { Briefcase08, PinLocation03, Search01 } from '@/v2/icons'
+import { Briefcase08, CloseFill, PinLocation03, Search01 } from '@/v2/icons'
 import { Input } from '@/components/ui/input'
 import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub,
@@ -107,6 +110,16 @@ const BADGE_TONE_REST = {
 /** Tabler star ships #90A1B9; the pinned tint is the amber v1 already uses. */
 const STAR_OFF = '#90a1b9'
 const STAR_ON = '#f5a524'
+
+/**
+ * Account glyph tint — the same ACTIVE-row rule the badge above follows, and
+ * found the same way: the briefcase-08 asset under 198378:74031 (the open
+ * root) exports stroked #0B82F8, while 198378:74081 / 198378:74082 ("South
+ * Quarter", "East Quarter" — both collapsed) export byte-identical geometry
+ * stroked #90A1B9.
+ */
+const ACCOUNT_GLYPH_ACTIVE = '#0B82F8'
+const ACCOUNT_GLYPH_REST = '#90A1B9'
 
 /**
  * Row indent. The frame nests by hand and drifts a couple of px per level
@@ -404,14 +417,19 @@ function collectMatchPath(nodes, query, into) {
 
 /**
  * The frame draws exactly three row glyphs and they say *what kind of thing*,
- * not how deep: briefcase-08 (#0B82F8) for an account, pin-location-03
- * (#90A1B9) for every location depth, photo-sensor-3 (#90A1B9) for a system
- * leaf. A sub-account gets the account glyph — the frame contains no
- * sub-account row, and inventing a fourth glyph for it would be a guess.
+ * not how deep: briefcase-08 for an account, pin-location-03 (#90A1B9) for
+ * every location depth, photo-sensor-3 (#90A1B9) for a system leaf. A
+ * sub-account gets the account glyph — the frame contains no sub-account row,
+ * and inventing a fourth glyph for it would be a guess.
  * Branches rather than a dynamic `const Icon = …` so the element type stays
  * static across renders.
+ *
+ * The briefcase is the one row glyph the frame draws in two tints, and it
+ * tracks the ACTIVE root row exactly as the count badge does. `depth === 0`
+ * guards it: the frame contains no sub-account row, so there is no designed
+ * rest tint for one and it keeps the blue rather than inheriting a guess.
  */
-function NodeIcon({ node }) {
+function NodeIcon({ node, depth = 0, active = false }) {
   // Each glyph sits in its own 14x14 box and is NOT stretched to fill it: the
   // frame insets briefcase-08 to 12.997x11.830 and pin-location-03 to
   // 11.664x12.830 inside that box, which is why the natural asset dimensions
@@ -429,8 +447,14 @@ function NodeIcon({ node }) {
     )
   }
   if (node.kind === 'account') {
+    // An inline `style`, not a class: a conditional tint cannot go through
+    // cn() without losing the escaping this file depends on — the same reason
+    // the star and the count badge carry theirs in `style`.
     return (
-      <span className="content-stretch flex items-center justify-center relative shrink-0 size-[14px] text-[#0B82F8]">
+      <span
+        className="content-stretch flex items-center justify-center relative shrink-0 size-[14px]"
+        style={{ color: depth === 0 && !active ? ACCOUNT_GLYPH_REST : ACCOUNT_GLYPH_ACTIVE }}
+      >
         <Briefcase08 width={12.9974} height={11.8302} />
       </span>
     )
@@ -615,14 +639,24 @@ export default function WintSidebarV2({ open, onClose }) {
             type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="content-stretch flex items-center justify-center relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] shrink-0 size-[28px] active:bg-white/60"
+            // 198378:74018 is a bare 16px glyph flush against the header's 12px
+            // right gutter (x=317 w=16 inside Frame 1 198378:74016, x=12 w=333),
+            // so the button may not be wider than the glyph — a 28px box with
+            // justify-center pushed it 6px inboard. before:-inset-[10px] grows
+            // the touch target back to 36px without moving a pixel of the glyph,
+            // the same pattern as the footer bell (198378:74089).
+            className="content-stretch flex items-center justify-center relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] shrink-0 size-[16px] before:absolute before:-inset-[10px] before:content-[''] active:opacity-60"
           >
-            <span className="content-stretch flex items-center justify-center opacity-[var(--opacity-70,0.7)] size-[16px]">
-              {/* Lucide x — the frame's asset is byte-for-byte lucide's own
-                  M12 4L4 12M4 4L12 12 at stroke 1.33 in a 16 box. lucide-react
-                  draws a 24 viewBox at stroke 2, which at width 16 renders the
-                  same 1.33px, so the default strokeWidth is already correct. */}
-              <X size={16} className="text-[#0A0A0A]" />
+            {/* No opacity class: 198378:74018 emits bare (the tool does emit
+                opacity when it exists — sibling 198378:74065 comes back with
+                opacity-0), and the asset is a flat fill="#0A0A0A" with no
+                fill-opacity. The 0.7 that used to sit here read --opacity-70,
+                which is defined nowhere in the repo. */}
+            <span className="content-stretch flex items-center justify-center size-[16px]">
+              {/* Remix Icons / close-fill — ONE filled path with mitered ends,
+                  not a stroked X with round caps. src/v2/icons/CloseFill.jsx is
+                  that exact export scaled x1.75 into a 28 viewBox. */}
+              <CloseFill size={16} className="text-[#0A0A0A]" />
             </span>
           </button>
         </div>
@@ -745,10 +779,16 @@ export default function WintSidebarV2({ open, onClose }) {
           </div>
 
           <div className="content-stretch flex items-center justify-between pr-[var(--spacing\/2,8px)] relative shrink-0 w-full">
+            {/* 198378:74088 is a fixed 188px box inside a justify-between row,
+                NOT flex:1. Letting it grow makes justify-between inert and
+                collapses the 113px gap the frame leaves before the bell
+                (198378:74089 sits at x=301 of the 325-wide row). The inner
+                Labels span below keeps its own flex:1, so a long persona name
+                still truncates inside the 188px. */}
             <button
               type="button"
               onClick={() => go('/select')}
-              className="content-stretch flex flex-[1_0_0] gap-[var(--component\/sidebar\/menu-button\/gap,8px)] h-[49px] items-center min-w-px px-[var(--component\/sidebar\/menu-button\/padding,8px)] py-[var(--component\/sidebar\/menu-button\/py,8px)] relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] text-left active:bg-white/60"
+              className="content-stretch flex gap-[var(--component\/sidebar\/menu-button\/gap,8px)] h-[49px] items-center px-[var(--component\/sidebar\/menu-button\/padding,8px)] py-[var(--component\/sidebar\/menu-button\/py,8px)] relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] shrink-0 text-left w-[188px] active:bg-white/60"
             >
               {/* SidebarMediaAsset — 32px, radius 8. The frame fills it with a
                   photo; this app identifies a persona by emoji + tint, so the
@@ -879,7 +919,7 @@ function TreeRow({
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivate() }
       }}
     >
-      <NodeIcon node={node} />
+      <NodeIcon node={node} depth={depth} active={isActive} />
       <span className="[word-break:break-word] flex-[1_0_0] min-w-px overflow-hidden relative text-ellipsis whitespace-nowrap">
         {node.name}
       </span>
@@ -937,16 +977,25 @@ function TreeRow({
     </div>
   )
 
-  // 198378:74031 — root account row. Height 36, px-6, gap-8, radius 8, 14px
-  // weight-500 ink #0a0a0a, and the active fill is var(--card,white) with NO
-  // shadow (the render shows the panel gradient running clean up to the card's
-  // edge on all four sides).
+  // Root account row — TWO treatments, not one. Height 36, px-6, gap-8,
+  // radius 8, 14px throughout.
+  //   active / expanded — 198378:74031 "North Quarter": weight 500, ink
+  //     var(--sidebar\/foreground,#0a0a0a), fill var(--card,white) with NO
+  //     shadow (the render shows the panel gradient running clean up to the
+  //     card's edge on all four sides).
+  //   collapsed — 198378:74081 "South Quarter" and 198378:74082 "East
+  //     Quarter": weight 400, ink var(--colors\/slate\/800,#1d293d), no fill.
+  // The weight carries a `number:` hint because Tailwind v4 reads a bare
+  // font-[var(…)] as a font-FAMILY, which is why the 400/500 split emitted
+  // nothing at all here before. The active ink is repeated under
+  // data-[active=true]:hover / :active so those two-condition selectors
+  // outrank the plain :hover / :active rule on an open account.
   if (depth === 0) {
     return (
       <SidebarMenuButton
         asChild
         isActive={isActive}
-        className="content-stretch flex gap-[var(--component\/sidebar\/menu-button\/gap,8px)] h-[36px] items-center overflow-clip px-[var(--spacing\/1\,5,6px)] py-[var(--component\/sidebar\/menu-button\/py,8px)] relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] w-full font-[var(--font\/weight\/font-normal,500)] leading-[var(--text\/sm\/lh-none,14px)] text-[14px] text-[color:var(--sidebar\/foreground,#0a0a0a)] hover:bg-white/50 hover:text-[color:var(--sidebar\/foreground,#0a0a0a)] active:bg-white/70 active:text-[color:var(--sidebar\/foreground,#0a0a0a)] data-[active=true]:bg-[var(--card,white)] data-[active=true]:text-[color:var(--sidebar\/foreground,#0a0a0a)] data-[active=true]:shadow-none data-[active=true]:hover:bg-[var(--card,white)]"
+        className="content-stretch flex gap-[var(--component\/sidebar\/menu-button\/gap,8px)] h-[36px] items-center overflow-clip px-[var(--spacing\/1\,5,6px)] py-[var(--component\/sidebar\/menu-button\/py,8px)] relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] w-full font-[number:var(--font\/weight\/font-normal,400)] leading-[var(--text\/sm\/lh-none,14px)] text-[14px] text-[color:var(--colors\/slate\/800,#1d293d)] hover:bg-white/50 hover:text-[color:var(--colors\/slate\/800,#1d293d)] active:bg-white/70 active:text-[color:var(--colors\/slate\/800,#1d293d)] data-[active=true]:bg-[var(--card,white)] data-[active=true]:font-[number:var(--font\/weight\/font-normal,500)] data-[active=true]:text-[color:var(--sidebar\/foreground,#0a0a0a)] data-[active=true]:shadow-none data-[active=true]:hover:bg-[var(--card,white)] data-[active=true]:hover:text-[color:var(--sidebar\/foreground,#0a0a0a)] data-[active=true]:active:text-[color:var(--sidebar\/foreground,#0a0a0a)]"
       >
         {row}
       </SidebarMenuButton>

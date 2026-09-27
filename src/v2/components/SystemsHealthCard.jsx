@@ -20,12 +20,12 @@
  * numbers are measured off the two mobile frames at native resolution:
  *
  *   card          bg #fafbfc, 1px white border, radius 22  (node 197662:13086)
- *                 padding 20 / 20 / 16 / 20               (measured)
- *   wave banner   full width x 95, radius 8               (measured; 45% crop)
+ *                 padding 20 on all four sides            (node 198235:82076)
+ *   wave banner   full width x 95, radius 11              (node 198235:82078)
  *   -> stat row   28 below the banner                     (measured)
- *   stat tiles    2 cols, 24 gutter, capsule h43          (measured / node)
+ *   stat tiles    2 cols, 26 gutter, capsule h43          (node 198235:82080)
  *   separator     20 above, 21 below, #e2e8f0             (measured; = --border)
- *   issue grid    2 cols, 24 gutter, 12 row gap           (measured)
+ *   issue grid    2 cols, 28 gutter, 14 row gap           (node 198235:82095)
  *   past-alerts   24 below the grid                       (measured)
  *
  * Landmarks that these numbers reproduce exactly on the 375 frame: banner top,
@@ -57,12 +57,13 @@
  *     around a paragraph carrying the real leading — is flattened to one
  *     element with that leading. Identical box, half the markup.
  *
- * ── Two places the 375 frame disagrees with the named nodes ───────────────
- * Node 198209:69852 paints every zero `colors/slate/300 #cad5e2`, and puts no
- * opacity on the issue counts. The 375 instance samples as #90a1b9 (slate-400)
- * for the attention zero and slate-400 @ 70% for the grid zeros. The named
- * node wins here because it is the binding spec, but the choice lives in one
- * place — swap the two `ZERO …` branches in AttentionCount / IssueCount.
+ * ── Where the mobile frame disagrees with the named desktop nodes ─────────
+ * Node 198209:69852 painted every zero `colors/slate/300 #cad5e2` with no
+ * opacity on the issue counts, and that used to win here as the binding
+ * spec. It no longer resolves in the Figma file, so the mobile zero frame is
+ * the only reachable spec left: 198235:81421 paints all four grid zeros
+ * opacity-70 over slate-400, and IssueCount now follows it. AttentionCount's
+ * zero is a separate node, was not re-verified, and still ships slate-300.
  * Likewise the ⓘ after "Systems Health": all five named nodes carry it, the
  * 375 home instance does not. Kept, and deliberately inert (see below).
  *
@@ -142,41 +143,43 @@ function InformationLine14({ className }) {
 }
 
 /**
- * The valve glyph inside the "Valve errors" capsule — Figma 197662:13041,
- * a 17.2262x16.5 export drawn at 16.009x15.283 (the 22px "Valve status" frame
- * fitted into a 21px box, factor ~0.93). Geometry checked against
- * ValveStatus.jsx `error`: identical path data at exactly 1.375x — a body
- * circle, a stem, a spindle, two side ports and a bang.
+ * The valve glyph inside the "Valve errors" capsule. Re-pulled from Figma:
+ * the mobile comps now draw a DIFFERENT valve. Node 198235:82109 "Layer_1"
+ * (the 21px box) holds a single 10.828x15.359 child, 198235:82110, whose
+ * export is a 12.3279x16.8582 SVG — a handle bar, a short stem, a body circle
+ * and one diagonal slash across it, all at stroke-width 1.5. The zero frame
+ * draws the identical art (198235:81468 -> :81469 -> the same export).
  *
- * ValveStatus is NOT reused here on purpose. Its five states each bake in
- * their own palette, and `error` ships #FB2C36 strokes over an #FCD7DB body —
- * but this capsule tints the same glyph slate-400, with only the COUNT in red
- * (sampled off the 375 frame: glyph #90a1b9, count #fb2c36 @ 70%). This is the
- * one case the asset rule calls out, so the strokes become currentColor and
- * the tint comes from the capsule.
+ * The previous drawing came from desktop node 197662:13041 (17.2262x16.5, two
+ * side ports, a vertical spindle and a filled bang). That node no longer
+ * resolves in the file, and three things changed rather than one: the side
+ * ports are gone, the spindle + bang become a single diagonal, and the stroke
+ * is proportionally heavier. Width/height are the export's own root
+ * attributes, so the art is drawn 1:1 and centred in the 21px box.
+ *
+ * ValveStatus.jsx is still NOT reused here, for the original reason: its five
+ * states each bake in their own palette, and `error` ships #FB2C36 strokes
+ * over an #FCD7DB body — but this capsule tints the glyph slate-400 with only
+ * the COUNT in red. The export's own #90A1B9 IS colors/slate/400, so the
+ * strokes stay currentColor and the tint keeps coming from the capsule.
  */
 function ValveErrorGlyph({ className }) {
   return (
     <svg
       className={className}
-      width="16.009"
-      height="15.283"
-      viewBox="0 0 17.2262 16.5"
+      width="12.3279"
+      height="16.8582"
+      viewBox="0 0 12.3279 16.8582"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
       focusable="false"
     >
       <g>
-        <path d="M8.61311 15.8914C11.7455 15.8914 14.2849 13.3521 14.2849 10.2197C14.2849 7.08726 11.7455 4.54793 8.61311 4.54793C5.48069 4.54793 2.94136 7.08726 2.94136 10.2197C2.94136 13.3521 5.48069 15.8914 8.61311 15.8914Z" stroke="currentColor" strokeWidth="1.21711" strokeMiterlimit="10" strokeLinecap="round" />
-        <path d="M8.6131 2.72229V0.726227" stroke="currentColor" strokeWidth="1.21711" strokeMiterlimit="10" strokeLinecap="round" />
-        <path d="M4.31269 0.608557H12.9136" stroke="currentColor" strokeWidth="1.21711" strokeMiterlimit="10" strokeLinecap="round" />
-        <g>
-          <path d="M2.53971 9.625H0.608557" stroke="currentColor" strokeWidth="1.21711" strokeMiterlimit="10" strokeLinecap="round" />
-          <path d="M16.6176 9.62503H14.6865" stroke="currentColor" strokeWidth="1.21711" strokeMiterlimit="10" strokeLinecap="round" />
-        </g>
-        <path d="M8.6131 6.87667V10.8323" stroke="currentColor" strokeWidth="1.21711" strokeMiterlimit="10" strokeLinecap="round" />
-        <path d="M8.61306 14.0293C9.08136 14.0293 9.46098 13.6496 9.46098 13.1813C9.46098 12.7131 9.08136 12.3334 8.61306 12.3334C8.14477 12.3334 7.76514 12.7131 7.76514 13.1813C7.76514 13.6496 8.14477 14.0293 8.61306 14.0293Z" fill="currentColor" />
+        <path d="M2.05898 0.75H10.269" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" />
+        <path d="M6.1639 3.28146V1.37613" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" />
+        <path d="M6.16394 16.1082C9.15398 16.1082 11.5779 13.6843 11.5779 10.6942C11.5779 7.70421 9.15398 5.2803 6.16394 5.2803C3.1739 5.2803 0.75 7.70421 0.75 10.6942C0.75 13.6843 3.1739 16.1082 6.16394 16.1082Z" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" />
+        <path d="M3.88809 9.25057L8.43472 11.8756" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" />
       </g>
     </svg>
   )
@@ -227,7 +230,7 @@ const MOCK_ISSUES = { offline: 4, valve: 2, power: 1, recipients: 1 }
 function WaveGauge({ tone }) {
   return (
     <div
-      className="relative isolate w-full overflow-hidden rounded-[8px] bg-[#ddf1ff]"
+      className="relative isolate w-full overflow-hidden rounded-[11px] bg-[#ddf1ff]"
       style={{ height: 95 }}
       aria-hidden="true"
     >
@@ -271,11 +274,14 @@ function AttentionCount({ zero, children }) {
   )
 }
 
-/** Issue-tile count. Node 197662:13033 adds opacity-70 to the red; the zero
- *  in node 198209:69862 carries none. */
+/** Issue-tile count. Node 198235:82103 adds opacity-70 to the red, and the
+ *  mobile zero frame carries the SAME opacity-70 over colors/slate/400 on
+ *  all four counts (198235:81462 / :81474 / :81482 / :81489). The desktop
+ *  node 198209:69862 this used to follow — slate-300, no opacity — no
+ *  longer resolves in the file, so the mobile frame is the only spec left. */
 function IssueCount({ zero, children }) {
   return zero ? (
-    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] text-center text-[color:var(--colors\/slate\/300,#cad5e2)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
+    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] opacity-70 text-center text-[color:var(--colors\/slate\/400,#90a1b9)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
       {children}
     </p>
   ) : (
@@ -290,7 +296,8 @@ function IssueCount({ zero, children }) {
  * The capsule keeps Figma's height-43 plus 12/20 padding verbatim — the height
  * wins over the padding under border-box, which is what the comp does. Only
  * the desktop's fixed 70px width is replaced by `w-full`: the 375 grid
- * stretches each tile to its column (measured 137px at a 24px gutter).
+ * stretches each tile to its column (135.5px at a 28px gutter inside the
+ * 299px content box — node 198235:82096).
  */
 function IssueTile({ glyph, count, label }) {
   return (
@@ -354,17 +361,17 @@ export default function SystemsHealthCard({
   return (
     <Card
       className={cn(
-        'gap-0 rounded-[var(--rounded-3xl,22px)] border border-solid border-white bg-[#fafbfc] px-5 pt-5 pb-4',
+        'gap-0 rounded-[var(--rounded-3xl,22px)] border border-solid border-white bg-[#fafbfc] px-5 py-5',
         className,
       )}
     >
       <WaveGauge tone={tone} />
 
       {/* Stat row — nodes 197697:5653 (percent) and 197697:5659 (attention). */}
-      <div className="mt-[28px] grid grid-cols-2 gap-x-6">
+      <div className="mt-[28px] grid grid-cols-2 gap-x-[26px]">
         <div className="flex flex-col gap-[var(--pro\/space\/2\,5,8px)] items-start">
           <div
-            className="flex gap-[8px] h-[43px] items-center justify-center px-[var(--spacing\/3,12px)] py-[20px] rounded-[var(--rounded-3xl,26px)] w-full"
+            className="flex gap-[8px] h-[43px] items-center px-[var(--spacing\/3,12px)] py-[20px] rounded-[var(--rounded-3xl,26px)] w-full"
             style={CAPSULE_PERCENT}
           >
             <LocationDot27 className="shrink-0 size-[27px]" />
@@ -386,7 +393,7 @@ export default function SystemsHealthCard({
 
         <div className="flex flex-col gap-[var(--pro\/space\/2\,5,8px)] items-start font-[var(--font\/weight\/font-medium,500)] whitespace-nowrap">
           <div
-            className="flex gap-[6px] h-[43px] items-center justify-center px-[var(--spacing\/3,12px)] py-[20px] rounded-[var(--rounded-3xl,26px)] w-full"
+            className="flex gap-[8px] h-[43px] items-center justify-center px-[var(--spacing\/3,12px)] py-[20px] rounded-[var(--rounded-3xl,26px)] w-full"
             style={CAPSULE_ATTENTION}
           >
             <AttentionCount zero={requireAttention === 0}>{requireAttention}</AttentionCount>
@@ -409,10 +416,10 @@ export default function SystemsHealthCard({
           the primitive's own `bg-border` is exact — no override needed. */}
       <Separator className="mt-5 mb-[21px]" />
 
-      <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+      <div className="grid grid-cols-2 gap-x-[28px] gap-y-[14px]">
         {/* Each glyph is drawn at the exact leaf size Figma nests it at, inside
             the icon box Figma gives it — 18px for three of them, 21px for the
-            valve (node 197662:13041 "Layer_1"). The project's wifi and
+            valve (node 198235:82109 "Layer_1"). The project's wifi and
             message-blocked components are the same exports as the ones this
             node returned, path for path, so they are reused rather than
             re-exported; both default to a square, hence the explicit leaf

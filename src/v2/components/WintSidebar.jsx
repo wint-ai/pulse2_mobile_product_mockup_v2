@@ -13,13 +13,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
-  BellDot, Building2, ChevronRight, ChevronsUpDown,
-  ClipboardList, Focus, FoldVertical, Star, Users, X,
+  BellDot, Building2, ChevronsUpDown,
+  ClipboardList, FoldVertical, Star, Users,
 } from 'lucide-react'
-// The frame specifies these four explicitly — Lucide lookalikes read noticeably
-// different at 14px, which is why the first pass looked off.
+// The frame specifies these explicitly — Lucide lookalikes read noticeably
+// different at 14px, which is why the first pass looked off. CloseFill is the
+// header's glyph (198378:74018 "Remix Icons / close-fill") and FunnelSimple the
+// toolbar's (198378:74027 emits "Phosphor Icons / funnel-simple" — three stacked
+// rules, NOT the V-shaped outline that src/v2/icons/Funnel.jsx holds).
+//
+// src/v2/icons/ArrowDropDownLine.jsx is misnamed: its path is byte-identical to
+// Figma's Remix arrow-drop-RIGHT-line, i.e. the COLLAPSED caret, so it is
+// aliased here to read truthfully at the call site. The expanded (down) caret
+// has no equivalent in src/v2/icons and is inlined below.
 import {
-  Funnel, Briefcase08, PinLocation03, Search01, ArrowDropDownLine,
+  Briefcase08, CloseFill, FunnelSimple, PinLocation03, Search01,
+  ArrowDropDownLine as ArrowDropRight,
 } from '@/v2/icons'
 import { badgeVariants } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -40,11 +49,19 @@ import { computeSystemHealth } from '@/utils/systemHealth'
 // ── Tokens sampled off the Figma frame ─────────────────────────────────────
 // The panel is a cool blue-grey wash, lightest at the top-left and deepest
 // just above the footer — a flat fill reads noticeably flatter than the frame.
-// Measured, not sampled: the design context for this subtree contains no
-// gradient at all. Its only fills are var(--card,white) on the active row,
-// #f0f4fb on the count badge and #e2e8f0 on the rules. The panel itself is a
-// flat near-white wash.
-const PANEL_BG = 'var(--sidebar, #ffffff)'
+//
+// 198378:74013 "Rectangle 4", the 357x965 fill plate sitting under the whole
+// drawer, emits it verbatim: a 125.34deg diagonal with five stops at 0.8 alpha
+// over a flat white base layer, so white still reads through at 20%. An earlier
+// pass claimed "the design context for this subtree contains no gradient at
+// all" and swapped in var(--sidebar) — which index.css resolves to opaque
+// #FFFFFF. Re-pulling the node disproves that claim; the gradient is below,
+// copied from the node's own backgroundImage.
+const PANEL_BG =
+  'linear-gradient(125.34006894835755deg, rgba(233, 238, 248, 0.8) 8.3855%, ' +
+  'rgba(227, 235, 249, 0.8) 32.2%, rgba(228, 235, 250, 0.8) 40.822%, ' +
+  'rgba(212, 226, 255, 0.8) 71.236%, rgba(233, 237, 243, 0.8) 82.858%), ' +
+  'linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)'
 const DIVIDER = '#E2E8F0'
 const ALERT_RED = '#E7000B'
 const BRAND = '#0B95F8'
@@ -60,6 +77,47 @@ function WintLogo({ width = 52 }) {
       alt="Wint"
       style={{ width, height: 'auto' }}
     />
+  )
+}
+
+// ── Inlined Figma glyphs ───────────────────────────────────────────────────
+// Figma's asset URLs expire in ~7 days, so nothing may reference them at
+// runtime, and src/v2/icons has no match for either of these. Both paths are
+// the exported bytes unmodified, recoloured to currentColor so the surrounding
+// text-* utility tints them (the raw exports ship #90A1B9 / #45556C).
+//
+// NOTE: 198378:74060's asset URL serves the WRONG bytes — the "Icon
+// Placeholder" wrapper makes get_design_context hand back the generic Lucide
+// smile — so photo-sensor-3 must not be re-derived from it. The path below is
+// the node export, and is the same one WintSidebarV2.jsx carries.
+
+/** Tabler photo-sensor-3 — the system leaf, 198378:74060. Export framed at x+16, y+7. */
+function PhotoSensor3({ size = 14, className }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none"
+      xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
+      <g transform="translate(-16,-7)" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M25.9165 9.33325H26.4998C26.8093 9.33325 27.106 9.45617 27.3248 9.67496C27.5436 9.89375 27.6665 10.1905 27.6665 10.4999V11.0833" />
+        <path d="M27.6665 16.9167V17.5001C27.6665 17.8095 27.5436 18.1062 27.3248 18.325C27.106 18.5438 26.8093 18.6667 26.4998 18.6667H25.9165" />
+        <path d="M20.0835 18.6667H19.5002C19.1907 18.6667 18.894 18.5438 18.6752 18.325C18.4564 18.1062 18.3335 17.8095 18.3335 17.5001V16.9167" />
+        <path d="M18.3335 11.0833V10.4999C18.3335 10.1905 18.4564 9.89375 18.6752 9.67496C18.894 9.45617 19.1907 9.33325 19.5002 9.33325H20.0835" />
+        <path d="M21.25 14C21.25 14.4641 21.4344 14.9092 21.7626 15.2374C22.0908 15.5656 22.5359 15.75 23 15.75C23.4641 15.75 23.9092 15.5656 24.2374 15.2374C24.5656 14.9092 24.75 14.4641 24.75 14C24.75 13.5359 24.5656 13.0908 24.2374 12.7626C23.9092 12.4344 23.4641 12.25 23 12.25C22.5359 12.25 22.0908 12.4344 21.7626 12.7626C21.4344 13.0908 21.25 13.5359 21.25 14Z" />
+        <path d="M23 17.5V18.6667" />
+        <path d="M18.3335 14H19.5002" />
+        <path d="M23 9.33325V10.4999" />
+        <path d="M27.6667 14H26.5" />
+      </g>
+    </svg>
+  )
+}
+
+/** Remix arrow-drop-down-line — the EXPANDED badge caret (198378:74031). */
+function ArrowDropDown({ size = 16, className }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
+      xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
+      <path d="M8 10.0004L5.17155 7.172L6.11436 6.22917L8 8.1148L9.8856 6.22917L10.8284 7.172L8 10.0004Z" fill="currentColor" />
+    </svg>
   )
 }
 
@@ -207,14 +265,16 @@ function collectMatchPath(nodes, query, into) {
 }
 
 /**
- * The frame draws one pin for every location depth and a scan-square for a
- * system leaf, so the glyph says "what kind of thing", not "how deep".
+ * The frame draws one pin for every location depth and Tabler photo-sensor-3
+ * for a system leaf, so the glyph says "what kind of thing", not "how deep".
  * Branches rather than a dynamic `const Icon = ...` so the element type stays
  * static across renders.
  */
 function NodeIcon({ node, className }) {
   // 14px, not 16 — the frame sizes every row glyph at 14.
-  if (node.kind === 'system') return <Focus size={14} className={className} />
+  // 198378:74060 names Tabler photo-sensor-3; lucide Focus was a lookalike with
+  // four fewer strokes (it lacks the N/S/E/W ticks).
+  if (node.kind === 'system') return <PhotoSensor3 size={14} className={className} />
   if (node.kind === 'account') {
     return node.levelType === 'Sub-account'
       ? <Building2 size={14} className={className} />
@@ -380,59 +440,80 @@ export default function WintSidebar({ open, onClose }) {
         inert={!open}
         className="absolute inset-y-0 left-0 z-[11] flex flex-col shadow-[4px_0_24px_rgba(15,23,42,0.22)] transition-transform duration-[250ms]"
         style={{
-          width: '89%', maxWidth: 352, background: PANEL_BG,
+          width: '89%', maxWidth: 352, backgroundImage: PANEL_BG,
           transform: open ? 'translateX(0)' : 'translateX(-100%)',
         }}
       >
-        {/* Header */}
+        {/* Header · 198378:74015 — 44px tall, px-3. The Logo instance
+            (198378:74017) carries its own pl-[6px], so the wordmark still sits
+            18px in; dropping that inner pad would shift it left by 4. */}
         <div
-          className="flex h-[46px] shrink-0 items-center justify-between border-b px-4"
+          className="flex h-11 shrink-0 items-center justify-between border-b px-3"
           style={{ borderColor: DIVIDER }}
         >
-          <WintLogo width={52} />
+          <span className="flex pl-[6px]">
+            <WintLogo width={52} />
+          </span>
+          {/* 198378:74018 is Remix close-fill at 16px, not the Lucide X. The
+              36px wrapper is the tap target, which the frame cannot express;
+              -mr-2.5 lands the glyph's right edge 12px from the panel edge,
+              where the frame puts it. */}
           <button
             type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="-mr-2 flex size-9 items-center justify-center rounded-full text-slate-600 active:bg-slate-900/5"
+            className="-mr-2.5 flex size-9 items-center justify-center rounded-full text-slate-600 active:bg-slate-900/5"
           >
-            <X size={20} />
+            <CloseFill size={16} />
           </button>
         </div>
 
-        {/* Locations header row */}
-        <div className="flex shrink-0 items-center gap-2 px-3 py-2.5">
+        {/* Locations header row · 198378:74021 "Create wrapper" — a fixed 32px
+            row, gap-[10px], px-[16px], with NO vertical padding of its own. The
+            frame puts it 15px below the header rule (y=44 → y=59) and the tree
+            11px below it (y=32 → y=43), so that spacing is margin here. */}
+        <div className="mt-[15px] mb-[11px] flex h-8 shrink-0 items-center gap-[10px] px-4">
+          {/* 198378:74023 is 18x32, not a 32px square — the frame's 10px gap
+              then lands the label at x=28. */}
           <button
             type="button"
             onClick={() => setExpandedIds(new Set())}
             aria-label="Collapse all locations"
-            className="flex size-8 items-center justify-center rounded-md text-slate-400 active:bg-slate-900/5"
+            className="flex h-8 w-[18px] items-center justify-center rounded-md text-slate-400 active:bg-slate-900/5"
           >
             <FoldVertical size={16} />
           </button>
-          <span className="flex-1 text-[15px] text-slate-500">Locations</span>
-          <button
-            type="button"
-            onClick={() => { setSearchOpen(v => !v); if (searchOpen) setQuery('') }}
-            aria-label="Search locations"
-            aria-expanded={searchOpen}
-            className={cn(
-              'flex size-8 items-center justify-center rounded-md active:bg-slate-900/5',
-              searchOpen ? 'bg-white/70 text-slate-700' : 'text-slate-500',
-            )}
-          >
-            <Search01 size={18} />
-          </button>
-          {/* INERT: the filter sheet has no PRD and no designed contents, so
-              there is nothing honest to open. Rendered for parity only. */}
-          <span
-            role="img"
-            aria-label="Filter locations (not implemented)"
-            title="Filter — not implemented"
-            className="flex size-8 items-center justify-center rounded-md text-slate-400"
-          >
-            <Funnel size={18} />
-          </span>
+          {/* 198378:74024 is xs/leading-normal/medium: 12px / 500 / lh 16. The
+              colour already matched (--colors/slate/500 is #62748e). */}
+          <span className="flex-1 text-[12px] font-medium leading-[16px] text-slate-500">Locations</span>
+          {/* 198378:74025 holds the two 32px buttons flush (gap-[var(--p-0,0px)]),
+              so they need their own gap-0 flex — the row's 10px gap would
+              otherwise split them. */}
+          <div className="flex shrink-0 items-center gap-0">
+            <button
+              type="button"
+              onClick={() => { setSearchOpen(v => !v); if (searchOpen) setQuery('') }}
+              aria-label="Search locations"
+              aria-expanded={searchOpen}
+              className={cn(
+                'flex size-8 items-center justify-center rounded-md active:bg-slate-900/5',
+                searchOpen ? 'bg-white/70 text-slate-700' : 'text-slate-500',
+              )}
+            >
+              <Search01 size={16} />
+            </button>
+            {/* INERT: the filter sheet has no PRD and no designed contents, so
+                there is nothing honest to open. Rendered for parity only.
+                198378:74027 emits Phosphor funnel-simple in a 16px box. */}
+            <span
+              role="img"
+              aria-label="Filter locations (not implemented)"
+              title="Filter — not implemented"
+              className="flex size-8 items-center justify-center rounded-md text-slate-400"
+            >
+              <FunnelSimple size={16} />
+            </span>
+          </div>
         </div>
 
         {searchOpen && (
@@ -480,22 +561,32 @@ export default function WintSidebar({ open, onClose }) {
           )}
         </SidebarProvider>
 
-        {/* Footer */}
-        <div className="shrink-0 border-t px-3 pb-3 pt-2" style={{ borderColor: DIVIDER }}>
+        {/* Footer · 198378:74083 — a uniform 16px inset with an 8px gap
+            between the Users/Reports menu and the persona row. */}
+        <div className="flex shrink-0 flex-col gap-2 border-t p-4" style={{ borderColor: DIVIDER }}>
           {/* DELIBERATELY INERT — "Users" and "Reports" have no PRD and no
               designed screen. There is no route to send them to and inventing
-              one would be a guess, so they render and do nothing. */}
-          <FooterRow icon={<Users size={18} className="shrink-0 text-slate-600" />} label="Users" />
-          <FooterRow icon={<ClipboardList size={18} className="shrink-0 text-slate-600" />} label="Reports" />
+              one would be a guess, so they render and do nothing.
+              198378:74084 "Menu" stacks them with a 4px gap (y=0, y=36). */}
+          <div className="flex flex-col gap-1">
+            <FooterRow icon={<Users size={16} className="shrink-0 text-slate-600" />} label="Users" />
+            <FooterRow icon={<ClipboardList size={16} className="shrink-0 text-slate-600" />} label="Reports" />
+          </div>
 
-          <div className="mt-1 flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => go('/select')}
               className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1.5 text-left active:bg-white/60"
             >
+              {/* 198378:74088's SidebarMediaAsset and its Avatar are both 32px.
+                  The radius stays at 10: the emitted fallback reads 8px but the
+                  resolved component/sidebar/media-asset/radius token is 10. The
+                  tile holds persona.icon over persona.bg from @/data/personas —
+                  the comp's placeholder photo and "shadcn / m@example.com" are
+                  mock and deliberately not adopted. */}
               <span
-                className="grid size-10 shrink-0 place-items-center rounded-[10px] text-xl ring-1 ring-slate-900/5"
+                className="grid size-8 shrink-0 place-items-center rounded-[10px] text-xl ring-1 ring-slate-900/5"
                 style={{ background: persona.bg || '#EEF3FA' }}
                 aria-hidden="true"
               >
@@ -513,7 +604,10 @@ export default function WintSidebar({ open, onClose }) {
               aria-label="Alerts"
               className="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-700 active:bg-white/60"
             >
-              <BellDot size={20} />
+              {/* 198378:74089 is a 16px bell-dot; the size-9 wrapper above is
+                  the tap target and the /alerts handler, which the frame
+                  cannot express. */}
+              <BellDot size={16} />
             </button>
           </div>
         </div>
@@ -578,24 +672,42 @@ function TreeRow({
   onActivate, onToggleExpanded, onToggleFavourite,
 }) {
   const isAccount = node.kind === 'account'
+  // The frame's white "card" marks the open account; a system row also takes it
+  // when it is the one currently on screen (v1 parity). This same flag drives
+  // the row's typography and its badge tone — see below.
+  const isActive = (isAccount && isOpen) || current
 
   return (
     <SidebarMenuButton
       asChild
-      // The frame's white "card" marks the open account; a system row also
-      // takes it when it is the one currently on screen (v1 parity).
-      isActive={(isAccount && isOpen) || current}
+      isActive={isActive}
       className={cn(
-        // Measured off 198378:74031: h-36 gap-8 px-6 radius-8 text-14/500 #0a0a0a.
-        'h-9 w-full gap-2 rounded-[8px] px-1.5 text-[14px] font-medium leading-[14px]',
-        'text-[#0a0a0a]',
+        // Geometry off 198378:74031: h-36 gap-8 px-6 radius-8, 14px / lh-14.
+        'h-9 w-full gap-2 rounded-[8px] px-1.5 text-[14px] leading-[14px]',
+        // Typography is state-keyed, not kind-keyed. Only the active row takes
+        // 'Geist:Medium' 500 / --sidebar/foreground #0a0a0a (198378:74031);
+        // every resting row — locations, systems and collapsed account rows
+        // alike — is 'Geist:Regular' 400 / --colors/slate/800 #1d293d
+        // (198378:74037). Applying the active row's typography to all of them
+        // was the earlier bug.
+        isActive ? 'font-medium text-[#0a0a0a]' : 'font-normal text-[#1d293d]',
         // sidebarMenuButtonVariants ships hover:/active:text-sidebar-accent-foreground,
-        // which outranks a bare text-slate-800 on specificity — every row flashed
-        // blue on hover, and on touch that fires on every single tap. Pin the
-        // colour in those states too.
-        'hover:bg-white/60 hover:text-[#0a0a0a] active:bg-white/80 active:text-[#0a0a0a]',
+        // which outranks a bare text colour on specificity — every row flashed
+        // blue on hover, and on touch that fires on every single tap. Pin each
+        // row's own resting colour in those states too.
+        isActive
+          ? 'hover:text-[#0a0a0a] active:text-[#0a0a0a]'
+          : 'hover:text-[#1d293d] active:text-[#1d293d]',
+        'hover:bg-white/60 active:bg-white/80',
+        // Still needed even with the conditional above: the cva base sets
+        // data-[active=true]:text-sidebar-accent-foreground (blue), which
+        // outranks a plain text-* class on specificity.
         'data-[active=true]:bg-[var(--card,white)] data-[active=true]:font-medium data-[active=true]:text-[#0a0a0a]',
-        'data-[active=true]:shadow-[0_1px_3px_rgba(15,23,42,0.08)] data-[active=true]:hover:bg-white',
+        // No drop shadow: 198378:74031 specifies none, and the emitter does
+        // emit effects when they exist. It was only ever compensating for the
+        // panel being flat white — against PANEL_BG's gradient the white card
+        // reads on its own, which is what the frame shows.
+        'data-[active=true]:hover:bg-white',
         'data-[active=true]:hover:text-slate-900',
       )}
     >
@@ -655,13 +767,22 @@ function TreeRow({
             className={cn(
               badgeVariants({ variant: 'secondary' }),
               'shrink-0 gap-0.5 border-0 py-0.5 pl-2 pr-1 text-[12px] font-medium tabular-nums',
-              isAccount ? 'bg-[#F0F4FB] text-slate-600' : 'bg-[#E2E8F0] text-slate-500',
+              // Keyed off the ACTIVE row, not off node kind. In the frame only
+              // the row carrying the white card (198378:74031) gets the pale
+              // #f0f4fb pill with a slate-600 count; every other row takes
+              // slate-200 + slate-400 — collapsed ACCOUNT rows (198378:74081,
+              // 74082) included, and an expanded-but-inactive location
+              // (198378:74033) too.
+              isActive ? 'bg-[#F0F4FB] text-slate-600' : 'bg-[#E2E8F0] text-slate-400',
             )}
           >
             {node.systems.length}
+            {/* 16px in both states. currentColor so each caret inherits its
+                pill's ink — #45556c on the active row, #90a1b9 elsewhere,
+                which is exactly what 74031 and 74037 draw. */}
             {isOpen
-              ? <ArrowDropDownLine size={13} className="text-slate-400" />
-              : <ChevronRight size={13} className="text-slate-400" />}
+              ? <ArrowDropDown size={16} />
+              : <ArrowDropRight size={16} />}
           </button>
         )}
       </div>
@@ -674,7 +795,11 @@ function FooterRow({ icon, label }) {
     <div
       aria-disabled="true"
       title={`${label} — no screen designed yet`}
-      className="flex h-10 items-center gap-3 rounded-lg px-2 text-[15px] text-slate-700"
+      // 198378:74085 / 74086 SidebarMenuButton: h-32, gap-8, px-8, radius-8,
+      // 14px / 400 / lh-14, --colors/slate/700 #314158. Stays an inert div with
+      // aria-disabled — the frame's cursor-pointer is not a licence to invent a
+      // route (see the call site).
+      className="flex h-8 items-center gap-2 rounded-lg px-2 text-[14px] font-normal leading-[14px] text-slate-700"
     >
       {icon}
       <span className="truncate">{label}</span>

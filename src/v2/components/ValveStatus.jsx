@@ -5,9 +5,13 @@
  *   Unknown 197972:32529 · No valve 197662:12993
  *
  * Geometry is the exported Figma asset verbatim, not a redraw. The frame sizes
- * the glyph at 16px; the artwork inside is ~11.1x11.6 for the valve states and
- * fills the box for "no valve", which is why each variant carries its own
- * viewBox rather than a shared one.
+ * the glyph at 16px; the artwork inside is ~11.1x11.6 for the four valve states,
+ * which is why each of those carries its own viewBox rather than a shared one.
+ *
+ * "No valve" is the exception: Figma insets its 10x10 artwork by 3px inside the
+ * 16x16 frame rather than filling it, so that entry keeps a 0 0 16 16 viewBox
+ * and translates the exported paths by the inset. (An earlier note here claimed
+ * the no-valve artwork fills the box; it does not.)
  */
 
 const VARIANTS = {
@@ -26,14 +30,16 @@ const VARIANTS = {
     ),
   },
   'closed': {
+    // Ink is colors/slate/500 (#62748E) per get_variable_defs on 197639:253444 —
+    // it used to be slate-600. Geometry and the #E2E8F0 disc fill are unchanged.
     viewBox: '0 0 9.14 12.01',
     paths: (
       <>
         <g>
-        <path d="M4.575 11.565C6.855 11.565 8.695 9.715 8.695 7.445C8.695 5.175 6.845 3.325 4.575 3.325C2.305 3.325 0.445 5.155 0.445 7.435C0.445 9.715 2.295 11.555 4.565 11.555L4.575 11.565Z" fill="#E2E8F0" stroke="#45556C" strokeWidth="0.89" strokeMiterlimit="10" strokeLinecap="round"/>
-        <path d="M6.84981 6.73318L5.28004 5.1634C4.88951 4.77287 4.25635 4.77287 3.86582 5.1634L2.29605 6.73318C1.90552 7.1237 1.90552 7.75686 2.29605 8.14739L3.86582 9.71717C4.25635 10.1077 4.88951 10.1077 5.28004 9.71717L6.84981 8.14739C7.24034 7.75686 7.24034 7.1237 6.84981 6.73318Z" fill="#45556C"/>
-        <path d="M4.57488 1.985V0.534996" stroke="#45556C" strokeWidth="0.89" strokeMiterlimit="10" strokeLinecap="round"/>
-        <path d="M1.445 0.445H7.705" stroke="#45556C" strokeWidth="0.89" strokeMiterlimit="10" strokeLinecap="round"/>
+        <path d="M4.575 11.565C6.855 11.565 8.695 9.715 8.695 7.445C8.695 5.175 6.845 3.325 4.575 3.325C2.305 3.325 0.445 5.155 0.445 7.435C0.445 9.715 2.295 11.555 4.565 11.555L4.575 11.565Z" fill="#E2E8F0" stroke="#62748E" strokeWidth="0.89" strokeMiterlimit="10" strokeLinecap="round"/>
+        <path d="M6.84981 6.73318L5.28004 5.1634C4.88951 4.77287 4.25635 4.77287 3.86582 5.1634L2.29605 6.73318C1.90552 7.1237 1.90552 7.75686 2.29605 8.14739L3.86582 9.71717C4.25635 10.1077 4.88951 10.1077 5.28004 9.71717L6.84981 8.14739C7.24034 7.75686 7.24034 7.1237 6.84981 6.73318Z" fill="#62748E"/>
+        <path d="M4.57488 1.985V0.534996" stroke="#62748E" strokeWidth="0.89" strokeMiterlimit="10" strokeLinecap="round"/>
+        <path d="M1.445 0.445H7.705" stroke="#62748E" strokeWidth="0.89" strokeMiterlimit="10" strokeLinecap="round"/>
         </g>
       </>
     ),
@@ -73,11 +79,17 @@ const VARIANTS = {
     ),
   },
   'no-valve': {
+    // Figma 197662:12993 is a 16x16 frame whose only child is the 10x10 group
+    // "Layer_2" 198601:88832 (its own viewBox is 0 0 9.99977 9.99977), centred
+    // at a 3px inset. The asset sits 1:1 in frame units, so the paths below are
+    // the export verbatim and the translate supplies the inset — which also
+    // keeps strokeWidth honest at 0.885173, as a pure translate never scales it.
     viewBox: '0 0 16 16',
     paths: (
       <>
-        <g>
-        <line x1="4.44259" y1="8.55741" x2="11.5574" y2="8.55741" stroke="#CAD5E2" strokeWidth="0.885173" strokeMiterlimit="10" strokeLinecap="round"/>
+        <g transform="translate(3.0002 2.99999)">
+        <path d="M5.00044 9.39801C7.42895 9.39801 9.39764 7.42931 9.39764 5.0008C9.39764 2.57229 7.42895 0.603595 5.00044 0.603595C2.57193 0.603595 0.603228 2.57229 0.603228 5.0008C0.603228 7.42931 2.57193 9.39801 5.00044 9.39801Z" stroke="#CAD5E2" strokeWidth="0.885173" strokeMiterlimit="10" strokeLinecap="round"/>
+        <path d="M1.91175 5.00064H8.08681" stroke="#CAD5E2" strokeWidth="0.885173" strokeMiterlimit="10" strokeLinecap="round"/>
         </g>
       </>
     ),

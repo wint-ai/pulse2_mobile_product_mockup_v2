@@ -485,7 +485,15 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
         </div>
         <div className="content-stretch flex gap-[12px] items-center relative shrink-0">
           <div className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-end relative shrink-0 w-[57px]">
-            <div className="content-stretch flex gap-[var(--component\/button\/gap,6px)] h-[32px] items-center justify-end px-[var(--component\/button\/size-default\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10px)] shrink-0 w-full">
+            {/* Button I198328:89086;197412:209455;198328:89085. Figma stamps
+                two DROP_SHADOW effects on every Button instance. Both layers
+                fall back to rgba(0,0,0,0) because the project defines none of
+                the --shadow/control/* tokens, so nothing renders today; the
+                class is carried per the var() rule above so the design value
+                appears if the tokens land. Byte-identical to AlertCard.jsx's
+                CTRL_SHADOW, which is module-local there, so it is spelled out
+                here — a literal JSX attribute, which keeps the backslashes. */}
+            <div className="content-stretch drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex gap-[var(--component\/button\/gap,6px)] h-[32px] items-center justify-end px-[var(--component\/button\/size-default\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10px)] shrink-0 w-full">
               <div className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]">
                 {collapsed ? <ChevronDown16 /> : <ChevronUp16 />}
               </div>
