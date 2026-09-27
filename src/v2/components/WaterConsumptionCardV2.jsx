@@ -259,16 +259,16 @@ function deriveStats(series, period = 'D') {
        932px that never bites; at 375px a derived "889.5K" would sit on its
        neighbour. min-w- keeps the comp's column rhythm and lets the rare wide
        value push instead of collide. */
-    { value: fmtL(total), label: 'Total L', width: 'min-w-[62px]' },
+    { value: fmtL(total), label: 'Total L', width: 'w-[62px]' },
     {
       value: fmtL(total / series.length),
       label: `${BUCKET_ADJ[period] ?? 'Daily'} Avg L`,
-      width: 'min-w-[100px]',
+      width: 'w-[100px]',
     },
     {
       value: fmtL(Math.max(...series.map((d) => d.litres))),
       label: `Peak ${BUCKET_NOUN[period] ?? 'Day'} L`,
-      width: 'min-w-[100px]',
+      width: 'w-[100px]',
     },
   ]
 }
@@ -289,7 +289,20 @@ function niceScale(max, divisions = 4) {
   }
 }
 
-const fmtAxis = (v) => (v >= 1000 || v === 0 ? `${Number((v / 1000).toFixed(1))}K` : String(v))
+/* Tick labels take their unit from the TOP of the scale, not from each value.
+   The old formatter divided every tick by 1000 and appended K regardless of
+   magnitude, so a fleet-scale axis rendered "12000K" — wider than the 37px
+   axis, which clipped it to "000K". Deriving the unit once from domainMax
+   keeps the ladder readable at any scale and makes it end "0K" / "0M" rather
+   than a bare 0, which is what the design draws. */
+/* Exported for test: recharts needs real layout, so no axis renders under
+   happy-dom and the ladder cannot be asserted through the DOM. The bug lived
+   in this function, so this is what gets pinned. */
+export function axisFormatter(domainMax) {
+  if (domainMax >= 1e6) return (v) => `${Number((v / 1e6).toFixed(1))}M`
+  if (domainMax >= 1e3) return (v) => `${Number((v / 1e3).toFixed(1))}K`
+  return (v) => String(Math.round(v))
+}
 
 // ChartStyle turns this into --color-litres on the container, which is why the
 // Bar fill below is a var() and not the literal rgba.
@@ -682,7 +695,7 @@ export default function WaterConsumptionCardV2({
                   ticks={ticks}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={fmtAxis}
+                  tickFormatter={axisFormatter(domainMax)}
                   tick={{ fontFamily: 'var(--font-sans)', fontSize: 12 }}
                 />
                 <XAxis
@@ -738,7 +751,12 @@ export default function WaterConsumptionCardV2({
               card where the header has room for them. */}
           <CardContent
             className={cn(
-              'flex items-start gap-[10px]',
+              /* Figma fixes these columns at 62 / 100 / 100 with gap-10
+                 (I198583:54997;101006:7299;198583:54825). They were min-w-,
+                 which let them drift apart once the real values reached fleet
+                 scale. flex-wrap is the PRD's mobile allowance: three across
+                 if they fit, otherwise two rows — never a collision. */
+              'flex flex-wrap items-start gap-[10px]',
               String.raw`px-[var(--component\/card\/padding,24px)]`,
             )}
           >
@@ -747,7 +765,7 @@ export default function WaterConsumptionCardV2({
                 key={stat.label}
                 className={cn(
                   String.raw`flex shrink-0 flex-col gap-[var(--pro\/space\/0\,5,2px)]`,
-                  stat.width ?? 'min-w-[100px]',
+                  stat.width ?? 'w-[100px]',
                 )}
               >
                 <p
