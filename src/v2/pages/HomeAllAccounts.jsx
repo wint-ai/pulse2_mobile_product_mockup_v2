@@ -463,7 +463,17 @@ export default function HomeAllAccounts({ expanded = false }) {
     const all = SYSTEMS ?? []
     if (!locationName) return all
     const name = decodeURIComponent(locationName)
-    return all.filter(s => s.l4Name === name || s.l3Name === name || s.l2Name === name)
+    /* All FOUR levels, l1 included. The drawer's tree is
+       account > l1 (country) > l2 (Office / Residential) > l4 (building), and
+       omitting l1Name made /location/United%%20States match nothing and render
+       the empty-scope zeros for a node the drawer itself labels 103.
+       l3Name is matched too though it is empty in this dataset — buildTree.js
+       documents L3 as the level the MRG export leaves unused, and a dataset
+       that populates it should scope on it rather than silently miss. */
+    return all.filter(
+      s =>
+        s.l4Name === name || s.l3Name === name || s.l2Name === name || s.l1Name === name,
+    )
   }, [locationName])
 
   /* A name that matches nothing yields an empty scope, NOT the fleet. An empty

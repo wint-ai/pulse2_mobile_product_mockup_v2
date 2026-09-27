@@ -21,11 +21,24 @@ import { SYSTEMS } from '@/data/systems'
 
 afterEach(cleanup)
 
-const locationNameOf = (s) => s.l4Name || s.l3Name || s.l2Name
+const locationNameOf = (s) => s.l4Name || s.l3Name || s.l2Name || s.l1Name
 
 /** Systems the page should show for a location name, by the page's own rule. */
 const systemsAt = (name) =>
-  SYSTEMS.filter((s) => s.l4Name === name || s.l3Name === name || s.l2Name === name)
+  SYSTEMS.filter(
+    (s) => s.l4Name === name || s.l3Name === name || s.l2Name === name || s.l1Name === name,
+  )
+
+/* Every name the drawer can put in the URL. WintSidebarV2.activate routes any
+   node with `l4Id` or kind 'location' to /location/<node.name>, and its tree is
+   account > l1 (country) > l2 > l4 — so a name can come from ANY of those
+   levels. The first fix only matched l2/l3/l4, which made /location/United
+   States (an l1) render zeros for a node the drawer itself labels 103. */
+const EVERY_LOCATION_NAME = [
+  ...new Set(
+    SYSTEMS.flatMap((s) => [s.l1Name, s.l2Name, s.l3Name, s.l4Name]).filter(Boolean),
+  ),
+]
 
 /* Two location names that exist in the dataset AND hold different numbers of
    systems — otherwise "they differ" proves nothing. */
@@ -54,6 +67,28 @@ function mountAt(path) {
 }
 
 describe('location scoping', () => {
+  it('every name the drawer can route to resolves to at least one system', () => {
+    // This is the guard the first version of this fix lacked. A level omitted
+    // from the filter shows up here as a location the drawer counts and the
+    // page renders as empty.
+    expect(EVERY_LOCATION_NAME.length).toBeGreaterThan(2)
+    const empty = EVERY_LOCATION_NAME.filter((n) => systemsAt(n).length === 0)
+    expect(empty, `these drawer destinations scope to nothing: ${empty.join(', ')}`).toEqual([])
+  })
+
+  it('a top-level (country) location scopes, it does not render zeros', () => {
+    const l1 = [...new Set(SYSTEMS.map((s) => s.l1Name).filter(Boolean))][0]
+    expect(l1, 'dataset has no L1 level').toBeTruthy()
+
+    const own = systemsAt(l1).length
+    const { container } = mountAt(`/location/${encodeURIComponent(l1)}`)
+    const text = (container.textContent || '').replace(/\s+/g, ' ')
+
+    // The reported symptom: "United States" rendered 0 / 0 and six zero pills.
+    expect(text).not.toContain('0/0Require attention / all')
+    expect(text).toContain(`/${own}Require attention / all`)
+  })
+
   it('the dataset offers two locations of different sizes', () => {
     expect(locA, 'no location names in SYSTEMS').toBeTruthy()
     expect(locB, 'need a second location of a different size').toBeTruthy()
