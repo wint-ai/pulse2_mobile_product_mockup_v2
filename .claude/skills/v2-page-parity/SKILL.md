@@ -78,6 +78,13 @@ Every page in `src/v2/pages/` is translated from a Figma node — see the
 (`/figma-use`, `/figma-generate-design`) to read the design, then **apply this
 skill on top of what they give you.**
 
+> **Load `figma-fetch` first.** Figma meters MCP reads per seat per day (200 on
+> this account's plan) and, once the cap is hit, refuses further calls with a
+> message that reads like a missing node — which has already caused live nodes
+> to be reported as deleted here. `figma-fetch` carries the shared cache, the
+> plan-then-fetch rule that stops N agents refetching the same node, and the
+> rule that a failed call is never evidence about the design.
+
 **A Figma frame describes appearance, never behavior.** Translating one
 literally produces exactly the three regressions this skill exists to prevent:
 

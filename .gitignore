@@ -28,3 +28,8 @@ dist-ssr
 
 # Claude Code session config (auto-generated tool permissions)
 .claude/settings.json
+
+# Shared Figma MCP fetch cache (scripts/figma-cache.mjs). Local only: entries
+# embed figma.com asset URLs that expire in ~7 days, so a committed cache would
+# hand the next reader dead links.
+.figma-cache/
