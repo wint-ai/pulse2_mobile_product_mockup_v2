@@ -713,6 +713,18 @@ export default function HomeAllAccounts({ expanded = false }) {
     [scopedSystems, consumptionPeriod, consumptionOffset],
   )
 
+  /* "Compare previous period" — the window immediately before the one on
+     screen. Computed only while the switch is on, since it is a second pass
+     over every system in scope. */
+  const [compareConsumption, setCompareConsumption] = useState(false)
+  const consumptionCompare = useMemo(
+    () =>
+      compareConsumption
+        ? getFleetConsumptionSeries(scopedSystems, consumptionPeriod, consumptionOffset - 1).series
+        : null,
+    [compareConsumption, scopedSystems, consumptionPeriod, consumptionOffset],
+  )
+
   /* The five cards of the Body wrapper, in the comp's order. Held in a variable
      because the two states wrap them in two different Body wrappers (the gap
      differs) and the wrapper's class string must stay a literal attribute. */
@@ -766,6 +778,9 @@ export default function HomeAllAccounts({ expanded = false }) {
           setConsumptionOffset(0)
         }}
         onMonthChange={(delta) => setConsumptionOffset((offset) => Math.min(0, offset + delta))}
+        compare={compareConsumption}
+        onCompareChange={setCompareConsumption}
+        compareData={consumptionCompare}
       />
 
       {/* 198314:73650 */}

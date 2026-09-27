@@ -293,6 +293,52 @@ const fmtAxis = (v) => (v >= 1000 || v === 0 ? `${Number((v / 1000).toFixed(1))}
 
 // ChartStyle turns this into --color-litres on the container, which is why the
 // Bar fill below is a var() and not the literal rgba.
+/* Switch — I198583:54997;101006:7299;198710:67116. Figma emits a <button>
+   with a track and a thumb; the track's off state is
+   component/switch/track/off-bg #e5e5e5 and the thumb is white at
+   component/switch/radius 9999px. There is no switch primitive in
+   src/components/ui, so it is inlined here rather than pulled in with the
+   shadcn CLI — that CLI has overwritten hand-tuned files in this repo before.
+   role="switch" + aria-checked is what makes it announce correctly; Figma
+   cannot express either. */
+function CompareSwitch({ checked, onChange, label }) {
+  return (
+    <div className="flex w-full items-center gap-[12px]">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        /* The label is a sibling <p>, so without this the switch reaches a
+           screen reader as an unnamed control — it would announce only
+           "switch, off". Figma has no way to express the association. */
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'relative inline-flex h-[20px] w-[36px] shrink-0 cursor-pointer items-center rounded-[9999px]',
+          'border border-solid border-transparent transition-colors outline-none',
+          'focus-visible:ring-[3px] focus-visible:ring-ring/50',
+          checked
+            ? String.raw`bg-[var(--wint-blue-accent,#0b81f8)]`
+            : String.raw`bg-[var(--component\/switch\/track\/off-bg,#e5e5e5)]`,
+        )}
+      >
+        <span
+          className={cn(
+            'block size-[16px] rounded-[9999px] bg-white transition-transform',
+            'shadow-[0px_1px_2px_0px_rgba(0,0,0,0.08)]',
+            checked ? 'translate-x-[17px]' : 'translate-x-[1px]',
+          )}
+        />
+      </button>
+      <p
+        className={String.raw`[word-break:break-word] whitespace-nowrap font-[number:var(--font\/weight\/font-normal,400)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/500,#62748e)]`}
+      >
+        {label}
+      </p>
+    </div>
+  )
+}
+
 const CHART_CONFIG = {
   litres: { label: 'Litres', color: 'rgba(11,129,248,0.6)' },
 }
@@ -313,6 +359,14 @@ export default function WaterConsumptionCardV2({
      plots `data` for whatever scope is showing. */
   period: periodProp,
   onPeriodChange,
+  /* Compare-previous-period. `compareData` is the SAME shape as `data` and
+     covers the window immediately before it; the host owns fetching it because
+     only the host knows the scope. Without it the switch still toggles and the
+     chart simply has nothing extra to draw, which is honest — it never invents
+     a second series. */
+  compare: compareProp,
+  onCompareChange,
+  compareData,
   monthLabel: monthLabelProp,
   onMonthChange,
   /* Which picker the caption row draws — see DROPDOWN_PICKERS above. Defaults
@@ -322,6 +376,15 @@ export default function WaterConsumptionCardV2({
      it opens lives in the host; without this the triggers render inert. */
   onOpenPicker,
 }) {
+  /* Uncontrolled by default so an existing caller gets the switch working
+     without changing; pass `compare` to drive it from the host. */
+  const [compareState, setCompareState] = useState(false)
+  const compareOn = compareProp ?? compareState
+  const setCompare = (next) => {
+    setCompareState(next)
+    onCompareChange?.(next)
+  }
+
   const [periodState, setPeriodState] = useState('D')
   const [monthOffset, setMonthOffset] = useState(0)
 
@@ -344,6 +407,13 @@ export default function WaterConsumptionCardV2({
      stay put so they can steer back; hiding them would be a dead end. */
   const showControls = !isEmpty || scopeSteered
 
+  /* Merge the previous window onto the plotted rows by bucket position, so
+     bar N and its comparison share an x slot even when the two windows have
+     different lengths (Feb vs Mar, a partial current month). */
+  const plotted = compareOn && period === 'M' && compareData?.length
+    ? series.map((row, i) => ({ ...row, prevLitres: compareData[i]?.litres ?? null }))
+    : series
+
   const headline = stats ?? deriveStats(series, period)
 
   /* Tooltip heading per granularity. H carries ":00" so "14" cannot be read as
@@ -361,6 +431,9 @@ export default function WaterConsumptionCardV2({
 
   const selectPeriod = (next) => {
     if (!next) return // radix clears the value when the active item is re-tapped
+    // Compare is monthly-only, so leaving Monthly clears it — otherwise the
+    // switch would stay on while hidden and keep a ghost series on the chart.
+    if (next !== 'M' && compareOn) setCompare(false)
     setPeriodState(next)
     onPeriodChange?.(next)
   }
@@ -418,7 +491,13 @@ export default function WaterConsumptionCardV2({
            32px segments, with the period stepper as its own 28px row 12px
            below. The funnel disclosure that used to live here came from
            I198378:74362;119647:3846;149:2490, a node no longer in the file;
-           this component set is its replacement. */
+           this component set is its replacement.
+           RADIUS: Figma's Default has HOUR selected, i.e. the FIRST segment,
+           so the emitted node only ever shows rounded-bl/tl — the track's own
+           left edge. Generalising that to first:/last: made a selected MIDDLE
+           segment render square-cornered, which is visibly wrong. The selected
+           segment is a rounded rect on all four corners; unselected ones carry
+           no border or fill, so their radius never shows. */
         <div className="flex w-full flex-col gap-[12px] px-[var(--component\/card\/padding,16px)] pb-[var(--spacing\/3,12px)]">
           <ToggleGroup
             type="single"
@@ -434,12 +513,26 @@ export default function WaterConsumptionCardV2({
                 key={p.id}
                 value={p.id}
                 aria-label={p.name}
-                className="flex-1 min-w-0 h-[32px] min-h-[32px] overflow-clip border-0 bg-transparent shadow-none rounded-none px-[var(--component\/toggle\/size-default\/padding,10px)] py-[var(--p-0,0px)] gap-[var(--component\/toggle\/gap,4px)] font-medium text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--foreground,#0a0a0a)] first:rounded-l-[var(--component\/toggle\/radius,10px)] last:rounded-r-[var(--component\/toggle\/radius,10px)] data-[state=on]:border data-[state=on]:border-solid data-[state=on]:border-[var(--wint-blue-accent,#0b81f8)] data-[state=on]:bg-[var(--card,white)] data-[state=on]:text-[color:var(--wint-blue-accent,#0b81f8)]"
+                className="flex-1 min-w-0 h-[32px] min-h-[32px] overflow-clip border-0 bg-transparent shadow-none rounded-none px-[var(--component\/toggle\/size-default\/padding,10px)] py-[var(--p-0,0px)] gap-[var(--component\/toggle\/gap,4px)] font-medium text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--foreground,#0a0a0a)] data-[state=on]:rounded-[var(--component\/toggle\/radius,10px)] data-[state=on]:border data-[state=on]:border-solid data-[state=on]:border-[var(--wint-blue-accent,#0b81f8)] data-[state=on]:bg-[var(--card,white)] data-[state=on]:text-[color:var(--wint-blue-accent,#0b81f8)]"
               >
                 {p.name}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
+
+          {/* I198583:54997;101006:7299;198710:67116 — the row the card gained
+              when 198583:58957 grew from 477px to 517px.
+              MONTHLY ONLY. "The previous period" is only a meaningful
+              comparison month-over-month here; on Hour and Day the windows are
+              too short to read against each other, and Year already plots the
+              whole span at once so there is no previous year to compare with. */}
+          {period === 'M' && (
+            <CompareSwitch
+              checked={compareOn}
+              onChange={setCompare}
+              label="Compare previous period"
+            />
+          )}
 
           {/* Hidden on Y for the same reason as before: the yearly view is
               the whole window at once, so there is no previous year to step
@@ -561,7 +654,7 @@ export default function WaterConsumptionCardV2({
             >
               <BarChart
                 accessibilityLayer
-                data={series}
+                data={plotted}
                 barCategoryGap="42%"
                 margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
               >
@@ -598,6 +691,22 @@ export default function WaterConsumptionCardV2({
                     Figma bars get. Grow-in animation is off: recharts drives it
                     from rAF, which never ticks under happy-dom, so a DOM test of
                     this card would see empty bars. */}
+                {/* The comp draws the switch OFF, so Figma specifies no
+                    appearance for a comparison series. This is the one
+                    invented treatment in this card — the previous window as a
+                    muted slate bar behind the current one — and it is flagged
+                    rather than presented as the design. */}
+                {compareOn && period === 'M' && compareData?.length ? (
+                  <Bar
+                    dataKey="prevLitres"
+                    // literal, not var(): an escaped-slash custom property inside an SVG
+                    // fill attribute is not worth the fragility, and this
+                    // project defines no --colors/slate/300 anyway.
+                    fill="#cad5e2"
+                    radius={[100, 100, 0, 0]}
+                    isAnimationActive={false}
+                  />
+                ) : null}
                 <Bar
                   dataKey="litres"
                   fill="var(--color-litres)"

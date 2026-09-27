@@ -502,6 +502,16 @@ export default function SystemPageV2Screen() {
     [system.id, system.title, period, periodOffset],
   )
 
+  /* "Compare previous period" — the window immediately before this one. */
+  const [compareConsumption, setCompareConsumption] = useState(false)
+  const consumptionCompare = useMemo(
+    () =>
+      compareConsumption
+        ? getConsumptionSeries(system.id, system.title, period, periodOffset - 1).series
+        : null,
+    [compareConsumption, system.id, system.title, period, periodOffset],
+  )
+
   /* AlertCard reports every tap through onAction(actionId, event) and reads no
      store itself — it is presentational, and the screen decides what each id
      means. This handler used to open with `if (actionId !== 'paginate') return`,
@@ -729,6 +739,9 @@ export default function SystemPageV2Screen() {
                       onMonthChange={(delta) =>
                         setPeriodOffset((offset) => Math.min(0, offset + delta))
                       }
+                      compare={compareConsumption}
+                      onCompareChange={setCompareConsumption}
+                      compareData={consumptionCompare}
                     />
                   </div>
 
