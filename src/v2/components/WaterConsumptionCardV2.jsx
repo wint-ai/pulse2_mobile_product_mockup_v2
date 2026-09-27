@@ -252,8 +252,14 @@ const BUCKET_NOUN = { H: 'Hour', D: 'Day', M: 'Month', Y: 'Year' }
 const BUCKET_ADJ = { H: 'Hourly', D: 'Daily', M: 'Monthly', Y: 'Yearly' }
 
 function deriveStats(series, period = 'D') {
-  if (!series.length) return []
-  const total = series.reduce((sum, d) => sum + d.litres, 0)
+  /* PLS-WC-17: buckets the period has not reached carry litres === null. They
+     are on the axis so the month draws at its true length, but they are not
+     readings — excluded from the total, from the divisor and from the peak.
+     An average over the whole of September taken on the 14th otherwise reads
+     as a halving of daily use. */
+  const read = series.filter((d) => d.litres !== null && d.litres !== undefined)
+  if (!read.length) return []
+  const total = read.reduce((sum, d) => sum + d.litres, 0)
   return [
     /* The comp fixes these columns at 62 / 100 / 100 with the copy inside set
        to whitespace-nowrap, i.e. a value wider than its box overflows it. At
@@ -262,12 +268,12 @@ function deriveStats(series, period = 'D') {
        value push instead of collide. */
     { value: fmtL(total), label: 'Total L', width: 'w-[62px]' },
     {
-      value: fmtL(total / series.length),
+      value: fmtL(total / read.length),
       label: `${BUCKET_ADJ[period] ?? 'Daily'} Avg L`,
       width: 'w-[100px]',
     },
     {
-      value: fmtL(Math.max(...series.map((d) => d.litres))),
+      value: fmtL(Math.max(...read.map((d) => d.litres))),
       label: `Peak ${BUCKET_NOUN[period] ?? 'Day'} L`,
       width: 'w-[100px]',
     },
@@ -431,7 +437,18 @@ export default function WaterConsumptionCardV2({
     if (period === 'Y') return String(bucket)
     return `${monthLabel} ${bucket}`
   }
-  const { domainMax, ticks } = niceScale(Math.max(0, ...series.map((d) => d.litres)))
+  /* PLS-WC-25: sized from the largest value across EVERY series drawn, so no
+     bar can exceed the axis. The comparison was added without updating this,
+     so a previous month taller than the current one ran past the top. Nulls
+     are skipped rather than coerced — Math.max(null) is 0, which is harmless
+     here but wrong in principle. */
+  const plottedPeak = Math.max(
+    0,
+    ...plotted.flatMap((d) =>
+      [d.litres, d.prevLitres].filter((v) => v !== null && v !== undefined),
+    ),
+  )
+  const { domainMax, ticks } = niceScale(plottedPeak)
   // ~8 x-axis labels at any window; 30 day numbers do not fit across 375px.
   const tickInterval = Math.max(0, Math.ceil(series.length / 8) - 1)
 
