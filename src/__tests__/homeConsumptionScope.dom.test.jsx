@@ -37,7 +37,9 @@ describe('home screen consumption', () => {
   })
 
   it('plots the fleet total, not the traced comp series', () => {
-    const { series } = getFleetConsumptionSeries(SYSTEMS ?? [], 'D', 0)
+    // 'M', not 'D': PLS-WC-03 makes Monthly the default grouping, so the
+    // newest MONTHLY window is what the card totals on first paint.
+    const { series } = getFleetConsumptionSeries(SYSTEMS ?? [], 'M', 0)
     const expected = fmtL(series.reduce((sum, p) => sum + p.litres, 0))
 
     const { container } = mount()

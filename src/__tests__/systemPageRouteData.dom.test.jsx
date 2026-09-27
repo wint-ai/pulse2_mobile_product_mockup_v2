@@ -95,7 +95,9 @@ function fmtL(n) {
 describe('the consumption chart plots the routed system', () => {
   it('shows this system\u2019s own total, not the traced comp series', () => {
     for (const system of distinct) {
-      const { series } = getConsumptionSeries(system.id, system.name, 'D', 0)
+      // 'M', not 'D': PLS-WC-03 makes Monthly the default grouping, so the
+      // newest MONTHLY window is what the card totals on first paint.
+      const { series } = getConsumptionSeries(system.id, system.name, 'M', 0)
       const expected = fmtL(series.reduce((sum, p) => sum + p.litres, 0))
 
       const { container, unmount } = mountAt(system.id)

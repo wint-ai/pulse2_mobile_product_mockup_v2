@@ -14,7 +14,7 @@
 // different locations do not show the same thing.
 
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup, within } from '@testing-library/react'
+import { render, cleanup, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
 import { SYSTEMS } from '@/data/systems'

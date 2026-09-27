@@ -19,7 +19,7 @@
 // design's — so nothing in consumptionSeries.js moves.
 
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { render, cleanup, fireEvent, within } from '@testing-library/react'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 
 afterEach(cleanup)

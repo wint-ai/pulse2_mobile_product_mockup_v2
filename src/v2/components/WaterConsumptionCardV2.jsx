@@ -63,14 +63,24 @@
  * as a box-shadow.
  */
 
-import { useState } from 'react'
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { useEffect, useState } from 'react'
+import { Bar, BarChart, CartesianGrid, Rectangle, ReferenceLine, XAxis, YAxis } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { axisFormatter } from './chartAxis'
+import {
+  bucketAccessibleName,
+  isBucketOpenable,
+  niceScale,
+  prefersReducedMotion,
+  showsValueLabels,
+  valueLabelEvery,
+  valueLabelFontSize,
+  xLabelEvery,
+} from './chartScale'
 import FunnelSimple from '@/v2/icons/FunnelSimple'
 
 /* ── Inlined Figma assets ──────────────────────────────────────────────────
@@ -280,21 +290,18 @@ function deriveStats(series, period = 'D') {
   ]
 }
 
-/* The comp's y-axis is 0K/10K/20K/30K/40K with the tallest bar landing exactly
-   on 40K. Rather than hard-code that, pick the smallest 1/2/2.5/5 x 10^n step
-   whose four divisions cover the max — which reproduces the comp for the mock
-   and still gives round labels for any other series. */
-function niceScale(max, divisions = 4) {
-  if (!(max > 0)) return { domainMax: divisions, ticks: [] }
-  const magnitude = Math.pow(10, Math.floor(Math.log10(max / divisions)))
-  const step =
-    [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s * divisions >= max) ??
-    10 * magnitude
-  return {
-    domainMax: step * divisions,
-    ticks: Array.from({ length: divisions + 1 }, (_, i) => i * step),
-  }
-}
+/* PLS-WC-26 / §14.1: niceScale now lives in ./chartScale on the 1 / 1.2 / 1.5
+   / 2 / 2.5 / 3 / 4 / 5 / 6 / 8 / 10 ladder. The coarse 1/2/2.5/5 ladder that
+   used to sit here reproduced the comp's 0K/10K/20K/30K/40K for the mock by
+   luck and left the top half of the plot empty everywhere else — an 85K peak
+   under a 200K axis. It is exported rather than local because a component file
+   may only export components, and the ladder has to be assertable: recharts
+   needs real layout, so no axis renders under happy-dom.
+
+   BAR_CATEGORY_GAP is shared between the chart and the hit-target maths in
+   renderBucket below — the bucket is the target, not the drawn bar (§19), and
+   widening the bar's own column back out over the gap is what recovers it. */
+const BAR_CATEGORY_GAP = 0.42
 
 /* Tick labels take their unit from the TOP of the scale, not from each value.
    The old formatter divided every tick by 1000 and appended K regardless of
@@ -355,6 +362,94 @@ const CHART_CONFIG = {
   litres: { label: 'Litres', color: 'rgba(11,129,248,0.6)' },
 }
 
+/* PLS-WC-37/38 (§18) — a bucket is a REAL control, and PLS-WC-35/36 (§13) —
+   its value label.
+
+   Both are drawn here, inside recharts' own SVG surface, rather than as an HTML
+   overlay over the plot. An overlay was the obvious shape and it is the wrong
+   one: recharts reads the period detail (§3.7) off pointer events on the chart
+   wrapper, and an overlay swallows every mousemove before the wrapper sees it —
+   the card would gain keyboard access and lose hover in the same commit. Events
+   from a <rect> inside the surface still bubble to the wrapper, so both work.
+
+   The hit target is the BUCKET. recharts hands every rectangle a `background` —
+   its own column stretched to the full plot height — so the null buckets that
+   draw no bar at all (PLS-WC-17) still have something to focus, and widening
+   that column back out over barCategoryGap recovers the whole bucket for touch
+   (§19). Only with one series: beside a comparison bar, widening would put the
+   two hit areas on top of each other.
+
+   Not-openable buckets are aria-disabled, never `disabled`. A disabled control
+   fires no events, which would leave Hourly — the grouping with the finest data
+   — unable to report anything at all. */
+function renderBucket(shapeProps, opts) {
+  const { x, y, width, height, fill, background, index, payload } = shapeProps
+  const { period, onDrillDown, seriesCount, showValueLabels, valueEvery, valueFontSize } = opts
+  const row = payload ?? {}
+
+  const hasBar = Number.isFinite(y) && Number.isFinite(height) && height > 0
+  const openable = isBucketOpenable(row, period) && typeof onDrillDown === 'function'
+  const open = () => {
+    if (openable) onDrillDown(row.key)
+  }
+
+  const slot = background ?? { x, y, width, height }
+  const hitWidth = seriesCount === 1 ? slot.width / (1 - BAR_CATEGORY_GAP) : slot.width
+  const hitX = slot.x - (hitWidth - slot.width) / 2
+  const showValue = showValueLabels && hasBar && index % valueEvery === 0
+
+  return (
+    <g>
+      {hasBar ? (
+        <Rectangle
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          fill={fill}
+          radius={[100, 100, 0, 0]}
+          isAnimationActive={false}
+        />
+      ) : null}
+      {showValue ? (
+        /* §13: positioned at the CURRENT series' own horizontal centre, not the
+           bucket's — with a comparison beside it those are different places and
+           a centred number names neither bar. */
+        <text
+          x={x + width / 2}
+          y={y - 6}
+          textAnchor="middle"
+          fontSize={valueFontSize}
+          fill="#737373"
+          className="pointer-events-none select-none"
+        >
+          {fmtL(row.litres)}
+        </text>
+      ) : null}
+      <rect
+        data-bucket={index}
+        x={hitX}
+        y={slot.y}
+        width={hitWidth}
+        height={slot.height}
+        fill="transparent"
+        role="button"
+        tabIndex={0}
+        aria-label={bucketAccessibleName(row, period)}
+        aria-disabled={openable ? undefined : true}
+        style={{ cursor: openable ? 'pointer' : 'default' }}
+        onClick={open}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            open()
+          }
+        }}
+      />
+    </g>
+  )
+}
+
 function formatMonth(offset) {
   return new Date(MOCK_MONTH.year, MOCK_MONTH.monthIndex + offset, 1).toLocaleDateString('en-US', {
     month: 'long',
@@ -387,6 +482,20 @@ export default function WaterConsumptionCardV2({
   /* Called with 'month' | 'year' when a dropdown trigger is tapped. The sheet
      it opens lives in the host; without this the triggers render inert. */
   onOpenPicker,
+  /* §3.5 / PLS-WC-12 — drill-down. Called with the selected bucket's own
+     `key` ({kind:'year'|'month'|'day'|'hour', …}), which only the host can
+     resolve to a window. Without it a bucket is still reachable and still
+     reports its value; it simply announces no "Show by …" and opens nothing. */
+  onDrillDown,
+  /* §3.4 — Today. Withheld rather than drawn dead when the host owns no
+     handler, which is the contract PeriodDropdown already keeps. */
+  onToday,
+  canToday = true,
+  /* PLS-WC-09 / §3.2 — the step controls are UNAVAILABLE at each end of the
+     series rather than operable and inert. Both default to true so a caller
+     that has not been updated is unchanged. */
+  canStepPrev = true,
+  canStepNext = true,
 }) {
   /* Uncontrolled by default so an existing caller gets the switch working
      without changing; pass `compare` to drive it from the host. */
@@ -449,8 +558,48 @@ export default function WaterConsumptionCardV2({
     ),
   )
   const { domainMax, ticks } = niceScale(plottedPeak)
-  // ~8 x-axis labels at any window; 30 day numbers do not fit across 375px.
-  const tickInterval = Math.max(0, Math.ceil(series.length / 8) - 1)
+
+  /* PLS-WC-31 / §14.6: a constant density of about thirteen labels at ANY
+     bucket count. The `ceil(count / 8) - 1` this replaced was a ceiling, so it
+     stepped from "every bucket" to "every 2nd" between 8 and 9 and stayed there
+     to 16 — a 12-bar and a 16-bar chart drew the same six labels. recharts'
+     `interval` counts buckets to SKIP after each tick, hence labelEvery - 1. */
+  const labelEvery = xLabelEvery(series.length)
+
+  /* §13: bar value labels thin to the SLOT, so the plot's real width has to be
+     measured — "14 buckets or fewer" means the same chart gains and loses its
+     numbers depending on how many days a month happens to have. 37 is the plot
+     origin (§14.4). A host with no ResizeObserver (happy-dom included) simply
+     measures 0 and draws no value labels, which is a degradation, not a crash. */
+  const [plotEl, setPlotEl] = useState(null)
+  const [plotWidth, setPlotWidth] = useState(0)
+  useEffect(() => {
+    if (!plotEl || typeof ResizeObserver === 'undefined') return undefined
+    const measure = () => setPlotWidth(plotEl.getBoundingClientRect().width)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(plotEl)
+    return () => observer.disconnect()
+  }, [plotEl])
+
+  const slotWidth = plotted.length > 0 ? Math.max(0, plotWidth - 37) / plotted.length : 0
+  const comparing = Boolean(compareOn && period === 'M' && compareData?.length)
+  /* PLS-WC-36: exactly ONE series carries a value per bucket here. The
+     comparison bar is a reference, not a second reading, so a compared window
+     still carries its numbers (§13) — a supply/return pair would not, and the
+     agent that adds it has to count 2 here. */
+  const valueCarryingSeries = 1
+  const showValueLabels = showsValueLabels(valueCarryingSeries) && slotWidth > 0
+  const valueEvery = valueLabelEvery(slotWidth)
+  const valueFontSize = valueLabelFontSize(slotWidth)
+  const animateBars = !prefersReducedMotion()
+
+  /* PLS-WC-19 / §6: the metrics row is hidden ENTIRELY when the window has no
+     data — three figures all reading zero say less than the empty state does,
+     and an empty row still carries its own 16px of bottom padding. "No data"
+     is §8's definition: nothing read, or every bucket zero. The empty-state
+     copy itself is deliberately untouched. */
+  const windowHasData = series.some((d) => typeof d.litres === 'number' && d.litres > 0)
 
   const selectPeriod = (next) => {
     if (!next) return // radix clears the value when the active item is re-tapped
@@ -544,59 +693,94 @@ export default function WaterConsumptionCardV2({
             ))}
           </ToggleGroup>
 
-          {/* CalendarNavButton — I198583:54997;101006:7299;198583:56390;6912:3858:
-              size-28, opacity 50, radius component/button/size-default (10px),
-              and NO fill. We drew rounded-full. A sibling agent reported a
-              slate/100 fill at 10px radius on these; that is Variant2's
-              treatment (198601:86153), not Default's, so only the radius is
-              taken here. The hover tint is ours — Figma has no hover state —
-              and stays, since a 28px target with no feedback reads as dead.
+          {/* §2: the caption row is drawn at EVERY grouping, so the control
+              area does not change height between them. Yearly is the case that
+              forced it: its period label is the literal "N / A" and it is PLAIN
+              TEXT, not a control, so what Yearly drops is the chevrons and the
+              picker — not the row. It also drops role="group", because a group
+              named "Period" holding no controls is a lie to a screen reader.
 
-              Hidden on Y for the same reason as before: the yearly view is
-              the whole window at once, so there is no previous year to step
-              to, and a stepper that cannot act is the thing
-              check-shell-contract.mjs exists to stop shipping. */}
-          {period !== 'Y' && (
-            <div
-              role="group"
-              aria-label="Period"
-              className="flex h-[28px] w-full items-center justify-between px-[var(--spacing\/1\,5,6px)]"
-            >
+              §16: the pager is 36 tall (v2 raised it from 32; this was 28) on a
+              pill radius, chevron glyphs 16.
+
+              PLS-WC-09 / §3.2: the chevrons carry the disabled ATTRIBUTE at
+              each end of the series, not a dimmed-but-operable look. "A control
+              that looks operable and does nothing is the same defect as a
+              picker that cannot reach eleven months in twelve."
+
+              CalendarNavButton — I198583:54997;101006:7299;198583:56390;6912:3858:
+              size-28, opacity 50, radius component/button/size-default (10px),
+              and NO fill. A sibling agent reported a slate/100 fill at 10px
+              radius on these; that is Variant2's treatment (198601:86153), not
+              Default's, so only the radius is taken here. The hover tint is
+              ours — Figma has no hover state — and stays, since a 28px target
+              with no feedback reads as dead. */}
+          <div className="flex w-full items-center gap-[8px]">
+            {period === 'Y' ? (
+              <div className="flex h-[36px] min-w-0 flex-1 items-center justify-center rounded-full px-[var(--spacing\/1\,5,6px)]">
+                <span className="text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]">
+                  {monthLabel}
+                </span>
+              </div>
+            ) : (
+              <div
+                role="group"
+                aria-label="Period"
+                className="flex h-[36px] min-w-0 flex-1 items-center justify-between rounded-full px-[var(--spacing\/1\,5,6px)]"
+              >
+                <button
+                  type="button"
+                  aria-label="Previous period"
+                  disabled={!canStepPrev}
+                  onClick={() => stepMonth(-1)}
+                  className="flex size-[28px] items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:opacity-20"
+                >
+                  <ChevronLeft16 className="size-4" />
+                </button>
+                {usesDropdowns ? (
+                  /* Dropdown group — Figma I198601:86154;101006:7299;198601:86158;198674:177605.
+                     gap-8px even at one child: the node carries the gap for the
+                     Double case and the Single case sits in the same box. */
+                  <div className="flex shrink-0 items-center gap-[8px]">
+                    {dropdowns.map((d) => (
+                      <PeriodDropdown
+                        key={d.key}
+                        label={d.label}
+                        ariaLabel={d.aria}
+                        onOpen={onOpenPicker ? () => onOpenPicker(d.key) : undefined}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]">{monthLabel}</span>
+                )}
+                <button
+                  type="button"
+                  aria-label="Next period"
+                  disabled={!canStepNext}
+                  onClick={() => stepMonth(1)}
+                  className="flex size-[28px] items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:opacity-20"
+                >
+                  <ChevronRight16 className="size-4" />
+                </button>
+              </div>
+            )}
+            {/* §3.4 / §16 — Today: slate-100, 32 tall, radius 10. Unavailable
+                when the chart is already at Hourly on the newest window, which
+                only the host can know, so it reads canToday. Drawn only when a
+                handler exists: a Today that cannot jump is worse than none. */}
+            {onToday ? (
               <button
                 type="button"
-                aria-label="Previous period"
-                onClick={() => stepMonth(-1)}
-                className="flex size-[28px] items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                aria-label="Jump to today, hour by hour."
+                disabled={canToday === false}
+                onClick={() => onToday()}
+                className="flex h-[32px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--colors\/slate\/100,#f1f5f9)] px-[12px] font-medium text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)] outline-none hover:bg-[var(--colors\/slate\/200,#e2e8f0)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-[var(--colors\/slate\/100,#f1f5f9)]"
               >
-                <ChevronLeft16 className="size-4" />
+                Today
               </button>
-              {usesDropdowns ? (
-                /* Dropdown group — Figma I198601:86154;101006:7299;198601:86158;198674:177605.
-                   gap-8px even at one child: the node carries the gap for the
-                   Double case and the Single case sits in the same box. */
-                <div className="flex shrink-0 items-center gap-[8px]">
-                  {dropdowns.map((d) => (
-                    <PeriodDropdown
-                      key={d.key}
-                      label={d.label}
-                      ariaLabel={d.aria}
-                      onOpen={onOpenPicker ? () => onOpenPicker(d.key) : undefined}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <span className="text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]">{monthLabel}</span>
-              )}
-              <button
-                type="button"
-                aria-label="Next period"
-                onClick={() => stepMonth(1)}
-                className="flex size-[28px] items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              >
-                <ChevronRight16 className="size-4" />
-              </button>
-            </div>
-          )}
+            ) : null}
+          </div>
 
           </div>
 
@@ -682,21 +866,48 @@ export default function WaterConsumptionCardV2({
                 comp's 185px plot box plus its 28px day row. Axis type is Geist
                 (--font-mono-label); the #737373 fill is the design's
                 muted-foreground, which is not this project's. */}
+            <div ref={setPlotEl} className="w-full">
             <ChartContainer
               config={CHART_CONFIG}
               className={cn(
                 'aspect-auto h-[185px] w-full',
                 '[&_.recharts-cartesian-axis-tick_text]:fill-[#737373]',
+                /* PLS-WC-37 / §18: a visible focus ring on every bucket,
+                   including the ones that cannot be opened. It is an `outline`
+                   and not a ring/box-shadow utility because the focusable node
+                   is an SVG <rect>, where box-shadow does not paint; the offset
+                   is negative so the ring stays inside the plot at the first
+                   and last bucket instead of being clipped. */
+                '[&_[data-bucket]]:outline-none',
+                '[&_[data-bucket]:focus-visible]:outline-2',
+                '[&_[data-bucket]:focus-visible]:outline-offset-[-2px]',
+                '[&_[data-bucket]:focus-visible]:outline-[color:var(--wint-blue-accent,#0b81f8)]',
               )}
             >
               <BarChart
                 accessibilityLayer
                 data={plotted}
-                barCategoryGap="42%"
+                barCategoryGap={Math.round(BAR_CATEGORY_GAP * 100) + '%'}
                 margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
               >
-                {/* #e5e5e5 is the stroke on the comp's own gridline vector. */}
+                {/* #e5e5e5 is the stroke on the comp's own gridline vector, and
+                    PLS-WC-28 / §14.3 draws the ZERO line a step darker than the
+                    rest of the ladder — so a bar reads as standing on something
+                    rather than against one more rung. */}
                 <CartesianGrid vertical={false} stroke="#e5e5e5" />
+                <ReferenceLine y={0} stroke="#d4d4d4" strokeWidth={1} />
+                {/* PLS-WC-29 / §14.4: a 23px tick column, right-aligned, with a
+                    14px gap to a plot origin of 37 — so a long tick like "600K"
+                    runs LEFT into the card's 26px gutter instead of pushing the
+                    plot across. recharts places a left tick at
+                    width - tickSize - tickMargin, so tickSize 0 + tickMargin 14
+                    puts the column's right edge at 23; width stays 37, which is
+                    what keeps the origin fixed whatever the tick says.
+                    §14.4 also specifies a 6px upward offset. That number exists
+                    to lift a TOP-anchored label onto its gridline; recharts
+                    anchors tick text at 'middle', so it already sits centred on
+                    the line and the offset would take it off. The geometry is
+                    honoured; the magic number is not transplanted. */}
                 <YAxis
                   dataKey="litres"
                   width={37}
@@ -704,6 +915,8 @@ export default function WaterConsumptionCardV2({
                   ticks={ticks}
                   tickLine={false}
                   axisLine={false}
+                  tickSize={0}
+                  tickMargin={14}
                   tickFormatter={axisFormatter(domainMax)}
                   tick={{ fontFamily: 'var(--font-sans)', fontSize: 12 }}
                 />
@@ -713,7 +926,7 @@ export default function WaterConsumptionCardV2({
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  interval={tickInterval}
+                  interval={labelEvery - 1}
                   tick={{ fontFamily: 'var(--font-sans)', fontSize: 12 }}
                 />
                 <ChartTooltip
@@ -725,9 +938,15 @@ export default function WaterConsumptionCardV2({
                 />
                 {/* radius 100 is the comp's rounded-t-[100px]; recharts clamps it
                     to min(width, height) / 2, the same half-round cap the 16.6px
-                    Figma bars get. Grow-in animation is off: recharts drives it
-                    from rAF, which never ticks under happy-dom, so a DOM test of
-                    this card would see empty bars. */}
+                    Figma bars get.
+                    PLS-WC-40 / §17: bars grow from the baseline whenever the
+                    buckets change — the key forces the remount that replays the
+                    growth on a grouping, period or comparison change — and the
+                    growth is suppressed under prefers-reduced-motion.
+                    recharts drives that growth from rAF, which never ticks
+                    under happy-dom, so a DOM test of this card still sees
+                    un-grown bars: assert the animation nowhere, and assert the
+                    bucket names on bucketAccessibleName instead. */}
                 {/* The comp draws the switch OFF, so Figma specifies no
                     appearance for a comparison series. This is the one
                     invented treatment in this card — the previous window as a
@@ -741,23 +960,38 @@ export default function WaterConsumptionCardV2({
                     // project defines no --colors/slate/300 anyway.
                     fill="#cad5e2"
                     radius={[100, 100, 0, 0]}
-                    isAnimationActive={false}
+                    isAnimationActive={animateBars}
                   />
                 ) : null}
                 <Bar
+                  key={'bars-' + period + '-' + monthLabel + '-' + plotted.length}
                   dataKey="litres"
                   fill="var(--color-litres)"
                   radius={[100, 100, 0, 0]}
-                  isAnimationActive={false}
+                  isAnimationActive={animateBars}
+                  animationBegin={0}
+                  shape={(shapeProps) =>
+                    renderBucket(shapeProps, {
+                      period,
+                      onDrillDown,
+                      seriesCount: comparing ? 2 : 1,
+                      showValueLabels,
+                      valueEvery,
+                      valueFontSize,
+                    })
+                  }
                 />
               </BarChart>
             </ChartContainer>
+            </div>
           </CardContent>
 
           {/* Figures BELOW the chart. All three variants of 198601:86152
               ("Water consumption_M") put Total / Avg / Peak under the plot;
               they sat above it here, carried over from the 932px desktop
-              card where the header has room for them. */}
+              card where the header has room for them.
+              PLS-WC-19 / §6: suppressed outright when the window has no data. */}
+          {headline.length > 0 && windowHasData && (
           <CardContent
             className={cn(
               /* Figma fixes these columns at 62 / 100 / 100 with gap-10
@@ -809,6 +1043,7 @@ export default function WaterConsumptionCardV2({
               </div>
             ))}
           </CardContent>
+          )}
         </>
       )}
     </Card>

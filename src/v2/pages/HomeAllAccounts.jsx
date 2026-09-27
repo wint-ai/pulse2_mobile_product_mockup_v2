@@ -75,7 +75,23 @@ import SystemsHealthCard from '@/v2/components/SystemsHealthCard'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
+import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
 import { CaretDown, CustomerSupport, Menu10 } from '@/v2/icons'
+/* The chart's window arithmetic — §3.1-§3.6 and the §4 matrix. Shared with
+   SystemPageV2Screen so the two screens cannot drift apart, and kept out of
+   this file because a page may only export its component. */
+import {
+  canJumpToToday,
+  clampOffset,
+  deriveSeriesBounds,
+  drillTarget,
+  footerLabelFor,
+  offsetForPickedMonth,
+  pickerMin,
+  pickerSelection,
+  stepAvailability,
+  windowMonthsOf,
+} from '@/v2/lib/consumptionWindow'
 import { SYSTEMS, computeWidgets, computeKPIs } from '@/data/systems'
 import { getAccountById } from '@/data/accounts'
 import { getConsumption } from '@/data/consumption'
@@ -451,19 +467,14 @@ function TopUsageCard({ data, onSelect, onPeriodChange }) {
  *                  wrapper's gap (14px -> 10px).
  */
 
-/* "Sep 2026" -> { month: 8, year: 2026 }. The series builder labels the daily
-   window this way, so parsing it is how the page learns which month offset 0
-   actually is — rather than assuming "now", which drifts from the dataset. */
-const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-function parseMonthLabel(label) {
-  const m = /^([A-Za-z]{3})\s+(\d{4})$/.exec(String(label ?? '').trim())
-  if (!m) return null
-  const month = MONTH_SHORT.indexOf(m[1])
-  return month < 0 ? null : { month, year: Number(m[2]) }
-}
-function monthsBetween(from, to) {
-  return (to.year * 12 + to.month) - (from.year * 12 + from.month)
-}
+/* Which month offset 0 actually is used to be parsed back out of the daily
+   period label here. It is read off the series KEYS now, in
+   @/v2/lib/consumptionWindow — the labels differ per grouping ("September
+   2026", "Jun 2025 - May 2026", "N / A") and the regex that lived here matched
+   only the three-letter form, so on the real label it returned null and the
+   picker quietly fell back to the wall clock. The rule it was reaching for is
+   unchanged and now holds at every grouping: offsets are measured from the
+   last reading in the series, never from "now" (PLS-WC-06). */
 
 export default function HomeAllAccounts({ expanded = false }) {
   /* Figma "Location opt b" (198328:88654) is this screen retitled, so scope is
@@ -721,12 +732,32 @@ export default function HomeAllAccounts({ expanded = false }) {
     return rows
   }, [scopedSystems])
 
-  const [consumptionPeriod, setConsumptionPeriod] = useState('D')
+  /* PLS-WC-03 / §2: MONTHLY is the default grouping at every level. This page
+     opened on Daily, which answers "what did this month look like, day by
+     day" — a question the home screen is not asking. Twelve months is what
+     says most about what is happening now; Yearly says least. */
+  const [consumptionPeriod, setConsumptionPeriod] = useState('M')
   const [consumptionOffset, setConsumptionOffset] = useState(0)
+
+  /* §20.1 / PLS-WC-15 — the trail of periods OPENED, newest last. Each entry
+     is the {period, offset} a drill-down was launched from, which is what lets
+     the return restore both rather than dropping the user on the newest window
+     the way the grouping control does (§3.1). */
+  const [consumptionTrail, setConsumptionTrail] = useState([])
 
   const consumptionView = useMemo(
     () => getFleetConsumptionSeries(scopedSystems, consumptionPeriod, consumptionOffset),
     [scopedSystems, consumptionPeriod, consumptionOffset],
+  )
+
+  /* PLS-WC-06 — where this scope's series actually starts and ends, read back
+     out of the data layer rather than from the clock. Every offset below is
+     measured from it, and the step controls (§3.2) and the picker (§3.3) take
+     both their limits from it, so neither can offer a window the series cannot
+     fill. */
+  const consumptionBounds = useMemo(
+    () => deriveSeriesBounds((period, offset) => getFleetConsumptionSeries(scopedSystems, period, offset)),
+    [scopedSystems],
   )
 
   /* The advanced period selector. Same interaction as the system page:
@@ -734,19 +765,34 @@ export default function HomeAllAccounts({ expanded = false }) {
      to the page because the frame covers the whole phone. */
   const [pickerOpen, setPickerOpen] = useState(false)
 
+  /* The newest selectable month, in the sheet's own {month, year} shape.
+     It used to be parsed out of the daily label ("September 2026") by a regex
+     that only matched three-letter months, so it resolved to null and the
+     sheet silently fell back to the wall clock. It is read off the series keys
+     now — see deriveSeriesBounds. */
   const latestMonth = useMemo(
-    () => parseMonthLabel(getFleetConsumptionSeries(scopedSystems, 'D', 0).label),
-    [scopedSystems],
+    () => (consumptionBounds
+      ? { month: consumptionBounds.lastMonth.m, year: consumptionBounds.lastMonth.y }
+      : null),
+    [consumptionBounds],
   )
-  const selectedMonth = useMemo(() => {
-    if (!latestMonth) return null
-    const total = latestMonth.year * 12 + latestMonth.month + consumptionOffset
-    return { month: ((total % 12) + 12) % 12, year: Math.floor(total / 12) }
-  }, [latestMonth, consumptionOffset])
+  /* §3.3 — the picker opens on the window's LAST bucket: the one the label
+     names and the one a pick replaces. */
+  const selectedMonth = useMemo(
+    () => pickerSelection(consumptionPeriod, consumptionOffset, consumptionBounds),
+    [consumptionPeriod, consumptionOffset, consumptionBounds],
+  )
+  /* §3.3 — every month the window covers, so the grid marks the whole window
+     and not only its end. Monthly only: at Daily the window IS one month. */
+  const consumptionWindowMonths = useMemo(
+    () => (consumptionPeriod === 'M' ? windowMonthsOf(consumptionView.series) : undefined),
+    [consumptionPeriod, consumptionView],
+  )
 
-  const applyMonth = ({ month, year }) => {
-    if (!latestMonth) return
-    setConsumptionOffset(Math.min(0, monthsBetween(latestMonth, { month, year })))
+  /* §4: a pick sets the period and keeps the grouping, the comparison and the
+     trail. */
+  const applyMonth = (selection) => {
+    setConsumptionOffset(offsetForPickedMonth(consumptionPeriod, selection, consumptionBounds))
     setPickerOpen(false)
   }
 
@@ -761,6 +807,69 @@ export default function HomeAllAccounts({ expanded = false }) {
         : null,
     [compareConsumption, scopedSystems, consumptionPeriod, consumptionOffset],
   )
+
+  /* ── The chart's actions ────────────────────────────────────────────────
+     §4 is NORMATIVE about what each one keeps and what it resets, and the
+     PRD's own note is that the commonest defect in this chart is an action
+     resetting something the user expected to keep. Each handler below states
+     the row it implements. */
+
+  /* §3.1 — selecting a grouping ALWAYS returns to the newest window, and is
+     therefore never a way back to a period you were looking at (§3.6). The
+     trail goes with it: the drill it recorded no longer describes what is on
+     screen. */
+  const selectConsumptionPeriod = (next) => {
+    setConsumptionPeriod(next)
+    setConsumptionOffset(0)
+    setConsumptionTrail([])
+    // PLS-WC-20: comparison is Monthly-only, so anything else clears it.
+    if (next !== 'M') setCompareConsumption(false)
+  }
+
+  /* §3.2 — one step moves ONE bucket, and keeps everything else. The clamp is
+     what makes the chevrons stop at the ends rather than walk past the data;
+     canStepPrev / canStepNext below disable them there (PLS-WC-09). */
+  const stepConsumption = (delta) =>
+    setConsumptionOffset((offset) => clampOffset(consumptionPeriod, offset + delta, consumptionBounds))
+
+  /* §3.5 / PLS-WC-12-13 — opening a period is the ONLY action that changes the
+     grouping without resetting the period. The window moves to the period
+     containing the bucket's LAST reading, so opening 2025 gives January to
+     December 2025 rather than the twelve months ending in January. */
+  const drillIntoBucket = (bucketKey) => {
+    const target = drillTarget(bucketKey, consumptionBounds)
+    // Hourly is the floor of the series and a bucket with no reading has
+    // nothing behind it — §3.5's two blocked cases both land here.
+    if (!target) return
+    setConsumptionTrail((trail) => [...trail, { period: consumptionPeriod, offset: consumptionOffset }])
+    setConsumptionPeriod(target.period)
+    setConsumptionOffset(target.offset)
+    if (target.period !== 'M') setCompareConsumption(false)
+  }
+
+  /* §3.6 / PLS-WC-15 — the return restores the grouping AND the period it was
+     opened from. */
+  const returnFromDrill = () => {
+    const previous = consumptionTrail[consumptionTrail.length - 1]
+    if (!previous) return
+    setConsumptionTrail((trail) => trail.slice(0, -1))
+    setConsumptionPeriod(previous.period)
+    setConsumptionOffset(previous.offset)
+    if (previous.period !== 'M') setCompareConsumption(false)
+  }
+
+  /* §3.4 — Today: Hourly on the newest window, the picker closed, and the
+     comparison cleared (§4). */
+  const jumpToToday = () => {
+    setConsumptionPeriod('H')
+    setConsumptionOffset(0)
+    setConsumptionTrail([])
+    setCompareConsumption(false)
+    setPickerOpen(false)
+  }
+
+  const consumptionSteps = stepAvailability(consumptionPeriod, consumptionOffset, consumptionBounds)
+  const returnTo = consumptionTrail[consumptionTrail.length - 1]?.period ?? null
 
   /* The five cards of the Body wrapper, in the comp's order. Held in a variable
      because the two states wrap them in two different Body wrappers (the gap
@@ -806,20 +915,29 @@ export default function HomeAllAccounts({ expanded = false }) {
           template name; the card is Water consumption. It used to ship its own
           traced series; it now plots the fleet, so the figures under it belong
           to the systems this screen is actually reporting on. */}
+      {/* §3.6 / §19 — the way back out of a drill-down, above the card it
+          returns. It renders only while there is something to return to, so it
+          cannot read as a dead control on a chart nobody has drilled into. */}
+      <ConsumptionReturnControl toPeriod={returnTo} onReturn={returnFromDrill} />
+
       <WaterConsumptionCardV2
         data={consumptionView.series}
         period={consumptionPeriod}
         monthLabel={consumptionView.label}
-        onPeriodChange={(next) => {
-          setConsumptionPeriod(next)
-          setConsumptionOffset(0)
-        }}
-        onMonthChange={(delta) => setConsumptionOffset((offset) => Math.min(0, offset + delta))}
+        onPeriodChange={selectConsumptionPeriod}
+        onMonthChange={stepConsumption}
         picker="dropdown"
         onOpenPicker={() => setPickerOpen(true)}
         compare={compareConsumption}
         onCompareChange={setCompareConsumption}
         compareData={consumptionCompare}
+        /* §3.5 — the card reports which bucket was opened; the screen owns
+           what "one step finer" means, because only it holds the window. */
+        onDrillDown={drillIntoBucket}
+        onToday={jumpToToday}
+        canToday={canJumpToToday(consumptionPeriod, consumptionOffset)}
+        canStepPrev={consumptionSteps.canStepPrev}
+        canStepNext={consumptionSteps.canStepNext}
       />
 
       {/* 198314:73650 */}
@@ -966,8 +1084,16 @@ export default function HomeAllAccounts({ expanded = false }) {
         onClose={() => setPickerOpen(false)}
         value={selectedMonth}
         max={latestMonth}
+        /* PLS-WC-08 — the oldest end of the series, so months before it are
+           unavailable the way months after `max` already are. */
+        min={pickerMin(consumptionBounds)}
+        /* §3.3 — the whole twelve-month window is marked, not just its end. */
+        windowMonths={consumptionWindowMonths}
+        /* §2 — the footer names the newest window in this grouping's terms. */
+        footerLabel={footerLabelFor(consumptionPeriod)}
         onApply={applyMonth}
         onSelectLatest12={() => {
+          // §4: the footer resets the period and keeps everything else.
           setConsumptionOffset(0)
           setPickerOpen(false)
         }}
