@@ -88,6 +88,16 @@ describe('water event rows open the event', () => {
       </MemoryRouter>,
     )
 
+    /* The card is collapsed at rest — with real data it is 52 rows, which
+       would bury every card below it — so open it before looking for rows. */
+    // Named, not just `{expanded: false}` — the drawer's tree rows are
+    // collapsible buttons too, so that alone matches many elements.
+    const header = screen
+      .getAllByRole('button', { expanded: false })
+      .find((el) => /water events/i.test(el.textContent || ''))
+    expect(header, 'no water-events card header').toBeTruthy()
+    fireEvent.click(header)
+
     // Figma marks the row as a <button>; it used to render as an inert <div>
     // because there was no agreed destination. /alert/:systemId is one.
     const rows = screen.getAllByRole('button', { name: /^Open / })

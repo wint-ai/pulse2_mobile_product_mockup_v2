@@ -63,13 +63,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import TabBar from '@/components/TabBar'
 import ActiveWaterEventsCard from '@/v2/components/ActiveWaterEventsCard'
-import EventOverlay from '@/v2/components/EventOverlay'
+/* EventOverlayV2, not EventOverlay. Both were rebuilt from the same five
+   frames, but V2 is the corrected one: the Active/History switch is a
+   ToggleGroup in the design and the older component renders it as Tabs. The
+   page had never been moved over, so tapping "Show all" opened the superseded
+   layout. EventOverlay is left in place rather than deleted — it is still the
+   reference for that earlier reading. */
+import EventOverlayV2 from '@/v2/components/EventOverlayV2'
 import InsightsCard from '@/v2/components/InsightsCard'
 import SystemsHealthCard from '@/v2/components/SystemsHealthCard'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import { CaretDown, CustomerSupport, Menu10 } from '@/v2/icons'
 import { SYSTEMS, computeWidgets, computeKPIs } from '@/data/systems'
+import { getAccountById } from '@/data/accounts'
 import { getConsumption } from '@/data/consumption'
 import { getFleetConsumptionSeries } from '@/data/consumptionSeries'
 import { getInsightRows, insightValueLabel, INSIGHT_KIND } from '@/data/upstream/insightsModel'
@@ -107,16 +114,19 @@ const MOCK_HEALTH_ISSUES = { offline: 4, valve: 2, power: 1, recipients: 1 }
    reference and an unreachable fallback, never something to render. */
 const MOCK_HEALTH_TYPES = { topology: 3, flood: 3, humidity: 4 }
 
-/* Which /kpi/:type screen each health capsule opens. Every slug here already
-   exists in KPIDetailScreen's filter chain, so none of this invents a route:
-   comm-offline, valve-error, power-ac-lost and recipients-missing all resolve.
-   The capsules were the page's only figures with no destination at all. */
-const KPI_ROUTE = {
-  attention: 'needs-attention',
-  offline: 'comm-offline',
+/* Tapping a health capsule opens Overlay_Alerts (198328:90116) — the same
+   surface "Show past alerts" opens, and the same pattern the water-events card
+   already uses — pre-filtered to the dimension that was tapped.
+   EventOverlay's alerts family has exactly two chips, power-lost ("AC
+   Unplugged") and valve-error, so those two capsules seed a real filter.
+   Offline systems and Missing recipients have no chip in the design, so they
+   open the overlay unfiltered rather than seeding a filter that would match
+   nothing and read as an empty list. */
+const ISSUE_FILTER = {
+  offline: 'all',
   valve: 'valve-error',
-  power: 'power-ac-lost',
-  recipients: 'recipients-missing',
+  power: 'power-lost',
+  recipients: 'all',
 }
 
 /* 198314:73639 — four rows. Row 1's address is the literal "352 Palmer.." the
@@ -470,10 +480,22 @@ export default function HomeAllAccounts({ expanded = false }) {
        l3Name is matched too though it is empty in this dataset — buildTree.js
        documents L3 as the level the MRG export leaves unused, and a dataset
        that populates it should scope on it rather than silently miss. */
-    return all.filter(
-      s =>
-        s.l4Name === name || s.l3Name === name || s.l2Name === name || s.l1Name === name,
-    )
+    return all.filter(s => {
+      if (
+        s.l4Name === name || s.l3Name === name || s.l2Name === name || s.l1Name === name
+      ) return true
+
+      /* Accounts are routable by name too. s.account is a Salesforce id, but
+         SFDC carries the name alongside it and getAccountById resolves it —
+         which is how the drawer labels these rows "Meridian Realty Group
+         (MRG)" in the first place. A parent account rolls its children up, so
+         scoping to MRG returns its own 101 systems plus the 2 under
+         Southbridge Health rather than only the direct ones. */
+      const acct = getAccountById(s.account)
+      if (!acct) return false
+      if (acct.name === name) return true
+      return getAccountById(acct.parentId)?.name === name
+    })
   }, [locationName])
 
   /* A name that matches nothing yields an empty scope, NOT the fleet. An empty
@@ -630,6 +652,48 @@ export default function HomeAllAccounts({ expanded = false }) {
      Memoised on (period, offset) only: SYSTEMS is a module constant and the
      per-system profiles behind this are cached, so switching granularity is a
      re-bucket rather than 100-odd regenerated series. */
+  /* Which chip Overlay_Alerts opens on. Held here rather than inside the
+     overlay because the capsule that was tapped is what decides it. */
+  const [overlayFilter, setOverlayFilter] = useState('all')
+
+  /* Rows for the overlay, both families in one array — it selects by
+     `TYPES[e.type].dataset === family` itself, so water and alert rows can
+     travel together. Without this the overlay fell back to its own MOCK_EVENTS
+     and reported "8 of 62" over invented systems while the card above it
+     counted the real 52.
+     Alerts are derived from device state rather than from s.alert: a system
+     with AC lost or a valve error is an alert whether or not it also has a
+     leak, which is why the health pills count 10 and 12 while only some of
+     those carry s.alert. Ids are suffixed because one system can appear in
+     both families. */
+  const overlayEvents = useMemo(() => {
+    const rows = []
+    for (const s of scopedSystems) {
+      const base = {
+        systemName: s.name,
+        city: s.l4Name || s.l3Name || s.l2Name || s.l1Name || '',
+        address: s.locationAddress || s.address || '',
+      }
+      if (s.alert?.type === 'leak-high' || s.alert?.type === 'leak-low') {
+        rows.push({
+          ...base,
+          id: `${s.id}:water`,
+          type: s.alert.type,
+          timestamp: s.alert.startedAt ?? '',
+          duration: s.alert.age ?? '',
+          resolved: false,
+        })
+      }
+      if (s.power === 'ac-lost') {
+        rows.push({ ...base, id: `${s.id}:power`, type: 'power-lost', timestamp: '', duration: '', resolved: false })
+      }
+      if (s.valve === 'error') {
+        rows.push({ ...base, id: `${s.id}:valve`, type: 'valve-error', timestamp: '', duration: '', resolved: false })
+      }
+    }
+    return rows
+  }, [scopedSystems])
+
   const [consumptionPeriod, setConsumptionPeriod] = useState('D')
   const [consumptionOffset, setConsumptionOffset] = useState(0)
 
@@ -666,7 +730,10 @@ export default function HomeAllAccounts({ expanded = false }) {
         issues={live?.issues ?? MOCK_HEALTH_ISSUES}
         systemTypes={live?.systemTypes ?? MOCK_HEALTH_TYPES}
         onShowPast={() => setOverlay('alerts')}
-        onSelectIssue={kind => navigate(`/kpi/${KPI_ROUTE[kind]}`)}
+        onSelectIssue={kind => {
+          setOverlayFilter(ISSUE_FILTER[kind] ?? 'all')
+          setOverlay('alerts')
+        }}
       />
 
       {/* 198314:73639. No onViewAll: the delivery canvas has no Insights list
@@ -830,12 +897,18 @@ export default function HomeAllAccounts({ expanded = false }) {
       {/* The designed destination for "Show all" / "Show past events" / "Show
           past alerts" — Figma 198328:89685 and :90254 are this overlay in
           account scope. Renders null while `overlay` is null. */}
-      <EventOverlay
+      <EventOverlayV2
         open={overlay !== null}
         onClose={() => setOverlay(null)}
         dataset={overlay ?? 'water'}
         scope="account"
         scopeName={scopeTitle}
+        /* key: initialFilter seeds the overlay's state once per mount, so
+           changing the key is what lets a second tap on a different capsule
+           open a different chip. See the note on those props in EventOverlay. */
+        key={`${overlay ?? 'water'}:${overlayFilter}`}
+        initialFilter={overlayFilter}
+        events={overlayEvents}
       />
 
       <TabBar activeTab="home" />

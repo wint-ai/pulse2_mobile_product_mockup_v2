@@ -159,9 +159,19 @@ export default function EventOverlay({
   scope = 'account',
   scopeName = 'Building A',
   events = MOCK_EVENTS,
+  initialFilter = 'all',
+  initialTab = 'active',
 }) {
-  const [tab, setTab] = useState('active')
-  const [filter, setFilter] = useState('all')
+  const [tab, setTab] = useState(initialTab)
+  const [filter, setFilter] = useState(initialFilter)
+
+  /* initialFilter / initialTab seed this state ONCE per mount. The overlay
+     stays mounted and is toggled by `open`, so a caller that wants a different
+     slice on the next open must change the component's `key` and let React
+     remount it — which is the documented way to reset state, and avoids the
+     cascading re-render an effect-based sync would cause. HomeAllAccounts does
+     exactly that so the health pills can open this already filtered to their
+     own dimension. */
 
   useEffect(() => {
     if (!open) return undefined

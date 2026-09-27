@@ -18,6 +18,7 @@ import { render, screen, cleanup, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
 import { SYSTEMS } from '@/data/systems'
+import { getAccountById, getRootAccounts } from '@/data/accounts'
 
 afterEach(cleanup)
 
@@ -65,6 +66,38 @@ function mountAt(path) {
     </MemoryRouter>,
   )
 }
+
+describe('account scoping', () => {
+  const root = getRootAccounts()[0]
+
+  it('the root account rolls its sub-accounts up to the whole fleet', () => {
+    expect(root?.name, 'no root account').toBeTruthy()
+
+    const { container } = mountAt(`/location/${encodeURIComponent(root.name)}`)
+    const text = (container.textContent || '').replace(/\s+/g, ' ')
+
+    // MRG owns 101 systems directly; 2 more sit under Southbridge Health, a
+    // child account. Scoping to the root must see all 103, not just the 101 —
+    // an account scope has to roll its children up.
+    expect(text).toContain(`/${SYSTEMS.length}Require attention / all`)
+  })
+
+  it('a sub-account scopes to just its own systems', () => {
+    const counts = new Map()
+    for (const s of SYSTEMS) {
+      const n = getAccountById(s.account)?.name
+      if (n && n !== root?.name) counts.set(n, (counts.get(n) ?? 0) + 1)
+    }
+    const [subName, subCount] = [...counts.entries()][0] ?? []
+    expect(subName, 'no sub-account owns systems directly').toBeTruthy()
+    expect(subCount).toBeLessThan(SYSTEMS.length)
+
+    const { container } = mountAt(`/location/${encodeURIComponent(subName)}`)
+    const text = (container.textContent || '').replace(/\s+/g, ' ')
+    expect(text).toContain(`/${subCount}Require attention / all`)
+    expect(text).not.toContain(`/${SYSTEMS.length}Require attention / all`)
+  })
+})
 
 describe('location scoping', () => {
   it('every name the drawer can route to resolves to at least one system', () => {

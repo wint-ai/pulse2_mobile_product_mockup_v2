@@ -463,7 +463,12 @@ const ROOT_CLASS = String.raw`bg-[#fafbfc] border-[length:var(--border-width\/bo
 export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll, onShowPast, onSelectEvent, className }) {
   // Figma's header chevron points up, i.e. this card collapses. There is no
   // collapsed variant node, so the collapsed form is simply the header alone.
-  const [collapsed, setCollapsed] = useState(false)
+  /* Collapsed by default. With the comp's 5 mock rows an open card was a
+     reasonable resting state; with real data it is 52 rows, which buries every
+     card below it — the health card, insights and consumption all start below
+     the fold. The header still reports the count ("52 Water events"), so
+     nothing is hidden, and the chevron opens it. */
+  const [collapsed, setCollapsed] = useState(true)
   const [filter, setFilter] = useState('all')
 
   const list = useMemo(() => (Array.isArray(events) ? events : []), [events])
