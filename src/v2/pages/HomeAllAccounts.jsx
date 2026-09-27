@@ -74,6 +74,7 @@ import InsightsCard from '@/v2/components/InsightsCard'
 import SystemsHealthCard from '@/v2/components/SystemsHealthCard'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
+import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import { CaretDown, CustomerSupport, Menu10 } from '@/v2/icons'
 import { SYSTEMS, computeWidgets, computeKPIs } from '@/data/systems'
 import { getAccountById } from '@/data/accounts'
@@ -449,6 +450,21 @@ function TopUsageCard({ data, onSelect, onPeriodChange }) {
  *                  frames are the water-events card's contents and the Body
  *                  wrapper's gap (14px -> 10px).
  */
+
+/* "Sep 2026" -> { month: 8, year: 2026 }. The series builder labels the daily
+   window this way, so parsing it is how the page learns which month offset 0
+   actually is — rather than assuming "now", which drifts from the dataset. */
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function parseMonthLabel(label) {
+  const m = /^([A-Za-z]{3})\s+(\d{4})$/.exec(String(label ?? '').trim())
+  if (!m) return null
+  const month = MONTH_SHORT.indexOf(m[1])
+  return month < 0 ? null : { month, year: Number(m[2]) }
+}
+function monthsBetween(from, to) {
+  return (to.year * 12 + to.month) - (from.year * 12 + from.month)
+}
+
 export default function HomeAllAccounts({ expanded = false }) {
   /* Figma "Location opt b" (198328:88654) is this screen retitled, so scope is
      a route param rather than a second page. */
@@ -713,6 +729,27 @@ export default function HomeAllAccounts({ expanded = false }) {
     [scopedSystems, consumptionPeriod, consumptionOffset],
   )
 
+  /* The advanced period selector. Same interaction as the system page:
+     the trigger between the chevrons belongs to the card, the sheet belongs
+     to the page because the frame covers the whole phone. */
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  const latestMonth = useMemo(
+    () => parseMonthLabel(getFleetConsumptionSeries(scopedSystems, 'D', 0).label),
+    [scopedSystems],
+  )
+  const selectedMonth = useMemo(() => {
+    if (!latestMonth) return null
+    const total = latestMonth.year * 12 + latestMonth.month + consumptionOffset
+    return { month: ((total % 12) + 12) % 12, year: Math.floor(total / 12) }
+  }, [latestMonth, consumptionOffset])
+
+  const applyMonth = ({ month, year }) => {
+    if (!latestMonth) return
+    setConsumptionOffset(Math.min(0, monthsBetween(latestMonth, { month, year })))
+    setPickerOpen(false)
+  }
+
   /* "Compare previous period" — the window immediately before the one on
      screen. Computed only while the switch is on, since it is a second pass
      over every system in scope. */
@@ -778,6 +815,8 @@ export default function HomeAllAccounts({ expanded = false }) {
           setConsumptionOffset(0)
         }}
         onMonthChange={(delta) => setConsumptionOffset((offset) => Math.min(0, offset + delta))}
+        picker="dropdown"
+        onOpenPicker={() => setPickerOpen(true)}
         compare={compareConsumption}
         onCompareChange={setCompareConsumption}
         compareData={consumptionCompare}
@@ -920,6 +959,20 @@ export default function HomeAllAccounts({ expanded = false }) {
       {/* The designed destination for "Show all" / "Show past events" / "Show
           past alerts" — Figma 198328:89685 and :90254 are this overlay in
           account scope. Renders null while `overlay` is null. */}
+      {/* 198674:184354 — the advanced month sheet, at page level. */}
+      <MonthPickerSheet
+        variant="window"
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        value={selectedMonth}
+        max={latestMonth}
+        onApply={applyMonth}
+        onSelectLatest12={() => {
+          setConsumptionOffset(0)
+          setPickerOpen(false)
+        }}
+      />
+
       <EventOverlayV2
         open={overlay !== null}
         onClose={() => setOverlay(null)}

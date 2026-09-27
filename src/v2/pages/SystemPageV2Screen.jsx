@@ -49,6 +49,7 @@ import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import AlertCard from '@/v2/components/AlertCard'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
+import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import { Menu10, CustomerSupport } from '@/v2/icons'
 import { getSystemById } from '@/data/systems'
 import { getConsumption } from '@/data/consumption'
@@ -431,6 +432,22 @@ function TabsRow({ value, onChange }) {
 
 /* ── Screen ─────────────────────────────────────────────────────────────── */
 
+
+/* "Sep 2026" -> { month: 8, year: 2026 }. The series builder labels the daily
+   window this way, so parsing it is how the page learns which month offset 0
+   actually is — rather than assuming "now", which drifts from the dataset. */
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function parseMonthLabel(label) {
+  const m = /^([A-Za-z]{3})\s+(\d{4})$/.exec(String(label ?? '').trim())
+  if (!m) return null
+  const month = MONTH_SHORT.indexOf(m[1])
+  return month < 0 ? null : { month, year: Number(m[2]) }
+}
+/** Whole months between two {month,year} pairs — no Date, so no day overflow. */
+function monthsBetween(from, to) {
+  return (to.year * 12 + to.month) - (from.year * 12 + from.month)
+}
+
 export default function SystemPageV2Screen() {
   const navigate = useNavigate()
   const { systemId } = useParams()
@@ -501,6 +518,28 @@ export default function SystemPageV2Screen() {
     () => getConsumptionSeries(system.id, system.title, period, periodOffset),
     [system.id, system.title, period, periodOffset],
   )
+
+  /* The advanced period selector — 198674:179349 opens 198674:184354. The
+     trigger between the chevrons is the card's; the sheet is the page's,
+     because the frames draw it over the whole phone. */
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  /* Which month offset 0 is, read from the data rather than from the clock. */
+  const latestMonth = useMemo(
+    () => parseMonthLabel(getConsumptionSeries(system.id, system.title, 'D', 0).label),
+    [system.id, system.title],
+  )
+  const selectedMonth = useMemo(() => {
+    if (!latestMonth) return null
+    const total = latestMonth.year * 12 + latestMonth.month + periodOffset
+    return { month: ((total % 12) + 12) % 12, year: Math.floor(total / 12) }
+  }, [latestMonth, periodOffset])
+
+  const applyMonth = ({ month, year }) => {
+    if (!latestMonth) return
+    setPeriodOffset(Math.min(0, monthsBetween(latestMonth, { month, year })))
+    setPickerOpen(false)
+  }
 
   /* "Compare previous period" — the window immediately before this one. */
   const [compareConsumption, setCompareConsumption] = useState(false)
@@ -739,6 +778,8 @@ export default function SystemPageV2Screen() {
                       onMonthChange={(delta) =>
                         setPeriodOffset((offset) => Math.min(0, offset + delta))
                       }
+                      picker="dropdown"
+                      onOpenPicker={() => setPickerOpen(true)}
                       compare={compareConsumption}
                       onCompareChange={setCompareConsumption}
                       compareData={consumptionCompare}
@@ -771,6 +812,22 @@ export default function SystemPageV2Screen() {
           </div>
         </div>
       </div>
+
+      {/* 198674:184354 — the advanced sheet: pick the last month of the
+          window, with future months disabled and a "Latest 12 months"
+          shortcut. Page level, because the frame covers the whole phone. */}
+      <MonthPickerSheet
+        variant="window"
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        value={selectedMonth}
+        max={latestMonth}
+        onApply={applyMonth}
+        onSelectLatest12={() => {
+          setPeriodOffset(0)
+          setPickerOpen(false)
+        }}
+      />
 
       <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       <TabBar activeTab="home" />
