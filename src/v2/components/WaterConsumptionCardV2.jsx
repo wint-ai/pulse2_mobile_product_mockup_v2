@@ -631,8 +631,17 @@ export default function WaterConsumptionCardV2({
     onPeriodChange?.(next)
   }
 
-  /* Variant2 prints the year alone; the Double case prints month + year. Both
-     read out of monthLabel, so a host-supplied label wins over monthOffset. */
+  /* THE TRIGGER SHOWS THE WHOLE PERIOD LABEL.
+     §2 makes the period label itself the control, and lists what it must read:
+     "Sunday, May 3, 2026" / "June 2026" / "Jun 2025 - May 2026". It changes
+     with the grouping — that is the whole point of it.
+     This used to split the label on its last space and render only the tail,
+     because Figma's Variant2 draws a bare year. Against a rolling Monthly
+     label that turned "Oct 2025 - Sep 2026" into "2026", and since Hourly and
+     Daily labels also end in a year, EVERY grouping showed the same "2026" —
+     the sub-selector stopped responding to the main one.
+     'dropdowns' keeps the two-trigger Double case, splitting the trailing year
+     off a single-month label like "June 2026"; it is not used by either page. */
   const usesDropdowns = DROPDOWN_PICKERS.has(picker)
   const { month: monthName, year: yearName } = splitPeriodLabel(monthLabel)
   const dropdowns =
@@ -641,7 +650,7 @@ export default function WaterConsumptionCardV2({
           { key: 'month', label: monthName, aria: 'Select month' },
           { key: 'year', label: yearName, aria: 'Select year' },
         ].filter((d) => d.label)
-      : [{ key: 'year', label: yearName || monthLabel, aria: 'Select year' }]
+      : [{ key: 'month', label: monthLabel, aria: 'Select period' }]
 
   const stepMonth = (delta) => {
     setMonthOffset((offset) => offset + delta)
