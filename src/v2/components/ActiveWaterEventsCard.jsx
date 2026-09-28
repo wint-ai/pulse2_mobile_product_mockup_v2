@@ -297,7 +297,7 @@ function TypeBadge({ type }) {
  * 2..5 carry an extra pr-16 and run 291px. That is a stray resize in the comp,
  * not a rhythm, so every row here uses row 1's geometry.
  */
-function EventRow({ event }) {
+function EventRow({ event, addressOpen = false, onToggleAddress }) {
   return (
     <div className="content-stretch flex flex-col gap-[var(--spacing\/2,8px)] items-start py-[16px] relative shrink-0 w-full">
       <div className="content-stretch flex gap-[17px] items-center relative shrink-0 w-full">
@@ -316,9 +316,19 @@ function EventRow({ event }) {
               {event.location}
             </p>
             {event.address ? <CellHairline /> : null}
-            <p className="[word-break:break-word] flex-[1_0_0] font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal leading-[var(--text\/xs\/lh-snug,16.5px)] min-w-px overflow-hidden relative text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis text-left whitespace-nowrap">
+            {/* "When pressing the systems address, the full address expands below;
+                another click closes." The row truncates to one line, so the whole
+                address is otherwise unreadable — this is how the design gives it
+                back without widening the row. A real button: it is a control. */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onToggleAddress?.() }}
+              aria-expanded={addressOpen}
+              aria-label={`Show the full address for ${event.systemName ?? "this event"}`}
+              className="[word-break:break-word] flex-[1_0_0] font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal leading-[var(--text\/xs\/lh-snug,16.5px)] min-w-px overflow-hidden relative text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis text-left whitespace-nowrap flex-[1_0_0] cursor-pointer text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
               {event.address}
-            </p>
+            </button>
           </div>
 
           <div className="content-stretch flex gap-[13px] items-center relative shrink-0">
@@ -338,6 +348,15 @@ function EventRow({ event }) {
           </div>
         </div>
       </div>
+      {/* The full address, revealed beneath the row. The row keeps the single
+          truncated line the comp draws; this is the only place the whole
+          string is readable, which is why the annotation makes the address
+          itself the control. */}
+      {addressOpen && event.address ? (
+        <p className="w-full text-[12px] leading-[var(--text\/xs\/lh-snug,16.5px)] text-[color:var(--colors\/slate\/500,#62748e)]">
+          {event.address}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -537,6 +556,23 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
 
   const rows = filter === 'all' ? list : list.filter((e) => e.type === filter)
 
+  /* The body draws at most FIVE rows and defers the rest to "Show all" — the
+     behaviour this file's own MOCK_EVENTS note already describes ("the comp's
+     header reads '25 Water events' while the body draws five rows"). It was
+     documented and never implemented, so with the real 52 events the card ran
+     the length of the screen.
+     The header and the filter chips keep counting the FULL filtered set: the
+     card says how many there are, and shows the first five of them. */
+  /* One address open at a time — "another click closes". Held here rather than
+     per row so opening a second closes the first, which is what a single
+     expanding detail area means. */
+  const [openAddressId, setOpenAddressId] = useState(null)
+  const toggleAddress = (id) => setOpenAddressId((open) => (open === id ? null : id))
+
+  const VISIBLE_ROWS = 5
+  const visibleRows = rows.slice(0, VISIBLE_ROWS)
+  const hasMore = rows.length > VISIBLE_ROWS
+
   if (list.length === 0) return <HealthyState onShowPast={onShowPast} />
 
   return (
@@ -595,7 +631,7 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
               rows, which is the whole point of rebuilding off the mobile node. */}
           <div className="content-stretch flex flex-col items-center px-[var(--spacing\/4,16px)] relative shrink-0 w-full">
             <RowRule />
-            {rows.map((event, i) => (
+            {visibleRows.map((event, i) => (
               <div key={event.id ?? i} className="content-stretch flex flex-col items-center relative shrink-0 w-full">
                 {/* The <button> wraps the row rather than replacing its root, so
                     EventRow's geometry is untouched; w-full keeps the row the
@@ -607,10 +643,18 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
                     aria-label={`Open ${event.systemName ?? 'event'}`}
                     className="w-full cursor-pointer text-left outline-none transition-colors hover:bg-[rgba(11,129,248,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
                   >
-                    <EventRow event={event} />
+                    <EventRow
+                      event={event}
+                      addressOpen={openAddressId === (event.id ?? i)}
+                      onToggleAddress={() => toggleAddress(event.id ?? i)}
+                    />
                   </button>
                 ) : (
-                  <EventRow event={event} />
+                  <EventRow
+                    event={event}
+                    addressOpen={openAddressId === (event.id ?? i)}
+                    onToggleAddress={() => toggleAddress(event.id ?? i)}
+                  />
                 )}
                 <RowRule />
               </div>
@@ -622,16 +666,20 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
             ) : null}
           </div>
 
-          {/* "Show all" 198328:89206. */}
-          <button
-            type="button"
-            onClick={() => onShowAll?.()}
-            className="[word-break:break-word] block cursor-pointer font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[0] overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/sm-tight\/size,14px)] text-center text-ellipsis w-full whitespace-nowrap"
-          >
-            <p className="leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden text-[14px] text-ellipsis" dir="auto">
-              Show all
-            </p>
-          </button>
+          {/* "Show all" 198328:89206 — shown only when there is more to
+              show. With five rows or fewer it is the whole list already, and a
+              control that opens an overlay showing the same five is noise. */}
+          {hasMore ? (
+            <button
+              type="button"
+              onClick={() => onShowAll?.()}
+              className="[word-break:break-word] block cursor-pointer font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[0] overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/sm-tight\/size,14px)] text-center text-ellipsis w-full whitespace-nowrap"
+            >
+              <p className="leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden text-[14px] text-ellipsis" dir="auto">
+                Show all
+              </p>
+            </button>
+          ) : null}
         </>
       )}
     </div>
