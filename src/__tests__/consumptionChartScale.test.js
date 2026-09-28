@@ -6,6 +6,7 @@
 
 import { describe, it, expect } from 'vitest'
 import {
+  approxTextWidth,
   bucketAccessibleName,
   isBucketOpenable,
   niceScale,
@@ -14,7 +15,9 @@ import {
   valueLabelEvery,
   valueLabelFontSize,
   xLabelEvery,
+  yAxisWidth,
 } from '@/v2/components/chartScale'
+import { axisFormatter } from '@/v2/components/chartAxis'
 
 describe('niceStep — the 1/1.2/1.5/2/2.5/3/4/5/6/8/10 ladder (PLS-WC-26, §14.1)', () => {
   it('rounds up to the next rung, scaled by the power of ten', () => {
@@ -154,5 +157,72 @@ describe('bucket names and openability (§18, §3.5)', () => {
     expect(isBucketOpenable(june, 'H')).toBe(false)
     expect(isBucketOpenable({ day: 'Sep 30', litres: null }, 'D')).toBe(false)
     expect(isBucketOpenable({ day: 'Sep 30' }, 'D')).toBe(false)
+  })
+})
+
+/* ── Width-driven thinning ──────────────────────────────────────────────────
+ *
+ * §19 tells the mobile build to CONFIRM §13/§14's outcomes at real widths.
+ * It ships wrong if you do not: at 31 Daily buckets on a phone the axis read
+ * "Se54Se5Se57Se58Se5", the value labels overlapped into
+ * "356.8K360.7K362.3K", and the y ladder rendered "OOK" because a "400K" tick
+ * is wider than the 23px column and recharts clips at the SVG viewport.
+ *
+ * The earlier tests all passed throughout — they asserted the cadence numbers,
+ * which were right, against label widths that were assumed.
+ */
+describe('width-driven thinning', () => {
+  it('gives the y axis room for its widest tick', () => {
+    const k = yAxisWidth([0, 100000, 200000, 300000, 400000], axisFormatter(400000))
+    // "400K" at 12px needs ~30px; the designed 23px column would clip it.
+    expect(k).toBeGreaterThan(23 + 14)
+
+    // A narrow ladder still gets the designed geometry, not a padded one.
+    const narrow = yAxisWidth([0, 10000, 20000, 30000, 40000], axisFormatter(40000))
+    expect(narrow).toBe(23 + 14)
+  })
+
+  it('thins x labels further when the labels are wide for the slot', () => {
+    // 31 Daily buckets, ~300px of plot -> ~9.7px slot, "Sep 15" ~45px wide.
+    const slot = 300 / 31
+    const wide = xLabelEvery(31, slot, approxTextWidth('Sep 15', 12))
+    // Density alone says every 2nd; at this width that is 15 colliding labels.
+    expect(xLabelEvery(31)).toBe(2)
+    expect(wide).toBeGreaterThan(2)
+    // Spacing must clear the label.
+    expect(wide * slot).toBeGreaterThanOrEqual(approxTextWidth('Sep 15', 12))
+  })
+
+  it('leaves §14.6 alone wherever the labels actually fit', () => {
+    // Width only ever makes the cadence SPARSER; where labels fit, §14.6 wins.
+    expect(xLabelEvery(12, 60, approxTextWidth('Jun 25', 12))).toBe(1)
+    expect(xLabelEvery(8, 40, approxTextWidth('2024', 12))).toBe(1)
+  })
+
+  it('§19’s own table is optimistic about Monthly at phone width', () => {
+    /* §19 predicts "every bucket labelled" for 12 Monthly buckets at 360px.
+       The slot there is ~27px and a "Jun 25" tick is ~40-45px, so they cannot
+       all be drawn without colliding — the cadence has to be every 2nd.
+       Recording it rather than bending the measurement to match the table:
+       §19 is the section that says to confirm the outcome at real widths, and
+       this is the outcome. */
+    const slotAt360 = (360 - 37) / 12
+    expect(xLabelEvery(12, slotAt360, approxTextWidth('Jun 25', 12))).toBeGreaterThan(1)
+  })
+
+  it('thins value labels against the value it will actually draw', () => {
+    const slot = 11
+    // The PRD's constant assumes ~26px; "356.8K" is nearer 40.
+    const assumed = valueLabelEvery(slot)
+    const measured = valueLabelEvery(slot, approxTextWidth('356.8K', 10))
+    expect(measured).toBeGreaterThan(assumed)
+    expect(measured * slot).toBeGreaterThanOrEqual(approxTextWidth('356.8K', 10))
+  })
+
+  it('never returns a cadence below 1, whatever it is handed', () => {
+    expect(xLabelEvery(0, 0, 0)).toBe(1)
+    expect(xLabelEvery(12, 1000, 1)).toBeGreaterThanOrEqual(1)
+    expect(valueLabelEvery(0)).toBe(Infinity)
+    expect(valueLabelEvery(1000, 10)).toBe(1)
   })
 })

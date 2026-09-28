@@ -80,6 +80,8 @@ import {
   valueLabelEvery,
   valueLabelFontSize,
   xLabelEvery,
+  yAxisWidth,
+  approxTextWidth,
 } from './chartScale'
 import FunnelSimple from '@/v2/icons/FunnelSimple'
 
@@ -559,13 +561,15 @@ export default function WaterConsumptionCardV2({
   )
   const { domainMax, ticks } = niceScale(plottedPeak)
 
+  const axisFormat = axisFormatter(domainMax)
+  const yWidth = yAxisWidth(ticks, axisFormat)
+
+
   /* PLS-WC-31 / §14.6: a constant density of about thirteen labels at ANY
      bucket count. The `ceil(count / 8) - 1` this replaced was a ceiling, so it
      stepped from "every bucket" to "every 2nd" between 8 and 9 and stayed there
      to 16 — a 12-bar and a 16-bar chart drew the same six labels. recharts'
      `interval` counts buckets to SKIP after each tick, hence labelEvery - 1. */
-  const labelEvery = xLabelEvery(series.length)
-
   /* §13: bar value labels thin to the SLOT, so the plot's real width has to be
      measured — "14 buckets or fewer" means the same chart gains and loses its
      numbers depending on how many days a month happens to have. 37 is the plot
@@ -582,7 +586,17 @@ export default function WaterConsumptionCardV2({
     return () => observer.disconnect()
   }, [plotEl])
 
-  const slotWidth = plotted.length > 0 ? Math.max(0, plotWidth - 37) / plotted.length : 0
+  /* Both cadences need the MEASURED slot, so they sit below the measurement —
+     plotWidth is state and reading it above its own declaration is a temporal
+     dead zone, which took the whole card down. */
+  const xSlot = series.length > 0 ? Math.max(0, plotWidth - yWidth) / series.length : 0
+  const xLabelWidth = series.reduce(
+    (max, row) => Math.max(max, approxTextWidth(row.day, 12)),
+    0,
+  )
+  const labelEvery = xLabelEvery(series.length, xSlot, xLabelWidth)
+
+  const slotWidth = plotted.length > 0 ? Math.max(0, plotWidth - yWidth) / plotted.length : 0
   const comparing = Boolean(compareOn && period === 'M' && compareData?.length)
   /* PLS-WC-36: exactly ONE series carries a value per bucket here. The
      comparison bar is a reference, not a second reading, so a compared window
@@ -590,7 +604,14 @@ export default function WaterConsumptionCardV2({
      agent that adds it has to count 2 here. */
   const valueCarryingSeries = 1
   const showValueLabels = showsValueLabels(valueCarryingSeries) && slotWidth > 0
-  const valueEvery = valueLabelEvery(slotWidth)
+  const valueLabelWidth = plotted.reduce(
+    (max, row) =>
+      row.litres === null || row.litres === undefined
+        ? max
+        : Math.max(max, approxTextWidth(fmtL(row.litres), valueLabelFontSize(slotWidth))),
+    0,
+  )
+  const valueEvery = valueLabelEvery(slotWidth, valueLabelWidth)
   const valueFontSize = valueLabelFontSize(slotWidth)
   const animateBars = !prefersReducedMotion()
 
@@ -910,14 +931,14 @@ export default function WaterConsumptionCardV2({
                     honoured; the magic number is not transplanted. */}
                 <YAxis
                   dataKey="litres"
-                  width={37}
+                  width={yWidth}
                   domain={[0, domainMax]}
                   ticks={ticks}
                   tickLine={false}
                   axisLine={false}
                   tickSize={0}
                   tickMargin={14}
-                  tickFormatter={axisFormatter(domainMax)}
+                  tickFormatter={axisFormat}
                   tick={{ fontFamily: 'var(--font-sans)', fontSize: 12 }}
                 />
                 <XAxis

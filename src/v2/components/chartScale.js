@@ -60,9 +60,51 @@ export function niceScale(peak, divisions = 4) {
  * there to 16, so a 12-bar monthly chart and a 16-bar one drew the same six
  * labels. `round(count / 13)` targets a constant density instead.
  */
-export function xLabelEvery(bucketCount) {
+export function xLabelEvery(bucketCount, slotWidth = 0, labelWidth = 0) {
   if (!(bucketCount > 0)) return 1
-  return Math.max(1, Math.round(bucketCount / 13))
+  const byDensity = Math.max(1, Math.round(bucketCount / 13))
+  /* §19 tells the mobile build to CONFIRM the outcome at real widths, and at
+     real widths density alone is not enough: 31 Daily buckets give labelEvery
+     2, i.e. 15 labels of "Sep 15" (~42px) inside a ~300px plot. They ran into
+     each other and the axis read "Se54Se5Se57Se58Se5".
+     So the cadence is whichever is SPARSER — the PRD's constant density, or
+     one label per label-width of space. §14.6's table is unchanged wherever
+     the labels actually fit, which is every case it lists. */
+  if (!(slotWidth > 0) || !(labelWidth > 0)) return byDensity
+  const byWidth = Math.ceil((labelWidth + 6) / slotWidth)
+  return Math.max(byDensity, byWidth)
+}
+
+/**
+ * Approximate rendered width of a label, in px.
+ *
+ * Measuring text properly needs a canvas or a DOM pass per tick; these labels
+ * are digits, a three-letter month and a suffix, all of which sit close to
+ * 0.6em in the project's sans face. Deliberately a slight OVER-estimate:
+ * erring wide costs one dropped label, erring narrow costs a collision.
+ */
+export function approxTextWidth(text, fontSize = 12) {
+  return String(text ?? '').length * fontSize * 0.62
+}
+
+/**
+ * §14.4 — the tick column is 23px and a long tick runs LEFT into the 26px
+ * gutter rather than pushing the plot across. That works on the web card,
+ * where the gutter is real estate the SVG owns. Here recharts clips at the
+ * SVG viewport, so a tick wider than the column loses its leading digits —
+ * "400K" rendered as "OOK", which is how this shipped.
+ *
+ * So the axis takes the width its widest tick actually needs, never less than
+ * the designed 23 + margin. The plot shifts a few px on a wide ladder, which
+ * is the trade the gutter was invented to avoid — but an unreadable axis is
+ * strictly worse than a narrower plot.
+ */
+export function yAxisWidth(ticks, format, fontSize = 12, tickMargin = 14) {
+  const widest = (ticks ?? []).reduce(
+    (max, v) => Math.max(max, approxTextWidth(format ? format(v) : v, fontSize)),
+    0,
+  )
+  return Math.ceil(Math.max(23, widest) + tickMargin)
 }
 
 /**
@@ -70,9 +112,15 @@ export function xLabelEvery(bucketCount) {
  * "14 buckets or fewer" rule means the same chart gains and loses its numbers
  * depending on how many days a month happens to have.
  */
-export function valueLabelEvery(slotWidth) {
+export function valueLabelEvery(slotWidth, labelWidth = 26) {
   if (!(slotWidth > 0)) return Infinity
-  return Math.max(1, Math.ceil(26 / slotWidth))
+  /* §13's constant is 26 — the width the PRD assumes a value label takes. A
+     six-character value ("356.8K") is nearer 40px, so at an 11px Daily slot
+     the 26 gave every 3rd bucket and the labels overlapped into
+     "356.8K360.7K362.3K". The rule is unchanged; it is just measured against
+     the label that will actually be drawn rather than a constant that assumed
+     a shorter one. */
+  return Math.max(1, Math.ceil(Math.max(26, labelWidth) / slotWidth))
 }
 
 /** §13 — 12px, dropping to 10px when the slot is under 40px. */
