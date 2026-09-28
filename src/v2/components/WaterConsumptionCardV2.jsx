@@ -725,18 +725,24 @@ export default function WaterConsumptionCardV2({
             value={period}
             onValueChange={selectPeriod}
             aria-label="Consumption granularity"
-            /* overflow-clip is the fix for "selected view fell broken in some
-               cases". The track is rounded-[34px] on a 32px box, which clamps
-               to a stadium (radius 16); the selected segment is a 10px-radius
-               rect at p-0, so on the FIRST and LAST segment its outer corners
-               fall outside the stadium's curve and the blue border renders
-               poking out of the grey. Padding the track cannot fix it — at a
-               2px inset the pill's corner still sits ~4px proud of the curve —
-               and rounding the pill to match would contradict the 10px radius
-               the node draws. Clipping keeps the middle segments exactly as
-               designed and lets the two end segments take the track's own edge,
-               which is how the comp reads. */
-            className="w-full overflow-clip bg-[var(--colors\/slate\/100,#f1f5f9)] rounded-[34px] p-0"
+            /* p-4, NOT the p-0 the node emits. rounded-[34px] on a box only as
+               tall as its content clamps to a stadium, and the selected segment
+               is a 10px-radius rect — so with no inset the first and last
+               segment's outer corners fall outside the stadium's curve and the
+               blue border renders poking out of the grey.
+
+               Clipping the track was the first attempt and was worse: it cut
+               the stroke off the first pill's left edge instead.
+
+               The inset has to clear the curve, and the arithmetic says how
+               much. Track radius R = 16 + P; the pill's corner arc is centred
+               (P+10, P+10) with radius 10, so it sits inside the cap when
+               |16 - 10|·√2 ≤ R - 10, i.e. 8.49 ≤ 6 + P — P must exceed ~2.5.
+               4 is the first whole pixel that clears it, and it is what the
+               node's own 339px render shows: grey is visible above, below and
+               to the left of the selected pill, which p-0 cannot produce. The
+               control is 40 tall as a result (32 + 2·4). */
+            className="w-full bg-[var(--colors\/slate\/100,#f1f5f9)] rounded-[34px] p-[4px]"
           >
             {PERIODS.map((p) => (
               <ToggleGroupItem

@@ -105,6 +105,31 @@ describe('granularity segments are inline', () => {
     expect(steps).toEqual([-1, 1])
   })
 
+  /* "selected view is broken", twice over.
+     The track is rounded-[34px] on a box as tall as its content, which clamps
+     to a stadium; the selected segment is a 10px-radius rect. At the p-0 the
+     node emits, the first and last segment's corners fall OUTSIDE that curve
+     and the blue border renders poking out of the grey. Clipping the track was
+     the first attempt and cut the stroke off the first pill instead.
+     Geometry: with track radius R = 16 + P and the pill's corner arc centred
+     (P+10, P+10) at radius 10, the corner is inside the cap when
+     |16 - 10|·√2 <= R - 10 — so P must exceed ~2.5. */
+  it('insets the toggle track so the end segments clear its rounded cap', () => {
+    const { container } = renderCard()
+    const track = within(container).getByRole('radio', { name: 'Hour' })
+      .closest('[class*="rounded-[34px]"]')
+
+    expect(track, 'the slate track should be found by its radius').toBeTruthy()
+    const cls = String(track.className)
+
+    const pad = /(?:^|\s)p-\[(\d+)px\]/.exec(cls)
+    expect(pad, 'the track needs an explicit pixel inset, not p-0').toBeTruthy()
+    expect(Number(pad[1]), 'inset must clear the stadium cap').toBeGreaterThan(2.5)
+
+    // Clipping is the fix that cut the first pill's border off. Not that one.
+    expect(cls, 'the track must not clip its own segments').not.toMatch(/overflow-(clip|hidden)/)
+  })
+
   it('labels the headline figures for the bucket being plotted', () => {
     const { container, rerender } = renderCard()
     expect(within(container).getByText('Daily Avg L')).toBeTruthy()
