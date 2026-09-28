@@ -184,7 +184,7 @@ export default function InsightsCard({
        radius and padding from every card around it — visibly a different size
        and shape in the stack. */
     <div className={["bg-[#fafbfc] border-[length:var(--border-width\\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[var(--p-0,0px)] items-start overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] w-full", className].filter(Boolean).join(' ')}>
-      <div className="flex items-center justify-between w-full px-[var(--pro\/space\/4,16px)] py-[var(--spacing\/3,12px)]">
+      <div className="flex h-[62px] items-center justify-between w-full px-[var(--spacing\/4,16px)] py-[var(--spacing\/3,12px)]">
         {/* 18px slate-800 with -0.45px tracking, in Figma's py-[6px] title box
             (I198328:88624;149:2490;2780:50631). That box and the 32px control
             opposite are what make the header 56px rather than the title's own
@@ -196,7 +196,7 @@ export default function InsightsCard({
           <button
             type="button"
             onClick={onViewAll}
-            className="h-[32px] inline-flex items-center text-sm font-medium hover:underline cursor-pointer"
+            className="flex h-[32px] w-[57px] shrink-0 cursor-pointer items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] px-[var(--component\/button\/size-default\/px,10px)] text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] font-medium text-[color:var(--colors\/slate\/500,#62748e)] outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
             style={{ color: '#0B95F8' }}
           >
             View all
@@ -226,7 +226,11 @@ export default function InsightsCard({
             <RowTag
               key={`${row.title}-${i}`}
               className={cn(
-                'mx-4 py-3 flex items-center gap-3',
+                /* String.raw, not a plain literal: these are cn() arguments and a
+                   JS string eats the backslash in --component\/card\/padding-sm,
+                   so the class would never match anything in the built CSS.
+                   eslint's no-useless-escape catches it, which is how this was. */
+                String.raw`mx-[var(--component\/card\/padding-sm,12px)] py-[var(--spacing\/1\,5,6px)] flex items-center justify-between gap-3 rounded-[var(--component\/card\/radius,14px)]`,
                 onSelectRow &&
                   'w-[calc(100%-2rem)] cursor-pointer rounded-[10px] text-left outline-none transition-colors hover:bg-[rgba(11,129,248,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50',
               )}
@@ -234,21 +238,21 @@ export default function InsightsCard({
                 ? { type: 'button', onClick: () => onSelectRow(row), 'aria-label': `Open ${row.title}` }
                 : {})}
             >
-              <div className="flex-1 min-w-0">
+              <div className="flex h-[46px] w-[153px] min-w-0 shrink-0 flex-col items-start justify-between">
                 {/* Capped, not just CSS-truncated. Two competing `truncate`
                     siblings shrink each other until neither is readable; the
                     comp's own "352 Palmer.." shows the intended behaviour.
                     title= carries the full string for hover and a11y. */}
-                <div className="flex items-center gap-1.5 text-sm min-w-0">
+                <div className="flex items-end gap-[5px] text-sm min-w-0">
                   <span
-                    className="font-semibold text-slate-900 whitespace-nowrap"
+                    className="font-semibold leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/900,#0f172b)] whitespace-nowrap"
                     title={row.title}
                   >
                     {cap(row.title, TITLE_MAX)}
                   </span>
                   {row.addr && (
                     <span
-                      className="text-slate-500 text-xs whitespace-nowrap"
+                      className="text-[12px] leading-[var(--text\/xs\/lh-snug,16.5px)] text-[color:var(--colors\/slate\/500,#62748e)] whitespace-nowrap"
                       title={row.addr}
                     >
                       {cap(row.addr, ADDR_MAX)}
@@ -260,7 +264,7 @@ export default function InsightsCard({
                     (I198328:88624;101006:7299;198328:88557). The glyph keeps its
                     own grey; slate-400 is the nearest token to what the tinted
                     droplet rendered before, and to the comp's own greys. */}
-                <div className="mt-0.5 flex items-center gap-[5px] text-sm text-slate-900 min-w-0">
+                <div className="flex items-center gap-[5px] text-sm leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/900,#0f172b)] min-w-0">
                   {/* A 14px glyph in an 11px slot, exactly as the comp draws it
                       (wrapper …;198328:88555): it overflows 1.5px each side
                       rather than widening the row. */}
@@ -280,24 +284,24 @@ export default function InsightsCard({
                   (I198328:88624;101006:7299;198328:88562). min-w rather than a
                   fixed 55px so an unexpectedly long value grows the column
                   instead of spilling over the sparkline. */}
-              <div className="flex flex-col items-center gap-2 min-w-[55px] shrink-0">
+              <div className="flex w-[55px] shrink-0 flex-col items-center gap-[8px]">
                 {row.delta && (
                   /* Text only. Every icon slot on the comp's Badge — leftIcon,
                      rightIcon and arrow-drop-down-line — is hidden, on all three
                      badges, and the 52px badge leaves no room for a glyph. */
                   <span
-                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium tabular-nums"
+                    className="inline-flex h-[20px] items-center justify-center px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] rounded-[var(--component\/badge\/radius,26px)] text-[12px] leading-[var(--text\/xs\/lh,16px)] font-medium tabular-nums"
                     style={tone.chip}
                   >
                     {row.delta}
                   </span>
                 )}
                 {row.value && (
-                  <div className="flex items-center gap-0.5 text-xs leading-[12px] tabular-nums whitespace-nowrap">
-                    <span className="text-slate-900">{valueNum}</span>
+                  <div className="flex items-center gap-[var(--spacing\/0\,5,2px)] text-[12px] leading-[var(--text\/xs\/lh-none,12px)] tabular-nums whitespace-nowrap">
+                    <span className="text-[color:var(--colors\/slate\/900,#0f172b)]">{valueNum}</span>
                     {/* Figma calls this --muted-foreground; this project defines
                         that token as slate-500 (#62748e). */}
-                    {valueUnit && <span className="text-slate-500">{valueUnit}</span>}
+                    {valueUnit && <span className="text-[color:var(--muted-foreground,#737373)]">{valueUnit}</span>}
                   </div>
                 )}
               </div>
