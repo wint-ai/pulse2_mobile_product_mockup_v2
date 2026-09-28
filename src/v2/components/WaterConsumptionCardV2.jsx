@@ -660,7 +660,14 @@ export default function WaterConsumptionCardV2({
   return (
     <Card
       className={cn(
-        String.raw`gap-0 border-white bg-[#fafbfc] py-0 rounded-[var(--rounded-2xl,18px)]`,
+        /* w-full is LOAD-BEARING, not cosmetic. The Body wrapper that stacks the
+           home cards is items-start, so without it this card sizes to its own
+           content -- and its content width changes with the grouping, so the
+           whole widget grew and shrank as you moved between Hour / Day / Month
+           / Year and sat at a different width from its neighbours. Figma's own
+           root carries size-full for the same reason (198601:86154). The
+           shadcn <Card> in ui/card.jsx does not supply it. */
+        String.raw`w-full gap-0 border-white bg-[#fafbfc] py-0 rounded-[var(--rounded-2xl,18px)]`,
         // relative: the scope panel is absolutely positioned against the card
         'relative shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.1)]',
         className,
@@ -669,10 +676,19 @@ export default function WaterConsumptionCardV2({
     >
       <CardHeader
         className={cn(
-          String.raw`items-center gap-[var(--component\/card\/header\/gap,8px)]`,
-          String.raw`px-[var(--component\/card\/padding,24px)]`,
-          String.raw`pt-[var(--component\/pro\/application\/inline-hint\/rail\/width,12px)]`,
-          String.raw`pb-[var(--spacing\/3,12px)]`,
+          /* The header was px-24 while cardContent below it is px-16, so the
+             title hung 8px outside the toggle track it sits above -- visible as
+             the card "not lining up". 198601:86154 gives BOTH boxes the same
+             component/card/padding, and its fallback is 16.
+             min-h-48: the node's header holds an empty 126x32 CardAction slot
+             beside the title, which is what sets the header's height (16 top
+             pad + 32) and therefore the 22px gap down to the toggles. The slot
+             is a placeholder with no content, so the height is taken directly
+             rather than by shipping an empty 126px div. */
+          String.raw`items-start gap-[var(--spacing\/3,12px)] min-h-[48px]`,
+          String.raw`px-[var(--component\/card\/padding,16px)]`,
+          String.raw`pt-[var(--component\/card\/padding,16px)]`,
+          String.raw`pb-[var(--p-0,0px)]`,
         )}
       >
         <CardTitle
@@ -709,7 +725,18 @@ export default function WaterConsumptionCardV2({
             value={period}
             onValueChange={selectPeriod}
             aria-label="Consumption granularity"
-            className="w-full bg-[var(--colors\/slate\/100,#f1f5f9)] rounded-[34px] p-0"
+            /* overflow-clip is the fix for "selected view fell broken in some
+               cases". The track is rounded-[34px] on a 32px box, which clamps
+               to a stadium (radius 16); the selected segment is a 10px-radius
+               rect at p-0, so on the FIRST and LAST segment its outer corners
+               fall outside the stadium's curve and the blue border renders
+               poking out of the grey. Padding the track cannot fix it — at a
+               2px inset the pill's corner still sits ~4px proud of the curve —
+               and rounding the pill to match would contradict the 10px radius
+               the node draws. Clipping keeps the middle segments exactly as
+               designed and lets the two end segments take the track's own edge,
+               which is how the comp reads. */
+            className="w-full overflow-clip bg-[var(--colors\/slate\/100,#f1f5f9)] rounded-[34px] p-0"
           >
             {PERIODS.map((p) => (
               <ToggleGroupItem
@@ -730,24 +757,29 @@ export default function WaterConsumptionCardV2({
               picker — not the row. It also drops role="group", because a group
               named "Period" holding no controls is a lie to a screen reader.
 
-              §16: the pager is 36 tall (v2 raised it from 32; this was 28) on a
-              pill radius, chevron glyphs 16.
+              GEOMETRY comes from 198601:86154 (the node linked for "update
+              selector to be pixel match"): the CalendarCaption row is h-28,
+              px-6, justify-between, with a 28px nav button hard against each
+              end. PRD v2 §16 says 36 on a pill radius; where the two disagree
+              the request was explicitly for a pixel match, so the node wins.
 
               PLS-WC-09 / §3.2: the chevrons carry the disabled ATTRIBUTE at
               each end of the series, not a dimmed-but-operable look. "A control
               that looks operable and does nothing is the same defect as a
               picker that cannot reach eleven months in twelve."
 
-              CalendarNavButton — I198583:54997;101006:7299;198583:56390;6912:3858:
-              size-28, opacity 50, radius component/button/size-default (10px),
-              and NO fill. A sibling agent reported a slate/100 fill at 10px
-              radius on these; that is Variant2's treatment (198601:86153), not
-              Default's, so only the radius is taken here. The hover tint is
-              ours — Figma has no hover state — and stays, since a 28px target
-              with no feedback reads as dead. */}
+              CalendarNavButton — I198601:86154;101006:7299;198601:86158;6912:3858:
+              size-28, opacity 50, radius 10, on a slate/100 fill. That fill is
+              a correction: it was dismissed here as specific to Variant2
+              (198601:86153) after checking Default, and left off. Variant3
+              carries it too and PRD §16 asks for it, so two of three sources
+              agree against that call. opacity-50 is the RESTING look in every
+              variant, not a disabled one — disabled is the 20 below. The hover
+              step to slate/200 is ours, since Figma draws no hover and a 28px
+              target with no feedback reads as dead. */}
           <div className="flex w-full items-center gap-[8px]">
             {period === 'Y' ? (
-              <div className="flex h-[36px] min-w-0 flex-1 items-center justify-center rounded-full px-[var(--spacing\/1\,5,6px)]">
+              <div className="flex h-[28px] min-w-0 flex-1 items-center justify-center px-[var(--spacing\/1\,5,6px)]">
                 <span className="text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]">
                   {monthLabel}
                 </span>
@@ -756,14 +788,14 @@ export default function WaterConsumptionCardV2({
               <div
                 role="group"
                 aria-label="Period"
-                className="flex h-[36px] min-w-0 flex-1 items-center justify-between rounded-full px-[var(--spacing\/1\,5,6px)]"
+                className="flex h-[28px] min-w-0 flex-1 items-center justify-between px-[var(--spacing\/1\,5,6px)]"
               >
                 <button
                   type="button"
                   aria-label="Previous period"
                   disabled={!canStepPrev}
                   onClick={() => stepMonth(-1)}
-                  className="flex size-[28px] items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:opacity-20"
+                  className="flex size-[28px] shrink-0 items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] bg-[var(--colors\/slate\/100,#f1f5f9)] opacity-50 outline-none hover:opacity-100 hover:bg-[var(--colors\/slate\/200,#e2e8f0)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-[var(--colors\/slate\/100,#f1f5f9)] disabled:hover:opacity-20"
                 >
                   <ChevronLeft16 className="size-4" />
                 </button>
@@ -789,7 +821,7 @@ export default function WaterConsumptionCardV2({
                   aria-label="Next period"
                   disabled={!canStepNext}
                   onClick={() => stepMonth(1)}
-                  className="flex size-[28px] items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] opacity-50 outline-none hover:opacity-100 hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:opacity-20"
+                  className="flex size-[28px] shrink-0 items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] bg-[var(--colors\/slate\/100,#f1f5f9)] opacity-50 outline-none hover:opacity-100 hover:bg-[var(--colors\/slate\/200,#e2e8f0)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-[var(--colors\/slate\/100,#f1f5f9)] disabled:hover:opacity-20"
                 >
                   <ChevronRight16 className="size-4" />
                 </button>
@@ -841,7 +873,7 @@ export default function WaterConsumptionCardV2({
           className={cn(
             'flex min-h-[185px] flex-1 flex-col items-center justify-center',
             String.raw`gap-[var(--pro\/space\/4,16px)]`,
-            String.raw`px-[var(--component\/card\/padding,24px)] pb-[var(--spacing\/5,20px)]`,
+            String.raw`px-[var(--component\/card\/padding,16px)] pb-[var(--spacing\/5,20px)]`,
           )}
         >
           <div className="relative h-[74px] w-[144px] shrink-0">
@@ -887,7 +919,12 @@ export default function WaterConsumptionCardV2({
         <>
           <CardContent
             className={cn(
-              String.raw`px-[var(--component\/card\/padding,24px)]`,
+              /* 16, not 24: this box sits directly under the toggle track,
+                 which cardContent insets by 16. At 24 the plot started 8px
+                 inside the control above it and the whole card read as
+                 misaligned. Every box in 198601:86154 shares one
+                 component/card/padding. */
+              String.raw`px-[var(--component\/card\/padding,16px)]`,
               String.raw`pt-[var(--pro\/space\/4,16px)] pb-[var(--spacing\/5,20px)]`,
             )}
           >
@@ -1032,7 +1069,10 @@ export default function WaterConsumptionCardV2({
                  which is the one combination the comp does not do: with real
                  values ("194.1K Total L") the third metric dropped to a second
                  line. shrink-0 keeps the three across, as drawn. */
-              'flex items-start gap-[10px]',
+              /* w-full, as the node has it: the three columns are shrink-0, so
+                 without it this row is 314px of content and became one more
+                 thing setting the card's width. */
+              'flex w-full items-start gap-[10px]',
               /* Figma's cardContent is px-16 and pb-16; the metric row is its
                  LAST child, so that 16px is the gap between the labels and
                  the card's bottom border. This row carried px-24 and no
