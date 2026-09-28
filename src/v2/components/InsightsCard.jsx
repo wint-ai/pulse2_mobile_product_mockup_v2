@@ -12,6 +12,7 @@
  * now survives as colour alone and the trend glyph is gone.
  */
 
+import { cn } from '@/lib/utils'
 import { DropletDown, DropletShare, Droplets } from '@/v2/icons'
 
 const SUCCESS = '#5C9E1A'
@@ -158,10 +159,25 @@ function splitValue(value) {
  *              no change to report, so it gets no badge. `series`/`baseline` are
  *              the real 28-day arrays from insightsModel.js; omit them and the
  *              sparkline falls back to a placeholder shape.
- * @param onViewAll  omit to render "View all" inert. There is no Insights list
+ * @param onSelectRow  omit and the rows stay non-interactive. Given a handler
+ *                  each row becomes a real button carrying its insight.
+ * @param onViewAll  omit to render "View all" inert. RESOLVED 2026-09-28:
+ *                  there IS a list screen, /kpi/insights, so this and the
+ *                  rows both have somewhere to go now. Original note: there
+ *                  is no Insights list
  *              screen on the delivery canvas, so home passes nothing.
  */
-export default function InsightsCard({ rows = [], title = 'Insights', onViewAll, className }) {
+export default function InsightsCard({
+  rows = [],
+  title = 'Insights',
+  onViewAll,
+  onSelectRow,
+  className,
+}) {
+  /* A row is a control only when the host says where it goes. Without
+     onSelectRow it stays the plain <div> it has always been — no button role,
+     no pointer, nothing that promises a tap. */
+  const RowTag = onSelectRow ? 'button' : 'div'
   return (
     /* Figma's card shell, identical to the sibling widgets on this page. This
        used to be the shadcn <Card>, which gave it a different ground, border,
@@ -207,9 +223,16 @@ export default function InsightsCard({ rows = [], title = 'Insights', onViewAll,
                frames (I198328:88624;101006:7299) with no separator node and no
                stroke on any of them — whitespace is the whole separation. The
                border-t here was a house pattern, not a Figma value. */
-            <div
+            <RowTag
               key={`${row.title}-${i}`}
-              className="mx-4 py-3 flex items-center gap-3"
+              className={cn(
+                'mx-4 py-3 flex items-center gap-3',
+                onSelectRow &&
+                  'w-[calc(100%-2rem)] cursor-pointer rounded-[10px] text-left outline-none transition-colors hover:bg-[rgba(11,129,248,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              )}
+              {...(onSelectRow
+                ? { type: 'button', onClick: () => onSelectRow(row), 'aria-label': `Open ${row.title}` }
+                : {})}
             >
               <div className="flex-1 min-w-0">
                 {/* Capped, not just CSS-truncated. Two competing `truncate`
@@ -278,7 +301,7 @@ export default function InsightsCard({ rows = [], title = 'Insights', onViewAll,
                   </div>
                 )}
               </div>
-            </div>
+            </RowTag>
           )
         })}
       </div>

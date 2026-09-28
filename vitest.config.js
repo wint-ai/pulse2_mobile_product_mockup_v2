@@ -26,7 +26,14 @@ export default defineConfig({
        a gate people learn to push past — which happened twice on this repo.
        This does not mask regressions: a test that genuinely hangs still fails,
        it just gets long enough to prove it. */
-    testTimeout: 20000,
+    testTimeout: 30000,
+    /* Raised twice now: 5s -> 20s (399 tests) -> 30s (540). The three
+       drawer/scope suites render the whole app and pass 19/19 alone; they only
+       exceed the limit when enough heavy DOM files run beside them, and the
+       failing subset differs every run. Capping worker threads would be the
+       other lever, but it slows every run to fix a minority of them.
+       This does not mask regressions — a genuinely hung test still fails, it
+       just gets long enough to prove it rather than being killed mid-render. */
     setupFiles: ['./src/__tests__/setup.js'],
   },
 });
