@@ -26,19 +26,27 @@
  *   connectivity as ICON-ONLY 20px white badges (px-2) — no words
  *   a 41px rule drops from the badge to the valve row, which is pl-20
  *
- * EXPANDED
- *   header gains a "Close" button: h-24, radius 8, px-8, #f2f6ff, caret + 12px
- *   the pipe schematic in a #f2f6ff well: h-112, radius 12, full width
- *   one full-width device card per device, p-9/10, radius 12
- *   in it: serial badge + name + "SN ####", then AC and Connected as WORD
- *   badges (white, h-24, px-8, radius 26) in a 201px column indented pl-20,
- *   the unit photo at 120x144 under mix-blend-multiply in a 201px well, and a
- *   valve row of speed badge + 7.2px rule + state pill + "Close valve"
- *   a 197px rule drops the full height of that column
+ * EXPANDED — the device card is "IOT overview" Variant4, 198756:60259, which
+ * REPLACED a taller stacked card. It is horizontal now:
+ *   header    a caret with NO label. The disclosure is its own component and
+ *             carries no text; "Close" / "Open" was this file's invention.
+ *   schematic #f2f6ff well, h-112, radius 12, full width
+ *   device    h-138, px-9 py-10, radius 12; inner flex-1 gap-6 h-115
+ *     photo   87px column on the LEFT, image 81 x 97.273, mix-blend-multiply
+ *     rule    h-71 at left-105 / top-20 — between the columns, not down the
+ *             far left, and 71 rather than the 197 it was
+ *     right   h-115 justify-between: name row, badges at pl-29 (w-117 outer,
+ *             w-201 inner), then the valve row
  *
  * BUTTON SHAPE, because it was wrong twice: component/button/size-xs/radius is
  * 8 and its px is 8. These are rounded RECTANGLES. Built as radius-26 pills,
  * all three buttons on the card read as the wrong component.
+ *
+ * WHAT THE CARD DECIDES FOR ITSELF, none of it in the node:
+ *   - the footer names what it closes. "Close all valves" is a lie on a
+ *     single-valve system, and no valves at all means no footer.
+ *   - the schematic takes the worst valve state on the loop, so the
+ *     infographic moves with the system instead of sitting static.
  */
 import { Settings, PowerOff, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -203,9 +211,12 @@ function BranchRule({ length }) {
 }
 
 /** The valve row both variants end on: speed badge, 7.2px rule, state pill. */
-function ValveRow({ device, children }) {
+function ValveRow({ device, children, indent = true }) {
+  /* The collapsed tile indents this row past its branch rule (pl-20). The
+     expanded card's rule sits between the photo and the details now, so the
+     row starts flush. */
   return (
-    <div className="flex shrink-0 items-center pl-[20px]">
+    <div className={cn('flex shrink-0 items-center', indent && 'pl-[20px]')}>
       <div className="flex shrink-0 items-end">
         <RoundBadge>
           <div className="relative size-[17.28px] shrink-0 overflow-clip">
@@ -260,77 +271,117 @@ function CompactTile({ device }) {
 }
 
 /** EXPANDED card — 198630:64927. Full width, p-9/10. */
+/**
+ * One monitored unit — Figma "IOT overview" Variant4, 198756:60259.
+ *
+ * This REPLACED a taller, stacked card. The layout is horizontal now: the unit
+ * photo sits in an 87px column on the LEFT, the details run down the right,
+ * and the whole card is 138 tall rather than growing with its content. The
+ * branch rule moved with it — 71px, anchored left-105, between the two
+ * columns instead of down the far left.
+ *
+ *   root        h-138, px-9 py-10, radius 12, #f2f6ff, items-start
+ *   inner       flex-1, gap-6, h-115, items-start
+ *   photo       87px column, image 81 x 97.273 under mix-blend-multiply
+ *   rule        h-71 at left-105 / top-20, drawn flat and rotated 90
+ *   right       h-115, justify-between
+ *     top       gap-6: the name row, then the badges indented pl-29
+ *     bottom    speed badge + 7.2 rule + state pill + "Close valve"
+ */
 function DeviceCard({ device, onCloseValve }) {
   const canClose = Boolean(onCloseValve) && device.valve === 'open'
 
   return (
     <div
       data-device-id={device.id}
-      className="flex w-full shrink-0 items-center rounded-[12px] bg-[#f2f6ff] px-[9px] py-[10px]"
+      className="flex h-[138px] w-full shrink-0 items-start rounded-[12px] bg-[#f2f6ff] px-[9px] py-[10px]"
     >
-      <div className="relative flex min-w-px flex-1 flex-col gap-[12px] self-stretch">
-        <BranchRule length={197} />
-
-        <div className="flex shrink-0 items-center gap-[4px]">
-          <div className="flex shrink-0 items-end">
-            <RoundBadge>
-              <div className="relative size-[19.2px] shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)]">
-                <Ram2Line />
+      <div className="relative flex h-[115px] min-w-px flex-1 items-start gap-[6px]">
+        {/* 198756:60276 — between the photo and the details, not down the edge. */}
+        <div
+          aria-hidden="true"
+          data-branch-rule={71}
+          className="absolute left-[105px] top-[20px] flex h-[71px] w-0 items-center justify-center"
+        >
+          <div className="flex-none rotate-90">
+            <div className="relative h-0 w-[71px]">
+              <div className="absolute inset-[-1px_0_0_0]">
+                <Rule width={71} />
               </div>
-            </RoundBadge>
+            </div>
           </div>
-          <div className="flex h-full shrink-0 items-center gap-[6px]">
-            <p className={TEXT_NAME}>{device.name}</p>
-            {device.serial ? (
-              <span className="flex h-full items-center justify-center pt-[5px]">
-                <p className={TEXT_SN}>SN {device.serial}</p>
-              </span>
+        </div>
+
+        {/* 198756:60372 — the unit, on the left and smaller than it was. */}
+        <div className="flex h-full w-[87px] shrink-0 flex-col items-center justify-center">
+          <div className="relative h-[97.273px] w-[81px] shrink-0 mix-blend-multiply">
+            <img
+              src={vmaFront}
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 size-full max-w-none object-cover"
+            />
+          </div>
+        </div>
+
+        {/* 198756:60376 — the details column. */}
+        <div className="flex h-[115px] shrink-0 flex-col items-start justify-between">
+          <div className="flex shrink-0 flex-col items-start gap-[6px]">
+            <div className="flex shrink-0 items-center gap-[4px]">
+              <div className="flex shrink-0 items-end">
+                <RoundBadge>
+                  <div className="relative size-[19.2px] shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)]">
+                    <Ram2Line />
+                  </div>
+                </RoundBadge>
+              </div>
+              <div className="flex h-full shrink-0 items-center gap-[6px]">
+                <p className={TEXT_NAME}>{device.name}</p>
+                {device.serial ? (
+                  <span className="flex h-full items-center justify-center pt-[5px]">
+                    <p className={TEXT_SN}>SN {device.serial}</p>
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            {/* 198756:60277 — pl-29 now, clearing the rule in its new place. */}
+            <div className="flex shrink-0 items-start">
+              {/* w-117 on the indent wrapper and w-201 inside it are both the
+                  node's (198756:60277 / :60278). The inner box is wider than
+                  its parent, which is Figma's own overflow, so it is carried
+                  rather than "corrected". */}
+              <div className="flex w-[117px] shrink-0 items-center pl-[29px]">
+                <div className="flex w-[201px] shrink-0 items-start">
+                  <div className="flex shrink-0 items-center gap-[4.8px]">
+                    <WordBadge icon={powerGlyph(device)}>
+                      {POWER_LABEL[device.power] ?? 'Not reporting'}
+                    </WordBadge>
+                    <WordBadge icon={commGlyph(device)}>
+                      {device.comm === 'offline' ? 'Offline' : 'Connected'}
+                    </WordBadge>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <ValveRow device={device} indent={false}>
+            {canClose ? (
+              <button
+                type="button"
+                onClick={() => onCloseValve(device)}
+                className={cn(BTN, BTN_OUTLINE, FOCUS, 'h-[24px]')}
+              >
+                <span
+                  className={cn(TEXT_BUTTON, String.raw`text-[color:var(--wint-blue-accent,#0b81f8)]`)}
+                >
+                  Close valve
+                </span>
+              </button>
             ) : null}
-          </div>
+          </ValveRow>
         </div>
-
-        {/* Words, in a 201px column indented past the rule. */}
-        <div className="flex shrink-0 items-center pl-[20px]">
-          <div className="flex w-[201px] shrink-0 flex-col items-start">
-            <div className="flex shrink-0 items-center gap-[4.8px]">
-              <WordBadge icon={powerGlyph(device)}>
-                {POWER_LABEL[device.power] ?? 'Not reporting'}
-              </WordBadge>
-              <WordBadge icon={commGlyph(device)}>
-                {device.comm === 'offline' ? 'Offline' : 'Connected'}
-              </WordBadge>
-            </div>
-          </div>
-        </div>
-
-        {/* The unit. mix-blend-multiply is the node's: the source has a
-            near-white ground and no alpha, which is why it multiplies. */}
-        <div className="flex w-full shrink-0 flex-col items-center justify-center">
-          <div className="flex w-[201px] shrink-0 items-center justify-center rounded-[8px]">
-            <div className="relative h-[144px] w-[120px] shrink-0 mix-blend-multiply">
-              <img
-                src={vmaFront}
-                alt=""
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 size-full max-w-none object-cover"
-              />
-            </div>
-          </div>
-        </div>
-
-        <ValveRow device={device}>
-          {canClose ? (
-            <button
-              type="button"
-              onClick={() => onCloseValve(device)}
-              className={cn(BTN, BTN_OUTLINE, FOCUS, 'h-[24px]')}
-            >
-              <span className={cn(TEXT_BUTTON, String.raw`text-[color:var(--wint-blue-accent,#0b81f8)]`)}>
-                Close valve
-              </span>
-            </button>
-          ) : null}
-        </ValveRow>
       </div>
     </div>
   )
@@ -347,6 +398,20 @@ export default function SystemTopologyCard({
   className,
 }) {
   const anyOpen = devices.some((d) => d.valve === 'open')
+
+  /* Valves that exist at all — a metering-only leg has none to close. */
+  const closableCount = devices.filter((d) => d.valve != null).length
+
+  /* Worst-first, so the schematic cannot read healthier than the system is:
+     an error on any leg shows as an error, then a closed valve, then open.
+     A system with no valve has no valve glyph to draw. */
+  const schematicValve = devices.some((d) => d.valve === 'error')
+    ? 'error'
+    : devices.some((d) => d.valve === 'closed')
+      ? 'closed'
+      : devices.some((d) => d.valve === 'open')
+        ? 'open'
+        : 'no-valve'
 
   return (
     <div
@@ -366,39 +431,47 @@ export default function SystemTopologyCard({
               both states — "Close" with a caret up when open, "Open" with a
               caret down when shut — and only when the host owns that state. */}
           {onToggle ? (
+            /* NO LABEL. The disclosure is its own component in Figma and
+                carries no text — the caret is the whole control. The earlier
+                "Close" / "Open" wording was this file's invention.
+                The accessible name still has to exist, so it lives on
+                aria-label rather than in a visible span. */
             <button
               type="button"
               onClick={onToggle}
               aria-expanded={expanded}
-              className={cn(BTN, FOCUS, 'h-[24px]')}
+              aria-label={expanded ? 'Collapse' : 'Expand'}
+              className={cn(
+                BTN,
+                FOCUS,
+                'size-[24px] p-0',
+                String.raw`text-[color:var(--colors\/slate\/900,#0f172b)]`,
+              )}
             >
-              <span className="flex size-[16px] shrink-0 items-center justify-center">
-                <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-[16px]">
-                  <path
-                    d={expanded ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4'}
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </span>
-              <span
-                className={cn(
-                  TEXT_BUTTON,
-                  String.raw`font-normal text-[color:var(--colors\/slate\/900,#0f172b)]`,
-                )}
-              >
-                {expanded ? 'Close' : 'Open'}
-              </span>
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-[16px]">
+                <path
+                  d={expanded ? 'M4 10l4-4 4 4' : 'M4 6l4 4 4-4'}
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </button>
           ) : null}
         </div>
 
         {expanded ? (
           <>
+            {/* The schematic carries the REAL valve state, not a derived
+                open/closed. It was being handed `anyOpen ? 'open' : 'closed'`,
+                which collapsed error and no-valve into "closed" and left the
+                infographic static while only the pill below it moved.
+                With more than one leg the schematic draws both valves, so it
+                takes the worst state on the loop: an error on either leg is an
+                error on the loop. */}
             <div className="flex h-[112px] w-full min-w-[112px] max-w-[350px] shrink-0 items-center justify-center rounded-[12px] bg-[#f2f6ff]">
-              <PipeTopology topology={topology} valve={anyOpen ? 'open' : 'closed'} />
+              <PipeTopology topology={topology} valve={schematicValve} />
             </div>
             <div className="flex w-full shrink-0 flex-col items-start">
               <div className="flex w-full shrink-0 flex-col items-start justify-center gap-[14px]">
@@ -420,7 +493,17 @@ export default function SystemTopologyCard({
         )}
       </div>
 
-      {onCloseAll ? (
+      {/* "Close all valves" is a lie on a single-valve system — a water line
+          has one — so the footer names what it actually closes.
+          It is withheld only when the EXPANDED card already offers the same
+          action on the device row, so the card never shows one control twice.
+          The collapsed tiles carry no per-device button, so there the footer
+          is the only way to act and always renders.
+          A system with NO valves gets no footer at all: 20 of the 53 MRG
+          systems are metering-only, and a disabled "Close valve" on a card
+          that has none is the dead control this repo refuses. Figma ships
+          "No Valve" variants of every schematic for exactly this case. */}
+      {onCloseAll && closableCount > 0 && !(expanded && closableCount === 1 && onCloseValve) ? (
         <button
           type="button"
           onClick={onCloseAll}
@@ -434,7 +517,7 @@ export default function SystemTopologyCard({
           )}
         >
           <span className={cn(TEXT_BUTTON, String.raw`text-[color:var(--wint-blue-accent,#0b81f8)]`)}>
-            Close all valves
+            {closableCount > 1 ? 'Close all valves' : 'Close valve'}
           </span>
         </button>
       ) : null}

@@ -100,8 +100,12 @@ describe('the expanded topology card', () => {
     fireEvent.click(view.getByRole('button', { name: 'Close valve' }))
     expect(closed).toEqual(['d1'])
 
-    // An already-closed valve has nothing to close, so the per-device control
-    // goes and the card-level one is disabled rather than merely dimmed.
+    /* ONE valve, so no "Close all valves": the device row already offers the
+       same action and the card never shows it twice. "all" is a lie on a
+       single-valve system anyway. */
+    expect(within(container).queryByRole('button', { name: 'Close all valves' })).toBeNull()
+
+    // An already-closed valve has nothing left to close.
     rerender(
       <SystemTopologyCard
         expanded
@@ -111,26 +115,40 @@ describe('the expanded topology card', () => {
       />,
     )
     expect(within(container).queryByRole('button', { name: 'Close valve' })).toBeNull()
-    expect(within(container).getByRole('button', { name: 'Close all valves' }).disabled).toBe(true)
   })
 
-  it('toggles only when the host owns that state, and names the direction', () => {
-    /* The collapsed node draws no control at all, which would leave a card you
-       can close and never reopen — so the toggle is rendered in both states
-       and says which way it goes. That is a deliberate deviation. */
+  it('names the card action for the number of valves it closes', () => {
+    const two = [device(), device({ id: 'd2', name: 'Return' })]
+    const { container, rerender } = render(
+      <SystemTopologyCard expanded devices={two} onCloseAll={() => {}} />,
+    )
+    expect(within(container).getByRole('button', { name: 'Close all valves' })).toBeTruthy()
+
+    // One valve is "Close valve" — and only while nothing else offers it.
+    rerender(<SystemTopologyCard expanded devices={[device()]} onCloseAll={() => {}} />)
+    expect(within(container).getByRole('button', { name: 'Close valve' })).toBeTruthy()
+    expect(within(container).queryByRole('button', { name: 'Close all valves' })).toBeNull()
+  })
+
+  it('toggles with a caret and NO visible label', () => {
+    /* The disclosure is its own component in Figma and carries no text — the
+       caret is the whole control. "Close" / "Open" was this file's invention.
+       The accessible name still has to exist, so it lives on aria-label. */
     const { container, rerender } = render(<SystemTopologyCard expanded devices={[device()]} />)
-    expect(within(container).queryByRole('button', { name: 'Close' })).toBeNull()
+    expect(within(container).queryByRole('button', { name: 'Collapse' })).toBeNull()
 
     const taps = []
     rerender(<SystemTopologyCard expanded devices={[device()]} onToggle={() => taps.push('shut')} />)
-    const close = within(container).getByRole('button', { name: 'Close' })
+    const close = within(container).getByRole('button', { name: 'Collapse' })
     expect(close.getAttribute('aria-expanded')).toBe('true')
+    expect(close.textContent.trim(), 'the control carries no words').toBe('')
     fireEvent.click(close)
     expect(taps).toEqual(['shut'])
 
     rerender(<SystemTopologyCard devices={[device()]} onToggle={() => taps.push('open')} />)
-    const open = within(container).getByRole('button', { name: 'Open' })
+    const open = within(container).getByRole('button', { name: 'Expand' })
     expect(open.getAttribute('aria-expanded')).toBe('false')
+    expect(open.textContent.trim()).toBe('')
     fireEvent.click(open)
     expect(taps).toEqual(['shut', 'open'])
   })
@@ -201,9 +219,11 @@ describe('the geometry the first pass got wrong', () => {
 
   it('indents that row past the branch rule and holds it to the 201px column', () => {
     const { container } = renderOne()
-    expect(withClass(container, 'pl-[20px]').length, 'the pl-20 indent').toBeGreaterThan(0)
-    // The badges and the photo share one column width in the node.
-    expect(withClass(container, 'w-[201px]').length).toBeGreaterThanOrEqual(2)
+    expect(withClass(container, 'pl-[29px]').length, 'the pl-29 indent').toBeGreaterThan(0)
+    /* Variant4 keeps w-201 on the badge box only — the photo moved into its
+       own 87px column, so the two no longer share a width. */
+    expect(withClass(container, 'w-[201px]').length).toBeGreaterThanOrEqual(1)
+    expect(withClass(container, 'w-[87px]').length, 'the photo column').toBeGreaterThan(0)
   })
 
   it('opens the valve row with the speed badge and its 7.2px rule', () => {
@@ -215,11 +235,13 @@ describe('the geometry the first pass got wrong', () => {
 
   it('drops the branch rule from the name badge to the valve row', () => {
     const { container } = renderOne()
-    // 197 expanded, 41 collapsed — the rule spans whatever the variant holds.
-    const rule = container.querySelector('[data-branch-rule="197"]')
+    /* 71 expanded, 41 collapsed. It was 197 until the card became Variant4
+       (198756:60259) and the rule moved from the far left to between the photo
+       and the details. */
+    const rule = container.querySelector('[data-branch-rule="71"]')
     expect(rule, 'the 197px branch rule').toBeTruthy()
     // Anchored on the 24px name badge's centre line, and rotated into place.
-    expect(String(rule.className)).toContain('left-[12px]')
+    expect(String(rule.className)).toContain('left-[105px]')
     expect(withClass(rule, 'rotate-90').length, 'the node rotates this rule').toBeGreaterThan(0)
   })
 
@@ -230,7 +252,48 @@ describe('the geometry the first pass got wrong', () => {
     const img = container.querySelector('img')
     expect(String(img.className)).toContain('object-cover')
     expect(String(img.parentElement.className)).toContain('mix-blend-multiply')
-    expect(String(img.parentElement.className)).toContain('h-[144px]')
-    expect(String(img.parentElement.className)).toContain('w-[120px]')
+    // 81 x 97.273 since Variant4 moved it into the 87px left column.
+    expect(String(img.parentElement.className)).toContain('h-[97.273px]')
+    expect(String(img.parentElement.className)).toContain('w-[81px]')
+  })
+})
+
+describe('the card always offers a way to close a valve', () => {
+  it('keeps the footer on the COLLAPSED tile, which has no per-device button', () => {
+    /* Suppressing the footer for a single valve is right on the expanded card,
+       where the device row offers the same action. On the collapsed tile there
+       is no such row, so suppressing it there left a card with no control at
+       all. */
+    const { container } = render(
+      <SystemTopologyCard
+        devices={[device()]}
+        onCloseValve={() => {}}
+        onCloseAll={() => {}}
+      />,
+    )
+    expect(within(container).queryByRole('button', { name: 'Close valve' })).toBeTruthy()
+  })
+})
+
+describe('a system with no valves', () => {
+  it('offers no close control at all, rather than a dead one', () => {
+    /* buildTree.js: 20 of the 53 MRG systems are metering-only and carry
+       valve: null. A disabled "Close valve" on a card that has none is the
+       dead control this repo refuses everywhere else — and Figma ships "No
+       Valve" variants of every schematic for exactly this case. */
+    const none = [device({ valve: null }), device({ id: 'd2', name: 'Return', valve: null })]
+    const { container, rerender } = render(
+      <SystemTopologyCard devices={none} onCloseValve={() => {}} onCloseAll={() => {}} />,
+    )
+    const view = within(container)
+
+    expect(view.getAllByText('No valve')).toHaveLength(2)
+    expect(view.queryByRole('button', { name: /Close/ })).toBeNull()
+
+    // Expanded too.
+    rerender(
+      <SystemTopologyCard expanded devices={none} onCloseValve={() => {}} onCloseAll={() => {}} />,
+    )
+    expect(within(container).queryByRole('button', { name: /Close valve/ })).toBeNull()
   })
 })
