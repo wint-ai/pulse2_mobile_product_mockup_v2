@@ -94,13 +94,25 @@
   --success: #5C9E1A;
 
   /* App background — screen roots. 129.43deg in the comp. */
+  /* Figma 198314:73471 "All accounts" — the screen root's wash, verbatim from
+     the design context.
+
+     The stop positions look wrong: 29.24%, 12.35%, 17.588%, 76.864% is not
+     ascending, so CSS clamps the middle two up to 29.24%. Leave them. At
+     101.42deg the gradient runs nearly horizontally, so down any vertical slice
+     it reads as an almost flat wash — which is exactly what Figma renders.
+     Sorting them ascending seems like the fix and is not: it drags the bluest
+     stop (212,226,255) to the top of the screen, and the top 40% then renders
+     11-16 per channel off the design.
+
+     Verified by sampling both: Figma rgb(232,239,252) top to rgb(240,243,249)
+     bottom, against this at worst 6 off at the very top edge and 1-2 elsewhere. */
   --app-bg:
-    linear-gradient(129.43deg,
-      rgba(233, 238, 248, 0.8) 8.3855%,
-      rgba(227, 235, 249, 0.8) 32.2%,
-      rgba(228, 235, 250, 0.8) 40.822%,
-      rgba(212, 226, 255, 0.8) 71.236%,
-      rgba(233, 237, 243, 0.8) 82.858%),
+    linear-gradient(101.4227deg,
+      rgba(233, 238, 248, 0.8) 29.24%,
+      rgba(212, 226, 255, 0.8) 12.35%,
+      rgba(228, 235, 250, 0.8) 17.588%,
+      rgba(233, 237, 243, 0.8) 76.864%),
     linear-gradient(90deg, #ffffff 0%, #ffffff 100%);
 
   /* Same ramp, steeper — the 2x2 issue tiles and the small status pills. */

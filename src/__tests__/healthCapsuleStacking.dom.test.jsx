@@ -64,8 +64,15 @@ describe('health capsule stacking', () => {
       />,
     )
 
+    /* ONE, not five. The four issue tiles used to take the red wash whenever
+       their count was non-zero, which at any real fleet size meant all four
+       were red all the time -- a colour, not a signal. They were put back on
+       the cool --tile-bg on request. "Require attention" keeps its hot state,
+       so red still means something somewhere on this card.
+       The stacking contract below is unchanged and still worth walking: it is
+       what broke twice. */
     const washes = [...container.querySelectorAll('[aria-hidden="true"].absolute.z-0')]
-    expect(washes.length, 'expected a wash on every non-zero capsule').toBe(5)
+    expect(washes.length, 'only Require attention carries the red wash').toBe(1)
 
     for (const wash of washes) {
       const capsule = wash.parentElement
@@ -103,5 +110,33 @@ describe('health capsule stacking', () => {
     // Zero renders on the plain gradient — the state signal the design uses.
     expect(within(container).getAllByText('0').length).toBeGreaterThan(0)
     expect(within(container).getByText('3,431')).toBeTruthy()
+  })
+})
+
+describe('the four issue tiles', () => {
+  it('stay on the cool wash however high their counts run', () => {
+    // "I WANT THESE 4 BUTTONS TO USE SAME BACKGROUND HOW IT WAS IN PREVIOUS
+    // VERSION / DONT LIKE THIS RED BG".
+    const { container } = render(
+      <SystemsHealthCard
+        healthy={{ percent: 13 }}
+        stats={{ requireAttention: 46, total: 53 }}
+        issues={{ offline: 10, valve: 12, power: 10, recipients: 2 }}
+        systemTypes={{ topology: 53, flood: 0, humidity: 0 }}
+        /* Without a handler the tiles render as plain divs; the card only
+           promises a button when its host has wired one. */
+        onSelectIssue={() => {}}
+      />,
+    )
+
+    for (const label of ['Offline systems', 'Valve errors', 'Disconnected power', 'Missing recipients']) {
+      const button = within(container).getByRole('button', { name: new RegExp(`^${label}:`) })
+      expect(
+        button.querySelector('[aria-hidden="true"].absolute.z-0'),
+        `${label} must not be painted red`,
+      ).toBeNull()
+      // And it still carries the shared gradient rather than no ground at all.
+      expect(button.getAttribute('style') || '', label).toContain('background')
+    }
   })
 })

@@ -357,7 +357,17 @@ function TileLabel({ children }) {
  * three are items-center (198601:62957 ;62144 / ;62152 / ;62164 / ;62171).
  */
 function IssueTile({ glyph, count, label, align = 'center', onSelect }) {
-  const hot = count !== 0
+  /* These four ALWAYS take the cool wash.
+     Figma stamps a red instance of this pill for a non-zero count, and this
+     card followed it -- so at any real fleet size all four tiles were red,
+     which is not a signal, just a colour. Reverted to the earlier treatment on
+     request: the shared --tile-bg gradient, the 8px cool gap, and the slate
+     figure. "Require attention" above keeps its hot state, so the card still
+     has somewhere for red to mean something.
+     Kept as a named constant rather than deleting the hot branch: the branch
+     is still exercised by Capsule for that stat, and naming it here records
+     that this is a decision rather than an oversight. */
+  const hot = false
   /* Lifted into a positioned layer, exactly as Capsule does. HotWash is
      position:absolute and therefore paints above non-positioned in-flow
      siblings whatever the DOM order, so without this the GLYPH vanished under
