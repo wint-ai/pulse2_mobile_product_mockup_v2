@@ -196,7 +196,7 @@ export default function SystemPageV2() {
           No system with id &ldquo;{systemId}&rdquo;.
         </div>
         <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-        <TabBar activeTab="systems" />
+        <TabBar activeTab="systems" hideAlerts />
       </div>
     )
   }
@@ -249,7 +249,7 @@ export default function SystemPageV2() {
           currentSystemId / onSelectLocation contract the way v1's did. */}
       <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      <TabBar activeTab="systems" />
+      <TabBar activeTab="systems" hideAlerts />
     </div>
   )
 }

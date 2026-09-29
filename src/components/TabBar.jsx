@@ -49,7 +49,16 @@ const MORE_ICON_STROKE = (
   </svg>
 );
 
-export default function TabBar({ activeTab }) {
+/**
+ * @param hideAlerts  drop the Alerts tab. Pulse 2.0 reaches alerts from the
+ *   home surface itself — the health pills and the water-events rows both open
+ *   the alerts overlay pre-filtered — so a third tab pointing at the v1
+ *   /alerts screen is a leftover, not a route anyone needs. The v1 demo
+ *   screens still render the full three, which is why this is a prop and not
+ *   a deletion: /alerts is still a live route and still reachable from the
+ *   sidebar, from ActiveErrorsWidget and by URL.
+ */
+export default function TabBar({ activeTab, hideAlerts = false }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -78,7 +87,8 @@ export default function TabBar({ activeTab }) {
       ]
     : TABS_TENANT;
 
-  const tabs = isTenant ? tenantTabs : TABS_FULL;
+  const chosen = isTenant ? tenantTabs : TABS_FULL;
+  const tabs = hideAlerts ? chosen.filter(tab => tab.key !== 'events') : chosen;
 
   return (
     <div

@@ -163,7 +163,7 @@ export default function HomeAccountOverview() {
         scopeName={scopeTitle}
       />
 
-      <TabBar activeTab="home" />
+      <TabBar activeTab="home" hideAlerts />
     </div>
   )
 }

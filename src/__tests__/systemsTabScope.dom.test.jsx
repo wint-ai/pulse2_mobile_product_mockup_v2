@@ -90,3 +90,20 @@ describe('the System tab', () => {
     }
   })
 })
+
+describe('the bottom nav on the v2 shell', () => {
+  // "Alerts is not needed here / this is from the old version remove it."
+  // Pulse 2.0 reaches alerts from the home surface — the health pills and the
+  // water-event rows both open the alerts overlay pre-filtered — so the third
+  // tab pointing at the v1 /alerts screen was a leftover.
+  it('offers Home and More, and no Alerts tab', () => {
+    const { container } = renderAt('/')
+
+    const nav = container.querySelector('nav') || container
+    const labels = [...nav.querySelectorAll('button')]
+      .map((b) => b.textContent.trim())
+      .filter(Boolean)
+
+    expect(labels.some((l) => /^Alerts$/i.test(l)), `found an Alerts tab in: ${labels}`).toBe(false)
+  })
+})

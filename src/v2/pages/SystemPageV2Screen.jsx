@@ -952,7 +952,7 @@ export default function SystemPageV2Screen() {
       />
 
       <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-      <TabBar activeTab="home" />
+      <TabBar activeTab="home" hideAlerts />
     </div>
   )
 }

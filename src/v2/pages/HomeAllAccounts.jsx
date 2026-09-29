@@ -1167,7 +1167,7 @@ export default function HomeAllAccounts({ expanded = false }) {
         events={overlayEvents}
       />
 
-      <TabBar activeTab="home" />
+      <TabBar activeTab="home" hideAlerts />
     </div>
   )
 }
