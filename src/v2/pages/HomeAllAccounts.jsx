@@ -72,6 +72,7 @@ import ActiveWaterEventsCard from '@/v2/components/ActiveWaterEventsCard'
 import EventOverlayV2 from '@/v2/components/EventOverlayV2'
 import InsightsCard from '@/v2/components/InsightsCard'
 import SystemsHealthCard from '@/v2/components/SystemsHealthCard'
+import SystemsTableCard from '@/v2/components/SystemsTableCard'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
@@ -1035,6 +1036,7 @@ export default function HomeAllAccounts({ expanded = false }) {
               >
                 <div className="content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center min-w-px relative">
                   <TabTrigger label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')} />
+                  <TabTrigger label="System" active={tab === 'systems'} onClick={() => setTab('systems')} />
                   <TabTrigger label="General Info" active={tab === 'general'} onClick={() => setTab('general')} />
                 </div>
               </div>
@@ -1061,6 +1063,24 @@ export default function HomeAllAccounts({ expanded = false }) {
                   {cards}
                 </div>
               )
+            ) : tab === 'systems' ? (
+              /* System — the table from Figma "Table 16 - Pro Application
+                 Block", screenSize=Small (176511:26284), carrying the content
+                 of the desktop systems table (198736:52372). scopedSystems is
+                 already the account/location resolution the health card uses,
+                 so the tab reports on exactly the systems this screen is
+                 scoped to rather than the whole fleet. */
+              <div className="content-stretch flex flex-col items-start pb-[var(--spacing\/4,16px)] px-[var(--p-0,0px)] relative shrink-0 w-full">
+                <SystemsTableCard
+                  systems={scopedSystems}
+                  description={
+                    locationName
+                      ? `See information about all systems at ${decodeURIComponent(locationName)}.`
+                      : 'See information about all systems.'
+                  }
+                  onOpenSystem={s => navigate(`/system/${s.id}`)}
+                />
+              </div>
             ) : (
               /* NOT DESIGNED. The delivery canvas draws this tab on both frames
                  but has no content frame for it anywhere, and inventing one is
