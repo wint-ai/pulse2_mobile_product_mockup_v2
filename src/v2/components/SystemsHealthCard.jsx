@@ -357,16 +357,18 @@ function TileLabel({ children }) {
  * three are items-center (198601:62957 ;62144 / ;62152 / ;62164 / ;62171).
  */
 function IssueTile({ glyph, count, label, align = 'center', onSelect }) {
-  /* These four ALWAYS take the cool wash.
-     Figma stamps a red instance of this pill for a non-zero count, and this
-     card followed it -- so at any real fleet size all four tiles were red,
-     which is not a signal, just a colour. Reverted to the earlier treatment on
-     request: the shared --tile-bg gradient, the 8px cool gap, and the slate
-     figure. "Require attention" above keeps its hot state, so the card still
-     has somewhere for red to mean something.
-     Kept as a named constant rather than deleting the hot branch: the branch
-     is still exercised by Capsule for that stat, and naming it here records
-     that this is a decision rather than an oversight. */
+  /* Cool pill, RED figure — which is exactly what 289bbd2 did before the red
+     wash arrived: one capsule style always (ISSUE_CAPSULE on CAPSULE_ISSUE)
+     and `<IssueCount zero={count === 0}>`, so the NUMBER carried the alarm and
+     the ground stayed calm.
+     Figma stamps a red instance of the whole pill for a non-zero count and
+     this card followed it, which at any real fleet size painted all four tiles
+     red at once — a colour rather than a signal, and it also drowned the very
+     figure it was meant to emphasise.
+     So `hot` is pinned false for the GROUND only. The count below still reads
+     the real number, which is the half of the old treatment that was doing the
+     work. "Require attention" keeps its hot state, so red still means
+     something on this card. */
   const hot = false
   /* Lifted into a positioned layer, exactly as Capsule does. HotWash is
      position:absolute and therefore paints above non-positioned in-flow
@@ -379,7 +381,7 @@ function IssueTile({ glyph, count, label, align = 'center', onSelect }) {
   const body = (
     <span className={cn('relative z-10 flex items-center', hot ? 'gap-[4.8px]' : 'gap-[8px]')}>
       {glyph}
-      <IssueCount zero={!hot}>{count}</IssueCount>
+      <IssueCount zero={count === 0}>{count}</IssueCount>
     </span>
   )
 

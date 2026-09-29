@@ -139,4 +139,33 @@ describe('the four issue tiles', () => {
       expect(button.getAttribute('style') || '', label).toContain('background')
     }
   })
+
+  it('still paints a non-zero FIGURE red — that is the half that carries it', () => {
+    /* The first pass at "don't like this red bg" took the colour off the count
+       as well, which is not what the old treatment did. 289bbd2 had one capsule
+       style always and `<IssueCount zero={count === 0}>`: calm ground, red
+       number. Both halves matter, so both are pinned. */
+    const { container } = render(
+      <SystemsHealthCard
+        healthy={{ percent: 13 }}
+        stats={{ requireAttention: 46, total: 53 }}
+        issues={{ offline: 10, valve: 0, power: 1, recipients: 1 }}
+        systemTypes={{ topology: 53, flood: 0, humidity: 0 }}
+        onSelectIssue={() => {}}
+      />,
+    )
+    const view = within(container)
+
+    // The hex, not the token path: the class is spelled with a real backslash
+    // (--colors\/red\/500) and matching that through a JS regex literal is all
+    // escaping and no clarity. The fallback colour is unambiguous.
+    const RED = '#fb2c36'
+    const figureIn = (name) =>
+      String(view.getByRole('button', { name }).querySelector('p').className)
+
+    expect(figureIn(/^Offline systems:/), '10 offline should read red').toContain(RED)
+
+    // A zero stays slate — the distinction the colour exists to make.
+    expect(figureIn(/^Valve errors:/), 'a zero should not be red').not.toContain(RED)
+  })
 })
