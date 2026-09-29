@@ -73,6 +73,7 @@ import EventOverlayV2 from '@/v2/components/EventOverlayV2'
 import InsightsCard from '@/v2/components/InsightsCard'
 import SystemsHealthCard from '@/v2/components/SystemsHealthCard'
 import SystemsTableCard from '@/v2/components/SystemsTableCard'
+import SystemsFilterSheet from '@/v2/components/SystemsFilterSheet'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
@@ -653,6 +654,11 @@ export default function HomeAllAccounts({ expanded = false }) {
   // holding data the card only displays.
   const [topUsageDays, setTopUsageDays] = useState(30)
   const [tab, setTab] = useState('overview')
+  /* System tab filters. Held here rather than in the card because the sheet is
+     an overlay and every wrapper Figma emits is `relative` — rendered inside
+     the tab body it would be trapped there instead of covering the frame. */
+  const [systemFilters, setSystemFilters] = useState({})
+  const [systemFiltersOpen, setSystemFiltersOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   // null | 'water' | 'alerts' — which dataset the full-list overlay is showing.
   const [overlay, setOverlay] = useState(null)
@@ -1036,7 +1042,7 @@ export default function HomeAllAccounts({ expanded = false }) {
               >
                 <div className="content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center min-w-px relative">
                   <TabTrigger label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')} />
-                  <TabTrigger label="System" active={tab === 'systems'} onClick={() => setTab('systems')} />
+                  <TabTrigger label="Systems" active={tab === 'systems'} onClick={() => setTab('systems')} />
                   <TabTrigger label="General Info" active={tab === 'general'} onClick={() => setTab('general')} />
                 </div>
               </div>
@@ -1073,6 +1079,8 @@ export default function HomeAllAccounts({ expanded = false }) {
               <div className="content-stretch flex flex-col items-start pb-[var(--spacing\/4,16px)] px-[var(--p-0,0px)] relative shrink-0 w-full">
                 <SystemsTableCard
                   systems={scopedSystems}
+                  selection={systemFilters}
+                  onOpenFilters={() => setSystemFiltersOpen(true)}
                   description={
                     locationName
                       ? `See information about all systems at ${decodeURIComponent(locationName)}.`
@@ -1106,6 +1114,22 @@ export default function HomeAllAccounts({ expanded = false }) {
       {/* The designed destination for "Show all" / "Show past events" / "Show
           past alerts" — Figma 198328:89685 and :90254 are this overlay in
           account scope. Renders null while `overlay` is null. */}
+      {/* "Filter by" for the System tab — page level for the same reason the
+          month sheet is: it has to cover the frame, not the tab body. */}
+      <SystemsFilterSheet
+        open={systemFiltersOpen}
+        /* UNFILTERED on purpose. If the options a category offers shrank as
+           choices were made, a viewer could not widen a filter from inside the
+           sheet that applied it. */
+        systems={scopedSystems}
+        selection={systemFilters}
+        onApply={next => {
+          setSystemFilters(next)
+          setSystemFiltersOpen(false)
+        }}
+        onClose={() => setSystemFiltersOpen(false)}
+      />
+
       {/* 198674:184354 — the advanced month sheet, at page level. */}
       <MonthPickerSheet
         variant="window"

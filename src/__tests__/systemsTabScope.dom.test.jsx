@@ -30,13 +30,13 @@ const renderAt = (path) =>
   )
 
 const openSystemsTab = () => {
-  fireEvent.click(screen.getByRole('button', { name: 'System' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Systems' }))
 }
 
 describe('the System tab', () => {
   it('sits alongside Overview and General Info', () => {
     renderAt('/')
-    for (const name of ['Overview', 'System', 'General Info']) {
+    for (const name of ['Overview', 'Systems', 'General Info']) {
       expect(screen.getByRole('button', { name }), name).toBeTruthy()
     }
   })

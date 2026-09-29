@@ -28,19 +28,23 @@
  *   - Water Flow and Life Cycle. Neither has a field in the dataset and the
  *     rule for deriving them is still owed, so they are absent rather than
  *     invented. See the pending note on the detail list below.
- *   - The device TYPE sub-line ("Flow Monitor" / "Humidity Sensor" / "Flood
- *     sensor") the desktop draws under the system name. HomeAllAccounts
- *     already documents that this dataset holds no flood and no humidity
- *     device records — topology is the whole fleet — so a type sub-line would
- *     either read "Flow Monitor" on every row or imply variety that is not
- *     there. The site name takes that line instead, which is real and varies.
+ *   - The device TYPE as a text sub-line. The type is carried by the row's
+ *     ICON instead (SystemTypeIcon — the same three glyphs the health card
+ *     draws on its "Systems types" chips), which is where the desktop puts it
+ *     too, and the site name takes the text line because it actually varies.
+ *     Against today's dataset every system resolves to Flow Monitoring: every
+ *     record carries a water meter and none carries a flood or humidity
+ *     device, which is the same fact HomeAllAccounts reports as flood: 0 /
+ *     humidity: 0. See src/data/systemType.js.
  *   - The node's primary "Add member" button. There is no add-system action in
  *     this mockup and a control that does nothing is worse than no control.
  */
 import { Fragment, useMemo, useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Search01, Waves } from '@/v2/icons'
+import { FunnelSimple, Search01 } from '@/v2/icons'
+import SystemTypeIcon from '@/v2/components/SystemTypeIcon'
+import { activeFilterCount, applyFilters } from '@/data/systemFilters'
 import {
   Table,
   TableBody,
@@ -134,19 +138,36 @@ export default function SystemsTableCard({
   title = 'Systems',
   description = 'See information about all systems.',
   onOpenSystem,
+  /* The filter SHEET is mounted by the page, not here: every wrapper Figma
+     emits carries `relative`, so an overlay rendered inside this card would be
+     trapped in the tab body instead of covering the phone frame. The card owns
+     the button and the narrowing; the page owns the surface. Same split the
+     consumption card already uses for its month picker. */
+  selection,
+  onOpenFilters,
   className,
 }) {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
   const [openId, setOpenId] = useState(null)
 
+  /* Filters narrow first, then the search runs over what survives. The other
+     order would let a search box appear to find rows the active filter has
+     excluded. The filter sheet still offers options from the UNFILTERED set,
+     so a viewer can always widen a choice they have already made. */
   const filtered = useMemo(() => {
+    const scoped = applyFilters(systems, selection)
     const q = query.trim().toLowerCase()
-    if (!q) return systems
-    return systems.filter((s) =>
+    if (!q) return scoped
+    return scoped.filter((s) =>
       [s.name, s.l4Name, s.address].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)),
     )
-  }, [systems, query])
+  }, [systems, selection, query])
+
+  const activeFilters = activeFilterCount(selection)
+
+  /* A newly applied filter can strand the viewer the same way a search can;
+     pageCount below clamps for both, so nothing extra is needed here. */
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
 
@@ -163,7 +184,7 @@ export default function SystemsTableCard({
       {/* DataTableToolbar — I176511:26285;2770:33989 */}
       <div className="flex w-full flex-col gap-[var(--pro\/space\/5,16px)]">
         <div className="flex w-full flex-col gap-[var(--pro\/space\/0\,5,2px)]">
-          <div className="flex items-center gap-[8px]">
+          <div className="flex items-baseline gap-[8px]">
             <h2 className="font-semibold tracking-[var(--text\/xl\/heading-tracking,-0.5px)] text-[length:var(--text\/xl\/size,20px)] leading-[var(--font\/line-height\/leading-7,28px)] text-[color:var(--foreground,#0a0a0a)]">
               {title}
             </h2>
@@ -194,11 +215,32 @@ export default function SystemsTableCard({
               className="w-full min-w-0 bg-transparent text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)] outline-none placeholder:text-[color:var(--muted-foreground,#737373)]"
             />
           </div>
+
+          {onOpenFilters ? (
+          <button
+            type="button"
+            onClick={onOpenFilters}
+            aria-label={activeFilters ? `Filter by (${activeFilters} active)` : 'Filter by'}
+            className="relative flex h-[32px] shrink-0 items-center gap-[6px] rounded-[var(--component\/button\/size-default\/radius,8px)] border-[length:var(--border-width\/border,1px)] border-solid border-[var(--component\/input\/border,#e5e5e5)] bg-[var(--component\/input\/bg,white)] px-[12px] text-[length:var(--text\/sm\/size,14px)] font-medium leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)] outline-none hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <FunnelSimple size={16} className="shrink-0" />
+            {activeFilters ? (
+              <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--wint-blue-accent,#0b81f8)] px-[5px] text-[11px] font-medium leading-[14px] text-white">
+                {activeFilters}
+              </span>
+            ) : null}
+          </button>
+          ) : null}
         </div>
       </div>
 
       {/* table — I176511:26285;2770:33345 */}
-      <div className="w-full overflow-clip rounded-[var(--component\/card\/radius,14px)] border-[length:var(--border-width\/border,1px)] border-solid border-[var(--border,#e4e4e7)]">
+      {/* bg is load-bearing here. The node draws this block on --background
+          (white) and the table inherits it, so Figma's codegen emits no fill on
+          the container. This app's screen is a blue gradient, so inheriting
+          meant the rows were transparent and the gradient showed through every
+          one of them. The ground has to be stated. */}
+      <div className="w-full overflow-clip rounded-[var(--component\/card\/radius,14px)] border-[length:var(--border-width\/border,1px)] border-solid border-[var(--border,#e4e4e7)] bg-[var(--card,white)]">
         <Table className="table-fixed">
           {/* The node's grid track, as real columns. */}
           <colgroup>
@@ -229,7 +271,9 @@ export default function SystemsTableCard({
                 >
                   {systems.length === 0
                     ? 'No systems at this location.'
-                    : `No system matches “${query}”.`}
+                    : query
+                      ? `No system matches “${query}”.`
+                      : 'No system matches these filters.'}
                 </TableCell>
               </TableRow>
             ) : (
@@ -246,13 +290,23 @@ export default function SystemsTableCard({
                   >
                     {/* col-1 — identity. The node's 32px round avatar becomes a
                         tinted tile: these rows are equipment, not people. */}
-                    <TableCell className="h-[64px] min-h-[40px] py-[var(--component\/data-table\/cell\/padding,8px)] pl-[var(--pro\/space\/5,16px)] pr-[var(--component\/data-table\/cell\/padding,8px)]">
+                    {/* min-h rather than the node's fixed h-64: system names
+                        here run to "Cooling Tower Makeup — Zone 3", and the
+                        node was drawn against "Emma Roberts". A fixed height
+                        forces a single line, which truncated almost every row
+                        at about fifteen characters. */}
+                    <TableCell className="min-h-[40px] py-[var(--component\/data-table\/cell\/padding,8px)] pl-[var(--pro\/space\/5,16px)] pr-[var(--component\/data-table\/cell\/padding,8px)] whitespace-normal">
                       <div className="flex min-w-0 items-center gap-[var(--pro\/space\/2,6px)]">
+                        {/* The glyph IS the system type — Flow Monitoring,
+                            Flood Sensor or Humidity Sensor — not a generic
+                            equipment mark. Same three glyphs the health card
+                            draws on its "Systems types" chips, so the two
+                            surfaces cannot drift. */}
                         <span className="flex size-[32px] shrink-0 items-center justify-center rounded-[var(--rounded-full,9999px)] bg-[var(--colors\/slate\/100,#f1f5f9)] text-[color:var(--colors\/slate\/500,#62748e)]">
-                          <Waves size={16} />
+                          <SystemTypeIcon system={s} size={16} />
                         </span>
                         <span className="flex min-w-0 flex-1 flex-col justify-center">
-                          <span className="truncate text-[length:var(--text\/sm\/size,14px)] font-medium leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#09090b)]">
+                          <span className="line-clamp-2 text-[length:var(--text\/sm\/size,14px)] font-medium leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#09090b)]">
                             {s.name}
                           </span>
                           <span className="truncate text-[12px] leading-[var(--text\/xs\/lh,16px)] tracking-[0.12px] text-[color:var(--muted-foreground,#71717a)]">
@@ -263,7 +317,7 @@ export default function SystemsTableCard({
                     </TableCell>
 
                     {/* col-2 — the one status that survives the 80px slot. */}
-                    <TableCell className="h-[64px] min-h-[40px] p-[var(--component\/data-table\/cell\/padding,8px)]">
+                    <TableCell className="h-[64px] p-[var(--component\/data-table\/cell\/padding,8px)] align-middle">
                       {leak ? (
                         <StatusBadge tone={LEAK_TONE[leak]}>{LEAK_LABEL[leak]}</StatusBadge>
                       ) : (
@@ -372,6 +426,7 @@ export default function SystemsTableCard({
           </PagerButton>
         </div>
       </div>
+
     </div>
   )
 }
