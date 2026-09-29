@@ -2,10 +2,17 @@
 // Modelled after the desktop pulse2_product_sandbox
 import { SYSTEMS } from './systems';
 import { getInsightsForSystem } from './upstream/insightsModel';
+import { configFor, pipeTopologyOf, unitsFor } from './systemConfig';
+
+export { PIPE_TOPOLOGY, NO_PIPING } from './systemConfig';
 
 // ── Insights per system (seeded, deterministic) ─────────────────────────────
 
 // ── System topology / device details ────────────────────────────────────────
+
+/* Pipe topology and the device counts each type carries live in
+   ./systemConfig — Water line / Open loop / Closed loop, with the meter, valve
+   and VMA counts taken off the Figma schematics. */
 
 const SYSTEM_DETAILS_MAP = {
   // Suffolk Construction – Tower One
@@ -31,7 +38,7 @@ const SYSTEM_DETAILS_MAP = {
   f11a: { topology: 'Water Line - General Line', deviceType: 'VMA', meter: 'Neptune T-10 3/4"', valve: null, status: 'online' },
 };
 
-function getDefaultDetails(systemId) {
+function getDefaultDetails() {
   return { topology: 'Water Line - Single Apartment', deviceType: 'VMA', meter: 'Arad Octave 3/4"', valve: 'Toine 3/4"', status: 'online' };
 }
 
@@ -127,8 +134,44 @@ export function getSystemInsights(systemId) {
   return getInsightsForSystem(SYSTEMS.find(s => s.id === systemId));
 }
 
-export function getSystemTopology(systemId) {
-  return SYSTEM_DETAILS_MAP[systemId] || getDefaultDetails(systemId);
+export function getSystemTopology(systemId, systemName = '') {
+  /* NOTE: SYSTEM_DETAILS_MAP is keyed by legacy ids (ct1, msl, t5ct) and the
+     dataset's systems are ws-#### — not one key matches, so in practice every
+     system takes the default. systemConfig.pipeTopologyOf therefore reads the
+     system NAME, which is real. Left as-is rather than re-keyed: the map is
+     still the shape the Info tab's `specs.*` rows expect, and re-pointing 18
+     hand-written rows at ws- ids would be guesswork about which is which. */
+  const details = SYSTEM_DETAILS_MAP[systemId] || getDefaultDetails();
+  const pipeTopology = pipeTopologyOf(details, systemName);
+  /* Resolved here rather than written into all 18 rows by hand, so a cooling
+     tower cannot be added without its loop. The counts come with it, which is
+     what the System page reads to decide how many units to draw.
+     `monitoredEnvironment` is the other `specs.*` field the PRD names; only
+     the cooling case is documented, so the rest stay null. */
+  return {
+    ...details,
+    pipeTopology,
+    config: pipeTopology ? configFor(pipeTopology) : null,
+    monitoredEnvironment:
+      details.monitoredEnvironment ??
+      (/cooling tower/i.test(details.topology ?? '') ? 'Outdoor · cooling' : null),
+  };
+}
+
+/**
+ * The monitored units of a system — one per leg of its pipe topology, so a
+ * water line yields one and either loop yields Supply + Return.
+ */
+export function getSystemUnits(system) {
+  if (!system) return [];
+  return unitsFor(getSystemTopology(system.id, system.name), {
+    valve: system.valve,
+    comm: system.comm,
+    power: system.power,
+    serial: system.upstream?.waterSystemId ?? null,
+    idPrefix: system.id,
+    name: system.name,
+  });
 }
 
 export function getActivePolicy(systemId) {

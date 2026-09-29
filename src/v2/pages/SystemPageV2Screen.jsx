@@ -71,7 +71,12 @@ import {
 import { getSystemById } from '@/data/systems'
 import { getConsumption } from '@/data/consumption'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
-import { getSystemInsights, getSystemTopology, getActivePolicy } from '@/data/systemDetails'
+import {
+  getSystemInsights,
+  getSystemTopology,
+  getSystemUnits,
+  getActivePolicy,
+} from '@/data/systemDetails'
 import { getEventsForSystem } from '@/data/events'
 import { ignoreIncident, clearIgnored, isIgnored } from '@/data/ignoredIncidents'
 import { startInvestigating, isInvestigating } from '@/data/investigatingStore'
@@ -496,28 +501,13 @@ export default function SystemPageV2Screen() {
     }))
 
     const insights = getSystemInsights(sys.id) ?? []
-    const topology = getSystemTopology(sys.id) ?? null
+    const topology = getSystemTopology(sys.id, sys.name) ?? null
 
-    /* The devices the topology card describes. Figma draws TWO — "Supply" and
-       "Supply" again, both SN 4471822 — because its comp is an open loop. This
-       dataset has no loops: every getSystemTopology row is a "Water Line - …"
-       and carries a single VMA, so one device is the honest answer and a
-       second would be a fabricated unit with a duplicated serial.
-       'No Piping Monitored' means there is nothing to draw at all. */
-    const devices =
-      topology && topology.topology !== 'No Piping Monitored'
-        ? [
-            {
-              id: `${sys.id}-supply`,
-              name: 'Supply',
-              // Real per-system value from the CRM export, not a comp constant.
-              serial: sys.upstream?.waterSystemId ?? null,
-              valve: sys.valve,
-              comm: sys.comm,
-              power: sys.power,
-            },
-          ]
-        : []
+    /* One unit per leg of the system's pipe topology — a water line yields
+       one, either loop yields Supply + Return, and "No Piping Monitored"
+       yields none. The counts live in src/data/systemConfig.js, taken off the
+       Figma schematics, so this page does not decide them. */
+    const devices = getSystemUnits(sys)
     const policy = getActivePolicy(sys.id) ?? null
     const consumption = getConsumption(sys.id, sys.name) ?? null
 
@@ -911,11 +901,12 @@ export default function SystemPageV2Screen() {
                       className="shrink-0"
                       expanded={loopExpanded}
                       onToggle={() => setLoopExpanded(v => !v)}
-                      /* The node's title is "Open loop" because its comp is
-                         one. Ours takes the topology the system really has, so
-                         a single water line is not labelled as a loop. */
-                      title={system.topology?.topology ?? 'Open loop'}
-                      topology="water-line"
+                      /* The card is titled by the topology the system has —
+                         "Open loop" on a cooling tower, "Water line"
+                         elsewhere — and draws that type's schematic. Both come
+                         from systemConfig rather than being decided here. */
+                      title={system.topology?.pipeTopology ?? 'Open loop'}
+                      topology={system.topology?.config?.schematic ?? 'water-line'}
                       devices={loopDevices}
                       /* The node draws both controls, so both are drawn. There
                          is no shared valve action in this app — ValveControlCard
