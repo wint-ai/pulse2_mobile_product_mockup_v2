@@ -64,11 +64,6 @@ export const FILTER_CATEGORIES = [
     valueOf: (s) => systemTypeOf(s),
     labelOf: (v) => SYSTEM_TYPE_LABEL[v] ?? v,
     sort: order(SYSTEM_TYPE_ORDER),
-    /* The reference panel draws each system type beside its glyph, and the
-       glyph is how the type is identified everywhere else in the app. Named
-       rather than imported here so this module stays free of components —
-       the sheet maps the name onto SystemTypeIcon. */
-    iconKind: 'systemType',
   },
   {
     id: 'connectivity',

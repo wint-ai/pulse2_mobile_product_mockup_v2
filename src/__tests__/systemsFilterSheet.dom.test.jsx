@@ -183,3 +183,33 @@ describe('the table under a filter', () => {
     expect(within(container).queryByRole('button', { name: /Filter by/ })).toBeNull()
   })
 })
+
+describe('every filter option carries a glyph', () => {
+  // "still no icons" — the first pass only drew them for System Type, so a
+  // category like Valve status was a column of bare labels. This walks every
+  // category rather than spot-checking one, because that is exactly the gap
+  // the first pass left.
+  it.each([
+    ['Location', 1],
+    ['Attention', 1],
+    ['System Type', 1],
+    ['Connectivity', 1],
+    ['Valve status', 1],
+    ['Active event', 1],
+    ['Power', 1],
+  ])('%s draws one per option', (label) => {
+    const { container } = openSheet()
+    const view = within(container)
+
+    fireEvent.click(view.getByRole('button', { name: new RegExp(`^${label}`) }))
+
+    // Every option row is a button; "Select all" is the one without a glyph.
+    const rows = [...container.querySelectorAll('li')].filter(
+      (li) => !li.textContent.includes('Select all'),
+    )
+    expect(rows.length, `${label} should offer options`).toBeGreaterThan(0)
+    for (const row of rows) {
+      expect(row.querySelector('svg'), `${label}: "${row.textContent}" has no glyph`).toBeTruthy()
+    }
+  })
+})

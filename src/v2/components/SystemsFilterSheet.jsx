@@ -21,7 +21,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Search01 } from '@/v2/icons'
-import SystemTypeIcon from '@/v2/components/SystemTypeIcon'
+import FilterOptionIcon from '@/v2/components/FilterOptionIcon'
 import { FILTER_CATEGORIES, FILTER_CATEGORY_BY_ID, filterOptions } from '@/data/systemFilters'
 
 /** A tick box drawn to the panel's 16px square, not a native checkbox. */
@@ -103,7 +103,9 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
         className="absolute inset-0 cursor-default bg-[rgba(15,23,43,0.45)]"
       />
 
-      <div className="relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[var(--rounded-2xl,18px)] bg-[var(--card,white)]">
+      {/* #fafbfc, matching the widgets it filters, rather than shadcn's
+          plain white — the sheet is part of this app, not the library demo. */}
+      <div className="relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[var(--rounded-2xl,18px)] bg-[#fafbfc]">
         <div className="flex shrink-0 items-center gap-[8px] border-b-[length:var(--border-width\/border,1px)] border-solid border-[var(--border,#e4e4e7)] px-[16px] py-[12px]">
           {category ? (
             <button
@@ -218,13 +220,11 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
                         className="flex w-full items-center gap-[12px] px-[16px] py-[12px] text-left outline-none hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       >
                         <CheckBox checked={picked.includes(o.value)} />
-                        {category.iconKind === 'systemType' ? (
-                          <SystemTypeIcon
-                            type={o.value}
-                            size={16}
-                            className="flex shrink-0 items-center text-[color:var(--colors\/slate\/500,#62748e)]"
-                          />
-                        ) : null}
+                        {/* EVERY category, not only System Type. A column of
+                            bare labels is what "still no icons" meant. */}
+                        <span className="flex size-[16px] shrink-0 items-center justify-center text-[color:var(--colors\/slate\/500,#62748e)]">
+                          <FilterOptionIcon categoryId={category.id} value={o.value} size={16} />
+                        </span>
                         <span className="flex-1 truncate text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)]">
                           {o.label}
                         </span>

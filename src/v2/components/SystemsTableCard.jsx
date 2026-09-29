@@ -235,12 +235,17 @@ export default function SystemsTableCard({
       </div>
 
       {/* table — I176511:26285;2770:33345 */}
-      {/* bg is load-bearing here. The node draws this block on --background
-          (white) and the table inherits it, so Figma's codegen emits no fill on
-          the container. This app's screen is a blue gradient, so inheriting
-          meant the rows were transparent and the gradient showed through every
-          one of them. The ground has to be stated. */}
-      <div className="w-full overflow-clip rounded-[var(--component\/card\/radius,14px)] border-[length:var(--border-width\/border,1px)] border-solid border-[var(--border,#e4e4e7)] bg-[var(--card,white)]">
+      {/* GROUND. Two separate things were wrong here.
+          First, Figma draws Table 16 on --background and lets the table inherit
+          it, so its codegen emits no fill at all — on this app's gradient
+          screen that left every row transparent.
+          Second, the fix reached for shadcn's default white on #e4e4e7 at
+          radius 14, which is not what this app's cards look like. Every other
+          widget on this screen — water events, systems health, insights, top
+          usage — is #fafbfc on a WHITE border at radius 18. The table is a
+          widget on that screen, so it takes that palette and stops being the
+          one panel wearing the library's defaults. */}
+      <div className="w-full overflow-clip rounded-[var(--rounded-2xl,18px)] border-[length:var(--border-width\/border,1px)] border-solid border-white bg-[#fafbfc]">
         <Table className="table-fixed">
           {/* The node's grid track, as real columns. */}
           <colgroup>
@@ -249,7 +254,7 @@ export default function SystemsTableCard({
             <col className="w-[56px]" />
           </colgroup>
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
+            <TableRow className="border-[var(--colors\/slate\/200,#e2e8f0)] hover:bg-transparent">
               <TableHead className="h-[40px] pl-[var(--pro\/space\/5,16px)] pr-[var(--component\/data-table\/head\/px,8px)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)]">
                 System
               </TableHead>

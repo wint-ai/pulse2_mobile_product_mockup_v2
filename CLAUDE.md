@@ -24,7 +24,11 @@ Quick rule of thumb:
 npm run deploy       # = npm run build + npx gh-pages -d dist
 ```
 
-Deployed at https://wint-ai.github.io/pulse2_mobile_product_mockup/. GH Pages usually serves the new build within ~1 minute. If you need to bust browser cache during a review, append `?v=N` to URLs.
+Deployed at https://wint-ai.github.io/pulse2_mobile_product_mockup_v2/ — note the
+`_v2`. This repo's remote is `pulse2_mobile_product_mockup_v2` and vite.config.js
+sets `base: '/pulse2_mobile_product_mockup_v2/'`. The URL without the suffix is the
+V1 repo and is a different, older site: polling it to confirm a deploy reports
+failure forever while the real deploy has already succeeded. GH Pages usually serves the new build within ~1 minute. If you need to bust browser cache during a review, append `?v=N` to URLs.
 
 The `postbuild` step writes `dist/404.html` (a copy of `index.html`) so deep links like `/push-panel`, `/control`, `/alert/...` resolve on GH Pages.
 
