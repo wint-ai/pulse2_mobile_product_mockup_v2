@@ -56,6 +56,49 @@ const TEXT_BUTTON = String.raw`[word-break:break-word] font-[family-name:var(--f
 const BTN = String.raw`flex h-[24px] shrink-0 items-center justify-center gap-[var(--spacing\/1,4px)] bg-[#f2f6ff] px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] rounded-[var(--component\/button\/size-xs\/radius,26px)]`
 const BTN_OUTLINE = String.raw`border border-solid border-[var(--wint-blue-accent,#0b81f8)]`
 
+/* Artwork duplicated from TopologyCard.jsx, which does not export it — the
+   same PROVENANCE arrangement src/v2/icons/index.js already documents for the
+   glyphs shared with WintSidebarV2 and AlertCard. Identical geometry on
+   purpose: the collapsed and expanded variants draw the same rules. */
+const DashboardSpeed02 = (props) => (
+  <svg width="15.634" height="14.194" viewBox="0 0 13.0286 11.8286" fill="none" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" {...props}>
+    <circle cx="6.51429" cy="9.51429" r="1.8" stroke="#62748E" strokeWidth="1.02857" />
+    <path d="M6.51429 7.71429V4.71429" stroke="#62748E" strokeWidth="1.02857" strokeLinecap="round" />
+    <path d="M12.5143 6.51429C12.5143 3.20058 9.82799 0.514286 6.51429 0.514286C3.20058 0.514286 0.514286 3.20058 0.514286 6.51429" stroke="#62748E" strokeWidth="1.02857" strokeLinecap="round" />
+  </svg>
+)
+
+/** The 7.2x1.2 rule between the speed badge and the valve pill. */
+const PillConnector = (props) => (
+  <svg width="7.2" height="1.2" viewBox="0 0 7.2 1.2" fill="none" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" {...props}>
+    <path d="M0 0.6H7.2" stroke="#CAD5E2" strokeWidth="1.2" />
+  </svg>
+)
+
+/* The rule dropping from the name row past the badges and the photo to the
+   valve row. The node draws it horizontally at 197px and rotates the wrapper
+   90deg, anchored left-[12px] — the centre line of the 24px name badge. That
+   construction is reproduced rather than replaced by a border, because the
+   rotation is what puts its ends where the design has them. */
+const BranchConnector = (props) => (
+  <svg width="197" height="1" viewBox="0 0 197 1" fill="none" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" {...props}>
+    <path d="M0 0.5H197" stroke="#CAD5E2" />
+  </svg>
+)
+
+/** 198687:51535 — the 24px speed badge that opens the valve row. */
+function SpeedBadge() {
+  return (
+    <div className={String.raw`flex size-[24px] shrink-0 items-center justify-center gap-[var(--component\/badge\/gap,4.8px)] overflow-clip px-[var(--component\/tabs\/trigger\/gap,7.2px)] py-[var(--component\/badge\/py,2.4px)] rounded-[var(--component\/badge\/radius,31.2px)]`}>
+      <div className="flex shrink-0 flex-col items-start">
+        <div className="flex size-[17.28px] shrink-0 items-center justify-center overflow-clip">
+          <DashboardSpeed02 />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** 198736:111920 — the small status badge: h-24, px-8, radius 26. */
 function InfoBadge({ icon, children, tone = 'slate-500', white = false }) {
   return (
@@ -94,7 +137,21 @@ function DeviceCard({ device, onCloseValve }) {
       data-device-id={device.id}
       className="flex w-full shrink-0 items-center rounded-[12px] bg-[#f2f6ff] px-[9px] py-[10px]"
     >
-      <div className="flex min-w-px flex-1 flex-col gap-[12px] self-stretch">
+      <div className="relative flex min-w-px flex-1 flex-col gap-[12px] self-stretch">
+        {/* 198687:51593 — the rule from the name badge down to the valve row. */}
+        <div
+          aria-hidden="true"
+          className="absolute left-[12px] top-[22px] flex h-[197px] w-0 items-center justify-center"
+        >
+          <div className="flex-none rotate-90">
+            <div className="relative h-0 w-[197px]">
+              <div className="absolute inset-[-1px_0_0_0]">
+                <BranchConnector />
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Name row — the 24px serial badge, the line name, then the serial. */}
         <div className="flex shrink-0 items-center gap-[6px]">
           <div
@@ -111,31 +168,57 @@ function DeviceCard({ device, onCloseValve }) {
           ) : null}
         </div>
 
-        {/* Power and connectivity, as words rather than bare glyphs — this is
-            the variant that DESCRIBES the system, so it spells them out. */}
-        <div className="flex shrink-0 flex-wrap items-center gap-[4px]">
-          <InfoBadge icon={device.power === 'ac-lost' ? <PowerOff size={12} /> : <Plug size={12} />}>
-            {POWER_LABEL[device.power] ?? 'Not reporting'}
-          </InfoBadge>
-          <InfoBadge icon={device.comm === 'offline' ? <WifiOff size={12} /> : <Wifi size={12} />}>
-            {device.comm === 'offline' ? 'Offline' : 'Connected'}
-          </InfoBadge>
+        {/* 198736:152212 / :152568 — power and connectivity. Both are WHITE
+            badges, both indented pl-20 to clear the branch rule, and both sit
+            in the same 201px column the photo below uses. The gap is 4.8. */}
+        <div className="flex shrink-0 items-center pl-[20px]">
+          <div className="flex w-[201px] shrink-0 flex-col items-start">
+            <div className="flex shrink-0 items-center gap-[4.8px]">
+              <InfoBadge
+                white
+                icon={device.power === 'ac-lost' ? <PowerOff size={12} /> : <Plug size={12} />}
+              >
+                {POWER_LABEL[device.power] ?? 'Not reporting'}
+              </InfoBadge>
+              <InfoBadge
+                white
+                icon={device.comm === 'offline' ? <WifiOff size={12} /> : <Wifi size={12} />}
+              >
+                {device.comm === 'offline' ? 'Offline' : 'Connected'}
+              </InfoBadge>
+            </div>
+          </div>
         </div>
 
         {/* 198687:51529 — the product shot. mix-blend-multiply is the node's:
             the source has a near-white ground and no alpha, which is exactly
             why the design multiplies it onto the #f2f6ff panel. */}
-        <div className="flex w-full shrink-0 items-center justify-center rounded-[8px]">
-          <img
-            src={vmaFront}
-            alt=""
-            aria-hidden="true"
-            className="pointer-events-none h-[144px] w-[120px] max-w-none object-contain mix-blend-multiply"
-          />
+        <div className="flex w-full shrink-0 flex-col items-center justify-center">
+          <div className="flex w-[201px] shrink-0 items-center justify-center rounded-[8px]">
+            <div className="relative h-[144px] w-[120px] shrink-0 mix-blend-multiply">
+              <img
+                src={vmaFront}
+                alt=""
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 size-full max-w-none object-cover"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Valve row — state pill, then the per-device control. */}
-        <div className="flex shrink-0 flex-wrap items-center gap-[6px]">
+        {/* Valve row 198687:51531 — the speed badge, the 7.2px rule, then the
+            state pill and the control. The badge and the rule were missing on
+            the first pass, which is most of why this did not read as the comp. */}
+        <div className="flex shrink-0 items-center">
+          <div className="flex shrink-0 items-end rounded-[30px]">
+            <SpeedBadge />
+          </div>
+          <div aria-hidden="true" className="relative h-0 w-[7.2px] shrink-0">
+            <div className="absolute inset-[-0.6px_0]">
+              <PillConnector />
+            </div>
+          </div>
+          <div className="flex shrink-0 items-end gap-[6px]">
           <InfoBadge
             icon={<ValveStatus state={device.valve ?? 'no-valve'} size={12} />}
             tone="slate-600"
@@ -164,6 +247,7 @@ function DeviceCard({ device, onCloseValve }) {
               </span>
             </button>
           ) : null}
+          </div>
         </div>
       </div>
     </div>

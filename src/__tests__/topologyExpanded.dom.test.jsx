@@ -135,3 +135,62 @@ describe('the expanded topology card', () => {
     expect(container.querySelectorAll('img')).toHaveLength(0)
   })
 })
+
+describe('the geometry the first pass got wrong', () => {
+  /* "it needs to be pixel match with figma and its not" — it wasn't. Diffing
+     against 198736:153302 turned up six misses, and every one of them is
+     pinned here rather than left to the eye. */
+  const renderOne = () => render(<TopologyExpandedCard devices={[device()]} />)
+
+  /* Tailwind arbitrary values put brackets and dots in the class name, and
+     escaping those for querySelector is all backslashes and no clarity. Scan
+     the strings instead — same approach the health-card tests settled on. */
+  const withClass = (container, token) =>
+    [...container.querySelectorAll('*')].filter((el) =>
+      String(el.className?.baseVal ?? el.className ?? '').includes(token),
+    )
+
+  it('paints the power and connectivity badges white', () => {
+    // The node gives both `bg-white`; they were transparent on the #f2f6ff
+    // panel, so they read as bare text rather than as badges.
+    const { container } = renderOne()
+    for (const label of ['AC', 'Connected']) {
+      const badge = within(container).getByText(label).closest('div')
+      expect(String(badge.className), label).toContain('bg-white')
+    }
+  })
+
+  it('indents that row past the branch rule and holds it to the 201px column', () => {
+    const { container } = renderOne()
+    expect(withClass(container, 'pl-[20px]').length, 'the pl-20 indent').toBeGreaterThan(0)
+    // The badges and the photo share one column width in the node.
+    expect(withClass(container, 'w-[201px]').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('opens the valve row with the speed badge and its 7.2px rule', () => {
+    // Both were absent, which is most of why the row did not read as the comp.
+    const { container } = renderOne()
+    expect(withClass(container, 'size-[17.28px]').length, 'speed glyph').toBeGreaterThan(0)
+    expect(withClass(container, 'w-[7.2px]').length, 'pill connector').toBeGreaterThan(0)
+  })
+
+  it('drops the branch rule from the name badge to the valve row', () => {
+    const { container } = renderOne()
+    const [rule] = withClass(container, 'h-[197px]')
+    expect(rule, 'the 197px branch rule').toBeTruthy()
+    // Anchored on the 24px name badge's centre line, and rotated into place.
+    expect(String(rule.className)).toContain('left-[12px]')
+    expect(withClass(rule, 'rotate-90').length, 'the node rotates this rule').toBeGreaterThan(0)
+  })
+
+  it('fits the unit photo the way the node does', () => {
+    // object-cover in a 120x144 box under mix-blend-multiply — the source has
+    // a near-white ground and no alpha, which is why the design multiplies it.
+    const { container } = renderOne()
+    const img = container.querySelector('img')
+    expect(String(img.className)).toContain('object-cover')
+    expect(String(img.parentElement.className)).toContain('mix-blend-multiply')
+    expect(String(img.parentElement.className)).toContain('h-[144px]')
+    expect(String(img.parentElement.className)).toContain('w-[120px]')
+  })
+})
