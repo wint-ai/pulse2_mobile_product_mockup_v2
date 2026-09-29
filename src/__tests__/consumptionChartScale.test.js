@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest'
 import {
   approxTextWidth,
   bucketAccessibleName,
+  bucketHitWidth,
   isBucketOpenable,
   niceScale,
   niceStep,
@@ -224,5 +225,28 @@ describe('width-driven thinning', () => {
     expect(xLabelEvery(12, 1000, 1)).toBeGreaterThanOrEqual(1)
     expect(valueLabelEvery(0)).toBe(Infinity)
     expect(valueLabelEvery(1000, 10)).toBe(1)
+  })
+})
+
+describe('bucketHitWidth — §19 makes the BUCKET the target', () => {
+  it('uses the measured column once the plot has been measured', () => {
+    /* A QA sweep found 5px of tappable width inside a 21px bucket, because the
+       column was inferred from the bar rather than measured. */
+    expect(bucketHitWidth(21.33, 3, 1, 0.42)).toBe(21.33)
+    // Even beside a comparison bar, the column is still the column.
+    expect(bucketHitWidth(21.33, 3, 2, 0.42)).toBe(21.33)
+  })
+
+  it('falls back to the inference only before the first measure', () => {
+    // barWidth / (1 - gap) — right only when the bar truly fills its column.
+    expect(bucketHitWidth(0, 12.4, 1, 0.42)).toBeCloseTo(21.38, 1)
+    // Two series share the column, so widening would overlap the pair.
+    expect(bucketHitWidth(0, 6, 2, 0.42)).toBe(6)
+  })
+
+  it('never returns less than the bar it covers', () => {
+    for (const [slot, bar] of [[21.33, 3], [0, 12], [40, 5], [0, 6]]) {
+      expect(bucketHitWidth(slot, bar, 1, 0.42), `${slot}/${bar}`).toBeGreaterThanOrEqual(bar)
+    }
   })
 })

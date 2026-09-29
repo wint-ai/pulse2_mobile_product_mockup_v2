@@ -1013,9 +1013,20 @@ export default function NavigationDrawer({ open, onClose, onSelectLocation, curr
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: theme.drawerInput || theme.inputBg, borderRadius: 8, padding: '7px 10px' }}>
               <MIcon name="search" size={15} color={theme.drawerTextSub || theme.textTertiary} style={{ marginRight: 6 }} />
+              {/* aria-label, not the placeholder: a placeholder is not an
+                  accessible name — it disappears the moment anything is typed,
+                  and several screen readers never announce it at all. */}
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('drawer.search_placeholder')}
+                aria-label={t('drawer.search_placeholder')}
                 style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 14, color: theme.drawerText || theme.text, fontFamily: 'inherit', outline: 'none', minWidth: 0 }} />
-              {search && <span onClick={() => setSearch('')} style={{ cursor: 'pointer', display: 'flex' }}><MIcon name="close" size={14} color={theme.drawerTextSub || theme.textTertiary} /></span>}
+              {/* A clear control has to be reachable by keyboard and has to
+                  announce itself; a bare <span> with onClick is neither. */}
+              {search && (
+                <button type="button" onClick={() => setSearch('')} aria-label={t('common.clear') || 'Clear search'}
+                  style={{ cursor: 'pointer', display: 'flex', border: 'none', background: 'transparent', padding: 0 }}>
+                  <MIcon name="close" size={14} color={theme.drawerTextSub || theme.textTertiary} />
+                </button>
+              )}
             </div>
             <span onClick={onClose} style={{ cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}>
               <MIcon name="close" size={22} color={theme.drawerTextSub || theme.textTertiary} />

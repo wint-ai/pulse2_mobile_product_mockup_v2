@@ -179,3 +179,27 @@ export function prefersReducedMotion() {
     return false
   }
 }
+
+/**
+ * The width of a bucket's touch target.
+ *
+ * §19 makes the BUCKET the target, not the drawn bar. The card used to infer
+ * the column from the bar — `barWidth / (1 - barCategoryGap)` — on the
+ * assumption that a bar fills its column minus the gap. It does not once a
+ * maxBarSize or a second series is in play, and a QA sweep measured the result
+ * at 5px of tappable width inside a 21px bucket: a quarter of the column, and
+ * unhittable on a phone.
+ *
+ * So the measured column wins whenever the plot has been measured. The
+ * inference survives only as the first-paint fallback, where it still beats a
+ * bar-width target.
+ *
+ * @param slotWidth  the measured category step, or 0 before the first measure
+ * @param barWidth   the drawn bar's own width
+ * @param seriesCount 2 while a comparison bar shares the column
+ * @param gap        barCategoryGap, as a fraction
+ */
+export function bucketHitWidth(slotWidth, barWidth, seriesCount = 1, gap = 0.42) {
+  if (slotWidth > 0) return slotWidth
+  return seriesCount === 1 ? barWidth / (1 - gap) : barWidth
+}

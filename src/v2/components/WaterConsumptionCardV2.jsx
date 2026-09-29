@@ -81,6 +81,7 @@ import {
   valueLabelFontSize,
   xLabelEvery,
   yAxisWidth,
+  bucketHitWidth,
   approxTextWidth,
 } from './chartScale'
 import FunnelSimple from '@/v2/icons/FunnelSimple'
@@ -374,19 +375,24 @@ const CHART_CONFIG = {
    the card would gain keyboard access and lose hover in the same commit. Events
    from a <rect> inside the surface still bubble to the wrapper, so both work.
 
-   The hit target is the BUCKET. recharts hands every rectangle a `background` —
-   its own column stretched to the full plot height — so the null buckets that
-   draw no bar at all (PLS-WC-17) still have something to focus, and widening
-   that column back out over barCategoryGap recovers the whole bucket for touch
-   (§19). Only with one series: beside a comparison bar, widening would put the
-   two hit areas on top of each other.
+   The hit target is the BUCKET. recharts hands every rectangle a `background`
+   — its own column stretched to the full plot height — but ONLY when the Bar
+   sets the prop, which it now does. That rect IS the bucket, so it is used as
+   the hit area directly.
+
+   It used to be inferred instead: `barWidth / (1 - barCategoryGap)`, on the
+   assumption that a bar fills its column minus the gap. It does not once a
+   maxBarSize or a second series is in play, and a QA sweep measured the result
+   at 5px of tappable width inside a 21px bucket — a quarter of the column, and
+   unhittable on a phone. Nulls that draw no bar at all (PLS-WC-17) get their
+   column from the same place, so they stay focusable.
 
    Not-openable buckets are aria-disabled, never `disabled`. A disabled control
    fires no events, which would leave Hourly — the grouping with the finest data
    — unable to report anything at all. */
 function renderBucket(shapeProps, opts) {
   const { x, y, width, height, fill, background, index, payload } = shapeProps
-  const { period, onDrillDown, seriesCount, showValueLabels, valueEvery, valueFontSize } = opts
+  const { period, onDrillDown, seriesCount, showValueLabels, valueEvery, valueFontSize, slotWidth = 0 } = opts
   const row = payload ?? {}
 
   const hasBar = Number.isFinite(y) && Number.isFinite(height) && height > 0
@@ -395,9 +401,16 @@ function renderBucket(shapeProps, opts) {
     if (openable) onDrillDown(row.key)
   }
 
+  /* The column, MEASURED, not inferred. The card already divides the plot by
+     the bucket count for its label thinning, and that figure is the category
+     step — so it is passed in and used here. recharts' own `background` is not
+     it: it tracks the drawn bar, which a maxBarSize or a second series makes
+     far narrower than the column.
+     Falls back to the old inference when the measurement is not in yet (the
+     first paint, before the plot is measured), which is better than nothing. */
   const slot = background ?? { x, y, width, height }
-  const hitWidth = seriesCount === 1 ? slot.width / (1 - BAR_CATEGORY_GAP) : slot.width
-  const hitX = slot.x - (hitWidth - slot.width) / 2
+  const hitWidth = bucketHitWidth(slotWidth, slot.width, seriesCount, BAR_CATEGORY_GAP)
+  const hitX = slot.x + slot.width / 2 - hitWidth / 2
   const showValue = showValueLabels && hasBar && index % valueEvery === 0
 
   return (
@@ -1043,6 +1056,13 @@ export default function WaterConsumptionCardV2({
                   radius={[100, 100, 0, 0]}
                   isAnimationActive={animateBars}
                   animationBegin={0}
+                  /* REQUIRED for the hit target, not decoration. recharts only
+                     hands a shape its `background` — the full category column —
+                     when the Bar asks for one. Without it renderBucket fell back
+                     to the drawn bar's own box and inferred the column from
+                     barCategoryGap, which measured 5px of tappable width inside
+                     a 21px bucket. Transparent, so nothing is drawn. */
+                  background={{ fill: 'transparent' }}
                   shape={(shapeProps) =>
                     renderBucket(shapeProps, {
                       period,
@@ -1051,6 +1071,7 @@ export default function WaterConsumptionCardV2({
                       showValueLabels,
                       valueEvery,
                       valueFontSize,
+                      slotWidth,
                     })
                   }
                 />

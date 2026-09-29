@@ -669,7 +669,12 @@ export default function WintSidebarV2({ open, onClose }) {
               type="button"
               onClick={() => setExpandedIds(new Set())}
               aria-label="Collapse all locations"
-              className="content-stretch flex gap-[var(--spacing\/1\,5,6px)] h-[32px] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10px)] shrink-0 w-[18px] active:bg-white/60"
+              // before:-inset-x-[7px] takes the 18px-wide target out to 32
+              // without moving the glyph, the same trick the close and pin
+              // buttons in this file already use. A QA sweep measured this one
+              // at 19px across, the only control here still under the 24px
+              // WCAG 2.5.8 floor.
+              className="content-stretch flex gap-[var(--spacing\/1\,5,6px)] h-[32px] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10px)] shrink-0 w-[18px] active:bg-white/60 before:absolute before:-inset-x-[7px] before:inset-y-0 before:content-['']"
             >
               <ArrowsInLineVertical size={16} />
             </button>
