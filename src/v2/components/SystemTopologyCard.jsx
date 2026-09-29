@@ -40,7 +40,7 @@
  * 8 and its px is 8. These are rounded RECTANGLES. Built as radius-26 pills,
  * all three buttons on the card read as the wrong component.
  */
-import { MemoryStick, Plug, PowerOff, Wifi, WifiOff } from 'lucide-react'
+import { Settings, PowerOff, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import PipeTopology from '@/v2/components/PipeTopology'
 import ValveStatus from '@/v2/components/ValveStatus'
@@ -91,11 +91,34 @@ const FOCUS = 'cursor-pointer outline-none hover:brightness-95 focus-visible:rin
 // ── glyphs the node draws, duplicated from TopologyCard.jsx, which does not
 // export them. Same PROVENANCE arrangement src/v2/icons/index.js documents for
 // glyphs shared with WintSidebarV2 and AlertCard.
+/* THE DESIGN'S OWN ARTWORK, not lucide lookalikes. Downloaded from the asset
+   URLs the 198629:57165 fetch returned, and inlined with currentColor so they
+   tint from the surrounding text colour. The stand-ins were visibly wrong:
+   lucide's MemoryStick is not Remix's ram-2-line, and its Wifi has no check
+   mark where Huge's wifi-connected-02 does. */
+
+/** Remix Icons / ram-2-line — the serial badge glyph, drawn at 19.2px. */
+const Ram2Line = (props) => (
+  <svg width="19.2" height="19.2" viewBox="0 0 16.4571 16.4571" fill="none" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" {...props}>
+    <path d="M1.37143 3.42857C0.992722 3.42857 0.685714 3.73558 0.685714 4.11429V10.2857C0.685714 10.6644 0.992722 10.9714 1.37143 10.9714V12.3429C1.37143 12.7216 1.67844 13.0286 2.05714 13.0286H7.14117L7.82688 12.3429H8.63026L9.31598 13.0286H14.4C14.7787 13.0286 15.0857 12.7216 15.0857 12.3429V10.9714C15.4644 10.9714 15.7714 10.6644 15.7714 10.2857V4.11429C15.7714 3.73558 15.4644 3.42857 15.0857 3.42857H1.37143ZM13.7143 10.9714V11.6571H9.88402L9.19831 10.9714H13.7143ZM7.25883 10.9714L6.57311 11.6571H2.74286V10.9714H7.25883ZM2.05714 9.6V4.8H14.4V9.6H2.05714ZM3.42857 6.17143H4.8V8.22857H3.42857V6.17143ZM7.54286 6.17143H6.17143V8.22857H7.54286V6.17143ZM8.91429 6.17143H10.2857V8.22857H8.91429V6.17143ZM13.0286 6.17143H11.6571V8.22857H13.0286V6.17143Z" fill="currentColor" />
+  </svg>
+)
+
+/** Huge Icons / wifi-connected-02 — the arcs PLUS the check lucide omits. */
+const WifiConnected02 = (props) => (
+  <svg width="12" height="12" viewBox="0 0 14.6634 11.9967" fill="none" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" {...props}>
+    <path d="M11.665 5.665C9.15328 3.44278 5.66501 3.44278 2.99835 5.665" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M0.665014 3.33167C4.87554 -0.223873 9.78782 -0.22388 13.9983 3.33159" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5.33168 9.99837C5.33168 9.99837 5.99835 9.99837 6.66501 11.3317C6.66501 11.3317 8.31608 8.73281 9.99835 7.66565" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+/** Huge Icons / dashboard-speed-02, at the node's own 14.66 viewBox. */
 const DashboardSpeed02 = (props) => (
-  <svg width="15.634" height="14.194" viewBox="0 0 13.0286 11.8286" fill="none" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" {...props}>
-    <circle cx="6.51429" cy="9.51429" r="1.8" stroke="#62748E" strokeWidth="1.02857" />
-    <path d="M6.51429 7.71429V4.71429" stroke="#62748E" strokeWidth="1.02857" strokeLinecap="round" />
-    <path d="M12.5143 6.51429C12.5143 3.20058 9.82799 0.514286 6.51429 0.514286C3.20058 0.514286 0.514286 3.20058 0.514286 6.51429" stroke="#62748E" strokeWidth="1.02857" strokeLinecap="round" />
+  <svg width="17.28" height="17.28" viewBox="0 0 14.6633 13.33" fill="none" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" {...props}>
+    <circle cx="7.33167" cy="10.665" r="2" stroke="currentColor" strokeWidth="1.33" />
+    <path d="M7.33167 8.665V5.33167" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" />
+    <path d="M13.9983 7.33167C13.9983 3.64977 11.0136 0.665 7.33167 0.665C3.64977 0.665 0.665 3.64977 0.665 7.33167" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" />
   </svg>
 )
 
@@ -150,8 +173,13 @@ function WordBadge({ icon, children, tone = 'slate-500' }) {
   )
 }
 
-const powerGlyph = (d) => (d.power === 'ac-lost' ? <PowerOff size={12} /> : <Plug size={12} />)
-const commGlyph = (d) => (d.comm === 'offline' ? <WifiOff size={12} /> : <Wifi size={12} />)
+/* power-service is the ONE glyph the export does not resolve: both variants
+   emit an "Icon Placeholder" wrapping Lucide's smile, so there is no artwork to
+   download. Its component description calls it "gear, tools, configuration" and
+   the render draws a gear, so a gear stands in until the real asset ships.
+   Everything around it is the design's own. */
+const powerGlyph = (d) => (d.power === 'ac-lost' ? <PowerOff size={12} /> : <Settings size={12} />)
+const commGlyph = (d) => (d.comm === 'offline' ? <WifiOff size={12} /> : <WifiConnected02 />)
 const valveText = (d) => (d.valve == null ? 'No valve' : (VALVE_LABEL[d.valve] ?? 'Unknown'))
 
 /** The branch rule: drawn horizontally and rotated, anchored on the badge. */
@@ -211,8 +239,8 @@ function CompactTile({ device }) {
         <div className="flex shrink-0 items-center gap-[4px]">
           <div className="flex shrink-0 items-end">
             <RoundBadge>
-              <div className="relative size-[19.2px] shrink-0 text-[color:var(--colors\/slate\/500,#62748e)]">
-                <MemoryStick size={19} />
+              <div className="relative size-[19.2px] shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)]">
+                <Ram2Line />
               </div>
             </RoundBadge>
           </div>
@@ -246,8 +274,8 @@ function DeviceCard({ device, onCloseValve }) {
         <div className="flex shrink-0 items-center gap-[4px]">
           <div className="flex shrink-0 items-end">
             <RoundBadge>
-              <div className="relative size-[19.2px] shrink-0 text-[color:var(--colors\/slate\/500,#62748e)]">
-                <MemoryStick size={19} />
+              <div className="relative size-[19.2px] shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)]">
+                <Ram2Line />
               </div>
             </RoundBadge>
           </div>

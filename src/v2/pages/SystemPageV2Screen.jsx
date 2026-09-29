@@ -465,6 +465,10 @@ export default function SystemPageV2Screen() {
   /* Collapsed is the default: System tab_mobile (198379:80447) draws the card
      that way, and the expanded variant is what "Open" reveals. */
   const [loopExpanded, setLoopExpanded] = useState(false)
+  /* Optimistic valve state, keyed by device id. Same pattern ValveControlCard
+     uses on the v1 screens: there is no valve mutation in this app, so a close
+     is local and a reload restores it. */
+  const [closedValves, setClosedValves] = useState({})
 
   /* Real system for this route, falling back to the mock shape when the id
      matches nothing — a deep link to a deleted system should still render
@@ -678,6 +682,13 @@ export default function SystemPageV2Screen() {
     setCompareConsumption(false)
     setPickerOpen(false)
   }
+
+  /* The devices as the card sees them: the dataset's own state, with any
+     optimistic close laid over the top. */
+  const loopDevices = useMemo(
+    () => (system.devices ?? []).map(d => (closedValves[d.id] ? { ...d, valve: 'closed' } : d)),
+    [system.devices, closedValves],
+  )
 
   const steps = stepAvailability(period, periodOffset, consumptionBounds)
   const returnTo = periodTrail[periodTrail.length - 1]?.period ?? null
@@ -895,7 +906,7 @@ export default function SystemPageV2Screen() {
                       consumption in both frames. The sibling frame draws it
                       collapsed; this is the one that was asked for.
                       Rendered only when the system actually has piping. */}
-                  {system.devices?.length ? (
+                  {loopDevices.length ? (
                     <SystemTopologyCard
                       className="shrink-0"
                       expanded={loopExpanded}
@@ -905,16 +916,21 @@ export default function SystemPageV2Screen() {
                          a single water line is not labelled as a loop. */
                       title={system.topology?.topology ?? 'Open loop'}
                       topology="water-line"
-                      devices={system.devices}
-                      /* NO onCloseValve / onCloseAll, deliberately. The node
-                         draws both buttons, but nothing in this app can
-                         actually close a valve: ValveControlCard holds its
-                         state in component-local useState on the v1 screens,
-                         so there is no action to call and no store to write.
-                         This file's siblings all refuse to render a control
-                         that does nothing, and the card follows the same rule —
-                         it draws the description and withholds the two
-                         buttons until a real valve action exists. */
+                      devices={loopDevices}
+                      /* The node draws both controls, so both are drawn. There
+                         is no shared valve action in this app — ValveControlCard
+                         keeps its state in component-local useState on the v1
+                         screens — so these follow that same pattern: an
+                         optimistic local close, which is what a mockup can
+                         honestly do. Nothing is persisted, and a reload puts
+                         the valve back. Swap `closedValves` for a real mutation
+                         the moment one exists. */
+                      onCloseValve={d => setClosedValves(v => ({ ...v, [d.id]: true }))}
+                      onCloseAll={() =>
+                        setClosedValves(
+                          Object.fromEntries(system.devices.map(d => [d.id, true])),
+                        )
+                      }
                     />
                   ) : null}
 
