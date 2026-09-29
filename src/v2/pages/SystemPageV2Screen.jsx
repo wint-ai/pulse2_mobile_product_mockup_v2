@@ -51,7 +51,7 @@ import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
-import TopologyExpandedCard from '@/v2/components/TopologyExpandedCard'
+import SystemTopologyCard from '@/v2/components/SystemTopologyCard'
 import { Menu10, CustomerSupport } from '@/v2/icons'
 /* The chart's window arithmetic — §3.1-§3.6 and the §4 matrix. Shared with
    HomeAllAccounts so the two screens cannot drift apart, and kept out of this
@@ -462,6 +462,9 @@ function TabsRow({ value, onChange }) {
 export default function SystemPageV2Screen() {
   const navigate = useNavigate()
   const { systemId } = useParams()
+  /* Collapsed is the default: System tab_mobile (198379:80447) draws the card
+     that way, and the expanded variant is what "Open" reveals. */
+  const [loopExpanded, setLoopExpanded] = useState(false)
 
   /* Real system for this route, falling back to the mock shape when the id
      matches nothing — a deep link to a deleted system should still render
@@ -893,8 +896,10 @@ export default function SystemPageV2Screen() {
                       collapsed; this is the one that was asked for.
                       Rendered only when the system actually has piping. */}
                   {system.devices?.length ? (
-                    <TopologyExpandedCard
+                    <SystemTopologyCard
                       className="shrink-0"
+                      expanded={loopExpanded}
+                      onToggle={() => setLoopExpanded(v => !v)}
                       /* The node's title is "Open loop" because its comp is
                          one. Ours takes the topology the system really has, so
                          a single water line is not labelled as a loop. */

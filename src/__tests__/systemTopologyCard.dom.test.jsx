@@ -12,7 +12,7 @@
 
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup, fireEvent, within } from '@testing-library/react'
-import TopologyExpandedCard from '@/v2/components/TopologyExpandedCard'
+import SystemTopologyCard from '@/v2/components/SystemTopologyCard'
 
 afterEach(cleanup)
 
@@ -29,7 +29,7 @@ const device = (over = {}) => ({
 describe('the expanded topology card', () => {
   it('describes the device: name, serial, power, connectivity and valve', () => {
     const { container } = render(
-      <TopologyExpandedCard title="Water Line - General Line" devices={[device()]} />,
+      <SystemTopologyCard expanded title="Water Line - General Line" devices={[device()]} />,
     )
     const view = within(container)
 
@@ -55,7 +55,8 @@ describe('the expanded topology card', () => {
     // Figma draws two devices, both "SN 4471822", both "Open", both AC and
     // Connected. Every one of those is a prop.
     const { container } = render(
-      <TopologyExpandedCard
+      <SystemTopologyCard
+        expanded
         devices={[device({ serial: '9900011', valve: 'closed', comm: 'offline', power: 'ac-lost' })]}
       />,
     )
@@ -69,7 +70,7 @@ describe('the expanded topology card', () => {
 
   it('says "No valve" for a metering-only system rather than guessing', () => {
     // buildTree.js records that 20 of the 53 MRG systems genuinely have none.
-    const { container } = render(<TopologyExpandedCard devices={[device({ valve: null })]} />)
+    const { container } = render(<SystemTopologyCard expanded devices={[device({ valve: null })]} />)
     expect(within(container).getByText('No valve')).toBeTruthy()
   })
 
@@ -77,7 +78,7 @@ describe('the expanded topology card', () => {
     // Nothing in this app can actually close a valve — ValveControlCard keeps
     // its state in component-local useState on the v1 screens. A button that
     // does nothing is the defect this codebase refuses everywhere else.
-    const { container } = render(<TopologyExpandedCard devices={[device()]} />)
+    const { container } = render(<SystemTopologyCard expanded devices={[device()]} />)
     const view = within(container)
 
     expect(view.queryByRole('button', { name: 'Close valve' })).toBeNull()
@@ -87,7 +88,8 @@ describe('the expanded topology card', () => {
   it('offers them, once wired, and only where they can do something', () => {
     const closed = []
     const { container, rerender } = render(
-      <TopologyExpandedCard
+      <SystemTopologyCard
+        expanded
         devices={[device()]}
         onCloseValve={(d) => closed.push(d.id)}
         onCloseAll={() => closed.push('all')}
@@ -101,7 +103,8 @@ describe('the expanded topology card', () => {
     // An already-closed valve has nothing to close, so the per-device control
     // goes and the card-level one is disabled rather than merely dimmed.
     rerender(
-      <TopologyExpandedCard
+      <SystemTopologyCard
+        expanded
         devices={[device({ valve: 'closed' })]}
         onCloseValve={() => {}}
         onCloseAll={() => {}}
@@ -111,26 +114,62 @@ describe('the expanded topology card', () => {
     expect(within(container).getByRole('button', { name: 'Close all valves' }).disabled).toBe(true)
   })
 
-  it('collapses only when the host owns that state', () => {
-    const { container, rerender } = render(<TopologyExpandedCard devices={[device()]} />)
-    expect(within(container).queryByRole('button', { name: /Close$/ })).toBeNull()
+  it('toggles only when the host owns that state, and names the direction', () => {
+    /* The collapsed node draws no control at all, which would leave a card you
+       can close and never reopen — so the toggle is rendered in both states
+       and says which way it goes. That is a deliberate deviation. */
+    const { container, rerender } = render(<SystemTopologyCard expanded devices={[device()]} />)
+    expect(within(container).queryByRole('button', { name: 'Close' })).toBeNull()
 
-    const collapsed = []
-    rerender(<TopologyExpandedCard devices={[device()]} onCollapse={() => collapsed.push(1)} />)
-    fireEvent.click(within(container).getByRole('button', { name: 'Close' }))
-    expect(collapsed).toEqual([1])
+    const taps = []
+    rerender(<SystemTopologyCard expanded devices={[device()]} onToggle={() => taps.push('shut')} />)
+    const close = within(container).getByRole('button', { name: 'Close' })
+    expect(close.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(close)
+    expect(taps).toEqual(['shut'])
+
+    rerender(<SystemTopologyCard devices={[device()]} onToggle={() => taps.push('open')} />)
+    const open = within(container).getByRole('button', { name: 'Open' })
+    expect(open.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(open)
+    expect(taps).toEqual(['shut', 'open'])
+  })
+
+  it('draws the collapsed variant as side-by-side tiles, not the expanded card', () => {
+    /* 198629:57165 is a different layout, not the expanded one shortened: two
+       flex-1 tiles at h-82, status as ICON-ONLY 20px chips, no serial, no
+       photo, no pipe schematic. */
+    const { container } = render(
+      <SystemTopologyCard devices={[device(), device({ id: 'd2' })]} onCloseAll={() => {}} />,
+    )
+    const view = within(container)
+
+    expect(container.querySelectorAll('[data-device-id]')).toHaveLength(2)
+    expect(container.querySelector('[data-expanded="false"]')).toBeTruthy()
+
+    // The words and the unit belong to the expanded variant only.
+    expect(view.queryByText('AC')).toBeNull()
+    expect(view.queryByText('Connected')).toBeNull()
+    expect(view.queryByText(/^SN /)).toBeNull()
+    expect(container.querySelectorAll('img')).toHaveLength(0)
+
+    // But the valve state and the card action are still there.
+    expect(view.getAllByText('Open').length).toBe(2)
+    expect(view.getByRole('button', { name: 'Close all valves' })).toBeTruthy()
+    // And its rule is the short one.
+    expect(container.querySelectorAll('[data-branch-rule="41"]')).toHaveLength(2)
   })
 
   it('draws one card per device, and nothing at all with none', () => {
     const { container, rerender } = render(
-      <TopologyExpandedCard devices={[device(), device({ id: 'd2', name: 'Return' })]} />,
+      <SystemTopologyCard expanded devices={[device(), device({ id: 'd2', name: 'Return' })]} />,
     )
     expect(container.querySelectorAll('[data-device-id]')).toHaveLength(2)
     expect(
       within(container.querySelector('[data-device-id="d2"]')).getByText('Return'),
     ).toBeTruthy()
 
-    rerender(<TopologyExpandedCard devices={[]} />)
+    rerender(<SystemTopologyCard expanded devices={[]} />)
     expect(container.querySelectorAll('[data-device-id]')).toHaveLength(0)
     expect(container.querySelectorAll('img')).toHaveLength(0)
   })
@@ -140,7 +179,7 @@ describe('the geometry the first pass got wrong', () => {
   /* "it needs to be pixel match with figma and its not" — it wasn't. Diffing
      against 198736:153302 turned up six misses, and every one of them is
      pinned here rather than left to the eye. */
-  const renderOne = () => render(<TopologyExpandedCard devices={[device()]} />)
+  const renderOne = () => render(<SystemTopologyCard expanded devices={[device()]} />)
 
   /* Tailwind arbitrary values put brackets and dots in the class name, and
      escaping those for querySelector is all backslashes and no clarity. Scan
@@ -176,7 +215,8 @@ describe('the geometry the first pass got wrong', () => {
 
   it('drops the branch rule from the name badge to the valve row', () => {
     const { container } = renderOne()
-    const [rule] = withClass(container, 'h-[197px]')
+    // 197 expanded, 41 collapsed — the rule spans whatever the variant holds.
+    const rule = container.querySelector('[data-branch-rule="197"]')
     expect(rule, 'the 197px branch rule').toBeTruthy()
     // Anchored on the 24px name badge's centre line, and rotated into place.
     expect(String(rule.className)).toContain('left-[12px]')
