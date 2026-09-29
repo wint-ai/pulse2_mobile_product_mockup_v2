@@ -582,9 +582,18 @@ function SplashController() {
   return <SplashScreen variant="light" onComplete={() => setShow(false)} />;
 }
 
+/* basename is REQUIRED, not optional tidiness. Vite serves this app under base
+   '/pulse2_mobile_product_mockup_v2/' in dev and on GH Pages alike, so without
+   it a hard load of /pulse2_mobile_product_mockup_v2/system/:id hands the
+   router a path no route matches and the catch-all bounces the viewer to Home.
+   Clicking through HIDES the bug — an in-app navigate pushes a base-less path
+   that happens to match — so it only shows up when someone pastes or reloads a
+   URL, which is exactly how these links get shared for review. postbuild's
+   404.html copy is what lets GH Pages serve the deep link at all; this is what
+   lets the router read it once served. */
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AppShell />
     </BrowserRouter>
   );
