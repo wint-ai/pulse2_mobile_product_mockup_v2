@@ -51,6 +51,7 @@ import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
+import TopologyExpandedCard from '@/v2/components/TopologyExpandedCard'
 import { Menu10, CustomerSupport } from '@/v2/icons'
 /* The chart's window arithmetic — §3.1-§3.6 and the §4 matrix. Shared with
    HomeAllAccounts so the two screens cannot drift apart, and kept out of this
@@ -489,6 +490,27 @@ export default function SystemPageV2Screen() {
 
     const insights = getSystemInsights(sys.id) ?? []
     const topology = getSystemTopology(sys.id) ?? null
+
+    /* The devices the topology card describes. Figma draws TWO — "Supply" and
+       "Supply" again, both SN 4471822 — because its comp is an open loop. This
+       dataset has no loops: every getSystemTopology row is a "Water Line - …"
+       and carries a single VMA, so one device is the honest answer and a
+       second would be a fabricated unit with a duplicated serial.
+       'No Piping Monitored' means there is nothing to draw at all. */
+    const devices =
+      topology && topology.topology !== 'No Piping Monitored'
+        ? [
+            {
+              id: `${sys.id}-supply`,
+              name: 'Supply',
+              // Real per-system value from the CRM export, not a comp constant.
+              serial: sys.upstream?.waterSystemId ?? null,
+              valve: sys.valve,
+              comm: sys.comm,
+              power: sys.power,
+            },
+          ]
+        : []
     const policy = getActivePolicy(sys.id) ?? null
     const consumption = getConsumption(sys.id, sys.name) ?? null
 
@@ -508,6 +530,7 @@ export default function SystemPageV2Screen() {
       insights,
       timeline,
       topology,
+      devices,
       policy,
       consumption,
     }
@@ -862,6 +885,33 @@ export default function SystemPageV2Screen() {
                       </div>
                     ))}
                   </div>
+
+                  {/* Topology 198736:153302 — the expanded "describing the
+                      system" variant from System page_mobile (198629:63118),
+                      which sits between the alert carousel and Water
+                      consumption in both frames. The sibling frame draws it
+                      collapsed; this is the one that was asked for.
+                      Rendered only when the system actually has piping. */}
+                  {system.devices?.length ? (
+                    <TopologyExpandedCard
+                      className="shrink-0"
+                      /* The node's title is "Open loop" because its comp is
+                         one. Ours takes the topology the system really has, so
+                         a single water line is not labelled as a loop. */
+                      title={system.topology?.topology ?? 'Open loop'}
+                      topology="water-line"
+                      devices={system.devices}
+                      /* NO onCloseValve / onCloseAll, deliberately. The node
+                         draws both buttons, but nothing in this app can
+                         actually close a valve: ValveControlCard holds its
+                         state in component-local useState on the v1 screens,
+                         so there is no action to call and no store to write.
+                         This file's siblings all refuse to render a control
+                         that does nothing, and the card follows the same rule —
+                         it draws the description and withholds the two
+                         buttons until a real valve action exists. */
+                    />
+                  ) : null}
 
                   {/* "Water consumption_M" 198629:51874 — the card instance in
                       the live Body wrapper. The frame's old leftover shadcn
