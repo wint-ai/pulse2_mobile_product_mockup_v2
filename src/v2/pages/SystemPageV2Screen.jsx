@@ -42,8 +42,8 @@
  * the gap. There is still no Insights card on this frame.
  */
 
-import { useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import TabBar from '@/components/TabBar'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import AlertCard from '@/v2/components/AlertCard'
@@ -78,6 +78,8 @@ import {
   getActivePolicy,
 } from '@/data/systemDetails'
 import { getEventsForSystem } from '@/data/events'
+import IgnoreBottomSheet from '@/components/IgnoreBottomSheet'
+import { getCurrentActor } from '@/data/currentUser'
 import { ignoreIncident, clearIgnored, isIgnored } from '@/data/ignoredIncidents'
 import { startInvestigating, isInvestigating } from '@/data/investigatingStore'
 
@@ -475,6 +477,17 @@ export default function SystemPageV2Screen() {
      is local and a reload restores it. */
   const [closedValves, setClosedValves] = useState({})
 
+  /* THE PUSH CONTRACT (PRD 06). Every water-event push lands here and asks the
+     page to do something on arrival: `?pulse=1` highlights the card the push
+     referred to, `?action=ignore` opens the Ignore sheet, `?action=tag` opens
+     the Tag sheet. None of it was read — the params arrived and nobody looked
+     — so three of the four push actions silently did nothing.
+     Ported from LeakDetail.jsx, which has implemented this all along on a
+     route the push no longer uses. */
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [showIgnoreSheet, setShowIgnoreSheet] = useState(false)
+  const [pulse, setPulse] = useState(false)
+
   /* Real system for this route, falling back to the mock shape when the id
      matches nothing — a deep link to a deleted system should still render
      rather than crash. Everything below reads `system`, never SYSTEM. */
@@ -675,6 +688,32 @@ export default function SystemPageV2Screen() {
 
   /* The devices as the card sees them: the dataset's own state, with any
      optimistic close laid over the top. */
+  /* Read the push's instruction once, then strip it, so a refresh does not
+     re-open a sheet the user already dismissed. LeakDetail.jsx does exactly
+     this; the param vocabulary is PRD 02's URL contract. */
+  useEffect(() => {
+    const action = searchParams.get('action')
+    const wantsPulse = searchParams.get('pulse') === '1'
+    if (!action && !wantsPulse) return
+
+    if (action === 'ignore' && !isIgnored(systemId)) setShowIgnoreSheet(true)
+    /* §PRD 06 asks for a 2-second accent pulse on the card the push referred
+       to — Slack's scroll-to-message highlight, not a badge. */
+    if (wantsPulse) setPulse(true)
+
+    const next = new URLSearchParams(searchParams)
+    next.delete('action')
+    next.delete('pulse')
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, systemId])
+
+  useEffect(() => {
+    if (!pulse) return
+    const id = setTimeout(() => setPulse(false), 2000)
+    return () => clearTimeout(id)
+  }, [pulse])
+
   const loopDevices = useMemo(
     () => (system.devices ?? []).map(d => (closedValves[d.id] ? { ...d, valve: 'closed' } : d)),
     [system.devices, closedValves],
@@ -714,16 +753,17 @@ export default function SystemPageV2Screen() {
         bump()
         return
 
-      // "Ignore" / "Unignore" — the same pair the v1 alert screens drive.
+      /* Ignore is IRREVERSIBLE (PRD 06), so it opens the confirm sheet rather
+         than firing on the tap. This screen used to call ignoreIncident()
+         straight from the button — one tap, no confirmation, no way back, and
+         no chance to capture the cause PRD 15 asks for at ignore-commit time. */
       case 'ignore':
-        if (!isIgnored(sysId)) ignoreIncident(sysId)
-        bump()
+        if (!isIgnored(sysId)) setShowIgnoreSheet(true)
         return
       case 'unignore':
         clearIgnored(sysId)
         bump()
         return
-
       case 'show-past-events':
         navigate(`/events/system/${sysId}`)
         return
@@ -992,6 +1032,20 @@ export default function SystemPageV2Screen() {
       {/* 198674:184354 — the advanced sheet: pick the last month of the
           window, with future months disabled and a "Latest 12 months"
           shortcut. Page level, because the frame covers the whole phone. */}
+      {/* PRD 06 + 14: the sheet the push's Ignore action asks for, and the
+          confirmation an irreversible action needs however it was reached. */}
+      {showIgnoreSheet && (
+        <IgnoreBottomSheet
+          onClose={() => setShowIgnoreSheet(false)}
+          onConfirm={({ chip, chipOther, detail }) => {
+            const summary = [chip, chipOther, detail].filter(Boolean).join(' — ') || null
+            ignoreIncident(system.id, { tag: summary, ignoredBy: getCurrentActor() })
+            setShowIgnoreSheet(false)
+            bump()
+          }}
+        />
+      )}
+
       <MonthPickerSheet
         variant="window"
         open={pickerOpen}

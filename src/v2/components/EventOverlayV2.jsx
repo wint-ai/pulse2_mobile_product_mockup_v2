@@ -65,7 +65,8 @@
 
 import { useEffect, useState } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { CloseFill, Funnel, Waves } from '@/v2/icons'
+import { CloseFill, Funnel, MessageBlocked, Waves, WifiDisconnected02 } from '@/v2/icons'
+import { cn } from '@/lib/utils'
 import ValveStatus from './ValveStatus'
 
 // ── Wint tokens, as the Figma variables on these frames name them ──────────
@@ -317,6 +318,30 @@ const TYPES = {
     glyph: RED_900,
     text: RED_900,
   },
+  /* PRD 02's canonical filter keys include `offline` and `recipients`, and
+     the health card counts both — but neither existed here, so the two tiles
+     that point at them fell through to an unfiltered list. They are types now,
+     with the same glyphs the health card's own issue tiles use. */
+  offline: {
+    dataset: 'alerts',
+    label: 'Offline',
+    RowIcon: WifiDisconnected02,
+    ChipIcon: WifiDisconnected02,
+    badge: '#ffe2e2',
+    chipTint: '#ffe2e2',
+    glyph: RED_900,
+    text: RED_900,
+  },
+  recipients: {
+    dataset: 'alerts',
+    label: 'No recipients',
+    RowIcon: MessageBlocked,
+    ChipIcon: MessageBlocked,
+    badge: '#ffe2e2',
+    chipTint: '#ffe2e2',
+    glyph: RED_900,
+    text: RED_900,
+  },
   'valve-error': {
     dataset: 'alerts',
     label: 'Valve error',
@@ -336,7 +361,7 @@ const TYPES = {
 // still renders and honestly reads 0.
 const CHIP_ORDER = {
   water: ['leak-high', 'leak-low'],
-  alerts: ['power-lost', 'valve-error'],
+  alerts: ['power-lost', 'valve-error', 'offline', 'recipients'],
 }
 
 // The design's own casing, which differs per dataset ("Active water events"
@@ -404,6 +429,7 @@ export default function EventOverlayV2({
   events = MOCK_EVENTS,
   initialFilter = 'all',
   initialTab = 'active',
+  onSelectEvent,
 }) {
   /* Seeded ONCE per mount. The overlay stays mounted and is toggled by `open`,
      so a caller wanting a different slice on the next open changes this
@@ -642,6 +668,7 @@ export default function EventOverlayV2({
                   key={ev.id ?? i}
                   ev={ev}
                   isLocation={isLocation}
+                  onSelect={onSelectEvent}
                   // Only the first row goes without the 16px right padding —
                   // see ROW_WRAP_FIRST.
                   first={i === 0}
@@ -745,7 +772,13 @@ const ROW_WRAP = String.raw`content-stretch flex flex-col gap-[var(--spacing\/2,
  *  Rows are deliberately inert: this overlay's contract carries no event-detail
  *  callback, and the design gives the row no affordance (no chevron, no press
  *  state). */
-function EventRow({ ev, isLocation, rule, first }) {
+/* PRD 05a, three times over: "Tapping any row opens that system's page."
+   This row had no onClick, no role and no tabIndex, so a viewer could open the
+   alerts overlay from a health tile, read the ten affected systems and reach
+   none of them. It is a button when the host gives it a destination, and a
+   plain div when it does not — the rule this repo keeps everywhere: never
+   render a control that does nothing. */
+function EventRow({ ev, isLocation, rule, first, onSelect }) {
   const t = TYPES[ev.type] ?? {
     label: ev.type,
     RowIcon: ElectricPlugs,
@@ -781,10 +814,28 @@ function EventRow({ ev, isLocation, rule, first }) {
     </div>
   )
 
+  /* A button only when the host wired a destination; otherwise the same div
+     it always was, so an overlay used purely as a readout gains no dead
+     affordance. The accessible name carries the system and the fault, since
+     the visible row says them in two separate columns. */
+  const RowTag = onSelect ? 'button' : 'div'
+  const rowProps = onSelect
+    ? {
+        type: 'button',
+        onClick: () => onSelect(ev),
+        'aria-label': `${ev.systemName ?? 'System'} — ${t.label}. Open this system.`,
+        className: cn(
+          first ? ROW_WRAP_FIRST : ROW_WRAP,
+          'cursor-pointer text-left outline-none transition-colors',
+          'hover:bg-[rgba(11,129,248,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        ),
+      }
+    : { className: first ? ROW_WRAP_FIRST : ROW_WRAP }
+
   return (
     <>
       {rule && <RowRule />}
-      <div className={first ? ROW_WRAP_FIRST : ROW_WRAP}>
+      <RowTag {...rowProps}>
         <div className="content-stretch flex gap-[17px] items-center relative shrink-0 w-full">
 
           {isLocation ? (
@@ -833,7 +884,7 @@ function EventRow({ ev, isLocation, rule, first }) {
             </div>
           )}
         </div>
-      </div>
+      </RowTag>
     </>
   )
 }

@@ -275,6 +275,20 @@ function LoginGate({ children }) {
     }
   };
 
+  // Capture where they were heading BEFORE the picker takes the screen.
+  // handlePickPersona has always restored `pulse2-deep-link`, but nothing in
+  // the app ever wrote it — so the restore branch was dead code and anyone
+  // opening a shared /system/:id link cold landed on Home instead. Written
+  // only while unauthed, and only for a real destination, so a normal cold
+  // start on "/" still goes to the persona's own home.
+  useEffect(() => {
+    if (authed) return;
+    const here = window.location.pathname.replace(import.meta.env.BASE_URL, '/') + window.location.search;
+    if (here && here !== '/' && !here.startsWith('/select')) {
+      try { sessionStorage.setItem('pulse2-deep-link', here); } catch { /* private mode */ }
+    }
+  }, [authed]);
+
   if (authed) return children;
 
   // Login screen — persona picker

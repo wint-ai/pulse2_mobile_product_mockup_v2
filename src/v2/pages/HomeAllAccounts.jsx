@@ -141,11 +141,16 @@ const MOCK_HEALTH_TYPES = { topology: 3, flood: 3, humidity: 4 }
    Offline systems and Missing recipients have no chip in the design, so they
    open the overlay unfiltered rather than seeding a filter that would match
    nothing and read as an empty list. */
+/* PRD 02's canonical vocabulary, and append-only: these keys travel in push
+   payloads and shareable links, so they outlive a release.
+   `offline` and `recipients` used to map to `all` because the overlay had no
+   rows of those kinds at all — so tapping a tile with a number on it opened an
+   unfiltered list. Both are real event types now. */
 const ISSUE_FILTER = {
-  offline: 'all',
+  offline: 'offline',
   valve: 'valve-error',
   power: 'power-lost',
-  recipients: 'all',
+  recipients: 'recipients',
 }
 
 /* 198314:73639 — four rows. Row 1's address is the literal "352 Palmer.." the
@@ -715,6 +720,9 @@ export default function HomeAllAccounts({ expanded = false }) {
     const rows = []
     for (const s of scopedSystems) {
       const base = {
+        /* The row's own `id` is composite (`<system>:<kind>`), so the system is
+           carried separately rather than parsed back out of it. */
+        systemId: s.id,
         systemName: s.name,
         city: s.l4Name || s.l3Name || s.l2Name || s.l1Name || '',
         address: s.locationAddress || s.address || '',
@@ -734,6 +742,15 @@ export default function HomeAllAccounts({ expanded = false }) {
       }
       if (s.valve === 'error') {
         rows.push({ ...base, id: `${s.id}:valve`, type: 'valve-error', timestamp: '', duration: '', resolved: false })
+      }
+      /* The health card counts these two and PRD 02 names both as filter keys,
+         but neither had ever been emitted here — which is why their tiles
+         opened an unfiltered list. */
+      if (s.comm === 'offline') {
+        rows.push({ ...base, id: `${s.id}:offline`, type: 'offline', timestamp: '', duration: '', resolved: false })
+      }
+      if ((s.notificationRecipients ?? 0) === 0) {
+        rows.push({ ...base, id: `${s.id}:recipients`, type: 'recipients', timestamp: '', duration: '', resolved: false })
       }
     }
     return rows
@@ -1165,6 +1182,12 @@ export default function HomeAllAccounts({ expanded = false }) {
         initialFilter={overlayFilter}
         initialTab={overlayTab}
         events={overlayEvents}
+        /* PRD 05a: "Tapping any row opens that system's page." The overlay
+           closes first so the page behind it is not left covered. */
+        onSelectEvent={ev => {
+          setOverlay(null)
+          if (ev.systemId) navigate(`/system/${ev.systemId}`)
+        }}
       />
 
       <TabBar activeTab="home" hideAlerts />

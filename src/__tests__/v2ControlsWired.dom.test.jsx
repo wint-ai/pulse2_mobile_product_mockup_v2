@@ -160,12 +160,22 @@ describe('alert card actions reach the stores', () => {
     expect(isInvestigating(sys.id)).toBe(true)
   })
 
-  it('"Ignore" ignores the incident', () => {
+  it('"Ignore" opens the confirm sheet rather than firing on the tap', () => {
+    /* CHANGED DELIBERATELY. This used to assert that one tap ignored the
+       incident. PRD 06 calls Ignore irreversible and says it "opens the Ignore
+       bottom sheet on the System page" — and PRD 15 captures the cause at
+       ignore-commit time, which a bare button gives nowhere to put.
+       So the tap must NOT commit. */
     expect(isIgnored(sys.id)).toBe(false)
     const { container } = mount()
     const btn = within(container).getAllByText('Ignore')[0]
     expect(btn, 'no "Ignore" control rendered').toBeTruthy()
     fireEvent.click(btn)
-    expect(isIgnored(sys.id)).toBe(true)
+
+    expect(isIgnored(sys.id), 'one tap must not commit an irreversible action').toBe(false)
+    expect(
+      within(document.body).queryByText('Ignore this Water Event?'),
+      'the confirm sheet should be on screen',
+    ).toBeTruthy()
   })
 })
