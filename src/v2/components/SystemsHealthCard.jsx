@@ -65,7 +65,7 @@
  * wave is inlined as a data URI below and every glyph is a project component.
  */
 
-import { PowerOff } from 'lucide-react'
+import { Check, PowerOff } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -335,6 +335,38 @@ function IssueCount({ zero, children }) {
   )
 }
 
+/**
+ * The all-clear tick that rides BESIDE a zero.
+ *
+ * docs/PRD/09-system-health-widget.md:90 — in the all-healthy state "the
+ * gap section shows a checkmark / dash instead of counts". Beside, not
+ * instead of: the figure still has to read 0, because a reader who wants
+ * the number should get the number. What the tick adds is the half a bare
+ * grey 0 cannot say — that this dimension was CHECKED and came back clear,
+ * rather than being a field nobody filled in.
+ *
+ * colors/slate/300 #cad5e2 — the same token the zero itself carries, so the
+ * mark reads as part of that figure and never competes with the red of a
+ * non-zero tile. It renders ONLY on a zero; the non-zero treatment (red
+ * figure, calm ground) is untouched.
+ *
+ * aria-hidden because it adds no information a screen reader lacks: the
+ * tile's own aria-label already reads "Valve errors: 0".
+ *
+ * CARE: the colour class lives in a literal JSX string attribute. The `\/`
+ * in the token name survives there and would NOT survive a JS string
+ * literal or a cn() argument — see this file's header.
+ */
+function ClearMark() {
+  return (
+    <Check
+      aria-hidden="true"
+      strokeWidth={3}
+      className="size-[14px] shrink-0 text-[color:var(--colors\/slate\/300,#cad5e2)]"
+    />
+  )
+}
+
 /** The xs caption under every capsule. */
 function TileLabel({ children }) {
   return (
@@ -382,6 +414,7 @@ function IssueTile({ glyph, count, label, align = 'center', onSelect }) {
     <span className={cn('relative z-10 flex items-center', hot ? 'gap-[4.8px]' : 'gap-[8px]')}>
       {glyph}
       <IssueCount zero={count === 0}>{count}</IssueCount>
+      {count === 0 ? <ClearMark /> : null}
     </span>
   )
 
@@ -481,7 +514,13 @@ export default function SystemsHealthCard({
      card never promises an affordance its host has not wired. */
   const pick = (kind) => (onSelectIssue ? () => onSelectIssue(kind) : undefined)
   const health = typeof healthy === 'number' ? { percent: healthy } : (healthy ?? {})
-  const percent = health.percent ?? 0
+  /* A scope with no systems in it has no health percentage — not 0, and
+     certainly not the 100 this used to be handed. `?? 0` turned "we have no
+     figure" into "the figure is zero", which is a claim about a fleet that
+     does not exist. A host that genuinely has no number passes null and
+     gets an em dash; a real 0 is still a number and still renders 0%. */
+  const hasPercent = Number.isFinite(health.percent)
+  const percent = hasPercent ? health.percent : null
   const requireAttention = stats?.requireAttention ?? 0
   const total = stats?.total ?? 0
 
@@ -523,7 +562,7 @@ export default function SystemsHealthCard({
             >
               <LocationDot27 className="shrink-0 size-[27px]" />
               <p className="[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/3xl\/lh-none,30px)] text-right text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--font\/size\/text-3xl,30px)] tracking-[-0.75px] whitespace-nowrap">
-                {percent}%
+                {hasPercent ? `${percent}%` : '—'}
               </p>
             </div>
             <div className="flex items-center gap-[2px]">
@@ -556,6 +595,7 @@ export default function SystemsHealthCard({
                 <Warning size={18} />
               </span>
               <AttentionCount zero={requireAttention === 0}>{requireAttention}</AttentionCount>
+              {requireAttention === 0 ? <ClearMark /> : null}
             </Capsule>
             <TileLabel>Require attention</TileLabel>
           </div>
@@ -641,6 +681,25 @@ export default function SystemsHealthCard({
           <SystemTypeChip glyph={<BrandDrops size={16} />} label="Humidity" count={humidity} />
         </div>
       </div>
+
+      {/* The one sentence this card is allowed to say about itself.
+          It is gated on `zero` — the conjunction over EVERY dimension the
+          card renders (require-attention, offline, valve, power,
+          recipients) — and on nothing narrower. That is the whole point:
+          one dimension reading clear is not evidence about the others, and
+          a headline built on a subset would be a true number making a false
+          claim. The conjunction also means the line cannot appear while any
+          system is offline, which matters because the valve and power
+          counts are computed over reachable systems only
+          (src/data/systems.js computeWidgets filters on `comm === 'online'`)
+          — so their zeros mean "none among the systems we can see". With
+          offline pinned at 0 by the same conjunction, there is nothing we
+          cannot see, and the claim is safe to make.
+          `total` is stated rather than implied so the sentence carries its
+          own denominator and cannot be read as reassurance about nothing.
+          No timestamp: this data layer has no lastUpdated and a "checked
+          at" time synthesised from Date.now() would be invented. */}
+      {zero ? <TileLabel>No open issues across {total} systems</TileLabel> : null}
 
       {/* Not in 198601:62957 or either state frame — the redesign dropped it.
           Kept because HomeAllAccounts still wires onShowPast to the alerts

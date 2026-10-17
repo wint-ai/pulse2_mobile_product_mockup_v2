@@ -386,11 +386,19 @@ function StatBadge({ deg, blend, icon, value, valueClass }) {
  *        'sensor-more' | 'show-past-events'. Omit it and every control still
  *        renders and is focusable, it just no-ops.
  * @param {string}   props.className  appended to the card shell.
+ * @param {boolean}  props.actions    mobile variant only. False drops the
+ *        On it / Ignore row. Ignore is a WATER-EVENT concept — v1's
+ *        ErrorAlertDetail offers neither control on an offline, valve-error or
+ *        power-lost fault, and the product's Ignore flow is scoped to a live
+ *        water event in the Warning state. Offering it on a fault was also a
+ *        store collision: ignoredIncidents is keyed by systemId, so ignoring a
+ *        power fault wrote the record a water-event ignore writes.
  */
 export default function AlertCard({
   variant = 'mobile',
   event = MOCK_EVENT,
   onAction,
+  actions = true,
   className,
 }) {
   const data = { ...MOCK_EVENT, ...event }
@@ -479,6 +487,7 @@ export default function AlertCard({
           <DetectedRow event={data} />
         </div>
 
+        {actions ? (
         <div className="content-stretch flex gap-[12px] items-start relative shrink-0 w-full">
           <div className="content-stretch flex flex-[1_0_0] gap-[10px] items-center min-w-px relative">
             <Button
@@ -505,6 +514,7 @@ export default function AlertCard({
             </Button>
           </div>
         </div>
+        ) : null}
       </>
     ))
   }

@@ -99,6 +99,7 @@ import { getAccountById } from '@/data/accounts'
 import { getConsumption } from '@/data/consumption'
 import { getFleetConsumptionSeries } from '@/data/consumptionSeries'
 import { getInsightRows, insightValueLabel, INSIGHT_KIND } from '@/data/upstream/insightsModel'
+import { computeSystemHealth } from '@/utils/systemHealth'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 // MOCK — replace with the real account roll-up. Every value is the comp's own.
@@ -555,7 +556,11 @@ export default function HomeAllAccounts({ expanded = false }) {
       return locationName
         ? {
             waterEvents: [],
-            health: { percent: 100, tone: 'healthy' },
+            /* NOT 100. 100% of nothing is a perfect score for a scope that
+               holds no systems to protect — the Floor-26 bug in one number.
+               `null` is the card's "no figure" signal and renders an em
+               dash; every count below is a true zero and stays a zero. */
+            health: { percent: null, tone: 'healthy' },
             stats: { requireAttention: 0, total: 0 },
             issues: { offline: 0, valve: 0, power: 0, recipients: 0 },
             systemTypes: { topology: 0, flood: 0, humidity: 0 },
@@ -568,8 +573,30 @@ export default function HomeAllAccounts({ expanded = false }) {
     const kpis = computeKPIs(systems) ?? {}
 
     const activeEvents = systems.filter(s => s.alert)
-    const healthy = systems.filter(s => !s.alert).length
-    const percent = Math.round((healthy / systems.length) * 100)
+
+    /* Systems Health is the FOUR PROTECTION CHECKS, not leaks.
+       docs/PRD/09-system-health-widget.md defines a healthy system as one
+       that has communicated recently, has no valve error, has external power
+       if applicable, and has at least one alert recipient. A Water Event is
+       NOT one of them — 03-home-screen.md:207 states it outright: "Systems
+       Health bar unaffected by Water Events directly — leaks aren't a
+       'Systems Health' gap; they live in the Water Events strip above."
+       This used to count `!s.alert`, i.e. leaks only, which is a different
+       measurement wearing this one's label: it reported 46% for a fleet that
+       is 66% protected, and it would report a clean 100% for a scope whose
+       every system was offline so long as none of them was leaking.
+       src/utils/systemHealth.js already implements PRD 09 exactly and is
+       already the drawer's and the system page's definition, so this reads
+       it rather than growing a second one that can drift.
+
+       Rounding is FLOOR, not round, and the result is capped at 99 whenever
+       a single system fails a check (PRD 09:77 and 09:62: "must NEVER show
+       100% when any system has an issue"). Math.round took 99.6% to 100%,
+       which is the one thing the spec forbids. 100 is therefore reachable
+       only through the equality below — never through arithmetic. */
+    const healthy = systems.filter(s => computeSystemHealth(s).allOk).length
+    const percent =
+      healthy === systems.length ? 100 : Math.min(Math.floor((healthy / systems.length) * 100), 99)
 
     return {
       /* Mapped into the row shape ActiveWaterEventsCard actually reads
@@ -590,7 +617,13 @@ export default function HomeAllAccounts({ expanded = false }) {
         ignored: false,
         resolved: false,
       })),
-      health: { percent, tone: percent >= 90 ? 'healthy' : 'attention' },
+      /* PRD 09:87 gives the gauge exactly two states: "Green when 100% (all
+         healthy), accent color otherwise." `'attention'` was neither of the
+         two strings WaveGauge actually branches on ('intermediate' and
+         'error'), so the tint never rendered and the gauge stayed its
+         untinted blue at every percentage. No extra thresholds are invented
+         here: >= 90 was a band the PRD does not define. */
+      health: { percent, tone: percent === 100 ? 'healthy' : 'intermediate' },
       stats: { requireAttention: activeEvents.length, total: systems.length },
       /* The four issue pills of 198601:62957 — Offline systems / Valve errors /
          Disconnected power / Missing recipients.

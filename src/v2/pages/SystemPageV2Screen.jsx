@@ -77,6 +77,10 @@ import {
   windowMonthsOf,
 } from '@/v2/lib/consumptionWindow'
 import { getSystemById } from '@/data/systems'
+import { getCurrentActor } from '@/data/currentUser'
+import TagBottomSheet from '@/components/TagBottomSheet'
+import { addTag, removeTagAt, getTags } from '@/data/tagsStore'
+import { getActiveIncident, getLeakState } from '@/data/incidents'
 import { getConsumption } from '@/data/consumption'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
 import {
@@ -87,7 +91,6 @@ import {
 } from '@/data/systemDetails'
 import { getEventsForSystem } from '@/data/events'
 import IgnoreBottomSheet from '@/components/IgnoreBottomSheet'
-import { getCurrentActor } from '@/data/currentUser'
 import { ignoreIncident, clearIgnored, isIgnored } from '@/data/ignoredIncidents'
 import { startInvestigating, isInvestigating } from '@/data/investigatingStore'
 
@@ -146,7 +149,7 @@ const SYSTEM = {
    end. Leak alerts carry a flow rate and a volume; offline / valve-error /
    power-lost alerts carry neither, so those cards render without the figure
    rather than borrowing the mock's 13,564. */
-function alertCardsFor(alert) {
+function alertCardsFor(alert, systemId) {
   if (!alert) return []
 
   const leak = alert.type === 'leak-high' || alert.type === 'leak-low'
@@ -157,7 +160,15 @@ function alertCardsFor(alert) {
     page: 1,
     pageCount: 1,
     title: alert.label,
-    status: 'Ongoing',
+    /* Was hardcoded 'Ongoing'. The Warning/Ongoing/ShutOff lifecycle is what
+       PRD 04a:63 and 06:88 gate the action row on, so a literal here makes
+       that gating impossible to honour. getLeakState reads the incident's own
+       steps; non-leak faults have no lifecycle and keep the plain label. */
+    status: leak ? (getLeakState(getActiveIncident(systemId)) ?? 'Ongoing') : 'Ongoing',
+    ignored: isIgnored(systemId),
+    /* Water event or not. Ignore and "On it" are water-event actions; the
+       fault branch gets the summary only. */
+    leak,
     value: rate ?? alert.volume ?? '',
     unit: rate ? 'L/H flow rate' : '',
     detectedLabel: 'Detected',
@@ -473,6 +484,11 @@ export default function SystemPageV2Screen() {
      route the push no longer uses. */
   const [searchParams, setSearchParams] = useSearchParams()
   const [showIgnoreSheet, setShowIgnoreSheet] = useState(false)
+  /* PRD 15 §7.1 / 02:325. PushNotifications.jsx:656 sends
+     /system/{id}?action=tag&pulse=1, and this page handled only 'ignore'
+     before deleting the param — so the push's Tag button landed here and
+     silently did nothing. */
+  const [showTagSheet, setShowTagSheet] = useState(false)
   const [pulse, setPulse] = useState(false)
 
   /* Real system for this route, falling back to the mock shape when the id
@@ -530,7 +546,7 @@ export default function SystemPageV2Screen() {
          tree and auto-expands to this system. */
       parentName: sys.l4Name ?? sys.l3Name ?? null,
       alert: sys.alert ?? null,
-      alerts: alertCardsFor(sys.alert ?? null),
+      alerts: alertCardsFor(sys.alert ?? null, sys.id),
       insights,
       timeline,
       topology,
@@ -735,6 +751,7 @@ export default function SystemPageV2Screen() {
     if (!action && !wantsPulse) return
 
     if (action === 'ignore' && !isIgnored(systemId)) setShowIgnoreSheet(true)
+    if (action === 'tag') setShowTagSheet(true)
     /* §PRD 06 asks for a 2-second accent pulse on the card the push referred
        to — Slack's scroll-to-message highlight, not a badge. */
     if (wantsPulse) setPulse(true)
@@ -839,7 +856,10 @@ export default function SystemPageV2Screen() {
 
       // "On it" — claim the incident. Idempotent: tapping it twice is not an error.
       case 'on-it':
-        if (!isInvestigating(sysId)) startInvestigating(sysId)
+        /* PRD 04a:158 — "always a person name, never a role". Called without
+           an actor, investigatingStore defaults to the literal 'You', so
+           every other recipient would read "On it · You". */
+        if (!isInvestigating(sysId)) startInvestigating(sysId, { actor: getCurrentActor() })
         bump()
         return
 
@@ -980,7 +1000,17 @@ export default function SystemPageV2Screen() {
                             : 'w-full shrink-0 snap-start'
                         }
                       >
-                        <AlertCard variant="mobile" event={alert} onAction={handleAlertAction} />
+                        {/* PRD 04a:146-154, locked 2026-06-15: an ignored
+                            event renders muted, with the "Ignored by" pill and
+                            NO action row. `isIgnored` was read twice in this
+                            file and never in render, so after ignoring, the
+                            card went on offering live On it / Ignore. */}
+                        <AlertCard
+                          variant={alert.ignored ? 'ignored' : 'mobile'}
+                          event={alert}
+                          onAction={handleAlertAction}
+                          actions={alert.leak}
+                        />
                       </div>
                     ))}
                   </div>
@@ -1195,6 +1225,26 @@ export default function SystemPageV2Screen() {
       />
 
       <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      {/* PRD 15. The push's Tag button has been landing on this page and
+          finding nothing to open; this is the sheet it was asking for. Tags
+          are keyed by system and written through tagsStore, the same store
+          the v1 screen and the timeline read. */}
+      {showTagSheet && (
+        <TagBottomSheet
+          currentTags={getTags(system.id)}
+          onClose={() => setShowTagSheet(false)}
+          onAdd={additions => {
+            additions.forEach(tag => addTag(system.id, { ...tag, addedBy: getCurrentActor() }))
+            setShowTagSheet(false)
+            bump()
+          }}
+          onRemove={index => {
+            removeTagAt(system.id, index)
+            bump()
+          }}
+        />
+      )}
+
       <ValveConfirmSheet
         action={valveIntent?.action ?? null}
         deviceName={valveIntent?.device?.name}
