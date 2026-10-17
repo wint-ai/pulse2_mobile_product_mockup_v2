@@ -46,10 +46,13 @@ const pastWaterEventsFor = (systems) => {
   return HISTORY_EVENTS.filter((e) => ids.has(e.system))
 }
 
-/* A location whose water card is in its HEALTHY state, which is the only state
-   that renders the "Show past events" link at all — so this is the one entry
-   point that reaches History in one tap, and the scope that proves the rows
-   are filtered rather than the fleet's. Asserted below, not assumed. */
+/* A location with NO active water events, so the triage band is in its
+   all-clear state and "Show past events" is the whole of its footer. That link
+   is the one entry point that reaches History in one tap, and this scope is
+   what proves the rows are filtered rather than the fleet's. Asserted below,
+   not assumed. (Before the band it existed only in ActiveWaterEventsCard's
+   healthy state, which is why this location was picked; the band draws it in
+   every state, and the choice still holds.) */
 const QUIET_LOCATION = 'Building D'
 
 function mountAt(path) {
@@ -75,9 +78,12 @@ describe('EventOverlayV2 History shows the real past events', () => {
 
     mountAt('/')
 
-    // The card opens collapsed; "Show all" is its footer once expanded.
-    fireEvent.click(screen.getByRole('button', { name: /\d+ Water events/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Show all/ }))
+    /* ENTRY POINT MOVED (TriageBand merge). The band keeps its worst few rows
+       on screen at rest and defers the remainder to one footer link, so there
+       is no collapsed card to open first — this used to be the water card's
+       header followed by its "Show all" footer. The tab being tested, and
+       every assertion below, is unchanged. */
+    fireEvent.click(screen.getByRole('button', { name: /View all \d+ water events/ }))
 
     // Active first — untouched by the history rows now sharing the array.
     const activeCount = SYSTEMS.filter((s) => s.alert?.type?.startsWith('leak')).length
@@ -101,7 +107,7 @@ describe('EventOverlayV2 History shows the real past events', () => {
     expect(scoped.length, `${QUIET_LOCATION} holds no systems`).toBeGreaterThan(0)
     expect(
       scoped.filter((s) => s.alert).length,
-      `${QUIET_LOCATION} has active events, so the card never draws "Show past events"`,
+      `${QUIET_LOCATION} has active events, so this is not the all-clear band`,
     ).toBe(0)
     expect(expected.length).toBeGreaterThan(0)
     expect(expected.length, 'this location is not a narrower scope').toBeLessThan(fleet.length)

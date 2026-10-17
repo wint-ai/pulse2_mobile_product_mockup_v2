@@ -90,7 +90,8 @@ describe('water event rows open the event', () => {
      LandingProbe below stays mounted precisely to prove the row does NOT go
      there any more.
      The assertions about the row being a real <button> are untouched — they
-     were never about the destination. */
+     were never about the destination. Where that row is DRAWN changed
+     independently, in the same merge; see the note inside the test. */
   it('renders each row as a real button that opens the event overlay in place', () => {
     let landedOn = null
     const { container } = render(
@@ -105,23 +106,31 @@ describe('water event rows open the event', () => {
       </MemoryRouter>,
     )
 
-    /* The card is collapsed at rest — with real data it is 52 rows, which
-       would bury every card below it — so open it before looking for rows. */
-    // Named, not just `{expanded: false}` — the drawer's tree rows are
-    // collapsible buttons too, so that alone matches many elements.
-    const header = screen
-      .getAllByRole('button', { expanded: false })
-      .find((el) => /water events/i.test(el.textContent || ''))
-    expect(header, 'no water-events card header').toBeTruthy()
-    fireEvent.click(header)
+    /* BOTH HALVES OF THIS TEST MOVED AT ONCE, so it is restated once, here.
 
-    // Figma marks the row as a <button>; it used to render as an inert <div>
-    // because there was no agreed destination. The overlay is one.
-    const rows = screen.getAllByRole('button', { name: /^Open / })
-    expect(rows.length, 'no tappable event rows').toBeGreaterThan(0)
+       WHERE the rows live changed. They used to be ActiveWaterEventsCard's,
+       collapsed at rest, so this test opened the card header first. That card
+       is gone from Overview; the rows now ride in the TriageBand, which shows
+       the worst few at rest rather than collapsing all 52 — so there is no
+       header to open any more.
+
+       WHAT a tap does changed too. It no longer lands on /alert/:systemId.
+       The guarantee under test is still the original one — a row is a real
+       control and it opens its event — but the destination is now
+       EventFocusOverlay, in place, over the page. The LandingProbe below
+       stays mounted precisely to prove the row does NOT reach the v1 screen.
+
+       Matched on the band row's accessible name, which ends in the duration
+       ("… running 6h 36m") because duration is the triage signal, and opens
+       with the system name — which is what the overlay's subject is checked
+       against below. */
+    const rows = screen
+      .getAllByRole('button')
+      .filter((el) => /running \d/.test(el.getAttribute('aria-label') || ''))
+    expect(rows.length, 'no tappable event rows in the triage band').toBeGreaterThan(0)
 
     // The row names the system it opens; the overlay must be about that system.
-    const rowName = (rows[0].getAttribute('aria-label') || '').replace(/^Open /, '')
+    const rowName = (rows[0].getAttribute('aria-label') || '').split(',')[0].trim()
     expect(SYSTEMS.some((s) => s.name === rowName), 'row names no real system').toBe(true)
 
     // Nothing is open before the tap.
@@ -142,7 +151,9 @@ describe('water event rows open the event', () => {
 
     // ...the page behind it is still mounted (so its scroll survives)...
     expect(
-      within(container).getAllByRole('button', { name: /^Open / }).length,
+      within(container)
+        .getAllByRole('button')
+        .filter((el) => /running \d/.test(el.getAttribute('aria-label') || '')).length,
       'the rows unmounted, so the page was replaced rather than covered',
     ).toBeGreaterThan(0)
 

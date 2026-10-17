@@ -76,6 +76,7 @@ import SystemsHealthCard from '@/v2/components/SystemsHealthCard'
 import SystemsTableCard from '@/v2/components/SystemsTableCard'
 import SystemsFilterSheet from '@/v2/components/SystemsFilterSheet'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
+import TriageBand from '@/v2/components/TriageBand'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
@@ -1017,33 +1018,41 @@ export default function HomeAllAccounts({ expanded = false }) {
      differs) and the wrapper's class string must stay a literal attribute. */
   const cards = (
     <>
-      {/* 198314:73493 (no events) / 198328:89083 (25 events). */}
-      <ActiveWaterEventsCard
+      {/* The triage band. Answers "is anything wrong, where, how urgent" before
+          anything else on the screen, because that is the only question a user
+          arriving in a hurry has. See TriageBand.jsx for the research this is
+          built against; the short version is that no comparable product shows
+          more than three status counters above the fold, and the closest
+          analogue (SolarEdge Go, 534 sites) shows a ranked list rather than a
+          grid of tiles.
+
+          It REPLACES two cards on Overview: ActiveWaterEventsCard (198314:73493
+          / 198328:89083) and SystemsHealthCard (198601:62957). The count, the
+          rows and the full list all live here or in EventOverlayV2 now; both
+          components are untouched and still mounted elsewhere.
+
+          One affordance did NOT come across on its own and was carried over by
+          hand: the removed card's "Show past events", the only one-tap route to
+          the overlay's History tab. It was worth nothing on the branch that
+          wrote this band — History was structurally empty there — and is worth
+          103 rows on this one, because overlayEvents below now builds resolved
+          rows too. It is a TriageBand prop now; see its footer. */}
+      <TriageBand
+        total={live?.stats?.total ?? 0}
+        attention={live?.stats?.requireAttention ?? 0}
+        issues={live?.issues ?? MOCK_HEALTH_ISSUES}
         events={waterEvents}
-        onShowAll={() => openOverlay('water')}
-        onShowPast={() => openOverlay('water', { tab: 'history' })}
+        onSelectIssue={kind => openOverlay('alerts', { filter: ISSUE_FILTER[kind] ?? 'all' })}
         /* Opens EventFocusOverlay over this page. Row ids are system ids here
            — see the waterEvents mapping in `live` — and the overlay takes a
            systemId, so the row id goes straight through.
            This used to be navigate(`/alert/${event.id}`), the v1 LeakDetail
-           screen. The route still exists and still answers a pasted URL; what
-           changed is where the in-app row goes. */
+           screen — on the card this band replaced, and on the band itself. The
+           route still exists and still answers a pasted URL; what changed is
+           where the in-app row goes. */
         onSelectEvent={event => setFocusedEventSystemId(event.id)}
-      />
-
-      {/* 198601:62957 — the card's current node (198314:73505, which this file
-          used to name, no longer resolves; it was replaced by this redesign).
-          `systemTypes` feeds the new labelled "Systems types" row at the foot of
-          that node. The chips are SystemsHealthCard.jsx's markup to add; the
-          prop is supplied from here because this screen is the card's only
-          caller and its only source of fleet data. */}
-      <SystemsHealthCard
-        healthy={live?.health ?? MOCK_HEALTH}
-        stats={live?.stats ?? MOCK_HEALTH_STATS}
-        issues={live?.issues ?? MOCK_HEALTH_ISSUES}
-        systemTypes={live?.systemTypes ?? MOCK_HEALTH_TYPES}
-        onShowPast={() => openOverlay('alerts', { tab: 'history' })}
-        onSelectIssue={kind => openOverlay('alerts', { filter: ISSUE_FILTER[kind] ?? 'all' })}
+        onViewAll={() => openOverlay('water')}
+        onShowPast={() => openOverlay('water', { tab: 'history' })}
       />
 
       {/* 198314:73639. No onViewAll: the delivery canvas has no Insights list
