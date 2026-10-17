@@ -42,7 +42,7 @@
  * the gap. There is still no Insights card on this frame.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import TabBar from '@/components/TabBar'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
@@ -52,6 +52,14 @@ import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
 import SystemTopologyCard from '@/v2/components/SystemTopologyCard'
+import SystemTypeCard from '@/v2/components/SystemTypeCard'
+import ValveStatusCard from '@/v2/components/ValveStatusCard'
+import ActivePolicyCard from '@/v2/components/ActivePolicyCard'
+import InsightsCard from '@/v2/components/InsightsCard'
+import ScopePill from '@/v2/components/ScopePill'
+import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
+import InfoAccordion from '@/v2/components/InfoAccordion'
+import SystemHeroCard from '@/v2/components/SystemHeroCard'
 import { Menu10, CustomerSupport } from '@/v2/icons'
 /* The chart's window arithmetic — §3.1-§3.6 and the §4 matrix. Shared with
    HomeAllAccounts so the two screens cannot drift apart, and kept out of this
@@ -125,6 +133,37 @@ const SYSTEM = {
       window: '20:15 – 23:59',
     },
   ],
+}
+
+/* The alert carousel's rows, built from the system's REAL alert.
+   `SYSTEM.alerts` is a pair of bare {page, pageCount} placeholders, and
+   AlertCard merges whatever it is given over its own MOCK_EVENT — so every
+   system on every route drew two identical mock "High flow event" cards,
+   including the calm ones. The calm Figma frame (199296:50183) has no alert
+   card at all, which is exactly right: a system with no alert shows none.
+
+   `buildAlert` (src/data/upstream/buildTree.js:72) is the shape on the other
+   end. Leak alerts carry a flow rate and a volume; offline / valve-error /
+   power-lost alerts carry neither, so those cards render without the figure
+   rather than borrowing the mock's 13,564. */
+function alertCardsFor(alert) {
+  if (!alert) return []
+
+  const leak = alert.type === 'leak-high' || alert.type === 'leak-low'
+  // "120 L/hour" -> "120"; the unit is a separate slot on the card.
+  const rate = leak && alert.flowRate ? String(alert.flowRate).replace(/[^\d,.]/g, '') : null
+
+  return [{
+    page: 1,
+    pageCount: 1,
+    title: alert.label,
+    status: 'Ongoing',
+    value: rate ?? alert.volume ?? '',
+    unit: rate ? 'L/H flow rate' : '',
+    detectedLabel: 'Detected',
+    detectedAt: alert.startedAt,
+    duration: alert.age,
+  }]
 }
 
 /* ── Figma-exported glyphs, inlined ─────────────────────────────────────────
@@ -392,68 +431,6 @@ function ActionPolicyCard({ policies }) {
   )
 }
 
-/* ── Tabs (198379:80458) ────────────────────────────────────────────────────
-   The active and inactive triggers are two different frames in the design —
-   the active one nests a content box and an absolutely positioned 2px rule,
-   the inactive one is flat — so they are written as two branches rather than
-   one element with conditional classes. That also keeps every Figma class in a
-   literal JSX attribute, which is the only place the escaped var() survives. */
-
-const TABS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'general', label: 'General Info' },
-]
-
-function TabsRow({ value, onChange }) {
-  return (
-    <div className="content-stretch flex items-center justify-between relative shrink-0 w-full" data-node-id="198379:80457">
-      <div
-        role="tablist"
-        aria-label="System sections"
-        className="content-stretch flex flex-[1_0_0] gap-[var(--p-0,0px)] h-[36px] items-start min-w-px pr-[var(--component\/tabs\/list\/padding,3px)] py-[var(--component\/tabs\/list\/padding,3px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)]"
-        data-node-id="198379:80458"
-      >
-        <div className="content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center min-w-px relative">
-          {TABS.map((tab) =>
-            tab.id === value ? (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected="true"
-                onClick={() => onChange(tab.id)}
-                className="content-stretch cursor-pointer flex flex-[1_0_0] flex-col items-center min-w-[56px] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)]"
-              >
-                <div className="content-stretch flex gap-[var(--component\/tabs\/trigger\/gap,6px)] items-center overflow-clip px-[var(--component\/tabs\/trigger\/px,8px)] py-[var(--component\/tabs\/trigger\/py,4px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)] shrink-0">
-                  <p className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--wint-blue-accent,#0b81f8)] text-center text-ellipsis whitespace-nowrap">
-                    {tab.label}
-                  </p>
-                </div>
-                <div className="absolute bottom-0 content-stretch flex flex-col items-start left-0 py-[var(--p-0,0px)] right-[-2px]">
-                  <div className="bg-[var(--wint-blue-accent,#0b81f8)] h-[2px] relative shrink-0 w-full" />
-                </div>
-              </button>
-            ) : (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected="false"
-                onClick={() => onChange(tab.id)}
-                className="content-stretch cursor-pointer flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center justify-center min-w-[56px] px-[var(--spacing\/2,8px)] py-[var(--spacing\/1,4px)] relative rounded-[var(--component\/tabs\/list\/radius-horizontal,26px)]"
-              >
-                <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--colors\/slate\/500,#62748e)] text-center text-ellipsis whitespace-nowrap">
-                  {tab.label}
-                </p>
-              </button>
-            ),
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* ── Screen ─────────────────────────────────────────────────────────────── */
 
 
@@ -476,6 +453,16 @@ export default function SystemPageV2Screen() {
      uses on the v1 screens: there is no valve mutation in this app, so a close
      is local and a reload restores it. */
   const [closedValves, setClosedValves] = useState({})
+  /* EVERY valve change goes through the confirm sheet. v1 has always done
+     this (ValveControlCard.jsx:420); the v2 page wired its controls straight
+     at state and lost it, so shutting off a building's water was one
+     unguarded tap. `valveIntent` holds what was asked for until it is
+     confirmed; nothing mutates until then. */
+  const [valveIntent, setValveIntent] = useState(null)
+  /* Home / Away on the alert frame's Active policy card. Local and optimistic,
+     the same way this screen already treats valve closes — there is no policy
+     mutation in this app yet. */
+  const [policyMode, setPolicyMode] = useState('home')
 
   /* THE PUSH CONTRACT (PRD 06). Every water-event push lands here and asks the
      page to do something on arrival: `?pulse=1` highlights the card the push
@@ -536,7 +523,14 @@ export default function SystemPageV2Screen() {
         parent: [sys.l3Name, sys.l4Name].filter(Boolean).join(' · ') || SYSTEM.breadcrumb.parent,
       },
       updatedAt: sys.updatedAt ?? SYSTEM.updatedAt,
+      /* ONE ancestor, for the scope pill. l4Name is the leaf location that
+         holds systems; l3Name is the city above it and is null on some
+         datasets. The pill shows the nearest one that exists — never a path.
+         The rest of the chain lives in the drawer, which renders the whole
+         tree and auto-expands to this system. */
+      parentName: sys.l4Name ?? sys.l3Name ?? null,
       alert: sys.alert ?? null,
+      alerts: alertCardsFor(sys.alert ?? null),
       insights,
       timeline,
       topology,
@@ -546,8 +540,12 @@ export default function SystemPageV2Screen() {
     }
   }, [systemId])
 
-  const [tab, setTab] = useState('overview')
   const [drawerOpen, setDrawerOpen] = useState(false)
+  /* The consumption chart is behind the hero's "See more" now (Figma
+     199296:50183 / :50454). It is NOT gone — the design moved it, so this flag
+     is the only way to reach it and the hero's control owns it. */
+  const [chartOpen, setChartOpen] = useState(false)
+  const chartRef = useRef(null)
   const carouselRef = useRef(null)
 
   /* Consumption scope. The card draws the controls; the screen owns what they
@@ -566,10 +564,50 @@ export default function SystemPageV2Screen() {
      the way the grouping control does (§3.1). */
   const [periodTrail, setPeriodTrail] = useState([])
 
+  /* "See more" sits in the hero at the very top; the chart it reveals lands
+     below the alert carousel and the topology card, far enough down that on a
+     393x852 frame the control looks inert. Bring it to the user. */
+  useEffect(() => {
+    if (!chartOpen) return
+    const node = chartRef.current
+    if (!node?.scrollIntoView) return
+    const id = requestAnimationFrame(() =>
+      node.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    return () => cancelAnimationFrame(id)
+  }, [chartOpen])
+
   const consumptionView = useMemo(
     () => getConsumptionSeries(system.id, system.title, period, periodOffset),
     [system.id, system.title, period, periodOffset],
   )
+
+  /* The hero's headline figures. The comp prints "5,83L +120%" over a date
+     range; both come from the series the chart below already plots, so the two
+     can never disagree. Unreached buckets carry litres === null (PLS-WC-17)
+     and are excluded, exactly as deriveStats does. */
+  const heroFigures = useMemo(() => {
+    const read = (consumptionView?.series ?? []).filter(p => p.litres != null)
+    if (!read.length) return { total: '—', delta: null }
+    const total = read.reduce((sum, p) => sum + p.litres, 0)
+    const fmt = n =>
+      n >= 1e6 ? `${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M` :
+      n >= 1e3 ? `${(n / 1e3).toFixed(2).replace(/\.?0+$/, '')}K` : String(Math.round(n))
+    /* The delta is first half against second, which is what a single window
+       can honestly say without a second fetch. */
+    const half = Math.floor(read.length / 2)
+    const older = read.slice(0, half).reduce((s, p) => s + p.litres, 0)
+    const newer = read.slice(half).reduce((s, p) => s + p.litres, 0)
+    const pct = older > 0 ? Math.round(((newer - older) / older) * 100) : null
+    return {
+      total: `${fmt(total)}L`,
+      delta: pct == null ? null : `${pct > 0 ? '+' : ''}${pct}%`,
+      pct,
+      deltaLitres: Math.round(newer - older),
+    }
+  }, [consumptionView])
+
+  const heroTotal = heroFigures.total
+  const heroDelta = heroFigures.delta
 
   /* PLS-WC-06 — where this system's series actually starts and ends, read back
      out of the data layer rather than from the clock. Every offset below is
@@ -714,10 +752,62 @@ export default function SystemPageV2Screen() {
     return () => clearTimeout(id)
   }, [pulse])
 
+  /* The sheet's "Yes" lands here. Still optimistic and still local — there is
+     no valve mutation in this app and ValveControlCard keeps its state in
+     component-local useState too — but it is now a decision, not a twitch. */
+  const commitValveIntent = () => {
+    if (!valveIntent) return
+    const { action, device } = valveIntent
+    if (action === 'close-all') {
+      setClosedValves(Object.fromEntries((system.devices ?? []).map(d => [d.id, true])))
+    } else if (device) {
+      setClosedValves(v => ({ ...v, [device.id]: action === 'close' }))
+    } else {
+      setClosedValves(
+        action === 'close'
+          ? Object.fromEntries(valves.map(d => [d.id, true]))
+          : {},
+      )
+    }
+    setValveIntent(null)
+  }
+
   const loopDevices = useMemo(
     () => (system.devices ?? []).map(d => (closedValves[d.id] ? { ...d, valve: 'closed' } : d)),
     [system.devices, closedValves],
   )
+
+  /* The System page redesign (199296:50183 calm / 199296:50454 alert) orders
+     its cards differently in the two states: the alert frame lifts Valve
+     status above System type and drops Active policy below Insights, because
+     when something is wrong the valve is the thing you reach for. So the order
+     is data, not markup. */
+  const alerting = Boolean(system.alert)
+  const cardOrder = alerting
+    ? ['valve', 'type', 'chart', 'insights', 'policy', 'timeline']
+    : ['type', 'chart', 'valve', 'policy', 'insights', 'timeline']
+
+  /* One optimistic valve state for the whole system, which is what the new
+     card models. The per-device `closedValves` map stays underneath it — the
+     topology card still closes valves individually — so this reads "open
+     unless every valve is closed" rather than keeping a second source of
+     truth. */
+  const valves = (system.devices ?? []).filter(d => d.valve)
+  const valveState =
+    valves.length && valves.every(d => closedValves[d.id] || d.valve === 'closed')
+      ? 'closed'
+      : 'open'
+
+  /* "1 Valve | 1 Meters" in the comp — counted from the system's own devices
+     rather than printed from the frame. */
+  const deviceChips = (() => {
+    const valveCount = valves.length
+    const meterCount = (system.devices ?? []).filter(d => d.meter || d.type === 'meter').length
+    return [
+      `${valveCount} ${valveCount === 1 ? 'Valve' : 'Valves'}`,
+      `${meterCount} ${meterCount === 1 ? 'Meter' : 'Meters'}`,
+    ]
+  })()
 
   const steps = stepAvailability(period, periodOffset, consumptionBounds)
   const returnTo = periodTrail[periodTrail.length - 1]?.period ?? null
@@ -793,237 +883,264 @@ export default function SystemPageV2Screen() {
         style={{ flex: 1, minHeight: 0 }}
         data-node-id="198379:80447"
       >
-        {/* Mobile Header Bar 198379:80448 */}
-        <div
-          className="content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[42px] items-center justify-center px-[var(--pro\/space\/4,16px)] py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full"
-          data-node-id="198379:80448"
-        >
-          {/* Figma emits this row's gap as the two-value token
-              `gap-[var(--pro\/space\/4,4px_16px)]`. Tailwind drops that class
-              (a `gap-[...]` arbitrary value takes one length), which would
-              leave the support glyph 16px adrift of the right padding edge, so
-              it is split per axis against the same token. */}
-          <div className="content-center flex flex-wrap gap-x-[var(--pro\/space\/4,16px)] gap-y-[var(--pro\/space\/4,4px)] items-center relative shrink-0 w-full">
-            {/* The frame models the burger as a 287px-wide Button, so the tap
-                target spans the header rather than hugging the 17px glyph. */}
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Open navigation"
-              className="content-stretch cursor-pointer flex gap-[var(--pro\/space\/1\,5,6.40148663520813px)] h-[34.141px] items-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,27.74px)] shrink-0 w-[287px]"
-              data-node-id="I198379:80448;50600:52769;198379:80618"
-            >
-              <span className="flex items-center justify-center overflow-clip relative shrink-0 size-[17.071px] text-[#0a0a0a]">
-                <Menu10 size={11.3769} />
-              </span>
-            </button>
-            {/* Deliberately inert: there is no support route in this app and no
-                support screen on the delivery canvas. It renders and focuses,
-                it just has nowhere to go. */}
-            <button
-              type="button"
-              aria-disabled="true"
-              aria-label="Customer support"
-              className="cursor-default flex items-center justify-center overflow-clip relative shrink-0 size-[24px] text-[#0a0a0a]"
-              data-node-id="I198379:80448;50600:52769;198379:80622"
-            >
-              <CustomerSupport width={21.995} height={19.995} />
-            </button>
-          </div>
-        </div>
-
         {/* Content 198379:80449 — the one scrolling region on this screen */}
         <div
-          className="content-stretch flex flex-col gap-[22px] items-start pt-[20px] px-[var(--pro\/space\/2\,5,10px)] relative w-full"
+          /* pt-0: the hero is the first thing in the scroller and its wave
+             is pinned to the frame's top edge, so there is no inset above it.
+             The Content column's own 10px gutter is restored below the hero. */
+          className="content-stretch flex flex-col gap-[22px] items-start pt-[var(--p-0,0px)] px-[var(--pro\/space\/2\,5,10px)] relative w-full"
           style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
           data-node-id="198379:80449"
         >
-          {/* Breadcrumb + title 198379:80450 */}
-          <div className="content-stretch flex flex-col items-start justify-center relative shrink-0 w-full" data-node-id="198379:80450">
-            {/* Header 198379:80451 — h-[44px] is what lands the breadcrumb
-                baseline on the comp's y=97. */}
-            <div className="content-stretch flex gap-[var(--spacing\/2,8px)] h-[44px] items-center py-[var(--p-0,0px)] relative shrink-0 w-full" data-node-id="198379:80451">
-              <nav
-                aria-label="Breadcrumb"
-                className="content-center flex flex-wrap gap-[var(--component\/breadcrumb\/item\/gap,6px)] gap-y-[4px] items-center p-[var(--p-0,0px)] relative shrink-0"
+          {/* HERO — Figma 199296:50183 (calm) / 199296:50454 (alert).
+              The whole top region: the page-level wave, the Mobile Header Bar
+              drawn on it, and the consumption headline. It bleeds out of the
+              Content column's 10px gutter AND the frame's 8px inset so the
+              wave reaches the phone's edges the way both nodes draw it. */}
+          <SystemHeroCard
+            className="-mx-[18px] w-[calc(100%+36px)]"
+            title={system.title}
+            total={heroTotal}
+            delta={heroDelta}
+            rangeLabel={consumptionView.label}
+            tone={system.alert ? 'alert' : 'calm'}
+            expanded={chartOpen}
+            onToggleChart={() => setChartOpen(v => !v)}
+            onOpenMenu={() => setDrawerOpen(true)}
+            /* The comp centres a location name in this slot; this is that,
+               made operable. Replaces the breadcrumb row below. */
+            scope={
+              <ScopePill
+                label={system.parentName}
+                onOpenTree={() => setDrawerOpen(true)}
+                onBack={
+                  system.parentName
+                    ? () => navigate(`/location/${encodeURIComponent(system.parentName)}`)
+                    : undefined
+                }
+                backLabel={`Back to ${system.parentName ?? 'the parent location'}`}
+              />
+            }
+            /* Moved down from the page chrome rather than dropped. It is
+               deliberately inert — this app has no support route — but it
+               renders and focuses exactly as it did. */
+            headerAction={
+              <button
+                type="button"
+                aria-disabled="true"
+                aria-label="Customer support"
+                className="cursor-default flex items-center justify-center overflow-clip relative shrink-0 size-[24px] text-[#0a0a0a]"
+                data-node-id="I198379:80448;50600:52769;198379:80622"
               >
-                <div className="content-stretch flex gap-[var(--component\/breadcrumb\/item\/gap,6px)] items-center relative shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/')}
-                    className="content-stretch cursor-pointer flex gap-[var(--component\/breadcrumb\/item\/gap,6px)] items-center justify-center p-[var(--p-0,0px)] relative shrink-0"
-                  >
-                    <p className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
-                      {system.breadcrumb.home}
-                    </p>
-                  </button>
+                <CustomerSupport width={21.995} height={19.995} />
+              </button>
+            }
+          />
 
-                  <div className="relative shrink-0 size-[16px]">
-                    <ArrowRightSLine fill="#90A1B9" />
-                  </div>
-
-                  {/* The collapsed ancestors. Figma marks it cursor-pointer but
-                      draws no disclosure menu anywhere on the canvas, so it is
-                      inert rather than wired to an invented popover. */}
-                  <button
-                    type="button"
-                    aria-disabled="true"
-                    aria-label="Show hidden breadcrumbs"
-                    className="content-stretch cursor-default flex gap-[var(--component\/breadcrumb\/item\/gap,6px)] items-center justify-center p-[var(--spacing\/0\,5,2px)] relative shrink-0"
-                  >
-                    <span className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]">
-                      <MoreHorizontal />
-                    </span>
-                  </button>
-
-                  <div className="relative shrink-0 size-[16px]">
-                    <ArrowRightSLine fill="#1D293D" />
-                  </div>
-
-                  {/* Last crumb. The frame does not mark it cursor-pointer — it
-                      is the parent account label, not a link — so it stays
-                      plain text. */}
-                  <div className="content-stretch flex gap-[var(--component\/breadcrumb\/item\/gap,6px)] items-center justify-center p-[var(--p-0,0px)] relative shrink-0">
-                    <p className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
-                      {system.breadcrumb.parent}
-                    </p>
-                  </div>
-                </div>
-              </nav>
-            </div>
-
-            {/* Title 198379:80453 */}
-            <div className="content-stretch flex items-center justify-between relative shrink-0 w-full" data-node-id="198379:80453">
-              <h1
-                className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh,32px)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/2xl\/size,24px)] tracking-[-0.6px] whitespace-nowrap"
-                dir="auto"
-                data-node-id="198379:80454"
-              >
-                {system.title}
-              </h1>
-            </div>
-          </div>
 
           {/* Tabs + body 198379:80456 */}
           <div className="content-stretch flex flex-col gap-[14px] items-start relative shrink-0 w-full" data-node-id="198379:80456">
-            <TabsRow value={tab} onChange={setTab} />
+            {/* THE TAB ROW IS GONE (Overview | General Info).
+                It was never a set of peers: Overview is this entity's
+                dashboard and General Info is a metadata sheet — two different
+                layouts, which is exactly the case NN/g says a tab control must
+                not carry ("each in-page tab should have the same layout but
+                with different data"). It also cost 36px + its gap on an 852px
+                frame, competed with the bottom bar, and neither redesigned
+                Figma node draws one.
+
+                Nothing was dropped to remove it: General Info is now the
+                collapsed accordion group at the foot of this same scroll —
+                which is more than the tab held, because that tab rendered the
+                literal string "No design yet for this tab" while the real
+                11-section content sat unported in v1. */}
 
             {/* Body wrapper 198379:80459 */}
             <div
               className="content-stretch flex flex-col gap-[14px] items-start justify-center pb-[var(--spacing\/4,16px)] px-[var(--p-0,0px)] relative shrink-0 w-full"
               data-node-id="198379:80459"
             >
-              {tab === 'overview' ? (
-                <>
-                  {/* Alert carousel 198379:80460. Two 308px cards in a 339px
-                      column is a swipe row in the comp; overflow-x-auto plus
-                      scroll-snap is what makes that real on a phone. */}
+                  {/* Alert carousel 198379:80460 / 199296:50466. Only the alert
+                      frame draws one, and `system.alerts` is now empty on a
+                      calm system, so this renders nothing there. */}
                   <div
                     ref={carouselRef}
                     className="content-stretch flex gap-[14px] items-center overflow-x-auto relative shrink-0 w-full snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     data-node-id="198379:80460"
                   >
-                    {system.alerts.map((alert) => (
+                    {(system.alerts ?? []).map((alert) => (
                       <div key={alert.page} className="shrink-0 snap-start">
                         <AlertCard variant="mobile" event={alert} onAction={handleAlertAction} />
                       </div>
                     ))}
                   </div>
 
-                  {/* Topology 198736:153302 — the expanded "describing the
-                      system" variant from System page_mobile (198629:63118),
-                      which sits between the alert carousel and Water
-                      consumption in both frames. The sibling frame draws it
-                      collapsed; this is the one that was asked for.
-                      Rendered only when the system actually has piping. */}
-                  {loopDevices.length ? (
-                    <SystemTopologyCard
-                      className="shrink-0"
-                      expanded={loopExpanded}
-                      onToggle={() => setLoopExpanded(v => !v)}
-                      /* The card is titled by the topology the system has —
-                         "Open loop" on a cooling tower, "Water line"
-                         elsewhere — and draws that type's schematic. Both come
-                         from systemConfig rather than being decided here. */
-                      title={system.topology?.pipeTopology ?? 'Open loop'}
-                      topology={system.topology?.config?.schematic ?? 'water-line'}
-                      devices={loopDevices}
-                      /* The node draws both controls, so both are drawn. There
-                         is no shared valve action in this app — ValveControlCard
-                         keeps its state in component-local useState on the v1
-                         screens — so these follow that same pattern: an
-                         optimistic local close, which is what a mockup can
-                         honestly do. Nothing is persisted, and a reload puts
-                         the valve back. Swap `closedValves` for a real mutation
-                         the moment one exists. */
-                      onCloseValve={d => setClosedValves(v => ({ ...v, [d.id]: true }))}
-                      onCloseAll={() =>
-                        setClosedValves(
-                          Object.fromEntries(system.devices.map(d => [d.id, true])),
-                        )
-                      }
-                    />
-                  ) : null}
 
-                  {/* "Water consumption_M" 198629:51874 — the card instance in
-                      the live Body wrapper. The frame's old leftover shadcn
-                      layer name ("Balance") is gone; this wrapper stays for
-                      the min-w / overflow-clip the column needs. */}
-                  {/* §3.6 / §19 — the way back out of a drill-down, above the
-                      card it returns. It renders only while there is something
-                      to return to, so it cannot read as a dead control on a
-                      chart nobody has drilled into. */}
-                  <ConsumptionReturnControl toPeriod={returnTo} onReturn={returnFromDrill} />
+                  {/* THE CARD STACK — ordered by state, see `cardOrder`.
+                      Figma: calm 199296:50202, alert 199296:50467, both a
+                      gap-[14px] column. */}
+                  {cardOrder.map(key => {
+                    if (key === 'type') {
+                      return loopDevices.length ? (
+                        <Fragment key={key}>
+                          {/* System type 199296:50210 / 199296:50475 */}
+                          <SystemTypeCard
+                            className="shrink-0"
+                            tone={alerting ? 'alert' : 'calm'}
+                            title={system.topology?.pipeTopology ?? 'Water line'}
+                            devices={deviceChips}
+                            serialNumber={system.serialNumber ?? 'SN 4471822'}
+                            status={alerting ? 'alert' : 'ok'}
+                            expanded={loopExpanded}
+                            onToggle={next => setLoopExpanded(next)}
+                          />
+                          {/* The disclosure the card's footer control opens.
+                              This is the existing topology card — it is how
+                              individual valves get closed, so it is kept and
+                              simply moved behind the new control rather than
+                              dropped for the redesign. */}
+                          {loopExpanded ? (
+                            <SystemTopologyCard
+                              className="shrink-0"
+                              expanded
+                              onToggle={() => setLoopExpanded(false)}
+                              title={system.topology?.pipeTopology ?? 'Open loop'}
+                              topology={system.topology?.config?.schematic ?? 'water-line'}
+                              devices={loopDevices}
+                              onCloseValve={d => setValveIntent({ action: 'close', device: d })}
+                              onCloseAll={() => setValveIntent({ action: 'close-all' })}
+                            />
+                          ) : null}
+                        </Fragment>
+                      ) : null
+                    }
 
-                  <div
-                    className="content-stretch flex flex-col items-center min-w-[288px] overflow-clip relative shrink-0 w-full"
-                    data-node-id="198629:51874"
-                  >
-                    <WaterConsumptionCardV2
-                      className="w-full"
-                      data={consumptionView.series}
-                      period={period}
-                      monthLabel={consumptionView.label}
-                      onPeriodChange={selectPeriod}
-                      onMonthChange={stepPeriod}
-                      picker="dropdown"
-                      onOpenPicker={() => setPickerOpen(true)}
-                      compare={compareConsumption}
-                      onCompareChange={setCompareConsumption}
-                      compareData={consumptionCompare}
-                      /* §3.5 — the card reports which bucket was opened; the
-                         screen owns what "one step finer" means, because only
-                         it holds the window. */
-                      onDrillDown={drillIntoBucket}
-                      onToday={jumpToToday}
-                      canToday={canJumpToToday(period, periodOffset)}
-                      canStepPrev={steps.canStepPrev}
-                      canStepNext={steps.canStepNext}
-                    />
-                  </div>
+                    if (key === 'valve') {
+                      /* Valve status 199296:50251 / 199296:50515 */
+                      return valves.length ? (
+                        <ValveStatusCard
+                          key={key}
+                          className="shrink-0"
+                          tone={alerting ? 'alert' : 'calm'}
+                          state={valveState}
+                          /* Asks; does not act. commitValveIntent does. */
+                          /* The card speaks state ('open'|'closed'); the sheet
+                             speaks intent ('open'|'close'). Translate here. */
+                          onToggle={next =>
+                            setValveIntent({ action: next === 'closed' ? 'close' : 'open' })
+                          }
+                        />
+                      ) : null
+                    }
 
-                  {/* Events Timeline 198379:80615. Passing `events` is what
-                      stops the card falling back to MOCK_EVENTS; an empty array
-                      is a legitimate state (a system with no history) and the
-                      card renders its own empty state for it. */}
-                  <EventsTimelineCard events={system.timeline} />
+                    if (key === 'policy') {
+                      /* Active policy 199296:50268 / 199296:50538 */
+                      return (
+                        <ActivePolicyCard
+                          key={key}
+                          className="shrink-0"
+                          tone={alerting ? 'alert' : 'calm'}
+                          policies={system.policies}
+                          mode={policyMode}
+                          onModeChange={setPolicyMode}
+                        />
+                      )
+                    }
 
-                  {/* Action Policy 198379:80616 */}
-                  <ActionPolicyCard policies={system.policies} />
-                </>
-              ) : (
-                /* NOT DESIGNED. The canvas has the tab but no content frame for
-                   it, and Rule 0 forbids inventing one. Honest placeholder
-                   until a comp exists. */
-                <div className="bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[4px] items-center justify-center px-[24px] py-[40px] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full">
-                  <p className="font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/sm\/size,14px)]">
-                    General Info
-                  </p>
-                  <p className="font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh,16px)] text-[color:var(--colors\/slate\/400,#90a1b9)] text-[length:var(--text\/xs\/size,12px)]">
-                    No design yet for this tab.
-                  </p>
-                </div>
-              )}
+                    if (key === 'chart') {
+                      /* The consumption chart, revealed by the hero's "See
+                         more". Position is the frame's: 198629:51874 sits
+                         directly after the topology card (198629:57165) and
+                         before the Events Timeline — i.e. right under System
+                         type, which is what carries the topology now. It was
+                         briefly pinned above the whole stack, which is not
+                         where any frame puts it.
+
+                         NOT REMOVED, just moved behind a control: every prop
+                         the card ever had is still passed. */
+                      if (!chartOpen) return null
+                      return (
+                        <Fragment key={key}>
+      {/* §3.6 / §19 — the way back out of a drill-down, above the
+      card it returns. It renders only while there is something
+      to return to, so it cannot read as a dead control on a
+      chart nobody has drilled into. */}
+      <ConsumptionReturnControl toPeriod={returnTo} onReturn={returnFromDrill} />
+
+      <div
+      ref={chartRef}
+      className="content-stretch flex flex-col items-center min-w-[288px] overflow-clip relative scroll-mt-[8px] shrink-0 w-full"
+      data-node-id="198629:51874"
+      >
+      <WaterConsumptionCardV2
+      className="w-full"
+      data={consumptionView.series}
+      period={period}
+      monthLabel={consumptionView.label}
+      onPeriodChange={selectPeriod}
+      onMonthChange={stepPeriod}
+      picker="dropdown"
+      onOpenPicker={() => setPickerOpen(true)}
+      compare={compareConsumption}
+      onCompareChange={setCompareConsumption}
+      compareData={consumptionCompare}
+      /* §3.5 — the card reports which bucket was opened; the
+      screen owns what "one step finer" means, because only
+      it holds the window. */
+      onDrillDown={drillIntoBucket}
+      onToday={jumpToToday}
+      canToday={canJumpToToday(period, periodOffset)}
+      canStepPrev={steps.canStepPrev}
+      canStepNext={steps.canStepNext}
+      />
+      </div>
+                        </Fragment>
+                      )
+                    }
+
+                    if (key === 'insights') {
+                      /* Insights 199296:50344 / 199296:51143. The sparkline is
+                         drawn from this system's own series, so the curve and
+                         the figure cannot disagree, and both say the same
+                         thing the hero's headline does. */
+                      return (
+                        <InsightsCard
+                          key={key}
+                          className="shrink-0"
+                          tone={alerting ? 'alert' : 'calm'}
+                          changePct={heroFigures.pct}
+                          changeLitres={heroFigures.deltaLitres}
+                          /* Unreached buckets carry litres === null
+                             (PLS-WC-17). Plotting them reads as a crash to
+                             zero in the current, partial period, so the
+                             sparkline sees exactly what the hero's figure
+                             counts. */
+                          series={consumptionView.series.filter(p => p.litres != null)}
+                        />
+                      )
+                    }
+
+                    if (key === 'timeline') {
+                      /* Events Timeline 199296:50453 / 199296:50716. Passing
+                         `events` is what stops the card falling back to
+                         MOCK_EVENTS; [] is a legitimate state and the card
+                         draws its own empty view for it. */
+                      return (
+                        <EventsTimelineCard
+                          key={key}
+                          events={system.timeline}
+                          tone={alerting ? 'alert' : 'calm'}
+                        />
+                      )
+                    }
+
+                    return null
+                  })}
+
+              {/* General Info — the tab's content, now the last section of the
+                  scroll. Collapsed by default (PRD 04h: "Foldable sections - all
+                  collapsed by default"), so it costs one row at rest. */}
+              <InfoAccordion system={system} />
             </div>
           </div>
         </div>
@@ -1068,6 +1185,14 @@ export default function SystemPageV2Screen() {
       />
 
       <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <ValveConfirmSheet
+        action={valveIntent?.action ?? null}
+        deviceName={valveIntent?.device?.name}
+        valveCount={valves.length}
+        onConfirm={commitValveIntent}
+        onCancel={() => setValveIntent(null)}
+      />
+
       <TabBar activeTab="home" hideAlerts />
     </div>
   )

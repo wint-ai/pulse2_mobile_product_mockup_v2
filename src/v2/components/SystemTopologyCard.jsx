@@ -63,15 +63,23 @@ const POWER_LABEL = { ac: 'AC', battery: 'Battery', 'ac-lost': 'AC lost' }
 const FAM_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Geist:SemiBold'),'Figtree','Inter',sans-serif]`
 const FAM_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif]`
 
+/* Class ORDER matters in every atom below, because these run through cn() and
+   so through twMerge. Tailwind's `text-sm/6` shorthand sets size *and*
+   line-height, so twMerge files `leading-*` in the same conflict group as the
+   font size: a `leading-*` that sits BEFORE a `text-[length:…]` / `text-[12px]`
+   in the same string is silently deleted. Figma emits its classes
+   alphabetically, which puts `leading-` first — so the line-height atom is
+   moved to the END here on purpose. Same class set, different order. Do not
+   re-sort these back into alphabetical order. */
 const TEXT_TITLE = cn(
   '[word-break:break-word] whitespace-nowrap',
   FAM_SEMI,
-  String.raw`font-[number:var(--font\/weight\/font-medium,600)] leading-[var(--text\/base\/lh,24px)] text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/base\/size,16px)]`,
+  String.raw`font-[number:var(--font\/weight\/font-medium,600)] text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/base\/size,16px)] leading-[var(--text\/base\/lh,24px)]`,
 )
 const TEXT_NAME = cn(
   '[word-break:break-word] whitespace-nowrap',
   FAM_MED,
-  String.raw`font-[number:var(--font\/weight\/font-medium,500)] leading-[var(--text\/base\/lh,24px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/base\/size,16px)]`,
+  String.raw`font-[number:var(--font\/weight\/font-medium,500)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/base\/size,16px)] leading-[var(--text\/base\/lh,24px)]`,
 )
 const TEXT_SN = cn(
   '[word-break:break-word] whitespace-nowrap font-medium text-[12px]',
@@ -86,7 +94,7 @@ const TEXT_BADGE = cn(
 const TEXT_BUTTON = cn(
   '[word-break:break-word] whitespace-nowrap font-medium',
   FAM_MED,
-  String.raw`leading-[var(--text\/button-xs\/size,12px)] text-[length:var(--text\/button-xs\/size,12px)]`,
+  String.raw`text-[length:var(--text\/button-xs\/size,12px)] leading-[var(--text\/button-xs\/size,12px)]`,
 )
 
 /* Radius 8 and px 8 — rounded rects, not pills. The node's drop-shadow is two

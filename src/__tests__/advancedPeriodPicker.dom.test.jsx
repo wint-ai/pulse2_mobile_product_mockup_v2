@@ -12,17 +12,23 @@ import { render, cleanup, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import { SYSTEMS } from '@/data/systems'
+import { openConsumptionChart } from './helpers/consumptionChart'
 
 afterEach(cleanup)
 
 const sys = SYSTEMS[0]
 
-const mount = () =>
-  render(
+/* The picker lives inside the consumption chart, which the hero now keeps
+   behind "See more" — so every case here opens it as its first act. */
+const mount = () => {
+  const r = render(
     <MemoryRouter initialEntries={[`/system/${sys.id}`]}>
       <Routes><Route path="/system/:systemId" element={<SystemPageV2Screen />} /></Routes>
     </MemoryRouter>,
   )
+  openConsumptionChart(r.container)
+  return r
+}
 
 const trigger = (c) =>
   within(c).queryByRole('button', { name: /select (month|year|period)/i })

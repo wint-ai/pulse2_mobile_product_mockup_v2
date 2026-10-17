@@ -62,6 +62,9 @@ export function isAllClearDemoSystem(systemId) {
 /**
  * web: eventsTimelineMockData.ts systemEventType
  * Returns 'high' | 'low' | 'none'.
+ *
+ * NOTE: the leak/no-leak split no longer matches the web — see the comment on
+ * the hash below. Everything else in this function is parity.
  */
 export function systemEventType(systemId) {
   // An all-clear location stays clear at every level below it.
@@ -73,8 +76,24 @@ export function systemEventType(systemId) {
     if (systemId.endsWith('-apt-5')) return 'low';
     return 'none';
   }
-  const m = stableHash(systemId) % 3;
-  return m === 0 ? 'none' : m === 1 ? 'high' : 'low';
+  /* DELIBERATE DIVERGENCE FROM WEB PARITY, requested 2026-10-17: half the
+     fleet should carry no active leak. The web's expression is
+     `stableHash(systemId) % 3` — none / high / low, i.e. only ~33% clear.
+     The target is half the FLEET clear, which is not the same as half this
+     expression's output: 50 of the 103 systems never reach it, because the
+     all-clear demo locations and the residential buildings (only apt-2 and
+     apt-5 ever leak) are decided above. Those already contribute a large
+     block of 'none'. Tuned against the real dataset, 2 of 8 buckets here
+     lands the fleet at ~50% with no active leak; a straight 50/50 here
+     overshot to 62%.
+
+     Still a hash of the id, not Math.random(): the split is spread across
+     the fleet, but each system keeps its own state across reloads. A truly
+     random draw would reshuffle every mount, so a system you opened from a
+     push could be clear by the time you arrived. */
+  const m = stableHash(systemId) % 8;
+  if (m < 2) return 'none';
+  return m % 2 === 0 ? 'high' : 'low';
 }
 
 /** web: eventsTimelineMockData.ts systemHasActiveLeak */

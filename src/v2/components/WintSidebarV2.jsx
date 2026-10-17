@@ -1000,7 +1000,14 @@ function TreeRow({
       <SidebarMenuButton
         asChild
         isActive={isActive}
-        className="content-stretch flex gap-[var(--component\/sidebar\/menu-button\/gap,8px)] h-[36px] items-center overflow-clip px-[var(--spacing\/1\,5,6px)] py-[var(--component\/sidebar\/menu-button\/py,8px)] relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] w-full font-[number:var(--font\/weight\/font-normal,400)] leading-[var(--text\/sm\/lh-none,14px)] text-[14px] text-[color:var(--colors\/slate\/800,#1d293d)] hover:bg-white/50 hover:text-[color:var(--colors\/slate\/800,#1d293d)] active:bg-white/70 active:text-[color:var(--colors\/slate\/800,#1d293d)] data-[active=true]:bg-[var(--card,white)] data-[active=true]:font-[number:var(--font\/weight\/font-normal,500)] data-[active=true]:text-[color:var(--sidebar\/foreground,#0a0a0a)] data-[active=true]:shadow-none data-[active=true]:hover:bg-[var(--card,white)] data-[active=true]:hover:text-[color:var(--sidebar\/foreground,#0a0a0a)] data-[active=true]:active:text-[color:var(--sidebar\/foreground,#0a0a0a)]"
+        // CLASS ORDER: this className is a prop, and SidebarMenuButton feeds it
+        // to cn() — so twMerge runs over it. Tailwind's `text-sm/6` shorthand
+        // sets size *and* line-height, which puts `leading-*` in the same
+        // conflict group as the font size: a `leading-*` placed BEFORE
+        // `text-[14px]` here is silently deleted and the row sits a few pixels
+        // off. `leading-` therefore trails `text-[14px]` below, against Figma's
+        // alphabetical emission order. Same class set — do not re-sort it.
+        className="content-stretch flex gap-[var(--component\/sidebar\/menu-button\/gap,8px)] h-[36px] items-center overflow-clip px-[var(--spacing\/1\,5,6px)] py-[var(--component\/sidebar\/menu-button\/py,8px)] relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] w-full font-[number:var(--font\/weight\/font-normal,400)] text-[14px] leading-[var(--text\/sm\/lh-none,14px)] text-[color:var(--colors\/slate\/800,#1d293d)] hover:bg-white/50 hover:text-[color:var(--colors\/slate\/800,#1d293d)] active:bg-white/70 active:text-[color:var(--colors\/slate\/800,#1d293d)] data-[active=true]:bg-[var(--card,white)] data-[active=true]:font-[number:var(--font\/weight\/font-normal,500)] data-[active=true]:text-[color:var(--sidebar\/foreground,#0a0a0a)] data-[active=true]:shadow-none data-[active=true]:hover:bg-[var(--card,white)] data-[active=true]:hover:text-[color:var(--sidebar\/foreground,#0a0a0a)] data-[active=true]:active:text-[color:var(--sidebar\/foreground,#0a0a0a)]"
       >
         {row}
       </SidebarMenuButton>
@@ -1017,7 +1024,12 @@ function TreeRow({
       // search button: `pl-[var(--pro\/space\/5,16px)]` has to reach the DOM
       // with its backslashes intact, so it may only live in a JSX literal.
       data-leaf={node.kind === 'system' ? 'true' : 'false'}
-      className="content-stretch cursor-pointer flex gap-[var(--component\/sidebar\/menu-sub-item\/gap,8px)] h-[28px] items-center overflow-clip pr-[var(--spacing\/1\,5,6px)] relative rounded-[var(--component\/sidebar\/menu-sub-item\/radius,8px)] w-full translate-x-0 font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/sm\/lh-none,14px)] text-[14px] text-[color:var(--colors\/slate\/800,#1d293d)] data-[leaf=false]:pl-[var(--pro\/space\/2,6px)] data-[leaf=true]:pl-[var(--pro\/space\/5,16px)] hover:bg-white/50 hover:text-[color:var(--colors\/slate\/800,#1d293d)] active:bg-white/70 active:text-[color:var(--colors\/slate\/800,#1d293d)] data-[active=true]:bg-[var(--card,white)] data-[active=true]:text-[color:var(--colors\/slate\/800,#1d293d)]"
+      // CLASS ORDER: SidebarMenuSubButton feeds this className to cn(), so
+      // twMerge runs over it and treats `leading-*` as conflicting with the
+      // font size (`text-sm/6` sets both). `leading-` must therefore come
+      // AFTER `text-[14px]`, not before it as Figma emits it — otherwise the
+      // line-height is dropped. Same class set; do not re-sort alphabetically.
+      className="content-stretch cursor-pointer flex gap-[var(--component\/sidebar\/menu-sub-item\/gap,8px)] h-[28px] items-center overflow-clip pr-[var(--spacing\/1\,5,6px)] relative rounded-[var(--component\/sidebar\/menu-sub-item\/radius,8px)] w-full translate-x-0 font-[var(--font\/weight\/font-normal,400)] text-[14px] leading-[var(--text\/sm\/lh-none,14px)] text-[color:var(--colors\/slate\/800,#1d293d)] data-[leaf=false]:pl-[var(--pro\/space\/2,6px)] data-[leaf=true]:pl-[var(--pro\/space\/5,16px)] hover:bg-white/50 hover:text-[color:var(--colors\/slate\/800,#1d293d)] active:bg-white/70 active:text-[color:var(--colors\/slate\/800,#1d293d)] data-[active=true]:bg-[var(--card,white)] data-[active=true]:text-[color:var(--colors\/slate\/800,#1d293d)]"
     >
       {row}
     </SidebarMenuSubButton>

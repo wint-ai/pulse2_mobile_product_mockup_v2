@@ -1,19 +1,47 @@
 /**
- * Insights card — v2 mobile.
- * Design source: Figma 198328:88624 (home). This file also used to name
- * 198378:74090 (system page), but that node no longer resolves in the Figma
- * file, so the home card is the only live reference for the values below.
+ * Insights card — v2 mobile. ONE component, two layouts, two tones.
  *
- * Both pages drew their own copy of this, and they had drifted: the home copy
- * hardcoded a green sparkline and a green TrendingDown badge for every row, so
- * a rising-usage row rendered as if consumption had fallen, and a row with no
- * delta ("Background flow") still got a badge. Tone is data now, not
- * decoration — and since every icon slot on the comp's Badge is hidden, tone
- * now survives as colour alone and the trend glyph is gone.
+ * METRIC layout (the redesigned System page):
+ *   calm   199296:50344   bg #fafbfc, gap 19, p 18, radius 18, w-full
+ *   alert  199296:51143   byte-identical but for `h-[198px] w-[366px]`
+ * The two Figma ranges differ in nothing else — same heading, same droplet,
+ * same badge, same unit pair, same 330x86 frame, down to the node order. The
+ * alert node's h/w are Figma's absolute frame numbers (18+18 padding + 18
+ * heading + 19 + 20 row + 19 + 86 sparkline = exactly 198, and 366 is the
+ * card's own width on that canvas), so carrying them would pin a card the rest
+ * of the stack sizes with w-full — see homeWidgetWidth.dom.test.jsx, which
+ * exists because two cards once did precisely that. `tone` is therefore
+ * carried as data (`data-insights-tone`) and changes no pixel; the thing that
+ * DOES change colour is the badge, and it follows the figure's sign, not tone.
+ *
+ * LIST layout (home + the v1 system page): the original multi-row card, from
+ * Figma 198328:88624. Three screens pass `rows` and they keep it; a card that
+ * gets a `rows` array renders the list exactly as it always has.
+ *
+ * THE SPARKLINE IS DERIVED, NOT SHIPPED. The comp exports the frame as a flat
+ * SVG (2315f.svg) — one frozen curve that would be a lie about every system it
+ * was drawn over. insightsSparkline.js redraws the same frame (330x86, radius
+ * 4.31579, ground #F2F6FF, 2.15789 strokes, #0B82F8 actual over a dashed
+ * #90A1B9 baseline) from the system's own series.
  */
 
 import { cn } from '@/lib/utils'
 import { DropletDown, DropletShare, Droplets } from '@/v2/icons'
+import {
+  SPARK_W,
+  SPARK_H,
+  SPARK_RADIUS,
+  SPARK_STROKE,
+  SPARK_GROUND,
+  SPARK_ACTUAL,
+  SPARK_BASELINE,
+  sparkExtent,
+  sparklinePath,
+  trendLine,
+  formatChangePct,
+  formatChangeLitres,
+  changeDirection,
+} from '@/v2/components/insightsSparkline'
 
 const SUCCESS = '#5C9E1A'
 const SEV_HIGH = '#DB4670'
@@ -30,7 +58,7 @@ function cap(text, max) {
   const cut = s.slice(0, max)
   const lastSpace = cut.lastIndexOf(' ')
   const body = lastSpace > max - 8 ? cut.slice(0, lastSpace) : cut
-  return `${body.replace(/[\s\u2013\u2014·,-]+$/, '')}..`
+  return `${body.replace(/[\s–—·,-]+$/, '')}..`
 }
 
 // Budgets for a 375px row. The title gets the larger share because it is the
@@ -152,6 +180,267 @@ function splitValue(value) {
   return at === -1 ? [s, ''] : [s.slice(0, at), s.slice(at + 1)]
 }
 
+/* ── Metric layout (System page redesign, 199296:50344 / 199296:51143) ──────*/
+
+/* Figma spells the family and the weight as two separate classes on every text
+   node. Kept verbatim, with the project's own fallbacks appended so the card
+   renders in a browser that has never heard of "Figtree:Regular". */
+
+/* CLASS ORDER, read this before "tidying" any className below. Every text atom
+   in this file goes through cn(), i.e. through twMerge. Tailwind's `text-sm/6`
+   shorthand sets size *and* line-height, so twMerge puts `leading-*` in the
+   same conflict group as the font size: a `leading-*` sitting BEFORE a
+   `text-[length:…]` / `text-[12px]` in the same string is silently deleted and
+   the row drifts a few pixels vertically. Figma emits its classes
+   alphabetically, which puts `leading-` first — so wherever a verbatim paste
+   would have done that, the line-height atom has been moved to the END of the
+   string. Same class set, different order. Do not re-sort it back. */
+const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-normal,400)]`
+const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-medium,500)]`
+
+/*
+ * The badge is the one thing in the frame that may not be copied literally.
+ * Figma exports #e7f2eb/#269950 because the figure it drew was -12.5%; a RISE
+ * in water use is not green. Up takes the pair this repo already records as
+ * its own semantic increase colour (insightsModel.js INSIGHT_COLOR 'usage-up'
+ * = #FB2C36, over the 8% wash the web's own increase badge uses), so nothing
+ * here is an invented red. A flat 0% is neither good nor bad and reads slate.
+ */
+const BADGE_TONE = {
+  down: 'bg-[#e7f2eb] text-[#269950]',
+  up: 'bg-[rgba(251,44,54,0.08)] text-[#fb2c36]',
+  flat: String.raw`bg-[#f1f5f9] text-[color:var(--colors\/slate\/700,#314158)]`,
+}
+
+/*
+ * The two states' node ids, in the order the frame is written below. The calm
+ * range (199296:50344…50358) and the alert one (199296:51143…51157) are the
+ * same sixteen nodes under different ids, so the id travels with `tone` rather
+ * than the calm one being stamped on an alert card.
+ */
+const CALM_NODES = [
+  '199296:50344', '199296:50345', '199296:50346', '199296:50347',
+  '199296:50348', '199296:50349', '199296:50350', '199296:50351',
+  '199296:50352', '199296:50353', 'I199296:50353;136:1190', '199296:50354',
+  '199296:50355', '199296:50356', '199296:50357', '199296:50358',
+]
+const ALERT_NODES = [
+  '199296:51143', '199296:51144', '199296:51145', '199296:51146',
+  '199296:51147', '199296:51148', '199296:51149', '199296:51150',
+  '199296:51151', '199296:51152', 'I199296:51152;136:1190', '199296:51153',
+  '199296:51154', '199296:51155', '199296:51156', '199296:51157',
+]
+
+/** Same reading, as a glyph: down = droplet-down (the comp's), up = share. */
+const DIRECTION_GLYPH = { down: DropletDown, up: DropletShare, flat: Droplets }
+
+function MetricSparkline({ series, baseline }) {
+  // No measured expectation passed? Fit one to the series — a derivation of the
+  // real numbers, which is what the comp's grey line reads as. See trendLine().
+  const expected = Array.isArray(baseline) && baseline.length ? baseline : trendLine(series)
+  const extent = sparkExtent(series, expected)
+  const actualPath = sparklinePath(series, extent)
+  const baselinePath = expected.length ? sparklinePath(expected, extent) : null
+
+  return (
+    <svg
+      viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+      preserveAspectRatio="none"
+      className="absolute inset-0 block size-full max-w-none"
+      aria-hidden="true"
+      data-spark-points={actualPath ? 'series' : 'empty'}
+    >
+      <rect width={SPARK_W} height={SPARK_H} rx={SPARK_RADIUS} fill={SPARK_GROUND} />
+      {baselinePath && (
+        <path
+          d={baselinePath}
+          stroke={SPARK_BASELINE}
+          strokeWidth={SPARK_STROKE}
+          strokeDasharray="6 6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
+      {actualPath && (
+        <path
+          d={actualPath}
+          stroke={SPARK_ACTUAL}
+          strokeWidth={SPARK_STROKE}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
+    </svg>
+  )
+}
+
+function InsightsMetricCard({
+  title,
+  label,
+  changePct,
+  changeLitres,
+  unit,
+  series,
+  baseline,
+  tone,
+  onViewAll,
+  className,
+}) {
+  const pct = formatChangePct(changePct)
+  const litres = formatChangeLitres(changeLitres)
+  const direction = changeDirection(changePct, changeLitres)
+  const NODE = tone === 'alert' ? ALERT_NODES : CALM_NODES
+  const Glyph = DIRECTION_GLYPH[direction] ?? DropletDown
+
+  return (
+    <div
+      className={cn(
+        String.raw`bg-[#fafbfc] content-stretch flex flex-col gap-[19px] items-start p-[18px] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full`,
+        className,
+      )}
+      data-node-id={NODE[0]}
+      data-name="Topology"
+      data-insights-tone={tone}
+    >
+      {/* Heading. The frame has no control beside it — nothing in it is
+          tappable, so nothing here pretends to be. A caller that genuinely has
+          somewhere to send the viewer may pass onViewAll, and only then does a
+          real button appear. */}
+      <div
+        className={cn(
+          'content-stretch flex flex-col items-start relative shrink-0 w-full',
+          onViewAll && 'flex-row items-center justify-between',
+        )}
+        data-node-id={NODE[1]}
+      >
+        <p
+          className={cn(
+            FIG_REG,
+            /* leading-* trails the size atom on purpose — see the CLASS ORDER note above FIG_REG. */
+            String.raw`[word-break:break-word] relative shrink-0 text-[color:var(--colors\/slate\/700,#314158)] text-[length:var(--text\/lg\/size,18px)] whitespace-nowrap leading-[var(--text\/lg\/lh-none,18px)]`,
+          )}
+          data-node-id={NODE[2]}
+        >
+          {title}
+        </p>
+        {onViewAll && (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className={cn(
+              FIG_MED,
+              String.raw`shrink-0 cursor-pointer rounded-[var(--component\/button\/size-default\/radius,10px)] px-[var(--component\/button\/size-default\/px,10px)] text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/500,#62748e)] outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50`,
+            )}
+          >
+            View all
+          </button>
+        )}
+      </div>
+
+      {/* The reading: droplet + label on the left, badge + unit pair right. */}
+      <div
+        className="content-stretch flex items-center justify-between relative shrink-0 w-full"
+        data-node-id={NODE[3]}
+      >
+        <div className="content-stretch flex gap-[5px] items-center relative shrink-0" data-node-id={NODE[4]}>
+          {/* A 14px glyph in an 11px slot, exactly as the comp draws it: it
+              overflows 1.5px each side rather than widening the row. #90a1b9
+              is the exported asset's own stroke (c5ca5.svg). */}
+          <div
+            className="content-stretch flex items-center justify-center relative shrink-0 w-[11px] text-[#90a1b9]"
+            data-node-id={NODE[5]}
+          >
+            <div className="relative shrink-0 size-[14px]" data-node-id={NODE[6]} data-name="Tabler Icons / droplet-down">
+              <Glyph size={14} />
+            </div>
+          </div>
+          <p
+            className={cn(
+              FIG_REG,
+              /* leading-* trails the size atom on purpose — see the CLASS ORDER note above FIG_REG. */
+              String.raw`[word-break:break-word] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap leading-[var(--text\/sm\/lh,20px)]`,
+            )}
+            data-node-id={NODE[7]}
+          >
+            {label}
+          </p>
+        </div>
+
+        <div
+          className="content-stretch flex gap-[8px] items-start justify-center relative shrink-0"
+          data-node-id={NODE[8]}
+        >
+          {pct && (
+            <div
+              className={cn(
+                BADGE_TONE[direction] ?? BADGE_TONE.flat,
+                String.raw`content-stretch flex gap-[var(--component\/badge\/gap,4px)] h-[20px] items-center justify-center overflow-clip px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0`,
+              )}
+              data-node-id={NODE[9]}
+              data-name="Badge"
+            >
+              <p
+                className={cn(
+                  FIG_MED,
+                  /* leading-* trails the size atom on purpose — see the CLASS ORDER note above FIG_REG. */
+                  String.raw`[word-break:break-word] overflow-hidden relative shrink-0 text-[12px] text-ellipsis whitespace-nowrap tabular-nums leading-[var(--text\/xs\/lh,16px)]`,
+                )}
+                data-node-id={NODE[10]}
+              >
+                {pct}
+              </p>
+            </div>
+          )}
+          {litres && (
+            <div
+              className={cn(
+                FIG_REG,
+                /* leading-* trails the size atom on purpose — see the CLASS ORDER note above FIG_REG. */
+                String.raw`[word-break:break-word] content-stretch flex gap-[var(--spacing\/0\,5,2px)] items-center relative shrink-0 text-[12px] whitespace-nowrap tabular-nums leading-[var(--text\/xs\/lh-none,12px)]`,
+              )}
+              data-node-id={NODE[11]}
+              data-name="Unit wrapper"
+            >
+              <p
+                className="overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis"
+                data-node-id={NODE[12]}
+              >
+                {litres}
+              </p>
+              {/* Figma calls this --muted-foreground; this project defines that
+                  token as slate-500 (#62748e). */}
+              {unit && (
+                <p
+                  className="overflow-hidden relative shrink-0 text-[color:var(--muted-foreground,#737373)] text-ellipsis"
+                  data-node-id={NODE[13]}
+                >
+                  {unit}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 330x86 is the card's own content width at the comp's 366px — i.e. the
+          frame is edge to edge. max-w-full keeps it that way on a narrower
+          phone instead of spilling past the card's padding; the svg stretches
+          with preserveAspectRatio="none", exactly as the exported asset does. */}
+      <div className="content-stretch flex items-start relative shrink-0 w-full" data-node-id={NODE[14]}>
+        <div className="h-[86px] relative shrink-0 w-[330px] max-w-full" data-node-id={NODE[15]}>
+          <MetricSparkline series={series} baseline={baseline} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── List layout (home, 198328:88624) ──────────────────────────────────────*/
+
 /**
  * @param rows  [{ title, addr, kind, delta, deltaTone: 'good'|'bad', value,
  *              series?, baseline? }]
@@ -159,21 +448,70 @@ function splitValue(value) {
  *              no change to report, so it gets no badge. `series`/`baseline` are
  *              the real 28-day arrays from insightsModel.js; omit them and the
  *              sparkline falls back to a placeholder shape.
- * @param onSelectRow  omit and the rows stay non-interactive. Given a handler
- *                  each row becomes a real button carrying its insight.
- * @param onViewAll  omit to render "View all" inert. RESOLVED 2026-09-28:
- *                  there IS a list screen, /kpi/insights, so this and the
- *                  rows both have somewhere to go now. Original note: there
- *                  is no Insights list
- *              screen on the delivery canvas, so home passes nothing.
+ *              PASSING `rows` AT ALL (even []) SELECTS THIS LAYOUT — that is
+ *              what keeps HomeAllAccounts, HomeAccountOverview and the v1
+ *              SystemPage rendering exactly what they rendered before.
+ * @param changePct     number or pre-formatted string. Drives the badge text
+ *              AND its colour: negative reads as a fall and stays the comp's
+ *              green, positive flips to the repo's semantic increase red.
+ * @param changeLitres  number or pre-formatted string — the figure beside the
+ *              unit. Both figures are props; neither is hardcoded.
+ * @param series    the system's real series — a number[] or
+ *              getConsumptionSeries()'s [{ day, litres }]. The sparkline is
+ *              drawn from it; pass nothing and only the ground renders.
+ * @param baseline  the expectation the series is judged against. Omitted, a
+ *              least-squares trend of the series itself is drawn instead.
+ * @param tone  'calm' | 'alert'. The two Figma states are identical but for
+ *              the alert frame's absolute h/w, so this is carried as
+ *              data-insights-tone and changes no pixel. See the header note.
+ * @param variant  'metric' | 'list'. Omit and the layout follows the props:
+ *              a `rows` array means the list, anything else the metric card.
+ * @param onViewAll  omit to render "View all" inert (list) or absent (metric,
+ *                  which is what the frame draws). RESOLVED 2026-09-28: there
+ *                  IS a list screen, /kpi/insights, so this and the rows both
+ *                  have somewhere to go now.
+ * @param onSelectRow  list layout only. Omit and the rows stay
+ *                  non-interactive. Given a handler each row becomes a real
+ *                  button carrying its insight.
  */
 export default function InsightsCard({
-  rows = [],
+  rows,
   title = 'Insights',
+  label = 'Usage change',
+  changePct,
+  changeLitres,
+  unit = 'L',
+  series,
+  baseline,
+  tone = 'calm',
+  variant,
   onViewAll,
   onSelectRow,
   className,
 }) {
+  /* Layout selection is deliberately boring: a caller that passes `rows` gets the
+     list it has always got, including `rows={[]}`. Everything else is the
+     redesigned metric card. `variant` overrides both ways for a caller that
+     wants to be explicit. */
+  const metric = variant === 'metric' || (variant !== 'list' && !Array.isArray(rows))
+  if (metric) {
+    return (
+      <InsightsMetricCard
+        title={title}
+        label={label}
+        changePct={changePct}
+        changeLitres={changeLitres}
+        unit={unit}
+        series={series}
+        baseline={baseline}
+        tone={tone}
+        onViewAll={onViewAll}
+        className={className}
+      />
+    )
+  }
+
+  const list = Array.isArray(rows) ? rows : []
   /* A row is a control only when the host says where it goes. Without
      onSelectRow it stays the plain <div> it has always been — no button role,
      no pointer, nothing that promises a tap. */
@@ -214,8 +552,8 @@ export default function InsightsCard({
       </div>
 
       <div>
-        {rows.map((row, i) => {
-          const tone = TONE[row.deltaTone] ?? TONE.good
+        {list.map((row, i) => {
+          const rowTone = TONE[row.deltaTone] ?? TONE.good
           const Glyph = kindGlyph(row)
           const [valueNum, valueUnit] = splitValue(row.value)
           return (
@@ -291,7 +629,7 @@ export default function InsightsCard({
                      badges, and the 52px badge leaves no room for a glyph. */
                   <span
                     className="inline-flex h-[20px] items-center justify-center px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] rounded-[var(--component\/badge\/radius,26px)] text-[12px] leading-[var(--text\/xs\/lh,16px)] font-medium tabular-nums"
-                    style={tone.chip}
+                    style={rowTone.chip}
                   >
                     {row.delta}
                   </span>

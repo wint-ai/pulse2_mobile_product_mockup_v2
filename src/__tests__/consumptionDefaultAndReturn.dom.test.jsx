@@ -20,6 +20,7 @@ import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
 import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
 import { SYSTEMS } from '@/data/systems'
+import { openConsumptionChart } from './helpers/consumptionChart'
 
 afterEach(cleanup)
 
@@ -32,12 +33,18 @@ const mountHome = () =>
     </MemoryRouter>,
   )
 
-const mountSystem = () =>
-  render(
+/* The system page keeps the chart behind the hero's "See more"; the home
+   screen does not. Opening it here keeps both halves of PLS-WC-03 asserting
+   the same thing. */
+const mountSystem = () => {
+  const r = render(
     <MemoryRouter initialEntries={[`/system/${sys.id}`]}>
       <Routes><Route path="/system/:systemId" element={<SystemPageV2Screen />} /></Routes>
     </MemoryRouter>,
   )
+  openConsumptionChart(r.container)
+  return r
+}
 
 /* §2's metric labels name the selected grouping's period, so "Monthly Avg L"
    on first paint is the grouping stating itself. */

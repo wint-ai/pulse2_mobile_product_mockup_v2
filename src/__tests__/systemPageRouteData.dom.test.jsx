@@ -18,15 +18,20 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import { SYSTEMS } from '@/data/systems'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
+import { openConsumptionChart } from './helpers/consumptionChart'
 
-function mountAt(systemId) {
-  return render(
+function mountAt(systemId, { chart = false } = {}) {
+  const r = render(
     <MemoryRouter initialEntries={[`/system/${systemId}`]}>
       <Routes>
         <Route path="/system/:systemId" element={<SystemPageV2Screen />} />
       </Routes>
     </MemoryRouter>,
   )
+  /* Opt-in: the hero keeps the consumption chart behind "See more", so only
+     the cases that look inside the chart pay for opening it. */
+  if (chart) openConsumptionChart(r.container)
+  return r
 }
 
 // Two systems with distinguishable names, whatever the dataset happens to be.
@@ -100,7 +105,7 @@ describe('the consumption chart plots the routed system', () => {
       const { series } = getConsumptionSeries(system.id, system.name, 'M', 0)
       const expected = fmtL(series.reduce((sum, p) => sum + p.litres, 0))
 
-      const { container, unmount } = mountAt(system.id)
+      const { container, unmount } = mountAt(system.id, { chart: true })
       const view = within(container)
       // "Total L" is the card's first headline figure.
       expect(view.getAllByText('Total L').length, system.id).toBeGreaterThan(0)
@@ -119,7 +124,7 @@ describe('the consumption chart plots the routed system', () => {
   })
 
   it('offers the granularity segments inline', () => {
-    const { container, unmount } = mountAt(distinct[0].id)
+    const { container, unmount } = mountAt(distinct[0].id, { chart: true })
     const view = within(container)
     // Inline since 198601:86152 replaced the deleted funnel-disclosure node.
     expect(view.getAllByRole('radio', { name: 'Hour' }).length).toBeGreaterThan(0)
