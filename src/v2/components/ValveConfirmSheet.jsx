@@ -14,25 +14,32 @@
  * Only the "close all" case adds a line, because the blast radius is wider and
  * v1 has no equivalent to copy from.
  *
- * Built on the shadcn Sheet (side="bottom") rather than a hand-rolled overlay:
- * this repo's rule is that UI here comes from shadcn components. The Sheet
- * brings the focus trap, the Escape handler and the scroll lock with it, none
- * of which v1's inline <div> overlay had.
+ * WHY NOT THE SHADCN <Sheet>
+ * It was built on one first, and the sheet rendered across the whole browser
+ * window with the phone sitting in the middle of it. shadcn's Sheet is a Radix
+ * dialog that portals to document.body, and this app draws inside a fixed
+ * 393x852 frame (src/components/Phone.jsx) — a portal escapes that frame by
+ * design. Every sheet in this repo is therefore an `absolute inset-0` overlay
+ * inside the page instead: SystemsFilterSheet:97, IgnoreBottomSheet,
+ * BottomSheet. This follows that house pattern, and keeps the shadcn Button
+ * for the two actions.
  */
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-  SheetClose,
-} from '@/components/ui/sheet'
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 
 /** @param {{action: 'close'|'open'|'close-all'|null}} props */
 export default function ValveConfirmSheet({ action, deviceName, valveCount, onConfirm, onCancel }) {
-  const open = Boolean(action)
+  /* Escape cancels. Radix gave this for free; an in-frame overlay has to say
+     so itself. */
+  useEffect(() => {
+    if (!action) return
+    const onKey = (e) => { if (e.key === 'Escape') onCancel?.() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [action, onCancel])
+
+  if (!action) return null
+
   const closing = action === 'close' || action === 'close-all'
 
   const title =
@@ -51,41 +58,50 @@ export default function ValveConfirmSheet({ action, deviceName, valveCount, onCo
     action === 'close-all' ? 'Yes, Close All Valves' : closing ? 'Yes, Close Valve' : 'Yes, Open Valve'
 
   return (
-    <Sheet open={open} onOpenChange={next => { if (!next) onCancel?.() }}>
-      <SheetContent side="bottom" className="rounded-t-[18px] px-[20px] pb-[24px] pt-[12px]">
+    <div
+      className="absolute inset-0 z-50 flex flex-col justify-end"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      {/* Scrim. A tap outside is a Cancel — this action never commits by
+          accident. */}
+      <button
+        type="button"
+        aria-label="Cancel"
+        onClick={onCancel}
+        className="absolute inset-0 cursor-default bg-[rgba(15,23,43,0.45)]"
+      />
+
+      <div className="relative flex flex-col rounded-t-[var(--rounded-2xl,18px)] bg-[#fafbfc] px-[20px] pb-[24px] pt-[12px]">
         {/* The grab handle v1 drew, kept so the sheet reads as a sheet. */}
         <div aria-hidden="true" className="mx-auto mb-[16px] h-[4px] w-[36px] rounded-[2px] bg-[#e2e8f0]" />
 
-        <SheetHeader className="gap-[8px] p-0 text-center">
-          <SheetTitle className="text-center text-[18px] font-semibold tracking-[-0.18px] text-[color:var(--colors\/slate\/900,#0f172b)]">
-            {title}
-          </SheetTitle>
-          <SheetDescription className="text-center text-[14px] text-[color:var(--colors\/slate\/600,#45556c)]">
-            {/* Naming the device matters on a system with several valves —
-                "the valve" is ambiguous once the topology card is open. */}
-            {deviceName && action !== 'close-all' ? `${deviceName} — ${body}` : body}
-          </SheetDescription>
-        </SheetHeader>
+        <h2 className="text-center text-[18px] font-semibold tracking-[-0.18px] text-[color:var(--colors\/slate\/900,#0f172b)]">
+          {title}
+        </h2>
+        <p className="mt-[8px] text-center text-[14px] leading-[20px] text-[color:var(--colors\/slate\/600,#45556c)]">
+          {/* Naming the device matters on a system with several valves —
+              "the valve" is ambiguous once the topology card is open. */}
+          {deviceName && action !== 'close-all' ? `${deviceName} — ${body}` : body}
+        </p>
 
-        <SheetFooter className="mt-[24px] gap-[10px] p-0">
-          <Button
-            type="button"
-            onClick={onConfirm}
-            className="h-[52px] w-full rounded-[14px] text-[16px] font-semibold"
-          >
-            {confirmLabel}
-          </Button>
-          <SheetClose asChild>
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-[48px] w-full rounded-[14px] text-[16px] font-semibold"
-            >
-              Cancel
-            </Button>
-          </SheetClose>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        <Button
+          type="button"
+          onClick={onConfirm}
+          className="mt-[24px] h-[52px] w-full rounded-[14px] text-[16px] font-semibold"
+        >
+          {confirmLabel}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onCancel}
+          className="mt-[10px] h-[48px] w-full rounded-[14px] text-[16px] font-semibold"
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
   )
 }

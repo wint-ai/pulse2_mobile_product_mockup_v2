@@ -198,7 +198,12 @@ const SENSORS_TOTAL = String.raw`[word-break:break-word] font-sans font-[var(--f
 /** Card shells. No `\/` in these, so plain strings are safe. */
 const SHELL = 'bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col h-[136px] items-start justify-center px-[18px] py-[12px] relative rounded-[var(--rounded-2xl,18px)] w-[308px]'
 const SHELL_WATER_EVENT = `${SHELL} max-w-[440px]`
-const SHELL_MOBILE = 'bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[20px] h-[178px] items-start px-[18px] py-[12px] relative rounded-[var(--rounded-2xl,18px)] w-[308px]'
+/* w-full, not Figma's w-[308px]. 308 is the card's width inside a 375pt
+   frame's carousel; on the System page it sits in a column of w-full cards and
+   a single alert that is 50px narrower than everything under it reads as a
+   mistake. The repo rule is that widgets on one screen share a width. The
+   carousel still constrains it when there are several. */
+const SHELL_MOBILE = 'bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[20px] min-h-[178px] items-start px-[18px] py-[12px] relative rounded-[var(--rounded-2xl,18px)] w-full'
 const INNER_COLUMN = 'content-stretch flex flex-[1_0_0] flex-col items-start justify-between min-h-px relative w-full'
 
 /* Gradient stacks on the sensor stat badges. Each badge carries its own angle in
@@ -433,6 +438,10 @@ export default function AlertCard({
         <div className={INNER_COLUMN}>
           <div className="content-stretch flex items-center justify-between relative shrink-0 w-full">
             <div className="content-stretch flex gap-[4px] items-center relative shrink-0 w-[160px]">
+              {/* A "1 / 1" pager is a control that cannot do anything —
+                  there is no next alert to page to. The carousel is the real
+                  pager anyway; this only earns its place once there are two. */}
+              {data.pageCount > 1 ? (
               <Button
                 type="button"
                 size="xs"
@@ -447,6 +456,7 @@ export default function AlertCard({
                   <span className={`${PAGER_SPAN} text-[#90a1b9]`}>{data.pageCount}</span>
                 </p>
               </Button>
+              ) : null}
               {/* Figma draws "Ongoing" with the Button component, but it states
                   status and has no destination — a Badge, so it is not a dead
                   button. `destructive` is the matching Type and its

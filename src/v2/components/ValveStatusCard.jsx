@@ -72,7 +72,7 @@ const NODE = {
 
 // Shared between 199296:50251 and 199296:50515; the tone-specific padding and
 // height are appended per tone below.
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[16px] items-start py-[12px] relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full`
+const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[16px] items-start py-[12px] relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
 
 const CARD_TONE = {
   calm: String.raw`h-[67px] justify-center px-[18px]`,
@@ -81,7 +81,14 @@ const CARD_TONE = {
 
 const ROW_TONE = {
   calm: String.raw`content-stretch flex items-center justify-between relative shrink-0 w-full`,
-  alert: String.raw`content-stretch flex gap-[8px] items-center relative shrink-0`,
+  /* Figma emits this row without w-full or justify-between, and with a
+     shrink-0 215.5px title box — measured on a 375pt frame. At 393 with this
+     card's own padding the three children's intrinsic width exceeds the
+     column, and because the row cannot shrink it pushed the switch off the
+     right edge of the phone and gave the page a horizontal scrollbar. Same
+     three children, same gap; the row now fills its parent and the title
+     takes the slack, which is what 215.5 was expressing. */
+  alert: String.raw`content-stretch flex gap-[8px] items-center justify-between relative shrink-0 w-full`,
 }
 
 const TITLE_TONE = {
@@ -168,7 +175,7 @@ export default function ValveStatusCard({
     >
       <div className={ROW_TONE[t]} data-node-id={id.row}>
         <div
-          className="content-stretch flex items-center relative shrink-0 w-[215.5px]"
+          className="content-stretch flex min-w-0 flex-1 items-center relative max-w-[215.5px]"
           data-node-id={id.titleBox}
         >
           <p className={TITLE_TONE[t]} dir="auto" data-node-id={id.title}>

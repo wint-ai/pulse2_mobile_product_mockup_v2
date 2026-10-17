@@ -969,7 +969,17 @@ export default function SystemPageV2Screen() {
                     data-node-id="198379:80460"
                   >
                     {(system.alerts ?? []).map((alert) => (
-                      <div key={alert.page} className="shrink-0 snap-start">
+                      /* One alert fills the column, like every other card on
+                         this page. Several stay at the frame's 308px so the
+                         row is visibly swipeable. */
+                      <div
+                        key={alert.page}
+                        className={
+                          (system.alerts ?? []).length > 1
+                            ? 'w-[308px] shrink-0 snap-start'
+                            : 'w-full shrink-0 snap-start'
+                        }
+                      >
                         <AlertCard variant="mobile" event={alert} onAction={handleAlertAction} />
                       </div>
                     ))}
