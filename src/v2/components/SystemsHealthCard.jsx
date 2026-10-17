@@ -163,7 +163,9 @@ function InformationLine14({ className }) {
  * the COUNT in red. The export's own #90A1B9 IS colors/slate/400, so the
  * strokes stay currentColor and the tint keeps coming from the capsule.
  */
-function ValveErrorGlyph({ className }) {
+/* Exported so the triage band can label its "Valve errors" chip with the same
+   glyph this card uses. One vocabulary for one concept. */
+export function ValveErrorGlyph({ className }) {
   return (
     <svg
       className={className}

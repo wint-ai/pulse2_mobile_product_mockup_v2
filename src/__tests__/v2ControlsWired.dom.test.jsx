@@ -88,20 +88,17 @@ describe('water event rows open the event', () => {
       </MemoryRouter>,
     )
 
-    /* The card is collapsed at rest — with real data it is 52 rows, which
-       would bury every card below it — so open it before looking for rows. */
-    // Named, not just `{expanded: false}` — the drawer's tree rows are
-    // collapsible buttons too, so that alone matches many elements.
-    const header = screen
-      .getAllByRole('button', { expanded: false })
-      .find((el) => /water events/i.test(el.textContent || ''))
-    expect(header, 'no water-events card header').toBeTruthy()
-    fireEvent.click(header)
+    /* The water-event rows now ride in the TriageBand, which shows the worst
+       few at rest rather than collapsing all 52 — so there is no header to
+       open first. The guarantee under test is unchanged: a row is a real
+       control and it lands on /alert/:systemId.
 
-    // Figma marks the row as a <button>; it used to render as an inert <div>
-    // because there was no agreed destination. /alert/:systemId is one.
-    const rows = screen.getAllByRole('button', { name: /^Open / })
-    expect(rows.length, 'no tappable event rows').toBeGreaterThan(0)
+       Matched on the band row's accessible name, which ends in the duration
+       ("… running 6h 36m") because duration is the triage signal. */
+    const rows = screen
+      .getAllByRole('button')
+      .filter((el) => /running \d/.test(el.getAttribute('aria-label') || ''))
+    expect(rows.length, 'no tappable event rows in the triage band').toBeGreaterThan(0)
 
     fireEvent.click(rows[0])
     expect(landedOn, 'row tap did not reach /alert/:systemId').toBeTruthy()

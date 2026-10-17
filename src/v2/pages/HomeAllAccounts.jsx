@@ -75,6 +75,7 @@ import SystemsHealthCard from '@/v2/components/SystemsHealthCard'
 import SystemsTableCard from '@/v2/components/SystemsTableCard'
 import SystemsFilterSheet from '@/v2/components/SystemsFilterSheet'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
+import TriageBand from '@/v2/components/TriageBand'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
@@ -933,30 +934,21 @@ export default function HomeAllAccounts({ expanded = false }) {
      differs) and the wrapper's class string must stay a literal attribute. */
   const cards = (
     <>
-      {/* 198314:73493 (no events) / 198328:89083 (25 events). */}
-      <ActiveWaterEventsCard
-        events={waterEvents}
-        onShowAll={() => openOverlay('water')}
-        onShowPast={() => openOverlay('water', { tab: 'history' })}
-        /* The row docblock names /alert/:systemId as the destination it was
-           waiting for. Row ids are system ids here — see the waterEvents
-           mapping in `live` — so the detail screen resolves directly. */
-        onSelectEvent={event => navigate(`/alert/${event.id}`)}
-      />
-
-      {/* 198601:62957 — the card's current node (198314:73505, which this file
-          used to name, no longer resolves; it was replaced by this redesign).
-          `systemTypes` feeds the new labelled "Systems types" row at the foot of
-          that node. The chips are SystemsHealthCard.jsx's markup to add; the
-          prop is supplied from here because this screen is the card's only
-          caller and its only source of fleet data. */}
-      <SystemsHealthCard
-        healthy={live?.health ?? MOCK_HEALTH}
-        stats={live?.stats ?? MOCK_HEALTH_STATS}
+      {/* The triage band. Answers "is anything wrong, where, how urgent" before
+          anything else on the screen, because that is the only question a user
+          arriving in a hurry has. See TriageBand.jsx for the research this is
+          built against; the short version is that no comparable product shows
+          more than three status counters above the fold, and the closest
+          analogue (SolarEdge Go, 534 sites) shows a ranked list rather than a
+          grid of tiles. */}
+      <TriageBand
+        total={live?.stats?.total ?? 0}
+        attention={live?.stats?.requireAttention ?? 0}
         issues={live?.issues ?? MOCK_HEALTH_ISSUES}
-        systemTypes={live?.systemTypes ?? MOCK_HEALTH_TYPES}
-        onShowPast={() => openOverlay('alerts', { tab: 'history' })}
+        events={waterEvents}
         onSelectIssue={kind => openOverlay('alerts', { filter: ISSUE_FILTER[kind] ?? 'all' })}
+        onSelectEvent={event => navigate(`/alert/${event.id}`)}
+        onViewAll={() => openOverlay('water')}
       />
 
       {/* 198314:73639. No onViewAll: the delivery canvas has no Insights list
