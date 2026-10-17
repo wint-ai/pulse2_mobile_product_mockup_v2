@@ -69,6 +69,7 @@ import ActiveWaterEventsCard from '@/v2/components/ActiveWaterEventsCard'
    page had never been moved over, so tapping "Show all" opened the superseded
    layout. EventOverlay is left in place rather than deleted — it is still the
    reference for that earlier reading. */
+import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
 import EventOverlayV2 from '@/v2/components/EventOverlayV2'
 import InsightsCard from '@/v2/components/InsightsCard'
 import SystemsHealthCard from '@/v2/components/SystemsHealthCard'
@@ -95,6 +96,16 @@ import {
   windowMonthsOf,
 } from '@/v2/lib/consumptionWindow'
 import { SYSTEMS, computeWidgets, computeKPIs } from '@/data/systems'
+/* The four history sources v1's Alerts screen reads (EventsScreen.jsx:169-174).
+   They are the ONLY honest past-event data this app has; the v2 overlay was
+   never wired to any of them, which is why its History tab could not render a
+   row on any scope. */
+import {
+  CURRENT_EVENTS,
+  HISTORY_EVENTS,
+  computeIgnoredEvents,
+  computePusherResolvedEvents,
+} from '@/data/events'
 import { getAccountById } from '@/data/accounts'
 import { getConsumption } from '@/data/consumption'
 import { getFleetConsumptionSeries } from '@/data/consumptionSeries'
@@ -701,6 +712,14 @@ export default function HomeAllAccounts({ expanded = false }) {
   // null | 'water' | 'alerts' — which dataset the full-list overlay is showing.
   const [overlay, setOverlay] = useState(null)
 
+  /* The system id whose event is open in EventFocusOverlay, or null. The
+     water-event row used to navigate to /alert/:systemId (the v1 LeakDetail
+     screen); the owner asked for the focused Event overlay instead — "when
+     clicking here it shall open the Event overlay as we spoke before". Held
+     as state rather than a route so the page behind it stays mounted and its
+     scroll position survives the round trip. */
+  const [focusedEventSystemId, setFocusedEventSystemId] = useState(null)
+
   /* The data decides, not the route. 198314:73471 and 198328:89061 are two
      STATES of one card — healthy, and has-events — so pinning the default route
      to [] made the card claim "No active water events" above a health card
@@ -749,17 +768,54 @@ export default function HomeAllAccounts({ expanded = false }) {
      leak, which is why the health pills count 10 and 12 while only some of
      those carry s.alert. Ids are suffixed because one system can appear in
      both families. */
+  /* ── History ──────────────────────────────────────────────────────────────
+     Everything above this line is CURRENT system state, so every row it emits
+     carries `resolved: false` — and EventOverlayV2 builds its History tab from
+     `!!e.resolved` (EventOverlayV2.jsx:462). The tab was therefore guaranteed
+     empty on every scope, for every persona, which is what "Show past events"
+     and "Show past alerts" were opening.
+     The honest past data already exists and is what v1's Alerts screen reads
+     (EventsScreen.jsx:169-174). It is read here, in the ROW BUILDER — the
+     overlay's filter is right, it was simply never given a resolved row.
+
+     Two of the four sources are session state and are legitimately empty in a
+     fresh browser; they are wired anyway because they are the ones that fill
+     the moment the pusher simulator closes an incident:
+       computePusherResolvedEvents()  localStorage sim-event log
+       computeIgnoredEvents()         DEPRECATED 2026-06-15 (PRD 14 §2.4) and
+                                      returns [] by contract. Ignored Water
+                                      Events stay on ACTIVE while the flow is
+                                      still running (PRD 03a:65, and
+                                      ignoredStaysOnActive.dom.test.jsx); they
+                                      reach History only once the flow ends, by
+                                      which point they arrive through
+                                      computePusherResolvedEvents() as
+                                      "Resolved". Nothing about the Active
+                                      count changes — an ignored system still
+                                      carries `s.alert` and is still counted
+                                      above.
+     Nothing is synthesised: a source with no rows contributes no rows and the
+     overlay renders its own empty state (EventOverlayV2.jsx:663). */
   const overlayEvents = useMemo(() => {
     const rows = []
+
+    /* SCOPE. The Active rows are built by walking `scopedSystems`; the history
+       sources are FLEET-WIDE arrays keyed by system id, so this map is what
+       holds History to the same scope rather than leaking the whole fleet into
+       a location page. */
+    const inScope = new Map(scopedSystems.map(s => [s.id, s]))
+
+    const baseOf = (s) => ({
+      /* The row's own `id` is composite (`<system>:<kind>`), so the system is
+         carried separately rather than parsed back out of it. */
+      systemId: s.id,
+      systemName: s.name,
+      city: s.l4Name || s.l3Name || s.l2Name || s.l1Name || '',
+      address: s.locationAddress || s.address || '',
+    })
+
     for (const s of scopedSystems) {
-      const base = {
-        /* The row's own `id` is composite (`<system>:<kind>`), so the system is
-           carried separately rather than parsed back out of it. */
-        systemId: s.id,
-        systemName: s.name,
-        city: s.l4Name || s.l3Name || s.l2Name || s.l1Name || '',
-        address: s.locationAddress || s.address || '',
-      }
+      const base = baseOf(s)
       if (s.alert?.type === 'leak-high' || s.alert?.type === 'leak-low') {
         rows.push({
           ...base,
@@ -786,6 +842,34 @@ export default function HomeAllAccounts({ expanded = false }) {
         rows.push({ ...base, id: `${s.id}:recipients`, type: 'recipients', timestamp: '', duration: '', resolved: false })
       }
     }
+
+    /* One past row, mapped into the shape EventRow actually reads — the v1
+       records carry `system`, `path` and `detail`, none of which this overlay
+       draws, and carry no city/street split, which it does. Both come off the
+       system record, exactly as the Active rows above take them.
+       `duration` is deliberately NOT set: formatDuration prefers it and falls
+       through to `durationSec`, which is what these sources carry. */
+    const pushPast = (ev, kind) => {
+      const s = inScope.get(ev.system ?? ev.systemId)
+      if (!s) return
+      rows.push({
+        ...baseOf(s),
+        id: `${kind}:${ev.id}`,
+        type: ev.type,
+        timestamp: ev.timestamp ?? '',
+        durationSec: ev.durationSec ?? null,
+        resolved: true,
+      })
+    }
+
+    /* v1's own order (EventsScreen.jsx:169-174), kept: whatever closed in this
+       session comes first, then the generated history, which is already sorted
+       newest-first. The overlay does not re-sort. */
+    for (const ev of computeIgnoredEvents()) pushPast(ev, 'ignored')
+    for (const ev of computePusherResolvedEvents()) pushPast(ev, 'resolved')
+    for (const ev of CURRENT_EVENTS) if (ev.resolved) pushPast(ev, 'closed')
+    for (const ev of HISTORY_EVENTS) pushPast(ev, 'history')
+
     return rows
   }, [scopedSystems])
 
@@ -938,10 +1022,13 @@ export default function HomeAllAccounts({ expanded = false }) {
         events={waterEvents}
         onShowAll={() => openOverlay('water')}
         onShowPast={() => openOverlay('water', { tab: 'history' })}
-        /* The row docblock names /alert/:systemId as the destination it was
-           waiting for. Row ids are system ids here — see the waterEvents
-           mapping in `live` — so the detail screen resolves directly. */
-        onSelectEvent={event => navigate(`/alert/${event.id}`)}
+        /* Opens EventFocusOverlay over this page. Row ids are system ids here
+           — see the waterEvents mapping in `live` — and the overlay takes a
+           systemId, so the row id goes straight through.
+           This used to be navigate(`/alert/${event.id}`), the v1 LeakDetail
+           screen. The route still exists and still answers a pasted URL; what
+           changed is where the in-app row goes. */
+        onSelectEvent={event => setFocusedEventSystemId(event.id)}
       />
 
       {/* 198601:62957 — the card's current node (198314:73505, which this file
@@ -1155,6 +1242,25 @@ export default function HomeAllAccounts({ expanded = false }) {
             )}
           </div>
         </div>
+
+        {/* One water event, full screen — the destination the card's rows now
+            open. It is `absolute inset-0 z-50` with no portal (a Radix portal
+            escapes Phone.jsx's 393x852 frame), so it must sit inside a
+            positioned ancestor: this is the Figma frame root 198314:73471,
+            which already carries `relative` — the counterpart of 198379:80447
+            on the System page. Mounted unconditionally; open={false} renders
+            null.
+            NO onIgnore on purpose. This page owns no ignore flow (the System
+            page has IgnoreBottomSheet; this one has nothing), and the overlay
+            deliberately draws no Ignore button when it has no handler rather
+            than drawing a dead one. The intended destination is the
+            one-question feedback flow WaterEventFeedbackSheet, being built
+            separately; wire `onIgnore` to it here once it lands. */}
+        <EventFocusOverlay
+          open={focusedEventSystemId !== null}
+          systemId={focusedEventSystemId}
+          onClose={() => setFocusedEventSystemId(null)}
+        />
       </div>
 
       {/* Behind the burger. Navigation only — the v2 drawer carries no global

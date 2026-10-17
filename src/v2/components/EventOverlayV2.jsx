@@ -632,8 +632,18 @@ export default function EventOverlayV2({
                   <Funnel size={16} />
                 </span>
                 <span className="content-stretch flex gap-[var(--component\/breadcrumb\/item\/gap,6px)] items-center justify-center p-[var(--p-0,0px)] relative shrink-0">
+                  {/* `inTab`, not `inDataset`. The funnel line states what the
+                      CHIPS narrowed, so its denominator has to be the same set
+                      the All chip counts — the tab you are looking at. While
+                      every row this overlay was ever given was unresolved the
+                      two were identical, so this changes nothing that renders
+                      today; it is what keeps the Active tab reading
+                      "Showing 50 of 50" now that resolved rows travel in the
+                      same array, instead of "Showing 50 of 153" with 103 of
+                      those sitting in History where the chips cannot reach
+                      them. The tab filter itself is untouched. */}
                   <span className="[word-break:break-word] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
-                    Showing {visible.length} of {inDataset.length}
+                    Showing {visible.length} of {inTab.length}
                   </span>
                 </span>
               </div>

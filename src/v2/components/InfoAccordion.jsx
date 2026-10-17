@@ -51,6 +51,28 @@
  * (`text-[color:var(--colors\/slate\/500,#62748e)]`) and a plain JS string
  * eats the backslash, after which the class never reaches the DOM.
  *
+ * ICONS — lucide-react, not Material Symbols. The first build carried v1's
+ * Material Symbols ligature glyphs across with the rest of the Info tab. That
+ * made this the ONLY file in src/v2 drawing icons that way: every other v2
+ * surface uses lucide-react or the project-owned set in src/v2/icons. The
+ * glyph-for-glyph mapping is Material -> lucide:
+ *   location_on   MapPin        home_pin    MapPinHouse   local_shipping Truck
+ *   contacts      Contact       info        Info          shield         Shield
+ *   tune          SlidersHorizontal         memory        Cpu
+ *   square_foot   Ruler         image       ImageIcon     notes          NotepadText
+ *   expand_more/_less  ChevronDown/ChevronUp               content_copy   Copy
+ *   edit          Pencil        mail        Mail          phone          Phone
+ *   add_a_photo   ImagePlus     ×           X
+ * A side effect worth having: the ligature words ("square_foot") are gone from
+ * textContent, so a by-text query can no longer trip over them.
+ *
+ * CONTROLS — shadcn <Button>. The edit / add / save / cancel / copy / remove
+ * affordances were hand-rolled <button>s re-declaring a border, a radius, a
+ * fill and a focus ring. They are Button variants now: `outline` for the ghost
+ * affordances, `default` for Save, `ghost` for the two icon controls. The one
+ * <button> left bare is the picture thumbnail, which is a full-bleed image
+ * target, not a button chassis — Button's inline-flex centring would fight it.
+ *
  * DATA — unchanged from v1, deliberately:
  *   getSystemInfo / getSystemSpecs   @/data/systemsInfo
  *   getAccountById                   @/data/accounts   (address / shipping /
@@ -60,7 +82,29 @@
 
 import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import {
+  ChevronDown,
+  ChevronUp,
+  Contact,
+  Copy,
+  Cpu,
+  Image as ImageIcon,
+  ImagePlus,
+  Info,
+  Mail,
+  MapPin,
+  MapPinHouse,
+  NotepadText,
+  Pencil,
+  Phone,
+  Ruler,
+  Shield,
+  SlidersHorizontal,
+  Truck,
+  X,
+} from 'lucide-react'
 
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { getSystemInfo, getSystemSpecs } from '@/data/systemsInfo'
 import { getAccountById } from '@/data/accounts'
@@ -99,29 +143,27 @@ const MUTED = String.raw`italic text-[color:var(--colors\/slate\/400,#90a1b9)] t
 
 const LINK = String.raw`inline-flex items-center gap-[6px] text-[color:var(--wint-blue-accent,#0b81f8)] text-[13px] no-underline leading-[18px]`
 
-const GHOST_BUTTON = String.raw`inline-flex items-center gap-[6px] self-start rounded-[8px] border border-solid border-[var(--colors\/slate\/200,#e2e8f0)] bg-white px-[12px] py-[6px] cursor-pointer font-[var(--font\/weight\/font-semibold,600)] text-[color:var(--wint-blue-accent,#0b81f8)] text-[13px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 leading-[18px]`
+/* The small secondary affordance — Edit / Add notes / Add picture / Cancel.
+   Everything structural (border, radius, focus ring, hover) comes from
+   Button's `outline` variant; this only re-states the design's 13px type, the
+   accent ink and the 6px gap. `bg-card` is #FFFFFF, i.e. what `bg-white` was,
+   as a token; the variant's own `bg-background` is the page wash, not a chip. */
+const GHOST_BUTTON = String.raw`h-auto self-start gap-[6px] rounded-[8px] border-[var(--colors\/slate\/200,#e2e8f0)] bg-card px-[12px] py-[6px] font-[var(--font\/weight\/font-semibold,600)] text-[color:var(--wint-blue-accent,#0b81f8)] text-[13px] leading-[18px]`
+
+/* Save / Cancel inside the notes editor — the same 13px chip, so only the
+   variant differs (`default` = bg-primary/text-primary-foreground for Save,
+   `outline` + bg-card for Cancel). */
+const EDITOR_BUTTON = String.raw`h-auto rounded-[8px] px-[14px] py-[6px] font-[var(--font\/weight\/font-semibold,600)] text-[13px] leading-[18px]`
+
+/* src/components/ui has `input` but no `textarea`, and notes are multi-line —
+   so this one field stays a native <textarea>, wearing the shadcn input's own
+   border / ring / radius tokens rather than literals. */
+const TEXTAREA = String.raw`w-full resize-y rounded-[8px] border border-solid border-[var(--colors\/slate\/200,#e2e8f0)] bg-card px-[10px] py-[8px] text-[color:var(--colors\/slate\/900,#0f172b)] text-[14px] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 leading-[21px]`
 
 const ICON_COLOR = String.raw`text-[color:var(--colors\/slate\/500,#62748e)]`
 const CHEVRON_COLOR = String.raw`text-[color:var(--colors\/slate\/400,#90a1b9)]`
 
 /* ----------------------------------------------------------------- pieces */
-
-/* Material Symbols is loaded app-wide (index.html + index.css). v1's Info tab
-   is drawn with it and PRD 04h names its sections by Material glyph, so the
-   glyph set carries over verbatim rather than being re-mapped onto Lucide.
-   Always aria-hidden: the ligature text ("location_on") is the font's input,
-   not a label, and would otherwise pollute every by-text query. */
-function MIcon({ name, size = 18, className }) {
-  return (
-    <span
-      className={cn('material-symbols-outlined shrink-0', className)}
-      aria-hidden="true"
-      style={{ fontSize: size, lineHeight: 1 }}
-    >
-      {name}
-    </span>
-  )
-}
 
 /* Label-left / value-right row. v1's `KV`, with the copy affordance promoted
    from a <span onClick> to a real button. */
@@ -142,14 +184,16 @@ function KV({ label, value, copy = false }) {
       <span className={`${FIG_SEMI} ${VALUE}`}>
         {value}
         {copy && value ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size={null}
             onClick={doCopy}
             aria-label={`Copy ${label}`}
-            className="inline-flex cursor-pointer bg-transparent p-0 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className={cn('size-[18px] rounded-[4px] p-0', ICON_COLOR, 'hover:text-current')}
           >
-            <MIcon name="content_copy" size={14} className={ICON_COLOR} />
-          </button>
+            <Copy className="size-[14px]" aria-hidden="true" />
+          </Button>
         ) : null}
       </span>
     </div>
@@ -163,6 +207,13 @@ function KV({ label, value, copy = false }) {
  * an accordion group at the foot of a long scroll must not open itself.
  */
 function InfoSection({ icon, title, children }) {
+  /* `icon` is a component, not a glyph name, since the Material Symbols
+     ligatures were replaced. Bound to a capitalised local so JSX can render it
+     — and as a local rather than a renamed param, because this config carries
+     no eslint-plugin-react, so no rule tells no-unused-vars that JSX uses an
+     identifier; `varsIgnorePattern: '^[A-Z_]'` covers a variable, nothing
+     covers a destructured arg. */
+  const Icon = icon
   const [open, setOpen] = useState(false)
   const uid = useId()
   const headerId = `${uid}-header`
@@ -180,13 +231,13 @@ function InfoSection({ icon, title, children }) {
         onClick={() => setOpen((o) => !o)}
         className={HEADER}
       >
-        <MIcon name={icon} size={18} className={ICON_COLOR} />
+        <Icon className={cn('size-[18px] shrink-0', ICON_COLOR)} aria-hidden="true" />
         <span className={`${FIG_SEMI} ${HEADER_TITLE}`}>{title}</span>
-        <MIcon
-          name={open ? 'expand_less' : 'expand_more'}
-          size={20}
-          className={CHEVRON_COLOR}
-        />
+        {open ? (
+          <ChevronUp className={cn('size-[20px] shrink-0', CHEVRON_COLOR)} aria-hidden="true" />
+        ) : (
+          <ChevronDown className={cn('size-[20px] shrink-0', CHEVRON_COLOR)} aria-hidden="true" />
+        )}
       </button>
       {open ? (
         <div id={panelId} role="region" aria-labelledby={headerId} className={PANEL}>
@@ -230,23 +281,26 @@ function NotesEditor({ scopeId, defaultNotes }) {
           rows={5}
           aria-label={t('info_tab.sections.notes')}
           placeholder="Add notes for this system…"
-          className={`${FIG_REG} w-full resize-y rounded-[8px] border border-solid border-[var(--colors\\/slate\\/200,#e2e8f0)] bg-white px-[10px] py-[8px] text-[color:var(--colors\\/slate\\/900,#0f172b)] text-[14px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 leading-[21px]`}
+          className={`${FIG_REG} ${TEXTAREA}`}
         />
         <div className="flex justify-end gap-[8px]">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size={null}
             onClick={cancel}
-            className={`${FIG_SEMI} rounded-[8px] border border-solid border-[var(--colors\\/slate\\/200,#e2e8f0)] bg-white px-[14px] py-[6px] cursor-pointer font-[var(--font\\/weight\\/font-semibold,600)] text-[color:var(--colors\\/slate\\/500,#62748e)] text-[13px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 leading-[18px]`}
+            className={`${FIG_SEMI} ${EDITOR_BUTTON} border-[var(--colors\\/slate\\/200,#e2e8f0)] bg-card text-[color:var(--colors\\/slate\\/500,#62748e)]`}
           >
             {t('info_tab.cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            size={null}
             onClick={save}
-            className={`${FIG_SEMI} rounded-[8px] bg-[var(--wint-blue-accent,#0b81f8)] px-[14px] py-[6px] cursor-pointer font-[var(--font\\/weight\\/font-semibold,600)] text-white text-[13px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 leading-[18px]`}
+            className={`${FIG_SEMI} ${EDITOR_BUTTON}`}
           >
             {t('info_tab.save')}
-          </button>
+          </Button>
         </div>
       </div>
     )
@@ -259,10 +313,16 @@ function NotesEditor({ scopeId, defaultNotes }) {
       ) : (
         <p className={`${FIG_REG} ${MUTED}`}>{t('info_tab.placeholders.no_notes')}</p>
       )}
-      <button type="button" onClick={startEdit} className={`${FIG_SEMI} ${GHOST_BUTTON}`}>
-        <MIcon name="edit" size={14} />
+      <Button
+        type="button"
+        variant="outline"
+        size={null}
+        onClick={startEdit}
+        className={`${FIG_SEMI} ${GHOST_BUTTON}`}
+      >
+        <Pencil className="size-[14px]" aria-hidden="true" />
         {value ? t('info_tab.edit') : t('info_tab.add_notes')}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -327,14 +387,16 @@ function PicturesEditor({ scopeId }) {
               >
                 <img src={p.dataUrl} alt="" className="block size-full object-cover" />
               </button>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size={null}
                 onClick={() => remove(p.id)}
                 aria-label="Remove picture"
-                className="absolute right-[4px] top-[4px] flex size-[22px] cursor-pointer items-center justify-center rounded-full bg-[rgba(20,21,26,0.7)] p-0 font-semibold text-white outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 text-[14px] leading-none"
+                className="absolute right-[4px] top-[4px] size-[22px] rounded-full bg-foreground/70 p-0 text-primary-foreground hover:bg-foreground/85 hover:text-primary-foreground"
               >
-                ×
-              </button>
+                <X className="size-[12px]" aria-hidden="true" />
+              </Button>
             </div>
           ))}
         </div>
@@ -349,14 +411,16 @@ function PicturesEditor({ scopeId }) {
         className="hidden"
         data-testid="info-picture-input"
       />
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size={null}
         onClick={() => fileInputRef.current?.click()}
         className={`${FIG_SEMI} ${GHOST_BUTTON}`}
       >
-        <MIcon name="add_a_photo" size={14} />
+        <ImagePlus className="size-[14px]" aria-hidden="true" />
         {t('info_tab.add_picture')}
-      </button>
+      </Button>
 
       {lightbox ? (
         /* Full-bleed viewer. A button rather than v1's <div onClick> so it can
@@ -365,7 +429,7 @@ function PicturesEditor({ scopeId }) {
           type="button"
           onClick={() => setLightbox(null)}
           aria-label="Close picture"
-          className="fixed inset-0 z-[9999] flex cursor-zoom-out items-center justify-center bg-[rgba(0,0,0,0.85)] p-[20px]"
+          className="fixed inset-0 z-[9999] flex cursor-zoom-out items-center justify-center bg-foreground/85 p-[20px]"
         >
           <img
             src={lightbox.dataUrl}
@@ -430,7 +494,7 @@ export default function InfoAccordion({ system, systemId, className }) {
     >
       {/* 1 · Location — conditional on info.location (v1 + PRD 04h row 1). */}
       {info.location ? (
-        <InfoSection icon="location_on" title={t('info_tab.sections.location')}>
+        <InfoSection icon={MapPin} title={t('info_tab.sections.location')}>
           {locationRows.map((row) => (
             /* v1 draws these rows inline rather than through KV — no copy
                affordance and no tabular numerals on them. PRD 04h § "KV row
@@ -449,7 +513,7 @@ export default function InfoAccordion({ system, systemId, className }) {
       ) : null}
 
       {/* 2 · Address */}
-      <InfoSection icon="home_pin" title={t('info_tab.sections.address')}>
+      <InfoSection icon={MapPinHouse} title={t('info_tab.sections.address')}>
         {address ? (
           <p className={`${FIG_REG} ${BODY_TEXT}`}>{address}</p>
         ) : (
@@ -458,7 +522,7 @@ export default function InfoAccordion({ system, systemId, className }) {
       </InfoSection>
 
       {/* 3 · Shipping address — "Same as address" only when an address exists. */}
-      <InfoSection icon="local_shipping" title={t('info_tab.sections.shipping_address')}>
+      <InfoSection icon={Truck} title={t('info_tab.sections.shipping_address')}>
         {shippingAddress ? (
           <p className={`${FIG_REG} ${BODY_TEXT}`}>{shippingAddress}</p>
         ) : address ? (
@@ -470,7 +534,7 @@ export default function InfoAccordion({ system, systemId, className }) {
 
       {/* 4 · Location contacts (N) — email + phone, no role. */}
       <InfoSection
-        icon="contacts"
+        icon={Contact}
         title={`${t('info_tab.sections.location_contacts')}${contacts.length ? ` (${contacts.length})` : ''}`}
       >
         {contacts.length === 0
@@ -492,13 +556,13 @@ export default function InfoAccordion({ system, systemId, className }) {
                 </span>
                 {c.email ? (
                   <a href={`mailto:${c.email}`} className={`${FIG_REG} ${LINK}`}>
-                    <MIcon name="mail" size={14} />
+                    <Mail className="size-[14px] shrink-0" aria-hidden="true" />
                     {c.email}
                   </a>
                 ) : null}
                 {c.phone ? (
                   <a href={`tel:${c.phone.replace(/\s/g, '')}`} className={`${FIG_REG} ${LINK}`}>
-                    <MIcon name="phone" size={14} />
+                    <Phone className="size-[14px] shrink-0" aria-hidden="true" />
                     {c.phone}
                   </a>
                 ) : null}
@@ -508,9 +572,9 @@ export default function InfoAccordion({ system, systemId, className }) {
 
       {/* 5 · About — conditional on info.description. */}
       {info.description ? (
-        <InfoSection icon="info" title={t('info_tab.sections.about')}>
+        <InfoSection icon={Info} title={t('info_tab.sections.about')}>
           <p
-            className={`${FIG_REG} text-[color:var(--colors\\/slate\\/700,#45556c)] text-[14px] leading-[22px]`}
+            className={`${FIG_REG} text-[color:var(--colors\\/slate\\/600,#45556c)] text-[14px] leading-[22px]`}
           >
             {info.description}
           </p>
@@ -519,7 +583,7 @@ export default function InfoAccordion({ system, systemId, className }) {
 
       {/* 6 · Protects — conditional on a non-empty info.protects. */}
       {info.protects?.length > 0 ? (
-        <InfoSection icon="shield" title={t('info_tab.sections.protects')}>
+        <InfoSection icon={Shield} title={t('info_tab.sections.protects')}>
           {info.protects.map((p, i) => (
             <div key={`${i}-${p}`} className="flex items-center gap-[8px]">
               <span
@@ -537,7 +601,7 @@ export default function InfoAccordion({ system, systemId, className }) {
       ) : null}
 
       {/* 7 · General */}
-      <InfoSection icon="tune" title={t('info_tab.sections.general')}>
+      <InfoSection icon={SlidersHorizontal} title={t('info_tab.sections.general')}>
         <KV label={t('info_tab.general_fields.pipe_topology')} value={specs.pipeTopology} />
         <KV label={t('info_tab.general_fields.valve_model')} value={specs.valveModel} />
         <KV
@@ -550,7 +614,7 @@ export default function InfoAccordion({ system, systemId, className }) {
       {/* 8 · Device type — the four info.* rows render only when present, as
           in v1. With this repo's upstream dataset `serialNumber` is null on
           every real system, so the copy control is genuinely absent there. */}
-      <InfoSection icon="memory" title={t('info_tab.sections.device_type')}>
+      <InfoSection icon={Cpu} title={t('info_tab.sections.device_type')}>
         <KV label={t('info_tab.device_fields.device_family')} value={specs.deviceFamily} />
         {info.manufacturer ? (
           <KV label={t('info_tab.device_fields.manufacturer')} value={info.manufacturer} />
@@ -574,7 +638,7 @@ export default function InfoAccordion({ system, systemId, className }) {
       </InfoSection>
 
       {/* 9 · Coverage */}
-      <InfoSection icon="square_foot" title={t('info_tab.sections.coverage')}>
+      <InfoSection icon={Ruler} title={t('info_tab.sections.coverage')}>
         <KV
           label={t('info_tab.coverage_fields.coverage_area')}
           value={`${specs.coverageArea.toLocaleString()} m²`}
@@ -586,12 +650,12 @@ export default function InfoAccordion({ system, systemId, className }) {
       </InfoSection>
 
       {/* 10 · Pictures — editable, persisted via locationInfoStore. */}
-      <InfoSection icon="image" title={t('info_tab.sections.pictures')}>
+      <InfoSection icon={ImageIcon} title={t('info_tab.sections.pictures')}>
         <PicturesEditor scopeId={scopeId} />
       </InfoSection>
 
       {/* 11 · Notes — editable, persisted via locationInfoStore. */}
-      <InfoSection icon="notes" title={t('info_tab.sections.notes')}>
+      <InfoSection icon={NotepadText} title={t('info_tab.sections.notes')}>
         <NotesEditor scopeId={scopeId} defaultNotes={defaultNotes} />
       </InfoSection>
     </div>

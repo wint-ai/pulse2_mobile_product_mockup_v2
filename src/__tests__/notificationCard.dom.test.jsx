@@ -14,7 +14,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { buildActions } from '../utils/notificationActions';
 import { ignoreIncident, isIgnored, clearIgnored } from '../data/ignoredIncidents';
 import { startInvestigating, isInvestigating, stopInvestigating } from '../data/investigatingStore';
-import { addTag, isTagged, clearTags } from '../data/tagsStore';
+import { addFeedback, hasTagFeedback, tagEventKey } from '../data/eventFeedbackStore';
 import { APT_WITH_EVENT } from './fixtures';
 
 beforeEach(() => {
@@ -23,11 +23,28 @@ beforeEach(() => {
 });
 
 // Helper that runs buildActions with the persisted state for a given system.
+//
+// This MIRRORS NotifActions in PushNotifications.jsx and must keep mirroring
+// it. `tagged` in particular reads eventFeedbackStore via hasTagFeedback(),
+// because the push's Tag CTA opens WaterEventFeedbackSheet, which persists
+// there — not to tagsStore, which only v1 surfaces still write.
 function buildFor(n, sysId) {
   return buildActions(n, {
     investigating: isInvestigating(sysId),
     ignored: isIgnored(sysId),
-    tagged: isTagged(sysId),
+    tagged: hasTagFeedback(sysId),
+  });
+}
+
+// What SystemPageV2Screen's tag path does when the sheet commits: one record
+// under the namespaced tag key. Going through the real store (not a hand-rolled
+// localStorage poke) is the point — it pins the write and the read together.
+function completeTagFeedback(sysId, answer = 'yes') {
+  return addFeedback(tagEventKey(sysId), {
+    trigger: 'event-ended',
+    answer,
+    chips: ['irrigation'],
+    systemId: sysId,
   });
 }
 
@@ -67,12 +84,33 @@ describe('action set reflects persisted state per system', () => {
     expect(a[0].tagCta).toBe(true);
   });
 
-  it('End of Leak after tagged: shows ✓ Tagged done state', () => {
-    addTag(SYS, { chip: 'pipe-broke', addedBy: 'Sarah' });
+  // REGRESSION PIN (2026-10-17). ?action=tag was repointed from TagBottomSheet
+  // (tagsStore) to WaterEventFeedbackSheet (eventFeedbackStore). The done-state
+  // must follow the store the flow actually writes, or the push offers "Tag the
+  // cause" forever however many times the user answers it.
+  it('End of Leak after a completed feedback answer: shows ✓ Tagged done state', () => {
+    expect(completeTagFeedback(SYS)).not.toBeNull();
     const a = buildFor(N_END_OF_LEAK, SYS);
     expect(a[0].label).toBe('✓ Tagged');
     expect(a[0].done).toBe(true);
     expect(a[0].tagCta).toBeFalsy();
+  });
+
+  // The done-state reads the SAME key SystemPageV2Screen writes under.
+  it('tag feedback is keyed `<systemId>:event-ended`, as the v2 page writes it', () => {
+    completeTagFeedback(SYS);
+    const raw = JSON.parse(localStorage.getItem('pulse2-event-feedback'));
+    expect(Object.keys(raw)).toEqual([`${SYS}:event-ended`]);
+    expect(tagEventKey(SYS)).toBe(`${SYS}:event-ended`);
+  });
+
+  // And NOT the bare system id, which is the ignore flow's key. An ignore must
+  // never dress the push up as tagged.
+  it('an Ignore-path answer does not flip the Tag CTA to its done state', () => {
+    addFeedback(SYS, { trigger: 'ignore', answer: 'no', systemId: SYS });
+    expect(hasTagFeedback(SYS)).toBe(false);
+    const a = buildActions(N_END_OF_LEAK, { tagged: hasTagFeedback(SYS), ignored: false });
+    expect(a[0].label).toBe('Tag the cause');
   });
 });
 

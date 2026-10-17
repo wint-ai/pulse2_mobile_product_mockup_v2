@@ -25,7 +25,31 @@
  * for the two actions.
  */
 import { useEffect } from 'react'
+
 import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+
+/* TOKENS. Every colour here is a design token:
+ *   scrim        bg-foreground/45   (--foreground #0f172b = colors/slate/900,
+ *                                    the exact value the literal rgba() held)
+ *   grab handle  shadcn <Separator> (bg-border = colors/slate/200 #e2e8f0)
+ *   title        colors/slate/900   body  colors/slate/600
+ *   buttons      shadcn Button default / secondary, rounded-xl = --radius+4px
+ *                = 14px, i.e. the same radius the literal spelled
+ * The sheet surface stays `#fafbfc`: that is the v2 house card chassis
+ * (SystemTypeCard / ActivePolicyCard / SystemsFilterSheet all spell it), and
+ * the Figma canvas exposes no named token for it.
+ *
+ * Radix's <Separator> is a plain <div>, NOT a portal — unlike <Sheet>, it is
+ * safe inside the 393x852 frame.
+ */
+const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
+const FIG_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
+
+/* Line-height LAST in both — twMerge drops a `leading-` that precedes a
+   font-size atom. */
+const TITLE = String.raw`text-center font-[var(--font\/weight\/font-semibold,600)] text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/lg\/size,18px)] tracking-[-0.45px] leading-[var(--text\/lg\/lh-none,18px)]`
+const BODY = String.raw`mt-[8px] text-center text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)]`
 
 /** @param {{action: 'close'|'open'|'close-all'|null}} props */
 export default function ValveConfirmSheet({ action, deviceName, valveCount, onConfirm, onCancel }) {
@@ -70,17 +94,19 @@ export default function ValveConfirmSheet({ action, deviceName, valveCount, onCo
         type="button"
         aria-label="Cancel"
         onClick={onCancel}
-        className="absolute inset-0 cursor-default bg-[rgba(15,23,43,0.45)]"
+        className="absolute inset-0 cursor-default bg-foreground/45"
       />
 
       <div className="relative flex flex-col rounded-t-[var(--rounded-2xl,18px)] bg-[#fafbfc] px-[20px] pb-[24px] pt-[12px]">
-        {/* The grab handle v1 drew, kept so the sheet reads as a sheet. */}
-        <div aria-hidden="true" className="mx-auto mb-[16px] h-[4px] w-[36px] rounded-[2px] bg-[#e2e8f0]" />
+        {/* The grab handle v1 drew, kept so the sheet reads as a sheet — now
+            the shadcn Separator, which already carries bg-border. */}
+        <Separator
+          aria-hidden="true"
+          className="mx-auto mb-[16px] rounded-[2px] data-[orientation=horizontal]:h-[4px] data-[orientation=horizontal]:w-[36px]"
+        />
 
-        <h2 className="text-center text-[18px] font-semibold tracking-[-0.18px] text-[color:var(--colors\/slate\/900,#0f172b)]">
-          {title}
-        </h2>
-        <p className="mt-[8px] text-center text-[14px] leading-[20px] text-[color:var(--colors\/slate\/600,#45556c)]">
+        <h2 className={`${FIG_SEMI} ${TITLE}`}>{title}</h2>
+        <p className={`${FIG_REG} ${BODY}`}>
           {/* Naming the device matters on a system with several valves —
               "the valve" is ambiguous once the topology card is open. */}
           {deviceName && action !== 'close-all' ? `${deviceName} — ${body}` : body}
@@ -89,7 +115,7 @@ export default function ValveConfirmSheet({ action, deviceName, valveCount, onCo
         <Button
           type="button"
           onClick={onConfirm}
-          className="mt-[24px] h-[52px] w-full rounded-[14px] text-[16px] font-semibold"
+          className="mt-[24px] h-[52px] w-full rounded-xl text-base font-semibold"
         >
           {confirmLabel}
         </Button>
@@ -97,7 +123,7 @@ export default function ValveConfirmSheet({ action, deviceName, valveCount, onCo
           type="button"
           variant="secondary"
           onClick={onCancel}
-          className="mt-[10px] h-[48px] w-full rounded-[14px] text-[16px] font-semibold"
+          className="mt-[10px] h-[48px] w-full rounded-xl text-base font-semibold"
         >
           Cancel
         </Button>

@@ -32,8 +32,35 @@
  *   see more     Figtree Light 14/18
  *   header bar   h-42, px-16 py-24, 18px Figtree Medium title, tracking -0.6
  */
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import wave from '@/assets/system-hero-wave.png'
+
+/* TOKENS AND CONTROLS — what this pass changed, and what it deliberately left.
+ *
+ * The type was already read off the nodes and is kept verbatim, including the
+ * Figma-escaped var() spellings (`var(--colors\/white,white)`,
+ * `var(--text\/sm\/size,14px)`). Two things were wrong and are fixed:
+ *   · the calm caption / "See more" carried data-node-id 199296:50198 /
+ *     50199. The node is 50197 (caption) and 50198 (See more) — 50199 is the
+ *     Content frame's sibling. The alert ids (50721 / 50722) were right.
+ *   · the burger and "See more" were bare <button>s wearing `hover:bg-white/30`
+ *     and `focus-visible:ring-white/50`. Both are now shadcn <Button
+ *     variant="ghost">, so the focus ring comes from --ring, and the on-wave
+ *     hover tint is `bg-card/*` (--card is #FFFFFF: same pixel, a token name).
+ *     `size={null}` switches cva's default size off so the node's own geometry
+ *     (h-34 w-22 / px-8) is not fighting `h-9 px-4`.
+ *
+ * STILL LITERAL, because the Figma canvas names no token for them — all three
+ * are read straight off the node and are documented above:
+ *   #ff7b7d                the alert wave's mix-blend-color tint (199296:50455)
+ *   rgba(17,117,218,0.38)  the calm glass panel's fill (199296:50193)
+ *   border-white           the glass panel's 1px border, as Figma emits it
+ * The burger glyph stays an inline <svg>: the node names "Huge Icons /
+ * menu-01" and @/v2/icons only owns menu-10 (which carries an extra dot), so
+ * swapping it would change the drawing. Adding Menu01 to the icon set is the
+ * right fix and is outside this file.
+ */
 
 /* The nodes spell two families — Geist for the figures, Figtree for the words.
    Both carry the project's own fallbacks. */
@@ -89,7 +116,7 @@ export default function SystemHeroCard({
   const caption = (
     <div
       className={cn('flex flex-col justify-center relative shrink-0 text-[0px]', FIG_MED, ink, 'font-medium')}
-      data-node-id={alert ? '199296:50721' : '199296:50198'}
+      data-node-id={alert ? '199296:50721' : '199296:50197'}
     >
       <p>
         <span className="leading-[var(--text\/base\/lh,18px)] text-[14px]">Water consumption </span>
@@ -107,23 +134,25 @@ export default function SystemHeroCard({
      to reach it and it has to be a real button, never the label the comp
      draws. aria-expanded says which way it goes. */
   const seeMore = onToggleChart ? (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size={null}
       onClick={onToggleChart}
       aria-expanded={expanded}
       className={cn(
         'flex flex-col justify-center relative shrink-0',
         FIG_LIGHT, ink,
         String.raw`font-light text-[length:var(--text\/sm\/size,14px)]`,
-        'cursor-pointer rounded-[8px] px-[8px] outline-none',
-        'hover:bg-white/15 focus-visible:ring-[3px] focus-visible:ring-white/50',
+        'rounded-[8px] px-[8px]',
+        'hover:bg-card/15 hover:text-current',
       )}
-      data-node-id={alert ? '199296:50722' : '199296:50199'}
+      data-node-id={alert ? '199296:50722' : '199296:50198'}
     >
       <span className="leading-[var(--text\/sm\/lh-tight,18px)]">
         {expanded ? 'See less' : 'See more'}
       </span>
-    </button>
+    </Button>
   ) : null
 
   return (
@@ -170,11 +199,13 @@ export default function SystemHeroCard({
         {/* Figma emits this row's gap as the two-value token `gap-[4px_10px]`;
             Tailwind drops a two-length `gap-[…]`, so it is split per axis. */}
         <div className="content-center flex flex-wrap gap-x-[10px] gap-y-[4px] items-center relative shrink-0 w-full">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size={null}
             onClick={onOpenMenu}
             aria-label="Open navigation"
-            className="content-stretch cursor-pointer flex gap-[var(--pro\/space\/1\,5,6.40148663520813px)] h-[34px] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10.669px)] shrink-0 w-[22px] text-[color:var(--colors\/slate\/900,#0f172b)] outline-none hover:bg-white/30 focus-visible:ring-[3px] focus-visible:ring-white/50"
+            className="content-stretch flex gap-[var(--pro\/space\/1\,5,6.40148663520813px)] h-[34px] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10.669px)] shrink-0 w-[22px] text-[color:var(--colors\/slate\/900,#0f172b)] hover:bg-card/30 hover:text-current"
             data-node-id={alert ? 'I199296:50463;50600:52769;199296:50457' : 'I199296:50192;50600:52769;199296:50186'}
           >
             {/* Huge Icons / menu-01 — three rules inset 20.83%/16.67% in a
@@ -189,7 +220,7 @@ export default function SystemHeroCard({
                 />
               </svg>
             </span>
-          </button>
+          </Button>
 
           {scope ?? (
             <p

@@ -38,17 +38,57 @@ const mountSystem = (search = '') =>
 describe('the push deep-link contract (PRD 06)', () => {
   beforeEach(() => clearIgnored(leaky.id))
 
-  it('opens the Ignore sheet from ?action=ignore', () => {
+  it('opens the ignore flow from ?action=ignore', () => {
     /* The push's Ignore button navigates here. Before this, the param arrived
        and nobody read it: the user tapped Ignore and landed on a page where
-       nothing had happened. */
+       nothing had happened.
+
+       THE SHEET CHANGED, 2026-10-17 — the copy moved, the contract did not.
+       This asserted on v1's IgnoreBottomSheet ("Ignore this Water Event?").
+       The owner, seeing it on the v2 System page: "make this as part of the
+       design system - currently looks like from another app." The page now
+       opens WaterEventFeedbackSheet’s ignore flow, which leads with the
+       four consequences and gates on "Ignore anyway" before anything
+       commits — so the irreversibility guarantee this test exists for is
+       asserted on that gate rather than on a title string. */
     mountSystem('?action=ignore')
     expect(
-      within(document.body).queryByText('Ignore this Water Event?'),
-      'the Ignore sheet should open on arrival',
+      within(document.body).queryByText('Ignore this water event?'),
+      'the ignore flow should open on arrival',
+    ).toBeTruthy()
+    expect(
+      within(document.body).queryByRole('button', { name: 'Ignore anyway' }),
+      'the ignore flow must gate on an explicit confirmation',
     ).toBeTruthy()
     // Opening is not committing.
     expect(isIgnored(leaky.id)).toBe(false)
+  })
+
+  it('opens the feedback question from ?action=tag', () => {
+    /* NEW, 2026-10-17 (owner decision). The push's "Tag the cause" button
+       sends /system/{id}?action=tag&pulse=1, and this page answered it with
+       v1's TagBottomSheet — the 18-chip, two-group taxonomy of PRD 15 §5.4.
+       WaterEventFeedbackSheet replaces that taxonomy with one question, so
+       the deep link now lands on the question.
+
+       trigger="event-ended", NOT "ignore". Both are the component's whole
+       vocabulary, and 'ignore' opens on the irreversibility gate — nothing
+       is being dismissed here, so that gate would ask the user to confirm an
+       action they never took. Hence the three assertions: the question is up,
+       the gate is not, and the v1 taxonomy is gone from this page. */
+    mountSystem('?action=tag')
+    expect(
+      within(document.body).queryByText('Was this worth alerting about?'),
+      'the feedback question should open on arrival',
+    ).toBeTruthy()
+    expect(
+      within(document.body).queryByText('Ignore this water event?'),
+      'the tag path must not open on the ignore gate',
+    ).toBeNull()
+    expect(
+      within(document.body).queryByText('Tag this Water Event'),
+      "v1's TagBottomSheet should no longer mount on this page",
+    ).toBeNull()
   })
 
   it('does not open a sheet without the param', () => {

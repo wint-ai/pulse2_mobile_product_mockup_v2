@@ -18,7 +18,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isInvestigating, getInvestigatingInfo, startInvestigating } from '../data/investigatingStore';
 import { isIgnored, getIgnoredInfo } from '../data/ignoredIncidents';
-import { getTag } from '../data/tagsStore';
+import { hasTagFeedback } from '../data/eventFeedbackStore';
 import { getCurrentActor, setCurrentActor } from '../data/currentUser';
 import { subscribe as bridgeSubscribe, publish as bridgePublish, isRateLimited, getRateLimitReason, onRateLimitChange } from '../lib/pushBridge';
 import { applyPushEvent, applyDemoReset } from '../lib/pushEvents';
@@ -105,7 +105,11 @@ function NotifActions({ notification: n, onAction, dark = false }) {
   const sysId = n.systemId;
   const investigating = sysId ? isInvestigating(sysId) : false;
   const ignored = sysId ? isIgnored(sysId) : false;
-  const tagged = sysId ? !!getTag(sysId) : false;
+  // The Tag CTA opens WaterEventFeedbackSheet (?action=tag -> SystemPageV2Screen),
+  // which persists to eventFeedbackStore under its own namespaced key — not to
+  // tagsStore, and not under the bare system id the ignore flow uses. Reading
+  // anything else here leaves the push offering "Tag the cause" forever.
+  const tagged = sysId ? hasTagFeedback(sysId) : false;
   const accentColor = n.severity === 'High Flow' ? '#DB4670' : '#F05C25';
 
   const actions = buildActions(n, { investigating, ignored, tagged });

@@ -71,9 +71,17 @@ const SECTIONS = [
 const headers = (container) => [...container.querySelectorAll('button[aria-expanded]')]
 
 /* The section titles, in DOM order. Read off `data-info-section` rather than
-   off textContent: the header's Material Symbols glyphs are aria-hidden, so
-   they vanish from the accessible name that getByRole matches but remain in
-   textContent as their ligature words ("square_footCoverageexpand_more"). */
+   off textContent, which is the stable key whatever the headers are drawn
+   with. (They were Material Symbols ligatures, so textContent used to read
+   "square_footCoverageexpand_more"; they are lucide <svg> now and it reads
+   "Coverage". `data-info-section` says the same thing either way.)
+
+   The design-system pass has one visible consequence here: the panel's
+   `aria-labelledby` points at its header, and accname DOES walk an
+   aria-labelledby target even when it is aria-hidden — so the Notes panel's
+   accessible name used to be the garbage string "notesNotesexpand_less" and
+   is now exactly "Notes", the same as the textarea's aria-label. The two
+   Notes tests therefore ask for the textbox by role rather than by label. */
 const titleOf = (button) =>
   button.closest('[data-info-section]').getAttribute('data-info-section')
 const titles = (container) => headers(container).map(titleOf)
@@ -206,7 +214,7 @@ describe('Notes — one of the two places this component writes', () => {
     expect(getNotesOverride(scope)).toBeNull()
 
     fireEvent.click(view.getByRole('button', { name: 'Add notes' }))
-    fireEvent.change(view.getByLabelText('Notes'), {
+    fireEvent.change(view.getByRole('textbox', { name: 'Notes' }), {
       target: { value: 'Isolation valve is behind the access panel.' },
     })
     fireEvent.click(view.getByRole('button', { name: 'Save' }))
@@ -231,7 +239,7 @@ describe('Notes — one of the two places this component writes', () => {
 
     fireEvent.click(view.getByRole('button', { name: 'Notes' }))
     fireEvent.click(view.getByRole('button', { name: 'Add notes' }))
-    fireEvent.change(view.getByLabelText('Notes'), { target: { value: 'scratch' } })
+    fireEvent.change(view.getByRole('textbox', { name: 'Notes' }), { target: { value: 'scratch' } })
     fireEvent.click(view.getByRole('button', { name: 'Cancel' }))
 
     expect(getNotesOverride(scope)).toBeNull()

@@ -29,7 +29,7 @@ import SystemPageV2Screen from './v2/pages/SystemPageV2Screen';
 import HomeAccountOverview from './v2/pages/HomeAccountOverview';
 import LeakDetail from './screens/leak/LeakDetail';
 import EventHistory from './screens/EventHistory';
-import AccountScreen from './screens/AccountScreen';
+import AccountScreenV2 from './v2/pages/AccountScreenV2';
 import KPIDetailScreen from './screens/kpi/KPIDetailScreen';
 import TenantPropertiesList from './screens/home/TenantPropertiesList';
 
@@ -112,7 +112,9 @@ function AppRoutes() {
         <Route path="/leak/:systemId" element={<LeakDetail />} />
 
         {/* Account */}
-        <Route path="/account" element={<AccountScreen />} />
+        {/* More / Account. Repointed to the v2 port 2026-10-17 — the v1 screen
+            stays on disk at src/screens/AccountScreen.jsx, unmodified. */}
+        <Route path="/account" element={<AccountScreenV2 />} />
 
         {/* Default — go to home */}
         <Route path="*" element={<Navigate to="/" replace />} />

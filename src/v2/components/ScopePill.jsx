@@ -29,38 +29,33 @@
  * The Figma header bar (199296:50192) centres a location name — "Floor 26" —
  * in exactly this slot, so this is the comp's own layout, made operable.
  */
+import { ChevronLeft } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { CaretDown, PinLocation03 } from '@/v2/icons'
 
-/* Tabler-style pin, 14px, matching the glyph weight the header bar uses. */
-function PinGlyph() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className="size-[14px] shrink-0" aria-hidden="true">
-      <path
-        d="M8 1.8c-2.3 0-4.2 1.85-4.2 4.13 0 3.02 4.2 8.27 4.2 8.27s4.2-5.25 4.2-8.27C12.2 3.65 10.3 1.8 8 1.8Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
-      <circle cx="8" cy="5.9" r="1.5" stroke="currentColor" strokeWidth="1.3" />
-    </svg>
-  )
-}
-
-function CaretGlyph() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className="size-[14px] shrink-0" aria-hidden="true">
-      <path d="M4 6.2 8 10.2l4-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function BackGlyph() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className="size-[16px]" aria-hidden="true">
-      <path d="M10 3.2 5.2 8l4.8 4.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
+/* ICONS AND CONTROLS COME FROM THE SYSTEM, NOT FROM HAND-DRAWN PATHS.
+ * The first build inlined three <svg> paths (pin, caret, back chevron) and two
+ * bare <button>s wearing `bg-white/55` glass. All five are supplied:
+ *   pin    @/v2/icons PinLocation03  — Huge Icons / pin-location-03, the glyph
+ *          the side menu (198378:73797) already uses for a LOCATION row, which
+ *          is exactly what this pill names.
+ *   caret  @/v2/icons CaretDown      — Phosphor caret-down, as EventsTimelineCard.
+ *   back   lucide-react ChevronLeft  — the same import SystemsFilterSheet uses
+ *          for its own back affordance.
+ *   both buttons  shadcn <Button variant="ghost">, so the focus ring, the
+ *          disabled handling and the [&_svg] sizing come from the library.
+ *
+ * `size={null}` on the Buttons is cva's documented way of switching a default
+ * variant off: these two are pinned to the header bar's 24px / pill geometry,
+ * and letting `size="default"` (h-9 px-4) land first would mean overriding it
+ * atom by atom. Everything else is a token class.
+ *
+ * The glass is now `bg-card/55` + `border-card/70` — `--card` is #FFFFFF, so
+ * the rendered value is unchanged and the colour is a token rather than a
+ * literal `white/55`.
+ */
 
 export default function ScopePill({
   /** The immediate parent's display name — ONE level, never a path. */
@@ -77,44 +72,53 @@ export default function ScopePill({
   return (
     <div className={cn('flex min-w-0 flex-1 items-center justify-center gap-[6px]', className)}>
       {onBack ? (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size={null}
           onClick={onBack}
           aria-label={backLabel}
           /* 16px glyph, but the pseudo-element pushes the hit area past NN/g's
              ~1cm floor without spending header height on it. */
-          className="relative flex size-[24px] shrink-0 items-center justify-center rounded-[8px] text-[color:var(--colors\/slate\/700,#314158)] outline-none before:absolute before:-inset-[10px] before:content-[''] hover:bg-white/40 focus-visible:ring-[3px] focus-visible:ring-white/60"
+          className={cn(
+            'relative size-[24px] shrink-0 rounded-[8px] p-0',
+            String.raw`text-[color:var(--colors\/slate\/700,#314158)]`,
+            "before:absolute before:-inset-[10px] before:content-['']",
+            'hover:bg-card/40 hover:text-current',
+          )}
         >
-          <BackGlyph />
-        </button>
+          <ChevronLeft className="size-[16px]" aria-hidden="true" />
+        </Button>
       ) : null}
 
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size={null}
         onClick={onOpenTree}
         aria-haspopup="dialog"
         aria-label={`Scope: ${label}. Open the location tree.`}
         className={cn(
-          'relative flex min-w-0 max-w-full items-center gap-[6px] rounded-[10px] px-[10px] py-[5px]',
-          'border border-solid border-white/70 bg-white/55 backdrop-blur-[6px]',
+          'relative min-w-0 max-w-full justify-start gap-[6px] rounded-[10px] px-[10px] py-[5px]',
+          'border border-solid border-card/70 bg-card/55 backdrop-blur-[6px]',
           "before:absolute before:-inset-y-[6px] before:-inset-x-0 before:content-['']",
-          'text-[color:var(--colors\\/slate\\/900,#0f172b)] outline-none',
-          'hover:bg-white/75 focus-visible:ring-[3px] focus-visible:ring-white/60',
+          String.raw`text-[color:var(--colors\/slate\/900,#0f172b)]`,
+          'hover:bg-card/75 hover:text-current',
         )}
       >
-        <PinGlyph />
+        <PinLocation03 className="size-[14px] shrink-0" />
         {/* The one place truncation is correct: a long building name shortens,
             it does not wrap the header or push the caret off the row. */}
         <span
           className={cn(
             String.raw`min-w-0 flex-1 truncate text-left font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`,
-            String.raw`font-[var(--font\/weight\/font-medium,500)] text-[14px] leading-[18px]`,
+            String.raw`font-[var(--font\/weight\/font-medium,500)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh-tight,18px)]`,
           )}
         >
           {label}
         </span>
-        <CaretGlyph />
-      </button>
+        <CaretDown className="size-[14px] shrink-0" />
+      </Button>
     </div>
   )
 }

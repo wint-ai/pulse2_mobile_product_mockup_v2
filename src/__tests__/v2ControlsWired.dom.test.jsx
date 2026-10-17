@@ -12,6 +12,10 @@
 //     `events = MOCK_EVENTS` default drove every system on every route.
 //  4. handleAlertAction opened with `if (actionId !== 'paginate') return`, so
 //     "On it" and "Ignore" — the card's two primary buttons — were inert.
+//
+// Case 2's DESTINATION has since changed on the owner's instruction — see the
+// note on 'water event rows open the event' below. The row opens
+// EventFocusOverlay in place instead of navigating to /alert/:systemId.
 
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
@@ -20,7 +24,7 @@ import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
 import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import { SYSTEMS } from '@/data/systems'
 import { getEventsForSystem } from '@/data/events'
-import { isIgnored, clearIgnored } from '@/data/ignoredIncidents'
+import { isIgnored, clearIgnored, ignoreIncident } from '@/data/ignoredIncidents'
 import { isInvestigating, stopInvestigating } from '@/data/investigatingStore'
 import { useParams } from 'react-router-dom'
 
@@ -74,9 +78,22 @@ describe('home water events use real data', () => {
 })
 
 describe('water event rows open the event', () => {
-  it('renders each row as a real button that navigates to the event detail', () => {
+  /* CHANGED DELIBERATELY — the destination moved, the rest of this test did not.
+     This used to assert that tapping a row landed on /alert/:systemId, i.e. the
+     v1 LeakDetail screen. The product owner, pointing at the Water-events card
+     on /location/220%20Harborview%20Ave, said: "when clicking here it shall open
+     the Event overlay as we spoke before." So the row no longer navigates at
+     all — it opens EventFocusOverlay in place, over the page.
+     The /alert/:systemId route is NOT gone (App.jsx still serves it, and
+     screenSubscribes.test.js still holds LeakDetail to its contract); a pasted
+     URL still reaches it. What changed is where the in-app row goes, so the
+     LandingProbe below stays mounted precisely to prove the row does NOT go
+     there any more.
+     The assertions about the row being a real <button> are untouched — they
+     were never about the destination. */
+  it('renders each row as a real button that opens the event overlay in place', () => {
     let landedOn = null
-    render(
+    const { container } = render(
       <MemoryRouter initialEntries={['/']}>
         <Routes>
           <Route path="/" element={<HomeAllAccounts />} />
@@ -99,13 +116,42 @@ describe('water event rows open the event', () => {
     fireEvent.click(header)
 
     // Figma marks the row as a <button>; it used to render as an inert <div>
-    // because there was no agreed destination. /alert/:systemId is one.
+    // because there was no agreed destination. The overlay is one.
     const rows = screen.getAllByRole('button', { name: /^Open / })
     expect(rows.length, 'no tappable event rows').toBeGreaterThan(0)
 
+    // The row names the system it opens; the overlay must be about that system.
+    const rowName = (rows[0].getAttribute('aria-label') || '').replace(/^Open /, '')
+    expect(SYSTEMS.some((s) => s.name === rowName), 'row names no real system').toBe(true)
+
+    // Nothing is open before the tap.
+    expect(screen.queryByRole('dialog')).toBeNull()
+
     fireEvent.click(rows[0])
-    expect(landedOn, 'row tap did not reach /alert/:systemId').toBeTruthy()
-    expect(SYSTEMS.some((s) => s.id === landedOn)).toBe(true)
+
+    // It opened IN PLACE: the overlay is on screen...
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    /* The header carries BOTH ways out — a back control and an × — and both
+       call onClose. Named individually because "the close control" is no
+       longer a single element. */
+    expect(within(dialog).getByRole('button', { name: 'Back' })).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: 'Close' })).toBeTruthy()
+    expect(within(dialog).getAllByRole('heading', { level: 2 })[0].textContent).toBeTruthy()
+    expect(dialog.textContent).toContain(rowName)
+
+    // ...the page behind it is still mounted (so its scroll survives)...
+    expect(
+      within(container).getAllByRole('button', { name: /^Open / }).length,
+      'the rows unmounted, so the page was replaced rather than covered',
+    ).toBeGreaterThan(0)
+
+    // ...and the row did NOT navigate to the v1 screen.
+    expect(landedOn, 'row tap still navigates to /alert/:systemId').toBeNull()
+
+    // The close control returns to the list.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
 
@@ -132,8 +178,29 @@ describe('system page timeline uses real data', () => {
   })
 })
 
-describe('alert card actions reach the stores', () => {
-  const sys = alerting[0]
+describe('water event actions reach the stores — from the incident, not the card', () => {
+  /* CHANGED DELIBERATELY, 2026-10-17 — the ENTRY POINT moved, the behaviour
+     did not, and not one assertion below was dropped.
+
+     Both cases used to click "On it" / "Ignore" on the AlertCard in the System
+     page's alert carousel. Those buttons no longer exist there. The owner:
+     "remove actions from here - system page / all needs to be handled from
+     the incident." So the card is mounted actions={false} and is a pure
+     summary; its whole body is now the tap target that opens
+     EventFocusOverlay, and every action lives in that overlay.
+
+     The same two things must still be true, so they are asserted through the
+     path a user actually has now: open the event, then act on it. The overlay
+     writes investigatingStore itself (EventFocusOverlay.jsx:939) and routes
+     Ignore back through this page's IgnoreBottomSheet via the `onIgnore`
+     seam, which is why the stores and the confirm sheet are still the thing
+     being checked. The first case below is the new half of the contract: that
+     the card really has no action row any more. */
+
+  /* A LEAK, explicitly. Ignore and On it are water-event concepts — neither
+     the card nor the overlay offers them on an offline / valve-error /
+     power-lost fault — so a fault system here would make these vacuous. */
+  const sys = alerting.find((s) => String(s.alert?.type ?? '').startsWith('leak'))
 
   beforeEach(() => {
     clearIgnored(sys.id)
@@ -151,31 +218,146 @@ describe('alert card actions reach the stores', () => {
       </MemoryRouter>,
     )
 
-  it('"On it" starts investigating', () => {
+  /** Tap the card body — the title text, which is inside no control. */
+  const openEvent = (container) => {
+    const view = within(container)
+    fireEvent.click(view.getAllByText(sys.alert.label)[0])
+    const overlay = container.querySelector('[role="dialog"][aria-modal="true"]')
+    expect(overlay, 'tapping the card did not open the event overlay').toBeTruthy()
+    return within(overlay)
+  }
+
+  it('the dataset offers a leaking system (otherwise these are vacuous)', () => {
+    expect(sys, 'no leak-typed alert in the dataset').toBeTruthy()
+  })
+
+  it('the card carries no action row and no "View details" link, only a way in', () => {
+    const { container } = mount()
+    const view = within(container)
+    expect(view.queryByRole('button', { name: /^on it$/i })).toBeNull()
+    expect(view.queryByRole('button', { name: /^ignore$/i })).toBeNull()
+    // The rejected control: "dont like the view details and not 45 degrees
+    // arrow inside the card."
+    expect(view.queryByRole('button', { name: /view details/i })).toBeNull()
+    expect(view.queryByRole('link', { name: /view details/i })).toBeNull()
+
+    /* What replaced it: the card itself, exposed as a real <button> so it is
+       a tab stop and Enter / Space activate it, named for what it opens, and
+       a SIBLING of the card rather than a wrapper around it — nothing the
+       card draws ends up nested inside an interactive element. */
+    const opener = view.getByRole('button', { name: `Open ${sys.alert.label}` })
+    expect(opener.tagName).toBe('BUTTON')
+    expect(opener.querySelector('button')).toBeNull()
+  })
+
+  it('"On it" starts investigating — now from the event overlay', () => {
     expect(isInvestigating(sys.id)).toBe(false)
     const { container } = mount()
-    const btn = within(container).getAllByText('On it')[0]
-    expect(btn, 'no "On it" control rendered').toBeTruthy()
+    const overlay = openEvent(container)
+    const btn = overlay.getByRole('button', { name: /^on it$/i })
+    expect(btn, 'no "On it" control in the overlay').toBeTruthy()
     fireEvent.click(btn)
     expect(isInvestigating(sys.id)).toBe(true)
   })
 
   it('"Ignore" opens the confirm sheet rather than firing on the tap', () => {
-    /* CHANGED DELIBERATELY. This used to assert that one tap ignored the
-       incident. PRD 06 calls Ignore irreversible and says it "opens the Ignore
-       bottom sheet on the System page" — and PRD 15 captures the cause at
-       ignore-commit time, which a bare button gives nowhere to put.
-       So the tap must NOT commit. */
+    /* CHANGED DELIBERATELY (earlier pass). This used to assert that one tap
+       ignored the incident. PRD 06 calls Ignore irreversible and says it
+       "opens the Ignore bottom sheet on the System page" — and PRD 15
+       captures the cause at ignore-commit time, which a bare button gives
+       nowhere to put. So the tap must NOT commit.
+
+       CHANGED AGAIN, 2026-10-17 — the sheet, not the rule. The page used to
+       answer the overlay's Ignore with v1's IgnoreBottomSheet. The owner:
+       "make this as part of the design system - currently looks like from
+       another app." It is now WaterEventFeedbackSheet’s ignore flow, which
+       opens on the four consequences and gates on "Ignore anyway". The
+       assertion follows the copy, and additionally pins the gate itself,
+       since that gate is what makes "one tap must not commit" true. */
     expect(isIgnored(sys.id)).toBe(false)
     const { container } = mount()
-    const btn = within(container).getAllByText('Ignore')[0]
-    expect(btn, 'no "Ignore" control rendered').toBeTruthy()
+    const overlay = openEvent(container)
+    const btn = overlay.getByRole('button', { name: /^ignore$/i })
+    expect(btn, 'no "Ignore" control in the overlay').toBeTruthy()
     fireEvent.click(btn)
 
     expect(isIgnored(sys.id), 'one tap must not commit an irreversible action').toBe(false)
     expect(
-      within(document.body).queryByText('Ignore this Water Event?'),
-      'the confirm sheet should be on screen',
+      within(document.body).queryByText('Ignore this water event?'),
+      'the ignore flow should be on screen',
     ).toBeTruthy()
+    expect(
+      within(document.body).queryByRole('button', { name: 'Ignore anyway' }),
+      'the irreversible step must be behind an explicit confirmation',
+    ).toBeTruthy()
+  })
+})
+
+describe('every alert variant on the System page keeps the way into the event', () => {
+  /* The affordance IS the card now, so it has to survive the variants that
+     have nothing to act on. A fault (offline / valve-error / power-lost) is a
+     summary — v1's ErrorAlertDetail offers neither On it nor Ignore on one,
+     and the overlay does not either — and an ignored event is muted with no
+     action row. Opening the event is navigation, not an action, so neither is
+     a reason to leave the reader with no way to READ it. */
+  const fault = alerting.find((s) => s.alert && !String(s.alert.type ?? '').startsWith('leak'))
+  const leak = alerting.find((s) => String(s.alert?.type ?? '').startsWith('leak'))
+
+  const mountAt = (id) =>
+    render(
+      <MemoryRouter initialEntries={[`/system/${id}`]}>
+        <Routes><Route path="/system/:systemId" element={<SystemPageV2Screen />} /></Routes>
+      </MemoryRouter>,
+    )
+  const overlayIn = (c) => c.querySelector('[role="dialog"][aria-modal="true"]')
+
+  afterEach(() => clearIgnored(leak.id))
+
+  it('a fault card has no actions anywhere and still opens the event', () => {
+    expect(fault, 'no non-leak alert in the dataset').toBeTruthy()
+    const { container } = mountAt(fault.id)
+    const view = within(container)
+    expect(view.queryByRole('button', { name: /^on it$/i })).toBeNull()
+    expect(view.queryByRole('button', { name: /^ignore$/i })).toBeNull()
+    fireEvent.click(view.getByRole('button', { name: `Open ${fault.alert.label}` }))
+    expect(overlayIn(container), 'a fault card is a dead end').toBeTruthy()
+  })
+
+  it('an ignored card opens the event, and its "Ignored" pill is inert', () => {
+    /* CHANGED DELIBERATELY, 2026-10-17 (owner decision). This test used to be
+       called '...its own "Ignored" pill still only un-ignores' and asserted
+       that tapping the pill cleared the ignore. PRD 14 calls Ignore
+       irreversible, the ignore flow itself promises the user "This can't be
+       undone for this event", and nowhere else in the product — v1 or v2 —
+       offers a way back: the un-ignore was the thing that was wrong, not the
+       PRD. So the pill is a status indicator now. No role, no tab stop, no
+       handler, and AlertCard emits no 'unignore' at all.
+
+       What survives unchanged is the one-tap-one-outcome contract the old
+       test was really protecting, now stated as: the pill does NOTHING, and
+       the card body still opens the event. That is also why the page's
+       openEventOnCardTap guard still has to know about the pill — dropping
+       it from the guard would have swapped the un-ignore for an
+       open-the-overlay, which is not "removing a control". */
+    ignoreIncident(leak.id, { tag: 'test', ignoredBy: 'Test' })
+    const { container } = mountAt(leak.id)
+    const view = within(container)
+
+    const pill = container.querySelector('[data-status-pill]')
+    expect(pill, 'the ignored card draws no status pill').toBeTruthy()
+    expect(pill.textContent.trim()).toBe('Ignored')
+
+    // Not a control: not exposed as one, and not reachable by keyboard.
+    expect(view.queryByRole('button', { name: /^ignored$/i })).toBeNull()
+    expect(pill.getAttribute('role')).toBeNull()
+    expect(pill.getAttribute('tabindex')).toBeNull()
+
+    fireEvent.click(pill)
+    expect(isIgnored(leak.id), 'the pill un-ignored the event').toBe(true)
+    expect(overlayIn(container), 'the pill opened the overlay').toBeNull()
+
+    // ...and the card body still opens the event.
+    fireEvent.click(view.getAllByText(leak.alert.label)[0])
+    expect(overlayIn(container)).toBeTruthy()
   })
 })

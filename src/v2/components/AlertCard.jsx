@@ -382,9 +382,11 @@ function StatBadge({ deg, blend, icon, value, valueClass }) {
  *        other five are the 308x136 desktop sizes of the same card.
  * @param {object}   props.event      copy + counts; defaults to MOCK_EVENT.
  * @param {Function} props.onAction   (actionId, event) => void. Ids:
- *        'paginate' | 'on-it' | 'ignore' | 'unignore' | 'action' |
- *        'sensor-more' | 'show-past-events'. Omit it and every control still
- *        renders and is focusable, it just no-ops.
+ *        'paginate' | 'on-it' | 'ignore' | 'action' | 'sensor-more' |
+ *        'show-past-events'. Omit it and every control still renders and is
+ *        focusable, it just no-ops. There is deliberately no 'unignore':
+ *        Ignore is irreversible (PRD 14), so the `ignored` variant's pill is
+ *        a status indicator and this component emits no way back.
  * @param {string}   props.className  appended to the card shell.
  * @param {boolean}  props.actions    mobile variant only. False drops the
  *        On it / Ignore row. Ignore is a WATER-EVENT concept — v1's
@@ -564,17 +566,34 @@ export default function AlertCard({
             <Pager page={data.page} pageCount={data.pageCount} onClick={act('paginate')} />
           </div>
           {/* Drawn as a Badge in every respect (badge px / py / radius /
-              border-width tokens) even though the node is named Button. It is
-              the way back out of the ignored state, so it is interactive. */}
+              border-width tokens) even though the node is named Button.
+
+              IT IS NOT A CONTROL, 2026-10-17 (owner decision). It used to be
+              a role="button" with tabIndex, an onKeyDown and an onClick that
+              emitted 'unignore' — the one way back out of the ignored state
+              anywhere in the product. PRD 14 says Ignore is irreversible, and
+              the ignore flow itself promises the user "This can't be undone
+              for this event" (WaterEventFeedbackSheet), so the way back was
+              the thing that was wrong, not the PRD. It is now exactly what it
+              reads as: the state the card is in. No role, no tab stop, no
+              handler, and it emits nothing.
+
+              `data-status-pill` is the one concession to the caller. A page
+              that opens the event on a card tap has to know this is not card
+              body — otherwise taking the un-ignore away would silently turn
+              the pill into an "open the event" target instead. The attribute
+              lets that guard skip it without the pill owning a handler
+              (SystemPageV2Screen's openEventOnCardTap).
+
+              `cursor-default`, not the `cursor-pointer` this replaced. The
+              pointer is inherited from the card wrapper, which IS tappable
+              (SystemPageV2Screen puts cursor-pointer on it) — and over a pill
+              that now does nothing, an inherited hand cursor is the one
+              remaining thing still claiming it is a control. */}
           <Badge
             variant="secondary"
-            className={String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] border-[length:var(--component\/badge\/border-width,1px)] border-[var(--colors\/slate\/200,#e2e8f0)] border-solid content-stretch cursor-pointer flex gap-[var(--component\/badge\/gap,4px)] h-[24px] items-center justify-center px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0`}
-            role="button"
-            tabIndex={0}
-            onClick={act('unignore')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAction?.('unignore', data) }
-            }}
+            data-status-pill
+            className={String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] border-[length:var(--component\/badge\/border-width,1px)] border-[var(--colors\/slate\/200,#e2e8f0)] border-solid content-stretch cursor-default flex gap-[var(--component\/badge\/gap,4px)] h-[24px] items-center justify-center px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0`}
           >
             <span className="[word-break:break-word] font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] relative shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)] text-[length:var(--text\/xs\/size,12px)] whitespace-nowrap">
               Ignored

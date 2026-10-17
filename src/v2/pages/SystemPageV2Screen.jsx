@@ -47,6 +47,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import TabBar from '@/components/TabBar'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import AlertCard from '@/v2/components/AlertCard'
+import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
@@ -78,8 +79,6 @@ import {
 } from '@/v2/lib/consumptionWindow'
 import { getSystemById } from '@/data/systems'
 import { getCurrentActor } from '@/data/currentUser'
-import TagBottomSheet from '@/components/TagBottomSheet'
-import { addTag, removeTagAt, getTags } from '@/data/tagsStore'
 import { getActiveIncident, getLeakState } from '@/data/incidents'
 import { getConsumption } from '@/data/consumption'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
@@ -90,8 +89,9 @@ import {
   getActivePolicy,
 } from '@/data/systemDetails'
 import { getEventsForSystem } from '@/data/events'
-import IgnoreBottomSheet from '@/components/IgnoreBottomSheet'
-import { ignoreIncident, clearIgnored, isIgnored } from '@/data/ignoredIncidents'
+import WaterEventFeedbackSheet from '@/v2/components/WaterEventFeedbackSheet'
+import { tagEventKey } from '@/data/eventFeedbackStore'
+import { ignoreIncident, isIgnored } from '@/data/ignoredIncidents'
 import { startInvestigating, isInvestigating } from '@/data/investigatingStore'
 
 /* ── Mock data ──────────────────────────────────────────────────────────────
@@ -477,18 +477,22 @@ export default function SystemPageV2Screen() {
 
   /* THE PUSH CONTRACT (PRD 06). Every water-event push lands here and asks the
      page to do something on arrival: `?pulse=1` highlights the card the push
-     referred to, `?action=ignore` opens the Ignore sheet, `?action=tag` opens
-     the Tag sheet. None of it was read — the params arrived and nobody looked
-     — so three of the four push actions silently did nothing.
+     referred to, `?action=ignore` opens the Ignore flow, `?action=tag` opens
+     the feedback question. None of it was read — the params arrived and
+     nobody looked — so three of the four push actions silently did nothing.
      Ported from LeakDetail.jsx, which has implemented this all along on a
      route the push no longer uses. */
   const [searchParams, setSearchParams] = useSearchParams()
-  const [showIgnoreSheet, setShowIgnoreSheet] = useState(false)
-  /* PRD 15 §7.1 / 02:325. PushNotifications.jsx:656 sends
-     /system/{id}?action=tag&pulse=1, and this page handled only 'ignore'
-     before deleting the param — so the push's Tag button landed here and
-     silently did nothing. */
-  const [showTagSheet, setShowTagSheet] = useState(false)
+  const [showIgnoreFlow, setShowIgnoreFlow] = useState(false)
+  /* EventFocusOverlay — one event, full screen, over this page. Tapping an
+     alert card opens it (see the carousel below); the card's own On it /
+     Ignore buttons are untouched and still go through handleAlertAction. */
+  const [eventFocusOpen, setEventFocusOpen] = useState(false)
+  /* PRD 15 §7.1 / 02:325. PushNotifications.jsx:659 sends
+     /system/{id}?action=tag&pulse=1 — and until 2026-10-17 this page answered
+     it with v1's TagBottomSheet. It now opens WaterEventFeedbackSheet's
+     'event-ended' question; see the mount at the foot of this file. */
+  const [showTagFeedback, setShowTagFeedback] = useState(false)
   const [pulse, setPulse] = useState(false)
 
   /* Real system for this route, falling back to the mock shape when the id
@@ -750,8 +754,8 @@ export default function SystemPageV2Screen() {
     const wantsPulse = searchParams.get('pulse') === '1'
     if (!action && !wantsPulse) return
 
-    if (action === 'ignore' && !isIgnored(systemId)) setShowIgnoreSheet(true)
-    if (action === 'tag') setShowTagSheet(true)
+    if (action === 'ignore' && !isIgnored(systemId)) setShowIgnoreFlow(true)
+    if (action === 'tag') setShowTagFeedback(true)
     /* §PRD 06 asks for a 2-second accent pulse on the card the push referred
        to — Slack's scroll-to-message highlight, not a badge. */
     if (wantsPulse) setPulse(true)
@@ -800,6 +804,36 @@ export default function SystemPageV2Screen() {
      when something is wrong the valve is the thing you reach for. So the order
      is data, not markup. */
   const alerting = Boolean(system.alert)
+
+  /* PRD 06 + 14: Ignore is a WARNING-state action. getLeakState reads the
+     incident's own steps and answers 'Warning' | 'Ongoing' | 'ShutOff';
+     WaterEventFeedbackSheet takes the lowercase pair and refuses to render
+     the ignore flow on 'shutoff' as a backstop, so the two cannot drift.
+     'Ongoing' is still ignorable — EventFocusOverlay offers Ignore on every
+     live water event, claimed or not — only a closed valve takes it away. */
+  const eventState =
+    getLeakState(getActiveIncident(system.id)) === 'ShutOff' ? 'shutoff' : 'warning'
+
+  /* WHERE THE TAG PATH'S FEEDBACK RECORD IS KEYED.
+     eventFeedbackStore is keyed per event and holds an ARRAY per key, and the
+     ignore flow below writes under the bare `system.id` — the store's own
+     convention for a live event (eventFeedbackStore.js, "KEY SHAPE"). If the
+     tag path reused that key the two answers would stack under one id and
+     `getLatestFeedback(system.id)` would hand a read surface the tag answer
+     where it asked for the ignore reason. The store's `eventKey` override
+     exists for exactly this, so the tag path takes its own namespaced key.
+
+     Not a literal event id, which is what the store would prefer: the tag
+     link refers to the event that just ended, and `getEventsForSystem`
+     returns the current + history rows in no guaranteed order and formats the
+     timestamp on the way out, so "the one that just ended" cannot be picked
+     from it reliably. A stable key beats a plausible-looking wrong one.
+
+     THE STRING ITSELF LIVES IN THE STORE (`tagEventKey`). PushNotifications
+     reads this same key back to flip LE_01's Tag CTA to "✓ Tagged", so the
+     write and the read must agree; spelling the template literal here as well
+     is exactly how they would drift. */
+  const eventEndedKey = tagEventKey(system.id)
   const cardOrder = alerting
     ? ['valve', 'type', 'chart', 'insights', 'policy', 'timeline']
     : ['type', 'chart', 'valve', 'policy', 'insights', 'timeline']
@@ -854,6 +888,20 @@ export default function SystemPageV2Screen() {
         return
       }
 
+      /* 'on-it' and 'ignore' are UNREACHABLE FROM THIS PAGE'S CARD now — the
+         owner: "remove actions from here - system page / all needs to be
+         handled from the incident", so the card below is mounted
+         actions={false} and renders no action row. They are kept rather than
+         deleted: AlertCard still emits both ids for any other caller, and
+         this switch is the page's one statement of what each id means.
+         Nothing behind them was unwired either. EventFocusOverlay writes
+         investigatingStore itself for "On it", its onIgnore seam calls back
+         into this page's ignore flow (WaterEventFeedbackSheet), and the
+         push deep links ?action=ignore / ?action=tag still open those
+         sheets here, so that flow, startInvestigating and getCurrentActor
+         all stay live. Still reachable from the card: 'paginate'. The
+         ignored variant's "Ignored" pill was the other one until 2026-10-17;
+         it is a status indicator now, not a control. */
       // "On it" — claim the incident. Idempotent: tapping it twice is not an error.
       case 'on-it':
         /* PRD 04a:158 — "always a person name, never a role". Called without
@@ -868,12 +916,15 @@ export default function SystemPageV2Screen() {
          straight from the button — one tap, no confirmation, no way back, and
          no chance to capture the cause PRD 15 asks for at ignore-commit time. */
       case 'ignore':
-        if (!isIgnored(sysId)) setShowIgnoreSheet(true)
+        if (!isIgnored(sysId)) setShowIgnoreFlow(true)
         return
-      case 'unignore':
-        clearIgnored(sysId)
-        bump()
-        return
+      /* 'unignore' IS GONE, 2026-10-17 (owner decision). PRD 14 calls Ignore
+         irreversible, the ignore flow itself promises the user "This can't be
+         undone for this event", and no other surface in this product — v1 or
+         v2 — offers a way back. AlertCard's "Ignored" pill was the only one,
+         and it no longer emits the id (AlertCard.jsx, `ignored` variant), so
+         this case had no caller left. `clearIgnored` is NOT removed from
+         ignoredIncidents.js: the test suite uses it for setup/teardown. */
       case 'show-past-events':
         navigate(`/events/system/${sysId}`)
         return
@@ -887,6 +938,51 @@ export default function SystemPageV2Screen() {
            stays a no-op rather than being pointed at an invented screen. Named
            explicitly here so the next reader knows it was a decision. */
     }
+  }
+
+  /* ── Tapping the alert card opens the event ──────────────────────────────
+     Two owner decisions land here.
+
+     1. "dont like the view details and not 45 degrees arrow inside the card."
+        The "View details" text button that used to sit under each card is
+        gone, and nothing replaced it on the card's face — no diagonal arrow
+        (that reads as "opens externally"; this is in-app navigation), and not
+        a right chevron either, because the Figma node the card is being
+        pixel-matched to (199296:50466) draws no link at all. The card IS the
+        affordance.
+     2. "remove actions from here - system page / all needs to be handled from
+        the incident." So the card is mounted with actions={false} below and
+        carries no On it / Ignore row; every action lives in EventFocusOverlay,
+        which this tap opens.
+
+     AlertCard's shell is inert by design (AlertCard.jsx:407 — "the Figma frame
+     marks no tap target on it, only on the pills inside — so a caller that
+     wants 'tap the card to open the event' wraps it"). The wrap is split in
+     two: POINTER here, KEYBOARD / assistive tech on the transparent <button>
+     the carousel renders beside the card.
+
+     Decision (2) removes the On it / Ignore double-fire, but it does NOT make
+     the card interactive-free, so the wrap is not simplified into one big
+     <button> around it: a card with pageCount > 1 still renders the pager
+     <Button>. Wrapping that in a <button> is button-in-button (invalid HTML,
+     React warns), and role="button" + tabIndex on the wrapper is no better:
+     ARIA makes a button's children presentational, which traps them. So the
+     wrapper stays a plain div that owns only the pointer, the <button> beside
+     the card owns focus and the accessible name, and this guard drops clicks
+     that originated inside one of the card's own controls — that control has
+     already handled them. One tap is always one action.
+
+     `[data-status-pill]` is in the same guard for the opposite reason. The
+     `ignored` variant's "Ignored" pill stopped being a control on 2026-10-17
+     (PRD 14: Ignore is irreversible), so it has no role and no handler — but
+     it must not open the event either, or removing the un-ignore would have
+     quietly swapped one tap-action for another. The card marks it rather than
+     handling it, so the pill itself stays inert markup. */
+  const openEventOnCardTap = (e) => {
+    const SELF_HANDLED =
+      'button, a, [role="button"], input, select, textarea, label, [data-status-pill]'
+    if (e.target?.closest?.(SELF_HANDLED)) return
+    setEventFocusOpen(true)
   }
 
   /* Phone.jsx is a fixed 393x852 frame with overflow:hidden, so this screen
@@ -991,25 +1087,64 @@ export default function SystemPageV2Screen() {
                     {(system.alerts ?? []).map((alert) => (
                       /* One alert fills the column, like every other card on
                          this page. Several stay at the frame's 308px so the
-                         row is visibly swipeable. */
+                         row is visibly swipeable.
+
+                         The wrapper is positioned so the focus proxy below can
+                         sit over the card, and its onClick IS the card's tap
+                         target — see openEventOnCardTap for why the pointer
+                         lives here and the keyboard lives on the button.
+                         Every variant gets it: a fault card and an ignored one
+                         are summaries with nothing to act on, and neither is a
+                         reason to have no way to READ the event. Opening it is
+                         navigation, not an action, so it puts no control back
+                         where one was removed. */
                       <div
                         key={alert.page}
-                        className={
-                          (system.alerts ?? []).length > 1
-                            ? 'w-[308px] shrink-0 snap-start'
-                            : 'w-full shrink-0 snap-start'
-                        }
+                        onClick={openEventOnCardTap}
+                        className={`relative cursor-pointer shrink-0 snap-start ${
+                          (system.alerts ?? []).length > 1 ? 'w-[308px]' : 'w-full'
+                        }`}
                       >
+                        {/* The tab stop and the accessible name. Transparent
+                            and pointer-events-none — so it can never swallow a
+                            tap meant for something inside the card — but it is
+                            a real <button>, so Enter and Space activate it for
+                            free, and it is a SIBLING of the card, not an
+                            ancestor: nothing inside the card is nested in an
+                            interactive element and there is no <button> inside
+                            a <button> for React to warn about. First in DOM
+                            order so Tab reads "Open <event>" before anything
+                            the card still owns; z-10 so the card does not
+                            paint over its focus ring. */}
+                        <button
+                          type="button"
+                          onClick={() => setEventFocusOpen(true)}
+                          aria-label={`Open ${alert.title || 'event'}`}
+                          className="absolute inset-0 z-10 pointer-events-none rounded-[var(--rounded-2xl,18px)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--wint-blue-accent,#0b81f8)] focus-visible:ring-offset-2"
+                        />
                         {/* PRD 04a:146-154, locked 2026-06-15: an ignored
                             event renders muted, with the "Ignored by" pill and
                             NO action row. `isIgnored` was read twice in this
                             file and never in render, so after ignoring, the
-                            card went on offering live On it / Ignore. */}
+                            card went on offering live On it / Ignore.
+
+                            actions={false}, flatly — the owner: "remove
+                            actions from here - system page / all needs to be
+                            handled from the incident." On it and Ignore now
+                            live only in EventFocusOverlay, which the tap
+                            above opens, so the card is a pure summary.
+                            This replaces actions={alert.leak}, which
+                            suppressed the row on faults because Ignore is a
+                            water-event concept. That distinction has not gone
+                            away — it still drives `leak` in alertCardsFor,
+                            which decides the status label and whether a flow
+                            rate is shown — it is simply redundant HERE, now
+                            that no variant on this page shows the row. */}
                         <AlertCard
                           variant={alert.ignored ? 'ignored' : 'mobile'}
                           event={alert}
                           onAction={handleAlertAction}
-                          actions={alert.leak}
+                          actions={false}
                         />
                       </div>
                     ))}
@@ -1184,25 +1319,121 @@ export default function SystemPageV2Screen() {
             </div>
           </div>
         </div>
+
+        {/* One event, full screen. `absolute inset-0 z-50`, opaque, and NO
+            portal — a Radix portal escapes Phone.jsx's 393x852 frame — so it
+            is mounted inside the frame root 198379:80447 above, which already
+            carries `relative`. Mounted unconditionally; open={false} renders
+            null.
+            onIgnore routes to the ignore flow this page owns, which is now
+            WaterEventFeedbackSheet (PRD 06 + 14: irreversible, so it shows
+            the consequences and confirms before anything commits). That
+            sheet is absolute inset-0 at page level, mounted after this
+            frame root, so it draws OVER this overlay and the commit
+            repaints the card behind in its ignored state.
+            onClaim / onStandDown only ask for a repaint: the overlay has
+            already written to investigatingStore by the time they fire, and
+            the AlertCard behind reads the same store. */}
+        <EventFocusOverlay
+          open={eventFocusOpen}
+          systemId={system.id}
+          onClose={() => setEventFocusOpen(false)}
+          onIgnore={sysId => {
+            if (!isIgnored(sysId)) setShowIgnoreFlow(true)
+          }}
+          onClaim={bump}
+          onStandDown={bump}
+          /* THE VALVE SEAM — EventFocusOverlay's "WHO OWNS WHAT". The overlay
+             draws the valve readout and the Close / Open primary but keeps no
+             second copy of the state: this page's `closedValves` is the state
+             of record, so the overlay reads its value from here or the two
+             surfaces drift apart on the same screen.
+
+             `onIntent` COMMITS. It does not ask. It fires only AFTER the user
+             has confirmed in the overlay's own ValveConfirmSheet, so routing
+             it at this page's `setValveIntent` would stack a second confirm
+             sheet on top of a confirmation the user has already given. The
+             branch below is commitValveIntent's no-device case, verbatim
+             (same file, search `const commitValveIntent`): close every valve,
+             or clear the map to open them all. The two must not drift. */
+          valve={{
+            state: valveState,
+            onIntent: action =>
+              setClosedValves(
+                action === 'close'
+                  ? Object.fromEntries(valves.map(d => [d.id, true]))
+                  : {},
+              ),
+          }}
+        />
       </div>
+
+      {/* THE IGNORE FLOW — PRD 06 + 14: irreversible, so it confirms before
+          it commits, and PRD 15's "why" is captured at commit time.
+
+          THE SHEET CHANGED, 2026-10-17. This was v1's IgnoreBottomSheet
+          (src/components/IgnoreBottomSheet.jsx). The owner, looking at it on
+          this screen: "make this as part of the design system - currently
+          looks like from another app." It is v1 chrome — amber warning panel,
+          maroon button, uppercase group labels, the 18-chip two-group
+          taxonomy. WaterEventFeedbackSheet is the v2 replacement, built from
+          the owner's own mockup (page-water-event-feedback-end.html): shadcn
+          + the v2 tokens, the four consequences first, then the one question
+          "Was this worth alerting about?" with Ignore-specific chips.
+          IgnoreBottomSheet is NOT deleted and NOT restyled — v1's LeakDetail
+          and WaterEventDetailsWidget still import it and screenSubscribes
+          pins them. This page just stops mounting it, and no other v2 file
+          mounts it.
+
+          THE COMMIT IS STILL THIS PAGE'S. onIgnoreConfirmed fires on "Ignore
+          anyway"; the sheet writes its own feedback record
+          (eventFeedbackStore) but never touches ignoredIncidents. Exactly one
+          of onComplete / onCancel then fires per close.
+
+          BOTH ENTRY POINTS land here: EventFocusOverlay's `onIgnore` seam
+          (the card -> overlay -> Ignore path) and the push deep link
+          ?action=ignore, which the effect above still reads.
+
+          Page level, like ValveConfirmSheet: the sheet is `absolute inset-0`
+          and the nearest positioned ancestor is Phone.jsx's 393x852 frame, so
+          it covers the phone and nothing else. It is mounted AFTER the frame
+          root that holds EventFocusOverlay, so it draws over the overlay the
+          Ignore was tapped in, exactly as IgnoreBottomSheet did. */}
+      <WaterEventFeedbackSheet
+        open={showIgnoreFlow}
+        trigger="ignore"
+        systemId={system.id}
+        systemName={system.title}
+        eventLabel={system.alert?.label}
+        eventState={eventState}
+        onCancel={() => setShowIgnoreFlow(false)}
+        onIgnoreConfirmed={() => {
+          if (!isIgnored(system.id)) {
+            ignoreIncident(system.id, { ignoredBy: getCurrentActor() })
+          }
+          bump()
+        }}
+        onComplete={(record) => {
+          /* The cause PRD 15 asks for at ignore-commit time. The sheet has
+             already persisted the full answer, but the ignored-incident
+             record carries the short reason the "Ignored by" pill and the
+             overlay read, so the chips and note are folded back into it when
+             the user gave any. A bare "Ignore anyway" leaves it null, which
+             is what "nothing is mandatory" means here. */
+          const summary = record
+            ? [record.chips?.join(', '), record.note].filter(Boolean).join(' — ') || null
+            : null
+          if (summary) {
+            ignoreIncident(system.id, { tag: summary, ignoredBy: getCurrentActor() })
+          }
+          setShowIgnoreFlow(false)
+          bump()
+        }}
+      />
 
       {/* 198674:184354 — the advanced sheet: pick the last month of the
           window, with future months disabled and a "Latest 12 months"
           shortcut. Page level, because the frame covers the whole phone. */}
-      {/* PRD 06 + 14: the sheet the push's Ignore action asks for, and the
-          confirmation an irreversible action needs however it was reached. */}
-      {showIgnoreSheet && (
-        <IgnoreBottomSheet
-          onClose={() => setShowIgnoreSheet(false)}
-          onConfirm={({ chip, chipOther, detail }) => {
-            const summary = [chip, chipOther, detail].filter(Boolean).join(' — ') || null
-            ignoreIncident(system.id, { tag: summary, ignoredBy: getCurrentActor() })
-            setShowIgnoreSheet(false)
-            bump()
-          }}
-        />
-      )}
-
       <MonthPickerSheet
         variant="window"
         open={pickerOpen}
@@ -1225,25 +1456,49 @@ export default function SystemPageV2Screen() {
       />
 
       <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-      {/* PRD 15. The push's Tag button has been landing on this page and
-          finding nothing to open; this is the sheet it was asking for. Tags
-          are keyed by system and written through tagsStore, the same store
-          the v1 screen and the timeline read. */}
-      {showTagSheet && (
-        <TagBottomSheet
-          currentTags={getTags(system.id)}
-          onClose={() => setShowTagSheet(false)}
-          onAdd={additions => {
-            additions.forEach(tag => addTag(system.id, { ...tag, addedBy: getCurrentActor() }))
-            setShowTagSheet(false)
-            bump()
-          }}
-          onRemove={index => {
-            removeTagAt(system.id, index)
-            bump()
-          }}
-        />
-      )}
+      {/* THE TAG PATH — PRD 15 §7.1, the push's "Tag the cause" button.
+
+          REPOINTED, 2026-10-17 (owner decision). This mounted v1's
+          TagBottomSheet, the 18-chip two-group taxonomy of PRD 15 §5.4.
+          WaterEventFeedbackSheet replaces that taxonomy with one question, so
+          the push's Tag button lands on the question instead. Neither
+          TagBottomSheet nor tagsStore is edited or deleted — LeakDetail,
+          ActivityTab, SystemDetail, WaterEventDetailsWidget and
+          WaterEventSummary are still five live v1 callers of both. This page
+          simply stops mounting the sheet, and no other v2 file mounts it.
+
+          trigger="event-ended", NOT "ignore". Those two are the component's
+          whole vocabulary, and 'ignore' opens on the irreversibility gate —
+          there is nothing being dismissed here, so it would ask the user to
+          confirm an action they never took. 'event-ended' is the pure
+          question. It is also the honest reading of where this link comes
+          from: `tag` is offered on exactly one push, LE_01 / "End of Leak"
+          (notificationActions.js:47), whose body is "The water event ... has
+          ended. Please share feedback on this event in the app."
+
+          NOTHING TO COMMIT. The ignore flow above owns ignoredIncidents;
+          this path owns no store of its own. The sheet persists the answer
+          itself through eventFeedbackStore (addFeedback), under `eventKey`
+          rather than the system id — see tagEventKey above for why — so
+          onComplete only closes and asks for a repaint.
+
+          Page level and after the frame root, for the same reason as the
+          ignore flow: the sheet is `absolute inset-0` and must cover the
+          phone, including EventFocusOverlay. */}
+      <WaterEventFeedbackSheet
+        open={showTagFeedback}
+        trigger="event-ended"
+        systemId={system.id}
+        eventKey={eventEndedKey}
+        systemName={system.title}
+        eventLabel={system.alert?.label}
+        eventState={eventState}
+        onCancel={() => setShowTagFeedback(false)}
+        onComplete={() => {
+          setShowTagFeedback(false)
+          bump()
+        }}
+      />
 
       <ValveConfirmSheet
         action={valveIntent?.action ?? null}
