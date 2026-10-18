@@ -353,7 +353,11 @@ describe('find this system', () => {
 describe('the collapsible sections', () => {
   it('wires each header to its own panel with aria-expanded / aria-controls', () => {
     renderOverlay()
-    for (const name of [/^Event details$/, /^Who was notified/, /^Find this system$/]) {
+    /* "Event details" is no longer a section on a water event — its four
+       facts are a read-only strip at the top now (owner, 2026-10-18), so the
+       accordion only exists on a fault. The wiring contract is the same for
+       the sections that remain. */
+    for (const name of [/^Event graph$/, /^Who was notified/, /^Find this system$/]) {
       const { header, panel } = section(name)
       expect(header).toHaveAttribute('aria-expanded')
       expect(panel, `no panel for ${name}`).toBeTruthy()
@@ -363,9 +367,20 @@ describe('the collapsible sections', () => {
 
   it('starts the sections collapsed on a water event', () => {
     renderOverlay()
-    const details = section(/^Event details$/)
-    expect(details.header).toHaveAttribute('aria-expanded', 'false')
-    expect(details.panel.hidden).toBe(true)
+    const graph = section(/^Event graph$/)
+    expect(graph.header).toHaveAttribute('aria-expanded', 'false')
+    expect(graph.panel.hidden).toBe(true)
+  })
+
+  it('shows the water facts without an accordion to open', () => {
+    // The four that ARE the event — state, direction, whether it will shut
+    // itself off, and how it was detected — are read, not opened.
+    const { container } = renderOverlay()
+    expect(container.textContent).toContain('State')
+    expect(container.textContent).toContain('Flow level')
+    expect(container.textContent).toContain('Auto-shutoff')
+    expect(container.textContent).toContain('Detection')
+    expect(screen.queryByRole('button', { name: /^Event details$/ })).toBeNull()
   })
 
   it('toggles a section on its header', () => {
@@ -685,10 +700,14 @@ describe('What should I do', () => {
     }
   })
 
-  it('is distinct from "What happens next" — the user’s actions, not the system’s', () => {
+  it('is the only advice section — "What happens next" was removed', () => {
+    /* Six accordions was too many (owner, 2026-10-18). "What happens next"
+       restated the active policy; the one line of it that changes what you do,
+       Auto-shutoff, is in the facts strip at the top, and the policy in full
+       is on the system page. */
     renderOverlay()
     expect(section(/^What should I do$/).header).toBeTruthy()
-    expect(section(/^What happens next$/).header).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^What happens next$/ })).toBeNull()
   })
 
   it('tells a metering-only system that the water cannot be shut off from here', () => {
