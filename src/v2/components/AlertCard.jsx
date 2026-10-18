@@ -203,7 +203,13 @@ const SHELL_WATER_EVENT = `${SHELL} max-w-[440px]`
    a single alert that is 50px narrower than everything under it reads as a
    mistake. The repo rule is that widgets on one screen share a width. The
    carousel still constrains it when there are several. */
-const SHELL_MOBILE = 'bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[20px] min-h-[178px] items-start px-[18px] py-[12px] relative rounded-[var(--rounded-2xl,18px)] w-full'
+/* Figma 199245:77642 "Alert card" — the LIVE alert carries a red-500 border,
+   not the white one this shell used to draw. A white border on the #fafbfc
+   card is invisible, so a live water event had no edge at all and sat flush
+   with every neutral card around it; the design uses the severity colour on
+   the card's own edge to mark it out. Only the live variant: `ignored` keeps
+   SHELL below, because an ignored event is deliberately muted. */
+const SHELL_MOBILE = String.raw`bg-[#fafbfc] border border-[var(--colors\/red\/500,#fb2c36)] border-solid content-stretch flex flex-col gap-[20px] min-h-[178px] items-start px-[18px] py-[12px] relative rounded-[var(--rounded-2xl,18px)] w-full`
 const INNER_COLUMN = 'content-stretch flex flex-[1_0_0] flex-col items-start justify-between min-h-px relative w-full'
 
 /* Gradient stacks on the sensor stat badges. Each badge carries its own angle in

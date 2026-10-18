@@ -1228,16 +1228,27 @@ export default function EventFocusOverlay({
           className="size-[9px] shrink-0 rounded-full"
           style={{ background: isWater ? (isLowFlow ? TOKEN.low : TOKEN.high) : meta.sevColor }}
         />
-        <h2
-          id={titleId}
-          className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.2px] text-slate-900"
-        >
-          {/* The dialog's accessible name still has to say WHAT this is, which
-              the visible header no longer repeats. sr-only is position:absolute
-              so it costs no layout inside the truncate. */}
-          <span className="sr-only">{evt.label || meta.label} — </span>
-          {sys.name}
-        </h2>
+        {/* Owner's call, 2026-10-18: the location belongs under the system
+            name. "Apartment 5" alone does not say which building, and the
+            breadcrumb was previously buried inside the Event-details
+            accordion — one tap away from the one question the header is
+            there to answer. It is removed from that grid rather than
+            duplicated. */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h2
+            id={titleId}
+            className="min-w-0 truncate text-[15px] font-semibold leading-tight tracking-[-0.2px] text-slate-900"
+          >
+            {/* The dialog's accessible name still has to say WHAT this is,
+                which the visible header no longer repeats. sr-only is
+                position:absolute so it costs no layout inside the truncate. */}
+            <span className="sr-only">{evt.label || meta.label} — </span>
+            {sys.name}
+          </h2>
+          {breadcrumb ? (
+            <p className="min-w-0 truncate text-[12px] leading-tight text-slate-500">{breadcrumb}</p>
+          ) : null}
+        </div>
 
         {/* NO "View System" link here. One was added on 2026-10-17 (v1's
             LeakDetail.jsx:207-210 had one) and the owner removed it on sight
@@ -1354,7 +1365,24 @@ export default function EventFocusOverlay({
             Collapsed by default except the facts on a fault, which has no
             incident timeline below to read instead (v1's ErrorAlertDetail has
             none either). */}
-        <Section id={`event-facts-${sysId}`} title="Event details" defaultOpen={!isWater}>
+        {/* Owner's call, 2026-10-18: "important data from the event details
+            can be shown without this section". For a water event these four
+            ARE the event — what state it is in, which way the flow is wrong,
+            and whether the system will shut itself off — so they are read, not
+            opened. The accordion survives only for the fault case, which
+            carries chrome (severity badge, battery level) that does not
+            compress into a strip. */}
+        {isWater ? (
+          <div className="grid grid-cols-2 gap-x-[12px] gap-y-[10px] rounded-[12px] bg-slate-50 px-[12px] py-[10px]">
+            <Fact label="State" value={leakState} />
+            <Fact label="Flow level" value={isLowFlow ? 'Low flow' : 'High flow'} />
+            <Fact label="Auto-shutoff" value={policy?.autoShutoff} />
+            <Fact label="Detection" value={policy?.detection} />
+          </div>
+        ) : null}
+
+        {!isWater ? (
+        <Section id={`event-facts-${sysId}`} title="Event details" defaultOpen>
           <div className="grid grid-cols-2 gap-x-[12px] gap-y-[10px]">
             {isWater ? (
               <>
@@ -1373,13 +1401,10 @@ export default function EventFocusOverlay({
             ) : (
               <Fact label="Severity" value={meta.severity} />
             )}
-            {/* The location moved here off the first draft's bespoke chip: the
-                header names the system and "Find this system" carries the rest,
-                so this is the one line the facts grid still owes. "Detected" is
-                NOT repeated — AlertCard's own meta row above carries the clock
-                this event started at, and a second copy on the same screen is
-                the duplication the design-system pass is here to remove. */}
-            <Fact label="Location" value={breadcrumb} />
+            {/* The location is in the header now, under the system name, so
+                it is NOT repeated here. "Detected" is not repeated either —
+                AlertCard's meta row above carries the clock this event started
+                at. */}
           </div>
 
           {/* The fault chrome — ErrorAlertDetail.jsx:117-138. */}
@@ -1453,6 +1478,8 @@ export default function EventFocusOverlay({
             </div>
           ) : null}
         </Section>
+        ) : null}
+
 
         {/* ── Event graph ───────────────────────────────────────────────────
             Owner-requested 2026-10-17. Sits with the factual sections, right
@@ -1477,37 +1504,12 @@ export default function EventFocusOverlay({
           </Section>
         ) : null}
 
-        {/* Every line below is the system's ACTIVE POLICY (getActivePolicy /
-            buildPolicy, schema locked 2026-06-03), which is what actually
-            determines what happens to this event next — no invented advice.
-            Water only — on a fault the policy describes detection that the
-            fault may itself have suspended, and stating it would be a
-            half-truth. */}
-        {isWater && policy ? (
-          <Section id={`event-next-${sysId}`} title="What happens next">
-            <ul className="flex flex-col gap-[8px] text-[13px] text-slate-600">
-              <li>
-                Policy in force: <span className="font-semibold text-slate-900">{policy.name}</span>
-                {policy.schedule ? ` · ${policy.schedule}` : ''}
-              </li>
-              <li>
-                {policy.autoShutoff === 'Enabled'
-                  ? 'Auto-shutoff is enabled — the valve closes on its own if this event reaches the shut-off level.'
-                  : policy.autoShutoff === 'Disabled'
-                    ? 'Auto-shutoff is disabled — the valve stays open until someone closes it.'
-                    : 'This system has no valve, so the water cannot be shut off from here.'}
-              </li>
-              <li>
-                <span className="font-semibold text-slate-900">{policy.detection}</span> detection is
-                running on this system.
-              </li>
-              {policy.alert === 'Active' ? (
-                <li>Alerting is active — the recipients above hear about it as the event develops.</li>
-              ) : null}
-            </ul>
-          </Section>
-        ) : null}
-
+        {/* "What happens next" lived here and was removed on the owner's
+            call, 2026-10-18 — the screen was overwhelming at six accordions.
+            Nothing measured is lost: it restated the active policy, and the
+            one line of it that changes what you do, Auto-shutoff, is now in
+            the always-visible facts strip at the top. The policy in full
+            remains on the system page. */}
         <Section
           id={`event-notified-${sysId}`}
           title="Who was notified"
