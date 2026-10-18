@@ -186,7 +186,14 @@ const EMPTY = '—'
    persona card clipped mid-line, the scope card without its permission rows and
    the Push/SMS cards as empty headers, with scrollHeight === clientHeight and
    no scrollbar to show anything was missing. The Figma-ported cards get this
-   from their exported `shrink-0`; a hand-built card has to say it. */
+   from their exported `shrink-0`; a hand-built card has to say it.
+
+   It is also spelled ONCE MORE, on the scroll container itself, as
+   `[&>*]:shrink-0` — see SCROLL CONTAINER below. Relying on every child to
+   remember a class is how this bug comes back: it only takes one new section
+   added without it. The container rule makes the region immune by
+   construction, and these per-child `shrink-0`s stay because they are what the
+   reader sees first. */
 const CARD =
   'shrink-0 gap-0 overflow-hidden rounded-[var(--rounded-2xl,18px)] border border-solid border-white bg-[#fafbfc] py-0 shadow-none'
 
@@ -406,8 +413,15 @@ export default function AccountScreenV2() {
         {profileView ? <div className="size-8 shrink-0" aria-hidden="true" /> : null}
       </div>
 
-      {/* The one scrolling region. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[14px] pb-8 pt-[10px]">
+      {/* SCROLL CONTAINER — the one scrolling region.
+          `[&>*]:shrink-0` is the backstop for the squash bug described at
+          CARD above: this is a flex column, so any direct child that does not
+          say `shrink-0` is compressed to fit instead of making the region
+          scroll, and `overflow-hidden` on the cards then eats the content that
+          no longer fits. Setting it here means a section added later cannot
+          reintroduce the bug by forgetting a class. Pinned by
+          accountScreenV2.dom.test.jsx. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[14px] pb-8 pt-[10px] [&>*]:shrink-0">
         {profileView ? (
           <Card className={CARD}>
             <SectionTitle>{t('more.personal_information')}</SectionTitle>
