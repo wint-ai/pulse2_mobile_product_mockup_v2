@@ -304,13 +304,26 @@ describe('water event actions reach the stores — from the incident, not the ca
   })
 })
 
-describe('every alert variant on the System page keeps the way into the event', () => {
-  /* The affordance IS the card now, so it has to survive the variants that
-     have nothing to act on. A fault (offline / valve-error / power-lost) is a
-     summary — v1's ErrorAlertDetail offers neither On it nor Ignore on one,
-     and the overlay does not either — and an ignored event is muted with no
-     action row. Opening the event is navigation, not an action, so neither is
-     a reason to leave the reader with no way to READ it. */
+describe('the System page alert card is WATER EVENTS ONLY', () => {
+  /* CHANGED DELIBERATELY, 2026-10-18 — the owner, on a screenshot of this card
+     reading "System Offline": "only water events shall appear here in this
+     card / not others."
+
+     This block used to be called 'every alert variant on the System page keeps
+     the way into the event' and its first case asserted that a FAULT system
+     draws the card and that tapping it opens EventFocusOverlay. That case is
+     inverted below, not deleted: the same two systems are mounted, and what is
+     pinned is the new rule — leak renders the card, fault renders none.
+
+     The second case (the ignored card) is untouched: `ignored` is a water-event
+     state, so it is still a leak system and still keeps its way in.
+
+     Rule 0 of .claude/skills/v2-page-parity — never silently drop
+     functionality — is answered by the last two assertions in the fault case:
+     the page must still SAY the system is in trouble. It does, in the Events
+     Timeline card, which is fed this system's real events. What the filter DOES
+     take away is the only route from this page into the overlay's fault layout;
+     that is reported to the owner, not replaced by an invented surface. */
   const fault = alerting.find((s) => s.alert && !String(s.alert.type ?? '').startsWith('leak'))
   const leak = alerting.find((s) => String(s.alert?.type ?? '').startsWith('leak'))
 
@@ -321,17 +334,37 @@ describe('every alert variant on the System page keeps the way into the event', 
       </MemoryRouter>,
     )
   const overlayIn = (c) => c.querySelector('[role="dialog"][aria-modal="true"]')
+  const cardsIn = (c) =>
+    c.querySelectorAll('[data-node-id="198379:80460"] > div')
 
   afterEach(() => clearIgnored(leak.id))
 
-  it('a fault card has no actions anywhere and still opens the event', () => {
+  it('a LEAK system still draws the card, unchanged', () => {
+    expect(leak, 'no leak-typed alert in the dataset').toBeTruthy()
+    const { container } = mountAt(leak.id)
+    const view = within(container)
+    expect(cardsIn(container).length, 'the leak card went missing').toBe(1)
+    expect(view.getByRole('button', { name: `Open ${leak.alert.label}` })).toBeTruthy()
+  })
+
+  it('a FAULT system draws NO card — and the page still reports the fault', () => {
     expect(fault, 'no non-leak alert in the dataset').toBeTruthy()
     const { container } = mountAt(fault.id)
     const view = within(container)
-    expect(view.queryByRole('button', { name: /^on it$/i })).toBeNull()
-    expect(view.queryByRole('button', { name: /^ignore$/i })).toBeNull()
-    fireEvent.click(view.getByRole('button', { name: `Open ${fault.alert.label}` }))
-    expect(overlayIn(container), 'a fault card is a dead end').toBeTruthy()
+
+    // The owner's instruction, stated two ways: nothing in the carousel, and
+    // no opener named for the fault.
+    expect(cardsIn(container).length, 'a non-water alert still drew a card').toBe(0)
+    expect(view.queryByRole('button', { name: `Open ${fault.alert.label}` })).toBeNull()
+
+    // Rule 0: the fault is not silently gone from the page. The Events
+    // Timeline card carries the real current event for this system.
+    const live = (getEventsForSystem(fault.id) ?? []).find((e) => !e.resolved)
+    expect(live, 'the dataset gives this fault system no current event').toBeTruthy()
+    expect(view.getAllByText(live.title).length).toBeGreaterThan(0)
+
+    // And the System type card's dot still says so to assistive tech.
+    expect(view.getAllByRole('img', { name: 'Alerting' }).length).toBeGreaterThan(0)
   })
 
   it('an ignored card opens the event, and its "Ignored" pill is inert', () => {

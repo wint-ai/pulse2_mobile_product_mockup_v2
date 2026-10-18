@@ -20,7 +20,11 @@ import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
 import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
 import { SYSTEMS } from '@/data/systems'
-import { openConsumptionChart } from './helpers/consumptionChart'
+import {
+  currentGranularity,
+  openConsumptionChart,
+  pickGranularity,
+} from './helpers/consumptionChart'
 
 afterEach(cleanup)
 
@@ -47,13 +51,24 @@ const mountSystem = () => {
 }
 
 /* §2's metric labels name the selected grouping's period, so "Monthly Avg L"
-   on first paint is the grouping stating itself. */
+   on first paint is the grouping stating itself.
+
+   PLS-WC-03 IS STILL PINNED THE SAME WAY, through a different control. The
+   grouping used to be an inline segmented control and the rule was read off
+   it as radio[name=Month][aria-checked=true] / radio[name=Day] not checked.
+   The owner asked for a dropdown instead — "so it's less overwhelmed",
+   "like we have in top usage" — so there are no radios left to check. The
+   selected grouping now shows on the dropdown's trigger, which is the one
+   place it is visible at rest, so that is where the default is asserted: the
+   card must OPEN reading Month, and must not open reading Day. The menu is
+   not opened at all, because a default the viewer has to open a menu to see
+   is not the default this rule is about. */
 const opensOnMonthly = (container) => {
   const view = within(container)
   expect(view.getAllByText('Monthly Avg L').length).toBeGreaterThan(0)
   expect(view.getAllByText('Peak Month L').length).toBeGreaterThan(0)
-  expect(view.getAllByRole('radio', { name: 'Month' })[0].getAttribute('aria-checked')).toBe('true')
-  expect(view.getAllByRole('radio', { name: 'Day' })[0].getAttribute('aria-checked')).not.toBe('true')
+  expect(currentGranularity(container)).toBe('Month')
+  expect(currentGranularity(container)).not.toBe('Day')
 }
 
 describe('PLS-WC-03 — Monthly is the default grouping', () => {
@@ -68,8 +83,9 @@ describe('PLS-WC-03 — Monthly is the default grouping', () => {
   it('and Daily is still reachable from it', () => {
     const { container } = mountHome()
     const view = within(container)
-    fireEvent.click(view.getAllByRole('radio', { name: 'Day' })[0])
+    pickGranularity(container, 'Day')
     expect(view.getAllByText('Daily Avg L').length).toBeGreaterThan(0)
+    expect(currentGranularity(container)).toBe('Day')
     // §3.1 rebuilds the window; it must not land on the empty state.
     expect(view.queryByText(/Nothing flowed in yet/i)).toBeNull()
   })

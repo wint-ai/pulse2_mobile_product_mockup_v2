@@ -61,14 +61,29 @@
  * no shadow at all. Layer-1 (0 25px 50px -12px #0000001a) is the visible one
  * and it needs spread, which `drop-shadow()` cannot express, so it is rendered
  * as a box-shadow.
+ *
+ * ── The grouping selector is a DROPDOWN, deliberately, not the comp's
+ *    inline segments ─────────────────────────────────────────────
+ * Figma component set 198601:86152 "Water consumption_M" specifies Hour / Day
+ * / Month / Year as an INLINE SEGMENTED CONTROL (198583:58957), and that is not
+ * incidental: the segments were added to replace a deleted funnel-disclosure
+ * node, and three pixel-match passes went into the track radius, the 4px
+ * segment inset and the spelled-out label order. A Figma diff of this card will
+ * therefore report the segments as missing. That is intended, not a regression.
+ *
+ * The owner asked for a dropdown instead — "so it's less overwhelmed" — and
+ * named the reference: "like we have in top usage", i.e. TopUsageCard's period
+ * pill in src/v2/pages/HomeAllAccounts.jsx (198314:73652). GranularityDropdown
+ * below is that control carried across rather than re-invented, so the app has
+ * ONE dropdown pattern and not two. Do not "restore" the comp's segments
+ * without asking the owner first.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Rectangle, ReferenceLine, XAxis, YAxis } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { Button } from '@/components/ui/button'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { axisFormatter } from './chartAxis'
 import {
@@ -84,6 +99,7 @@ import {
   bucketHitWidth,
   approxTextWidth,
 } from './chartScale'
+import CaretDown from '@/v2/icons/CaretDown'
 import FunnelSimple from '@/v2/icons/FunnelSimple'
 
 /* ── Inlined Figma assets ──────────────────────────────────────────────────
@@ -246,6 +262,199 @@ const PERIODS = [
   { id: 'M', name: 'Month' },
   { id: 'Y', name: 'Year' },
 ]
+
+/* ── GranularityDropdown — the house dropdown, second instance ────────────
+   Replaces the comp's inline segments on the owner's instruction; the header
+   comment above records why. The reference the owner named is TopUsageCard's
+   period pill (HomeAllAccounts.jsx, 198314:73652), and this follows it rather
+   than inventing a second pattern — EventsTimelineCard's "All" filter is the
+   same control again.
+
+   TRIGGER: Figma-verbatim, carried across from that node's Button
+   (I198314:73655;197412:209455;198314:73654) — slate/100 fill, h-36,
+   component/button/size-default px + radius, an sm-tight medium label and a
+   16px caret that flips on open. Spelling copied across, not re-derived.
+
+   MENU: INVENTED, and flagged as such in both of the other two instances for
+   the same reason — the delivery canvas draws no open menu anywhere in the
+   file, so the shell follows the project's card conventions (white, slate/200
+   hairline, 12px radius, 4px pad, the popover shadow). Swap it for the
+   designed menu if one ever lands.
+
+   #171717 on the label, the caret and the menu rows is the one raw literal
+   here, and it is the SAME exception the header comment already records: the
+   design's --secondary-foreground is #171717 where this project's token
+   resolves to #0b81f8, so var() would paint the label blue. TopUsageCard and
+   EventsTimelineCard spell it the same way for the same reason. Every other
+   colour, radius and space below is a var(--token, fallback).
+
+   NO PORTAL, deliberately. The list is an absolutely-positioned child of a
+   relative wrapper inside the card, so it is laid out in the phone frame's own
+   coordinate space. Radix's <Select> / <DropdownMenu> portal their content to
+   document.body, which escapes the fixed 393x852 frame in Phone.jsx and paints
+   over the whole browser window — a bug already fixed twice in this codebase.
+   Do not reintroduce it by reaching for a portal primitive.
+
+   ARIA: a real button carrying aria-haspopup="listbox" + aria-expanded opens a
+   role="listbox" whose role="option" children carry aria-selected. Arrow keys
+   / Home / End move the active option, Enter or Space picks it, type-ahead
+   jumps to the first option whose name starts with what was typed, Escape and
+   Tab close, an outside pointerdown closes, and focus returns to the trigger
+   on every close. */
+
+const GRANULARITY_TRIGGER = String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch cursor-pointer flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-center outline-none px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+/* text-[length:] BEFORE leading-[]: tailwind-merge counts a font-size as
+   conflicting with a line-height and drops a leading-* that precedes it. */
+const GRANULARITY_LABEL = String.raw`[word-break:break-word] font-medium relative shrink-0 text-[color:#171717] text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] whitespace-nowrap`
+const GRANULARITY_MENU = String.raw`absolute right-0 top-[calc(100%+6px)] z-30 bg-white border border-solid border-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex flex-col items-stretch min-w-[132px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
+const GRANULARITY_ITEM = String.raw`cursor-pointer flex gap-[8px] h-[32px] items-center justify-between outline-none px-[8px] rounded-[8px] text-[color:#171717] text-[length:var(--text\/sm-tight\/size,14px)] text-left w-full hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:bg-[var(--colors\/slate\/100,#f1f5f9)]`
+
+function GranularityDropdown({ value, options, onChange, label = 'Consumption granularity' }) {
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const wrapRef = useRef(null)
+  const triggerRef = useRef(null)
+  const itemRefs = useRef([])
+  const typed = useRef({ text: '', at: 0 })
+
+  const selectedIndex = Math.max(0, options.findIndex((o) => o.id === value))
+  const current = options[selectedIndex] ?? options[0]
+
+  /* Escape and any outside pointerdown close it. A popover dismissable only by
+     re-tapping its own trigger is a trap on a touch screen — the same note
+     TopUsageCard carries. */
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      triggerRef.current?.focus()
+    }
+    const onDown = (e) => {
+      if (!wrapRef.current?.contains(e.target)) setOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('pointerdown', onDown)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('pointerdown', onDown)
+    }
+  }, [open])
+
+  /* Roving focus: whichever option is active holds the caret while the menu is
+     open, so the arrow keys and the screen reader agree on where you are. */
+  useEffect(() => {
+    if (open) itemRefs.current[activeIndex]?.focus()
+  }, [open, activeIndex])
+
+  const openMenu = () => {
+    setActiveIndex(selectedIndex)
+    setOpen(true)
+  }
+  const closeMenu = () => {
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
+  const choose = (option) => {
+    closeMenu()
+    onChange?.(option.id)
+  }
+
+  const onTriggerKeyDown = (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+    e.preventDefault()
+    openMenu()
+  }
+
+  const onMenuKeyDown = (e) => {
+    const last = options.length - 1
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex((i) => (i >= last ? 0 : i + 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex((i) => (i <= 0 ? last : i - 1))
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      setActiveIndex(0)
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      setActiveIndex(last)
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      choose(options[activeIndex] ?? current)
+    } else if (e.key === 'Tab') {
+      closeMenu()
+    } else if (e.key.length === 1 && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      /* Type-ahead. Cheap here, because the four names start with four
+         different letters — but the buffer still expires after a second, so a
+         later "y" searches for Year instead of extending "da" into "day". */
+      const now = Date.now()
+      const text = (now - typed.current.at > 1000 ? '' : typed.current.text) + e.key.toLowerCase()
+      typed.current = { text, at: now }
+      const hit = options.findIndex((o) => o.name.toLowerCase().startsWith(text))
+      if (hit >= 0) setActiveIndex(hit)
+    }
+  }
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        /* The accessible name carries the current grouping, so PLS-WC-03
+           ("Monthly is the default grouping") is readable — and testable —
+           without first opening the menu. */
+        aria-label={`${label}, currently ${current.name}`}
+        onClick={() => (open ? closeMenu() : openMenu())}
+        onKeyDown={onTriggerKeyDown}
+        className={GRANULARITY_TRIGGER}
+        data-node-id="I198314:73655;197412:209455;198314:73654"
+      >
+        <span className={GRANULARITY_LABEL}>{current.name}</span>
+        <CaretDown
+          size={16}
+          className="relative shrink-0 text-[#171717] transition-transform"
+          style={{ transform: open ? 'rotate(180deg)' : undefined }}
+        />
+      </button>
+
+      {open ? (
+        <div className={GRANULARITY_MENU} role="listbox" aria-label={label} onKeyDown={onMenuKeyDown}>
+          {options.map((option, i) => (
+            <button
+              key={option.id}
+              ref={(node) => {
+                itemRefs.current[i] = node
+              }}
+              type="button"
+              role="option"
+              aria-selected={option.id === value}
+              tabIndex={i === activeIndex ? 0 : -1}
+              onClick={() => choose(option)}
+              className={cn(
+                GRANULARITY_ITEM,
+                option.id === value && String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] font-medium`,
+              )}
+            >
+              <span className="whitespace-nowrap">{option.name}</span>
+              {/* aria-hidden: the tick is the statement aria-selected already
+                  makes, and unhidden it would append to the option's own
+                  accessible name. */}
+              {option.id === value ? (
+                <span aria-hidden="true" className="text-[color:var(--wint-blue-accent,#0b81f8)]">
+                  ✓
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 /* The comp prints 1.8K Total / 12.4K Daily Avg / 28.7K Peak Day, and those
    three cannot all be true of one series: the total sits below the peak, and
@@ -636,7 +845,9 @@ export default function WaterConsumptionCardV2({
   const windowHasData = series.some((d) => typeof d.litres === 'number' && d.litres > 0)
 
   const selectPeriod = (next) => {
-    if (!next) return // radix clears the value when the active item is re-tapped
+    // The dropdown always reports a real id; the guard survives because the
+    // card is also driven by hosts, and a cleared value must never land.
+    if (!next) return
     // Compare is monthly-only, so leaving Monthly clears it — otherwise the
     // switch would stay on while hidden and keep a ghost series on the chart.
     if (next !== 'M' && compareOn) setCompare(false)
@@ -693,11 +904,14 @@ export default function WaterConsumptionCardV2({
              title hung 8px outside the toggle track it sits above -- visible as
              the card "not lining up". 198601:86154 gives BOTH boxes the same
              component/card/padding, and its fallback is 16.
-             min-h-48: the node's header holds an empty 126x32 CardAction slot
-             beside the title, which is what sets the header's height (16 top
-             pad + 32) and therefore the 22px gap down to the toggles. The slot
-             is a placeholder with no content, so the height is taken directly
-             rather than by shipping an empty 126px div. */
+             min-h-48: the node's header holds a 126x32 CardAction slot beside
+             the title, which is what sets the header's height (16 top pad + 32)
+             and therefore the gap down to the controls. The slot was empty in
+             the comp and the height was taken directly; it now holds the
+             grouping dropdown, whose pill is the house 36px rather than the
+             comp's 32, so the header measures 52 and min-h-48 is the floor it
+             no longer sets. Left in place as that floor, for the empty variant
+             where the slot renders nothing. */
           String.raw`items-start gap-[var(--spacing\/3,12px)] min-h-[48px]`,
           String.raw`px-[var(--component\/card\/padding,16px)]`,
           String.raw`pt-[var(--component\/card\/padding,16px)]`,
@@ -714,60 +928,34 @@ export default function WaterConsumptionCardV2({
           Water consumption
         </CardTitle>
 
+        {/* The 126x32 CardAction slot the node reserves beside the title is no
+            longer empty: the grouping dropdown sits in it, which is where
+            TopUsageCard and EventsTimelineCard both put theirs. Gated on
+            showControls for the same reason the control block below is —
+            Figma's Empty variant ships no header controls. */}
+        {showControls ? (
+          <CardAction className="self-center">
+            <GranularityDropdown value={period} options={PERIODS} onChange={selectPeriod} />
+          </CardAction>
+        ) : null}
       </CardHeader>
 
       {showControls && (
-        /* Granularity + period, inline — 198583:58957. Figma draws a
-           full-width slate/100 track at rounded-[34px] holding four flex-1
-           32px segments, with the period stepper as its own 28px row 12px
-           below. The funnel disclosure that used to live here came from
-           I198378:74362;119647:3846;149:2490, a node no longer in the file;
-           this component set is its replacement.
-           RADIUS: Figma's Default has HOUR selected, i.e. the FIRST segment,
-           so the emitted node only ever shows rounded-bl/tl — the track's own
-           left edge. Generalising that to first:/last: made a selected MIDDLE
-           segment render square-cornered, which is visibly wrong. The selected
-           segment is a rounded rect on all four corners; unselected ones carry
-           no border or fill, so their radius never shows. */
+        /* The period stepper — 198583:58957. Figma draws this block as a
+           full-width slate/100 granularity track at rounded-[34px] holding four
+           flex-1 32px segments, with the period stepper as its own 28px row
+           12px below it. The track is gone: the owner asked for the grouping to
+           be a dropdown ("so it's less overwhelmed") and it now sits in the card
+           header, so only the stepper row is left here. The three pixel-match
+           passes that went into the track's radius and its 4px segment inset
+           are recorded in the header comment, along with who asked for them to
+           be dropped. The funnel disclosure that preceded the track came from
+           I198378:74362;119647:3846;149:2490, a node no longer in the file. */
         <div className="flex w-full flex-col gap-[20px] px-[var(--component\/card\/padding,16px)] pt-[var(--component\/calendar\/padding,8px)] pb-[var(--component\/card\/padding,16px)]">
           <div className="flex w-full flex-col gap-[12px]">
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            spacing={0}
-            value={period}
-            onValueChange={selectPeriod}
-            aria-label="Consumption granularity"
-            /* p-4, NOT the p-0 the node emits. rounded-[34px] on a box only as
-               tall as its content clamps to a stadium, and the selected segment
-               is a 10px-radius rect — so with no inset the first and last
-               segment's outer corners fall outside the stadium's curve and the
-               blue border renders poking out of the grey.
-
-               Clipping the track was the first attempt and was worse: it cut
-               the stroke off the first pill's left edge instead.
-
-               The inset has to clear the curve, and the arithmetic says how
-               much. Track radius R = 16 + P; the pill's corner arc is centred
-               (P+10, P+10) with radius 10, so it sits inside the cap when
-               |16 - 10|·√2 ≤ R - 10, i.e. 8.49 ≤ 6 + P — P must exceed ~2.5.
-               4 is the first whole pixel that clears it, and it is what the
-               node's own 339px render shows: grey is visible above, below and
-               to the left of the selected pill, which p-0 cannot produce. The
-               control is 40 tall as a result (32 + 2·4). */
-            className="w-full bg-[var(--colors\/slate\/100,#f1f5f9)] rounded-[34px] p-[4px]"
-          >
-            {PERIODS.map((p) => (
-              <ToggleGroupItem
-                key={p.id}
-                value={p.id}
-                aria-label={p.name}
-                className="flex-1 min-w-0 h-[32px] min-h-[32px] overflow-clip border-0 bg-transparent shadow-none rounded-none px-[var(--component\/toggle\/size-default\/padding,10px)] py-[var(--p-0,0px)] gap-[var(--component\/toggle\/gap,4px)] font-medium text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--foreground,#0a0a0a)] data-[state=on]:rounded-[var(--component\/toggle\/radius,10px)] data-[state=on]:border data-[state=on]:border-solid data-[state=on]:border-[var(--wint-blue-accent,#0b81f8)] data-[state=on]:bg-[var(--card,white)] data-[state=on]:text-[color:var(--wint-blue-accent,#0b81f8)]"
-              >
-                {p.name}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+          {/* The grouping segments that used to open this block have become
+              the dropdown in the card header — see GranularityDropdown and
+              the header comment for why the comp's segments are gone. */}
 
           {/* §2: the caption row is drawn at EVERY grouping, so the control
               area does not change height between them. Yearly is the case that

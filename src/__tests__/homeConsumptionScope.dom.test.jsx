@@ -7,11 +7,12 @@
 // and not one system's), and its scope control must stay closed until asked.
 
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { render, screen, cleanup, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
 import { getFleetConsumptionSeries } from '@/data/consumptionSeries'
 import { SYSTEMS } from '@/data/systems'
+import { openGranularityMenu, pickGranularity } from './helpers/consumptionChart'
 
 afterEach(cleanup)
 
@@ -49,15 +50,20 @@ describe('home screen consumption', () => {
     expect(view.getAllByText(expected).length, `fleet total ${expected}`).toBeGreaterThan(0)
   })
 
-  it('shows the granularity segments inline, not behind a disclosure', () => {
+  it('offers all four groupings, not a funnel disclosure', () => {
     const { container } = mount()
     const view = within(container)
 
     /* The funnel disclosure was built from a card instance that has since been
-       deleted from the Figma file; 198601:86152 "Water consumption_M" replaces
-       it and puts the segments back inline as words. */
+       deleted from the Figma file; 198601:86152 "Water consumption_M" replaced
+       it with inline segments. The segments in turn became a dropdown on the
+       owner's instruction ("so it's less overwhelmed", "like we have in top
+       usage"), so the four groupings are reached by opening the menu rather
+       than by finding four radios. What this test pins is unchanged: all four
+       are available here, and nothing has gone back behind a funnel dialog. */
+    const menu = openGranularityMenu(container)
     for (const name of ['Hour', 'Day', 'Month', 'Year']) {
-      expect(view.getAllByRole('radio', { name }).length).toBeGreaterThan(0)
+      expect(within(menu).getByRole('option', { name })).toBeTruthy()
     }
     expect(view.queryByRole('button', { name: 'Consumption scope' })).toBeNull()
   })
@@ -66,7 +72,7 @@ describe('home screen consumption', () => {
     const { container } = mount()
     const view = within(container)
 
-    fireEvent.click(view.getAllByRole('radio', { name: 'Month' })[0])
+    pickGranularity(container, 'Month')
 
     // The regression this replaces: Y / M / H used to land on the empty state.
     expect(view.queryByText(/Nothing flowed in yet/i)).toBeNull()

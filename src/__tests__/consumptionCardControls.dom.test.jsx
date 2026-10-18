@@ -21,6 +21,11 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup, fireEvent, within } from '@testing-library/react'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
+import {
+  currentGranularity,
+  granularityTrigger,
+  openGranularityMenu,
+} from './helpers/consumptionChart'
 
 afterEach(cleanup)
 
@@ -157,7 +162,15 @@ describe('metrics are hidden when the window has no data (PLS-WC-19, §6)', () =
     const unreached = SERIES.map((row) => ({ ...row, litres: null }))
     const { container } = card({ data: unreached })
     const view = within(container)
-    expect(view.getByRole('radio', { name: 'Month' })).toBeTruthy()
+    /* The grouping control is a dropdown now, so "the controls are still up"
+       is read off its trigger and its menu rather than off a Month radio
+       standing in the open. The rule is the same one: an unreached window must
+       leave the viewer something to steer back out with, and Month has to be
+       among the things they can steer to. */
+    expect(granularityTrigger(container).getAttribute('aria-haspopup')).toBe('listbox')
+    expect(currentGranularity(container)).toBe('Day')
+    const menu = openGranularityMenu(container)
+    expect(within(menu).getByRole('option', { name: 'Month' })).toBeTruthy()
     expect(view.getByRole('button', { name: 'Previous period' })).toBeTruthy()
   })
 })

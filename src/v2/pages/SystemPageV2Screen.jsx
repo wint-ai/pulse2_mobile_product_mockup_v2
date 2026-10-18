@@ -146,13 +146,38 @@ const SYSTEM = {
    card at all, which is exactly right: a system with no alert shows none.
 
    `buildAlert` (src/data/upstream/buildTree.js:72) is the shape on the other
-   end. Leak alerts carry a flow rate and a volume; offline / valve-error /
-   power-lost alerts carry neither, so those cards render without the figure
-   rather than borrowing the mock's 13,564. */
+   end. Only its leak branch reaches this card now — see the water-only gate
+   below — and a leak always carries a flow rate and a volume, so the figure
+   slot is never borrowed from the mock's 13,564 and never empty either.
+
+   WATER EVENTS ONLY, 2026-10-18. The owner, on a screenshot of this card
+   reading "System Offline": "only water events shall appear here in this
+   card / not others." So the gate is `leak`, and offline / valve-error /
+   power-lost (and battery-* if the generator ever emits them) return no card.
+
+   NOTHING WENT UNREPORTED WITH IT. A fault is still stated in words on this
+   page by the Events Timeline card, which is fed this system's REAL events
+   (`timeline` below, built from getEventsForSystem) — generateEvents.js:94-112
+   emits one current row per alerting system, so a fault system draws
+   "System Offline" / "Valve error" / "AC Power Lost" with "Ongoing · <age>"
+   and an Ongoing badge. The System type card's status dot also turns red with
+   the accessible name "Alerting" (SystemTypeCard.jsx:277-283), and the page
+   keeps its alert tone and its alert card order.
+
+   WHAT DID GO WITH IT: this card was the only route into EventFocusOverlay
+   from this page, so the overlay's fault layout (ALERT_META chrome, the
+   off- / ve- / pwr- branches) is no longer reachable HERE. It is still
+   reachable from HomeAllAccounts' TriageBand rows
+   (HomeAllAccounts.jsx:1046 -> :1268). Reported to the owner rather than
+   papered over with a replacement surface this page invented. */
 function alertCardsFor(alert, systemId) {
   if (!alert) return []
 
   const leak = alert.type === 'leak-high' || alert.type === 'leak-low'
+  /* The gate. `leak` still drives the status label and the flow-rate slot
+     below — the helper is left whole rather than rewritten around the one
+     branch that now reaches it, because this is a filter, not a redesign. */
+  if (!leak) return []
   // "120 L/hour" -> "120"; the unit is a separate slot on the card.
   const rate = leak && alert.flowRate ? String(alert.flowRate).replace(/[^\d,.]/g, '') : null
 
@@ -1077,8 +1102,16 @@ export default function SystemPageV2Screen() {
               data-node-id="198379:80459"
             >
                   {/* Alert carousel 198379:80460 / 199296:50466. Only the alert
-                      frame draws one, and `system.alerts` is now empty on a
-                      calm system, so this renders nothing there. */}
+                      frame draws one, and `system.alerts` is empty on a calm
+                      system, so this renders nothing there.
+
+                      It is also empty on a NON-WATER fault now — owner,
+                      2026-10-18: "only water events shall appear here in this
+                      card / not others." The gate lives in alertCardsFor at
+                      the top of this file, where the full note is; an offline
+                      / valve-error / power-lost system renders this row empty
+                      and reports the fault through the Events Timeline card
+                      below instead. */}
                   <div
                     ref={carouselRef}
                     className="content-stretch flex gap-[14px] items-center overflow-x-auto relative shrink-0 w-full snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"

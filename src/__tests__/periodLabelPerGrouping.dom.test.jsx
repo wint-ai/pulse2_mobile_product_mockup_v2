@@ -19,9 +19,10 @@
 // what it said, which is why this was invisible to them.
 
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, cleanup, fireEvent, within } from '@testing-library/react'
+import { render, cleanup, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
+import { pickGranularity } from './helpers/consumptionChart'
 
 afterEach(cleanup)
 
@@ -32,8 +33,13 @@ const mount = () =>
     </MemoryRouter>,
   )
 
+/* The grouping used to be picked by clicking one of four radios. It is a
+   dropdown now — the owner asked for it, "so it's less overwhelmed", naming
+   the top-usage pill as the pattern — so picking means open-then-choose.
+   The rule under test is untouched: whatever the grouping, the caption row
+   beside it must read a DIFFERENT, correctly-shaped period label. */
 const captionAt = (container, view, grouping) => {
-  fireEvent.click(view.getAllByRole('radio', { name: grouping })[0])
+  pickGranularity(container, grouping)
   const group = container.querySelector('[aria-label="Period"]')
   return group ? group.textContent.trim() : null
 }
@@ -66,8 +72,7 @@ describe('the period label tracks the grouping', () => {
 
   it('drops the control entirely at Yearly, leaving N / A as plain text', () => {
     const { container } = mount()
-    const view = within(container)
-    fireEvent.click(view.getAllByRole('radio', { name: 'Year' })[0])
+    pickGranularity(container, 'Year')
 
     // §2: Yearly's label "is plain text", not a control.
     expect(container.querySelector('[aria-label="Period"]')).toBeNull()

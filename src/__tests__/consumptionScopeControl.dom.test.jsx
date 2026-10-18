@@ -10,17 +10,33 @@
 // "Water consumption_M" (198583:58957 Default + two variants), which puts the
 // segments back inline, spells them as words, and reverses the order.
 //
+// Then it reversed a second time, and this one is NOT a Figma correction.
+// 198601:86152 still specifies the inline segments; the owner asked for a
+// dropdown anyway — "so it's less overwhelmed" — and named the control to
+// copy: "like we have in top usage", i.e. TopUsageCard's period pill. So the
+// card now ships a listbox where the segmented control was, deliberately
+// diverging from the comp. WaterConsumptionCardV2's header comment records
+// that for whoever next runs a Figma diff.
+//
 // So these tests pin the design as it is now:
-//   - segments are visible at rest, no disclosure to open
-//   - they read Hour / Day / Month / Year, in that order
+//   - the four groupings live behind ONE trigger, which reads the current one
+//   - the menu offers Hour / Day / Month / Year, in that order
+//   - it is a real listbox: aria-selected, keyboard, Escape, outside click
+//   - it opens INSIDE the card, never through a portal to document.body
 //   - the stepper is a separate row, hidden on Year
 //
-// The period IDS are still H/D/M/Y — only the labels and order are the
-// design's — so nothing in consumptionSeries.js moves.
+// The period IDS are still H/D/M/Y — only the labels and the control are
+// the design's — so nothing in consumptionSeries.js moves.
 
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup, fireEvent, within } from '@testing-library/react'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
+import {
+  currentGranularity,
+  granularityTrigger,
+  openGranularityMenu,
+  pickGranularity,
+} from './helpers/consumptionChart'
 
 afterEach(cleanup)
 
@@ -43,38 +59,103 @@ function renderCard(props = {}) {
   )
 }
 
-describe('granularity segments are inline', () => {
-  it('shows all four segments at rest, with no disclosure to open', () => {
+describe('granularity is a dropdown', () => {
+  it('shows the current grouping on one trigger, with no disclosure dialog', () => {
     const { container } = renderCard()
     const view = within(container)
 
     expect(view.getByText('Water consumption')).toBeTruthy()
-    for (const name of ['Hour', 'Day', 'Month', 'Year']) {
-      expect(view.getByRole('radio', { name })).toBeTruthy()
-    }
+
+    /* The four labels used to all be on screen at once, as radios. The owner
+       asked for one pill instead, so what is visible at rest is the SELECTED
+       grouping and nothing else. */
+    const trigger = granularityTrigger(container)
+    expect(trigger.getAttribute('aria-haspopup')).toBe('listbox')
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    expect(currentGranularity(container)).toBe('Day')
+    expect(view.queryByRole('listbox')).toBeNull()
 
     // The funnel is gone, and so is the dialog it used to open.
     expect(view.queryByRole('button', { name: 'Consumption scope' })).toBeNull()
     expect(view.queryByRole('dialog', { name: 'Consumption scope' })).toBeNull()
   })
 
-  it('reads Hour, Day, Month, Year in that order', () => {
+  it('offers Hour, Day, Month, Year in that order, once opened', () => {
     const { container } = renderCard()
-    const labels = within(container)
-      .getAllByRole('radio')
-      .map((el) => el.textContent.trim())
+    const menu = openGranularityMenu(container)
+    const options = within(menu).getAllByRole('option')
 
-    // The DESKTOP node (198424:63600) draws "Y M D H" — the reverse, as single
-    // letters. Getting these two nodes mixed up is what made this wrong twice.
-    expect(labels).toEqual(['Hour', 'Day', 'Month', 'Year'])
+    /* The DESKTOP node (198424:63600) draws "Y M D H" — the reverse, as
+       single letters. Getting those two nodes mixed up is what made this wrong
+       twice. Matched by ACCESSIBLE NAME rather than textContent, which also
+       pins that the selected option's tick is aria-hidden and so does not get
+       appended to its name. */
+    expect(options).toHaveLength(4)
+    ;['Hour', 'Day', 'Month', 'Year'].forEach((name, i) => {
+      expect(options[i]).toBe(within(menu).getByRole('option', { name }))
+    })
+    expect(granularityTrigger(container).getAttribute('aria-expanded')).toBe('true')
+
+    // aria-selected is where "which one is on" now lives; it was aria-checked.
+    expect(options.map((el) => el.getAttribute('aria-selected')))
+      .toEqual(['false', 'true', 'false', 'false'])
   })
 
   it('reports the granularity the viewer picks, still as H/D/M/Y ids', () => {
     const picked = []
     const { container } = renderCard({ onPeriodChange: (next) => picked.push(next) })
 
-    fireEvent.click(within(container).getByRole('radio', { name: 'Month' }))
+    pickGranularity(container, 'Month')
     expect(picked).toEqual(['M'])
+    // Picking closes it, and the caret comes back to the trigger.
+    expect(within(container).queryByRole('listbox')).toBeNull()
+    expect(document.activeElement).toBe(granularityTrigger(container))
+  })
+
+  /* The ARIA contract, in one place. A thing that merely LOOKS like a dropdown
+     is the defect this is here to catch. */
+  it('closes on Escape and on an outside pointerdown, returning focus', () => {
+    const { container } = renderCard()
+
+    openGranularityMenu(container)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(within(container).queryByRole('listbox')).toBeNull()
+    expect(document.activeElement).toBe(granularityTrigger(container))
+
+    /* Outside click matters more than it looks: a popover dismissable only by
+       re-tapping its own trigger is a trap on a touch screen, which is the
+       note TopUsageCard carries and this control inherits. */
+    openGranularityMenu(container)
+    fireEvent.pointerDown(document.body)
+    expect(within(container).queryByRole('listbox')).toBeNull()
+  })
+
+  it('moves with the arrow keys and picks with Enter', () => {
+    const picked = []
+    const { container } = renderCard({ onPeriodChange: (next) => picked.push(next) })
+
+    // ArrowDown on the trigger opens at the selected option (Day).
+    const trigger = granularityTrigger(container)
+    trigger.focus()
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    const menu = within(container).getByRole('listbox')
+    expect(document.activeElement).toBe(within(menu).getByRole('option', { name: 'Day' }))
+
+    fireEvent.keyDown(menu, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(within(menu).getByRole('option', { name: 'Month' }))
+    fireEvent.keyDown(menu, { key: 'Enter' })
+    expect(picked).toEqual(['M'])
+  })
+
+  it('jumps to a grouping by its first letter', () => {
+    const picked = []
+    const { container } = renderCard({ onPeriodChange: (next) => picked.push(next) })
+
+    const menu = openGranularityMenu(container)
+    fireEvent.keyDown(menu, { key: 'y' })
+    expect(document.activeElement).toBe(within(menu).getByRole('option', { name: 'Year' }))
+    fireEvent.keyDown(menu, { key: 'Enter' })
+    expect(picked).toEqual(['Y'])
   })
 
   it('shows the period stepper below the segments, and hides it on Year', () => {
@@ -105,29 +186,44 @@ describe('granularity segments are inline', () => {
     expect(steps).toEqual([-1, 1])
   })
 
-  /* "selected view is broken", twice over.
-     The track is rounded-[34px] on a box as tall as its content, which clamps
-     to a stadium; the selected segment is a 10px-radius rect. At the p-0 the
-     node emits, the first and last segment's corners fall OUTSIDE that curve
-     and the blue border renders poking out of the grey. Clipping the track was
-     the first attempt and cut the stroke off the first pill instead.
-     Geometry: with track radius R = 16 + P and the pill's corner arc centred
-     (P+10, P+10) at radius 10, the corner is inside the cap when
-     |16 - 10|·√2 <= R - 10 — so P must exceed ~2.5. */
-  it('insets the toggle track so the end segments clear its rounded cap', () => {
+  /* WHAT THIS TEST USED TO PIN, and why it now pins something else.
+     It was "insets the toggle track so the end segments clear its rounded
+     cap": the slate rounded-[34px] track clamps to a stadium, the selected
+     segment is a 10px-radius rect, and at the p-0 the node emits the end
+     segments' corners fell outside the curve so the blue border rendered
+     poking out of the grey. Three pixel-match passes went into that
+     arithmetic (P must exceed ~2.5, hence p-[4px]).
+     There is no track any more — the owner replaced the segments with a
+     dropdown — so the geometry is moot rather than regressed. Keeping a
+     dead assertion alive would be worse than saying so. What replaces it is
+     the equivalent "the control renders where it should" rule for a dropdown,
+     which is a sharper one, below. */
+  it('no longer ships the slate segment track', () => {
     const { container } = renderCard()
-    const track = within(container).getByRole('radio', { name: 'Hour' })
-      .closest('[class*="rounded-[34px]"]')
+    expect(container.querySelector('[class*="rounded-[34px]"]')).toBeNull()
+    expect(within(container).queryAllByRole('radio')).toHaveLength(0)
+  })
 
-    expect(track, 'the slate track should be found by its radius').toBeTruthy()
-    const cls = String(track.className)
+  /* THE PORTAL BUG, pinned. The app renders inside a fixed 393x852 phone frame
+     (src/components/Phone.jsx) with overflow:hidden. Radix's <Select> and
+     <DropdownMenu> portal their content to document.body, which is OUTSIDE
+     that frame, and the menu then paints over the whole browser window. That
+     has been hit and fixed twice in this codebase. This control owns no
+     portal at all, and the cheapest way to keep it that way is to require the
+     open menu to be a DESCENDANT OF THE CARD. */
+  it('opens inside the card, not through a portal to document.body', () => {
+    const { container } = renderCard()
+    const menu = openGranularityMenu(container)
 
-    const pad = /(?:^|\s)p-\[(\d+)px\]/.exec(cls)
-    expect(pad, 'the track needs an explicit pixel inset, not p-0').toBeTruthy()
-    expect(Number(pad[1]), 'inset must clear the stadium cap').toBeGreaterThan(2.5)
+    const card = container.querySelector('[data-slot="card"]')
+    expect(card, 'the card root').toBeTruthy()
+    expect(card.contains(menu), 'the menu must live inside the card').toBe(true)
+    expect(document.body.querySelectorAll('[role="listbox"]')).toHaveLength(1)
 
-    // Clipping is the fix that cut the first pill's border off. Not that one.
-    expect(cls, 'the track must not clip its own segments').not.toMatch(/overflow-(clip|hidden)/)
+    /* And it is positioned against its own trigger, not the viewport —
+     a fixed menu would escape the frame just as a portal does. */
+    expect(String(menu.className)).toMatch(/(?:^|\s)absolute(?:\s|$)/)
+    expect(String(menu.className)).not.toMatch(/(?:^|\s)fixed(?:\s|$)/)
   })
 
   it('labels the headline figures for the bucket being plotted', () => {

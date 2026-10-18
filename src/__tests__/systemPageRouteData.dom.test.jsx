@@ -18,7 +18,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import { SYSTEMS } from '@/data/systems'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
-import { openConsumptionChart } from './helpers/consumptionChart'
+import { openConsumptionChart, openGranularityMenu } from './helpers/consumptionChart'
 
 function mountAt(systemId, { chart = false } = {}) {
   const r = render(
@@ -123,11 +123,17 @@ describe('the consumption chart plots the routed system', () => {
     expect(totalFor(a)).not.toBe(totalFor(b))
   })
 
-  it('offers the granularity segments inline', () => {
+  it('offers the granularity dropdown on the system page too', () => {
     const { container, unmount } = mountAt(distinct[0].id, { chart: true })
     const view = within(container)
-    // Inline since 198601:86152 replaced the deleted funnel-disclosure node.
-    expect(view.getAllByRole('radio', { name: 'Hour' }).length).toBeGreaterThan(0)
+    /* 198601:86152 replaced the deleted funnel-disclosure node with inline
+       segments; the owner then replaced those with a dropdown — "so it's
+       less overwhelmed", "like we have in top usage". The change had to land
+       on EVERY surface that renders the card, which is what this line checks
+       here: the system page gets the same control the home screen does, and
+       Hour is still one of the groupings it reaches. */
+    const menu = openGranularityMenu(container)
+    expect(within(menu).getByRole('option', { name: 'Hour' })).toBeTruthy()
     expect(view.queryByRole('button', { name: 'Consumption scope' })).toBeNull()
     unmount()
   })
