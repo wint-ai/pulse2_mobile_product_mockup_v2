@@ -657,8 +657,21 @@ export default function HomeAllAccounts({ expanded = false }) {
       waterEvents: activeEvents.map(s => ({
         id: s.id,
         systemName: s.name,
+        /* Figma's two slots are CITY then STREET (199359:129095 draws
+           "San Fransisco | 1775 Washington St…"). MRG has no city level: l4 is
+           the site, which IS the street, and `address` is synthesised from the
+           same breadcrumb — so feeding both slots the obvious fields printed
+           "30 Dogwood Dr | 30 Dogwood Dr, Office", the same place twice.
+           The division (Office / Residential) is the only real second term
+           this dataset has, so it takes the slot; where a scope genuinely has
+           a distinct street it still wins. */
         location: s.l4Name || s.l3Name || s.l2Name || '',
-        address: s.locationAddress || s.address || '',
+        address: (() => {
+          const site = s.l4Name || s.l3Name || ''
+          const street = s.locationAddress || s.address || ''
+          if (street && !street.startsWith(site)) return street
+          return s.l2Name || ''
+        })(),
         type: s.alert?.type ?? null,
         valve: s.valve ?? null,
         detectedAt: s.alert?.startedAt ?? '',
