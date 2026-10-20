@@ -27,7 +27,12 @@ export default defineConfig({
        This does not mask regressions: a test that genuinely hangs still fails,
        it just gets long enough to prove it. */
     testTimeout: 30000,
-    /* Raised twice now: 5s -> 20s (399 tests) -> 30s (540). The three
+    /* NOTE: this key was declared TWICE in this object — 30000 here and 20000
+       further down, added by two sessions a few days apart. The later literal
+       won, so the raise to 30s never actually took effect and the suites below
+       were still being killed at 20s. One key now.
+
+       Raised twice: 5s -> 20s (399 tests) -> 30s (540). The three
        drawer/scope suites render the whole app and pass 19/19 alone; they only
        exceed the limit when enough heavy DOM files run beside them, and the
        failing subset differs every run. Capping worker threads would be the
@@ -35,16 +40,6 @@ export default defineConfig({
        This does not mask regressions — a genuinely hung test still fails, it
        just gets long enough to prove it rather than being killed mid-render. */
     setupFiles: ['./src/__tests__/setup.js'],
-    /* The DOM tests mount the whole app, repeatedly, against 103 systems whose
-       consumption now comes from the ported 730-day model rather than a flat
-       random band. Building one profile is ~2ms, and a Home render ranks every
-       system — so the first render in each test FILE pays ~230ms before React
-       does anything. (Profiles are cached per module registry, so it is paid
-       once per file, not per render.)
-       At the 5s default these tests failed with "Test timed out in 5000ms" in
-       most full runs while passing in isolation, which reads like flakiness and
-       is really a budget that no longer fits the work. */
-    testTimeout: 20000,
-    hookTimeout: 20000,
+    hookTimeout: 30000,
   },
 });

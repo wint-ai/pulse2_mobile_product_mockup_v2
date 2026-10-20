@@ -76,6 +76,7 @@ import SystemsHealthCard from '@/v2/components/SystemsHealthCard'
 import SystemsTableCard from '@/v2/components/SystemsTableCard'
 import SystemsFilterSheet from '@/v2/components/SystemsFilterSheet'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
+import SystemHealthCard from '@/v2/components/SystemHealthCard'
 import TriageBand from '@/v2/components/TriageBand'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
@@ -1074,12 +1075,31 @@ export default function HomeAllAccounts({ expanded = false }) {
           wrote this band — History was structurally empty there — and is worth
           103 rows on this one, because overlayEvents below now builds resolved
           rows too. It is a TriageBand prop now; see its footer. */}
-      <TriageBand
+      {/* System health — Figma 199323:12124 (alert) / 199371:137037 (calm);
+          the two states draw this card byte-identically. It carries the fleet
+          count, the healthy/attention progress bar and the three fault tiles
+          the design specifies (Valve errors · Offline · No power).
+
+          It supersedes the top half of TriageBand, which answered the same
+          question in my own words before this node could be opened. The band
+          keeps the half the design ALSO has and this card does not: the worst
+          few events, with their location. In locA that is a separate "Water
+          events" section — so the split below is the design's, not a
+          compromise. */}
+      <SystemHealthCard
         total={live?.stats?.total ?? 0}
-        attention={live?.stats?.requireAttention ?? 0}
-        issues={live?.issues ?? MOCK_HEALTH_ISSUES}
+        healthy={Math.max(0, (live?.stats?.total ?? 0) - (live?.stats?.requireAttention ?? 0))}
+        valveErrors={live?.issues?.valve ?? 0}
+        offline={live?.issues?.offline ?? 0}
+        noPower={live?.issues?.power ?? 0}
+        onShowAll={() => setTab('systems')}
+        onSelectIssue={kind => openOverlay('alerts', {
+          filter: ISSUE_FILTER[kind === 'valveErrors' ? 'valve' : kind === 'noPower' ? 'power' : kind] ?? 'all',
+        })}
+      />
+
+      <TriageBand
         events={waterEvents}
-        onSelectIssue={kind => openOverlay('alerts', { filter: ISSUE_FILTER[kind] ?? 'all' })}
         /* Opens EventFocusOverlay over this page. Row ids are system ids here
            — see the waterEvents mapping in `live` — and the overlay takes a
            systemId, so the row id goes straight through.
@@ -1163,10 +1183,15 @@ export default function HomeAllAccounts({ expanded = false }) {
         data-node-id="198314:73471"
         data-name="All accounts"
       >
-        {/* Mobile Header Bar — 198314:73478. Fixed chrome. */}
+        {/* Mobile Header Bar — 199323:12113 (alert) / 199371:137019 (calm),
+            the current Account/Location design. Both state h-[59px]; this was
+            h-[42px], carried from the superseded 198314:73478. Everything else
+            on the bar (the gap, the 24px vertical padding, items-center
+            justify-center) the new nodes state identically, so only the height
+            moved. */}
         <div
-          className="content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[42px] items-center justify-center px-[var(--pro\/space\/4,16px)] py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full"
-          data-node-id="198314:73478"
+          className="content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[59px] items-center justify-center px-[var(--pro\/space\/4,16px)] py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full"
+          data-node-id="199323:12113"
           data-name="Mobile Header Bar"
         >
           <div className="content-center flex flex-wrap gap-[var(--pro\/space\/4,4px_16px)] items-center relative shrink-0 w-full">

@@ -28,6 +28,13 @@
  * pixel is x=26, i.e. 1px border + 24px padding. So the token NAMES are kept
  * verbatim and only the literal fallback is set to the resolved value:
  *
+ * RATIFIED 2026-10-20: the Account/Location screen (199323:12260 in its ALERT
+ * state, 199371:137298 in its CALM one — the two emit this card byte for byte
+ * identically) now emits component/card/padding, component/calendar/padding,
+ * component/button/size-default/radius and component/calendar/day-radius with
+ * the RESOLVED numbers below rather than the stale ones, so the corrections in
+ * this table are Figma's own values now and not this file's reading of them.
+ *
  *   component/card/padding                 16px → 24px
  *   component/card/header/gap               4px →  8px
  *   component/pro/…/inline-hint/rail/width  4px → 12px   (header pt)
@@ -216,6 +223,18 @@ const DROPDOWN_PICKERS = new Set(['dropdown', 'dropdowns'])
    year are split out of it rather than re-derived from monthOffset, which
    would disagree with a host-supplied label. A label with no trailing token
    yields an empty year, and the year trigger is then simply not drawn. */
+/* CalendarCaption and CalendarNavButton — I199323:12260;198583:54997;101006:7299;199338:53569
+   and its two 6912:385x children, verbatim but for two spellings:
+     • `opacity-[calc(var(--opacity-50,50)/100)]` is written `opacity-50`. Same
+       number; the bracketed form puts a bare slash inside an arbitrary value,
+       which is the one place Tailwind still looks for an opacity modifier.
+     • `content-stretch` / `relative` / `shrink-0` on the track are Figma's
+       auto-layout bookkeeping and carry no meaning for a w-full flex row.
+   Everything else — the slate/100 fill, h-32, rounded-34, the 6px inset, the
+   32px pill nav buttons — is the node's. */
+const CAPTION_TRACK = String.raw`flex h-[32px] min-w-0 flex-1 items-center rounded-[34px] bg-[var(--colors\/slate\/100,#f1f5f9)] px-[var(--spacing\/1\,5,6px)] py-[var(--p-0,0px)]`
+const CAPTION_NAV = String.raw`flex size-[32px] shrink-0 items-center justify-center rounded-[var(--component\/button\/size-default\/radius,26px)] opacity-50 outline-none hover:bg-[var(--colors\/slate\/200,#e2e8f0)] hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:opacity-20`
+
 function splitPeriodLabel(label) {
   const m = /^(.*\S)\s+(\S+)$/.exec(String(label ?? '').trim())
   return m ? { month: m[1], year: m[2] } : { month: String(label ?? ''), year: '' }
@@ -234,7 +253,12 @@ function splitPeriodLabel(label) {
    does nothing. That is the contract the stepper already keeps on the Year
    granularity, where it is withheld rather than drawn dead. */
 function PeriodDropdown({ label, ariaLabel, onOpen }) {
-  const box = String.raw`flex h-[24px] max-w-[224px] shrink-0 items-center gap-[var(--p-0,0px)] overflow-clip bg-[var(--component\/calendar\/dropdown\/bg,rgba(0,0,0,0))] py-[var(--p-0,0px)] pl-[8px] pr-[var(--component\/calendar\/caption-label\/pr,4px)] rounded-[var(--component\/calendar\/day-radius,8px)]`
+  /* Re-derived 2026-10-20 from …;199338:53569;6912:3952, which resolves three
+     fallbacks the older codegen left stale: the trigger is h-32 (flush with the
+     32px caption track it sits in, not 24), its pr token is 8px rather than 4,
+     and component/calendar/day-radius is 26 — a pill, matching the nav buttons
+     either side of it — rather than 8. */
+  const box = String.raw`flex h-[32px] max-w-[224px] min-w-0 items-center gap-[var(--p-0,0px)] overflow-clip bg-[var(--component\/calendar\/dropdown\/bg,rgba(0,0,0,0))] py-[var(--p-0,0px)] pl-[8px] pr-[var(--component\/calendar\/caption-label\/pr,8px)] rounded-[var(--component\/calendar\/day-radius,26px)]`
   const text = String.raw`overflow-hidden text-ellipsis whitespace-nowrap font-[number:var(--font\/weight\/font-medium,500)] text-[14px] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)]`
 
   if (!onOpen) return <span className={cn(box, text)}>{label}</span>
@@ -900,10 +924,20 @@ export default function WaterConsumptionCardV2({
     >
       <CardHeader
         className={cn(
-          /* The header was px-24 while cardContent below it is px-16, so the
-             title hung 8px outside the toggle track it sits above -- visible as
-             the card "not lining up". 198601:86154 gives BOTH boxes the same
-             component/card/padding, and its fallback is 16.
+          /* The header and cardContent must share ONE component/card/padding,
+             or the title hangs outside the control track it sits above —
+             visible as the card "not lining up". That much has always been
+             right; the NUMBER was wrong. 198601:86154 emitted the token with a
+             stale 16px fallback, so 16 is what every box here carried. This
+             file's own header note has recorded the resolved value as 24 since
+             it was written ("the title's first dark pixel is x=26, i.e. 1px
+             border + 24px padding", measured off the 932px render), and
+             199323:12260 / 199371:137298 now emit
+             `var(--component/card/padding,24px)` directly on the header px, the
+             header pt and cardContent's px. Two sources against one stale
+             codegen, so every box below is 24. (The same two nodes emit
+             `--component/card/padding-sm,16px` on the Insights card, which is
+             where the 16 in this design system actually lives.)
              min-h-48: the node's header holds a 126x32 CardAction slot beside
              the title, which is what sets the header's height (16 top pad + 32)
              and therefore the gap down to the controls. The slot was empty in
@@ -913,15 +947,19 @@ export default function WaterConsumptionCardV2({
              no longer sets. Left in place as that floor, for the empty variant
              where the slot renders nothing. */
           String.raw`items-start gap-[var(--spacing\/3,12px)] min-h-[48px]`,
-          String.raw`px-[var(--component\/card\/padding,16px)]`,
-          String.raw`pt-[var(--component\/card\/padding,16px)]`,
+          String.raw`px-[var(--component\/card\/padding,24px)]`,
+          String.raw`pt-[var(--component\/card\/padding,24px)]`,
           String.raw`pb-[var(--p-0,0px)]`,
         )}
       >
         <CardTitle
           className={cn(
+            /* text/title-md, not text/lg: …;149:2490;2780:50631 spells the
+               title with the title-md pair. Both resolve to 18/18 so no pixel
+               moves, but the token name is the design's. leading-* trails the
+               size atom — see the TRAP note in the header. */
             String.raw`w-full font-semibold tracking-[-0.45px]`,
-            String.raw`text-[length:var(--text\/lg\/size,18px)] leading-[var(--text\/lg\/lh-none,18px)]`,
+            String.raw`text-[length:var(--text\/title-md\/size,18px)] leading-[var(--text\/title-md\/lh-snug,18px)]`,
             String.raw`text-[color:var(--colors\/slate\/800,#1d293d)]`,
           )}
         >
@@ -951,7 +989,9 @@ export default function WaterConsumptionCardV2({
            are recorded in the header comment, along with who asked for them to
            be dropped. The funnel disclosure that preceded the track came from
            I198378:74362;119647:3846;149:2490, a node no longer in the file. */
-        <div className="flex w-full flex-col gap-[20px] px-[var(--component\/card\/padding,16px)] pt-[var(--component\/calendar\/padding,8px)] pb-[var(--component\/card\/padding,16px)]">
+        <div
+          className={String.raw`flex w-full flex-col gap-[20px] px-[var(--component\/card\/padding,24px)] pt-[var(--component\/calendar\/padding,12px)] pb-[var(--component\/card\/padding,24px)]`}
+        >
           <div className="flex w-full flex-col gap-[12px]">
           {/* The grouping segments that used to open this block have become
               the dropdown in the card header — see GranularityDropdown and
@@ -964,30 +1004,46 @@ export default function WaterConsumptionCardV2({
               picker — not the row. It also drops role="group", because a group
               named "Period" holding no controls is a lie to a screen reader.
 
-              GEOMETRY comes from 198601:86154 (the node linked for "update
-              selector to be pixel match"): the CalendarCaption row is h-28,
-              px-6, justify-between, with a 28px nav button hard against each
-              end. PRD v2 §16 says 36 on a pill radius; where the two disagree
-              the request was explicitly for a pixel match, so the node wins.
-
               PLS-WC-09 / §3.2: the chevrons carry the disabled ATTRIBUTE at
               each end of the series, not a dimmed-but-operable look. "A control
               that looks operable and does nothing is the same defect as a
               picker that cannot reach eleven months in twelve."
 
-              CalendarNavButton — I198601:86154;101006:7299;198601:86158;6912:3858:
-              size-28, opacity 50, radius 10, on a slate/100 fill. That fill is
-              a correction: it was dismissed here as specific to Variant2
-              (198601:86153) after checking Default, and left off. Variant3
-              carries it too and PRD §16 asks for it, so two of three sources
-              agree against that call. opacity-50 is the RESTING look in every
-              variant, not a disabled one — disabled is the 20 below. The hover
-              step to slate/200 is ours, since Figma draws no hover and a 28px
-              target with no feedback reads as dead. */}
+              GEOMETRY, REVISED 2026-10-20 against the Account/Location screen —
+              199323:12260 (alert) and 199371:137298 (calm), which emit this card
+              byte for byte identically. Those two settle a question the older
+              198601:86154 codegen left open, and they settle it the other way:
+
+                CalendarCaption  …;199338:53569 — bg colors/slate/100, h-32,
+                                 rounded-34, px spacing/1,5 (6px), w-full,
+                                 justify-between. The TRACK carries the fill.
+                CalendarNavButton …;6912:3858 / 6912:3859 — size-32, opacity 50,
+                                 radius component/button/size-default (26, a
+                                 pill), and NO background of its own.
+
+              It used to be the inverse here: no track at all, and a slate/100
+              fill painted onto two 28px radius-10 buttons. The note that put it
+              there read Variant2/Variant3 as "two of three sources agree" that
+              the buttons are filled; what both of those variants actually have
+              is the filled TRACK behind them, which is why the buttons looked
+              like they had one. opacity-50 is still the RESTING look, not a
+              disabled one — disabled is the 20 below — and the hover step to
+              slate/200 is still ours, since Figma draws no hover and a nav
+              target with no feedback reads as dead.
+
+              The track is rounded-[34px]. So was the deleted granularity
+              segment track, which is why consumptionScopeControl's "no longer
+              ships the slate segment track" test now excludes this one node by
+              name rather than banning the radius outright. */}
           <div className="flex w-full items-center gap-[8px]">
             {period === 'Y' ? (
-              <div className="flex h-[28px] min-w-0 flex-1 items-center justify-center px-[var(--spacing\/1\,5,6px)]">
-                <span className="text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]">
+              <div
+                data-name="CalendarCaption"
+                className={cn(CAPTION_TRACK, 'justify-center')}
+              >
+                <span
+                  className={String.raw`text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]`}
+                >
                   {monthLabel}
                 </span>
               </div>
@@ -995,22 +1051,23 @@ export default function WaterConsumptionCardV2({
               <div
                 role="group"
                 aria-label="Period"
-                className="flex h-[28px] min-w-0 flex-1 items-center justify-between px-[var(--spacing\/1\,5,6px)]"
+                data-name="CalendarCaption"
+                className={cn(CAPTION_TRACK, 'justify-between')}
               >
                 <button
                   type="button"
                   aria-label="Previous period"
                   disabled={!canStepPrev}
                   onClick={() => stepMonth(-1)}
-                  className="flex size-[28px] shrink-0 items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] bg-[var(--colors\/slate\/100,#f1f5f9)] opacity-50 outline-none hover:opacity-100 hover:bg-[var(--colors\/slate\/200,#e2e8f0)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-[var(--colors\/slate\/100,#f1f5f9)] disabled:hover:opacity-20"
+                  className={CAPTION_NAV}
                 >
                   <ChevronLeft16 className="size-4" />
                 </button>
                 {usesDropdowns ? (
-                  /* Dropdown group — Figma I198601:86154;101006:7299;198601:86158;198674:177605.
+                  /* Dropdown group — …;199338:53569;198674:177605.
                      gap-8px even at one child: the node carries the gap for the
                      Double case and the Single case sits in the same box. */
-                  <div className="flex shrink-0 items-center gap-[8px]">
+                  <div className="flex min-w-0 shrink items-center gap-[8px]">
                     {dropdowns.map((d) => (
                       <PeriodDropdown
                         key={d.key}
@@ -1021,14 +1078,18 @@ export default function WaterConsumptionCardV2({
                     ))}
                   </div>
                 ) : (
-                  <span className="text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]">{monthLabel}</span>
+                  <span
+                    className={String.raw`truncate text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]`}
+                  >
+                    {monthLabel}
+                  </span>
                 )}
                 <button
                   type="button"
                   aria-label="Next period"
                   disabled={!canStepNext}
                   onClick={() => stepMonth(1)}
-                  className="flex size-[28px] shrink-0 items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] bg-[var(--colors\/slate\/100,#f1f5f9)] opacity-50 outline-none hover:opacity-100 hover:bg-[var(--colors\/slate\/200,#e2e8f0)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-[var(--colors\/slate\/100,#f1f5f9)] disabled:hover:opacity-20"
+                  className={CAPTION_NAV}
                 >
                   <ChevronRight16 className="size-4" />
                 </button>
@@ -1044,7 +1105,7 @@ export default function WaterConsumptionCardV2({
                 aria-label="Jump to today, hour by hour."
                 disabled={canToday === false}
                 onClick={() => onToday()}
-                className="flex h-[32px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--colors\/slate\/100,#f1f5f9)] px-[12px] font-medium text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)] outline-none hover:bg-[var(--colors\/slate\/200,#e2e8f0)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-[var(--colors\/slate\/100,#f1f5f9)]"
+                className={String.raw`flex h-[32px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--colors\/slate\/100,#f1f5f9)] px-[12px] font-medium text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)] outline-none hover:bg-[var(--colors\/slate\/200,#e2e8f0)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-[var(--colors\/slate\/100,#f1f5f9)]`}
               >
                 Today
               </button>
@@ -1080,7 +1141,7 @@ export default function WaterConsumptionCardV2({
           className={cn(
             'flex min-h-[185px] flex-1 flex-col items-center justify-center',
             String.raw`gap-[var(--pro\/space\/4,16px)]`,
-            String.raw`px-[var(--component\/card\/padding,16px)] pb-[var(--spacing\/5,20px)]`,
+            String.raw`px-[var(--component\/card\/padding,24px)] pb-[var(--spacing\/5,20px)]`,
           )}
         >
           <div className="relative h-[74px] w-[144px] shrink-0">
@@ -1126,12 +1187,12 @@ export default function WaterConsumptionCardV2({
         <>
           <CardContent
             className={cn(
-              /* 16, not 24: this box sits directly under the toggle track,
-                 which cardContent insets by 16. At 24 the plot started 8px
-                 inside the control above it and the whole card read as
-                 misaligned. Every box in 198601:86154 shares one
-                 component/card/padding. */
-              String.raw`px-[var(--component\/card\/padding,16px)]`,
+              /* The SAME component/card/padding as the header and the control
+                 block above: this box sits directly under the caption track,
+                 and any box here that insets by a different number makes the
+                 plot start inside the control above it and the whole card read
+                 as misaligned. The value is 24 — see the header's note. */
+              String.raw`px-[var(--component\/card\/padding,24px)]`,
               String.raw`pt-[var(--pro\/space\/4,16px)] pb-[var(--spacing\/5,20px)]`,
             )}
           >
@@ -1288,12 +1349,15 @@ export default function WaterConsumptionCardV2({
                  without it this row is 314px of content and became one more
                  thing setting the card's width. */
               'flex w-full items-start gap-[10px]',
-              /* Figma's cardContent is px-16 and pb-16; the metric row is its
-                 LAST child, so that 16px is the gap between the labels and
-                 the card's bottom border. This row carried px-24 and no
-                 bottom padding at all, so the labels sat on the edge. */
-              String.raw`px-[var(--component\/card\/padding,16px)]`,
-              String.raw`pb-[var(--component\/card\/padding,16px)]`,
+              /* The metric row is cardContent's LAST child, so cardContent's
+                 own bottom padding is the gap between the labels and the
+                 card's bottom border. 199323:12260 / 199371:137298 spell that
+                 as pro/space/8 — 32px — not another card/padding; the ladder
+                 this file already records (pro/space/2 → 8, pro/space/4 → 16)
+                 agrees at 4x. The row carried no bottom padding at all once,
+                 and the labels sat on the edge. */
+              String.raw`px-[var(--component\/card\/padding,24px)]`,
+              String.raw`pb-[var(--pro\/space\/8,32px)]`,
             )}
           >
             {headline.map((stat) => (
@@ -1309,7 +1373,6 @@ export default function WaterConsumptionCardV2({
                   className={cn(
                     'whitespace-nowrap font-medium tabular-nums',
                     String.raw`text-[length:var(--text\/xl\/size,20px)] leading-[var(--text\/xl\/lh-snug,27.5px)]`,
-                    String.raw`tracking-[var(--text\/xl\/heading-tracking,-0.5px)]`,
                     String.raw`tracking-[var(--text\/xl\/heading-tracking,-0.5px)]`,
                     String.raw`text-[color:var(--colors\/slate\/800,#1d293d)]`,
                   )}

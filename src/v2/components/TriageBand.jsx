@@ -61,9 +61,8 @@
  */
 import { Card } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { ChevronRight, PowerOff } from 'lucide-react'
-import { PinLocation03, Waves, WifiDisconnected02 } from '@/v2/icons'
-import { ValveErrorGlyph } from '@/v2/components/SystemsHealthCard'
+import { ChevronRight } from 'lucide-react'
+import { PinLocation03, Waves } from '@/v2/icons'
 import { cn } from '@/lib/utils'
 
 /* The palette v2 already uses for these states. High flow is the water-event
@@ -162,11 +161,7 @@ function EventRow({ event, onSelect }) {
 }
 
 export default function TriageBand({
-  total = 0,
-  attention = 0,
-  issues = {},
   events = [],
-  onSelectIssue,
   onSelectEvent,
   onViewAll,
   /* "Show past events" — the one-tap way to the overlay's History tab. It
@@ -176,14 +171,6 @@ export default function TriageBand({
   onShowPast,
   className,
 }) {
-  const healthy = Math.max(0, total - attention)
-  const pct = total ? (attention / total) * 100 : 0
-  const { offline = 0, valve = 0, power = 0, recipients = 0 } = issues
-
-  // The long tail: real, but neither changes what you do in the next ten
-  // minutes. SolarEdge's "6 Other Alerts ›" move.
-  const otherCount = power + recipients
-
   // Worst first. A high flow outranks a low flow; within a kind, the longest
   // running wins. `duration` is a display string, so it is parsed back to
   // minutes — compared as text, "3h 11m" sorts after "6h 36m", backwards.
@@ -192,7 +179,6 @@ export default function TriageBand({
     return sev(b) - sev(a) || minutesOf(b.duration) - minutesOf(a.duration)
   })
   const preview = ranked.slice(0, PREVIEW_ROWS)
-  const allClear = attention === 0 && events.length === 0
   // The footer link only earns its row when the band is actually holding rows
   // back; with three events and three previewed there is nothing to view.
   const showViewAll = events.length > preview.length
@@ -203,110 +189,18 @@ export default function TriageBand({
      where the headline is the widest thing in it. */
   return (
     <Card className={cn('w-full gap-0 overflow-hidden py-0', className)}>
-      {/* The sentence that answers the screen. "All systems" is the
-          denominator here rather than a tile of its own. */}
-      <div className="flex flex-col gap-2 px-4 pt-3.5 pb-2.5">
-        <p className="text-[18px] font-semibold leading-tight tracking-[-0.45px] text-slate-900">
-          {allClear ? (
-            <>All <span className="tabular-nums">{total}</span> systems are healthy</>
-          ) : (
-            <>
-              <span className="tabular-nums" style={{ color: HIGH }}>{attention}</span>
-              {' of '}
-              <span className="tabular-nums">{total}</span>
-              {' systems need attention'}
-            </>
-          )}
-        </p>
-
-        <div
-          className="flex h-2 w-full overflow-hidden rounded-full bg-slate-100"
-          role="img"
-          aria-label={`${attention} of ${total} systems need attention, ${healthy} healthy`}
-        >
-          <span className="h-full" style={{ width: `${pct}%`, background: HIGH }} />
-          <span className="h-full flex-1" style={{ background: OK }} />
-        </div>
-
-        {/* The legend exists to split the bar. With nothing wrong there is
-            nothing to split, and reciting "0 need attention" under an
-            all-clear headline is noise that makes the good state read like a
-            bad one. */}
-        {!allClear && (
-          <p className="flex items-center gap-3 text-[12px] leading-none text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-full" style={{ background: OK }} aria-hidden="true" />
-              <span className="tabular-nums font-medium text-slate-700">{healthy}</span> healthy
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-full" style={{ background: HIGH }} aria-hidden="true" />
-              <span className="tabular-nums font-medium text-slate-700">{attention}</span> need attention
-            </span>
-          </p>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* The three that change what you do today: water leaving the building,
-          systems you are blind to, and systems you cannot shut off. */}
-      <div className="flex items-stretch px-2">
-        <Stat
-          glyph={<Waves width="18" height="18" />}
-          count={events.length}
-          label="Water events"
-          name="Water events"
-          tone={HIGH}
-          onSelect={onViewAll}
-        />
-        <Separator orientation="vertical" className="my-3 h-auto" />
-        <Stat
-          glyph={<WifiDisconnected02 width="18" height="14.7" />}
-          count={offline}
-          label="Offline"
-          name="Offline systems"
-          onSelect={onSelectIssue && (() => onSelectIssue('offline'))}
-        />
-        <Separator orientation="vertical" className="my-3 h-auto" />
-        <Stat
-          glyph={<ValveErrorGlyph />}
-          count={valve}
-          label="Valve errors"
-          name="Valve errors"
-          onSelect={onSelectIssue && (() => onSelectIssue('valve'))}
-        />
-      </div>
-
-      {/* The tail, rolled up rather than given four more tiles. */}
-      {otherCount > 0 && (
-        <>
-          <Separator />
-          <button
-            type="button"
-            onClick={onSelectIssue && (() => onSelectIssue('power'))}
-            disabled={!onSelectIssue}
-            className={cn(
-              'flex h-11 w-full items-center gap-2 px-4 text-left text-[13px] text-slate-500',
-              onSelectIssue ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default',
-            )}
-          >
-            <PowerOff size={15} className="shrink-0 text-slate-400" aria-hidden="true" />
-            <span className="flex-1">
-              <span className="tabular-nums font-medium text-slate-700">{otherCount}</span>
-              {' other issues'}
-              <span className="text-slate-400">
-                {` · ${power} no power, ${recipients} no recipients`}
-              </span>
-            </span>
-            <ChevronRight size={14} className="shrink-0 text-slate-400" aria-hidden="true" />
-          </button>
-        </>
-      )}
-
       {/* The rows the screen was missing: which systems, and where. Ranked, so
-          the list is itself the ranking. */}
+          the list is itself the ranking. In Figma 199323:12113 this is its own
+          "Water events" section beneath the health card, which is why the two
+          are separate components rather than one band. */}
       {preview.length > 0 && (
         <>
+          <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
+            <p className="text-[14px] font-medium leading-[20px] text-[color:var(--foreground,#0a0a0a)]">
+              Water events
+            </p>
+            <span className="text-[14px] leading-[20px] tabular-nums text-slate-500">{events.length}</span>
+          </div>
           <Separator />
           <div className="flex flex-col">
             {preview.map((e, i) => (
