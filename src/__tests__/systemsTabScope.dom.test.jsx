@@ -29,16 +29,44 @@ const renderAt = (path) =>
     </MemoryRouter>,
   )
 
+/* role 'tab', not 'button'. The row moved from two hand-rolled copies of a
+   `TabTrigger` (one per page) into the shared @/v2/components/PillTabs, and
+   that move added the tab semantics the control always should have had:
+   role="tablist" / role="tab" / aria-selected plus a roving tabindex. An
+   element with role="tab" is no longer matched by getByRole('button'), so
+   these queries are retargeted rather than dropped — they assert the same
+   three controls, by the role the control now truthfully reports. */
 const openSystemsTab = () => {
-  fireEvent.click(screen.getByRole('button', { name: 'Systems' }))
+  fireEvent.click(screen.getByRole('tab', { name: 'Systems' }))
 }
 
 describe('the System tab', () => {
   it('sits alongside Overview and General Info', () => {
     renderAt('/')
     for (const name of ['Overview', 'Systems', 'General Info']) {
-      expect(screen.getByRole('button', { name }), name).toBeTruthy()
+      expect(screen.getByRole('tab', { name }), name).toBeTruthy()
     }
+  })
+
+  /* The accessible name must stay the bare label. Folding the count in once
+     renamed "Systems" to "Systems 103" and broke exactly the lookup above; the
+     number is announced as the Badge's own label instead. */
+  it('keeps the count off the tab’s accessible name', () => {
+    renderAt('/')
+    const systems = screen.getByRole('tab', { name: 'Systems' })
+    expect(systems.getAttribute('aria-label')).toBe('Systems')
+    expect(within(systems).getByLabelText(/^\d+ systems$/)).toBeTruthy()
+  })
+
+  it('reports selection with aria-selected, not just a colour', () => {
+    renderAt('/')
+    expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('tab', { name: 'Systems' }).getAttribute('aria-selected')).toBe('false')
+
+    openSystemsTab()
+
+    expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('false')
+    expect(screen.getByRole('tab', { name: 'Systems' }).getAttribute('aria-selected')).toBe('true')
   })
 
   it('shows the table, and Overview’s cards go away', () => {
