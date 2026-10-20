@@ -80,11 +80,17 @@
  * it" only tells colleagues somebody is looking, closing the valve is what
  * stops the water. So:
  *
- *   STATUS   <ValveReadout> — one compact row ABOVE the collapsible sections,
- *            "Valve status · Open · Auto shut-off", readable at a glance
- *            wherever the system has a valve. READ-ONLY. The handling chip
- *            states the system's REAL policy (getActivePolicy); the sentence
- *            that used to sit beside it lives in "What happens next".
+ *   STATUS   <ValveStatusCard interactive={false}> — the app's own card, ABOVE
+ *            the collapsible sections, wherever the system has a valve.
+ *            READ-ONLY: no action, so the footer's primary stays the only one.
+ *            This was a compact hand-rolled row (<ValveReadout>, "Valve status
+ *            · Open · Auto shut-off") built from the card's atoms as they
+ *            stood in 2026-09; when the card was rebuilt against Figma
+ *            199383:141553 the copy went stale and the owner saw it — "valve
+ *            widget not as in figma". Composing the real card is what keeps
+ *            the two from drifting again, and it brings the design's handling
+ *            panel with it. The handling line states the system's REAL policy
+ *            (getActivePolicy), headline and sentence off the one branch.
  *   ACTION   The footer's solid primary is "Close valve" (or "Open valve" when
  *            it is already closed), and it is the ONLY valve control on this
  *            surface. On it / Stand down and Ignore drop to the secondary row
@@ -1005,6 +1011,10 @@ export default function EventFocusOverlay({
   const notification = isWater ? getNotification(incident) : null
   const leakState = getLeakState(incident)
   const policy = getActivePolicy(sysId)
+  /* One reading of the policy for every place that states it. `autoShutoff`
+     is 'Enabled' | 'Disabled' | 'N/A', and only 'Enabled' means the system
+     shuts itself off. */
+  const autoShutoffOn = policy?.autoShutoff === 'Enabled'
 
   const meta =
     ALERT_META[evt.type] ??
@@ -1309,11 +1319,25 @@ export default function EventFocusOverlay({
              the state is a named region a screen reader can jump to, which the
              card's own plain <div> would have silently removed. */
           <section aria-label="Valve status" className="w-full shrink-0">
+            {/* The strip's HEADLINE was switched on the policy while its
+                SENTENCE was left at the card's default, so a system with
+                auto shut-off disabled read "Valve handling: Manual only — In
+                case a Leak is detected the valve will automatically shut
+                off": the panel contradicted its own first line. Both halves
+                now come off the same branch. The manual sentence is not new
+                copy — it is this file's own `advice()` valve line for
+                autoShutoff !== 'Enabled', so the panel and "What now" say the
+                same thing in the same words. */}
             <ValveStatusCard
               interactive={false}
               state={valveState}
               tone={isWater ? 'alert' : 'calm'}
-              handling={policy?.autoShutoff === 'Enabled' ? 'Auto shut-off' : 'Manual only'}
+              handling={autoShutoffOn ? 'Auto shut-off' : 'Manual only'}
+              handlingDescription={
+                autoShutoffOn
+                  ? 'In case a Leak is detected — the valve will automatically shut off'
+                  : 'Nothing will close the valve for you. If this needs stopping, close it from the button below.'
+              }
             />
           </section>
         ) : null}
