@@ -65,7 +65,8 @@
 
 import { useEffect, useState } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { CloseFill, Funnel, MessageBlocked, Waves, WifiDisconnected02 } from '@/v2/icons'
+import { Funnel, MessageBlocked, Waves, WifiDisconnected02 } from '@/v2/icons'
+import { ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ValveStatus from './ValveStatus'
 
@@ -87,7 +88,10 @@ const RED_600 = '#e7000b'
 const RED_900 = '#82181a'
 const ORANGE_500 = '#ff6900'
 const ORANGE_600 = '#f54900'
-const BLUE_100 = '#dbeafe'
+/* Figma 199375:138276 — the Active toggle's ground is #c7e3ff in the current
+   design. It was #dbeafe, taken from the 2026-09 frames this file was first
+   reconciled against; that value appears nowhere in the new node. */
+const BLUE_100 = '#c7e3ff'
 const SLATE_100 = '#f1f5f9'
 const WINT_BLUE = '#0b81f8'
 
@@ -467,15 +471,20 @@ export default function EventOverlayV2({
   // in every frame (checked against both exported assets).
   const titleDotColor = isHistory ? SLATE_400 : RED_500
 
+  /* Figma 199375:138276 "Mobile Header Bar" — the overlay dismisses with a
+     circular BACK control, not a close X: a 30px disc on #fafbfc with a white
+     border, carrying a 24px chevron-left. The old X is kept as the accessible
+     name's sense ("Close") because that is still what the control does to this
+     overlay — it closes it — but the affordance the design draws is back. */
   const closeButton = (
     <button
       type="button"
       onClick={onClose}
       aria-label="Close"
-      className="relative shrink-0 size-[28px] cursor-pointer"
+      className="flex shrink-0 cursor-pointer items-center justify-center rounded-[120.833px] border border-solid border-white bg-[#fafbfc] pr-[2px] size-[30px]"
       style={{ color: FOREGROUND }}
     >
-      <CloseFill size={28} />
+      <ChevronLeft size={24} aria-hidden="true" />
     </button>
   )
 
