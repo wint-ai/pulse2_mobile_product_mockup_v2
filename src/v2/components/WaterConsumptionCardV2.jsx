@@ -87,15 +87,37 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Bar, BarChart, CartesianGrid, Rectangle, ReferenceLine, XAxis, YAxis } from 'recharts'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Rectangle,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+  ZIndexLayer,
+} from 'recharts'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { axisFormatter } from './chartAxis'
 import {
+  BAR_CATEGORY_GAP_PX,
+  BAR_GAP_PX,
+  BAR_MAX_WIDTH,
+  barTopRadius,
   bucketAccessibleName,
+  bucketSlotWidth,
+  drawnBarWidth,
   isBucketOpenable,
+  nearestBucketIndex,
   niceScale,
   prefersReducedMotion,
   showsValueLabels,
@@ -103,7 +125,6 @@ import {
   valueLabelFontSize,
   xLabelEvery,
   yAxisWidth,
-  bucketHitWidth,
   approxTextWidth,
 } from './chartScale'
 import CaretDown from '@/v2/icons/CaretDown'
@@ -534,10 +555,24 @@ function deriveStats(series, period = 'D') {
    may only export components, and the ladder has to be assertable: recharts
    needs real layout, so no axis renders under happy-dom.
 
-   BAR_CATEGORY_GAP is shared between the chart and the hit-target maths in
-   renderBucket below — the bucket is the target, not the drawn bar (§19), and
-   widening the bar's own column back out over the gap is what recovers it. */
-const BAR_CATEGORY_GAP = 0.42
+   The BAR GEOMETRY moved there too — BAR_CATEGORY_GAP_PX / BAR_GAP_PX /
+   BAR_MAX_WIDTH and the drawnBarWidth rule. The long note on that module says
+   why they are PIXELS: the "42%" this card used to pass was applied by
+   recharts to BOTH sides of every column, so a bar was left 16% of its slot —
+   one measured pixel at Hour, Day and Month alike, and a touching 1px + 1px
+   pair under comparison. Read it before changing any of them. */
+
+/* The chart box. 185px is the comp's own height for the WHOLE plot area, the
+   day row included — not 185 of plot plus an axis. recharts takes the XAxis'
+   28px out of it, which leaves 157px of drawable plot, and that is what the
+   bucket targets below are sized against. */
+const CHART_HEIGHT = 185
+const X_AXIS_HEIGHT = 28
+/* The comparison legend's own band. recharts takes it out of the plot like the
+   axis, so the bucket targets have to stop short of it or they would sit over
+   the legend and the day row. */
+const LEGEND_HEIGHT = 22
+const PLOT_HEIGHT = CHART_HEIGHT - X_AXIS_HEIGHT
 
 /* Tick labels take their unit from the TOP of the scale, not from each value.
    The old formatter divided every tick by 1000 and appended K regardless of
@@ -594,57 +629,55 @@ function CompareSwitch({ checked, onChange, label }) {
   )
 }
 
+/* ChartStyle turns each entry into a --color-<key> custom property on the
+   container, and ChartTooltipContent / ChartLegendContent read `label` from
+   here. prevLitres was missing, which is why a compared tooltip printed its
+   raw key — measured "…Litres80,395prevLitres77,272".
+
+   THE COMPARISON PAIR IS ONE HUE, TWO STEPS. Current-vs-previous is ordered in
+   time, not two unrelated categories, so the design system classes it as a
+   1-hue ordinal ramp rather than a categorical pair. The slate #cad5e2 that
+   shipped here fails the palette validator twice over — outside the lightness
+   band, under the chroma floor — and reads as "disabled" next to a live blue.
+
+   FLAGGED FOR THE OWNER: the current series therefore takes the DARKER step
+   when the comparison appears, and the brand blue at 60% when it is alone.
+   That is a recolour on a filter change, which is normally a smell; the
+   argument for it is that the hue, the entity and the meaning are unchanged,
+   the legend names both series, and every alternative (grey previous, a second
+   hue, a pattern fill) fails the validator. Say the word and it reverts to a
+   fixed current colour with the previous bar lighter still. */
 const CHART_CONFIG = {
   litres: { label: 'Litres', color: 'rgba(11,129,248,0.6)' },
 }
 
-/* PLS-WC-37/38 (§18) — a bucket is a REAL control, and PLS-WC-35/36 (§13) —
-   its value label.
+const CHART_CONFIG_COMPARE = {
+  litres: { label: 'Litres', color: '#0b81f8' },
+  prevLitres: { label: 'Previous period', color: '#6bb1fa' },
+}
 
-   Both are drawn here, inside recharts' own SVG surface, rather than as an HTML
+/* PLS-WC-35/36 (§13) — the bar and its value label.
+   The bucket's TARGET is no longer drawn here; see BucketTargets below.
+
+   Both are drawn inside recharts' own SVG surface rather than as an HTML
    overlay over the plot. An overlay was the obvious shape and it is the wrong
    one: recharts reads the period detail (§3.7) off pointer events on the chart
    wrapper, and an overlay swallows every mousemove before the wrapper sees it —
    the card would gain keyboard access and lose hover in the same commit. Events
-   from a <rect> inside the surface still bubble to the wrapper, so both work.
-
-   The hit target is the BUCKET. recharts hands every rectangle a `background`
-   — its own column stretched to the full plot height — but ONLY when the Bar
-   sets the prop, which it now does. That rect IS the bucket, so it is used as
-   the hit area directly.
-
-   It used to be inferred instead: `barWidth / (1 - barCategoryGap)`, on the
-   assumption that a bar fills its column minus the gap. It does not once a
-   maxBarSize or a second series is in play, and a QA sweep measured the result
-   at 5px of tappable width inside a 21px bucket — a quarter of the column, and
-   unhittable on a phone. Nulls that draw no bar at all (PLS-WC-17) get their
-   column from the same place, so they stay focusable.
-
-   Not-openable buckets are aria-disabled, never `disabled`. A disabled control
-   fires no events, which would leave Hourly — the grouping with the finest data
-   — unable to report anything at all. */
-function renderBucket(shapeProps, opts) {
-  const { x, y, width, height, fill, background, index, payload } = shapeProps
-  const { period, onDrillDown, seriesCount, showValueLabels, valueEvery, valueFontSize, slotWidth = 0 } = opts
+   from a <rect> inside the surface still bubble to the wrapper, so both work. */
+function renderBarShape(shapeProps, opts) {
+  const { x, y, width, height, fill, index, payload } = shapeProps
+  const { showValueLabels, valueEvery, valueFontSize } = opts
   const row = payload ?? {}
 
   const hasBar = Number.isFinite(y) && Number.isFinite(height) && height > 0
-  const openable = isBucketOpenable(row, period) && typeof onDrillDown === 'function'
-  const open = () => {
-    if (openable) onDrillDown(row.key)
-  }
-
-  /* The column, MEASURED, not inferred. The card already divides the plot by
-     the bucket count for its label thinning, and that figure is the category
-     step — so it is passed in and used here. recharts' own `background` is not
-     it: it tracks the drawn bar, which a maxBarSize or a second series makes
-     far narrower than the column.
-     Falls back to the old inference when the measurement is not in yet (the
-     first paint, before the plot is measured), which is better than nothing. */
-  const slot = background ?? { x, y, width, height }
-  const hitWidth = bucketHitWidth(slotWidth, slot.width, seriesCount, BAR_CATEGORY_GAP)
-  const hitX = slot.x + slot.width / 2 - hitWidth / 2
   const showValue = showValueLabels && hasBar && index % valueEvery === 0
+  /* The comp's rounded-t-[100px] clamps to min(width, height) / 2 — a
+     half-round dome. That was invisible on the 3px bars this card used to
+     draw; at a real 21-24px it swallows the top of a short reading and the
+     whole series looks flatter than it is. barTopRadius keeps the dome and
+     bounds it at 8. */
+  const r = barTopRadius(width)
 
   return (
     <g>
@@ -655,7 +688,7 @@ function renderBucket(shapeProps, opts) {
           width={width}
           height={height}
           fill={fill}
-          radius={[100, 100, 0, 0]}
+          radius={[r, r, 0, 0]}
           isAnimationActive={false}
         />
       ) : null}
@@ -674,27 +707,146 @@ function renderBucket(shapeProps, opts) {
           {fmtL(row.litres)}
         </text>
       ) : null}
-      <rect
-        data-bucket={index}
-        x={hitX}
-        y={slot.y}
-        width={hitWidth}
-        height={slot.height}
-        fill="transparent"
-        role="button"
-        tabIndex={0}
-        aria-label={bucketAccessibleName(row, period)}
-        aria-disabled={openable ? undefined : true}
-        style={{ cursor: openable ? 'pointer' : 'default' }}
-        onClick={open}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            open()
-          }
-        }}
-      />
     </g>
+  )
+}
+
+/* PLS-WC-37/38 (§18, §19) — a bucket is a REAL control, and EVERY bucket is.
+   PLS-WC-17 — including the ones with no reading.
+
+   This used to ride on the Bar's own `shape`, which looked economical and hid
+   a hole: recharts drops a datum whose value does not scale before it ever
+   calls the shape, so a month the calendar has not finished never built a rect
+   for the days it has not reached. Measured on the live card: twenty targets
+   on a thirty-one-row October. A comment two lines from the bug claimed they
+   stayed focusable. The owner has declined a table view, so those buckets had
+   no assistive route at all — and a null bucket is exactly the one a viewer
+   most wants read out, because "no reading yet" is the answer.
+
+   So the targets are built from the ROWS and the measured plot, not from what
+   recharts chose to draw. They tile the plot edge to edge, which also makes
+   the drill-down independent of how wide a bar happens to be.
+
+   POINTER vs KEYBOARD (§19). A 9px Daily slot cannot carry the 24px minimum
+   touch target and widening the rects would overlap them, so the two routes
+   are split: the per-bucket rects are the keyboard and screen-reader targets
+   and take no pointer events, while one plot-wide rect underneath resolves a
+   tap to its NEAREST bucket. The design system allows nearest-point when the
+   mark cannot carry the minimum, and the cursor band the tooltip already draws
+   shows which column a tap would take.
+
+   Not-openable buckets are aria-disabled, never `disabled`. A disabled control
+   fires no events, which would leave Hourly — the grouping with the finest data
+   — unable to report anything at all. */
+function BucketTargets({ rows, period, onDrillDown, plotLeft, plotWidth, plotHeight }) {
+  if (!(plotWidth > 0) || !(plotHeight > 0) || !rows?.length) return null
+
+  const slot = plotWidth / rows.length
+  const canOpen = typeof onDrillDown === 'function'
+  const open = (row) => {
+    if (canOpen && isBucketOpenable(row, period)) onDrillDown(row.key)
+  }
+  const anyOpenable = canOpen && rows.some((row) => isBucketOpenable(row, period))
+
+  const onPlotClick = (event) => {
+    const svg = event.currentTarget.ownerSVGElement
+    if (!svg) return
+    const box = svg.getBoundingClientRect()
+    const i = nearestBucketIndex(event.clientX - box.left, plotLeft, slot, rows.length)
+    if (i >= 0) open(rows[i])
+  }
+
+  /* ON TOP, and it has to be asked for. SVG has no z-index, so recharts sorts
+     its own content into portalled layers (DefaultZIndexes: grid -100, bars
+     300, axes 500, labels 2000) and drops an unrecognised child into layer 0 —
+     under every bar. The targets were measured landing there: a tap over a bar
+     hit the bar's own path and the drill-down never fired, while a tap over
+     empty plot worked. 3000 puts them over everything. They are transparent,
+     the per-bucket rects take no pointer events at all, and events raised on
+     the plate still bubble to the chart wrapper, so the tooltip is unaffected. */
+  return (
+    <ZIndexLayer zIndex={3000}>
+    <g className="recharts-layer pulse-bucket-targets">
+      <rect
+        x={plotLeft}
+        y={0}
+        width={plotWidth}
+        height={plotHeight}
+        fill="transparent"
+        /* Not focusable and not announced: it is the pointer's route to the
+           nearest bucket, and the per-bucket rects below are what AT reads. */
+        aria-hidden="true"
+        style={{ cursor: anyOpenable ? 'pointer' : 'default' }}
+        onClick={onPlotClick}
+      />
+      {rows.map((row, i) => (
+        <rect
+          key={row?.day ?? i}
+          data-bucket={i}
+          x={plotLeft + i * slot}
+          y={0}
+          width={slot}
+          height={plotHeight}
+          fill="transparent"
+          pointerEvents="none"
+          role="button"
+          tabIndex={0}
+          aria-label={bucketAccessibleName(row, period)}
+          aria-disabled={canOpen && isBucketOpenable(row, period) ? undefined : true}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              open(row)
+            }
+          }}
+        />
+      ))}
+    </g>
+    </ZIndexLayer>
+  )
+}
+
+/* §14.6 — the last x tick is CLAMPED into the viewport, or dropped.
+   recharts centres a tick on its band and lets it run off the surface: at Day
+   the "Oct 31" label measured a right edge of 324.1 inside a 311px SVG, so the
+   month's last day read "Oct". The web card could let a label spill into the
+   card's gutter; here the SVG clips, and a half-written date is worse than one
+   nudged a few px off its own band. approxTextWidth is the same estimate the
+   label cadence uses, and it errs WIDE — so the nudge is conservative.
+
+   `dropLast` is the other half of the same problem, and clamping alone is not
+   a fix without it. On a 31-day month the cadence asks for six labels where
+   five and a half fit, so pulling the sixth back inside the surface slid it
+   straight into its neighbour — "Oct 25Oct 31", which is no more readable than
+   the clipped "Oct" it replaced. When there is not room for both, the axis
+   ends one label early, exactly as a 28- or 30-day month already does.
+
+   This has to be a function rather than the `tick={{ … }}` object it replaces,
+   and recharts hands a function tick none of that object's styling: the font
+   family and size are therefore set here, and `fill` is passed through from
+   the axis so the ticks keep the colour they render today. */
+function renderXTick(props, plotRight, dropLast) {
+  const { x, y, payload, className, fill, index, visibleTicksCount } = props
+  if (dropLast && visibleTicksCount > 1 && index === visibleTicksCount - 1) return null
+  const label = String(payload?.value ?? '')
+  const half = approxTextWidth(label, 12) / 2
+  let cx = x
+  if (plotRight > 0 && cx + half > plotRight) cx = plotRight - half
+  if (cx - half < 0) cx = half
+  return (
+    <text
+      x={cx}
+      y={y}
+      dy="0.71em"
+      textAnchor="middle"
+      stroke="none"
+      fill={fill ?? '#666'}
+      fontFamily="var(--font-sans)"
+      fontSize={12}
+      className={className}
+    >
+      {label}
+    </text>
   )
 }
 
@@ -787,10 +939,16 @@ export default function WaterConsumptionCardV2({
 
   /* Tooltip heading per granularity. H carries ":00" so "14" cannot be read as
      a day number, and Y needs no scope prefix at all — the bar label already
-     IS the year. */
+     IS the year.
+
+     M carries no prefix either, and that is a FIX. At Monthly the scope label
+     is the whole rolling window (§2 / PLS-WC-04), so appending it produced a
+     heading like "Apr 26 Nov 2025 - Oct 2026" — the bucket, then a range it is
+     only one twelfth of. The bucket already names its own month and year, and
+     the range is on the control directly above the plot. */
   const formatBucket = (bucket) => {
     if (period === 'H') return `${monthLabel} ${bucket}:00`
-    if (period === 'M') return `${bucket} ${monthLabel}`
+    if (period === 'M') return String(bucket)
     if (period === 'Y') return String(bucket)
     return `${monthLabel} ${bucket}`
   }
@@ -842,8 +1000,30 @@ export default function WaterConsumptionCardV2({
   )
   const labelEvery = xLabelEvery(series.length, xSlot, xLabelWidth)
 
-  const slotWidth = plotted.length > 0 ? Math.max(0, plotWidth - yWidth) / plotted.length : 0
+  /* Would the LAST x label, once clamped back inside the surface, still clear
+     the one before it? recharts places ticks at 0, labelEvery, 2 * labelEvery
+     …, each centred on its band, so both centres are arithmetic — no DOM read
+     needed. The 6px is the same padding xLabelEvery allows between labels. */
+  const lastTickIndex =
+    series.length > 0 ? Math.floor((series.length - 1) / labelEvery) * labelEvery : 0
+  const lastTickCentre = yWidth + (lastTickIndex + 0.5) * xSlot
+  const clampedLastCentre =
+    plotWidth > 0 ? Math.min(lastTickCentre, plotWidth - xLabelWidth / 2) : lastTickCentre
+  const dropLastXTick =
+    plotWidth > 0 &&
+    lastTickIndex >= labelEvery &&
+    clampedLastCentre - (yWidth + (lastTickIndex - labelEvery + 0.5) * xSlot) <
+      xLabelWidth + 6
+
+  const innerPlotWidth = Math.max(0, plotWidth - yWidth)
+  const slotWidth = bucketSlotWidth(innerPlotWidth, plotted.length)
   const comparing = Boolean(compareOn && period === 'M' && compareData?.length)
+  /* What recharts will draw, given the px geometry on <BarChart> below. Only
+     the comparison bar and the legend need it up here — the current series
+     gets its own exact width handed to the shape. */
+  const barWidth = drawnBarWidth(slotWidth, comparing ? 2 : 1)
+  const prevRadius = barTopRadius(barWidth)
+  const chartConfig = comparing ? CHART_CONFIG_COMPARE : CHART_CONFIG
   /* PLS-WC-36: exactly ONE series carries a value per bucket here. The
      comparison bar is a reference, not a second reading, so a compared window
      still carries its numbers (§13) — a supply/return pair would not, and the
@@ -1197,14 +1377,29 @@ export default function WaterConsumptionCardV2({
             )}
           >
             {/* aspect-auto cancels ChartContainer's aspect-video: the phone frame
-                needs an explicit height, never a fixed pixel width. 213px is the
-                comp's 185px plot box plus its 28px day row. Axis type is Geist
-                (--font-mono-label); the #737373 fill is the design's
-                muted-foreground, which is not this project's. */}
+                needs an explicit height, never a fixed pixel width.
+                185px is the comp's box for the WHOLE plot area — the day row
+                is INSIDE it, not added to it. The note that used to sit here
+                read "213px = the comp's 185px plot box plus its 28px day row",
+                which is a sum this card has never drawn and never should: the
+                owner has ruled the height correct as it stands. recharts takes
+                the XAxis' 28px out of the 185, leaving the 157px of plot that
+                CHART_HEIGHT / PLOT_HEIGHT name and that BucketTargets is sized
+                against.
+                Axis type is Geist (--font-mono-label). The #737373 rule below
+                is the design's muted-foreground; note that in recharts 3.8 the
+                tick TEXT hangs off .recharts-cartesian-axis-tick-label, not
+                .recharts-cartesian-axis-tick, so this selector no longer bites
+                and the ticks render at recharts' own #666. Left as found —
+                changing the axis colour is not this change's business — but
+                recorded so the next reader does not trust it. */}
             <div ref={setPlotEl} className="w-full">
             <ChartContainer
-              config={CHART_CONFIG}
+              config={chartConfig}
               className={cn(
+                /* Spelled out, NOT `h-[${CHART_HEIGHT}px]`: Tailwind v4 scans
+                   source text, so an interpolated class is never generated and
+                   the box would collapse. CHART_HEIGHT must stay in step. */
                 'aspect-auto h-[185px] w-full',
                 '[&_.recharts-cartesian-axis-tick_text]:fill-[#737373]',
                 /* PLS-WC-37 / §18: a visible focus ring on every bucket,
@@ -1222,7 +1417,17 @@ export default function WaterConsumptionCardV2({
               <BarChart
                 accessibilityLayer
                 data={plotted}
-                barCategoryGap={Math.round(BAR_CATEGORY_GAP * 100) + '%'}
+                /* PIXELS, not a percentage — see the long note in chartScale.js.
+                   A percentage is applied to BOTH sides of the column, so the
+                   "42%" this used to pass left the bar 16% of its slot and the
+                   whole chart drew hairlines. 1px per side is the design
+                   system's 2px gap between columns; barGap is the 2px inside a
+                   compared pair; maxBarSize is the 24px ceiling.
+                   Do NOT swap these for `barSize` — that takes a different
+                   branch of getBarPositions with different centring. */
+                barCategoryGap={BAR_CATEGORY_GAP_PX}
+                barGap={BAR_GAP_PX}
+                maxBarSize={BAR_MAX_WIDTH}
                 margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
               >
                 {/* #e5e5e5 is the stroke on the comp's own gridline vector, and
@@ -1257,12 +1462,12 @@ export default function WaterConsumptionCardV2({
                 />
                 <XAxis
                   dataKey="day"
-                  height={28}
+                  height={X_AXIS_HEIGHT}
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
                   interval={labelEvery - 1}
-                  tick={{ fontFamily: 'var(--font-sans)', fontSize: 12 }}
+                  tick={(tickProps) => renderXTick(tickProps, plotWidth, dropLastXTick)}
                 />
                 <ChartTooltip
                   cursor={{ fill: 'var(--color-litres)', fillOpacity: 0.12 }}
@@ -1282,19 +1487,30 @@ export default function WaterConsumptionCardV2({
                     under happy-dom, so a DOM test of this card still sees
                     un-grown bars: assert the animation nowhere, and assert the
                     bucket names on bucketAccessibleName instead. */}
+                {/* A LEGEND, only while comparing. One series needs none — the
+                    card title names it — but two unlabelled blues are a riddle.
+                    ChartLegendContent reads its labels and swatches from the
+                    config, which is why prevLitres had to be added there. */}
+                {comparing ? (
+                  <ChartLegend
+                    verticalAlign="bottom"
+                    height={22}
+                    content={<ChartLegendContent className="gap-4 pt-1 text-[12px]" />}
+                  />
+                ) : null}
                 {/* The comp draws the switch OFF, so Figma specifies no
-                    appearance for a comparison series. This is the one
-                    invented treatment in this card — the previous window as a
-                    muted slate bar behind the current one — and it is flagged
-                    rather than presented as the design. */}
-                {compareOn && period === 'M' && compareData?.length ? (
+                    appearance for a comparison series. The treatment here is
+                    the one invented thing in this card and it is flagged in
+                    CHART_CONFIG_COMPARE above: the PREVIOUS window is the
+                    lighter step of the one brand hue and sits to the LEFT,
+                    because the pair is ordered in time. The slate #cad5e2 it
+                    replaces failed the palette validator on both lightness and
+                    chroma and read as a disabled control. */}
+                {comparing ? (
                   <Bar
                     dataKey="prevLitres"
-                    // literal, not var(): an escaped-slash custom property inside an SVG
-                    // fill attribute is not worth the fragility, and this
-                    // project defines no --colors/slate/300 anyway.
-                    fill="#cad5e2"
-                    radius={[100, 100, 0, 0]}
+                    fill="var(--color-prevLitres)"
+                    radius={[prevRadius, prevRadius, 0, 0]}
                     isAnimationActive={animateBars}
                   />
                 ) : null}
@@ -1302,27 +1518,28 @@ export default function WaterConsumptionCardV2({
                   key={'bars-' + period + '-' + monthLabel + '-' + plotted.length}
                   dataKey="litres"
                   fill="var(--color-litres)"
-                  radius={[100, 100, 0, 0]}
                   isAnimationActive={animateBars}
                   animationBegin={0}
-                  /* REQUIRED for the hit target, not decoration. recharts only
-                     hands a shape its `background` — the full category column —
-                     when the Bar asks for one. Without it renderBucket fell back
-                     to the drawn bar's own box and inferred the column from
-                     barCategoryGap, which measured 5px of tappable width inside
-                     a 21px bucket. Transparent, so nothing is drawn. */
-                  background={{ fill: 'transparent' }}
+                  /* The shape draws the bar and its value label only. The
+                     bucket's hit target used to live in here too, riding the
+                     `background` rect this Bar asked for — and a bucket with
+                     no reading never reached the shape at all, so it never got
+                     one. BucketTargets below builds them from the rows. */
                   shape={(shapeProps) =>
-                    renderBucket(shapeProps, {
-                      period,
-                      onDrillDown,
-                      seriesCount: comparing ? 2 : 1,
+                    renderBarShape(shapeProps, {
                       showValueLabels,
                       valueEvery,
                       valueFontSize,
-                      slotWidth,
                     })
                   }
+                />
+                <BucketTargets
+                  rows={plotted}
+                  period={period}
+                  onDrillDown={onDrillDown}
+                  plotLeft={yWidth}
+                  plotWidth={innerPlotWidth}
+                  plotHeight={PLOT_HEIGHT - (comparing ? LEGEND_HEIGHT : 0)}
                 />
               </BarChart>
             </ChartContainer>
