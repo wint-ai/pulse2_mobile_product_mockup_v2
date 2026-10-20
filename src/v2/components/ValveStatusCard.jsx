@@ -89,14 +89,23 @@ const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-st
 // 199383:141554
 const ROW = String.raw`content-stretch flex gap-[8px] items-center relative shrink-0 w-full`
 
-// 199383:141555 — the title/value stack the Button sits beside.
-const STACK = String.raw`content-stretch flex flex-col gap-[8px] items-start relative shrink-0 min-w-0`
+/* 199383:141555 — the title/value stack the Button sits beside. The node says
+   `shrink-0`; here it may shrink, because the Button below is floored at its
+   own text width (see BTN) and something has to give on a frame narrower than
+   the node's. At 375 and up nothing does, so the node's geometry is what
+   renders. */
+const STACK = String.raw`content-stretch flex flex-col gap-[8px] items-start relative shrink min-w-0`
 
-/* 199383:141556. Figma's `w-[215.5px]` is measured on a 375pt frame; at 393
-   with this card's padding a fixed-width box beside a `flex-[1_0_0]` button
-   overflows the column, so the box is capped rather than fixed. Same number,
-   expressed as the maximum it was. */
-const TITLE_BOX = String.raw`content-stretch flex items-center relative shrink-0 max-w-[215.5px]`
+/* 199383:141556 — `w-[215.5px]`, the node's own number, restored.
+   It was briefly `max-w-[215.5px] shrink-0` on the reasoning that a fixed box
+   beside a `flex-[1_0_0]` button would overflow a 393 column. It does not —
+   and the swap is what the owner saw: a max-width on a shrink-0 box with no
+   width sizes to its CONTENT, so the stack collapsed to 77px and the growing
+   Button swallowed 242 of the row's 327 (74%). The node gives the Button the
+   REMAINDER of a 215.5px box: 103.5px at 393, 95.5 at 375 — about 30%, which
+   is the two-column row the design draws. The box may shrink below 215.5 on a
+   narrower frame; it never grows past it. */
+const TITLE_BOX = String.raw`content-stretch flex items-center relative shrink min-w-0 w-[215.5px] max-w-full`
 
 // 199383:141557 — ONE style now, no tone branch.
 const TITLE = String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap`
@@ -114,8 +123,15 @@ const VALUE = String.raw`[word-break:break-word] flex flex-col font-[family-name
    Figma's <div> (the node already carries `cursor-pointer`, so it is meant to
    be one). Its two drop-shadow layers both resolve to rgba(0,0,0,0), i.e. no
    shadow, but they are carried rather than "corrected" like every other token
-   on this card. */
-const BTN = String.raw`bg-[#f2f6ff] border border-[var(--colors\/slate\/900,#0f172b)] border-solid content-stretch cursor-pointer drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex flex-[1_0_0] gap-[var(--spacing\/1,4px)] items-center justify-center min-w-px px-[var(--component\/button\/size-xs\/px,10px)] py-[12px] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+   on this card.
+   ONE atom differs: the node's `min-w-px` becomes `min-w-fit`. `flex-[1_0_0]`
+   is grow 1 / shrink 0 / basis 0, so the Button only ever takes the free space
+   the 215.5px box leaves — 103.5px at 393, 95.5 at 375, both clear of the
+   ~94px "Close valve" needs at 14/600 plus its 10px pads. Below ~370 the free
+   space runs out, and `min-w-px` would let the pill crush its own label rather
+   than let the title box give way; `min-w-fit` reverses that. At and above the
+   node's own frame width the two are indistinguishable. */
+const BTN = String.raw`bg-[#f2f6ff] border border-[var(--colors\/slate\/900,#0f172b)] border-solid content-stretch cursor-pointer drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex flex-[1_0_0] gap-[var(--spacing\/1,4px)] items-center justify-center min-w-fit px-[var(--component\/button\/size-xs\/px,10px)] py-[12px] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 
 // I199383:141566;100985:11132
 const BTN_TEXT = String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif] font-semibold leading-[var(--text\/button-xs\/size,20px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/button-xs\/size,14px)] whitespace-nowrap`
