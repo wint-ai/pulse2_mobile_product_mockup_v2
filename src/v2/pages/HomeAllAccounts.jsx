@@ -1344,7 +1344,7 @@ export default function HomeAllAccounts({ expanded = false }) {
             scroll padding, and without it the last card sits flush against the
             TabBar. */}
         <div
-          className="content-stretch flex flex-col gap-[20px] items-start pb-[var(--spacing\/4,16px)] relative w-full"
+          className="content-stretch flex flex-col gap-[20px] items-start pb-[var(--spacing\/4,16px)] relative w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
           data-node-id="199360:129787"
         >
