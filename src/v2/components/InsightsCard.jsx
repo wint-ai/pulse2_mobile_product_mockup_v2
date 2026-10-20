@@ -72,6 +72,10 @@ const ADDR_MAX = 16
  * the increase (…;198328:88599). They are also the pair this repo already
  * records in insightsModel.js INSIGHT_COLOR, so the card had been ignoring its
  * own data model's colours in favour of stock Tailwind green-100/red-100.
+ * CONFIRMED 2026-10-20 against 199323:12261 (and its calm twin), which draws
+ * the +12.5% badge at bg rgba(251,44,54,0.08) over
+ * text-[color:var(--colors/red/500,#fb2c36)] — byte for byte the `bad` pair
+ * below. The increase red is Figma's now, not this repo's correction to it.
  *
  * `stroke` stays tone-driven rather than the comp's flat #0B82F8: the comp
  * draws one blue trace per row, which is exactly the drift the header note
@@ -199,12 +203,13 @@ const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:R
 const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-medium,500)]`
 
 /*
- * The badge is the one thing in the frame that may not be copied literally.
- * Figma exports #e7f2eb/#269950 because the figure it drew was -12.5%; a RISE
- * in water use is not green. Up takes the pair this repo already records as
- * its own semantic increase colour (insightsModel.js INSIGHT_COLOR 'usage-up'
- * = #FB2C36, over the 8% wash the web's own increase badge uses), so nothing
- * here is an invented red. A flat 0% is neither good nor bad and reads slate.
+ * The metric frame only ever exports #e7f2eb/#269950, because the figure it
+ * drew was -12.5%; a RISE in water use is not green. Up takes the pair this
+ * repo already records as its own semantic increase colour (insightsModel.js
+ * INSIGHT_COLOR 'usage-up' = #FB2C36, over the 8% wash the web's own increase
+ * badge uses) — and the list frame 199323:12261 now draws its own +12.5% badge
+ * at exactly that pair, so this is Figma's red, not an invented one. A flat 0%
+ * is neither good nor bad and reads slate.
  */
 const BADGE_TONE = {
   down: 'bg-[#e7f2eb] text-[#269950]',
@@ -406,7 +411,7 @@ function InsightsMetricCard({
               data-name="Unit wrapper"
             >
               <p
-                className="overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis"
+                className={String.raw`overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis`}
                 data-node-id={NODE[12]}
               >
                 {litres}
@@ -439,7 +444,22 @@ function InsightsMetricCard({
   )
 }
 
-/* ── List layout (home, 198328:88624) ──────────────────────────────────────*/
+/* ── List layout (home, 198328:88624; re-derived from the Account/Location
+      screen, 199323:12261 in the ALERT state and 199371:137xxx in the CALM one
+      — the two emit byte-identical markup for this card) ───────────────────*/
+
+/* String.raw, not a plain literal. A JS "…\\/…" reaches the DOM correctly but
+   the Tailwind scanner reads the SOURCE text, i.e. two backslashes, and emits
+   a selector the runtime class never matches; a single-backslash "…\/…"
+   collapses to a bare slash, which Tailwind then parses as an opacity
+   modifier. Only String.raw makes the scanned candidate and the emitted class
+   the same bytes. The same note sits at the top of WaterConsumptionCardV2.jsx.
+
+   The node also spells h-[380px] on this frame. That is Figma's absolute
+   canvas height and it is deliberately NOT carried, for the same reason the
+   metric card drops the alert state's h-[198px] w-[366px] — see
+   homeWidgetWidth.dom.test.jsx. */
+const LIST_SHELL = String.raw`bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[var(--p-0,0px)] items-start overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] w-full`
 
 /**
  * @param rows  [{ title, addr, kind, delta, deltaTone: 'good'|'bad', value,
@@ -521,37 +541,47 @@ export default function InsightsCard({
        used to be the shadcn <Card>, which gave it a different ground, border,
        radius and padding from every card around it — visibly a different size
        and shape in the stack. */
-    <div className={["bg-[#fafbfc] border-[length:var(--border-width\\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[var(--p-0,0px)] items-start overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] w-full", className].filter(Boolean).join(' ')}>
-      <div className="flex h-[62px] items-center justify-between w-full px-[var(--spacing\/4,16px)] py-[var(--spacing\/3,12px)]">
+    <div className={[LIST_SHELL, className].filter(Boolean).join(' ')}>
+      <div className={String.raw`flex h-[62px] items-center justify-between w-full px-[var(--spacing\/4,16px)] py-[var(--spacing\/3,12px)]`}>
         {/* 18px slate-800 with -0.45px tracking, in Figma's py-[6px] title box
-            (I198328:88624;149:2490;2780:50631). That box and the 32px control
-            opposite are what make the header 56px rather than the title's own
-            line height. */}
-        <div className="py-[var(--spacing\/1\,5,6px)]">
-          <div className="text-lg font-semibold leading-[18px] tracking-[-0.45px] text-slate-800">{title}</div>
+            (I199323:12261;149:2490;2780:50631). That box and the 32px control
+            opposite are what make the header 62px rather than the title's own
+            line height. flex-1/min-w-0 is the node's own `flex-[1_0_0]
+            min-w-px` on the Title-and-desc wrapper: the title takes the slack
+            and the View-all pill keeps its 57px. */}
+        <div className={String.raw`min-w-0 flex-1 py-[var(--spacing\/1\,5,6px)]`}>
+          <div
+            className={String.raw`w-full truncate font-semibold tracking-[-0.45px] text-[length:var(--text\/lg\/size,18px)] leading-[var(--text\/lg\/lh-none,18px)] text-[color:var(--colors\/slate\/800,#1d293d)]`}
+          >
+            {title}
+          </div>
         </div>
         {onViewAll ? (
           <button
             type="button"
             onClick={onViewAll}
-            className="flex h-[32px] w-[57px] shrink-0 cursor-pointer items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] px-[var(--component\/button\/size-default\/px,10px)] text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] font-medium text-[color:var(--colors\/slate\/500,#62748e)] outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            style={{ color: '#0B95F8' }}
+            className={String.raw`flex h-[32px] w-[57px] shrink-0 cursor-pointer items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] px-[var(--component\/button\/size-default\/px,10px)] font-medium text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/500,#62748e)] outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50`}
           >
             View all
           </button>
         ) : (
-          /* Inert by decision: no designed destination, and Rule 0 forbids
-             inventing a route. See .claude/skills/v2-page-parity. This is also
-             the only state the comp draws, at 14px slate-500
-             (I198328:88624;149:2490;197412:209455;198328:88623;6724:8007); the
-             blue above has no counterpart in Figma and is left as it was. */
+          /* Inert when the caller names no destination — Rule 0 forbids
+             inventing a route. See .claude/skills/v2-page-parity. */
           <span className="h-[32px] inline-flex items-center text-sm font-medium text-slate-500" aria-disabled="true">
             View all
           </span>
         )}
       </div>
 
-      <div>
+      {/* cardContent — I199323:12261;101006:7299. The inset belongs HERE, not on
+          each row: the node pads the content box (px component/card/padding-sm
+          16, pt component/calendar/padding 12, pb component/card/padding 24) and
+          gives every Goal `w-full`. The rows used to carry mx-[…,12px] instead,
+          which both insets them by the wrong number and made the interactive
+          variant compute its own w-[calc(100%-2rem)] to compensate. */}
+      <div
+        className={String.raw`w-full px-[var(--component\/card\/padding-sm,16px)] pt-[var(--component\/calendar\/padding,12px)] pb-[var(--component\/card\/padding,24px)]`}
+      >
         {list.map((row, i) => {
           const rowTone = TONE[row.deltaTone] ?? TONE.good
           const Glyph = kindGlyph(row)
@@ -564,37 +594,55 @@ export default function InsightsCard({
             <RowTag
               key={`${row.title}-${i}`}
               className={cn(
-                /* String.raw, not a plain literal: these are cn() arguments and a
-                   JS string eats the backslash in --component\/card\/padding-sm,
-                   so the class would never match anything in the built CSS.
-                   eslint's no-useless-escape catches it, which is how this was. */
-                String.raw`mx-[var(--component\/card\/padding-sm,12px)] py-[var(--spacing\/1\,5,6px)] flex items-center justify-between gap-3 rounded-[var(--component\/card\/radius,14px)]`,
+                /* Goal — I199323:12261;101006:7299;199323:12286. w-full with no
+                   gap and no margin: the node's Goal is a plain justify-between
+                   between the 153px name block and the 122px readings group,
+                   and the inset comes from cardContent above. */
+                String.raw`w-full py-[var(--spacing\/1\,5,6px)] flex items-center justify-between rounded-[var(--component\/card\/radius,14px)]`,
                 onSelectRow &&
-                  'w-[calc(100%-2rem)] cursor-pointer rounded-[10px] text-left outline-none transition-colors hover:bg-[rgba(11,129,248,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                  'cursor-pointer rounded-[10px] text-left outline-none transition-colors hover:bg-[rgba(11,129,248,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50',
               )}
               {...(onSelectRow
                 ? { type: 'button', onClick: () => onSelectRow(row), 'aria-label': `Open ${row.title}` }
                 : {})}
             >
-              <div className="flex h-[46px] w-[153px] min-w-0 shrink-0 flex-col items-start justify-between">
-                {/* Capped, not just CSS-truncated. Two competing `truncate`
-                    siblings shrink each other until neither is readable; the
-                    comp's own "352 Palmer.." shows the intended behaviour.
+              {/* Row — …;199323:12287. 153px, and NOT shrink-0: the node can
+                  afford shrink-0 at its 366px canvas, but below ~340px the
+                  153 + 122 pair no longer fits and a rigid block is what used
+                  to push the name over the sparkline. */}
+              <div className="flex h-[46px] w-[153px] min-w-0 flex-col items-start justify-between">
+                {/* THE OVERLAP FIX, and the node settles it. The name line is
+                    the node's own fixed 153px box (…;199323:12288) and the
+                    address inside it is `overflow-hidden text-ellipsis
+                    whitespace-nowrap` on a width Figma resolved to whatever
+                    the title left over — 100px, 65px, 76px and 60px across the
+                    four rows, i.e. "fill the remainder and ellipsise". So the
+                    address is the part that gives way, which is also what
+                    row 3 shows for a title too long for the box ("23 Arroyo
+                    Resid..."). Rendered here as a bounded flex line: both
+                    children are min-w-0 + truncate and the box clips, so a
+                    long MRG name can no longer paint across the sparkline.
+                    cap() stays — it breaks on a word boundary, which reads as a
+                    name where a bare CSS ellipsis severs mid-word — and
                     title= carries the full string for hover and a11y. */}
-                <div className="flex items-end gap-[5px] text-sm min-w-0">
+                <div className="flex w-full min-w-0 items-end gap-[5px] overflow-hidden text-sm">
                   <span
-                    className="font-semibold leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/900,#0f172b)] whitespace-nowrap"
+                    className={String.raw`min-w-0 truncate font-semibold leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/900,#0f172b)]`}
                     title={row.title}
                   >
                     {cap(row.title, TITLE_MAX)}
                   </span>
                   {row.addr && (
-                    <span
-                      className="text-[12px] leading-[var(--text\/xs\/lh-snug,16.5px)] text-[color:var(--colors\/slate\/500,#62748e)] whitespace-nowrap"
-                      title={row.addr}
-                    >
-                      {cap(row.addr, ADDR_MAX)}
-                    </span>
+                    /* …;199323:12290 — a 20px box that bottom-aligns the 12px
+                       address against the 14px title, pb-px included. */
+                    <div className="flex h-[20px] min-w-0 items-end justify-center pb-px">
+                      <span
+                        className={String.raw`min-w-0 truncate text-[12px] leading-[var(--text\/xs\/lh-snug,16.5px)] text-[color:var(--colors\/slate\/500,#62748e)]`}
+                        title={row.addr}
+                      >
+                        {cap(row.addr, ADDR_MAX)}
+                      </span>
+                    </div>
                   )}
                 </div>
                 {/* 14px slate-900, not the 11px slate-500 this used to be — the
@@ -602,7 +650,9 @@ export default function InsightsCard({
                     (I198328:88624;101006:7299;198328:88557). The glyph keeps its
                     own grey; slate-400 is the nearest token to what the tinted
                     droplet rendered before, and to the comp's own greys. */}
-                <div className="flex items-center gap-[5px] text-sm leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/900,#0f172b)] min-w-0">
+                <div
+                  className={String.raw`flex min-w-0 w-full items-center gap-[5px] text-sm leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/900,#0f172b)]`}
+                >
                   {/* A 14px glyph in an 11px slot, exactly as the comp draws it
                       (wrapper …;198328:88555): it overflows 1.5px each side
                       rather than widening the row. */}
@@ -613,35 +663,46 @@ export default function InsightsCard({
                 </div>
               </div>
 
-              {/* The tile is the svg now: the comp's 57x40 #F2F6FF rect is the
-                  sparkline's own background, with the traces running to its
-                  edges rather than a tinted box padding a smaller drawing. */}
-              <Sparkline tone={row.deltaTone} series={row.series} baseline={row.baseline} />
+              {/* The readings group — …;199323:12296. One 122px shrink-0 box
+                  holding the 57px sparkline and the 55px figure column
+                  justify-between, i.e. 10px apart and pinned to the right
+                  edge. They used to be two loose siblings of a gap-3
+                  justify-between row, which spread the slack EVENLY and left
+                  the sparkline floating in the middle of the row instead of
+                  travelling with the figures. */}
+              <div className="flex w-[122px] shrink-0 items-center justify-between">
+                {/* The tile is the svg: the comp's 57x40 #F2F6FF rect is the
+                    sparkline's own background, with the traces running to its
+                    edges rather than a tinted box padding a smaller drawing. */}
+                <Sparkline tone={row.deltaTone} series={row.series} baseline={row.baseline} />
 
-              {/* Badge over value, centred in a 55px column, 8px apart
-                  (I198328:88624;101006:7299;198328:88562). min-w rather than a
-                  fixed 55px so an unexpectedly long value grows the column
-                  instead of spilling over the sparkline. */}
-              <div className="flex w-[55px] shrink-0 flex-col items-center gap-[8px]">
-                {row.delta && (
-                  /* Text only. Every icon slot on the comp's Badge — leftIcon,
-                     rightIcon and arrow-drop-down-line — is hidden, on all three
-                     badges, and the 52px badge leaves no room for a glyph. */
-                  <span
-                    className="inline-flex h-[20px] items-center justify-center px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] rounded-[var(--component\/badge\/radius,26px)] text-[12px] leading-[var(--text\/xs\/lh,16px)] font-medium tabular-nums"
-                    style={rowTone.chip}
-                  >
-                    {row.delta}
-                  </span>
-                )}
-                {row.value && (
-                  <div className="flex items-center gap-[var(--spacing\/0\,5,2px)] text-[12px] leading-[var(--text\/xs\/lh-none,12px)] tabular-nums whitespace-nowrap">
-                    <span className="text-[color:var(--colors\/slate\/900,#0f172b)]">{valueNum}</span>
-                    {/* Figma calls this --muted-foreground; this project defines
-                        that token as slate-500 (#62748e). */}
-                    {valueUnit && <span className="text-[color:var(--muted-foreground,#737373)]">{valueUnit}</span>}
-                  </div>
-                )}
+                {/* Badge over value, centred in a 55px column, 8px apart
+                    (…;199323:12300). */}
+                <div className="flex w-[55px] shrink-0 flex-col items-center gap-[8px]">
+                  {row.delta && (
+                    /* Text only. Every icon slot on the comp's Badge — leftIcon,
+                       rightIcon and arrow-drop-down-line — is hidden, on all three
+                       badges, and the 52px badge leaves no room for a glyph. */
+                    <span
+                      className={String.raw`inline-flex h-[20px] items-center justify-center px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] rounded-[var(--component\/badge\/radius,26px)] font-medium tabular-nums text-[12px] leading-[var(--text\/xs\/lh,16px)]`}
+                      style={rowTone.chip}
+                    >
+                      {row.delta}
+                    </span>
+                  )}
+                  {row.value && (
+                    <div
+                      className={String.raw`flex items-center gap-[var(--spacing\/0\,5,2px)] tabular-nums whitespace-nowrap text-[12px] leading-[var(--text\/xs\/lh-none,12px)]`}
+                    >
+                      <span className={String.raw`text-[color:var(--colors\/slate\/900,#0f172b)]`}>{valueNum}</span>
+                      {/* Figma calls this --muted-foreground; this project defines
+                          that token as slate-500 (#62748e). */}
+                      {valueUnit && (
+                        <span className={String.raw`text-[color:var(--muted-foreground,#737373)]`}>{valueUnit}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </RowTag>
           )

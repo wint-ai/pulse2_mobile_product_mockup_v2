@@ -10,6 +10,13 @@
  *   198378:79411  Sensors_Errors  308x136 — pager on top, connected badges
  *   198374:72758  empty           308x136 — "Everything looks good!"
  *
+ * The `mobile` variant was re-cut against 199383:141993 ("Alert card" inside
+ * System page_mobile 199383:141499, 2026-10-20): a hugging shell at gap-[12px]
+ * / p-[18px], a red/600 status pill, a 24px title beside the waves avatar, and
+ * the figures restated as three "Unit wrapper" chips instead of the inline
+ * value/unit pair and the "Detected · … · …" meta row. The other five variants
+ * are untouched and still answer to the nodes above.
+ *
  * Figma's own class strings are kept VERBATIM. Every var() it emits carries its
  * literal design fallback (text-[color:var(--colors\/slate\/600,#45556c)]), and
  * none of those token names exist in src/index.css, so the fallback is what
@@ -209,13 +216,38 @@ const SHELL_WATER_EVENT = `${SHELL} max-w-[440px]`
    with every neutral card around it; the design uses the severity colour on
    the card's own edge to mark it out. Only the live variant: `ignored` keeps
    SHELL below, because an ignored event is deliberately muted. */
-const SHELL_MOBILE = String.raw`bg-[#fafbfc] border border-[var(--colors\/red\/500,#fb2c36)] border-solid content-stretch flex flex-col gap-[20px] min-h-[178px] items-start px-[18px] py-[12px] relative rounded-[var(--rounded-2xl,18px)] w-full`
+/* 199383:141993 (System page_mobile, 2026-10-20) re-cut this shell: gap-[20px]
+   -> gap-[12px], px-[18px] py-[12px] -> a uniform p-[18px], and no height at
+   all — the frame hugs its content now. min-h-[178px] went with it: the node
+   sets none, and the three unit chips below already carry the card past 178. */
+const SHELL_MOBILE = String.raw`bg-[#fafbfc] border border-[var(--colors\/red\/500,#fb2c36)] border-solid content-stretch flex flex-col gap-[12px] items-start p-[18px] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full`
 const INNER_COLUMN = 'content-stretch flex flex-[1_0_0] flex-col items-start justify-between min-h-px relative w-full'
 
 /* Gradient stacks on the sensor stat badges. Each badge carries its own angle in
    the design (the gradient is baked per-instance), so they are not collapsed. */
 const BADGE_SHEEN = (deg) =>
   `linear-gradient(${deg}deg, rgba(233, 238, 248, 0.8) 8.3855%, rgba(227, 235, 249, 0.8) 32.2%, rgba(228, 235, 250, 0.8) 40.822%, rgba(212, 226, 255, 0.8) 71.236%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)`
+
+/* ── "Unit wrapper" chips (199383:142005 / :142386 / :142430) ───────────────
+ * The mobile card's figures moved out of the title block and the meta row and
+ * into three of these. A different sheen angle is baked into each instance —
+ * 169.165…, 167.400…, 173.142… — so, like BADGE_SHEEN above, the angle is a
+ * parameter and the three are not collapsed into one. The stop list is carried
+ * EXACTLY as Figma emits it, out-of-order offsets and all (12.35% trails
+ * 29.24%); CSS clamps a non-monotonic stop to its predecessor, which is the
+ * render the design file itself shows. */
+const CHIP_SHEEN = (deg) =>
+  `linear-gradient(${deg}deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)`
+
+const CHIP = String.raw`content-stretch flex gap-[var(--spacing\/1\,5,6px)] items-center justify-center px-[8px] py-[4px] relative rounded-[12px] shrink-0`
+const CHIP_LABEL = String.raw`font-sans font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative shrink-0 text-[#62748e] text-ellipsis`
+/* The first two chips size their own label at 14px; the "Detected" chip sets
+   text-[14px] on the wrapper instead and lets both halves inherit it, so its
+   value reads 14px/22.75px where the other two read 16px/26px. */
+const CHIP_LABEL_14 = `${CHIP_LABEL} text-[14px]`
+const CHIP_VALUE_SLATE = String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative shrink-0 text-[16px] text-[color:var(--colors\/slate\/700,#314158)] text-ellipsis`
+const CHIP_VALUE_ALERT = String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative shrink-0 text-[16px] text-[color:var(--colors\/red\/600,#e7000b)] text-ellipsis`
+const CHIP_VALUE_SM = String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/sm\/lh-relaxed,22.75px)] overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/700,#314158)] text-ellipsis`
 
 /* ── Mock data ─────────────────────────────────────────────────────────────
  * MOCK ONLY. Every string here is the literal copy on the Figma nodes, so an
@@ -315,6 +347,23 @@ function DetectedRow({ event }) {
       <p className={META_LABEL}>{event.detectedLabel}</p>
       <p className={META_TIME}>{event.detectedAt}</p>
       <p className={META_DURATION}>{event.duration}</p>
+    </div>
+  )
+}
+
+/**
+ * One "Unit wrapper" chip — label then figure, on the baked gradient sheen.
+ * Figma nests the gradient on the chip itself rather than in a layer, so the
+ * inline style IS the background and there is no blend stack to mirror.
+ */
+function UnitChip({ deg, label, value, labelClass = CHIP_LABEL_14, valueClass = CHIP_VALUE_SLATE, className }) {
+  return (
+    <div
+      className={className ? `${CHIP} ${className}` : CHIP}
+      style={{ backgroundImage: CHIP_SHEEN(deg) }}
+    >
+      <p className={labelClass}>{label}</p>
+      <p className={valueClass}>{value}</p>
     </div>
   )
 }
@@ -451,48 +500,97 @@ export default function AlertCard({
   if (variant === 'mobile') {
     return shell(SHELL_MOBILE, (
       <>
-        <div className={INNER_COLUMN}>
-          <div className="content-stretch flex items-center justify-between relative shrink-0 w-full">
-            <div className="content-stretch flex gap-[4px] items-center relative shrink-0 w-[160px]">
-              {/* A "1 / 1" pager is a control that cannot do anything —
-                  there is no next alert to page to. The carousel is the real
-                  pager anyway; this only earns its place once there are two. */}
-              {data.pageCount > 1 ? (
-              <Button
-                type="button"
-                size="xs"
-                variant="secondary"
-                onClick={act('paginate')}
-                aria-label={`Alert ${data.page} of ${data.pageCount}. Show next`}
-                className={String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch cursor-pointer flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0 ${CTRL_SHADOW}`}
-              >
-                <p className={PAGER_LABEL}>
-                  <span className={`${PAGER_SPAN} text-[#62748e]`}>{data.page} /</span>
-                  <span className={PAGER_SPAN}>{' '}</span>
-                  <span className={`${PAGER_SPAN} text-[#90a1b9]`}>{data.pageCount}</span>
-                </p>
-              </Button>
-              ) : null}
-              {/* Figma draws "Ongoing" with the Button component, but it states
-                  status and has no destination — a Badge, so it is not a dead
-                  button. `destructive` is the matching Type and its
-                  border-transparent keeps the pill borderless as drawn. */}
-              <Badge
-                variant="destructive"
-                className={String.raw`bg-[var(--colors\/red\/500,#fb2c36)] content-stretch flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0 ${CTRL_SHADOW}`}
-              >
-                <span className="[word-break:break-word] font-sans font-medium leading-[var(--text\/button-xs\/size,12px)] relative shrink-0 text-[#fafbfc] text-[length:var(--text\/button-xs\/size,12px)] whitespace-nowrap">
-                  {data.status}
-                </span>
-              </Badge>
+        {/* 199383:142348 > :142389. Figma wraps the status pill in two bare
+            boxes; they are kept so the pill keeps hugging at the card's left
+            edge while the shell's own gap-[12px] does the vertical spacing
+            INNER_COLUMN's justify-between used to do (the frame has no fixed
+            height any more, so "spread to fill" had nothing to spread into). */}
+        <div className="content-stretch flex flex-col items-start relative shrink-0 w-full">
+          <div className="content-stretch flex gap-[4px] items-center justify-center relative shrink-0">
+            {/* A "1 / 1" pager is a control that cannot do anything —
+                there is no next alert to page to. The carousel is the real
+                pager anyway; this only earns its place once there are two.
+
+                199383:141993 draws no pager at all, but it is a single-alert
+                frame, so the node cannot say whether a two-alert card still
+                wants one. It is live functionality (onAction('paginate')),
+                so it stays under its existing pageCount > 1 gate, and the
+                wrapper above is a row rather than the node's flex-col for
+                that reason only — with one alert, the node's layout. */}
+            {data.pageCount > 1 ? (
+            <Button
+              type="button"
+              size="xs"
+              variant="secondary"
+              onClick={act('paginate')}
+              aria-label={`Alert ${data.page} of ${data.pageCount}. Show next`}
+              className={String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch cursor-pointer flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0 ${CTRL_SHADOW}`}
+            >
+              <p className={PAGER_LABEL}>
+                <span className={`${PAGER_SPAN} text-[#62748e]`}>{data.page} /</span>
+                <span className={PAGER_SPAN}>{' '}</span>
+                <span className={`${PAGER_SPAN} text-[#90a1b9]`}>{data.pageCount}</span>
+              </p>
+            </Button>
+            ) : null}
+            {/* Figma draws "Ongoing" with the Button component, but it states
+                status and has no destination — a Badge, so it is not a dead
+                button. `destructive` is the matching Type and its
+                border-transparent keeps the pill borderless as drawn.
+                199383:142434 darkens the fill one step, red/500 -> red/600. */}
+            <Badge
+              variant="destructive"
+              className={String.raw`bg-[var(--colors\/red\/600,#e7000b)] content-stretch flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0 ${CTRL_SHADOW}`}
+            >
+              <span className="[word-break:break-word] font-sans font-medium leading-[var(--text\/button-xs\/size,12px)] relative shrink-0 text-[#fafbfc] text-[length:var(--text\/button-xs\/size,12px)] whitespace-nowrap">
+                {data.status}
+              </span>
+            </Badge>
+          </div>
+        </div>
+
+        {/* 199383:141999. The avatar + title row, without EventSummary: the
+            shared piece pairs the title with the flow figure underneath it,
+            and on this node the figure has moved into the first chip below.
+            EventSummary still serves `water-event` and `ignored` unchanged.
+            The title is the node's own 24px (text/2xl) at tracking-[-0.6px],
+            two steps up from the 16px TITLE those variants draw. */}
+        <div className="content-stretch flex gap-[11px] items-center relative shrink-0">
+          <div className={AVATAR_ALERT}>
+            <div className="relative shrink-0 size-[19.111px]">
+              <Waves size={19.111} className={`block size-full text-[#fb2c36] ${WAVES_WEIGHT}`} />
             </div>
           </div>
-
-          <div className="content-stretch flex gap-[11px] items-center relative shrink-0 w-full">
-            <EventSummary event={data} />
+          <div className="content-stretch flex items-start relative shrink-0">
+            <p
+              className={String.raw`[word-break:break-word] font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-none,24px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/2xl\/size,24px)] tracking-[-0.6px] whitespace-nowrap`}
+              dir="auto"
+            >
+              {data.title}
+            </p>
           </div>
+        </div>
 
-          <DetectedRow event={data} />
+        {/* 199383:142572 — the figures, as three "Unit wrapper" chips: the flow
+            rate, the duration, and the detection timestamp. This replaces
+            DetectedRow ("Detected · <at> · <duration>") on this variant only;
+            the same four fields are still on screen, with `duration` gaining
+            the node's literal "Duration" caption and `unit` / `value` moving
+            out of the title block. Chips 1 and 2 share a row at gap-[11px],
+            chip 3 sits under them at the column's gap-[9px]. */}
+        <div className="[word-break:break-word] content-stretch flex flex-col gap-[9px] items-start relative shrink-0 whitespace-nowrap">
+          <div className="content-stretch flex gap-[11px] items-start relative shrink-0">
+            <UnitChip deg={169.1652530804488} label={data.unit} value={data.value} />
+            <UnitChip deg={167.3997851232744} label="Duration" value={data.duration} valueClass={CHIP_VALUE_ALERT} />
+          </div>
+          <UnitChip
+            deg={173.14228302199342}
+            className="text-[14px]"
+            labelClass={CHIP_LABEL}
+            label={data.detectedLabel}
+            value={data.detectedAt}
+            valueClass={CHIP_VALUE_SM}
+          />
         </div>
 
         {actions ? (

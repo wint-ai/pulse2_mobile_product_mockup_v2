@@ -198,9 +198,22 @@ describe('granularity is a dropdown', () => {
      dead assertion alive would be worse than saying so. What replaces it is
      the equivalent "the control renders where it should" rule for a dropdown,
      which is a sharper one, below. */
+  /* NARROWED 2026-10-20, not weakened. rounded-[34px] was a reliable proxy for
+     "the segment track" only while the card drew nothing else at that radius.
+     It now draws one more thing: 199323:12260 / 199371:137298 spell the
+     CalendarCaption as a slate/100 w-full track at rounded-[34px] with the nav
+     buttons sitting transparent on top of it, so the caption legitimately
+     carries the radius the segment track used to own. The exclusion is by
+     data-name, which means the assertion still fails for ANY other
+     rounded-[34px] box — including a restored segment track — rather than
+     being relaxed to let the radius through generally. */
   it('no longer ships the slate segment track', () => {
     const { container } = renderCard()
-    expect(container.querySelector('[class*="rounded-[34px]"]')).toBeNull()
+    expect(
+      container.querySelector('[class*="rounded-[34px]"]:not([data-name="CalendarCaption"])'),
+    ).toBeNull()
+    // And the caption is the only thing left wearing it.
+    expect(container.querySelectorAll('[class*="rounded-[34px]"]')).toHaveLength(1)
     expect(within(container).queryAllByRole('radio')).toHaveLength(0)
   })
 

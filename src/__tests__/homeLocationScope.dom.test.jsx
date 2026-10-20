@@ -91,7 +91,7 @@ describe('account scoping', () => {
     // MRG owns 101 systems directly; 2 more sit under Southbridge Health, a
     // child account. Scoping to the root must see all 103, not just the 101 —
     // an account scope has to roll its children up.
-    expect(text).toContain(`of ${SYSTEMS.length} systems need attention`)
+    expect(text).toContain(`/ ${SYSTEMS.length} need attention`)
   })
 
   it('a sub-account scopes to just its own systems', () => {
@@ -106,8 +106,8 @@ describe('account scoping', () => {
 
     const { container } = mountAt(`/location/${encodeURIComponent(subName)}`)
     const text = (container.textContent || '').replace(/\s+/g, ' ')
-    expect(text).toContain(`of ${subCount} systems need attention`)
-    expect(text).not.toContain(`of ${SYSTEMS.length} systems need attention`)
+    expect(text).toContain(`/ ${subCount} need attention`)
+    expect(text).not.toContain(`/ ${SYSTEMS.length} need attention`)
   })
 })
 
@@ -130,8 +130,8 @@ describe('location scoping', () => {
     const text = (container.textContent || '').replace(/\s+/g, ' ')
 
     // The reported symptom: "United States" rendered 0 / 0 and six zero pills.
-    expect(text).not.toContain('All 0 systems are healthy')
-    expect(text).toContain(`of ${own} systems need attention`)
+    expect(text).not.toContain('0 systems')
+    expect(text).toContain(`/ ${own} need attention`)
   })
 
   it('the dataset offers two locations of different sizes', () => {
@@ -185,7 +185,7 @@ describe('location scoping', () => {
        my first version of this test failed for exactly that reason, and the
        code was right. */
     // Zeros, not the comp's mock figures: an empty scope is all-clear of nothing.
-    expect(text).toContain('All 0 systems are healthy')
+    expect(text).toContain('0 systems')
 
     // MOCK_HEALTH_STATS is 8 of 3,431 and MOCK_INSIGHTS leads with a row the
     // real data never produces. Neither may reach the screen for a real scope.
@@ -203,7 +203,7 @@ describe('location scoping', () => {
 
     const { container } = mountAt(`/location/${encodeURIComponent(office)}`)
     const text = (container.textContent || '').replace(/\s+/g, ' ')
-    expect(text).toContain(`of ${own} systems need attention`)
-    expect(text).not.toContain(`of ${SYSTEMS.length} systems need attention`)
+    expect(text).toContain(`/ ${own} need attention`)
+    expect(text).not.toContain(`/ ${SYSTEMS.length} need attention`)
   })
 })

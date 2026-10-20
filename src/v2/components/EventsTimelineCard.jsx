@@ -3,20 +3,37 @@
  *
  * Design source: Figma file YEmjkKS4xaA827Zm8w3oXx, the "Events Timeline" card
  * as it appears on the two states of the redesigned mobile System page. Both
- * nodes were fetched whole and diffed against each other, never assumed equal:
- *   calm   199296:50453   (inside page 199296:50183 "SystemPageMobile")
- *   alert  199296:50716   (inside page 199296:50454)
+ * pages were emitted whole and diffed against each other, never assumed equal:
+ *   alert  199383:141630  (inside page 199383:141499 — the page WITH the red
+ *                          event card: "High flow event" / "Ongoing")
+ *   calm   199359:126908  (inside page 199359:126785 — no event card)
+ * The card's layer name is still the shadcn template leftover
+ * "Card • Q2 Dividend Income"; that card IS the Events Timeline.
  *
- * ── What differs between the two states ──────────────────────────────────────
- * With the per-instance data-node-ids normalised away, the two emitted ranges
- * differ in exactly ONE place: the CardHeader title.
+ * (Supersedes the earlier pass's nodes 199296:50453 / 199296:50716, which were
+ * an older copy of the same two pages. The sub-paths under the card are
+ * identical, so the old → new id map is 1:1; the data-node-id attributes below
+ * now carry the ALERT lineage, I199383:141630;… . The calm card's sub-paths are
+ * the same with the root swapped and two per-instance ids differing:
+ * 199383:141770/141771 → 199359:127052/127053.)
+ *
+ * ── What differs between the two states: NOTHING ─────────────────────────────
+ * With the per-instance data-node-ids normalised away, the two 249-line emitted
+ * ranges are byte-for-byte identical except the NAME of the asset const holding
+ * the waves glyph (imgPhosphorIconsWaves1 in the alert page vs
+ * imgPhosphorIconsWaves in the calm one) — both resolve to the same file,
+ * 2dc55.svg, so even the artwork is the same.
+ *
+ * In particular the CardHeader title no longer differs. The earlier pass found
  *   calm   Figtree Regular  font-normal 400  slate/700 #314158  no tracking
  *   alert  Figtree SemiBold font-semibold 600 slate/800 #1d293d tracking -0.45px
- * The only other textual diff is the name of the asset const holding the waves
- * glyph (imgPhosphorIconsWaves vs imgPhosphorIconsWaves1) — both resolve to the
- * same file (2dc55.svg), so the artwork is identical. Everything else — card
- * shell, "All" control, row structure, type, colour, spacing — is byte-for-byte
- * the same in both ranges. Hence `tone`, and nothing more.
+ * and encoded it as `tone`. The redesign has unified the title on the SemiBold /
+ * slate-800 / -0.45px spelling: `slate\/700,#314158` does not occur anywhere in
+ * either page any more. Both TITLE_TONE entries therefore now hold the one
+ * spelling the design draws. `tone` is kept as a prop — SystemPageV2Screen and
+ * EventFocusOverlay both pass it and the API must not change — but it is, as of
+ * these nodes, cosmetically inert. It is NOT deleted: re-divergence is a Figma
+ * edit away, and this is the seam that would carry it.
  *
  * ── How the classes are written ──────────────────────────────────────────────
  * Every utility below is Figma's own output, kept verbatim, e.g.
@@ -31,6 +48,25 @@
  * what Tailwind's file scanner reads, so neither spelling survives both sides.
  * Every class string that lives in JS below therefore uses String.raw.
  *
+ * THE leading-/text-[length:] TRAP, a second time. tailwind-merge treats a
+ * `leading-*` atom as conflicting with a font-size atom, so a `leading-` placed
+ * BEFORE `text-[length:…]` in the SAME cn() call is silently deleted. Figma
+ * emits its classes alphabetically, which always puts `leading-` first. Any
+ * string below that reaches a cn() therefore spells line-height LAST. This bit
+ * BADGE_LABEL once; it was also silently eating the header title's
+ * leading-[18px] (CardTitle is cn("…leading-none…", className)), which is why
+ * TITLE_TONE is now ordered too. Strings that go straight into a JSX attribute
+ * never meet twMerge and keep Figma's own order.
+ *
+ * FONT FAMILY. Figma emits font-[family-name:var(--font\/family\/sans,
+ * 'Figtree:SemiBold')] on every text node. 'Figtree:SemiBold' is a Figma style
+ * name, not a CSS family, and this project does not define --font/family/sans,
+ * so the bare Figma spelling resolves to nothing and the element would fall off
+ * Figtree onto the UA default. It is carried with the house fallback tail
+ * (InsightsCard.jsx:198) — ,'Figtree','Inter',sans-serif — which is the family
+ * the card inherits from body today, so the rendered pixels do not move; it
+ * only stops the card depending on inheritance.
+ *
  * Three of Figma's vars are flattened to their literals, because this project
  * DOES define them and with different values, so the fallback never reaches the
  * page (src/index.css:62,68,79):
@@ -41,15 +77,40 @@
  * In each case the literal is the colour the Figma node actually renders.
  *
  * ── Where this deviates from a literal translation, and why ──────────────────
- * 1. Row stacking. Figma emits the three rows as fixed boxes with
- *    mb-[-24px] / pt-[48px] / h-[116px|164px|120px] — absolute-position fallout
- *    from a fixed-height frame. Resolved, that pair is a flat 24px gap between
- *    rows and a rail that stops 4px short of the next avatar. It is rendered as
- *    pb-[24px] on the text column and pb-[4px] on the avatar column, which is
- *    the same picture from data-driven rows of any count.
+ * 1. Row stacking, and WHY THE THREE ROWS HAVE THREE DIFFERENT HEIGHTS. Figma
+ *    emits them as fixed boxes:
+ *      row 1  h-[116px]            mb-[-24px]   gap-[10px]  avatar h-[89px]
+ *      row 2  h-[164px] pt-[48px]  mb-[-24px]   gap-[12px]  avatar h-[93px]
+ *      row 3  h-[120px] pt-[48px]               gap-[12px]  avatar h-[93px]
+ *    None of those three numbers is a design decision, so none is hardcoded:
+ *      · One row's CONTENT is 116px tall — Text block 81 + gap-[23px] + the
+ *        12px timestamp line. That is row 1 exactly.
+ *      · Rows 2 and 3 add pt-[48px] on top of that same content, and every row
+ *        but the last carries mb-[-24px]. 48 − 24 = a flat 24px gap between one
+ *        row's content and the next. Row 1 has no pt because it is first; row 3
+ *        has no mb because it is last. 164 = 48 + 116 is the identical row,
+ *        offset.
+ *      · 120 is not a third row height, it is the first two cut off. Laid out,
+ *        the list is 116 − 24 + 164 − 24 + 164 = 396px tall but cardContent is
+ *        hug-height inside a card pinned to h-[380px] with overflow-clip, which
+ *        leaves 380 − 62 (header) − 12 − 12 (py) = 294px. Row 3's box starts at
+ *        232, so ~72px of its 116 survives the clip and Figma reports the
+ *        clipped bounding box, 48 + 72 = 120. The design is showing two whole
+ *        events and the top of a third; it is not drawing a short row.
+ *    Resolved, the whole pair is: a 24px gap between rows, and a rail that stops
+ *    4px short of the next avatar (avatar 24 + the column's own gap-[4px] + a
+ *    108px rail = 136, against the next avatar's top at 116 + 24 = 140). It is
+ *    rendered as pb-[24px] on the text column and pb-[4px] on the avatar column
+ *    — the same picture, from data-driven rows of any count and any content
+ *    height. See 3 for what replaces the clip.
  * 2. w-[273px] on rows 2–3's text column is a frame artifact (row 1 emits
- *    flex-[1_0_0] min-w-px for the very same slot). Row 1's value is used for
- *    every row so the card fits any phone width.
+ *    flex-[1_0_0] min-w-px for the very same slot — 273px is just the one-line
+ *    width of "Leak confirmed — flow sustained above threshold" at 14px). Row 1's
+ *    value is used for every row so the card fits any phone width. The same
+ *    artifact wraps rows 2–3 in an extra hug-width div inside a justify-center
+ *    row; honouring THAT would indent rows 2–3 by ~17px at 393px and make the
+ *    rail zigzag between row 1's avatar and row 2's, which is plainly not the
+ *    drawing. The wrapper is flattened and its gap-[12px] moved onto the row.
  * 3. cardContent is flex-1 + overflow-y-auto instead of shrink-0 +
  *    overflow-clip, and the node's h-[380px] is carried as max-h-[380px].
  *    With the comp's three rows the two are identical — row 3 still cuts off
@@ -68,6 +129,17 @@
  * 5. The metrics line adds flex-wrap + gap-y-[6px]. At the designed values it
  *    is pixel-identical (the three pairs fit on one line at 375); it only ever
  *    acts on longer real values.
+ * 6. The LAST row draws no rail. Figma's row 3 does carry a Separator, and an
+ *    open-ended one (flex-[1_0_0], where rows 1–2 are h-[108px]) — but that is
+ *    the same clip as in 1: row 3 is the top of a cut-off event, so its rail
+ *    running off the bottom edge is the "there is more below" affordance of a
+ *    FIXED frame. On a list that actually ends, a rail under the final avatar
+ *    dangles into nothing. The rail therefore stops at row n−1; the scroller
+ *    from 3 is what carries "there is more below" here.
+ * 7. The footer "Unit wrapper" gets justify-between + w-full (Figma hugs it,
+ *    because the comp's rows carry only a timestamp). The slot's optional Tag
+ *    and "n sent" chips — which the live page does pass — need the right edge.
+ *    With a timestamp alone the two are identical.
  *
  * ── Icons ────────────────────────────────────────────────────────────────────
  * Nothing references a figma.com asset URL at runtime — those expire. Every
@@ -156,7 +228,17 @@ function Bell12() {
 // ── Design tokens read off the two nodes ─────────────────────────────────────
 
 /**
- * Card root — 199296:50453 (calm) / 199296:50716 (alert). Identical in both.
+ * Figma's font-family atom, with the house fallback tail so the Figma style
+ * name ('Figtree:SemiBold' — not a CSS family) cannot drop the element off
+ * Figtree. Same spelling as InsightsCard.jsx:198. Family only; the weight is a
+ * separate atom on each node, as Figma emits it.
+ */
+const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
+const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
+const FIG_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
+
+/**
+ * Card root — 199383:141630 (alert) / 199359:126908 (calm). Identical in both.
  * The shadow is fully transparent because that is what the Figma effect
  * resolves to; it is kept rather than substituted with the project Card's.
  */
@@ -165,15 +247,29 @@ const CARD_ROOT = String.raw`bg-[#fafbfc] border-[length:var(--border-width\/bor
 /** CardHeader — I…;149:2490. gap-[var(--p-0,0px)] cancels the project Card's gap-1. */
 const CARD_HEADER = String.raw`content-stretch flex gap-[var(--p-0,0px)] h-[62px] items-center justify-between px-[var(--spacing\/5,20px)] py-[var(--spacing\/3,12px)] relative shrink-0 w-full`
 
-/** The one thing the two states disagree about — I…;149:2490;2780:50631. */
+/**
+ * Header title — I…;149:2490;2780:50631.
+ *
+ * Both Figma states now draw the SAME title (see the header comment): Figtree
+ * SemiBold / font-semibold 600 / slate-800 #1d293d / 18px / lh 18px /
+ * tracking -0.45px. `calm` and `alert` therefore hold the same string. The map
+ * survives because `tone` is a public prop and this is where a re-divergence
+ * would land; nothing else in the card branches on it.
+ *
+ * ORDER MATTERS — leading-* LAST. CardTitle is cn("…leading-none…", className),
+ * so a leading- spelled ahead of text-[length:…] (Figma's own alphabetical
+ * order) is deleted by tailwind-merge and the title silently renders at the
+ * UA's ~1.2em instead of the design's 18px.
+ */
+const TITLE_FIGMA = String.raw`[word-break:break-word] ${FIG_SEMI} font-[var(--font\/weight\/font-semibold,600)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/lg\/size,18px)] leading-[var(--text\/lg\/lh-none,18px)] tracking-[-0.45px] w-full`
 const TITLE_TONE = {
-  calm: String.raw`[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/lg\/lh-none,18px)] relative shrink-0 text-[color:var(--colors\/slate\/700,#314158)] text-[length:var(--text\/lg\/size,18px)] tracking-[var(--font\/tracking\/tracking-normal,0px)] w-full`,
-  alert: String.raw`[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/lg\/lh-none,18px)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/lg\/size,18px)] tracking-[-0.45px] w-full`,
+  calm: TITLE_FIGMA,
+  alert: TITLE_FIGMA,
 }
 
-/** The "All" Button — I…;149:2490;197412:209455;199296:50452. */
+/** The "All" Button — I…;149:2490;197412:209455;199383:141771. */
 const FILTER_BUTTON = String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch cursor-pointer drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-center px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0`
-const FILTER_LABEL = String.raw`[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] relative shrink-0 text-[color:#171717] text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap`
+const FILTER_LABEL = String.raw`[word-break:break-word] ${FIG_MED} font-medium relative shrink-0 text-[color:#171717] text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] whitespace-nowrap`
 
 /**
  * cardContent — I…;101006:7299. See deviation 3 in the header comment for
@@ -187,7 +283,7 @@ const CARD_CONTENT = String.raw`content-stretch flex flex-[1_1_0%] flex-col gap-
  * colour the node specifies.
  *
  * `warning` is the chip the redesign actually draws — red/100 on red/900,
- * reading "Ongoing" (I…;101006:7299;199296:50373). The other three entries are
+ * reading "Ongoing" (I…;101006:7299;199383:141692). The other three entries are
  * untouched from the previous design pass: the redesigned comp has no node for
  * a resolved, shut-off or badge-leading row, and inventing one is forbidden, so
  * those rows keep the treatment they ship with today.
@@ -198,7 +294,7 @@ const BADGE_TONE = {
     variant: 'secondary',
     className: String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] text-[#509fef]`,
   },
-  // 199296:50373 — the redesign's own chip.
+  // 199383:141692 — the redesign's own chip.
   warning: {
     variant: 'secondary',
     className: String.raw`bg-[var(--colors\/red\/100,#ffe2e2)] text-[color:var(--colors\/red\/900,#82181a)]`,
@@ -215,7 +311,7 @@ const BADGE_TONE = {
   },
 }
 
-/** Avatar bubble tint per event kind. 199296:50365 (water) / 198352:121532 (network). */
+/** Avatar bubble tint per event kind. 199383:141684 (water) / 198352:121532 (network). */
 const KIND_TONE = {
   water: String.raw`bg-[var(--colors\/red\/100,#ffe2e2)]`,
   network: String.raw`bg-[var(--colors\/blue\/100,#dbeafe)]`,
@@ -228,15 +324,15 @@ const BADGE_BASE = String.raw`border-transparent content-stretch flex gap-[var(-
    `text-[12px]` is silently deleted and the badge loses its line-height.
    Figma emits its classes alphabetically, which puts `leading-` first, so a
    verbatim copy has this bug. Same class set, line-height last. */
-const BADGE_LABEL = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] overflow-hidden relative shrink-0 text-[12px] text-ellipsis whitespace-nowrap leading-[var(--text\/xs\/lh,16px)]`
+const BADGE_LABEL = String.raw`[word-break:break-word] ${FIG_MED} font-[var(--font\/weight\/font-medium,500)] overflow-hidden relative shrink-0 text-[12px] text-ellipsis whitespace-nowrap leading-[var(--text\/xs\/lh,16px)]`
 
-/** Avatar column — I…;101006:7299;199296:50364. */
+/** Avatar column — I…;101006:7299;199383:141683. */
 const AVATAR_COL = String.raw`content-stretch flex flex-col gap-[var(--pro\/space\/1,4px)] items-center relative shrink-0`
-/** Text column — I…;101006:7299;199296:50368. */
+/** Text column — I…;101006:7299;199383:141687. */
 const TEXT_COL = String.raw`content-stretch flex flex-[1_0_0] flex-col gap-[23px] items-start min-w-px relative`
-/** "Text" block — I…;101006:7299;199296:50369. */
+/** "Text" block — I…;101006:7299;199383:141688. */
 const TEXT_BLOCK = String.raw`content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] items-start relative shrink-0 w-full`
-/** Footer "Unit wrapper" — I…;101006:7299;199296:50387. */
+/** Footer "Unit wrapper" — I…;101006:7299;199383:141706. */
 const UNIT_WRAPPER = String.raw`content-stretch flex gap-[var(--spacing\/0\,5,2px)] items-center justify-between relative shrink-0 w-full`
 
 /** Filter menu. No node in the comp — see the `All` note on the component. */
@@ -344,8 +440,8 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
   const title = (
     /* Figma has `shrink-0 whitespace-nowrap` here; see deviation 4. */
     <p
-      className="[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/sm\/lh,20px)] min-w-0 overflow-hidden relative text-[color:#0a0a0a] text-[length:var(--text\/sm\/size,14px)] text-ellipsis whitespace-nowrap"
-      data-node-id="I199296:50453;101006:7299;199296:50372"
+      className={String.raw`[word-break:break-word] ${FIG_SEMI} font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/sm\/lh,20px)] min-w-0 overflow-hidden relative text-[color:#0a0a0a] text-[length:var(--text\/sm\/size,14px)] text-ellipsis whitespace-nowrap`}
+      data-node-id="I199383:141630;101006:7299;199383:141691"
     >
       {event.title}
     </p>
@@ -355,7 +451,7 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
     <Badge
       variant={tone.variant}
       className={cn(BADGE_BASE, tone.className)}
-      data-node-id="I199296:50453;101006:7299;199296:50373"
+      data-node-id="I199383:141630;101006:7299;199383:141692"
       data-name="Badge"
     >
       <span className={BADGE_LABEL}>{event.badge.label}</span>
@@ -369,13 +465,13 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
         /* Figma's first row is gap-[10px]; every later row is gap-[12px]. */
         index === 0 ? 'gap-[10px]' : 'gap-[12px]',
       )}
-      data-node-id="I199296:50453;101006:7299;199296:50363"
+      data-node-id="I199383:141630;101006:7299;199383:141682"
       data-name="Activity feed item"
     >
-      {/* Avatar + rail — I…;199296:50364. pb-[4px] is the gap Figma leaves
+      {/* Avatar + rail — I…;199383:141683. pb-[4px] is the gap Figma leaves
           between the end of the rail and the next avatar (the rail is 108px in
           a 24+4+108 column, i.e. it stops 4px short). */}
-      <div className={cn(AVATAR_COL, !isLast && 'pb-[4px]')} data-node-id="I199296:50453;101006:7299;199296:50364" data-name="Avatar">
+      <div className={cn(AVATAR_COL, !isLast && 'pb-[4px]')} data-node-id="I199383:141630;101006:7299;199383:141683" data-name="Avatar">
         <div
           className={cn(
             'content-stretch flex items-center justify-center relative shrink-0 size-[24px]',
@@ -384,35 +480,38 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
             event.avatarShape === 'circle' ? 'rounded-[30px]' : 'rounded-[8.19px]',
             KIND_TONE[event.kind] ?? KIND_TONE.water,
           )}
-          data-node-id="I199296:50453;101006:7299;199296:50365"
+          data-node-id="I199383:141630;101006:7299;199383:141684"
         >
           {event.kind === 'network' ? (
             <Wifi02 />
           ) : (
-            <span className="relative shrink-0 size-[13px]" data-node-id="I199296:50453;101006:7299;199296:50366" data-name="Phosphor Icons / waves">
+            <span className="relative shrink-0 size-[13px]" data-node-id="I199383:141630;101006:7299;199383:141685" data-name="Phosphor Icons / waves">
               {/* stroke-width scaled 21→13 so the 13px draw keeps the design's 1.08063 weight */}
               <Waves size={13} className="absolute block inset-0 max-w-none size-full text-[#FB2C36] [&_path]:[stroke-width:1.746]" />
             </span>
           )}
         </div>
-        {/* Rail — I…;199296:50367. Figma draws one under the last avatar too;
-            on a data-driven list that dangles below the final event, so it
-            stops at row n-1. Stroke #E5E5E5, 1px (asset 18d89.svg). */}
+        {/* Rail — I…;199383:141686. Stroke #E5E5E5, 1px; rows 1–2 carry it as
+            the fixed h-[108px] 18d89.svg, row 3 as an open-ended flex-[1_0_0]
+            d6973.svg. Figma therefore draws one under the LAST avatar too — but
+            only because its row 3 is a clipped event with more below it. On a
+            list that actually ends, that rail dangles into nothing, so it stops
+            at row n-1. See deviation 6. */}
         {!isLast && (
           <Separator
             orientation="vertical"
             className="data-[orientation=vertical]:h-auto flex-[1_0_0] min-h-px w-px bg-[#E5E5E5]"
-            data-node-id="I199296:50453;101006:7299;199296:50367"
+            data-node-id="I199383:141630;101006:7299;199383:141686"
             data-name="Separator"
           />
         )}
       </div>
 
-      {/* Text column — I…;199296:50368. pb-[24px] is the resolved row gap. */}
-      <div className={cn(TEXT_COL, !isLast && 'pb-[24px]')} data-node-id="I199296:50453;101006:7299;199296:50368">
-        <div className={TEXT_BLOCK} data-node-id="I199296:50453;101006:7299;199296:50369" data-name="Text">
-          <div className="content-stretch flex flex-col gap-[7px] items-start relative shrink-0 w-full" data-node-id="I199296:50453;101006:7299;199296:50370">
-            <div className="content-stretch flex gap-[6px] items-center relative shrink-0 w-full" data-node-id="I199296:50453;101006:7299;199296:50371">
+      {/* Text column — I…;199383:141687. pb-[24px] is the resolved row gap. */}
+      <div className={cn(TEXT_COL, !isLast && 'pb-[24px]')} data-node-id="I199383:141630;101006:7299;199383:141687">
+        <div className={TEXT_BLOCK} data-node-id="I199383:141630;101006:7299;199383:141688" data-name="Text">
+          <div className="content-stretch flex flex-col gap-[7px] items-start relative shrink-0 w-full" data-node-id="I199383:141630;101006:7299;199383:141689">
+            <div className="content-stretch flex gap-[6px] items-center relative shrink-0 w-full" data-node-id="I199383:141630;101006:7299;199383:141690">
               {event.badgeFirst ? (
                 <>
                   {pill}
@@ -443,23 +542,23 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
               ) : null}
             </div>
 
-            {/* Metrics — I…;199296:50374. See deviation 5 for flex-wrap. */}
+            {/* Metrics — I…;199383:141693. See deviation 5 for flex-wrap. */}
             {event.metrics?.length ? (
               <div
-                className="[word-break:break-word] content-stretch flex flex-wrap font-[var(--font\/weight\/font-normal,400)] gap-x-[13px] gap-y-[6px] items-start relative shrink-0 whitespace-nowrap"
-                data-node-id="I199296:50453;101006:7299;199296:50374"
+                className={String.raw`[word-break:break-word] content-stretch flex flex-wrap ${FIG_REG} font-[var(--font\/weight\/font-normal,400)] gap-x-[13px] gap-y-[6px] items-start relative shrink-0 whitespace-nowrap`}
+                data-node-id="I199383:141630;101006:7299;199383:141693"
               >
                 {event.metrics.map(m => (
-                  <div key={m.label} className="content-stretch flex gap-[5px] items-center relative shrink-0" data-node-id="I199296:50453;101006:7299;199296:50375">
+                  <div key={m.label} className="content-stretch flex gap-[5px] items-center relative shrink-0" data-node-id="I199383:141630;101006:7299;199383:141694">
                     <div
                       className="flex flex-col justify-center leading-[0] overflow-hidden relative shrink-0 text-[color:#737373] text-[length:var(--text\/xs\/size,12px)] text-ellipsis"
-                      data-node-id="I199296:50453;101006:7299;199296:50376"
+                      data-node-id="I199383:141630;101006:7299;199383:141695"
                     >
                       <p className="leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden text-[12px] text-ellipsis">{m.label}</p>
                     </div>
                     <p
                       className="leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis"
-                      data-node-id="I199296:50453;101006:7299;199296:50377"
+                      data-node-id="I199383:141630;101006:7299;199383:141696"
                     >
                       {m.value}
                     </p>
@@ -468,11 +567,11 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
               </div>
             ) : null}
 
-            {/* Cause line — I…;199296:50384. */}
+            {/* Cause line — I…;199383:141703. */}
             {event.description ? (
               <p
-                className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--font\/line-height\/leading-5,20px)] min-w-full relative shrink-0 text-[color:var(--colors\/gray\/700,#364153)] text-[length:var(--font\/size\/text-sm,14px)] tracking-[var(--font\/tracking\/tracking-normal,0px)] w-[min-content]"
-                data-node-id="I199296:50453;101006:7299;199296:50384"
+                className={String.raw`[word-break:break-word] ${FIG_REG} font-[var(--font\/weight\/font-normal,400)] leading-[var(--font\/line-height\/leading-5,20px)] min-w-full relative shrink-0 text-[color:var(--colors\/gray\/700,#364153)] text-[length:var(--font\/size\/text-sm,14px)] tracking-[var(--font\/tracking\/tracking-normal,0px)] w-[min-content]`}
+                data-node-id="I199383:141630;101006:7299;199383:141703"
               >
                 {event.description}
               </p>
@@ -495,16 +594,16 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
           </div>
         </div>
 
-        {/* Footer — I…;199296:50385 → :50386 → "Unit wrapper" :50387. The comp
+        {/* Footer — I…;199383:141704 → :141705 → "Unit wrapper" :141706. The comp
             draws only the timestamp; the Tag / "n sent" chips are the design's
             own right-aligned slot from the previous pass and still render when
             the data carries them. */}
-        <div className="content-stretch flex flex-col items-start relative shrink-0 w-full" data-node-id="I199296:50453;101006:7299;199296:50385">
-          <div className="content-stretch flex flex-col items-end relative shrink-0 w-full" data-node-id="I199296:50453;101006:7299;199296:50386">
-            <div className={UNIT_WRAPPER} data-node-id="I199296:50453;101006:7299;199296:50387" data-name="Unit wrapper">
+        <div className="content-stretch flex flex-col items-start relative shrink-0 w-full" data-node-id="I199383:141630;101006:7299;199383:141704">
+          <div className="content-stretch flex flex-col items-end relative shrink-0 w-full" data-node-id="I199383:141630;101006:7299;199383:141705">
+            <div className={UNIT_WRAPPER} data-node-id="I199383:141630;101006:7299;199383:141706" data-name="Unit wrapper">
               <div
-                className="[word-break:break-word] flex flex-col font-[var(--font\/weight\/font-normal,400)] justify-center leading-[0] min-w-px overflow-hidden relative shrink text-[color:#737373] text-[length:var(--text\/xs\/size,12px)] text-ellipsis whitespace-nowrap"
-                data-node-id="I199296:50453;101006:7299;199296:50388"
+                className={String.raw`[word-break:break-word] flex flex-col ${FIG_REG} font-[var(--font\/weight\/font-normal,400)] justify-center leading-[0] min-w-px overflow-hidden relative shrink text-[color:#737373] text-[length:var(--text\/xs\/size,12px)] text-ellipsis whitespace-nowrap`}
+                data-node-id="I199383:141630;101006:7299;199383:141707"
               >
                 <p className="leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden text-[12px] text-ellipsis">{event.timestamp}</p>
               </div>
@@ -564,10 +663,12 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
  *   chevrons still work standalone.
  * @param {string} [className]  merged onto the Card root.
  * @param {'calm'|'alert'} tone
- *   Default `'calm'`. The ONLY difference between the two Figma states: it
- *   switches the header title between the calm node's regular/slate-700 and the
- *   alert node's semibold/slate-800/-0.45px tracking. Pass
- *   `tone={system.alert ? 'alert' : 'calm'}` from the page.
+ *   Default `'calm'`. Which of the two Figma System-page states the card is
+ *   standing in. As of 199383:141630 / 199359:126908 the two states draw the
+ *   card identically — the header title that used to differ is now semibold /
+ *   slate-800 / -0.45px in both — so this is accepted and has no visual effect.
+ *   It is the declared seam for a re-divergence and callers already pass it
+ *   (`tone={system.alert ? 'alert' : 'calm'}`), so it stays.
  * @param {string} period
  *   Default `'All'`. The filter shown in the header pill. Also the controlled
  *   value when `onSelectPeriod` is supplied.
@@ -649,14 +750,14 @@ export default function EventsTimelineCard({
 
   const pillInner = (
     <>
-      <span className={FILTER_LABEL} data-node-id="I199296:50453;149:2490;197412:209455;199296:50452;6722:19179">
+      <span className={FILTER_LABEL} data-node-id="I199383:141630;149:2490;197412:209455;199383:141771;6722:19179">
         {activePeriod}
       </span>
       {/* Icon Placeholder — I…;100707:555336. Figma served the Huge-Icons/smile
           artwork for this slot; the node renders a caret. */}
       <span
         className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]"
-        data-node-id="I199296:50453;149:2490;197412:209455;199296:50452;100707:555336"
+        data-node-id="I199383:141630;149:2490;197412:209455;199383:141771;100707:555336"
         data-name="Icon Placeholder"
       >
         <CaretDown size={16} className="shrink-0" />
@@ -665,31 +766,31 @@ export default function EventsTimelineCard({
   )
 
   return (
-    <Card className={cn(CARD_ROOT, className)} data-node-id={tone === 'alert' ? '199296:50716' : '199296:50453'} data-name="Card • Q2 Dividend Income">
+    <Card className={cn(CARD_ROOT, className)} data-node-id={tone === 'alert' ? '199383:141630' : '199359:126908'} data-name="Card • Q2 Dividend Income">
       {/* CardHeader — I…;149:2490 */}
-      <CardHeader className={CARD_HEADER} data-node-id="I199296:50453;149:2490" data-name="CardHeader">
-        <div className="flex-[1_0_0] min-w-px relative" data-node-id="I199296:50453;149:2490;6752:3668" data-name="Title and desc">
+      <CardHeader className={CARD_HEADER} data-node-id="I199383:141630;149:2490" data-name="CardHeader">
+        <div className="flex-[1_0_0] min-w-px relative" data-node-id="I199383:141630;149:2490;6752:3668" data-name="Title and desc">
           <div className="bg-clip-padding border-0 border-[transparent] border-solid content-stretch flex flex-col gap-[var(--component\/card\/header\/gap,8px)] items-start py-[var(--spacing\/1\,5,6px)] relative size-full">
-            <CardTitle className={TITLE_TONE[tone] ?? TITLE_TONE.calm} data-node-id="I199296:50453;149:2490;2780:50631">
+            <CardTitle className={TITLE_TONE[tone] ?? TITLE_TONE.calm} data-node-id="I199383:141630;149:2490;2780:50631">
               Events Timeline
             </CardTitle>
           </div>
         </div>
 
-        <CardAction className="relative self-center shrink-0" data-node-id="I199296:50453;149:2490;197412:210687">
+        <CardAction className="relative self-center shrink-0" data-node-id="I199383:141630;149:2490;197412:210687">
           <div className="bg-clip-padding border-0 border-[transparent] border-solid content-stretch flex gap-[12px] items-start relative size-full">
             {/* w-[57px] is the node's own box; min-w-fit stops the (wider) pill
                 overlapping the title, which the fixed frame never had to care
                 about. items-end keeps the right edges flush either way. */}
             <div
               className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-end justify-center min-w-fit relative shrink-0 w-[57px]"
-              data-node-id="I199296:50453;149:2490;197412:209455"
+              data-node-id="I199383:141630;149:2490;197412:209455"
               data-name="CardAction2"
             >
               <div
                 ref={filterRef}
                 className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-end justify-center relative shrink-0"
-                data-node-id="I199296:50453;149:2490;197412:209455;199296:50451"
+                data-node-id="I199383:141630;149:2490;197412:209455;199383:141770"
                 data-name="CardAction2"
               >
                 {canFilter ? (
@@ -700,7 +801,7 @@ export default function EventsTimelineCard({
                     aria-expanded={menuOpen}
                     aria-label={`Filter events, currently ${activePeriod}`}
                     className={FILTER_BUTTON}
-                    data-node-id="I199296:50453;149:2490;197412:209455;199296:50452"
+                    data-node-id="I199383:141630;149:2490;197412:209455;199383:141771"
                     data-name="Button"
                   >
                     {pillInner}
@@ -711,7 +812,7 @@ export default function EventsTimelineCard({
                   <span
                     aria-disabled="true"
                     className={FILTER_BUTTON}
-                    data-node-id="I199296:50453;149:2490;197412:209455;199296:50452"
+                    data-node-id="I199383:141630;149:2490;197412:209455;199383:141771"
                     data-name="Button"
                   >
                     {pillInner}
@@ -744,7 +845,7 @@ export default function EventsTimelineCard({
       </CardHeader>
 
       {/* cardContent — I…;101006:7299 */}
-      <CardContent className={CARD_CONTENT} data-node-id="I199296:50453;101006:7299" data-name="cardContent">
+      <CardContent className={CARD_CONTENT} data-node-id="I199383:141630;101006:7299" data-name="cardContent">
         {visibleEvents.length === 0 ? (
           /* Empty state. The node list has no empty variant, so this is the
              minimum honest statement, set in the card's own muted xs type.
@@ -762,7 +863,7 @@ export default function EventsTimelineCard({
         ) : (
           <ul
             className="content-stretch flex flex-col items-start list-none m-0 p-0 relative shrink-0 w-full"
-            data-node-id="I199296:50453;101006:7299;199296:50362"
+            data-node-id="I199383:141630;101006:7299;199383:141681"
           >
             {visibleEvents.map((event, i) => {
               const eventId = event.id ?? i

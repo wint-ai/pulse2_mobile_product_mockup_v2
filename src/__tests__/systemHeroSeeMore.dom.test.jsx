@@ -89,11 +89,20 @@ const seeLess = (c) => within(c).getByRole('button', { name: 'See less' })
 const compareSwitch = (c) =>
   within(c).queryByRole('switch', { name: /compare previous period/i })
 
-/* The caption the hero prints: "Water consumption " + the range. The node id
-   differs by tone (calm 199296:50197 / alert 199296:50721), so both are
-   matched rather than assuming which state this system is in. */
+/* The caption the hero prints: "Water consumption" over the range.
+   RE-POINTED IN THE 2026-10-20 MERGE. This used to match the whole caption
+   block by its tone-dependent node id (calm 199296:50197 / alert
+   199296:50721) and strip the "Water consumption" line off the front. The
+   Figma reconciliation re-fetched those frames: the block is 199396:84051 for
+   both tones now, and the range has a node of its own (199383:141633) under
+   it. Matching the range node directly is what this assertion always meant,
+   and it no longer has to guess the tone or peel a prefix. The old ids stay in
+   the selector so the test keeps working against either generation of the
+   component rather than silently passing on neither. */
 const captionRange = (c) => {
-  const node = c.querySelector('[data-node-id="199296:50197"], [data-node-id="199296:50721"]')
+  const range = c.querySelector('[data-node-id="199383:141633"]')
+  const node = range
+    ?? c.querySelector('[data-node-id="199396:84051"], [data-node-id="199296:50197"], [data-node-id="199296:50721"]')
   expect(node, 'the hero caption is missing').toBeTruthy()
   return node.textContent.replace(/^Water consumption\s*/, '').trim()
 }

@@ -1,293 +1,253 @@
 /**
- * The System page's hero — Figma "System page_mobile", two states:
- *   calm   199296:50183   blue wave, the stat inside a glass panel
- *   alert  199296:50454   pink wave, the stat bare on the wave
+ * The System page's CONSUMPTION HERO — the wave and the headline on it.
+ * Nothing else.
  *
- * This is NOT a card. In both frames the wave is a page-level layer pinned to
- * the very top and bleeding past both edges (`left-[-2px] w-[410px]` on a 393
- * frame), with the Mobile Header Bar drawn ON it. So this component owns the
- * whole top region — wave, header bar, and the consumption headline — and the
- * page bleeds it out of its own padding. Drawing it as a bounded rounded card
- * was the first attempt and it read nothing like the comp.
+ * Design source, read off saved emitted code and never a live Figma call:
+ *   199383:141499  "System page_mobile" ALERT  (sysA)
+ *   199359:126785  "System page_mobile" CALM   (sysB)
+ * Both were RE-FETCHED on 2026-10-20 after the designer edited them; every id
+ * and every number below comes from that refetch, and the ids moved a lot (the
+ * copy block, the wave and most of sysB's header are new nodes). Where a line
+ * below cites an id, it is the fresh one.
  *
- * ONE ASSET, TWO STATES. Both nodes reference the same raster (`9c2cf.png`,
- * byte-identical in both exports); the red state is a tint layer over it, not a
- * second image:
+ * STRUCTURAL CHANGE, and the reason this file shrank.
+ * This component used to own the Mobile Header Bar and draw it ON the wave, so
+ * the page read:
+ *     [hero: header bar + system name + consumption] -> tabs -> cards
+ * Both nodes order it differently. The repo owner, looking at the running app
+ * beside the frame: "this is not even similar to figma, not layout not entity
+ * screens". In both nodes the root's flow children are
+ *   · a gap-[25px] column (199383:141501 / 199394:20585) holding the Mobile
+ *     Header Bar and then the Tabs row
+ *   · the card stack
+ * and the consumption copy is an ABSOLUTE sibling pinned below the tabs
+ * (top-[171px] sysA / top-[186px] sysB, against tab rows that end at y=128).
+ * So the real order is
+ *     header bar -> tabs -> consumption hero -> cards
+ * The header bar is now the page's own shrink-0 chrome above the tab row; see
+ * the HEADER REDRAW block in SystemPageV2Screen.jsx, which is where that
+ * implementation and its reasoning moved intact.
  *
- *            wrapper                         image                      tint
- *   calm   h-463 mix-blend-multiply   opacity-90, 160.05% wide         none
- *   alert  h-341 mix-blend-multiply   opacity-50, 128.87% wide    #ff7b7d mix-blend-color
+ * THE SYSTEM'S NAME IS NOT DRAWN HERE EITHER, ANY MORE. Neither node names the
+ * system anywhere: the header's scope slot reads "Meridian Realty Group (MRG)"
+ * — an ACCOUNT — and the only other proper nouns on either frame are the pipe
+ * topology ("Water line") and a serial ("SN 4471822"). Dropping the name is a
+ * functional regression, so the page keeps it, in the header bar's own second
+ * row. See the page for why there.
  *
- * The alert tint is a soft #ff7b7d at half opacity — not a saturated red. A
+ * ONE ASSET, TWO STATES. Both nodes reference the same raster (Figma names it
+ * "Screenshot 2026-08-19 at 23.50.31", kept locally as system-hero-wave.png)
+ * and both now treat it identically — opacity-50 under a mix-blend-color tint.
+ * Only the tint and the placement differ, so each tone follows its own node
+ * rather than one being imposed on the other:
+ *
+ *            node            box                              tint
+ *   alert  199383:141500   h-291 left-17 w-369 rounded-20   #ff7b7d
+ *   calm   199394:79634    h-303 left-9  w-385 rounded-20   #6bb2fa
+ *
+ * TWO THINGS THE REFETCH CHANGED HERE. The calm wave used to be an untinted
+ * opacity-90 image at h-411/left-19/w-364; it is now the alert treatment with
+ * a blue tint. And the alert box shrank (h-303 left-9 w-385 -> h-291 left-17
+ * w-369) because the frame root's horizontal padding went 8px -> 16px. The
+ * node pins the wave to the ROOT frame, so these offsets are measured from the
+ * phone's edge — which is why the page bleeds this component out to the full
+ * 393 instead of letting it sit in the card gutter.
+ *
+ * The alert tint is a soft #ff7b7d at half opacity, not a saturated red — a
  * previous pass used #ff1717 and the wave came out crimson.
  *
- * WHAT THE NODES FIX
- *   glass panel  rgba(17,117,218,0.38), backdrop-blur 7.5, white border,
- *                radius 22, px-px py-13, gap-10 — calm only
- *   alert stat   h-120 w-121, justify-between, slate-50, no panel
- *   figure       Geist Medium 42.222 / 58.056, tracking -1.0556
- *   delta        the same run at 20px
- *   caption      "Water consumption " 14/18 Figtree Medium + the date range
- *                in Geist Bold 16/24
- *   see more     Figtree Light 14/18
- *   header bar   h-42, px-16 py-24, 18px Figtree Medium title, tracking -0.6
+ * THE COPY BLOCK follows sysA (199396:84050). The two frames still disagree
+ * about it and only one can be followed; sysB's copy (199394:79635) is the
+ * design sysA ITSELF carried before this refetch, so sysA is the later
+ * iteration, exactly as it is for the header bar:
+ *
+ *              199396:84050 (followed)          199394:79635 (not followed)
+ *   layout     gap-[5px] column, w-154,         h-[120px] justify-between,
+ *              items-center, left-132/top-171   centred, top-186
+ *   caption    "Water consumption" then the     same two lines, but the date
+ *              date range as a second 16/24     is Geist Bold 16 after a 14px
+ *              line, both centred, white        space inside one text run
+ *   figure     "5,830" 42.222/58.056 + a separate "L" at 20/20  — the same
+ *   delta      pill UNDER the figure, h-34      pill BESIDE the figure, h-34
+ *              w-100 rounded-12, white ink      w-70 rounded-9, slate-50 ink
+ *   see more   12px Figtree Regular #fafbfc,    14px Figtree Light white, no
+ *              with a 16px chart glyph          glyph
+ *
+ * Both frames now draw the copy WHITE throughout, so the tone no longer picks
+ * an ink. This file previously drew slate-50 on alert and white on calm, which
+ * was inverted against the nodes of the day and is now simply gone.
+ *
+ * NEITHER NODE DRAWS THE CALM GLASS PANEL any more (the rgba(17,117,218,0.38)
+ * backdrop-blur card from the superseded 199296:50193), so both tones share
+ * one layout and the panel is removed.
+ *
+ * NOT IMPLEMENTED — the glyph beside "See more" is Figma's "Huge Icons /
+ * chart-03" (199396:84057). @/v2/icons does not own it and adding an icon is
+ * outside these two files, so lucide's ChartLine stands in: the same subject,
+ * from a set this repo already draws from (ScopePill takes its back chevron
+ * from it). Swapping in a real chart-03 later is a one-line change here.
  */
+import { ChartLine } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import wave from '@/assets/system-hero-wave.png'
 
-/* TOKENS AND CONTROLS — what this pass changed, and what it deliberately left.
- *
- * The type was already read off the nodes and is kept verbatim, including the
- * Figma-escaped var() spellings (`var(--colors\/white,white)`,
- * `var(--text\/sm\/size,14px)`). Two things were wrong and are fixed:
- *   · the calm caption / "See more" carried data-node-id 199296:50198 /
- *     50199. The node is 50197 (caption) and 50198 (See more) — 50199 is the
- *     Content frame's sibling. The alert ids (50721 / 50722) were right.
- *   · the burger and "See more" were bare <button>s wearing `hover:bg-white/30`
- *     and `focus-visible:ring-white/50`. Both are now shadcn <Button
- *     variant="ghost">, so the focus ring comes from --ring, and the on-wave
- *     hover tint is `bg-card/*` (--card is #FFFFFF: same pixel, a token name).
- *     `size={null}` switches cva's default size off so the node's own geometry
- *     (h-34 w-22 / px-8) is not fighting `h-9 px-4`.
- *
- * STILL LITERAL, because the Figma canvas names no token for them — all three
- * are read straight off the node and are documented above:
- *   #ff7b7d                the alert wave's mix-blend-color tint (199296:50455)
- *   rgba(17,117,218,0.38)  the calm glass panel's fill (199296:50193)
- *   border-white           the glass panel's 1px border, as Figma emits it
- * The burger glyph stays an inline <svg>: the node names "Huge Icons /
- * menu-01" and @/v2/icons only owns menu-10 (which carries an extra dot), so
- * swapping it would change the drawing. Adding Menu01 to the icon set is the
- * right fix and is outside this file.
- */
-
 /* The nodes spell two families — Geist for the figures, Figtree for the words.
-   Both carry the project's own fallbacks. */
+   Both carry the project's own fallbacks.
+
+   Every class string containing a backslash is String.raw: in a plain JS
+   string `\/` collapses to a bare `/`, which Tailwind reads as an opacity
+   modifier, and the class silently never reaches the DOM. These are template
+   literals rather than cn() arguments for a second reason — tailwind-merge
+   treats `leading-*` as conflicting with a font-size atom, and Figma emits
+   alphabetically, so a `leading-[…]` written BEFORE a `text-[length:…]` is
+   silently deleted. Where cn() IS used below, the size is spelled first. */
+const FIG_BOLD = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Bold'),'Figtree','Inter',sans-serif]`
 const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
-const FIG_LIGHT = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Light'),'Figtree','Inter',sans-serif]`
+const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
 const GEIST = "font-['Geist:Medium','Geist','Figtree',sans-serif]"
 
 export default function SystemHeroCard({
-  title,
+  /** The headline figure WITHOUT its unit — 199383:141636 draws "5,830". */
   total,
+  /** 199383:141637, a separate 20px run beside the figure. */
+  unit,
+  /** 199383:141639, inside the pill. */
   delta,
   rangeLabel,
   tone = 'calm',
   expanded = false,
   onToggleChart,
-  onOpenMenu,
-  /** Replaces the centred title with a control. The comp centres a LOCATION
-      name here ("Floor 26"), so this slot is where the parent-scope pill goes;
-      the system's own name becomes the page H1 below. Falls back to `title`. */
-  scope,
-  /** Rendered at the right of the header bar. The delivery frame has no such
-      control; this exists so the page can keep the one it already had rather
-      than dropping it to match a picture. */
-  headerAction,
   className,
 }) {
   const alert = tone === 'alert'
 
-  /* calm draws white, alert draws slate-50 — the nodes differ here. */
-  const ink = alert
-    ? String.raw`text-[color:var(--colors\/slate\/50,#f8fafc)]`
-    : String.raw`text-[color:var(--colors\/white,white)]`
-
-  const figure = (
-    <div
-      className={cn(
-        'content-stretch flex gap-[2px] items-start justify-center leading-[0] relative shrink-0',
-        GEIST, ink, 'font-medium tracking-[-1.0556px] whitespace-nowrap',
-      )}
-      data-node-id={alert ? '199296:50718' : '199296:50194'}
-    >
-      <div className="flex flex-col justify-center relative shrink-0 text-[42.222px]">
-        <p className="leading-[58.056px]">{total}</p>
-      </div>
-      {delta ? (
-        <div className="flex flex-col justify-center relative shrink-0 text-[20px]">
-          <p className="leading-[58.056px]">{delta}</p>
-        </div>
-      ) : null}
-    </div>
-  )
-
-  const caption = (
-    <div
-      className={cn('flex flex-col justify-center relative shrink-0 text-[0px]', FIG_MED, ink, 'font-medium')}
-      data-node-id={alert ? '199296:50721' : '199296:50197'}
-    >
-      <p>
-        <span className="leading-[var(--text\/base\/lh,18px)] text-[14px]">Water consumption </span>
-        {rangeLabel ? (
-          <span className="[word-break:break-word] font-['Geist:Bold','Geist',sans-serif] font-bold leading-[24px] text-[16px]">
-            {rangeLabel}
-          </span>
-        ) : null}
-      </p>
-    </div>
-  )
-
-  /* "See more" reveals the consumption chart. The chart is not gone from the
-     product — the design moved it behind this control, so this is the only way
-     to reach it and it has to be a real button, never the label the comp
-     draws. aria-expanded says which way it goes. */
-  const seeMore = onToggleChart ? (
-    <Button
-      type="button"
-      variant="ghost"
-      size={null}
-      onClick={onToggleChart}
-      aria-expanded={expanded}
-      className={cn(
-        'flex flex-col justify-center relative shrink-0',
-        FIG_LIGHT, ink,
-        String.raw`font-light text-[length:var(--text\/sm\/size,14px)]`,
-        'rounded-[8px] px-[8px]',
-        'hover:bg-card/15 hover:text-current',
-      )}
-      data-node-id={alert ? '199296:50722' : '199296:50198'}
-    >
-      <span className="leading-[var(--text\/sm\/lh-tight,18px)]">
-        {expanded ? 'See less' : 'See more'}
-      </span>
-    </Button>
-  ) : null
-
   return (
-    <div
-      className={cn('relative shrink-0 w-full overflow-x-clip', className)}
-      data-hero-tone={tone}
-    >
-      {/* The wave. 410px wide on a 393 frame, so it bleeds both edges; the
-          phone shell clips it. aria-hidden because it is weather, not
-          information — the figure in front of it carries the meaning. */}
+    <div className={cn('relative shrink-0 w-full overflow-x-clip', className)} data-hero-tone={tone}>
+      {/* The wave — 199383:141500 (alert) / 199394:79634 (calm). `top-0`
+          rather than the node's top-[148px] because this element now BEGINS
+          where the node puts the wave; the left offsets are the node's own,
+          which is why the page bleeds this component to the full phone width.
+
+          aria-hidden: it is weather, not information — the figure in front of
+          it carries the meaning. It is deliberately allowed to run past this
+          element's own height, which is what puts it behind the first cards
+          exactly as both frames draw it. */}
       <div
         aria-hidden="true"
         className={cn(
-          'absolute left-[-2px] top-0 w-[410px] mix-blend-multiply pointer-events-none',
-          alert ? 'h-[341px]' : 'h-[463px]',
+          'absolute mix-blend-multiply pointer-events-none rounded-[20px] top-0',
+          alert ? 'h-[291px] left-[17px] w-[369px]' : 'h-[303px] left-[9px] w-[385px]',
         )}
-        data-node-id={alert ? '199296:50455' : '199296:50184'}
+        data-node-id={alert ? '199383:141500' : '199394:79634'}
       >
-        {alert ? (
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute inset-0 opacity-50 overflow-hidden">
-              <img alt="" className="absolute h-full left-[-14.44%] max-w-none top-0 w-[128.87%]" src={wave} />
-            </div>
-            <div className="absolute bg-[#ff7b7d] inset-0 mix-blend-color" />
+        <div className="absolute inset-0 pointer-events-none rounded-[20px]">
+          <div className="absolute inset-0 opacity-50 overflow-hidden rounded-[20px]">
+            <img alt="" className="absolute h-full left-[-13.65%] max-w-none top-0 w-[121.84%]" src={wave} />
           </div>
-        ) : (
-          <div className="absolute inset-0 opacity-90 overflow-hidden pointer-events-none">
-            <img
-              alt=""
-              className="absolute h-[91.46%] left-[-14.44%] max-w-none top-[-17.81%] w-[160.05%]"
-              src={wave}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Mobile Header Bar — 199296:50192 / 199296:50463. It sits ON the wave,
-          which is why it belongs to this component rather than to the page
-          chrome above the scroller. */}
-      <div
-        className="content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[42px] items-center justify-center px-[var(--pro\/space\/4,16px)] py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full"
-        data-node-id={alert ? '199296:50463' : '199296:50192'}
-      >
-        {/* Figma emits this row's gap as the two-value token `gap-[4px_10px]`;
-            Tailwind drops a two-length `gap-[…]`, so it is split per axis. */}
-        <div className="content-center flex flex-wrap gap-x-[10px] gap-y-[4px] items-center relative shrink-0 w-full">
-          <Button
-            type="button"
-            variant="ghost"
-            size={null}
-            onClick={onOpenMenu}
-            aria-label="Open navigation"
-            className="content-stretch flex gap-[var(--pro\/space\/1\,5,6.40148663520813px)] h-[34px] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10.669px)] shrink-0 w-[22px] text-[color:var(--colors\/slate\/900,#0f172b)] hover:bg-card/30 hover:text-current"
-            data-node-id={alert ? 'I199296:50463;50600:52769;199296:50457' : 'I199296:50192;50600:52769;199296:50186'}
-          >
-            {/* Huge Icons / menu-01 — three rules inset 20.83%/16.67% in a
-                17.071px box, which is what the node draws. */}
-            <span className="overflow-clip relative shrink-0 size-[17.071px]">
-              <svg viewBox="0 0 17 17" fill="none" className="block size-full" aria-hidden="true">
-                <path
-                  d="M2.85 4.27h11.37M2.85 8.54h11.37M2.85 12.8h11.37"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </span>
-          </Button>
-
-          {scope ?? (
-            <p
-              className={cn(
-                '[word-break:break-word] flex-[1_0_0] min-w-px relative',
-                FIG_MED,
-                String.raw`font-[var(--font\/weight\/font-medium,500)]`,
-                String.raw`text-[18px] text-[color:var(--colors\/slate\/900,#0f172b)] text-center tracking-[-0.6px] leading-[var(--text\/2xl\/lh,32px)]`,
-              )}
-              dir="auto"
-              data-node-id={alert ? 'I199296:50463;50600:52769;199296:50458' : 'I199296:50192;50600:52769;199296:50187'}
-            >
-              {title}
-            </p>
-          )}
-
-          {/* Balances the burger so the title stays optically centred, and
-              carries whatever control the page still needs up here. */}
-          <span className="flex items-center justify-end shrink-0 w-[22px]">{headerAction}</span>
-        </div>
-      </div>
-
-      {/* The system's own name. It belongs to the hero, not to the column
-          below: the wave runs 341-463px down the page, so a slate-800 H1
-          placed under the hero landed ON the wave and could not be read.
-          Here it takes the hero's own ink and works at either tone. The
-          header bar says which location you are in; this says which
-          system. */}
-      {title ? (
-        <h1
-          className={cn(
-            'relative mt-[14px] w-full px-[16px] text-center',
-            FIG_MED, ink,
-            String.raw`font-[var(--font\/weight\/font-medium,500)] text-[length:var(--text\/2xl\/size,24px)] tracking-[-0.6px] leading-[var(--text\/2xl\/lh,32px)]`,
-          )}
-          dir="auto"
-          data-node-id="198379:80454"
-        >
-          {title}
-        </h1>
-      ) : null}
-
-      {alert ? (
-        /* 199296:50717 — no panel in the alert frame: the stat sits bare on the
-           wave, h-120 between a 24px gap under the header and the Content. */
-        <div
-          className="content-stretch flex flex-col h-[120px] items-center justify-between leading-[0] mt-[24px] mb-[26px] relative shrink-0 whitespace-nowrap w-full"
-          data-node-id="199296:50717"
-        >
-          {figure}
-          {caption}
-          {seeMore}
-        </div>
-      ) : (
-        /* 199296:50193 "Copy" — the glass panel, calm only. Sits 25px under
-           the header bar, inset to the Content column's own gutter. */
-        <div className="mt-[25px] px-[var(--pro\/space\/2\,5,10px)] relative w-full">
           <div
-            className="backdrop-blur-[7.5px] bg-[rgba(17,117,218,0.38)] border border-solid border-white content-stretch flex flex-col gap-[10px] items-center justify-center px-px py-[13px] relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full"
-            data-node-id="199296:50193"
-          >
-            {figure}
-            {caption}
-            {seeMore}
-          </div>
+            className={cn(
+              'absolute inset-0 mix-blend-color rounded-[20px]',
+              alert ? 'bg-[#ff7b7d]' : 'bg-[#6bb2fa]',
+            )}
+          />
         </div>
-      )}
+      </div>
+
+      {/* The copy — 199396:84050. The node pins it absolutely at top-[171px],
+          23px below the wave's own top edge (sysB: top-[186px], 38px below).
+          Here it is in flow with that offset as a margin, so the hero occupies
+          real height in the scroll instead of floating over what follows.
+
+          mx-auto rather than the node's left-[132px]: 132 + 154/2 = 209 against
+          a 393 frame centre of 196.5, i.e. the node's own block is 12.5px off
+          centre. Centring it is the intent; the 12.5px is canvas drift. */}
+      <div
+        className="relative content-stretch flex flex-col gap-[5px] items-center mt-[23px] mx-auto w-[154px]"
+        data-node-id="199396:84050"
+      >
+        {/* 199396:84051 — caption over date range, both centred and white. */}
+        <div
+          className={String.raw`[word-break:break-word] content-stretch flex flex-col items-start leading-[0] relative shrink-0 text-[color:var(--colors\/white,white)] text-[length:var(--text\/base\/size,16px)] text-center w-full`}
+          data-node-id="199396:84051"
+        >
+          <div
+            className={String.raw`flex flex-col ${FIG_BOLD} font-[var(--font\/weight\/font-bold,700)] justify-center relative shrink-0 w-full`}
+            data-node-id="199383:141632"
+          >
+            <p className={String.raw`leading-[var(--text\/base\/lh,24px)]`}>Water consumption</p>
+          </div>
+          {rangeLabel ? (
+            <div
+              className={String.raw`flex flex-col ${FIG_MED} font-[var(--font\/weight\/font-medium,500)] justify-center relative shrink-0 w-full`}
+              data-node-id="199383:141633"
+            >
+              <p className={String.raw`leading-[var(--text\/base\/lh,24px)]`}>{rangeLabel}</p>
+            </div>
+          ) : null}
+        </div>
+
+        {/* 199383:141635 — the figure and its unit. */}
+        <div
+          className={String.raw`[word-break:break-word] content-stretch flex ${GEIST} font-[var(--font\/weight\/font-medium,500)] gap-[8px] items-center leading-[0] relative shrink-0 text-[color:var(--colors\/white,white)] tracking-[-1.0556px] whitespace-nowrap`}
+          data-node-id="199383:141635"
+        >
+          <div className="flex flex-col justify-center relative shrink-0 text-[42.222px]" data-node-id="199383:141636">
+            <p className="leading-[58.056px]">{total}</p>
+          </div>
+          {unit ? (
+            <div className="flex flex-col justify-center relative shrink-0 text-[20px]" data-node-id="199383:141637">
+              <p className="leading-[20px]">{unit}</p>
+            </div>
+          ) : null}
+        </div>
+
+        {/* 199396:84052 — the delta pill, then the way into the chart. */}
+        <div
+          className="content-stretch flex flex-col gap-[5px] items-center relative shrink-0 w-full"
+          data-node-id="199396:84052"
+        >
+          {delta ? (
+            <div
+              className="bg-[rgba(241,245,249,0.28)] content-stretch flex h-[34px] items-center justify-center relative rounded-[12px] shrink-0 w-[100px]"
+              data-node-id="199383:141638"
+            >
+              <div
+                className={String.raw`[word-break:break-word] flex flex-col ${GEIST} font-[var(--font\/weight\/font-medium,500)] justify-center leading-[0] relative shrink-0 text-[20px] text-[color:var(--colors\/white,white)] tracking-[-1.0556px] whitespace-nowrap`}
+                data-node-id="199383:141639"
+              >
+                <p className="leading-[20px]">{delta}</p>
+              </div>
+            </div>
+          ) : null}
+
+          {/* 199396:84062 — "See more" reveals the consumption chart. The chart
+              is not gone from the product: the design moved it behind this
+              control, so this is the only way to reach it and it has to be a
+              real button, never the label the comp draws. aria-expanded says
+              which way it goes. */}
+          {onToggleChart ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size={null}
+              onClick={onToggleChart}
+              aria-expanded={expanded}
+              className="content-stretch flex gap-[5px] items-center justify-center relative shrink-0 rounded-[8px] px-[8px] text-[#fafbfc] hover:bg-card/15 hover:text-current"
+              data-node-id="199396:84062"
+            >
+              <ChartLine className="size-[16px] shrink-0" aria-hidden="true" />
+              <span
+                className={String.raw`[word-break:break-word] ${FIG_REG} font-[var(--font\/weight\/font-normal,400)] relative shrink-0 text-[length:var(--text\/xs\/size,12px)] leading-[var(--text\/xs\/lh-snug,16.5px)] whitespace-nowrap`}
+                data-node-id="199383:141640"
+              >
+                {expanded ? 'See less' : 'See more'}
+              </span>
+            </Button>
+          ) : null}
+        </div>
+      </div>
     </div>
   )
 }

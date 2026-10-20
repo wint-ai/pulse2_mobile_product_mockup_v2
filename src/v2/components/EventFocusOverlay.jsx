@@ -80,11 +80,17 @@
  * it" only tells colleagues somebody is looking, closing the valve is what
  * stops the water. So:
  *
- *   STATUS   <ValveReadout> — one compact row ABOVE the collapsible sections,
- *            "Valve status · Open · Auto shut-off", readable at a glance
- *            wherever the system has a valve. READ-ONLY. The handling chip
- *            states the system's REAL policy (getActivePolicy); the sentence
- *            that used to sit beside it lives in "What happens next".
+ *   STATUS   <ValveStatusCard interactive={false}> — the app's own card, ABOVE
+ *            the collapsible sections, wherever the system has a valve.
+ *            READ-ONLY: no action, so the footer's primary stays the only one.
+ *            This was a compact hand-rolled row (<ValveReadout>, "Valve status
+ *            · Open · Auto shut-off") built from the card's atoms as they
+ *            stood in 2026-09; when the card was rebuilt against Figma
+ *            199383:141553 the copy went stale and the owner saw it — "valve
+ *            widget not as in figma". Composing the real card is what keeps
+ *            the two from drifting again, and it brings the design's handling
+ *            panel with it. The handling line states the system's REAL policy
+ *            (getActivePolicy), headline and sentence off the one branch.
  *   ACTION   The footer's solid primary is "Close valve" (or "Open valve" when
  *            it is already closed), and it is the ONLY valve control on this
  *            surface. On it / Stand down and Ignore drop to the secondary row
@@ -235,7 +241,7 @@ import { Separator } from '@/components/ui/separator'
 import AlertCard from '@/v2/components/AlertCard'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
-import ValveStatus from '@/v2/components/ValveStatus'
+import ValveStatusCard from '@/v2/components/ValveStatusCard'
 import vmaFront from '@/assets/wint-vma-front.png'
 import { peakFlowRate, toFlowRateSeries } from '@/v2/components/eventFlowSeries'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
@@ -607,66 +613,6 @@ function EventFlowChart({ points, peak }) {
   )
 }
 
-/**
- * VALVE STATUS — a READOUT, not a control.
- *
- * Owner, 2026-10-17: "now we have 2 valve CTA." ValveStatusCard was mounted
- * here and its built-in switch was a second way to shut the water off beside
- * the footer's primary. One interactive valve control per surface: the status
- * is a fact, the action is the footer button.
- *
- * ValveStatusCard cannot be mounted non-interactively — its `SwitchToggle` is
- * unconditional and it has no `readOnly` / `interactive` prop. Adding one would
- * mean editing a file this change does not own, so the readout is drawn here
- * instead, from ValveStatusCard's OWN class atoms (the alert tone's caption
- * title, the base/16 value, the red/50 handling strip at 199296:50532) and the
- * app's own ValveStatus glyph. REPORTED: if ValveStatusCard grew an
- * `interactive={false}` prop, this component should be deleted in favour of it.
- *
- * `handling` states the system's real policy, not the card's default copy.
- */
-function ValveReadout({ state, handling }) {
-  const isOpen = state === 'open'
-  return (
-    <section
-      className={String.raw`flex w-full shrink-0 items-center gap-[8px] overflow-hidden rounded-[var(--rounded-2xl,18px)] border border-solid border-white bg-[#fafbfc] py-[10px] pl-[16px] pr-[14px]`}
-      aria-label="Valve status"
-    >
-      <p
-        className={String.raw`[word-break:break-word] min-w-0 flex-1 font-[var(--font\/weight\/font-medium,500)] text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/xs\/size,12px)] leading-[var(--text\/xs\/lh,16px)]`}
-      >
-        Valve status
-      </p>
-      <span
-        className={
-          isOpen
-            ? String.raw`flex size-[22px] shrink-0 items-center justify-center rounded-full bg-accent text-primary`
-            : String.raw`flex size-[22px] shrink-0 items-center justify-center rounded-full bg-[var(--colors\/slate\/100,#f1f5f9)] text-[color:var(--colors\/slate\/500,#62748e)]`
-        }
-      >
-        <ValveStatus state={isOpen ? 'open' : 'closed'} className="block size-[13px]" />
-      </span>
-      <p
-        className={String.raw`[word-break:break-word] shrink-0 font-[var(--font\/weight\/font-semibold,600)] whitespace-nowrap text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/base\/size,16px)] leading-[var(--text\/base\/lh,24px)]`}
-      >
-        {isOpen ? 'Open' : 'Closed'}
-      </p>
-      {/* The handling was the alert frame's 80px red panel (199296:50532). The
-          owner asked for one line beside the state; the SENTENCE it carried now
-          lives in "What happens next", which is the section for exactly that. */}
-      {handling ? (
-        <Badge
-          variant="secondary"
-          className={String.raw`shrink-0 border-transparent bg-[var(--colors\/slate\/100,#f1f5f9)] px-[8px] py-0 text-[11px] font-semibold text-[color:var(--colors\/slate\/600,#45556c)]`}
-        >
-          {handling}
-        </Badge>
-      ) : null}
-    </section>
-  )
-}
-
-/* A label/value pair inside a section panel. */
 function Fact({ label, value }) {
   if (value === null || value === undefined || value === '') return null
   return (
@@ -1065,6 +1011,10 @@ export default function EventFocusOverlay({
   const notification = isWater ? getNotification(incident) : null
   const leakState = getLeakState(incident)
   const policy = getActivePolicy(sysId)
+  /* One reading of the policy for every place that states it. `autoShutoff`
+     is 'Enabled' | 'Disabled' | 'N/A', and only 'Enabled' means the system
+     shuts itself off. */
+  const autoShutoffOn = policy?.autoShutoff === 'Enabled'
 
   const meta =
     ALERT_META[evt.type] ??
@@ -1352,13 +1302,44 @@ export default function EventFocusOverlay({
         ) : null}
 
         {/* ── Valve status ──────────────────────────────────────────────────
-            READ-ONLY, above the sections so the state reads at a glance. The
-            single valve CONTROL is the footer's primary — see ValveReadout. */}
+            The real ValveStatusCard, not a copy of it. This used to be a
+            hand-rolled compact row (ValveReadout) built from the card's atoms
+            as they stood in 2026-09; when the card was rebuilt against Figma
+            199383:141553 the copy silently went stale, and the owner spotted
+            it — "valve widget not as in figma". Composing the component means
+            the two cannot drift again.
+
+            READ-ONLY on purpose. Owner, 2026-10-17: "now we have 2 valve CTA"
+            — this card's own action duplicated the footer's primary, which is
+            why it was swapped for a hand copy in the first place. It is
+            mounted with interactive={false}, so the face is the design's and
+            the only valve control on this surface is still the footer's. */}
         {hasValve ? (
-          <ValveReadout
-            state={valveState}
-            handling={policy?.autoShutoff === 'Enabled' ? 'Auto shut-off' : 'Manual only'}
-          />
+          /* The landmark came from the hand copy this replaced and is kept:
+             the state is a named region a screen reader can jump to, which the
+             card's own plain <div> would have silently removed. */
+          <section aria-label="Valve status" className="w-full shrink-0">
+            {/* The strip's HEADLINE was switched on the policy while its
+                SENTENCE was left at the card's default, so a system with
+                auto shut-off disabled read "Valve handling: Manual only — In
+                case a Leak is detected the valve will automatically shut
+                off": the panel contradicted its own first line. Both halves
+                now come off the same branch. The manual sentence is not new
+                copy — it is this file's own `advice()` valve line for
+                autoShutoff !== 'Enabled', so the panel and "What now" say the
+                same thing in the same words. */}
+            <ValveStatusCard
+              interactive={false}
+              state={valveState}
+              tone={isWater ? 'alert' : 'calm'}
+              handling={autoShutoffOn ? 'Auto shut-off' : 'Manual only'}
+              handlingDescription={
+                autoShutoffOn
+                  ? 'In case a Leak is detected — the valve will automatically shut off'
+                  : 'Nothing will close the valve for you. If this needs stopping, close it from the button below.'
+              }
+            />
+          </section>
         ) : null}
 
         {/* ── Sections ──────────────────────────────────────────────────────

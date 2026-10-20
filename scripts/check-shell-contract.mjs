@@ -79,6 +79,32 @@ const RULES = [
     msg: 'draws a burger with no handler and no "deliberately inert" note — a Figma frame describes appearance, never behaviour',
   },
   {
+    id: 'bleed-needs-a-bleeding-scroller',
+    // The horizontal-scrollbar bug, 2026-10-20. The system page's root carried
+    // Figma's `px-[16px]` gutter, so the scroller's box was 361 wide, and the
+    // consumption hero bled out of it with `-mx-[16px] w-[calc(100%+32px)]` to
+    // reach the phone's edges. In LTR a negative LEFT margin is simply
+    // unreachable, but a negative RIGHT margin becomes scrollable width — so
+    // the one scroller on the screen grew a 16px sideways scroll. The owner saw
+    // a scrollbar across the bottom of the frame and asked why the app was not
+    // responsive.
+    //
+    // The invariant: a child may only bleed past a scroller if the SCROLLER
+    // bleeds too and re-applies the gutter as its own padding. Then the child's
+    // margin box lands exactly on the scroller's padding box and nothing
+    // overflows. Checked structurally rather than by eye because the symptom is
+    // 16px wide and a build, a lint pass and the whole test suite stay green.
+    test: src => {
+      const bleeds = /-m[xlr]-\[/.test(src)
+      if (!bleeds) return true
+      // The scroller is the element carrying overflowY:auto. Look at the few
+      // lines around it for a negative horizontal margin of its own.
+      const m = src.match(/[\s\S]{0,400}overflowY:\s*['"]auto['"]/)
+      return !!m && /-m[xlr]-\[/.test(m[0])
+    },
+    msg: 'a child bleeds with a negative horizontal margin but the scroller does not — in LTR the negative RIGHT margin becomes scrollable width and the screen scrolls sideways. Give the scroller the same bleed plus the gutter as padding',
+  },
+  {
     id: 'no-expiring-assets',
     test: src => !/figma\.com\/api\/mcp\/asset/.test(src),
     msg: 'references a figma.com asset URL at runtime — those expire in about 7 days; inline the SVG instead',

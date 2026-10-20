@@ -42,6 +42,98 @@
  * the gap. There is still no Insights card on this frame.
  */
 
+/* ── SHELL RECONCILIATION against the two CURRENT page nodes ────────────────
+ * Read off saved emitted code, never a live Figma call:
+ *   199383:141499  "System page_mobile" — ALERT state   (sysA)
+ *   199359:126785  "System page_mobile" — CALM  state   (sysB)
+ * BOTH WERE RE-FETCHED ON 2026-10-20, after the designer edited them. Every
+ * number and id below is from that refetch; where it differs from what this
+ * file used to say, the old reading is named so the change stays visible.
+ * They differ in content by exactly one node, the red Alert card
+ * 199394:79686 (was 199383:141993), which only sysA carries.
+ *
+ * ELEMENT ORDER — the 2026-10-20 structural fix. Both nodes read
+ *     header bar -> tabs -> consumption hero -> cards
+ * because the root's flow children are a gap-[25px] column (199383:141501 /
+ * 199394:20585) holding the Mobile Header Bar and then the Tabs row, and the
+ * consumption copy is an ABSOLUTE sibling pinned below the tabs. This page
+ * used to draw the header bar INSIDE SystemHeroCard, on the wave, so it read
+ *     [hero: bar + system name + consumption] -> tabs -> cards
+ * The owner, looking at the running app beside the frame: "this is not even
+ * similar to figma, not layout not entity screens." The bar is now this
+ * file's own shrink-0 chrome above the scroller — see the long HEADER REDRAW
+ * block at the markup — and SystemHeroCard is the consumption hero only.
+ *
+ * ROOT. Both nodes emit the same root class, verbatim:
+ *     content-stretch flex flex-col gap-[186px] items-start
+ *     px-[var(--spacing\/4,16px)] py-[var(--spacing\/2,8px)] relative size-full
+ * (sysA says gap-[224px]; see below.) The PADDING MOVED in the refetch: it was
+ * a flat `p-[var(--spacing\/2,8px)]`, and the horizontal half is now 16px.
+ * That is carried, and the Content column's own 10px px is dropped with it,
+ * because neither node's card column has horizontal padding any more — the
+ * root's 16 is the whole gutter. Cards go from an 18px inset to 16px.
+ * Two atoms are deliberately NOT carried:
+ *   gap-[186px]  a canvas artefact — 224px in sysA, 186px in sysB, which is
+ *                itself the tell. The node has two flow children (the
+ *                header+tabs group and the cards) and the gap is the empty
+ *                band the pasted screenshot bitmap sits in, not a layout gap.
+ *                On an 852px frame it would push the whole page below the
+ *                fold. This file's own header already names that trap ("the
+ *                frame's 2763px height is a canvas artefact, never a page
+ *                height").
+ *   size-full    = w-full + h-full. h-full is what the app-shell contract
+ *                forbids; flex:1 / minHeight:0 is carried in the style object
+ *                instead, so only w-full survives.
+ * The card column is 199383:141513 "Content" (sysA, gap-[22px] h-[817px]
+ * pt-[10px] w-full) / 199359:126794 (sysB, gap-[14px] w-full — the refetch
+ * removed sysB's page-level Content wrapper entirely). h-[817px] is the same
+ * canvas artefact as the root gap and is not carried. The scroller keeps
+ * gap-[22px] and takes pt-[25px], which is the header group's own gap between
+ * the bar and the tabs: the bar is outside the scroller now, so that gap
+ * becomes the scroller's top inset and the tab row still lands on y=92.
+ *
+ * SECTION ORDER, top to bottom, straight off the refetched nodes:
+ *   sysA (alert)  Alert card 199394:79686
+ *                 System type    199383:141519   ("IOT overview")
+ *                 Valve status   199383:141553   ("IOT overview")
+ *                 Active policy  199383:141576   (node is NAMED "Topology"
+ *                                                 but its content is the
+ *                                                 Active policy card)
+ *                 Events Timeline 199383:141630  ("Card - Q2 Dividend Income")
+ *   sysB (calm)   the same four (Valve status is 199396:84018 there), minus
+ *                 the Alert card, then Water consumption_M 199384:143078
+ *                 LAST, as a sibling of the gap-[14px] wrapper rather than
+ *                 inside it.
+ * cardOrder below is that order, and it is now the same in both states —
+ * sysA keeps System type ahead of Valve status even while alerting, which
+ * the previous alert-state swap contradicted.
+ *
+ * IN THE PAGE BUT IN NEITHER NODE (kept, per the never-drop rule; flagged for
+ * the owner rather than deleted):
+ *   SystemTopologyCard  the only way to close an INDIVIDUAL valve. Stays as
+ *                       the disclosure behind System type's footer control.
+ *   InsightsCard        no node on either frame. Ordered last of the mapped
+ *                       cards so it cannot displace one the nodes do draw.
+ *   InfoAccordion       the real General Info content; see the tab note below.
+ *   ConsumptionReturnControl  the drill-down's way back; rides with the chart.
+ *   the burger            NEITHER frame draws one any more. It is the only
+ *                         way into the navigation drawer, so it stays in the
+ *                         header bar's left group.
+ *   the system's NAME     no node names the system anywhere — the header's
+ *                         scope slot reads "Meridian Realty Group (MRG)", an
+ *                         ACCOUNT, and the only other proper nouns on either
+ *                         frame are "Water line" and "SN 4471822". It is kept
+ *                         in the header bar's unused second row; see the
+ *                         HEADER REDRAW block for why there.
+ * IN THE NODES BUT NOT THE PAGE: nothing. Every node card has a component.
+ *
+ * REPORTED, NOT ACTED ON — the refetch also redrew the Alert card
+ * (199394:79686). It used to emit three "Unit wrapper" chips ("L/H flow
+ * rate" / "Duration" / "Detected"); it now emits one, with the value and its
+ * unit inline under the title and a single detected line carrying the
+ * duration. AlertCard is another file's and is untouched here.
+ */
+
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import TabBar from '@/components/TabBar'
@@ -57,11 +149,17 @@ import SystemTypeCard from '@/v2/components/SystemTypeCard'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
 import ActivePolicyCard from '@/v2/components/ActivePolicyCard'
 import InsightsCard from '@/v2/components/InsightsCard'
-import ScopePill from '@/v2/components/ScopePill'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import InfoAccordion from '@/v2/components/InfoAccordion'
 import SystemHeroCard from '@/v2/components/SystemHeroCard'
-import { Menu10, CustomerSupport } from '@/v2/icons'
+import MobileHeaderBar from '@/v2/components/MobileHeaderBar'
+/* The Mobile Header Bar moved here out of SystemHeroCard, and brought these
+   with it: shadcn <Button> so the burger's focus ring comes from --ring, and
+   cn() for the one class string on the bar that varies. `Menu10` went the
+   other way — it was imported here and never used, and the burger glyph the
+   node names is menu-01, which is drawn inline below for the reason recorded
+   in the HEADER REDRAW block. */
+import { Button } from '@/components/ui/button'
 /* The chart's window arithmetic — §3.1-§3.6 and the §4 matrix. Shared with
    HomeAllAccounts so the two screens cannot drift apart, and kept out of this
    file because a page may only export its component. */
@@ -479,6 +577,91 @@ function ActionPolicyCard({ policies }) {
    unchanged and now holds at every grouping: offsets are measured from the
    last reading in the series, never from "now" (PLS-WC-06). */
 
+/* The header bar's type family, as the nodes spell it, carrying the project's
+   own fallbacks. String.raw because `\/` in a plain JS string collapses to a
+   bare `/`, which Tailwind then reads as an opacity modifier and the class
+   never reaches the DOM. */
+
+/**
+ * One tab trigger — Figma 199383:141512 "Tabs" (sysA) / 199394:20601 (sysB),
+ * which emit the selected and unselected states as separate nodes rather than
+ * one node with an override:
+ *   I199383:141512;101485:143349;199383:141643  TabsTrigger             active
+ *   I199383:141512;101485:143349;199383:141644  TabsTrigger             rest
+ *   I199383:141512;101485:143349;199383:141646  TabsTrigger/line/false/default
+ * The last one is a DIFFERENT component at radius 26, so the row is not three
+ * copies of one shape — that is `pill="wide"` below.
+ *
+ * Deliberately a near-copy of HomeAllAccounts' TabTrigger: the two rows are
+ * traced from the same two nodes, and that file belongs to another owner, so
+ * this is duplicated rather than imported or hoisted. If the two ever need to
+ * move together, lifting this into @/v2/components is the fix.
+ *
+ * Every class atom is String.raw: the design-token names carry escaped
+ * slashes (`text-[color:var(--colors\/slate\/500,#62748e)]`) and a plain JS
+ * string eats the backslash, after which Tailwind reads `/` as an opacity
+ * modifier and the class never reaches the DOM. `leading-` is spelled AFTER
+ * the size atom for the same reason the rest of this repo does: tailwind-merge
+ * treats leading-* as conflicting with a font-size atom and silently drops the
+ * earlier one.
+ */
+function TabTrigger({ label, count, active, onClick, pill = 'default' }) {
+  const radius = pill === 'wide'
+    ? String.raw`rounded-[var(--component\/tabs\/list\/radius-horizontal,26px)]`
+    : String.raw`rounded-[var(--component\/tabs\/trigger\/radius,14px)]`
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? 'page' : undefined}
+      /* The count stays OFF the accessible name: a tab is found by what it
+         opens, not by how many things sit behind it. Folding the number in
+         renames the control and breaks name-based lookup for tests and for
+         anyone navigating by voice. The badge carries its own label. */
+      aria-label={label}
+      className={[
+        'content-stretch cursor-pointer flex flex-[1_0_0] h-[32px] items-center justify-center min-w-[56px] relative',
+        pill === 'wide'
+          ? String.raw`gap-[var(--spacing\/2,8px)] px-[var(--spacing\/2,8px)] py-[var(--spacing\/1,4px)]`
+          : 'flex-col',
+        radius,
+        active ? 'bg-[#c7e3ff]' : String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)]`,
+      ].join(' ')}
+    >
+      <span
+        className={[
+          String.raw`content-stretch flex gap-[var(--component\/tabs\/trigger\/gap,6px)] items-center overflow-clip relative shrink-0`,
+          pill === 'wide' ? '' : String.raw`px-[var(--component\/tabs\/trigger\/px,8px)] py-[var(--component\/tabs\/trigger\/py,4px)] ${radius}`,
+        ].join(' ')}
+      >
+        <span
+          className={[
+            '[word-break:break-word] overflow-hidden relative shrink-0 text-[14px] text-center text-ellipsis whitespace-nowrap',
+            String.raw`leading-[var(--text\/sm-tight\/lh,20px)]`,
+            active
+              ? String.raw`font-semibold text-[color:var(--wint-blue-accent,#0b81f8)]`
+              : String.raw`font-medium text-[color:var(--colors\/slate\/500,#62748e)]`,
+          ].join(' ')}
+        >
+          {label}
+        </span>
+
+        {count != null ? (
+          <span className={String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex h-[20px] items-center justify-center min-w-[20px] overflow-clip pl-[var(--component\/badge\/px,8px)] pr-[var(--spacing\/2,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)] shrink-0`}>
+            <span
+              className={String.raw`[word-break:break-word] leading-[var(--text\/xs\/lh,20px)] overflow-hidden relative shrink-0 tabular-nums text-[14px] text-[color:var(--colors\/slate\/400,#90a1b9)] text-ellipsis whitespace-nowrap`}
+              aria-label={`${count} ${label.toLowerCase()}`}
+            >
+              {count}
+            </span>
+          </span>
+        ) : null}
+      </span>
+    </button>
+  )
+}
+
 export default function SystemPageV2Screen() {
   const navigate = useNavigate()
   const { systemId } = useParams()
@@ -592,6 +775,10 @@ export default function SystemPageV2Screen() {
   const [chartOpen, setChartOpen] = useState(false)
   const chartRef = useRef(null)
   const carouselRef = useRef(null)
+  /* Which tab panel is showing. 'overview' is the node's selected state
+     (199383:141643 is the filled #c7e3ff trigger) and the one a route lands
+     on, so General Info still costs nothing until it is asked for. */
+  const [tab, setTab] = useState('overview')
 
   /* Consumption scope. The card draws the controls; the screen owns what they
      mean, because only the screen knows which system is on the route.
@@ -632,7 +819,7 @@ export default function SystemPageV2Screen() {
      and are excluded, exactly as deriveStats does. */
   const heroFigures = useMemo(() => {
     const read = (consumptionView?.series ?? []).filter(p => p.litres != null)
-    if (!read.length) return { total: '—', delta: null }
+    if (!read.length) return { figure: '—', unit: null, total: '—', delta: null }
     const total = read.reduce((sum, p) => sum + p.litres, 0)
     const fmt = n =>
       n >= 1e6 ? `${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M` :
@@ -644,6 +831,12 @@ export default function SystemPageV2Screen() {
     const newer = read.slice(half).reduce((s, p) => s + p.litres, 0)
     const pct = older > 0 ? Math.round(((newer - older) / older) * 100) : null
     return {
+      /* FIGURE AND UNIT ARE SEPARATE NOW. 199383:141636 draws "5,830" at
+         42.222/58.056 and 199383:141637 draws "L" beside it at 20/20 — two
+         runs at two sizes, which one string cannot be. `total` keeps the
+         joined spelling for anything that wants one line. */
+      figure: fmt(total),
+      unit: 'L',
       total: `${fmt(total)}L`,
       delta: pct == null ? null : `${pct > 0 ? '+' : ''}${pct}%`,
       pct,
@@ -651,7 +844,7 @@ export default function SystemPageV2Screen() {
     }
   }, [consumptionView])
 
-  const heroTotal = heroFigures.total
+  const heroTotal = heroFigures.figure
   const heroDelta = heroFigures.delta
 
   /* PLS-WC-06 — where this system's series actually starts and ends, read back
@@ -944,9 +1137,13 @@ export default function SystemPageV2Screen() {
      write and the read must agree; spelling the template literal here as well
      is exactly how they would drift. */
   const eventEndedKey = tagEventKey(system.id)
-  const cardOrder = alerting
-    ? ['valve', 'type', 'chart', 'insights', 'policy', 'timeline']
-    : ['type', 'chart', 'valve', 'policy', 'insights', 'timeline']
+  /* The nodes' order, and it no longer forks on state: 199383:141499 (alert)
+     and 199359:126785 (calm) draw System type, Valve status, Active policy,
+     Events Timeline in that sequence, and 199359:126785 puts Water
+     consumption_M (199384:143078) AFTER the timeline rather than under System
+     type. 'insights' has no node on either frame and is parked last so it
+     cannot displace a card the design does draw. */
+  const cardOrder = ['type', 'valve', 'policy', 'timeline', 'chart', 'insights']
 
   /* One optimistic valve state for the whole system, which is what the new
      card models. The per-device `closedValves` map stays underneath it — the
@@ -1101,87 +1298,223 @@ export default function SystemPageV2Screen() {
      frame's 2763px height is a canvas artefact, never a page height. */
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
-      {/* Figma root 198379:80447. The five-stop wash lives in --app-bg on the
-          outer shell so TabBar sits on the same ground; this node keeps the
-          frame's 8px inset only. */}
+      {/* Figma root 198379:80447, with the padding of the CURRENT frames —
+          199383:141499 / 199359:126785 both emit
+          `px-[var(--spacing\/4,16px)] py-[var(--spacing\/2,8px)]`. It used to
+          be a flat 8px all round, and the 2026-10-20 refetch is where the
+          16px gutter arrived; the Content column's own 10px px went with it,
+          because in both nodes Content now has no horizontal padding at all
+          and the root's 16 is the whole gutter. Net effect on the cards: an
+          18px inset becomes 16px.
+          The five-stop wash lives in --app-bg on the outer shell so TabBar
+          sits on the same ground. */}
       <div
-        className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-start p-[var(--spacing\/2,8px)] relative w-full"
+        className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-start px-[var(--spacing\/4,16px)] py-[var(--spacing\/2,8px)] relative w-full"
         style={{ flex: 1, minHeight: 0 }}
         data-node-id="198379:80447"
       >
-        {/* Content 198379:80449 — the one scrolling region on this screen */}
+        {/* MOBILE HEADER BAR - 199383:141502 (alert) / 199394:20586 (calm).
+         *
+         * The bar itself now lives in MobileHeaderBar, because the Location
+         * frames draw the identical bar (199360:129729) and two hand-matched
+         * copies of one node drift apart. That file holds the node's geometry
+         * and the owner's instruction for what each control does; this one
+         * only says what those controls mean ON A SYSTEM.
+         *
+         * IT IS FIXED CHROME, not the first thing in the scroll. A Figma frame
+         * has no scroll model, so the node cannot answer this and the reason
+         * is the app's: the bar is the only door into the navigation drawer,
+         * and a door that scrolls out of reach is one you have to hunt for.
+         * It is also what the app-shell contract means by chrome - a shrink-0
+         * sibling of the scroller, not a sticky child.
+         *
+         * LIFTED OUT OF SystemHeroCard, 2026-10-20. It used to be drawn ON the
+         * hero wave, which made the page read
+         *     [hero: header bar + system name + consumption] -> tabs -> cards
+         * against a design that reads
+         *     header bar -> tabs -> consumption hero -> cards
+         * In both nodes the bar is the first child of a gap-[25px] column
+         * (199383:141501 / 199394:20585) whose second child is the Tabs row.
+         *
+         * NO px. Neither node emits horizontal padding on the bar - the root
+         * frame's 16px is the inset - so nothing is added here. */}
+        <MobileHeaderBar
+          nodeId="199383:141502"
+          /* THE SLOT CARRIES THE SYSTEM, not the parent location.
+             The node centres an ACCOUNT here ("Meridian Realty Group (MRG)"),
+             because that frame's scope is an account. On /system/:id the scope
+             is the system, so that is what the slot names — and it is how the
+             system's name survives the bar losing its second row. Dropping the
+             name outright is not on the table: systemPageRouteData.dom.test.jsx
+             pins it, and it is the whole guard against the Floor-26 bug, where
+             every system in the app rendered the same hardcoded building. */
+          label={system.title || system.parentName || 'System'}
+          /* A frame has no history. The parent location is the real parent
+             scope, so that is where back goes; when the system has no parent
+             the control is not drawn at all rather than drawn inert. */
+          onBack={system.parentName
+            ? () => navigate(`/location/${encodeURIComponent(system.parentName)}`)
+            : undefined}
+          backLabel={system.parentName ? `Back to ${system.parentName}` : 'Back'}
+          onOpenTree={() => setDrawerOpen(true)}
+        />
+
+        {/* Content 198379:80449 — the one scrolling region on this screen.
+
+            IT BLEEDS, AND RE-APPLIES THE GUTTER AS ITS OWN PADDING. Both
+            nodes put the 16px gutter on the ROOT (199383:141513 and
+            199359:126794 carry no horizontal padding of their own), and that
+            is what this used to do — px-0 here, px-16 above. It gave the
+            screen a horizontal scrollbar.
+
+            Why: the hero below bleeds out to the phone's edges with
+            `-mx-[16px] w-[calc(100%+32px)]`, because the nodes place the wave
+            against the 393-wide root frame. With the gutter on the root this
+            scroller's box was only 361 wide, so the hero was 32px wider than
+            its scroll container. In LTR a negative LEFT margin is simply
+            unreachable — you cannot scroll to it — but a negative RIGHT
+            margin becomes scrollable width. So the screen scrolled 16px
+            sideways, which is exactly what the owner saw: "why this is not
+            responsive and i have horizontal scroll".
+
+            Pulling the scroller out to the full 393 and giving it px-16
+            leaves every card on the same 16px inset, and puts the hero's
+            margin box exactly on the scroller's padding box — so there is
+            nothing left to scroll to. scripts/check-shell-contract.mjs holds
+            the invariant (`bleed-needs-a-bleeding-scroller`), because a 16px
+            sideways scroll leaves lint, build and all 857 tests green.
+
+            overflowX:clip is belt-and-braces for whatever lands here next; it
+            clips at the padding box, which the hero now exactly fills.
+
+            pt-[25px] is the gap the header group puts between the bar and the
+            Tabs row — the bar is outside the scroller now, so the gap becomes
+            the scroller's top inset and the tab row still lands on the node's
+            y=92. */}
         <div
-          /* pt-0: the hero is the first thing in the scroller and its wave
-             is pinned to the frame's top edge, so there is no inset above it.
-             The Content column's own 10px gutter is restored below the hero. */
-          className="content-stretch flex flex-col gap-[22px] items-start pt-[var(--p-0,0px)] px-[var(--pro\/space\/2\,5,10px)] relative w-full"
-          style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
+          className="content-stretch flex flex-col gap-[22px] items-start pt-[25px] -mx-[16px] w-[calc(100%+32px)] px-[16px] relative"
+          style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', minHeight: 0 }}
           data-node-id="198379:80449"
         >
-          {/* HERO — Figma 199296:50183 (calm) / 199296:50454 (alert).
-              The whole top region: the page-level wave, the Mobile Header Bar
-              drawn on it, and the consumption headline. It bleeds out of the
-              Content column's 10px gutter AND the frame's 8px inset so the
-              wave reaches the phone's edges the way both nodes draw it. */}
-          <SystemHeroCard
-            className="-mx-[18px] w-[calc(100%+36px)]"
-            title={system.title}
-            total={heroTotal}
-            delta={heroDelta}
-            rangeLabel={consumptionView.label}
-            tone={system.alert ? 'alert' : 'calm'}
-            expanded={chartOpen}
-            onToggleChart={toggleChartFromHero}
-            onOpenMenu={() => setDrawerOpen(true)}
-            /* The comp centres a location name in this slot; this is that,
-               made operable. Replaces the breadcrumb row below. */
-            scope={
-              <ScopePill
-                label={system.parentName}
-                onOpenTree={() => setDrawerOpen(true)}
-                onBack={
-                  system.parentName
-                    ? () => navigate(`/location/${encodeURIComponent(system.parentName)}`)
-                    : undefined
-                }
-                backLabel={`Back to ${system.parentName ?? 'the parent location'}`}
-              />
-            }
-            /* Moved down from the page chrome rather than dropped. It is
-               deliberately inert — this app has no support route — but it
-               renders and focuses exactly as it did. */
-            headerAction={
-              <button
-                type="button"
-                aria-disabled="true"
-                aria-label="Customer support"
-                className="cursor-default flex items-center justify-center overflow-clip relative shrink-0 size-[24px] text-[#0a0a0a]"
-                data-node-id="I198379:80448;50600:52769;198379:80622"
+          {/* Tabs + hero + body. The gap-[14px] wrapper 198379:80456 that used
+              to hold tabs and body together is gone: the hero now sits BETWEEN
+              them, which is where both nodes put it, so the three are siblings
+              at the scroller's own gap-[22px]. */}
+          {/* THE TAB ROW, RESTORED. Owner, explicitly: follow Figma's tab
+                concept. It had been removed here, and the removal's own note
+                is answered point by point rather than discarded:
+                  · "neither redesigned Figma node draws one" — that was true
+                    of the frames this file was traced from then. It is NOT
+                    true of the current ones: 199383:141499 and 199359:126785
+                    BOTH draw a Tabs node (199383:141512 / 199394:20601) in
+                    the header group, above Content.
+                  · "it cost 36px + its gap" — still true, and still the
+                    design's price. The row rides INSIDE the scroller rather
+                    than as fixed chrome, so it scrolls away with the hero and
+                    the 852px frame keeps its standing budget.
+                  · WHAT THE REMOVAL WAS PROTECTING, and what is preserved
+                    here: the real General Info content. The old tab rendered
+                    the literal string "No design yet for this tab" while the
+                    11 real sections sat unported in v1; the removal replaced
+                    it with InfoAccordion, the actual port. That port is what
+                    the General Info tab opens now — the tab came back, the
+                    placeholder string did not. Nothing regressed to a stub.
+
+                The tab row is NOT fixed chrome, and it is now the FIRST thing
+                in the scroll. Figma puts Tabs in the header group as a sibling
+                of Content; this page keeps only the Mobile Header Bar out of
+                the scroller, because only the bar carries navigation (the
+                burger and the back control) that must not scroll out of reach.
+                The tabs scroll away with the hero, which is what keeps the
+                852px frame's standing budget. Order matches the node either
+                way: bar, tabs, hero, cards.
+
+                NOT IMPLEMENTED — the middle trigger. Both nodes draw a second
+                trigger labelled "Locations" carrying a count Badge of 8. A
+                leaf system has no child locations and nothing here counts 8,
+                so rendering it would mean either a dead tab or an invented
+                figure. Omitted and flagged for the owner; TabTrigger above
+                still implements the Badge, so restoring it is passing a
+                `count` once there is a real one. (HomeAllAccounts keeps that
+                trigger because an account scope genuinely has a fleet count.) */}
+            <div
+              className="content-stretch flex items-center justify-between relative shrink-0 w-full"
+              data-node-id="199383:141511"
+            >
+              <div
+                className={String.raw`content-stretch flex flex-[1_0_0] gap-[var(--p-0,0px)] h-[36px] items-start min-w-px pr-[var(--component\/tabs\/list\/padding,3px)] py-[var(--component\/tabs\/list\/padding,3px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)]`}
+                data-node-id="199383:141512"
+                data-name="Tabs"
               >
-                <CustomerSupport width={21.995} height={19.995} />
-              </button>
-            }
-          />
+                <div
+                  className={String.raw`content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center min-w-px relative`}
+                  data-node-id="I199383:141512;101485:143349"
+                  data-name="slot"
+                >
+                  <TabTrigger label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')} />
+                  <TabTrigger label="General Info" pill="wide" active={tab === 'general'} onClick={() => setTab('general')} />
+                </div>
+              </div>
+            </div>
 
+            {/* THE CONSUMPTION HERO — the wave and the headline on it, and
+                nothing else. 199383:141500 + 199396:84050 (alert) /
+                199394:79634 + 199394:79635 (calm). Both nodes pin it BELOW the
+                tab row, 20px under it, which is where it now sits.
 
-          {/* Tabs + body 198379:80456 */}
-          <div className="content-stretch flex flex-col gap-[14px] items-start relative shrink-0 w-full" data-node-id="198379:80456">
-            {/* THE TAB ROW IS GONE (Overview | General Info).
-                It was never a set of peers: Overview is this entity's
-                dashboard and General Info is a metadata sheet — two different
-                layouts, which is exactly the case NN/g says a tab control must
-                not carry ("each in-page tab should have the same layout but
-                with different data"). It also cost 36px + its gap on an 852px
-                frame, competed with the bottom bar, and neither redesigned
-                Figma node draws one.
+                It bleeds out of the frame's 16px inset so the wave reaches the
+                phone's edges: the nodes position the wave against the ROOT
+                frame (left-[17px] / left-[9px]), not against the card column,
+                so the component has to span the full 393 for those offsets to
+                mean what Figma means by them.
 
-                Nothing was dropped to remove it: General Info is now the
-                collapsed accordion group at the foot of this same scroll —
-                which is more than the tab held, because that tab rendered the
-                literal string "No design yet for this tab" while the real
-                11-section content sat unported in v1. */}
+                It stays visible on BOTH tabs rather than living inside the
+                Overview panel: in both frames the wave is a page-level layer,
+                not a card. */}
+            <SystemHeroCard
+              className="-mx-[16px] w-[calc(100%+32px)]"
+              total={heroTotal}
+              unit={heroFigures.unit}
+              delta={heroDelta}
+              rangeLabel={consumptionView.label}
+              tone={system.alert ? 'alert' : 'calm'}
+              expanded={chartOpen}
+              /* BOTH sides of the 2026-10-20 merge land here, and they do not
+                 actually disagree — one says WHERE the chart opens, the other
+                 says WHICH WINDOW it opens on.
+                   · Figma side: the chart the hero reveals lives in the
+                     Overview body, so firing this from General Info would be a
+                     control with nothing to show. The tab comes back on the way.
+                   · Behaviour side: "See more" is an ENTRY POINT, not a
+                     disclosure triangle. toggleChartFromHero unwinds any
+                     drill-down back to the window the caption names, turns the
+                     previous-period comparison on wherever the data supports
+                     one, and opens; "See less" only closes. The reasoning is at
+                     openChartFromHero above, and it is the whole feature.
+                 setTab first so the Overview panel the chart mounts into is the
+                 one being rendered when chartRef's scroll target is asked for;
+                 both are plain state setters in one React batch, so they commit
+                 together either way. */
+              onToggleChart={() => {
+                setTab('overview')
+                toggleChartFromHero()
+              }}
+            />
 
-            {/* Body wrapper 198379:80459 */}
+            {tab === 'general' ? (
+              /* General Info — the v1 Info tab's 11 real sections (PRD 04h),
+                 collapsed by default, exactly the component the tab removal
+                 put at the foot of the Overview scroll. It moved behind the
+                 restored tab; it was not re-stubbed. */
+              <div
+                className={String.raw`content-stretch flex flex-col gap-[14px] items-start pb-[var(--spacing\/4,16px)] px-[var(--p-0,0px)] relative shrink-0 w-full`}
+              >
+                <InfoAccordion system={system} />
+              </div>
+            ) : (
+            /* Body wrapper 198379:80459 — the Overview panel. Unchanged
+               except that it is now a tab panel rather than the whole
+               scroll body. */
             <div
               className="content-stretch flex flex-col gap-[14px] items-start justify-center pb-[var(--spacing\/4,16px)] px-[var(--p-0,0px)] relative shrink-0 w-full"
               data-node-id="198379:80459"
@@ -1430,12 +1763,8 @@ export default function SystemPageV2Screen() {
                     return null
                   })}
 
-              {/* General Info — the tab's content, now the last section of the
-                  scroll. Collapsed by default (PRD 04h: "Foldable sections - all
-                  collapsed by default"), so it costs one row at rest. */}
-              <InfoAccordion system={system} />
             </div>
-          </div>
+            )}
         </div>
 
         {/* One event, full screen. `absolute inset-0 z-50`, opaque, and NO

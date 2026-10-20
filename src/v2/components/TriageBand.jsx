@@ -1,81 +1,267 @@
 /**
- * TriageBand — the first thing on the All Accounts overview.
+ * TriageBand — the Account/Location screen's "Water events" card.
  *
- * WHY THIS EXISTS. The overview answered "how many" and never "where". A user
- * arriving with no time read "56 Water events", a 66% gauge and six stat tiles
- * of equal visual weight, and still could not tell which building was in
- * trouble without tapping. The events already carry the answer — each row has
- * systemName, location, address, type and duration — but the card collapses by
- * default, because opening 56 rows buried everything beneath it.
+ * SOURCE NODES (read off the emitted React+Tailwind on disk, NOT re-fetched):
+ *   alert  199323:12113  -> the card is 199359:128986, body 199359:129095
+ *   calm   199371:137019 -> the card is 199371:137191, body 199371:137293
+ * It sits between SystemHealthCard (199323:12124) and the consumption card
+ * (199323:12260), and is the design's own "IOT overview" chassis — the same
+ * shell SystemHealthCard draws, with a different heading and body.
  *
- * BUILT AGAINST WHAT COMPARABLE PRODUCTS ACTUALLY SHIP. Eleven were examined
- * (Phyn, Moen Flo, Flo Property, mySolarEdge, SolarEdge Go, Enphase Enlighten,
- * Enphase Installer Toolkit, Samsara, Verkada, UniFi, Fleetio). The closest
- * structural match is SolarEdge Go's Fleet Management screen — 534 sites, an
- * issue rollup and a ranked list, all resolved above one fold — and this is
- * modelled on it.
+ * WHY THIS EXISTS. The overview answered "how many" and never "where". The
+ * events already carry the answer — systemName, location, address, type,
+ * duration — and this is the surface that prints it. That part is unchanged.
+ * What changed with this revision is the PRESENTATION: the previous layout
+ * (3-up stat row, proportion strip, two-link footer) was written from UX
+ * research before 199359:129095 could be opened, and is replaced wholesale by
+ * what the node actually draws. The behaviour below — the props, the
+ * worst-first ranking, the row-as-button, the location line — is kept.
  *
- * The findings that shaped each decision:
+ * WHAT THE NODE DRAWS
+ *   chassis   199359:128986  #fafbfc / 1px white / rounded 22 / pt-12 pb-16,
+ *                            gap-[12px] in alert, gap-[20px] in calm
+ *   heading   199359:128989  28px row, px-20: "Water events" + a count pill,
+ *                            and ONE trailing button, 99x36
+ *   body      199359:129095  px-16, gap-[10px]: a 1px rule ABOVE every row
+ *   row       199359:129097  py-12, rounded-14; 31px waves badge, gap-7, then
+ *                            [name / city · address]  <->  [duration / kind]
+ *   empty     199371:137293  h-178, centred: title + sub, then a #daecff tip
  *
- *  · NOT ONE of the eleven shows more than THREE status counters above the
- *    fold. Hence three, and only three: `Water events`, `Offline`, `Valve`.
+ * ---------------------------------------------------------------- locA / locB
  *
- *  · The hairline-divided 3-up stat row is the single most reused component
- *    across every vendor looked at (SolarEdge ×2, mySolarEdge, Phyn ×2,
- *    Enphase as a 2-up). That is `StatRow` below.
+ * The two states disagree in five places, all of them real:
  *
- *  · SolarEdge Go rolls its long tail into one tappable `6 Other Alerts ›`.
- *    Disconnected power and missing recipients are that tail here — they are
- *    real, but neither changes what you do in the next ten minutes.
+ *  1. CHASSIS GAP. alert gap-[12px]; calm gap-[20px] h-[252px]. Both gaps are
+ *     carried. The explicit 252px height is NOT: 12+28+20+178+16 = 254, so the
+ *     number is a Figma rounding of its own content, and pinning it would only
+ *     fight the content once the illustration below goes missing.
+ *  2. COUNT PILL FILL. alert red/600 #e7000b; calm slate/200 #e2e8f0.
+ *     Carried.
+ *  3. COUNT PILL INK. BOTH states write text-[#fafbfc]. On the calm pill that
+ *     is #fafbfc on #e2e8f0 — about 1.3:1, invisible. This is the one place
+ *     the design is overridden: the zero pill takes slate/600 #45556c ink
+ *     (the card's own neutral, already on the button beside it). Reported.
+ *  4. THE TRAILING BUTTON. alert "Show all"; calm "Show past events". Same
+ *     node slot, same 99x36 box, same style — the design switches the LABEL
+ *     and nothing else. So does this component (see `action` below).
+ *     The 99px width is kept only for "Show all"; "Show past events" does not
+ *     fit 99px at 14px and Figma lets it bleed out of its own box, which is
+ *     not something to reproduce. It is `justify-end` + nowrap, so dropping
+ *     the fixed width grows it leftwards — exactly what the frame shows.
+ *  5. THE BODY. alert = rows; calm = the empty state. Both implemented.
  *
- *  · Counts read in SYSTEMS AFFECTED, not events ("54 Sites", not "54
- *    alerts"), because that is the number that maps to work.
+ * ------------------------------------------------------------------ dropped
  *
- *  · Phyn and SolarEdge both badge only the unhealthy rows and leave healthy
- *    ones unmarked. Absence of a badge is a legible "fine" signal and costs
- *    nothing, which is why there is no "All systems 103" tile — 103 is the
- *    denominator in the headline instead.
+ * THE 8px DOT (199375:140668, asset 69b0d.svg). The first row of locA draws an
+ * 8px ellipse before its duration; rows 2, 3 and 4 do not. It is NOT rendered
+ * here, and that is an evidence-based call rather than a shrug: the same row
+ * component in the full events list (199375:138276) carries the dot on 3 of
+ * its 6 rows, and those three are identical to the other three in every other
+ * respect — same red/100 badge, same red/700 duration, same slate/800 "High
+ * Flow", all six under the "Active" tab. The dot correlates with nothing
+ * observable, and being an <img> it carries no colour either. There is no
+ * reading of it that could be implemented without inventing both a meaning
+ * and a value.
  *
- *  · SolarEdge sorts its site list `by Alert Impact ↓`, which makes the list
- *    itself the ranking and removes the need for a separate breakdown card.
- *    `ranked` below does the same: severity first, then duration.
+ * THE EMPTY STATE'S THREE IMAGES. All are <img> pointing at Figma asset URLs,
+ * which expire in ~7 days and must never be referenced at runtime:
+ *   · 199375:138265 — a 90x89.308 raster screenshot behind a #daecff
+ *     multiply wash. A photo; there is nothing to inline.
+ *   · 199375:139484 — "Huge Icons / ai-magic", 57px, absolutely placed over
+ *     that screenshot.
+ *   · 199375:139972 — "Huge Icons / token-circle", 33px, leading the tip.
+ *   The emit gives each a box and no geometry, so none can be redrawn and no
+ *   substitute could be more than a guess at which glyph it is. All three are
+ *   decorative (no text, no semantics), so the empty state loses its
+ *   illustration and keeps every word. The body KEEPS h-[178px] so the card
+ *   still stands at the design's height rather than collapsing round the gap.
  *
- *  · Named anti-pattern, and the shape this replaces: showing an aggregate AND
- *    its full breakdown in one card ("56 Water events" + "High Flow 21" +
- *    "Low Flow 29"). The high/low split belongs on the events LIST as filter
- *    chips, where it is interactive, not here as a readout.
+ * THE "Show all" DROP-SHADOW. Both layers resolve to a transparent colour at
+ * 0/0/0 — the same verified no-op SystemHealthCard dropped.
  *
- *  · A 66% health ring is ~160pt to say something less actionable than "56
- *    systems need attention". SolarEdge, monitoring 534 sites, publishes no
- *    health percentage at all. The headline sentence replaces it.
+ * ------------------------------------------------------------ substitutions
  *
- * On the one point where the two research strands disagreed — a segmented
- * proportion strip — the general-patterns evidence favoured it and no shipping
- * product used one. It is kept, but as 8px plus a legend line, because the
- * headline already carries the number and the strip only has to make the
- * ratio instant. Cleveland & McGill: a divided bar supports a position
- * judgement only in its bottom segment, so the counts are printed, always.
+ *   aadb2.svg  Phosphor Icons / waves    -> <Waves/> (v2/icons), 17.947px
+ *   08c33.svg  Huge Icons / arrow-right-02 -> lucide <ArrowRight/>, size 16
+ *              (the same two swaps SystemHealthCard documents and makes)
+ *   6c479.svg  "Line 6", the 1px row rule -> a border, slate/200 #e2e8f0
+ *   b6334.svg  "Line 1", the 12px city/address tick -> ditto
+ *   Neither line carries a colour in the emit. slate/200 is this repo's
+ *   established hairline token (ActivePolicyCard, AlertCard, EventOverlayV2).
  *
- * WCAG: every count carries an icon, a word and a number, so colour is never
- * the sole encoding (1.4.1). Targets are h-12 / 48dp (2.5.8, Material).
+ * LOW FLOW HAS NO DESIGN. Every row in locA — and all six in the full events
+ * list — is a HIGH flow row: red/100 badge, red/700 duration. The node never
+ * draws a low-flow row, so its tone is not invented here either; it is taken
+ * from this project's existing Figma-sourced water palette, which
+ * ActiveWaterEventsCard and EventOverlayV2 already share: orange/100 #ffedd4
+ * behind the badge, orange/600 #f54a00 on the duration.
+ * The glyph itself has no colour in the emit (it is an <img>); it is tinted
+ * with its row's own ink, the only ink the row has.
+ *
+ * WIDTHS. Figma freezes the row's text column at `w-[215px] shrink-0` and
+ * marks every text node `shrink-0`, because on a 375 artboard nothing ever
+ * has to shrink. With real system names and real addresses that is the exact
+ * bug scripts/check-text-overflow.mjs exists to catch, so the column flexes
+ * (`flex-[1_0_0] min-w-px`) and each text node gets min-w-px + a live
+ * ellipsis instead. At 375 this reproduces the frame; past it, it survives.
+ *
+ * FROZEN COPY, FLAGGED. The empty state's tip reads "Leak prevention for your
+ * system can prevent up to 25K L loss". 25K is not derived from anything and
+ * is not a prop; it is what 199375:139984 says, carried verbatim.
+ *
+ * ACCESSIBILITY
+ *   · The 99x36 button is under 48dp, so it carries the same `after:` pad
+ *     SystemHealthCard uses — 36 + 2x6 = 48 — without moving a pixel.
+ *   · A row is 12 + 41.5 + 12 = 65.5px. Already past 48dp.
+ *   · Severity is never colour alone: "High Flow" / "Low Flow" is printed on
+ *     every row, which is the design's own doing.
+ *   · Visible labels stay Figma's ("Show all", "High Flow"); accessible names
+ *     use the product's vocabulary ("View all 4 water events", "High flow").
+ *     Same split SystemHealthCard makes.
  */
-import { Card } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { ChevronRight, PowerOff } from 'lucide-react'
-import { PinLocation03, Waves, WifiDisconnected02 } from '@/v2/icons'
-import { ValveErrorGlyph } from '@/v2/components/SystemsHealthCard'
+import { ArrowRight } from 'lucide-react'
+import { Waves } from '@/v2/icons'
 import { cn } from '@/lib/utils'
 
-/* The palette v2 already uses for these states. High flow is the water-event
-   red, low flow the amber; the fault counters are slate, because a fault is
-   work to do rather than water leaving the building. */
-const HIGH = '#DB4670'
-const LOW = '#F05C25'
-const SLATE = '#45556C'
-const OK = '#5C9E1A'
+/* ----------------------------------------------------------------- type */
 
-/** How many rows ride along with the count. PagerDuty's Home shows 3. */
-const PREVIEW_ROWS = 3
+/* Figma names the family per weight; the fallbacks are this project's. */
+const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
+const FIG_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
+const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
+const FIG_HEAD = String.raw`font-[family-name:var(--font\/family\/heading,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
+const GEIST_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif]`
+
+/* NOTE ON CLASS ORDER. Every string below spells `leading-[…]` AFTER its
+   `text-[length:…]` / `text-[Npx]`, which is the reverse of Figma's
+   alphabetical emit. cn() is tailwind-merge, and it treats a line-height atom
+   as conflicting with a font-size atom — emitted order silently deletes the
+   leading. And every string carrying a backslash is String.raw: a plain
+   literal turns \/ into a bare /, which Tailwind reads as an opacity
+   modifier, and the class applies nothing. */
+
+/* --------------------------------------------------------------- chassis */
+
+/* 199359:128986 (alert) / 199371:137191 (calm). */
+const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col items-center pb-[16px] pt-[12px] relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full`
+const CARD_GAP_ALERT = String.raw`gap-[12px]`
+const CARD_GAP_CALM = String.raw`gap-[20px]`
+
+/* 199359:128987 / 128988 / 128989 — Figma nests three frames to put px-[20px]
+   on the outer one and the 28px rule on the inner. Kept as drawn; note the
+   heading is px-20 while the body below is px-16, so the rows sit 4px wider
+   than the title. That is the design, not a slip. */
+const HEAD_WRAP = String.raw`content-stretch flex flex-col items-start justify-center px-[20px] relative shrink-0 w-full`
+const HEAD_COL = String.raw`content-stretch flex flex-col items-start relative shrink-0 w-full`
+const HEAD_ROW = String.raw`content-stretch flex h-[28px] items-center justify-between relative shrink-0 w-full`
+const HEAD_LEFT = String.raw`content-stretch flex gap-[12px] items-center relative shrink-0`
+
+/* 199359:128991 */
+const HEAD_TITLE = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap leading-[var(--text\/sm\/lh,20px)]`
+
+/* 199359:128992 / 128993 — the count pill. */
+const PILL = String.raw`content-stretch flex flex-col items-center justify-center px-[6px] relative rounded-[10px] shrink-0`
+const PILL_ALERT = String.raw`bg-[var(--colors\/red\/600,#e7000b)]`
+const PILL_CALM = String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)]`
+const PILL_TEXT = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] relative text-[length:var(--text\/base\/size,16px)] text-center tracking-[var(--text\/base\/heading-tracking,-0.4px)] w-full leading-[var(--text\/base\/lh-snug,22px)]`
+const PILL_INK_ALERT = String.raw`text-[#fafbfc]`
+/* See note 3 at the top: #fafbfc on #e2e8f0 is unreadable. */
+const PILL_INK_CALM = String.raw`text-[color:var(--colors\/slate\/600,#45556c)]`
+
+/* 199359:128994 / 199371:137199 — one button, two labels. */
+const ACTION = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-end px-0 py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 after:absolute after:content-[''] after:inset-x-0 after:inset-y-[-6px]`
+const ACTION_FIXED_W = String.raw`w-[99px]`
+const ACTION_TEXT = String.raw`[word-break:break-word] font-medium relative shrink-0 text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap leading-[var(--text\/sm-tight\/lh,20px)]`
+const ACTION_ICON = String.raw`content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px] text-[color:var(--colors\/slate\/600,#45556c)]`
+
+/* ------------------------------------------------------------------ rows */
+
+/* 199359:129095 — the Body wrapper. */
+const BODY = String.raw`content-stretch flex flex-col gap-[10px] items-center px-[var(--spacing\/4,16px)] relative shrink-0 w-full`
+
+/* 199375:140741 / 140740 / 140738 / 140742 — a 1px rule above EVERY row,
+   including the first; there is none after the last. */
+const RULE = String.raw`border-[color:var(--colors\/slate\/200,#e2e8f0)] border-solid border-t-[length:var(--border-width\/border,1px)] h-0 relative shrink-0 w-full`
+
+/* 199359:129097 and its three siblings. */
+const ROW = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex flex-col gap-[var(--spacing\/2,8px)] items-start px-0 py-[12px] relative rounded-[14px] shrink-0 text-left w-full`
+const ROW_STATIC = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-default flex flex-col gap-[var(--spacing\/2,8px)] items-start px-0 py-[12px] relative rounded-[14px] shrink-0 text-left w-full`
+/* rounded-[14px] on a transparent row is there for a pressed fill; the fill
+   itself is the one the previous implementation already shipped, kept so the
+   row does not lose its affordance feedback. */
+const ROW_HOVER = String.raw`hover:bg-[var(--colors\/slate\/100,#f1f5f9)]`
+
+const ROW_INNER = String.raw`content-stretch flex gap-[7px] items-center relative shrink-0 w-full`
+const BADGE_COL = String.raw`content-stretch flex flex-col items-center relative shrink-0`
+const BADGE = String.raw`content-stretch flex flex-col gap-[2.583px] items-center justify-center overflow-clip px-[5.167px] py-[1.292px] relative rounded-[16.792px] shrink-0 size-[31px]`
+const BADGE_ICON_WRAP = String.raw`content-stretch flex flex-col items-start relative shrink-0`
+
+const ROW_MAIN = String.raw`content-stretch flex flex-[1_0_0] items-center justify-between min-w-px relative`
+/* Figma: w-[215px] shrink-0. See the WIDTHS note. */
+const ROW_TEXT = String.raw`content-stretch flex flex-[1_0_0] flex-col gap-[3px] items-start min-w-px relative`
+const NAME_ROW = String.raw`content-stretch flex items-center min-w-px relative w-full`
+const NAME = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] min-w-px overflow-hidden relative text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,16px)] text-ellipsis whitespace-nowrap leading-[var(--text\/sm\/lh,22px)]`
+
+/* 199364:129818 — the location line. This is the entire point of the widget:
+   the screen had no "where" before it. Figma prints city, a 12px tick, then
+   the street address. */
+const WHERE_ROW = String.raw`content-stretch flex gap-[5px] items-center relative shrink-0 w-full`
+const CITY = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] min-w-px overflow-hidden relative text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/xs\/size,12px)] text-ellipsis whitespace-nowrap leading-[var(--text\/xs\/lh-snug,16.5px)]`
+/* 199364:129820 — a 12px line, rotated 90deg into a zero-width box. */
+const WHERE_TICK = String.raw`border-[color:var(--colors\/slate\/200,#e2e8f0)] border-l-[length:var(--border-width\/border,1px)] border-solid h-[12px] relative shrink-0 w-0`
+const ADDRESS = String.raw`[word-break:break-word] flex-[1_0_0] font-[var(--font\/weight\/font-normal,400)] min-w-px overflow-hidden relative text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis whitespace-nowrap leading-[var(--text\/xs\/lh-snug,16.5px)]`
+
+/* 199364:129817 — duration over kind, right-aligned. */
+const META_COL = String.raw`content-stretch flex flex-col gap-[3px] items-center justify-center relative shrink-0`
+const DUR_ROW = String.raw`content-stretch flex gap-[5px] h-[20px] items-center relative shrink-0`
+const DURATION = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] min-w-px overflow-hidden relative text-[12px] text-ellipsis whitespace-nowrap leading-[var(--text\/xs\/lh,16px)]`
+const KIND = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] min-w-px overflow-hidden relative text-[12px] text-[color:var(--colors\/slate\/800,#1d293d)] text-ellipsis whitespace-nowrap leading-[var(--text\/xs\/lh-snug,16.5px)]`
+
+/* ------------------------------------------------------------ empty state */
+
+/* 199371:137293 — h-[178px] kept so the card keeps its height without the
+   illustration; see the DROPPED note. */
+const EMPTY_BODY = String.raw`content-stretch flex flex-col gap-[13px] h-[178px] items-center justify-center px-[var(--spacing\/4,16px)] relative shrink-0 w-full`
+const EMPTY_TEXT = String.raw`content-stretch flex flex-col gap-[6px] items-center relative shrink-0 w-full`
+/* Figma h-[98px] on this row budgets for the 89px screenshot beside the copy;
+   with no screenshot it would be 50px of hole, so the row sizes to its copy
+   and centres it. */
+const EMPTY_HERO = String.raw`content-stretch flex gap-[14px] items-center justify-center relative shrink-0 w-full`
+const EMPTY_COPY = String.raw`[word-break:break-word] content-stretch flex flex-col gap-[9px] items-center justify-center relative shrink-0 text-center whitespace-nowrap`
+const EMPTY_TITLE = String.raw`font-[var(--font\/weight\/font-semibold,600)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/lg\/size,18px)] tracking-[-0.45px] leading-[var(--text\/lg\/lh-none,18px)]`
+const EMPTY_SUB = String.raw`font-[var(--font\/weight\/font-normal,400)] relative shrink-0 text-[color:var(--muted-foreground,#737373)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)]`
+
+/* 199375:139983 / 139984 — the tip. */
+const TIP = String.raw`bg-[#daecff] content-stretch flex gap-[10px] h-[65px] items-center px-[7px] relative rounded-[14px] shrink-0 w-full`
+const TIP_TEXT = String.raw`[word-break:break-word] flex flex-col font-[var(--font\/weight\/font-normal,400)] justify-center relative shrink-0 text-[color:var(--wint-blue-accent,#0b81f8)] w-[214px] leading-[0]`
+const TIP_RUN = String.raw`text-[14px] leading-[var(--text\/xs\/lh,20px)]`
+const TIP_UNIT = String.raw`[word-break:break-word] font-normal text-[12px] tracking-[0.12px] leading-[16px]`
+
+/* ----------------------------------------------------------------- tones */
+
+/* High flow is the only tone the node ever draws. See the LOW FLOW note. */
+const TONE = {
+  high: {
+    label: 'High Flow',   // visible: Figma's casing
+    name: 'High flow',    // accessible: the product's
+    badge: String.raw`bg-[var(--colors\/red\/100,#ffe2e2)]`,
+    ink: String.raw`text-[color:var(--colors\/red\/700,#c10007)]`,
+  },
+  low: {
+    label: 'Low Flow',
+    name: 'Low flow',
+    badge: String.raw`bg-[var(--colors\/orange\/100,#ffedd4)]`,
+    ink: String.raw`text-[color:var(--colors\/orange\/600,#f54a00)]`,
+  },
+}
+
+/* ----------------------------------------------------------------- model */
+
+/* How many rows ride under the heading. The node draws FOUR, with a count
+   pill reading 4 — so every event it has is on screen and the frame cannot
+   say where it would have stopped. Four is the number it shows, and the
+   "Show all" button in the heading carries the rest either way. */
+const PREVIEW_ROWS = 4
 
 /** Minutes from a display duration ("6h 36m"), for ranking. */
 function minutesOf(duration) {
@@ -83,293 +269,199 @@ function minutesOf(duration) {
   return m ? (+m[1] || 0) * 1440 + (+m[2] || 0) * 60 + (+m[3] || 0) : 0
 }
 
-/* One cell of the 3-up divided row. Icon, count, unit — the shape every
-   vendor converged on. */
-/* `label` is the visible word and `name` the accessible one. The research
-   said to shorten status labels editorially rather than truncate them, so the
-   chip reads "Offline" at 393px — but a screen reader should still hear the
-   full domain term, and the rest of the app calls it "Offline systems". */
-function Stat({ glyph, count, label, name, tone = SLATE, onSelect }) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      disabled={!onSelect}
-      aria-label={`${name ?? label}: ${count}. Show them.`}
-      className={cn(
-        'flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 py-2.5',
-        onSelect ? 'cursor-pointer rounded-lg hover:bg-slate-50' : 'cursor-default',
-      )}
-    >
-      <span className="flex h-[18px] items-center justify-center" style={{ color: tone }} aria-hidden="true">
-        {glyph}
-      </span>
-      <span className="text-[20px] font-semibold leading-none tabular-nums" style={{ color: count ? tone : '#94A3B8' }}>
-        {count}
-      </span>
-      <span className="w-full truncate text-center text-[11px] leading-tight text-slate-500">{label}</span>
-    </button>
-  )
-}
+/* ------------------------------------------------------------------- row */
 
 function EventRow({ event, onSelect }) {
-  const high = event.type === 'leak-high'
-  const tone = high ? HIGH : LOW
-  const kind = high ? 'High flow' : 'Low flow'
-  // The location is the point of this row. l3Name is null on some scopes, so
-  // take whichever level of the path actually exists.
-  const where = [event.location, event.address].filter(Boolean)[0] || ''
+  const tone = event.type === 'leak-high' ? TONE.high : TONE.low
+
+  /* Figma prints BOTH levels — "San Fransisco · 1775 Washington St, Hanover
+     MA 2339" — and the live mapping supplies both. Either can be blank on
+     some scopes, in which case the tick between them goes too rather than
+     dangling beside nothing. */
+  const city = event.location || ''
+  const address = event.address || ''
+  const where = [city, address].filter(Boolean).join(', ')
 
   return (
     <button
       type="button"
       onClick={onSelect}
       disabled={!onSelect}
-      className={cn(
-        'flex w-full items-center gap-3 px-4 py-2 text-left',
-        onSelect ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default',
-      )}
-      aria-label={`${event.systemName}, ${kind}, ${where}, running ${event.duration}`}
+      className={cn(onSelect ? cn(ROW, ROW_HOVER) : ROW_STATIC)}
+      /* Opens with the system name and closes with the duration — both are
+         load-bearing: v2ControlsWired.dom.test.jsx splits on the first comma
+         to get the system, and matches /running \d/ on the tail. */
+      aria-label={`${event.systemName}, ${tone.name}, ${where}, running ${event.duration}`}
+      data-node-id="199359:129097"
     >
-      <span
-        className="flex size-8 shrink-0 items-center justify-center rounded-full"
-        style={{ background: high ? 'rgba(219,70,112,0.10)' : 'rgba(240,92,37,0.10)', color: tone }}
-        aria-hidden="true"
-      >
-        <Waves width="16" height="16" />
-      </span>
+      <span className={ROW_INNER} data-node-id="I199359:129097;199344:113156">
+        <span className={BADGE_COL}>
+          <span className={cn(BADGE, tone.badge, tone.ink)} data-name="Badge">
+            <span className={BADGE_ICON_WRAP} data-name="leftIcon">
+              <Waves size={17.947} data-name="Phosphor Icons / waves" />
+            </span>
+          </span>
+        </span>
 
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-[14px] font-medium leading-tight text-slate-900">
-          {event.systemName}
-        </span>
-        <span className="flex min-w-0 items-center gap-1 text-[12px] leading-tight text-slate-500">
-          <PinLocation03 width="12" height="12" className="shrink-0" aria-hidden="true" />
-          <span className="truncate">{where}</span>
-        </span>
-      </span>
+        <span className={ROW_MAIN} data-node-id="I199359:129097;199344:113165">
+          <span className={ROW_TEXT} data-node-id="I199359:129097;199364:129816">
+            <span className={NAME_ROW}>
+              <span className={cn(FIG_SEMI, NAME)}>{event.systemName}</span>
+            </span>
+            <span className={WHERE_ROW} data-node-id="I199359:129097;199364:129818">
+              {city && <span className={cn(FIG_REG, CITY)}>{city}</span>}
+              {city && address && (
+                <span className={WHERE_TICK} aria-hidden="true" data-node-id="I199359:129097;199364:129820" />
+              )}
+              {address && <span className={cn(FIG_REG, ADDRESS)}>{address}</span>}
+            </span>
+          </span>
 
-      {/* Duration is the triage signal — a six-hour leak outranks a six-minute
-          one — so it ends the row rather than hiding inside the subtitle. */}
-      <span className="flex shrink-0 flex-col items-end gap-0.5">
-        <span className="text-[12px] font-semibold leading-tight tabular-nums" style={{ color: tone }}>
-          {event.duration}
+          <span className={META_COL} data-node-id="I199359:129097;199364:129817">
+            <span className={DUR_ROW}>
+              <span className={cn(FIG_MED, DURATION, tone.ink)}>{event.duration}</span>
+            </span>
+            <span className={cn(FIG_REG, KIND)}>{tone.label}</span>
+          </span>
         </span>
-        <span className="text-[11px] leading-tight text-slate-400">{kind}</span>
       </span>
     </button>
   )
 }
 
+/* ------------------------------------------------------------- component */
+
+/**
+ * @param {Array}    events        water events; each {id, systemName,
+ *                                 location, address, type, duration}
+ * @param {Function} onSelectEvent called with the event a row opens
+ * @param {Function} onViewAll     the heading button while there are events
+ * @param {Function} onShowPast    the heading button while there are none —
+ *                                 the one-tap route to the overlay's History
+ *                                 tab, which is where the design puts it
+ * @param {string}   className     appended to the card root
+ */
 export default function TriageBand({
-  total = 0,
-  attention = 0,
-  issues = {},
   events = [],
-  onSelectIssue,
   onSelectEvent,
   onViewAll,
-  /* "Show past events" — the one-tap way to the overlay's History tab. It
-     came across from ActiveWaterEventsCard when this band replaced it; see the
-     footer below. Optional: with no handler the link is not drawn at all,
-     rather than drawn dead. */
   onShowPast,
   className,
 }) {
-  const healthy = Math.max(0, total - attention)
-  const pct = total ? (attention / total) * 100 : 0
-  const { offline = 0, valve = 0, power = 0, recipients = 0 } = issues
-
-  // The long tail: real, but neither changes what you do in the next ten
-  // minutes. SolarEdge's "6 Other Alerts ›" move.
-  const otherCount = power + recipients
-
   // Worst first. A high flow outranks a low flow; within a kind, the longest
   // running wins. `duration` is a display string, so it is parsed back to
-  // minutes — compared as text, "3h 11m" sorts after "6h 36m", backwards.
+  // minutes — compared as text, "11h 58m" sorts BEFORE "2h 05m", backwards.
   const ranked = [...events].sort((a, b) => {
     const sev = e => (e.type === 'leak-high' ? 1 : 0)
     return sev(b) - sev(a) || minutesOf(b.duration) - minutesOf(a.duration)
   })
   const preview = ranked.slice(0, PREVIEW_ROWS)
-  const allClear = attention === 0 && events.length === 0
-  // The footer link only earns its row when the band is actually holding rows
-  // back; with three events and three previewed there is nothing to view.
-  const showViewAll = events.length > preview.length
+  const hasEvents = ranked.length > 0
 
-  /* w-full: the page's Body wrapper is `flex flex-col items-start`, so a child
-     without it is sized to its own content. Every other card on the screen
-     carries it; without it this band draws ~60% wide in the all-clear state,
-     where the headline is the widest thing in it. */
+  /* ONE button, as the design draws it: "Show all" over rows, "Show past
+     events" over the empty state. If the state's own handler is missing the
+     other takes the slot rather than the control being drawn dead — the band
+     never shows a route that goes nowhere, and never hides one that works.
+
+     "Show all" is Figma's shorthand, so its accessible name spells the
+     product's sentence instead. "Show past events" is ALREADY the product's
+     own wording — it is the phrase ActiveWaterEventsCard shipped and the
+     phrase overlayHistoryRows.dom.test.jsx names this control by — so it is
+     left as the accessible name rather than paraphrased. */
+  const action = hasEvents
+    ? (onViewAll
+        ? { label: 'Show all', name: `View all ${events.length} water events`, onClick: onViewAll, fixed: true }
+        : onShowPast && { label: 'Show past events', name: 'Show past events', onClick: onShowPast })
+    : (onShowPast
+        ? { label: 'Show past events', name: 'Show past events', onClick: onShowPast }
+        : onViewAll && { label: 'Show all', name: 'View all water events', onClick: onViewAll, fixed: true })
+
   return (
-    <Card className={cn('w-full gap-0 overflow-hidden py-0', className)}>
-      {/* The sentence that answers the screen. "All systems" is the
-          denominator here rather than a tile of its own. */}
-      <div className="flex flex-col gap-2 px-4 pt-3.5 pb-2.5">
-        <p className="text-[18px] font-semibold leading-tight tracking-[-0.45px] text-slate-900">
-          {allClear ? (
-            <>All <span className="tabular-nums">{total}</span> systems are healthy</>
-          ) : (
-            <>
-              <span className="tabular-nums" style={{ color: HIGH }}>{attention}</span>
-              {' of '}
-              <span className="tabular-nums">{total}</span>
-              {' systems need attention'}
-            </>
-          )}
-        </p>
-
-        <div
-          className="flex h-2 w-full overflow-hidden rounded-full bg-slate-100"
-          role="img"
-          aria-label={`${attention} of ${total} systems need attention, ${healthy} healthy`}
-        >
-          <span className="h-full" style={{ width: `${pct}%`, background: HIGH }} />
-          <span className="h-full flex-1" style={{ background: OK }} />
-        </div>
-
-        {/* The legend exists to split the bar. With nothing wrong there is
-            nothing to split, and reciting "0 need attention" under an
-            all-clear headline is noise that makes the good state read like a
-            bad one. */}
-        {!allClear && (
-          <p className="flex items-center gap-3 text-[12px] leading-none text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-full" style={{ background: OK }} aria-hidden="true" />
-              <span className="tabular-nums font-medium text-slate-700">{healthy}</span> healthy
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="size-2 rounded-full" style={{ background: HIGH }} aria-hidden="true" />
-              <span className="tabular-nums font-medium text-slate-700">{attention}</span> need attention
-            </span>
-          </p>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* The three that change what you do today: water leaving the building,
-          systems you are blind to, and systems you cannot shut off. */}
-      <div className="flex items-stretch px-2">
-        <Stat
-          glyph={<Waves width="18" height="18" />}
-          count={events.length}
-          label="Water events"
-          name="Water events"
-          tone={HIGH}
-          onSelect={onViewAll}
-        />
-        <Separator orientation="vertical" className="my-3 h-auto" />
-        <Stat
-          glyph={<WifiDisconnected02 width="18" height="14.7" />}
-          count={offline}
-          label="Offline"
-          name="Offline systems"
-          onSelect={onSelectIssue && (() => onSelectIssue('offline'))}
-        />
-        <Separator orientation="vertical" className="my-3 h-auto" />
-        <Stat
-          glyph={<ValveErrorGlyph />}
-          count={valve}
-          label="Valve errors"
-          name="Valve errors"
-          onSelect={onSelectIssue && (() => onSelectIssue('valve'))}
-        />
-      </div>
-
-      {/* The tail, rolled up rather than given four more tiles. */}
-      {otherCount > 0 && (
-        <>
-          <Separator />
-          <button
-            type="button"
-            onClick={onSelectIssue && (() => onSelectIssue('power'))}
-            disabled={!onSelectIssue}
-            className={cn(
-              'flex h-11 w-full items-center gap-2 px-4 text-left text-[13px] text-slate-500',
-              onSelectIssue ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default',
-            )}
-          >
-            <PowerOff size={15} className="shrink-0 text-slate-400" aria-hidden="true" />
-            <span className="flex-1">
-              <span className="tabular-nums font-medium text-slate-700">{otherCount}</span>
-              {' other issues'}
-              <span className="text-slate-400">
-                {` · ${power} no power, ${recipients} no recipients`}
-              </span>
-            </span>
-            <ChevronRight size={14} className="shrink-0 text-slate-400" aria-hidden="true" />
-          </button>
-        </>
-      )}
-
-      {/* The rows the screen was missing: which systems, and where. Ranked, so
-          the list is itself the ranking. */}
-      {preview.length > 0 && (
-        <>
-          <Separator />
-          <div className="flex flex-col">
-            {preview.map((e, i) => (
-              <div key={e.id ?? i}>
-                {i > 0 && <Separator className="ml-[60px]" />}
-                <EventRow event={e} onSelect={onSelectEvent && (() => onSelectEvent(e))} />
+    <div
+      className={cn(CARD, hasEvents ? CARD_GAP_ALERT : CARD_GAP_CALM, className)}
+      data-name="IOT overview"
+      data-node-id={hasEvents ? '199359:128986' : '199371:137191'}
+    >
+      {/* ------------------------------------------------------- heading */}
+      <div className={HEAD_WRAP} data-node-id="199359:128987">
+        <div className={HEAD_COL} data-node-id="199359:128988">
+          <div className={HEAD_ROW} data-name="Heading 1" data-node-id="199359:128989">
+            <div className={HEAD_LEFT} data-node-id="199359:128990">
+              <p className={cn(FIG_MED, HEAD_TITLE)} data-node-id="199359:128991">
+                Water events
+              </p>
+              <div
+                className={cn(PILL, hasEvents ? PILL_ALERT : PILL_CALM)}
+                data-node-id="199359:128992"
+              >
+                <p className={cn(FIG_HEAD, PILL_TEXT, hasEvents ? PILL_INK_ALERT : PILL_INK_CALM)}>
+                  {events.length}
+                </p>
               </div>
-            ))}
-          </div>
-        </>
-      )}
+            </div>
 
-      {/* The footer: the two ways off this band and into the full list.
-          "Show past events" is not decoration. It is the ONLY one-tap route to
-          the overlay's History tab, and it carried over from
-          ActiveWaterEventsCard, which this band replaced. That card drew it in
-          its healthy state alone, because that was the only state with no rows
-          to sit a footer under; here it is drawn whenever the page hands over a
-          handler — including the all-clear state, where it IS the footer.
-          Leaving it out would have put the real past events behind "open
-          Active, then find the toggle". */}
-      {(showViewAll || onShowPast) && (
-        <>
-          <Separator />
-          <div className="flex items-stretch">
-            {showViewAll && (
+            {action && (
               <button
                 type="button"
-                onClick={onViewAll}
-                disabled={!onViewAll}
-                className={cn(
-                  /* min-w-0 + nowrap: at 393px the two links share one row, and
-                     without this the longer one wraps to two lines. */
-                  'flex h-12 min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap px-3 text-[14px] font-medium',
-                  onViewAll ? 'cursor-pointer text-[#0B95F8] hover:underline' : 'cursor-default text-slate-400',
-                )}
+                onClick={action.onClick}
+                aria-label={action.name}
+                className={cn(ACTION, action.fixed && ACTION_FIXED_W)}
+                data-name="Button"
+                data-node-id="199359:128994"
               >
-                View all {events.length} water events
-                <ChevronRight size={16} aria-hidden="true" />
-              </button>
-            )}
-
-            {showViewAll && onShowPast && (
-              <Separator orientation="vertical" className="my-3 h-auto" />
-            )}
-
-            {onShowPast && (
-              <button
-                type="button"
-                onClick={onShowPast}
-                className={cn(
-                  'flex h-12 cursor-pointer items-center justify-center whitespace-nowrap px-4 text-[14px] font-medium text-[#0B95F8] hover:underline',
-                  /* Alone in the footer (the all-clear state) it fills the row;
-                     beside "View all" it takes only the width of its words. */
-                  showViewAll ? 'shrink-0' : 'flex-1',
-                )}
-              >
-                Show past events
+                <span className={cn(FIG_MED, ACTION_TEXT)}>{action.label}</span>
+                <span className={ACTION_ICON} data-name="Icon Placeholder">
+                  <ArrowRight
+                    size={16}
+                    strokeWidth={2}
+                    aria-hidden="true"
+                    focusable="false"
+                    data-name="Huge Icons / arrow-right-02"
+                  />
+                </span>
               </button>
             )}
           </div>
-        </>
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------------- body */}
+      {hasEvents ? (
+        <div className={BODY} data-name="Body wrapper" data-node-id="199359:129095">
+          {preview.map((e, i) => (
+            <div key={e.id ?? i} className="contents">
+              <div className={RULE} aria-hidden="true" />
+              <EventRow event={e} onSelect={onSelectEvent && (() => onSelectEvent(e))} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={EMPTY_BODY} data-name="Body wrapper" data-node-id="199371:137293">
+          <div className={EMPTY_TEXT} data-name="Text" data-node-id="199375:138169">
+            <div className={EMPTY_HERO} data-node-id="199375:138170">
+              <div className={EMPTY_COPY} data-node-id="199375:140910">
+                <p className={cn(FIG_SEMI, EMPTY_TITLE)} dir="auto" data-node-id="199375:138171">
+                  No active water events
+                </p>
+                <p className={cn(FIG_REG, EMPTY_SUB)} data-node-id="199375:138172">
+                  Everything looks good!
+                </p>
+              </div>
+            </div>
+
+            <div className={TIP} data-node-id="199375:139983">
+              {/* Frozen Figma copy — see the note at the top. The "L" is a
+                  12px Geist run inside a 14px sentence, which is how
+                  199375:139984 sets it. */}
+              <p className={cn(FIG_REG, TIP_TEXT)} data-node-id="199375:139984">
+                <span className={TIP_RUN}>Leak prevention for your system can prevent up to 25K</span>
+                <span className={cn(GEIST_REG, TIP_UNIT)}>L</span>
+                <span className={TIP_RUN}>{` loss`}</span>
+              </p>
+            </div>
+          </div>
+        </div>
       )}
-    </Card>
+    </div>
   )
 }

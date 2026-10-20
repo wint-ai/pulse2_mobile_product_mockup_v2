@@ -86,7 +86,7 @@ describe('the consumption card does not resize with the segment picked', () => {
     // px-24 on the header over px-16 on cardContent put the title 8px outside
     // the toggle track it sits above — the "positions look broken" report.
     const { container } = render(consumption('M', 'Oct 2025 - Sep 2026'))
-    // The class is spelled `px-[var(--component\/card\/padding,16px)]` — a real
+    // The class is spelled `px-[var(--component\/card\/padding,24px)]` — a real
     // backslash in the attribute — so scan the strings rather than write a CSS
     // selector that has to escape it twice over.
     const boxes = [...container.querySelectorAll('*')]
@@ -94,8 +94,18 @@ describe('the consumption card does not resize with the segment picked', () => {
       .filter((cls) => cls.includes('card\\/padding'))
 
     expect(boxes.length, 'header and content both use the padding token').toBeGreaterThan(1)
-    for (const cls of boxes) {
-      expect(cls, 'inset fallback must be 16').not.toContain('padding,24px')
-    }
+    /* RETARGETED 2026-10-20. This used to end `not.toContain('padding,24px')`,
+       which pinned the EQUALITY the test is named for by banning the one
+       number that happened to be the odd one out at the time. Figma
+       199323:12260 (alert) and 199371:137298 (calm) now emit the token at 24px
+       on the header px, the header pt AND cardContent's px, so 24 is the
+       shared value and banning it pins the wrong half of the rule. What the
+       test actually proves — every box insets by the SAME token value — is
+       asserted directly instead, which is strictly stronger: the old literal
+       check would have waved through a future 16/20 mix. */
+    const fallbacks = new Set(
+      boxes.flatMap((cls) => [...cls.matchAll(/card\\\/padding,(\d+px)/g)].map((m) => m[1])),
+    )
+    expect([...fallbacks], 'one inset for every box').toHaveLength(1)
   })
 })
