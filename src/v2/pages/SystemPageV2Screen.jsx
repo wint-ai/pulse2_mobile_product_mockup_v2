@@ -720,10 +720,14 @@ export default function SystemPageV2Screen() {
   }, [systemId])
 
   const [drawerOpen, setDrawerOpen] = useState(false)
-  /* The consumption chart is behind the hero's "See more" now (Figma
-     199296:50183 / :50454). It is NOT gone — the design moved it, so this flag
-     is the only way to reach it and the hero's control owns it. */
-  const [chartOpen, setChartOpen] = useState(false)
+  /* THE CONSUMPTION CHART IS ALWAYS MOUNTED. A `chartOpen` flag used to gate
+     it, because the Figma frames (199296:50183 / :50454) put it behind the
+     hero's "See more". The owner reversed that on 2026-10-20: "see more is
+     only redirect to consumption chart on the dates above, so see less is not
+     relevant — and in addition consumption chart shall be always visible."
+     So there is no flag, no gate and no closed state; the card renders in the
+     Overview stack unconditionally and the hero's control only JUMPS to it.
+     `chartRef` is what that jump scrolls to. */
   const chartRef = useRef(null)
   const carouselRef = useRef(null)
   /* Which tab panel is showing. 'overview' is the node's selected state
@@ -758,24 +762,47 @@ export default function SystemPageV2Screen() {
      dropdown -> Month, then the period stepper or the Select period sheet.
      The owner accepted that; it was his ask.
 
-     THE TRAIL ITSELF STILL DOES WORK, which is why it stays: openChartFromHero
-     reads `periodTrail[0]` so the hero's "See more" unwinds a drill and
-     reopens on the caption's window with compare on — a behaviour the owner
-     asked for explicitly, and the one most at risk from a careless cleanup
-     here. Delete the trail and that breaks. */
+     THE TRAIL ITSELF STILL DOES WORK, which is why it stays: jumpToChartFromHero
+     reads `periodTrail[0]` so the hero's "See more" unwinds a drill and lands
+     on the caption's window with compare on — a behaviour the owner asked for
+     explicitly, and the one most at risk from a careless cleanup here. Delete
+     the trail and that breaks. It survived the 2026-10-20 removal of the gate
+     for the same reason it survived the removal of the "Back to Monthly" pill:
+     its visible control going away is not the same as the state being dead. */
   const [periodTrail, setPeriodTrail] = useState([])
 
-  /* "See more" sits in the hero at the very top; the chart it reveals lands
-     below the alert carousel and the topology card, far enough down that on a
-     393x852 frame the control looks inert. Bring it to the user. */
-  useEffect(() => {
-    if (!chartOpen) return
-    const node = chartRef.current
-    if (!node?.scrollIntoView) return
-    const id = requestAnimationFrame(() =>
-      node.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-    return () => cancelAnimationFrame(id)
-  }, [chartOpen])
+  /* "See more" sits in the hero at the very top; the chart lands below the
+     alert carousel and the topology card, far enough down that on a 393x852
+     frame a control that only changed state down there would look inert. Bring
+     the user to it.
+
+     IMPERATIVE, AND IN THE HANDLER. This used to be an effect keyed on
+     `chartOpen`: opening flipped the flag, the effect ran, the page scrolled.
+     With the chart always mounted there is no flag left to key on, and —
+     the part that actually decides the shape — the SECOND tap in a row must
+     scroll too. Every state this handler sets is already at its target value
+     by then, so nothing changes and no effect would fire. The honest fix is to
+     scroll where the tap is handled. (A counter bumped per tap would re-fire
+     an effect, but it is state that exists only to be changed, and the next
+     reader would have to work out that it means nothing.)
+
+     One animation frame of grace before reading the ref: the same tap may have
+     switched the tab back to Overview, and the chart mounts in React's commit,
+     which lands before the next frame. The second frame is for the commit a
+     slow first paint pushes past the first — cheap, and it costs nothing when
+     the node is already there. */
+  const scrollChartIntoView = () => {
+    if (typeof requestAnimationFrame !== 'function') return
+    const reveal = () => {
+      const node = chartRef.current
+      if (!node?.scrollIntoView) return false
+      node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return true
+    }
+    requestAnimationFrame(() => {
+      if (!reveal()) requestAnimationFrame(reveal)
+    })
+  }
 
   const consumptionView = useMemo(
     () => getConsumptionSeries(system.id, system.title, period, periodOffset),
@@ -937,16 +964,25 @@ export default function SystemPageV2Screen() {
      consumption chart with context of the date written above and with the
      compare to previous month".
 
+     2026-10-20 FINISHED THE JOB: "see more is only redirect to consumption
+     chart on the dates above, so see less is not relevant — and in addition
+     consumption chart shall be always visible." The chart no longer opens,
+     because it is never closed. What is left is exactly the three things that
+     were always the feature, minus the opening:
+         unwind the drill -> turn compare on -> scroll the chart into view.
+     None of the three is a side effect of opening; each is spelled out below
+     and each must survive any future tidy-up of this handler.
+
      The context half is already true and must not be re-derived: the caption's
      `rangeLabel` IS `consumptionView.label`, and the chart below plots
      `consumptionView.series`. One window, read twice — they cannot disagree.
 
-     What was missing is that opening was not DETERMINISTIC. A drill-down
-     (§3.5) changes the grouping and the offset, so a user who opened a bucket,
-     then closed the chart, came back to a hero whose caption named one day and
-     a chart that opened on it. The caption still agreed with the chart, but
-     neither matched the twelve-month window the control is understood to
-     offer. So opening unwinds the drill to the window it was launched from —
+     What was missing is that the jump was not DETERMINISTIC. A drill-down
+     (§3.5) changes the grouping and the offset, so a user who opened a bucket
+     and then came back up to the hero found a caption naming one day and a
+     chart on it. The caption still agreed with the chart, but neither matched
+     the twelve-month window the control is understood to offer. So the jump
+     unwinds the drill to the window it was launched from —
      `periodTrail[0]`, the entry the oldest drill recorded — and empties the
      trail. Unwinding and emptying are ONE action: the trail describes drills
      that are still on screen, and once the window it recorded IS the window on
@@ -960,18 +996,23 @@ export default function SystemPageV2Screen() {
      expects to keep. Only a drill, which the user navigated INTO and then
      closed, is undone.
 
-     Compare goes on every time the control opens the chart, not only the
-     first — the point of an entry point is that it lands you somewhere known.
-     The user can switch it off from inside the card and nothing here turns it
-     back on until the chart is closed and opened again. Two things can refuse
-     it, and both refuse by leaving it off rather than by showing a comparison
-     that is not there:
+     Compare goes on at EVERY tap, not only the first — the point of an entry
+     point is that it lands you somewhere known. The user can switch it off
+     from inside the card and nothing here turns it back on until the control
+     is tapped again. Two things can refuse it, and both refuse by leaving it
+     off rather than by showing a comparison that is not there:
        · PLS-WC-20 — the comparison is Monthly-only. Outside Monthly the card
          does not even draw the switch.
        · there is no previous period. At the oldest window the data layer
          clamps and would hand back the window itself; `hasPreviousPeriod`
-         says so and the chart opens honestly uncompared. */
-  const openChartFromHero = () => {
+         says so and the chart is left honestly uncompared.
+
+     And the grouping the USER picked is never overridden: picking one from the
+     dropdown clears the trail (§3.1), so there is nothing to unwind and the
+     jump keeps Daily on Daily. PLS-WC-20 then leaves compare off, because it
+     is Monthly-only. The owner's ruling on exactly this case: "ok so w/o
+     compare, just take me to relevant dates." */
+  const jumpToChartFromHero = () => {
     /* The window the first drill was launched from, clamped the way every
        other offset on this page is, so a reset can never land outside what
        the series can fill (PLS-WC-09). */
@@ -990,14 +1031,9 @@ export default function SystemPageV2Screen() {
       nextPeriod === 'M' && stepAvailability('M', nextOffset, consumptionBounds).canStepPrev
     setCompareConsumption(canCompare)
 
-    setChartOpen(true)
-  }
-
-  /* "See less" only closes. §4 again: it must not revert the grouping, the
-     period or the comparison the user set while the chart was open. */
-  const toggleChartFromHero = () => {
-    if (chartOpen) setChartOpen(false)
-    else openChartFromHero()
+    /* The third of the three, and the only one with no state behind it. It
+       runs on every tap, including a tap that changed nothing above. */
+    scrollChartIntoView()
   }
 
   /* §3.4 — Today: Hourly on the newest window, the picker closed, and the
@@ -1480,26 +1516,30 @@ export default function SystemPageV2Screen() {
               delta={heroDelta}
               rangeLabel={consumptionView.label}
               tone={waterAlerting ? 'alert' : 'calm'}
-              expanded={chartOpen}
-              /* BOTH sides of the 2026-10-20 merge land here, and they do not
-                 actually disagree — one says WHERE the chart opens, the other
-                 says WHICH WINDOW it opens on.
-                   · Figma side: the chart the hero reveals lives in the
-                     Overview body, so firing this from General Info would be a
-                     control with nothing to show. The tab comes back on the way.
-                   · Behaviour side: "See more" is an ENTRY POINT, not a
-                     disclosure triangle. toggleChartFromHero unwinds any
-                     drill-down back to the window the caption names, turns the
-                     previous-period comparison on wherever the data supports
-                     one, and opens; "See less" only closes. The reasoning is at
-                     openChartFromHero above, and it is the whole feature.
-                 setTab first so the Overview panel the chart mounts into is the
+              /* NO `expanded`, because there is nothing to expand: the chart
+                 is always mounted below and this control only takes you there.
+                 The hero draws "See more" and nothing else, and carries no
+                 aria-expanded — see the control in SystemHeroCard.
+
+                 BOTH sides of the 2026-10-20 merge land here, and they do not
+                 actually disagree — one says WHERE the chart is, the other
+                 says WHICH WINDOW it is put on.
+                   · Figma side: the chart lives in the Overview body, so
+                     firing this from General Info would scroll to a node that
+                     is not rendered. The tab comes back on the way.
+                   · Behaviour side: "See more" is an ENTRY POINT.
+                     jumpToChartFromHero unwinds any drill-down back to the
+                     window the caption names, turns the previous-period
+                     comparison on wherever the data supports one, and scrolls.
+                     The reasoning is at jumpToChartFromHero above, and it is
+                     the whole feature.
+                 setTab first so the Overview panel holding the chart is the
                  one being rendered when chartRef's scroll target is asked for;
                  both are plain state setters in one React batch, so they commit
-                 together either way. */
-              onToggleChart={() => {
+                 together, and the scroll waits a frame for that commit. */
+              onJumpToChart={() => {
                 setTab('overview')
-                toggleChartFromHero()
+                jumpToChartFromHero()
               }}
             />
 
@@ -1676,17 +1716,20 @@ export default function SystemPageV2Screen() {
                     }
 
                     if (key === 'chart') {
-                      /* The consumption chart, revealed by the hero's "See
-                         more". Position is the frame's: 198629:51874 sits
-                         directly after the topology card (198629:57165) and
-                         before the Events Timeline — i.e. right under System
-                         type, which is what carries the topology now. It was
-                         briefly pinned above the whole stack, which is not
-                         where any frame puts it.
+                      /* The consumption chart. Position is the frame's:
+                         198629:51874 sits directly after the topology card
+                         (198629:57165) and before the Events Timeline — i.e.
+                         right under System type, which is what carries the
+                         topology now. It was briefly pinned above the whole
+                         stack, which is not where any frame puts it.
 
-                         NOT REMOVED, just moved behind a control: every prop
-                         the card ever had is still passed. */
-                      if (!chartOpen) return null
+                         ALWAYS RENDERED. A `if (!chartOpen) return null` stood
+                         on the next line while the chart lived behind the
+                         hero's "See more". The owner on 2026-10-20:
+                         "consumption chart shall be always visible." The gate
+                         is gone and there is no condition left here; the
+                         hero's control scrolls to this node instead of
+                         deciding whether it exists. */
                       return (
                         <Fragment key={key}>
       {/* The "‹ Back to Monthly" pill stood here — §3.6 / §19's way back out
@@ -1704,7 +1747,11 @@ export default function SystemPageV2Screen() {
       className="w-full"
       data={consumptionView.series}
       period={period}
-      monthLabel={consumptionView.label}
+      /* The period CONTROL reads the SHORT label; the hero's `rangeLabel`
+      above still reads `label` and is unchanged. Only Hourly differs
+      between the two — see bucketHourly in consumptionSeries.js for the
+      measurement that forced it. */
+      monthLabel={consumptionView.labelShort ?? consumptionView.label}
       onPeriodChange={selectPeriod}
       onMonthChange={stepPeriod}
       picker="dropdown"

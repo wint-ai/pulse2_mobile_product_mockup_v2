@@ -30,7 +30,7 @@ import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import { SYSTEMS } from '@/data/systems'
 import {
   currentGranularity,
-  openConsumptionChart,
+  expectConsumptionChartMounted,
   pickGranularity,
 } from './helpers/consumptionChart'
 
@@ -45,16 +45,19 @@ const mountHome = () =>
     </MemoryRouter>,
   )
 
-/* The system page keeps the chart behind the hero's "See more"; the home
-   screen does not. Opening it here keeps both halves of PLS-WC-03 asserting
-   the same thing. */
+/* BOTH PAGES NOW MOUNT THE CHART AT REST. The system page used to keep it
+   behind the hero's "See more" and this mount clicked that control; the owner
+   removed the gate on 2026-10-20 ("consumption chart shall be always
+   visible"), so the two halves of PLS-WC-03 below now assert the same thing
+   about two pages that reach the chart the same way. The check that replaced
+   the click is what keeps that sentence true. */
 const mountSystem = () => {
   const r = render(
     <MemoryRouter initialEntries={[`/system/${sys.id}`]}>
       <Routes><Route path="/system/:systemId" element={<SystemPageV2Screen />} /></Routes>
     </MemoryRouter>,
   )
-  openConsumptionChart(r.container)
+  expectConsumptionChartMounted(r.container)
   return r
 }
 

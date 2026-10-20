@@ -1,19 +1,28 @@
+import { expect } from 'vitest'
 import { fireEvent, within } from '@testing-library/react'
 
 /**
- * Open the System page's consumption chart.
+ * Assert the consumption chart is on the page, with nothing clicked.
  *
- * The redesigned hero (Figma 199296:50183 calm / 199296:50454 alert) keeps the
- * chart behind its "See more" control instead of mounting it at rest. The chart
- * itself is unchanged — every prop it had is still passed — so a test that
- * asserts anything *inside* it simply has to open it first.
+ * THIS USED TO BE `openConsumptionChart`, and it used to click "See more".
+ * The redesigned hero (Figma 199296:50183 calm / 199296:50454 alert) kept the
+ * chart behind that control, so every test that looked inside the chart had to
+ * open it first. The owner reversed that on 2026-10-20: "see more is only
+ * redirect to consumption chart on the dates above, so see less is not
+ * relevant — and in addition consumption chart shall be always visible."
  *
- * Only the system page gates the chart. The home screen still mounts
- * WaterConsumptionCardV2 directly, so `mountHome()` needs none of this.
+ * There is nothing left to open, on either page — the System page now mounts
+ * the card exactly as the home screen always did. So the helper stayed, with
+ * its meaning inverted: it is the precondition the callers always wanted, and
+ * it now states the owner's rule instead of working around the gate. The
+ * hero's control is an entry point and is exercised in
+ * systemHeroSeeMore.dom.test.jsx, which is where its behaviour is pinned.
  */
-export function openConsumptionChart(container) {
-  const seeMore = within(container).getByRole('button', { name: 'See more' })
-  fireEvent.click(seeMore)
+export function expectConsumptionChartMounted(container) {
+  expect(
+    container.querySelector('[data-node-id="198629:51874"]'),
+    'the consumption chart is not mounted',
+  ).toBeTruthy()
   return container
 }
 

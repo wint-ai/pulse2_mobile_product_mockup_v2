@@ -12,21 +12,25 @@ import { render, cleanup, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import { SYSTEMS } from '@/data/systems'
-import { openConsumptionChart } from './helpers/consumptionChart'
+import { expectConsumptionChartMounted } from './helpers/consumptionChart'
 
 afterEach(cleanup)
 
 const sys = SYSTEMS[0]
 
-/* The picker lives inside the consumption chart, which the hero now keeps
-   behind "See more" — so every case here opens it as its first act. */
+/* The picker lives inside the consumption chart, which is mounted on the
+   System page with no interaction at all (owner, 2026-10-20: "consumption
+   chart shall be always visible"). This used to click "See more" first,
+   because the hero gated the chart; now it only checks the chart is there,
+   so a regression of that rule fails here as a missing precondition rather
+   than as four confusing "nothing tappable" failures below. */
 const mount = () => {
   const r = render(
     <MemoryRouter initialEntries={[`/system/${sys.id}`]}>
       <Routes><Route path="/system/:systemId" element={<SystemPageV2Screen />} /></Routes>
     </MemoryRouter>,
   )
-  openConsumptionChart(r.container)
+  expectConsumptionChartMounted(r.container)
   return r
 }
 

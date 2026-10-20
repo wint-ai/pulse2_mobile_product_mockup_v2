@@ -20,7 +20,7 @@ import { isInvestigating, getInvestigatingInfo, startInvestigating } from '../da
 import { isIgnored, getIgnoredInfo } from '../data/ignoredIncidents';
 import { hasTagFeedback } from '../data/eventFeedbackStore';
 import { getCurrentActor, setCurrentActor } from '../data/currentUser';
-import { subscribe as bridgeSubscribe, publish as bridgePublish, isRateLimited, getRateLimitReason, onRateLimitChange } from '../lib/pushBridge';
+import { subscribe as bridgeSubscribe, publish as bridgePublish } from '../lib/pushBridge';
 import { applyPushEvent, applyDemoReset } from '../lib/pushEvents';
 import { useUserContext } from '../context/UserContext';
 import { SYSTEMS } from '../data/systems';
@@ -677,38 +677,9 @@ export default function PushNotifications({ children }) {
 
   const dismissBanner = useCallback(() => setBanner(null), []);
 
-  // Rate-limit indicator on the phone side - small floating chip when the
-  // ntfy bridge has returned 429 for our outgoing publishes (phone-persona
-  // handshakes will hit it first). Tells the user pushes from a paired
-  // laptop won't arrive until the quota resets.
-  const [bridgeRateLimited, setBridgeRateLimited] = useState(() => isRateLimited());
-  const [bridgeReason, setBridgeReason] = useState(() => getRateLimitReason());
-  useEffect(() => onRateLimitChange((yes, reason) => {
-    setBridgeRateLimited(yes);
-    setBridgeReason(reason);
-  }), []);
-
   return (
     <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {children}
-
-      {bridgeRateLimited && (
-        <div
-          title={bridgeReason || 'Cross-device push relay throttled - pushes from a paired pusher may not arrive until ~midnight UTC.'}
-          style={{
-            position: 'absolute', top: 8, right: 8,
-            zIndex: 400,
-            padding: '4px 8px', borderRadius: 8,
-            background: 'rgba(245,158,11,0.95)', color: '#fff',
-            fontSize: 10, fontWeight: 700, letterSpacing: '.3px',
-            boxShadow: '0 2px 6px rgba(0,0,0,.15)',
-            display: 'flex', alignItems: 'center', gap: 4,
-          }}
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: 12 }}>warning</span>
-          BRIDGE THROTTLED
-        </div>
-      )}
 
       {phoneState === 'locked' && (
         <PhoneLockScreen notifications={notifications}

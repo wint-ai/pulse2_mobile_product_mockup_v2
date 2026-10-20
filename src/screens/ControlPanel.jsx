@@ -359,13 +359,24 @@ export default function ControlPanel({ title = 'Push Simulator' }) {
 
         {/* Rate-limit banner - shown when ntfy.sh returned 429 (free-tier
             daily quota reached). Sticky until a successful publish goes
-            through (which clears the flag automatically). */}
+            through (which clears the flag automatically).
+
+            This is now the ONLY place the throttle diagnostic appears: the
+            orange "BRIDGE THROTTLED" chip that used to float over every app
+            screen in PushNotifications.jsx was removed - the owner ruled it
+            belongs with the pusher, not on the product surface. Hence
+            position: sticky - the pusher is scrolled down among the push
+            cards when a publish 429s, and a banner parked at the top of a
+            long page would never be seen. */}
         {rateLimited && (
           <div style={{
+            position: 'sticky', top: 0, zIndex: 20,
             marginBottom: 14,
             padding: '12px 16px',
             borderRadius: 10,
-            background: 'rgba(245,158,11,0.12)',
+            // Opaque while sticky: the same amber tint composited over the
+            // page background, so scrolling cards don't read through it.
+            background: 'linear-gradient(rgba(245,158,11,0.12), rgba(245,158,11,0.12)), #E8ECF0',
             border: '1px solid #f59e0b',
             color: '#92400e',
             fontSize: 13,

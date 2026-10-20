@@ -117,8 +117,8 @@ export default function SystemHeroCard({
   delta,
   rangeLabel,
   tone = 'calm',
-  expanded = false,
-  onToggleChart,
+  /** Fires the jump to the consumption chart. See the control below. */
+  onJumpToChart,
   className,
 }) {
   const alert = tone === 'alert'
@@ -238,18 +238,37 @@ export default function SystemHeroCard({
             </div>
           ) : null}
 
-          {/* 199396:84062 — "See more" reveals the consumption chart. The chart
-              is not gone from the product: the design moved it behind this
-              control, so this is the only way to reach it and it has to be a
-              real button, never the label the comp draws. aria-expanded says
-              which way it goes. */}
-          {onToggleChart ? (
+          {/* 199396:84062 — "See more" is a JUMP to the consumption chart, and
+              nothing else. 2026-10-20, the owner on this control: "see more is
+              only redirect to consumption chart on the dates above, so see
+              less is not relevant — and in addition consumption chart shall be
+              always visible."
+
+              So the chart is no longer behind this control — it is always
+              mounted on the page — and this button neither opens nor closes
+              anything. It scrolls the chart into view and puts it on the
+              window the caption above names, with the previous-period
+              comparison on. The label is therefore ALWAYS "See more"; there is
+              no second state for "See less" to describe.
+
+              NO aria-expanded. It used to carry one, which was honest while
+              this was a disclosure triangle and is a lie now: a control that
+              expands nothing must not announce an expanded state, and a screen
+              reader would promise a region that opens and closes. What
+              replaces it is a NAME that says where the button goes — the comp
+              draws two words, and two words out of context do not tell a
+              non-sighted user that the page is about to move. The visible
+              "See more" stays the first words of that name (WCAG 2.5.3, so
+              voice control still matches what is drawn), and it is still a
+              real <button>, which is the one thing about this control that has
+              never been negotiable. */}
+          {onJumpToChart ? (
             <Button
               type="button"
               variant="ghost"
               size={null}
-              onClick={onToggleChart}
-              aria-expanded={expanded}
+              onClick={onJumpToChart}
+              aria-label="See more: go to the water consumption chart"
               className="content-stretch flex gap-[5px] items-center justify-center relative shrink-0 rounded-[8px] px-[8px] text-[#fafbfc] hover:bg-card/15 hover:text-current"
               data-node-id="199396:84062"
             >
@@ -258,7 +277,7 @@ export default function SystemHeroCard({
                 className={String.raw`[word-break:break-word] ${FIG_REG} font-[var(--font\/weight\/font-normal,400)] relative shrink-0 text-[length:var(--text\/xs\/size,12px)] leading-[var(--text\/xs\/lh-snug,16.5px)] whitespace-nowrap`}
                 data-node-id="199383:141640"
               >
-                {expanded ? 'See less' : 'See more'}
+                See more
               </span>
             </Button>
           ) : null}

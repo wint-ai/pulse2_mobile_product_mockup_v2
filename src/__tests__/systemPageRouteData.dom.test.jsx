@@ -18,9 +18,14 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import { SYSTEMS } from '@/data/systems'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
-import { openConsumptionChart, openGranularityMenu } from './helpers/consumptionChart'
+import { openGranularityMenu } from './helpers/consumptionChart'
 
-function mountAt(systemId, { chart = false } = {}) {
+/* NO `chart` OPTION ANY MORE. This used to take `{ chart: true }` and click
+   the hero's "See more", because the chart was mounted only once that control
+   had been tapped. The owner removed the gate on 2026-10-20 — "consumption
+   chart shall be always visible" — so every mount here has the chart in it and
+   the cases that look inside it pay nothing for the privilege. */
+function mountAt(systemId) {
   const r = render(
     <MemoryRouter initialEntries={[`/system/${systemId}`]}>
       <Routes>
@@ -28,9 +33,6 @@ function mountAt(systemId, { chart = false } = {}) {
       </Routes>
     </MemoryRouter>,
   )
-  /* Opt-in: the hero keeps the consumption chart behind "See more", so only
-     the cases that look inside the chart pay for opening it. */
-  if (chart) openConsumptionChart(r.container)
   return r
 }
 
@@ -105,7 +107,7 @@ describe('the consumption chart plots the routed system', () => {
       const { series } = getConsumptionSeries(system.id, system.name, 'M', 0)
       const expected = fmtL(series.reduce((sum, p) => sum + p.litres, 0))
 
-      const { container, unmount } = mountAt(system.id, { chart: true })
+      const { container, unmount } = mountAt(system.id)
       const view = within(container)
       // "Total L" is the card's first headline figure.
       expect(view.getAllByText('Total L').length, system.id).toBeGreaterThan(0)
@@ -124,7 +126,7 @@ describe('the consumption chart plots the routed system', () => {
   })
 
   it('offers the granularity dropdown on the system page too', () => {
-    const { container, unmount } = mountAt(distinct[0].id, { chart: true })
+    const { container, unmount } = mountAt(distinct[0].id)
     const view = within(container)
     /* 198601:86152 replaced the deleted funnel-disclosure node with inline
        segments; the owner then replaced those with a dropdown — "so it's
