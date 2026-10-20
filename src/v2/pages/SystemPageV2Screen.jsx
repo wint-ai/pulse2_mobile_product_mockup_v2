@@ -920,12 +920,27 @@ export default function SystemPageV2Screen() {
 
   /* "Compare previous period" — the window immediately before this one. */
   const [compareConsumption, setCompareConsumption] = useState(false)
+
+  /* PLS-WC-20 / §3.2 — is there REALLY a window before this one?
+     bucketMonthly CLAMPS its offset forward at the start of the series, so
+     that a window is always drawn at full length. The consequence matters
+     here: at the oldest window `offset - 1` clamps back onto the SAME twelve
+     buckets, and getConsumptionSeries hands back a copy of the reading itself.
+     Plotted as "the previous period" that is a comparison the data cannot
+     support — a reference series identical to the bars behind it. canStepPrev
+     is the same test the back chevron uses, so the comparison is offered on
+     exactly the windows that have something before them. */
+  const hasPreviousPeriod = useMemo(
+    () => period === 'M' && stepAvailability('M', periodOffset, consumptionBounds).canStepPrev,
+    [period, periodOffset, consumptionBounds],
+  )
+
   const consumptionCompare = useMemo(
     () =>
-      compareConsumption
+      compareConsumption && hasPreviousPeriod
         ? getConsumptionSeries(system.id, system.title, period, periodOffset - 1).series
         : null,
-    [compareConsumption, system.id, system.title, period, periodOffset],
+    [compareConsumption, hasPreviousPeriod, system.id, system.title, period, periodOffset],
   )
 
   /* ── The chart's actions ────────────────────────────────────────────────
@@ -977,6 +992,76 @@ export default function SystemPageV2Screen() {
     setPeriod(previous.period)
     setPeriodOffset(previous.offset)
     if (previous.period !== 'M') setCompareConsumption(false)
+  }
+
+  /* ── The hero's "See more" ──────────────────────────────────────────────
+     The hero prints a headline over a date range and offers one control. The
+     owner's ask is that the control stop being a disclosure triangle and
+     become an ENTRY POINT: "when user clicks on see more it redirect him the
+     consumption chart with context of the date written above and with the
+     compare to previous month".
+
+     The context half is already true and must not be re-derived: the caption's
+     `rangeLabel` IS `consumptionView.label`, and the chart below plots
+     `consumptionView.series`. One window, read twice — they cannot disagree.
+
+     What was missing is that opening was not DETERMINISTIC. A drill-down
+     (§3.5) changes the grouping and the offset, so a user who opened a bucket,
+     then closed the chart, came back to a hero whose caption named one day and
+     a chart that opened on it. The caption still agreed with the chart, but
+     neither matched the twelve-month window the control is understood to
+     offer. So opening unwinds the drill to the window it was launched from —
+     `periodTrail[0]`, the entry the oldest drill recorded — and empties the
+     trail. Emptying it is what makes the reset coherent rather than cosmetic:
+     `returnTo` is read off the trail's tail, so ConsumptionReturnControl stops
+     rendering at exactly the moment the window it pointed at is the one on
+     screen. Clearing the trail while leaving the drilled window would leave
+     the user stranded a level down with no way back.
+
+     This is NOT a grouping reset. A grouping the user chose from the dropdown
+     clears the trail itself (§3.1), so there is nothing to unwind and Yearly
+     stays Yearly — §4's rule that an action must not reset what the user
+     expects to keep. Only a drill, which the user navigated INTO and then
+     closed, is undone.
+
+     Compare goes on every time the control opens the chart, not only the
+     first — the point of an entry point is that it lands you somewhere known.
+     The user can switch it off from inside the card and nothing here turns it
+     back on until the chart is closed and opened again. Two things can refuse
+     it, and both refuse by leaving it off rather than by showing a comparison
+     that is not there:
+       · PLS-WC-20 — the comparison is Monthly-only. Outside Monthly the card
+         does not even draw the switch.
+       · there is no previous period. At the oldest window the data layer
+         clamps and would hand back the window itself; `hasPreviousPeriod`
+         says so and the chart opens honestly uncompared. */
+  const openChartFromHero = () => {
+    /* The window the first drill was launched from, clamped the way every
+       other offset on this page is, so a reset can never land outside what
+       the series can fill (PLS-WC-09). */
+    const root = periodTrail[0]
+    const nextPeriod = root ? root.period : period
+    const nextOffset = clampOffset(nextPeriod, root ? root.offset : periodOffset, consumptionBounds)
+
+    if (root) {
+      setPeriod(nextPeriod)
+      setPeriodOffset(nextOffset)
+      setPeriodTrail([])
+    }
+
+    /* Asked of the window being OPENED, not the drilled one being left. */
+    const canCompare =
+      nextPeriod === 'M' && stepAvailability('M', nextOffset, consumptionBounds).canStepPrev
+    setCompareConsumption(canCompare)
+
+    setChartOpen(true)
+  }
+
+  /* "See less" only closes. §4 again: it must not revert the grouping, the
+     period or the comparison the user set while the chart was open. */
+  const toggleChartFromHero = () => {
+    if (chartOpen) setChartOpen(false)
+    else openChartFromHero()
   }
 
   /* §3.4 — Today: Hourly on the newest window, the picker closed, and the
@@ -1434,12 +1519,25 @@ export default function SystemPageV2Screen() {
               rangeLabel={consumptionView.label}
               tone={waterAlerting ? 'alert' : 'calm'}
               expanded={chartOpen}
-              /* The chart the hero reveals lives in the Overview body. Opening
-                 it from General Info would be a control with nothing to show,
-                 so this returns to Overview on the way. */
+              /* BOTH sides of the 2026-10-20 merge land here, and they do not
+                 actually disagree — one says WHERE the chart opens, the other
+                 says WHICH WINDOW it opens on.
+                   · Figma side: the chart the hero reveals lives in the
+                     Overview body, so firing this from General Info would be a
+                     control with nothing to show. The tab comes back on the way.
+                   · Behaviour side: "See more" is an ENTRY POINT, not a
+                     disclosure triangle. toggleChartFromHero unwinds any
+                     drill-down back to the window the caption names, turns the
+                     previous-period comparison on wherever the data supports
+                     one, and opens; "See less" only closes. The reasoning is at
+                     openChartFromHero above, and it is the whole feature.
+                 setTab first so the Overview panel the chart mounts into is the
+                 one being rendered when chartRef's scroll target is asked for;
+                 both are plain state setters in one React batch, so they commit
+                 together either way. */
               onToggleChart={() => {
-                setChartOpen(v => !v)
                 setTab('overview')
+                toggleChartFromHero()
               }}
             />
 
