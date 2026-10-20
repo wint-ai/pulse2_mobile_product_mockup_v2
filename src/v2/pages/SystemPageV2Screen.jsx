@@ -1426,15 +1426,40 @@ export default function SystemPageV2Screen() {
         </div>
 
         {/* Content 198379:80449 — the one scrolling region on this screen.
-            px-0: the root's 16px is now the whole gutter, exactly as both
-            nodes have it (199383:141513 and 199359:126794 carry no horizontal
-            padding). pt-[25px] is the gap the header group puts between the
-            bar and the Tabs row — the bar is outside the scroller now, so the
-            gap becomes the scroller's top inset and the tab row still lands
-            on the node's y=92. */}
+
+            IT BLEEDS, AND RE-APPLIES THE GUTTER AS ITS OWN PADDING. Both
+            nodes put the 16px gutter on the ROOT (199383:141513 and
+            199359:126794 carry no horizontal padding of their own), and that
+            is what this used to do — px-0 here, px-16 above. It gave the
+            screen a horizontal scrollbar.
+
+            Why: the hero below bleeds out to the phone's edges with
+            `-mx-[16px] w-[calc(100%+32px)]`, because the nodes place the wave
+            against the 393-wide root frame. With the gutter on the root this
+            scroller's box was only 361 wide, so the hero was 32px wider than
+            its scroll container. In LTR a negative LEFT margin is simply
+            unreachable — you cannot scroll to it — but a negative RIGHT
+            margin becomes scrollable width. So the screen scrolled 16px
+            sideways, which is exactly what the owner saw: "why this is not
+            responsive and i have horizontal scroll".
+
+            Pulling the scroller out to the full 393 and giving it px-16
+            leaves every card on the same 16px inset, and puts the hero's
+            margin box exactly on the scroller's padding box — so there is
+            nothing left to scroll to. scripts/check-shell-contract.mjs holds
+            the invariant (`bleed-needs-a-bleeding-scroller`), because a 16px
+            sideways scroll leaves lint, build and all 857 tests green.
+
+            overflowX:clip is belt-and-braces for whatever lands here next; it
+            clips at the padding box, which the hero now exactly fills.
+
+            pt-[25px] is the gap the header group puts between the bar and the
+            Tabs row — the bar is outside the scroller now, so the gap becomes
+            the scroller's top inset and the tab row still lands on the node's
+            y=92. */}
         <div
-          className="content-stretch flex flex-col gap-[22px] items-start pt-[25px] px-[var(--p-0,0px)] relative w-full"
-          style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
+          className="content-stretch flex flex-col gap-[22px] items-start pt-[25px] -mx-[16px] w-[calc(100%+32px)] px-[16px] relative"
+          style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', minHeight: 0 }}
           data-node-id="198379:80449"
         >
           {/* Tabs + hero + body. The gap-[14px] wrapper 198379:80456 that used
