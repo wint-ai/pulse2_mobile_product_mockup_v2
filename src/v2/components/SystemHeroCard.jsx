@@ -129,21 +129,30 @@ export default function SystemHeroCard({
           rather than the node's top-[148px] because this element now BEGINS
           where the node puts the wave.
 
-          CENTRED, which is the one number here that is NOT the node's.
-          Owner: "the waves component is not right and left symetric in the
-          screen". It is not, and the frames are where that comes from — on a
-          393 frame they place the same layer two different ways:
+          ONE BOX FOR BOTH TONES, CENTRED. Two owner reports, and the second
+          corrected me:
 
-              alert   left 17, w 369  ->  17 left,  7 right
-              calm    left  9, w 385  ->   9 left, -1 right (1px PAST the edge)
+            "the waves component is not right and left symetric in the screen"
+            "why each wave box is not the same size / it needs to be same as
+             in figma"
 
-          Neither is symmetric, the two disagree with each other, and in the
-          calm state the wave runs off the right of the phone. That is a layer
-          nudged by hand on the canvas, not a spec: a centred background does
-          not get a different inset per alert state. So each tone keeps its own
-          WIDTH, which does differ by design, and the placement becomes
-          inset-x-0 + mx-auto. Same reasoning as the figure below, which is
-          already centred rather than carrying the node's left-[132px].
+          The second is the important one. I had the two tones at different
+          sizes — alert 369x291, calm 385x303 — and defended it as per-tone
+          design. It was not: it was a STALE PAYLOAD. Re-measured against live
+          Figma on 2026-10-20 (metadata, not a cached export):
+
+              alert  199383:141500   x=17  y=148  369 x 291
+              calm   199394:79634    x=17  y=154  369 x 291
+
+          Identical box, identical x; only y differs by 6px. The calm frame had
+          been edited since the morning fetch this file was built on. So both
+          tones take 369x291 and the per-tone branch is gone.
+
+          The CENTRING is still ours and is still the one number here that is
+          not the node's. x=17 on a 393 frame leaves 17 left and 7 right, which
+          is the asymmetry the first report was about. inset-x-0 + mx-auto puts
+          it at 12/12. Same reasoning as the figure below, which is already
+          centred rather than carrying the node's left-[132px].
 
           aria-hidden: it is weather, not information — the figure in front of
           it carries the meaning. It is deliberately allowed to run past this
@@ -153,8 +162,7 @@ export default function SystemHeroCard({
         aria-hidden="true"
         className={cn(
           'absolute mix-blend-multiply pointer-events-none rounded-[20px] top-0',
-          'inset-x-0 mx-auto',
-          alert ? 'h-[291px] w-[369px]' : 'h-[303px] w-[385px]',
+          'inset-x-0 mx-auto h-[291px] w-[369px]',
         )}
         data-node-id={alert ? '199383:141500' : '199394:79634'}
       >
