@@ -91,7 +91,7 @@
  * atom. Same class set as the node, different order.
  */
 import { ArrowRight, PowerOff } from 'lucide-react'
-import { PhotoSensor3, WifiDisconnected02 } from '@/v2/icons'
+import { PhotoSensor3, PinLocation03, WifiDisconnected02 } from '@/v2/icons'
 import ValveStatus from '@/v2/components/ValveStatus'
 import { cn } from '@/lib/utils'
 
@@ -154,7 +154,22 @@ const TILE_ROW = String.raw`content-stretch flex gap-[12px] items-center relativ
 /* 199323:12960 (valve) / 199323:13099 (offline) / 199323:12973 (no power).
    3 + (43 - 8) + 20 + 7 = 65px tall, comfortably past the 48dp minimum, so no
    tap-target padding is added. */
-const TILE = String.raw`appearance-none bg-[var(--colors\/slate\/100,#f1f5f9)] border-0 content-stretch cursor-pointer flex flex-[1_0_0] gap-[4px] items-center justify-center min-w-px pb-[7px] pt-[3px] px-0 relative rounded-[18px] text-left`
+/* THE TINT IS THE COUNT, 2026-10-20. The four new variants paint a counter
+   tile red when it has something in it and leave it slate when it does not:
+     > 0   bg-gradient-to-b from-[#fff1f1] to-[#ffe3e3]   (199417:131415)
+     = 0   bg-[var(--colors/slate/100,#f1f5f9)]           (199417:132861's
+                                                           Offline / No power)
+   Everything else about the two is identical, so the fill is the only switch
+   and the tile keeps one set of geometry. */
+const TILE = String.raw`appearance-none border-0 content-stretch cursor-pointer flex flex-[1_0_0] gap-[4px] items-center justify-center min-w-px pb-[7px] pt-[3px] px-0 relative rounded-[18px] text-left`
+const TILE_HOT = String.raw`bg-gradient-to-b from-[#fff1f1] to-[#ffe3e3]`
+const TILE_COLD = String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)]`
+/* 199417:134216 draws the lone kind as ONE tile across the card. */
+const TILE_SOLO = String.raw`appearance-none border-0 content-stretch cursor-pointer flex gap-[4px] items-center justify-center pb-[7px] pt-[3px] px-0 relative rounded-[18px] shrink-0 text-left w-full`
+
+/* 199417:131529 — the all-clear row that stands where the tiles would be. */
+const CLEAR_ROW = String.raw`bg-[#e8f5ff] content-stretch flex h-[43px] items-center px-[11px] relative rounded-[16px] shrink-0 w-full`
+const CLEAR_TEXT = String.raw`[word-break:break-word] flex flex-col font-semibold justify-center leading-[0] relative shrink-0 text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap`
 const TILE_INNER = String.raw`flex flex-row items-center self-stretch`
 const TILE_STACK = String.raw`content-stretch flex flex-col h-full items-center justify-center relative shrink-0`
 const TILE_VALUE_ROW = String.raw`content-stretch flex h-[43px] items-center justify-center mb-[-8px] relative rounded-[16px] shrink-0 w-[89px]`
@@ -202,14 +217,18 @@ const ISSUE_NAME = {
    Everything inside a <button> has to be phrasing content, so Figma's <div>s
    become <span>s; each one already carries a `flex` display or is a flex item,
    so none of them changes box. */
-function IssueTile({ issue, count, onSelect }) {
+function IssueTile({ issue, count, onSelect, solo = false }) {
   const label = ISSUE_LABEL[issue]
+  /* `hot` is "this counter has something in it", which is also what decides
+     the red — see THE TINT IS THE COUNT. A solo tile is only ever drawn for a
+     kind that has something in it, so it is always hot. */
+  const hot = solo || clampInt(count) > 0
   return (
     <button
       type="button"
       onClick={() => onSelect?.(issue)}
       aria-label={`${ISSUE_NAME[issue] ?? label}: ${fmt(count)}`}
-      className={TILE}
+      className={cn(solo ? TILE_SOLO : TILE, hot ? TILE_HOT : TILE_COLD)}
     >
       <span className={TILE_INNER}>
         <span className={TILE_STACK}>
@@ -321,6 +340,11 @@ export default function SystemHealthCard({
     noPower: clampInt(noPower),
   }
 
+  /* Which counters actually have something in them. This is what picks the
+     variant below, and it is also what tints each tile. */
+  const hotKinds = ISSUE_ORDER.filter((k) => counts[k] > 0)
+  const allClear = hotKinds.length === 0 && attention === 0
+
   /* Both segments drop out at zero so a 1px sliver never implies a system that
      is not there; with the fleet empty the track reads as all-well. */
   const showRed = attention > 0
@@ -339,13 +363,15 @@ export default function SystemHealthCard({
           <button
             type="button"
             onClick={onShowAll}
-            aria-label={`Show all ${unitLabel}`}
+            aria-label={allClear ? 'Show past alerts' : `Show all ${unitLabel}`}
             className={SHOW_ALL}
             data-name="Button"
             data-node-id="199338:52768"
           >
             <span className={cn(FIG_MED, SHOW_ALL_TEXT)} data-node-id="I199338:52768;6724:8007">
-              Show all
+              {/* 199417:131563. With nothing wrong there is no "all" to show;
+                  the control offers the history instead. */}
+              {allClear ? 'Show past alerts' : 'Show all'}
             </span>
             <span className={cn(SHOW_ALL_ICON, GLYPH_INK)} data-name="Icon Placeholder">
               <ArrowRight
@@ -366,20 +392,11 @@ export default function SystemHealthCard({
           {/* ----------------------------------------- fleet row + progress */}
           <div className={PLAIN_COL} data-node-id="199359:128710">
             <div className={GAP_10_COL} data-node-id="199360:129785">
-              <div className={FLEET_ROW} data-node-id="199359:128709">
-                <div
-                  className={cn(FLEET_GLYPH, GLYPH_INK)}
-                  data-name="Tabler Icons / photo-sensor-3"
-                  data-node-id="199371:129885"
-                >
-                  <PhotoSensor3 size="100%" className="absolute inset-0 block" />
-                </div>
-                <p className={cn(FIG_SEMI, FLEET_COUNT)} dir="auto" data-node-id="199359:128708">
-                  <span className="leading-[25px]">{`${fmt(fleet)} `}</span>
-                  <span className={cn(FIG_REG, 'font-normal leading-[25px]')}>{unit}</span>
-                </p>
-              </div>
-
+              {/* THE FLEET ROW IS GONE FROM THIS CARD. It was a slate-100 row
+                  reading "103 systems" (199359:128709). All four of the new
+                  variants take it out of the card and put the count on the
+                  wave above, where SystemsOverviewHero now draws it. Moved,
+                  not dropped. */}
               <div className={PLAIN_COL} data-node-id="199360:129777">
                 <div className={PLAIN_COL} data-node-id="199360:129778">
                   <div
@@ -412,8 +429,10 @@ export default function SystemHealthCard({
                 <div className={BAR_LABEL_ROW} data-node-id="199360:129782">
                   <p className={cn(FIG_HEAD, BAR_LABEL)} data-node-id="199360:129783">
                     {/* Red only when non-zero — see ZERO IS NOT RED above. */}
+                    {/* 199417:131529 greys the numeral at zero rather than
+                        letting it read as ink: #cad5e2, not slate-700. */}
                     <span
-                      className={cn(BAR_LABEL_RUN, showRed ? 'text-[#e7000b]' : 'text-[#314158]')}
+                      className={cn(BAR_LABEL_RUN, showRed ? 'text-[#e7000b]' : 'text-[#cad5e2]')}
                     >
                       {`${fmt(attention)} / `}
                     </span>
@@ -428,11 +447,52 @@ export default function SystemHealthCard({
 
           {/* ----------------------------------------------- counter tiles */}
           <div className={GAP_10_COL} data-node-id="199360:129786">
-            <div className={TILE_ROW} data-node-id="199323:13029">
-              {ISSUE_ORDER.map((key) => (
-                <IssueTile key={key} issue={key} count={counts[key]} onSelect={onSelectIssue} />
-              ))}
-            </div>
+            {/* ------------------------------------------------- the variants
+                Three of them, and which one shows is decided by the data:
+
+                  nothing wrong        199417:131529  the all-clear row
+                  ONE kind has a count 199417:134216  that kind, alone, full width
+                  more than one        199417:132861  all three, zeros greyed
+
+                199414:130087 is the same three-tile frame with every counter
+                non-zero, so it needs no branch of its own — TILE_HOT covers it.
+
+                WHERE THE FRAMES DISAGREE: 199417:132861 and 199417:134216 draw
+                the SAME data (1 / 48, valve 1, offline 0, power 0) two
+                different ways — three tiles with two greyed, or the one kind on
+                its own. That is a choice between alternatives, not two states,
+                and nothing in the data can pick between them. Followed
+                :134216, the rightmost of the four on the canvas and so the
+                latest of the pair; it is also the one that does not spend two
+                thirds of the row on zeros. Say the word and it is a one-line
+                swap back. */}
+            {hotKinds.length === 0 ? (
+              <div className={CLEAR_ROW} data-node-id="199417:131574">
+                <span className="content-stretch flex gap-[4px] items-center relative shrink-0">
+                  <span className={cn('relative shrink-0 size-[27px]', GLYPH_INK)} aria-hidden="true">
+                    <PinLocation03 size="100%" className="absolute inset-0 block" />
+                  </span>
+                  <span className={cn(FIG_SEMI, CLEAR_TEXT)}>
+                    <span className={BAR_LABEL_RUN} dir="auto">
+                      All of your systems are running!
+                    </span>
+                  </span>
+                </span>
+              </div>
+            ) : hotKinds.length === 1 ? (
+              <IssueTile
+                solo
+                issue={hotKinds[0]}
+                count={counts[hotKinds[0]]}
+                onSelect={onSelectIssue}
+              />
+            ) : (
+              <div className={TILE_ROW} data-node-id="199323:13029">
+                {ISSUE_ORDER.map((key) => (
+                  <IssueTile key={key} issue={key} count={counts[key]} onSelect={onSelectIssue} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

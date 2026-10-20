@@ -35,25 +35,15 @@ const segments = (container) => ({
   green: container.querySelector('[data-segment="healthy"]'),
 })
 
+/* THE FLEET-COUNT TESTS LIVE IN systemsOverviewHero.dom.test.jsx NOW.
+   Three of them stood here — the count and its unit, the thousands grouping,
+   and the singular for a fleet of one — against node 199359:128708. The
+   2026-10-20 variants take that row out of the card and put it on the wave
+   above (SystemsOverviewHero), so the assertions moved with it, unchanged.
+   They were not deleted and they were not weakened: the same three cases run
+   against the component that now owns the markup. */
+
 describe('SystemHealthCard — headline', () => {
-  it('renders the fleet count and its unit', () => {
-    const { container } = render(<SystemHealthCard {...ALERTING} />)
-    const row = container.querySelector('[data-node-id="199359:128708"]')
-    expect(row.textContent).toBe('48 systems')
-  })
-
-  it('groups a large fleet count the way the design system does', () => {
-    const { container } = render(<SystemHealthCard total={3431} healthy={3431} />)
-    expect(container.querySelector('[data-node-id="199359:128708"]').textContent)
-      .toBe('3,431 systems')
-  })
-
-  it('says "system" for a fleet of one', () => {
-    const { container } = render(<SystemHealthCard total={1} healthy={1} />)
-    expect(container.querySelector('[data-node-id="199359:128708"]').textContent)
-      .toBe('1 system')
-  })
-
   it('keeps the card heading and the Show all control', async () => {
     const onShowAll = vi.fn()
     render(<SystemHealthCard {...ALERTING} onShowAll={onShowAll} />)
@@ -175,16 +165,60 @@ describe('SystemHealthCard — all healthy / empty', () => {
     const { container } = render(<SystemHealthCard total={48} healthy={48} />)
     const lead = container.querySelector('[data-node-id="199360:129783"] span')
     expect(lead.className).not.toContain('text-[#e7000b]')
-    expect(lead.className).toContain('text-[#314158]')
+    /* 199417:131529 greys the zero to #cad5e2 rather than leaving it at the
+       slate-700 the sentence beside it uses. The guarantee is unchanged —
+       zero is never red — only the node's answer for what it is instead. */
+    expect(lead.className).toContain('text-[#cad5e2]')
     expect(container.querySelector('[data-node-id="199360:129783"]').textContent)
       .toBe('0 / 48 need attention')
   })
 
-  it('still renders all three counters at zero', () => {
+  /* SUPERSEDED BY 199417:131529, and worth saying why rather than editing
+     quietly. This used to assert that all three counters still render at zero
+     — the point being that the card must not hide its data when nothing is
+     wrong. The all-clear frame answers that differently: it drops the three
+     zeros and says the thing in words instead, which is more use to a reader
+     than three noughts. So the guarantee is the same (the card still reports
+     its state) and the assertion follows the node. */
+  it('says it in words at zero rather than drawing three noughts', () => {
     render(<SystemHealthCard total={48} healthy={48} />)
-    expect(screen.getByRole('button', { name: 'Valve errors: 0' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Offline systems: 0' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Disconnected power: 0' })).toBeTruthy()
+    expect(screen.getByText('All of your systems are running!')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Valve errors:/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Offline systems:/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Disconnected power:/ })).toBeNull()
+  })
+
+  it('offers the history instead of "all" when there is no all to show', () => {
+    render(<SystemHealthCard total={48} healthy={48} />)
+    // 199417:131563 renames the control in this state.
+    expect(screen.getByRole('button', { name: 'Show past alerts' })).toBeTruthy()
+  })
+
+  /* 199417:134216 — one kind with a count is drawn alone, across the card,
+     rather than beside two zeros. See the variant note in the component for
+     why this frame was followed over 199417:132861. */
+  it('draws a lone fault kind on its own, full width', () => {
+    const { container } = render(<SystemHealthCard total={48} healthy={47} valveErrors={1} />)
+    const tiles = [...container.querySelectorAll('button')]
+      .filter((b) => /: \d+$/.test(b.getAttribute('aria-label') || ''))
+    expect(tiles).toHaveLength(1)
+    expect(tiles[0].getAttribute('aria-label')).toBe('Valve errors: 1')
+    expect(tiles[0].className).toContain('w-full')
+  })
+
+  /* THE TINT IS THE COUNT: red when a counter has something in it, slate when
+     it does not. Both frames that draw three tiles agree on this. */
+  it('tints a counter by whether it has anything in it', () => {
+    const { container } = render(
+      <SystemHealthCard total={48} healthy={46} valveErrors={1} offline={1} />,
+    )
+    const by = (name) => [...container.querySelectorAll('button')]
+      .find((b) => b.getAttribute('aria-label') === name)
+    expect(by('Valve errors: 1').className).toContain('from-[#fff1f1]')
+    expect(by('Offline systems: 1').className).toContain('from-[#fff1f1]')
+    expect(by('Disconnected power: 0').className)
+      .toContain(String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)]`)
+    expect(by('Disconnected power: 0').className).not.toContain('from-[#fff1f1]')
   })
 
   it('renders an empty fleet without a sliver of either colour', () => {
@@ -192,8 +226,6 @@ describe('SystemHealthCard — all healthy / empty', () => {
     const { red, green } = segments(container)
     expect(red).toBeNull()
     expect(green.style.flexGrow).toBe('1')
-    expect(container.querySelector('[data-node-id="199359:128708"]').textContent)
-      .toBe('0 systems')
   })
 })
 
@@ -209,10 +241,6 @@ describe('SystemHealthCard — Figma class fidelity', () => {
     expect(heading.className).toContain(String.raw`leading-[var(--text\/sm\/lh,20px)]`)
     expect(heading.className).toContain(String.raw`text-[length:var(--text\/sm\/size,14px)]`)
 
-    const count = container.querySelector('[data-node-id="199359:128708"]')
-    expect(count.className).toContain('leading-[0]')
-    expect(count.className).toContain('text-[22px]')
-
     const label = container.querySelector('[data-node-id="199360:129783"]')
     expect(label.className).toContain('leading-[0]')
     expect(label.className).toContain(String.raw`text-[length:var(--text\/lg\/size,18px)]`)
@@ -221,12 +249,8 @@ describe('SystemHealthCard — Figma class fidelity', () => {
   it('carries the escaped var() token classes verbatim into the DOM', () => {
     const { container } = render(<SystemHealthCard {...ALERTING} />)
 
-    const row = container.querySelector('[data-node-id="199359:128709"]')
-    expect(row.className).toContain(String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)]`)
-    expect(row.className).toContain('h-[53px]')
-    expect(row.className).toContain('rounded-[12px]')
-    expect(row.className).toContain('pl-[15px]')
-
+    /* The slate-100 fleet row that stood here is gone — see the note at the
+       top of this file. Its atoms are asserted in the hero's own test. */
     const bar = container.querySelector('[data-node-id="199360:129779"]')
     expect(bar.className).toContain('gap-[1.622px]')
     expect(bar.className).toContain('h-[15px]')
@@ -244,7 +268,9 @@ describe('SystemHealthCard — Figma class fidelity', () => {
     const { container } = render(<SystemHealthCard {...ALERTING} />)
     expect(container.querySelectorAll('img')).toHaveLength(0)
     expect(container.innerHTML).not.toContain('figma.com')
-    // Every glyph is a local inline SVG: sensor, valve, wifi, power, arrow.
-    expect(container.querySelectorAll('svg').length).toBeGreaterThanOrEqual(5)
+    /* Every glyph is a local inline SVG: valve, wifi, power, arrow. Was five
+       — the fifth was the fleet row's sensor, which went to the hero with the
+       count. The hero's own test makes the same assertion over there. */
+    expect(container.querySelectorAll('svg').length).toBeGreaterThanOrEqual(4)
   })
 })

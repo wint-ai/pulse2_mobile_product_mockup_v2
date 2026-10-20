@@ -82,6 +82,7 @@ import SystemsTableCard from '@/v2/components/SystemsTableCard'
 import SystemsFilterSheet from '@/v2/components/SystemsFilterSheet'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import SystemHealthCard from '@/v2/components/SystemHealthCard'
+import SystemsOverviewHero from '@/v2/components/SystemsOverviewHero'
 import TriageBand from '@/v2/components/TriageBand'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
@@ -1145,7 +1146,25 @@ export default function HomeAllAccounts({ expanded = false }) {
           few events, with their location. In locA that is a separate "Water
           events" section — so the split below is the design's, not a
           compromise. */}
+      {/* THE FLEET COUNT MOVED ONTO A WAVE, 2026-10-20. All four of the new
+          "Accont / location" variants (199417:131529, 199414:130087,
+          199417:132861, 199417:134216) take the "N systems" row out of the
+          health card and put it on a hero above, with the system-type chips
+          beside it. SystemHealthCard drops that row in the same change, so the
+          count is moved rather than shown twice.
+
+          The node overlaps the two: wave h-[189px], card pinned at top-[152px]
+          inside a fixed h-[398px] group. Here the card keeps its place in the
+          flow and is pulled up by the same 37px instead — a fixed-height group
+          would clip it, and this card's height is real data now that it has
+          four states. */}
+      <SystemsOverviewHero
+        total={live?.stats?.total ?? 0}
+        systemTypes={live?.systemTypes}
+      />
+
       <SystemHealthCard
+        className="-mt-[37px] z-[1]"
         total={live?.stats?.total ?? 0}
         healthy={Math.max(0, (live?.stats?.total ?? 0) - (live?.stats?.requireAttention ?? 0))}
         valveErrors={live?.issues?.valve ?? 0}
