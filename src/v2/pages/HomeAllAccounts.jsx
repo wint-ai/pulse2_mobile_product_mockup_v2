@@ -86,9 +86,14 @@ import SystemsOverviewHero from '@/v2/components/SystemsOverviewHero'
 import TriageBand from '@/v2/components/TriageBand'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
-import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
 import { CaretDown } from '@/v2/icons'
 import MobileHeaderBar from '@/v2/components/MobileHeaderBar'
+/* The pill tab row, shared with SystemPageV2Screen. It used to be a local
+   `TabTrigger` here and a near-copy of it there; the two drifted apart and the
+   owner saw one row dark-slate and the other pale-blue. PillTabs' header
+   records which Figma instance each treatment comes from and why they are one
+   component with a `tone`, not two designs. */
+import PillTabs from '@/v2/components/PillTabs'
 /* The chart's window arithmetic — §3.1-§3.6 and the §4 matrix. Shared with
    SystemPageV2Screen so the two screens cannot drift apart, and kept out of
    this file because a page may only export its component. */
@@ -262,124 +267,6 @@ function DonutPlots({ className }) {
 }
 
 // ── Pieces ─────────────────────────────────────────────────────────────────
-
-/**
- * One tab trigger.
- *
- * The row — Figma 199360:129743 (ALERT, locA) — draws its three triggers as
- * THREE DIFFERENT NODES, not one node with overrides:
- *   I199360:129743;101485:143349;199360:129739  TabsTrigger                     Overview, selected
- *   I199360:129743;101485:143349;199396:84067   TabsTrigger                     Locations, at rest
- *   I199360:129743;101485:143349;199360:129742  TabsTrigger/line/false/default  General Info
- * so all three are written out as whole JSX trees. That also keeps every Figma
- * class a literal attribute, which is the only place the `\/` escape survives.
- *
- * Two readings that are the node's, not a simplification:
- *  · GEOMETRY IS PER POSITION, not per state. The outer two triggers are
- *    `flex-[1_0_0]`; the middle one is `shrink-0`, because the Badge riding in
- *    it makes it intrinsically wide. Selecting a different tab therefore does
- *    not make the middle trigger grow.
- *  · SELECTION changes only three things: the fill (slate-500 against #fafbfc),
- *    the label colour (#edf1fc against slate-500) and the focus ring on the
- *    inner content box.
- *
- * RESTYLED 2026-10-20 against a re-fetch of 199323:12113. The previous reading
- * had the selected pill at `bg-[#c7e3ff]` with wint-blue-accent text and the
- * two at rest on `bg-[var(--colors\/slate\/200,#e2e8f0)]`. The designer has
- * since moved the whole row: selected is now a DARK slate-500 pill with near
- * white text, and both resting pills are the card wash #fafbfc. locB
- * (199371:137019, the CALM state) still emits the OLD styling — see the note
- * at the tab row in the page body. locA is the state this follows.
- */
-function TabTrigger({ label, count, active, onClick, pill = 'default', grow = true }) {
-  const radius = pill === 'wide'
-    ? String.raw`rounded-[var(--component\/tabs\/list\/radius-horizontal,26px)]`
-    : String.raw`rounded-[var(--component\/tabs\/trigger\/radius,14px)]`
-
-  /* The label's `leading-` is spelled AFTER its size on purpose. Figma emits
-     its utilities alphabetically, which puts `leading-[…]` first; anything that
-     later runs these through tailwind-merge treats leading- as conflicting with
-     a font-size atom and silently drops whichever came first. Order is
-     meaningless to CSS, so the safe order is the one written here. */
-  const labelClass = [
-    '[word-break:break-word] overflow-hidden relative shrink-0 text-[14px] text-center text-ellipsis whitespace-nowrap',
-    pill === 'wide'
-      ? String.raw`leading-[var(--text\/sm\/lh,20px)]`
-      : String.raw`leading-[var(--text\/sm-tight\/lh,20px)]`,
-    active
-      ? 'font-semibold text-[#edf1fc]'
-      : pill === 'wide'
-        ? String.raw`font-[var(--font\/weight\/font-medium,500)] text-[color:var(--colors\/slate\/500,#62748e)]`
-        : String.raw`font-medium text-[color:var(--colors\/slate\/500,#62748e)]`,
-  ].join(' ')
-
-  /* The count Badge — I199360:129743;101485:143349;199396:84067;121116:90300.
-     It carries NO fill class; the node paints it with the same two-layer wash
-     the frame root uses, at 145.43deg, as a raw gradient. Carried verbatim as
-     an inline style because that is what Figma emits and there is no utility
-     for it. */
-  const badge = count != null ? (
-    <span
-      className={String.raw`content-stretch flex h-[20px] items-center justify-center min-w-[20px] overflow-clip pl-[var(--component\/badge\/px,8px)] pr-[var(--spacing\/2,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)] shrink-0`}
-      style={{ backgroundImage: 'linear-gradient(145.43317186803606deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)' }}
-    >
-      <span
-        className={String.raw`[word-break:break-word] overflow-hidden relative shrink-0 tabular-nums text-[14px] leading-[var(--text\/xs\/lh,20px)] font-[var(--font\/weight\/font-medium,400)] text-[color:var(--colors\/slate\/400,#90a1b9)] text-ellipsis whitespace-nowrap`}
-        aria-label={`${count} ${label.toLowerCase()}`}
-      >
-        {count}
-      </span>
-    </span>
-  ) : null
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active ? 'page' : undefined}
-      /* The count is decoration on the accessible name: a tab is found by what
-         it opens, not by how many things are behind it, and folding the number
-         in renamed this control from "Systems" to "Systems 103" — which broke
-         systemsTabScope's lookup and would break anyone navigating by name.
-         The number is still announced, as the badge's own label above. */
-      aria-label={label}
-      className={[
-        'content-stretch cursor-pointer flex h-[32px] items-center min-w-[56px] relative',
-        grow ? 'flex-[1_0_0]' : 'shrink-0',
-        pill === 'wide'
-          ? String.raw`gap-[var(--spacing\/2,8px)] justify-center px-[var(--spacing\/2,8px)] py-[var(--spacing\/1,4px)]`
-          : active
-            ? 'flex-col'
-            : 'flex-col justify-center',
-        radius,
-        /* The node draws only ONE selected trigger, the default pill. A
-           selected WIDE pill is a state the delivery canvas does not contain,
-           so it takes the same fill rule rather than inventing a third. */
-        active ? String.raw`bg-[var(--colors\/slate\/500,#62748e)]` : 'bg-[#fafbfc]',
-      ].join(' ')}
-    >
-      {pill === 'wide' ? (
-        <>
-          <span className={labelClass}>{label}</span>
-          {badge}
-        </>
-      ) : (
-        /* ;121116:90211 (selected) / ;121116:90297 (at rest) — the inner
-           content box. The selected one, and only it, carries the focus ring. */
-        <span
-          className={[
-            String.raw`content-stretch flex gap-[var(--component\/tabs\/trigger\/gap,6px)] items-center overflow-clip px-[var(--component\/tabs\/trigger\/px,8px)] py-[var(--component\/tabs\/trigger\/py,4px)] relative shrink-0`,
-            radius,
-            active ? String.raw`drop-shadow-[0px_0px_0px_var(--ring-focus,rgba(161,161,161,0.5))]` : '',
-          ].join(' ')}
-        >
-          <span className={labelClass}>{label}</span>
-          {badge}
-        </span>
-      )}
-    </button>
-  )
-}
 
 /**
  * "Top usage" — Figma 198314:73652 (and 198328:89354, identical in the expanded
@@ -976,11 +863,26 @@ export default function HomeAllAccounts({ expanded = false }) {
   const [consumptionPeriod, setConsumptionPeriod] = useState('M')
   const [consumptionOffset, setConsumptionOffset] = useState(0)
 
-  /* §20.1 / PLS-WC-15 — the trail of periods OPENED, newest last. Each entry
-     is the {period, offset} a drill-down was launched from, which is what lets
-     the return restore both rather than dropping the user on the newest window
-     the way the grouping control does (§3.1). */
-  const [consumptionTrail, setConsumptionTrail] = useState([])
+  /* NO DRILL TRAIL HERE ANY MORE. §20.1 / PLS-WC-15 kept a `consumptionTrail`
+     of the {period, offset} each drill-down was launched from, to drive the
+     "‹ Back to Monthly" pill above the chart. The owner saw that pill on
+     2026-10-20 — "what is back to monthly? remove it." — so the pill and its
+     `returnFromDrill` went, and on this page NOTHING ELSE READ THE TRAIL: it
+     was written by the drill and cleared by the grouping control and Today,
+     and never read again. Dead state, so it went with the pill.
+
+     SystemPageV2Screen is the other half of this and keeps its trail, because
+     the hero's "See more" reads `periodTrail[0]` to unwind a drill. This page
+     has no hero and no "See more" — the chart is always on screen — so there
+     is nothing here to unwind. If a hero ever lands on this page, the trail
+     comes back with it.
+
+     What the removal costs: after drilling Monthly -> Daily, picking Month
+     from the grouping dropdown resets the offset to 0 (§3.1) and lands on the
+     newest twelve months, not the window the drill was launched from. That
+     window is still reachable with the period stepper or the Select period
+     sheet, just not in one tap. The owner accepted that; do not restore the
+     pill without asking him. */
 
   const consumptionView = useMemo(
     () => getFleetConsumptionSeries(scopedSystems, consumptionPeriod, consumptionOffset),
@@ -1026,8 +928,7 @@ export default function HomeAllAccounts({ expanded = false }) {
     [consumptionPeriod, consumptionView],
   )
 
-  /* §4: a pick sets the period and keeps the grouping, the comparison and the
-     trail. */
+  /* §4: a pick sets the period and keeps the grouping and the comparison. */
   const applyMonth = (selection) => {
     setConsumptionOffset(offsetForPickedMonth(consumptionPeriod, selection, consumptionBounds))
     setPickerOpen(false)
@@ -1052,13 +953,13 @@ export default function HomeAllAccounts({ expanded = false }) {
      the row it implements. */
 
   /* §3.1 — selecting a grouping ALWAYS returns to the newest window, and is
-     therefore never a way back to a period you were looking at (§3.6). The
-     trail goes with it: the drill it recorded no longer describes what is on
-     screen. */
+     therefore never a way back to a period you were looking at (§3.6). Since
+     2026-10-20 it is the ONLY way back up out of a drill-down on this page,
+     and it is a reset, not a return — see the note where the trail used to
+     be. */
   const selectConsumptionPeriod = (next) => {
     setConsumptionPeriod(next)
     setConsumptionOffset(0)
-    setConsumptionTrail([])
     // PLS-WC-20: comparison is Monthly-only, so anything else clears it.
     if (next !== 'M') setCompareConsumption(false)
   }
@@ -1078,21 +979,9 @@ export default function HomeAllAccounts({ expanded = false }) {
     // Hourly is the floor of the series and a bucket with no reading has
     // nothing behind it — §3.5's two blocked cases both land here.
     if (!target) return
-    setConsumptionTrail((trail) => [...trail, { period: consumptionPeriod, offset: consumptionOffset }])
     setConsumptionPeriod(target.period)
     setConsumptionOffset(target.offset)
     if (target.period !== 'M') setCompareConsumption(false)
-  }
-
-  /* §3.6 / PLS-WC-15 — the return restores the grouping AND the period it was
-     opened from. */
-  const returnFromDrill = () => {
-    const previous = consumptionTrail[consumptionTrail.length - 1]
-    if (!previous) return
-    setConsumptionTrail((trail) => trail.slice(0, -1))
-    setConsumptionPeriod(previous.period)
-    setConsumptionOffset(previous.offset)
-    if (previous.period !== 'M') setCompareConsumption(false)
   }
 
   /* §3.4 — Today: Hourly on the newest window, the picker closed, and the
@@ -1100,13 +989,11 @@ export default function HomeAllAccounts({ expanded = false }) {
   const jumpToToday = () => {
     setConsumptionPeriod('H')
     setConsumptionOffset(0)
-    setConsumptionTrail([])
     setCompareConsumption(false)
     setPickerOpen(false)
   }
 
   const consumptionSteps = stepAvailability(consumptionPeriod, consumptionOffset, consumptionBounds)
-  const returnTo = consumptionTrail[consumptionTrail.length - 1]?.period ?? null
 
   /* The Overview cards, in the node's order. Held in a variable so the tab
      body below stays one expression per tab.
@@ -1196,11 +1083,11 @@ export default function HomeAllAccounts({ expanded = false }) {
           template name; the card is Water consumption. It used to ship its own
           traced series; it now plots the fleet, so the figures under it belong
           to the systems this screen is actually reporting on. */}
-      {/* §3.6 / §19 — the way back out of a drill-down, above the card it
-          returns. It renders only while there is something to return to, so it
-          cannot read as a dead control on a chart nobody has drilled into. */}
-      <ConsumptionReturnControl toPeriod={returnTo} onReturn={returnFromDrill} />
-
+      {/* The "‹ Back to Monthly" pill stood here — §3.6 / §19's way back out
+          of a drill-down. Removed 2026-10-20 on the owner's instruction ("what
+          is back to monthly? remove it."), along with the trail that fed it;
+          see the note where `consumptionTrail` was declared for what that
+          costs. Do not put this back without asking. */}
       <WaterConsumptionCardV2
         data={consumptionView.series}
         period={consumptionPeriod}
@@ -1305,51 +1192,52 @@ export default function HomeAllAccounts({ expanded = false }) {
           />
 
           {/* 199360:129737 — the tab row, immediately after the header bar.
-              LOCA/LOCB DISAGREE HERE AND NOWHERE ELSE IN THE CHROME. locA
-              (199323:12113, ALERT) emits the restyled row this follows:
-              selected is slate-500 with #edf1fc text, both resting pills are
-              #fafbfc, and the Badge is a raw gradient. locB (199371:137019,
-              CALM) still emits the previous styling — #c7e3ff selected with
-              wint-blue text on slate-200 pills. Same component, two different
-              paints, so one of the two frames is mid-edit. locA is the brief's
-              reference and is followed; the tabs are not a state of the alert,
-              so when locB catches up nothing here should need to change. */}
+              The row itself is PillTabs, shared with SystemPageV2Screen.
+
+              THE FOUR INSTANCES OF THIS ROW DISAGREE, and this is the only
+              place in the chrome where they do. locA (199360:129743, ALERT)
+              emits the restyled row: slate-500 selected with #edf1fc text,
+              both resting pills #fafbfc, Badge a raw gradient. locB
+              (199371:137032, CALM) and BOTH System-page instances
+              (199383:141512 / 199394:20601) still emit the previous styling —
+              #c7e3ff selected with wint-blue text on slate-200 pills. All four
+              are instances of one master (slot 101485:143349), and before
+              2026-10-20 all four were byte-identical, so three of them are
+              un-propagated rather than a second design.
+
+              THE OWNER RULED FOR THE PALE BLUE on 2026-10-20, having been
+              shown that locA is the newest and only deliberate edit. So
+              `tone="blue"` here is the decision, not a leftover — do not
+              "correct" it to locA's slate because Figma's freshest node says
+              so. locA's repaint is kept as PillTabs' `tone="slate"` in case
+              the designer settles there. Full argument in PillTabs' header. */}
           <div
             className="content-stretch flex items-center justify-between relative shrink-0 w-full"
             data-node-id="199360:129737"
           >
-            <div
-              className="content-stretch flex flex-[1_0_0] gap-[var(--p-0,0px)] h-[36px] items-start min-w-px pr-[var(--component\/tabs\/list\/padding,3px)] py-[var(--component\/tabs\/list\/padding,3px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)]"
-              data-node-id="199360:129743"
-              data-name="Tabs"
-            >
-              <div
-                className="content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center min-w-px relative"
-                data-node-id="I199360:129743;101485:143349"
-                data-name="slot"
-              >
-                <TabTrigger label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')} />
-                {/* ── CONFLICT, REPORTED NOT RESOLVED ───────────────────────
-                    Figma labels the middle trigger "Locations" and gives it a
-                    count Badge. This tab opens the SYSTEMS table
-                    (SystemsTableCard, scoped by scopedSystems), so the label is
-                    left as "Systems" and the count reports what the tab
-                    actually opens. Renaming it would change what the control
-                    means, not how it looks, and would break anyone — including
-                    systemsTabScope — who navigates by name. The owner has to
-                    decide whether the design wants a genuine Locations tab.
-                    `grow={false}` is the node's: this trigger is shrink-0
-                    because its Badge makes it intrinsically wide. */}
-                <TabTrigger
-                  label="Systems"
-                  count={live?.stats?.total ?? null}
-                  grow={false}
-                  active={tab === 'systems'}
-                  onClick={() => setTab('systems')}
-                />
-                <TabTrigger label="General Info" pill="wide" active={tab === 'general'} onClick={() => setTab('general')} />
-              </div>
-            </div>
+            <PillTabs
+              nodeId="199360:129743"
+              slotNodeId="I199360:129743;101485:143349"
+              tone="blue"
+              value={tab}
+              onChange={setTab}
+              items={[
+                { id: 'overview', label: 'Overview' },
+                /* ── CONFLICT, REPORTED NOT RESOLVED ───────────────────────
+                   Figma labels the middle trigger "Locations" and gives it a
+                   count Badge. This tab opens the SYSTEMS table
+                   (SystemsTableCard, scoped by scopedSystems), so the label is
+                   left as "Systems" and the count reports what the tab
+                   actually opens. Renaming it would change what the control
+                   means, not how it looks, and would break anyone — including
+                   systemsTabScope — who navigates by name. The owner has to
+                   decide whether the design wants a genuine Locations tab.
+                   `grow: false` is the node's: this trigger is shrink-0
+                   because its Badge makes it intrinsically wide. */
+                { id: 'systems', label: 'Systems', count: live?.stats?.total ?? null, grow: false },
+                { id: 'general', label: 'General Info', pill: 'wide' },
+              ]}
+            />
           </div>
         </div>
 

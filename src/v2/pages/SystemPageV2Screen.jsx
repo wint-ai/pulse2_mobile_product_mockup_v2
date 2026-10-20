@@ -115,7 +115,6 @@
  *   InsightsCard        no node on either frame. Ordered last of the mapped
  *                       cards so it cannot displace one the nodes do draw.
  *   InfoAccordion       the real General Info content; see the tab note below.
- *   ConsumptionReturnControl  the drill-down's way back; rides with the chart.
  *   the burger            NEITHER frame draws one any more. It is the only
  *                         way into the navigation drawer, so it stays in the
  *                         header bar's left group.
@@ -143,7 +142,6 @@ import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
-import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
 import SystemTopologyCard from '@/v2/components/SystemTopologyCard'
 import SystemTypeCard from '@/v2/components/SystemTypeCard'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
@@ -153,6 +151,12 @@ import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import InfoAccordion from '@/v2/components/InfoAccordion'
 import SystemHeroCard from '@/v2/components/SystemHeroCard'
 import MobileHeaderBar from '@/v2/components/MobileHeaderBar'
+/* The pill tab row, shared with HomeAllAccounts. It used to be a local
+   `TabTrigger` whose own comment called it "deliberately a near-copy" of that
+   page's — which is precisely how the two rows came to paint different
+   colours. PillTabs' header records which Figma instance each treatment comes
+   from and why they are one component with a `tone`, not two designs. */
+import PillTabs from '@/v2/components/PillTabs'
 /* The Mobile Header Bar moved here out of SystemHeroCard, and brought these
    with it: shadcn <Button> so the burger's focus ring comes from --ring, and
    cn() for the one class string on the bar that varies. `Menu10` went the
@@ -609,86 +613,6 @@ function ActionPolicyCard({ policies }) {
    bare `/`, which Tailwind then reads as an opacity modifier and the class
    never reaches the DOM. */
 
-/**
- * One tab trigger — Figma 199383:141512 "Tabs" (sysA) / 199394:20601 (sysB),
- * which emit the selected and unselected states as separate nodes rather than
- * one node with an override:
- *   I199383:141512;101485:143349;199383:141643  TabsTrigger             active
- *   I199383:141512;101485:143349;199383:141644  TabsTrigger             rest
- *   I199383:141512;101485:143349;199383:141646  TabsTrigger/line/false/default
- * The last one is a DIFFERENT component at radius 26, so the row is not three
- * copies of one shape — that is `pill="wide"` below.
- *
- * Deliberately a near-copy of HomeAllAccounts' TabTrigger: the two rows are
- * traced from the same two nodes, and that file belongs to another owner, so
- * this is duplicated rather than imported or hoisted. If the two ever need to
- * move together, lifting this into @/v2/components is the fix.
- *
- * Every class atom is String.raw: the design-token names carry escaped
- * slashes (`text-[color:var(--colors\/slate\/500,#62748e)]`) and a plain JS
- * string eats the backslash, after which Tailwind reads `/` as an opacity
- * modifier and the class never reaches the DOM. `leading-` is spelled AFTER
- * the size atom for the same reason the rest of this repo does: tailwind-merge
- * treats leading-* as conflicting with a font-size atom and silently drops the
- * earlier one.
- */
-function TabTrigger({ label, count, active, onClick, pill = 'default' }) {
-  const radius = pill === 'wide'
-    ? String.raw`rounded-[var(--component\/tabs\/list\/radius-horizontal,26px)]`
-    : String.raw`rounded-[var(--component\/tabs\/trigger\/radius,14px)]`
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active ? 'page' : undefined}
-      /* The count stays OFF the accessible name: a tab is found by what it
-         opens, not by how many things sit behind it. Folding the number in
-         renames the control and breaks name-based lookup for tests and for
-         anyone navigating by voice. The badge carries its own label. */
-      aria-label={label}
-      className={[
-        'content-stretch cursor-pointer flex flex-[1_0_0] h-[32px] items-center justify-center min-w-[56px] relative',
-        pill === 'wide'
-          ? String.raw`gap-[var(--spacing\/2,8px)] px-[var(--spacing\/2,8px)] py-[var(--spacing\/1,4px)]`
-          : 'flex-col',
-        radius,
-        active ? 'bg-[#c7e3ff]' : String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)]`,
-      ].join(' ')}
-    >
-      <span
-        className={[
-          String.raw`content-stretch flex gap-[var(--component\/tabs\/trigger\/gap,6px)] items-center overflow-clip relative shrink-0`,
-          pill === 'wide' ? '' : String.raw`px-[var(--component\/tabs\/trigger\/px,8px)] py-[var(--component\/tabs\/trigger\/py,4px)] ${radius}`,
-        ].join(' ')}
-      >
-        <span
-          className={[
-            '[word-break:break-word] overflow-hidden relative shrink-0 text-[14px] text-center text-ellipsis whitespace-nowrap',
-            String.raw`leading-[var(--text\/sm-tight\/lh,20px)]`,
-            active
-              ? String.raw`font-semibold text-[color:var(--wint-blue-accent,#0b81f8)]`
-              : String.raw`font-medium text-[color:var(--colors\/slate\/500,#62748e)]`,
-          ].join(' ')}
-        >
-          {label}
-        </span>
-
-        {count != null ? (
-          <span className={String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex h-[20px] items-center justify-center min-w-[20px] overflow-clip pl-[var(--component\/badge\/px,8px)] pr-[var(--spacing\/2,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)] shrink-0`}>
-            <span
-              className={String.raw`[word-break:break-word] leading-[var(--text\/xs\/lh,20px)] overflow-hidden relative shrink-0 tabular-nums text-[14px] text-[color:var(--colors\/slate\/400,#90a1b9)] text-ellipsis whitespace-nowrap`}
-              aria-label={`${count} ${label.toLowerCase()}`}
-            >
-              {count}
-            </span>
-          </span>
-        ) : null}
-      </span>
-    </button>
-  )
-}
-
 export default function SystemPageV2Screen() {
   const navigate = useNavigate()
   const { systemId } = useParams()
@@ -818,9 +742,27 @@ export default function SystemPageV2Screen() {
   const [periodOffset, setPeriodOffset] = useState(0)
 
   /* §20.1 / PLS-WC-15 — the trail of periods OPENED, newest last. Each entry
-     is the {period, offset} a drill-down was launched from, which is what lets
-     the return restore both rather than dropping the user on the newest window
-     the way the grouping control does (§3.1). */
+     is the {period, offset} a drill-down was launched from.
+
+     THE VISIBLE CONTROL IS GONE; THE TRAIL IS NOT. 2026-10-20, the owner's
+     instruction on seeing the pill above the chart: "what is back to monthly?
+     remove it." ConsumptionReturnControl and `returnFromDrill` were removed
+     here and on HomeAllAccounts. DO NOT RESTORE THEM without asking.
+
+     What that costs, measured in the browser before the removal: drilling
+     from the Nov 2024 - Oct 2025 window into Oct 25 opens Daily / "October
+     2025", and the pill put Nov 2024 - Oct 2025 back in ONE tap. Without it,
+     picking Month from the grouping dropdown lands on Nov 2025 - Oct 2026 —
+     `selectPeriod` resets the offset to 0 (§3.1), so the dropdown is a reset,
+     never a way back. The window is still reachable, just not in one tap:
+     dropdown -> Month, then the period stepper or the Select period sheet.
+     The owner accepted that; it was his ask.
+
+     THE TRAIL ITSELF STILL DOES WORK, which is why it stays: openChartFromHero
+     reads `periodTrail[0]` so the hero's "See more" unwinds a drill and
+     reopens on the caption's window with compare on — a behaviour the owner
+     asked for explicitly, and the one most at risk from a careless cleanup
+     here. Delete the trail and that breaks. */
   const [periodTrail, setPeriodTrail] = useState([])
 
   /* "See more" sits in the hero at the very top; the chart it reveals lands
@@ -983,16 +925,10 @@ export default function SystemPageV2Screen() {
     if (target.period !== 'M') setCompareConsumption(false)
   }
 
-  /* §3.6 / PLS-WC-15 — the return restores the grouping AND the period it was
-     opened from. */
-  const returnFromDrill = () => {
-    const previous = periodTrail[periodTrail.length - 1]
-    if (!previous) return
-    setPeriodTrail((trail) => trail.slice(0, -1))
-    setPeriod(previous.period)
-    setPeriodOffset(previous.offset)
-    if (previous.period !== 'M') setCompareConsumption(false)
-  }
+  /* §3.6 / PLS-WC-15 used to put a `returnFromDrill` here, driving the
+     "‹ Back to Monthly" pill above the chart. Both went on 2026-10-20 at the
+     owner's instruction — see the note on `periodTrail` above for what that
+     costs and why the trail itself stayed. */
 
   /* ── The hero's "See more" ──────────────────────────────────────────────
      The hero prints a headline over a date range and offers one control. The
@@ -1012,11 +948,11 @@ export default function SystemPageV2Screen() {
      neither matched the twelve-month window the control is understood to
      offer. So opening unwinds the drill to the window it was launched from —
      `periodTrail[0]`, the entry the oldest drill recorded — and empties the
-     trail. Emptying it is what makes the reset coherent rather than cosmetic:
-     `returnTo` is read off the trail's tail, so ConsumptionReturnControl stops
-     rendering at exactly the moment the window it pointed at is the one on
-     screen. Clearing the trail while leaving the drilled window would leave
-     the user stranded a level down with no way back.
+     trail. Unwinding and emptying are ONE action: the trail describes drills
+     that are still on screen, and once the window it recorded IS the window on
+     screen there is nothing left to unwind. Emptying it while leaving the
+     drilled window would be the incoherent half — it would strand the user a
+     level down with no record of where he came from.
 
      This is NOT a grouping reset. A grouping the user chose from the dropdown
      clears the trail itself (§3.1), so there is nothing to unwind and Yearly
@@ -1208,7 +1144,6 @@ export default function SystemPageV2Screen() {
   })()
 
   const steps = stepAvailability(period, periodOffset, consumptionBounds)
-  const returnTo = periodTrail[periodTrail.length - 1]?.period ?? null
 
   /* AlertCard reports every tap through onAction(actionId, event) and reads no
      store itself — it is presentational, and the screen decides what each id
@@ -1473,28 +1408,55 @@ export default function SystemPageV2Screen() {
                 trigger labelled "Locations" carrying a count Badge of 8. A
                 leaf system has no child locations and nothing here counts 8,
                 so rendering it would mean either a dead tab or an invented
-                figure. Omitted and flagged for the owner; TabTrigger above
-                still implements the Badge, so restoring it is passing a
-                `count` once there is a real one. (HomeAllAccounts keeps that
-                trigger because an account scope genuinely has a fleet count.) */}
+                figure. Omitted and flagged for the owner; PillTabs still
+                implements the Badge, so restoring it is adding a `count` to
+                the item once there is a real one. (HomeAllAccounts keeps that
+                trigger because an account scope genuinely has a fleet count.)
+
+                THE COLOUR. This row used to be a near-copy of HomeAllAccounts'
+                TabTrigger, which is how the two came to paint differently: the
+                Location row was restyled on 2026-10-20 and this one was not,
+                and the owner saw one screen's selected tab dark slate and the
+                other's pale blue. Both are now PillTabs.
+
+                sysA (199383:141512) and sysB (199394:20601) both emit the
+                pale-blue pill — re-read live on 2026-10-20, so this is the
+                node's current text, not a stale payload. THE OWNER RULED FOR
+                THAT PALE BLUE on 2026-10-20, so `tone="blue"` below is what
+                both this page and the Location page now ship.
+
+                WHY THAT NEEDS SAYING: by provenance alone the other reading
+                looks better supported. All four instances of this row (the two
+                here, the two on the Location page) come from ONE master — slot
+                101485:143349 — and were byte-identical before 2026-10-20, when
+                the designer restyled exactly one of them, locA, to a dark slate
+                pill. An agent re-deriving the colour from Figma will therefore
+                keep arriving at slate. It is not the shipped answer; the owner's
+                word is. locA's repaint is kept as PillTabs' `tone="slate"` in
+                case the designer settles there.
+
+                The Figma file is still self-contradictory either way: locB is
+                the SAME Location screen as locA in its calm state and now
+                disagrees with it, which a per-surface design decision could not
+                do. Note also that nothing here sits on the hero wave — Figma
+                puts Tabs in the header group ABOVE Content and pins the wave
+                below the row (see the hero block below) — so there was never a
+                contrast argument for the two screens differing. */}
             <div
               className="content-stretch flex items-center justify-between relative shrink-0 w-full"
               data-node-id="199383:141511"
             >
-              <div
-                className={String.raw`content-stretch flex flex-[1_0_0] gap-[var(--p-0,0px)] h-[36px] items-start min-w-px pr-[var(--component\/tabs\/list\/padding,3px)] py-[var(--component\/tabs\/list\/padding,3px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)]`}
-                data-node-id="199383:141512"
-                data-name="Tabs"
-              >
-                <div
-                  className={String.raw`content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center min-w-px relative`}
-                  data-node-id="I199383:141512;101485:143349"
-                  data-name="slot"
-                >
-                  <TabTrigger label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')} />
-                  <TabTrigger label="General Info" pill="wide" active={tab === 'general'} onClick={() => setTab('general')} />
-                </div>
-              </div>
+              <PillTabs
+                nodeId="199383:141512"
+                slotNodeId="I199383:141512;101485:143349"
+                tone="blue"
+                value={tab}
+                onChange={setTab}
+                items={[
+                  { id: 'overview', label: 'Overview' },
+                  { id: 'general', label: 'General Info', pill: 'wide' },
+                ]}
+              />
             </div>
 
             {/* THE CONSUMPTION HERO — the wave and the headline on it, and
@@ -1727,12 +1689,12 @@ export default function SystemPageV2Screen() {
                       if (!chartOpen) return null
                       return (
                         <Fragment key={key}>
-      {/* §3.6 / §19 — the way back out of a drill-down, above the
-      card it returns. It renders only while there is something
-      to return to, so it cannot read as a dead control on a
-      chart nobody has drilled into. */}
-      <ConsumptionReturnControl toPeriod={returnTo} onReturn={returnFromDrill} />
-
+      {/* The "‹ Back to Monthly" pill stood here — §3.6 / §19's way back out
+      of a drill-down. Removed 2026-10-20 on the owner's instruction ("what is
+      back to monthly? remove it."). See the note on `periodTrail` above: the
+      one-tap return to the window a drill was launched from is what went; the
+      trail stayed, because the hero's "See more" still unwinds a drill with
+      it. Do not put this back without asking. */}
       <div
       ref={chartRef}
       className="content-stretch flex flex-col items-center min-w-[288px] overflow-clip relative scroll-mt-[8px] shrink-0 w-full"

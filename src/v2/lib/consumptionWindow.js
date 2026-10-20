@@ -34,7 +34,10 @@
 
 export const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-/** Full names — §16 and §18 both want the name, never the initial. */
+/** Full names — §16 and §18 both want the name, never the initial.
+ *  No caller since 2026-10-20: its only reader was ConsumptionReturnControl's
+ *  "Back to Monthly" label, which the owner removed. Kept as part of this
+ *  lib's vocabulary — §18's rule outlives the one control that obeyed it. */
 export const GROUPING_NAME = { H: 'Hourly', D: 'Daily', M: 'Monthly', Y: 'Yearly' }
 
 /** §3.5 — one step finer. Hourly is the floor of the series, so it has none. */

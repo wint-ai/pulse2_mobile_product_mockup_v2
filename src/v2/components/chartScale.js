@@ -180,26 +180,130 @@ export function prefersReducedMotion() {
   }
 }
 
-/**
- * The width of a bucket's touch target.
+/* ── Bar geometry ──────────────────────────────────────────────────────────
  *
- * §19 makes the BUCKET the target, not the drawn bar. The card used to infer
- * the column from the bar — `barWidth / (1 - barCategoryGap)` — on the
- * assumption that a bar fills its column minus the gap. It does not once a
- * maxBarSize or a second series is in play, and a QA sweep measured the result
- * at 5px of tappable width inside a 21px bucket: a quarter of the column, and
- * unhittable on a phone.
+ * WHY THE BARS WERE HAIRLINES, and why these numbers are px and not percent.
  *
- * So the measured column wins whenever the plot has been measured. The
- * inference survives only as the first-paint fallback, where it still beats a
- * bar-width target.
+ * recharts' own `getBarPositions`
+ * (state/selectors/combiners/combineAllBarPositions.js, v3.8.0) computes a bar
+ * from the category band like this:
  *
- * @param slotWidth  the measured category step, or 0 before the first measure
- * @param barWidth   the drawn bar's own width
- * @param seriesCount 2 while a comparison bar shares the column
- * @param gap        barCategoryGap, as a fraction
+ *     offset = getPercentValue(barCategoryGap, bandSize)
+ *     size   = (bandSize - 2 * offset - (n - 1) * barGap) / n
+ *
+ * The gap is applied to BOTH SIDES of the band. So `barCategoryGap="42%"` — a
+ * value this card carried in the belief that it left the bar 58% of its column
+ * — leaves it 1 - 2 * 0.42 = 0.16 of the column, floored. That is one measured
+ * pixel at every grouping the phone can actually draw:
+ *
+ *     Hour  slot 11.42 -> 1px      Day(31) slot 8.61 -> 1px
+ *     Day(28) slot 9.54 -> 1px     Month   slot 22.83 -> 3px
+ *
+ * With a comparison bar beside it (n = 2) it is worse still: each bar gets
+ * 0.08 of the column, and because `0.16 * slot - barGap <= 0` recharts zeroes
+ * `barGap` as well — so the pair rendered TOUCHING, one 2px stripe with no
+ * separation at all. Measured: 1px + 1px, gap 0.
+ *
+ * The fix is to stop expressing the gap as a share of a column whose size the
+ * code cannot see. A NUMBER is passed through `getPercentValue` unchanged, so
+ * `barCategoryGap={1}` is one pixel per side — the design system's 2px surface
+ * gap between columns — and `barGap={2}` is a real 2px between the pair:
+ *
+ *     barWidth = clamp(floor((slot - 2 - (n - 1) * 2) / n), 6, 24)
+ *
+ * `maxBarSize={24}` is what applies the ceiling; recharts has no floor, so the
+ * 6 is an assertion rather than a mechanism — see BAR_MIN_WIDTH.
+ *
+ * Do NOT reach for `barSize` to set this directly. `getBarPositions` takes a
+ * different branch entirely when the first series carries a barSize: different
+ * centring, a 0.9x shrink when the sum overflows the band, and barCategoryGap
+ * ignored outright.
  */
-export function bucketHitWidth(slotWidth, barWidth, seriesCount = 1, gap = 0.42) {
-  if (slotWidth > 0) return slotWidth
-  return seriesCount === 1 ? barWidth / (1 - gap) : barWidth
+
+/** barCategoryGap, in PIXELS PER SIDE. 1 + 1 is the 2px gap between columns. */
+export const BAR_CATEGORY_GAP_PX = 1
+/** barGap — the space between the current bar and its comparison, in px. */
+export const BAR_GAP_PX = 2
+/** maxBarSize. Above this a bar stops reading as a bar and starts as a block. */
+export const BAR_MAX_WIDTH = 24
+/**
+ * The width below which the design system's 4px rounded data-end stops being
+ * drawable — a bar narrower than this renders as a dome with no shaft.
+ *
+ * recharts cannot enforce a minimum, so nothing here widens a bar to reach it.
+ * It is a floor on the SIZING RULE, and the test suite asserts that no
+ * grouping x comparison state the product can produce falls under it. If one
+ * ever does, that is a signal to drop buckets or scroll the plot — not to let
+ * the chart quietly draw hairlines again.
+ */
+export const BAR_MIN_WIDTH = 6
+/** The cap on the data-end radius. See barTopRadius. */
+export const BAR_MAX_RADIUS = 8
+
+/** The category step: one bucket's share of the plot, axis gutter excluded. */
+export function bucketSlotWidth(plotWidth, bucketCount) {
+  if (!(plotWidth > 0) || !(bucketCount > 0)) return 0
+  return plotWidth / bucketCount
+}
+
+/**
+ * What recharts will ACTUALLY draw, given `barCategoryGap={BAR_CATEGORY_GAP_PX}`,
+ * `barGap={BAR_GAP_PX}` and `maxBarSize={BAR_MAX_WIDTH}`.
+ *
+ * Mirrors getBarPositions step for step, including the two details that are
+ * easy to miss: the gap collapses to zero rather than producing a negative
+ * bar, and the size is truncated (`originalSize >>= 0`) only once it is over 1.
+ */
+export function drawnBarWidth(slotWidth, seriesCount = 1) {
+  const n = Math.max(1, Math.round(seriesCount))
+  if (!(slotWidth > 0)) return 0
+  let gap = BAR_GAP_PX
+  if (slotWidth - 2 * BAR_CATEGORY_GAP_PX - (n - 1) * gap <= 0) gap = 0
+  let size = (slotWidth - 2 * BAR_CATEGORY_GAP_PX - (n - 1) * gap) / n
+  if (size > 1) size = Math.floor(size)
+  return Math.max(0, Math.min(BAR_MAX_WIDTH, size))
+}
+
+/**
+ * The sizing rule, floor included: `clamp(drawnBarWidth, 6, 24)`.
+ *
+ * Equal to drawnBarWidth at every width the product can produce — the floor
+ * exists so a future grouping that breaks it fails a test instead of shipping.
+ */
+export function barWidthFor(slotWidth, seriesCount = 1) {
+  const drawn = drawnBarWidth(slotWidth, seriesCount)
+  return drawn > 0 ? Math.max(BAR_MIN_WIDTH, drawn) : 0
+}
+
+/**
+ * The data-end radius.
+ *
+ * The card draws `radius={[100, 100, 0, 0]}`, which recharts clamps to
+ * `min(width, height) / 2` — a half-round DOME. At the 3px bars that shipped
+ * that was invisible; at 21-24px the dome is 10-12px of a bar that may only be
+ * 20px tall, so it eats the top of every short reading and the whole series
+ * looks flatter than it is. Bounding the radius keeps the comp's rounded
+ * vocabulary and gives the bar back its shaft.
+ */
+export function barTopRadius(barWidth) {
+  if (!(barWidth > 0)) return 0
+  return Math.min(barWidth / 2, BAR_MAX_RADIUS)
+}
+
+/**
+ * §19 — which bucket a POINTER landed on.
+ *
+ * The per-bucket rects stay the keyboard and screen-reader target, but at a
+ * 9px Daily slot no mark can carry the 24px minimum touch size, and widening
+ * them would make them overlap. So the whole plot is the pointer target and a
+ * tap resolves to the nearest bucket: there is no dead space, no sub-target,
+ * and the cursor band already shows which column a tap would take.
+ *
+ * @param x          pointer x, in the plot's own coordinate space
+ * @param plotLeft   the plot's left edge (i.e. the y-axis width)
+ */
+export function nearestBucketIndex(x, plotLeft, slotWidth, bucketCount) {
+  if (!(slotWidth > 0) || !(bucketCount > 0)) return -1
+  const i = Math.floor((x - plotLeft) / slotWidth)
+  return Math.min(bucketCount - 1, Math.max(0, i))
 }

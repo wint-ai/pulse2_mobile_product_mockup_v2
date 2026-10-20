@@ -6,10 +6,19 @@
 
 import { describe, it, expect } from 'vitest'
 import {
+  BAR_CATEGORY_GAP_PX,
+  BAR_GAP_PX,
+  BAR_MAX_RADIUS,
+  BAR_MAX_WIDTH,
+  BAR_MIN_WIDTH,
   approxTextWidth,
+  barTopRadius,
+  barWidthFor,
   bucketAccessibleName,
-  bucketHitWidth,
+  bucketSlotWidth,
+  drawnBarWidth,
   isBucketOpenable,
+  nearestBucketIndex,
   niceScale,
   niceStep,
   showsValueLabels,
@@ -228,25 +237,147 @@ describe('width-driven thinning', () => {
   })
 })
 
-describe('bucketHitWidth — §19 makes the BUCKET the target', () => {
-  it('uses the measured column once the plot has been measured', () => {
-    /* A QA sweep found 5px of tappable width inside a 21px bucket, because the
-       column was inferred from the bar rather than measured. */
-    expect(bucketHitWidth(21.33, 3, 1, 0.42)).toBe(21.33)
-    // Even beside a comparison bar, the column is still the column.
-    expect(bucketHitWidth(21.33, 3, 2, 0.42)).toBe(21.33)
-  })
+/* The plot as a 393px phone actually measures it, read off
+   getBoundingClientRect() in a real browser: a 311px chart surface, less the
+   y-axis gutter, which is 44px on a 6-figure ladder and 37px on a 4-figure
+   one. Every case below is a grouping this card can genuinely be steered into.
 
-  it('falls back to the inference only before the first measure', () => {
-    // barWidth / (1 - gap) — right only when the bar truly fills its column.
-    expect(bucketHitWidth(0, 12.4, 1, 0.42)).toBeCloseTo(21.38, 1)
-    // Two series share the column, so widening would overlap the pair.
-    expect(bucketHitWidth(0, 6, 2, 0.42)).toBe(6)
-  })
+   seriesCount is 2 only under comparison, which §2 keeps Monthly-only — so
+   there is no 31-bucket compared case to test, and the table says so. */
+const SURFACE = 311
+const CASES = [
+  { name: 'Hour (24)', buckets: 24, yWidth: 37, series: 1, slot: 11.42, drawn: 9 },
+  { name: 'Day, 28 (February)', buckets: 28, yWidth: 44, series: 1, slot: 9.54, drawn: 7 },
+  { name: 'Day, 30 (September)', buckets: 30, yWidth: 44, series: 1, slot: 8.9, drawn: 6 },
+  { name: 'Day, 31 (August) — the worst case', buckets: 31, yWidth: 44, series: 1, slot: 8.61, drawn: 6 },
+  { name: 'Month (12)', buckets: 12, yWidth: 37, series: 1, slot: 22.83, drawn: 20 },
+  { name: 'Month (12) + compare', buckets: 12, yWidth: 37, series: 2, slot: 22.83, drawn: 9 },
+  { name: 'Year (3)', buckets: 3, yWidth: 44, series: 1, slot: 89, drawn: BAR_MAX_WIDTH },
+  { name: 'Year (1), a single year', buckets: 1, yWidth: 44, series: 1, slot: 267, drawn: BAR_MAX_WIDTH },
+]
 
-  it('never returns less than the bar it covers', () => {
-    for (const [slot, bar] of [[21.33, 3], [0, 12], [40, 5], [0, 6]]) {
-      expect(bucketHitWidth(slot, bar, 1, 0.42), `${slot}/${bar}`).toBeGreaterThanOrEqual(bar)
+/** What recharts drew BEFORE the fix: barCategoryGap="42%", both sides. */
+function barWidthUnderThePercentageModel(slot, series) {
+  let gap = 4 // recharts' own default barGap
+  if (slot - 2 * 0.42 * slot - (series - 1) * gap <= 0) gap = 0
+  let size = (slot - 2 * 0.42 * slot - (series - 1) * gap) / series
+  if (size > 1) size = Math.floor(size)
+  return size
+}
+
+describe('bar width — the sizing rule at every grouping x compare state', () => {
+  it('measures the slot as the plot over the bucket count', () => {
+    for (const c of CASES) {
+      expect(bucketSlotWidth(SURFACE - c.yWidth, c.buckets), c.name).toBeCloseTo(c.slot, 1)
     }
+    expect(bucketSlotWidth(0, 12)).toBe(0)
+    expect(bucketSlotWidth(267, 0)).toBe(0)
+  })
+
+  it('draws what recharts will draw, at every grouping', () => {
+    for (const c of CASES) {
+      expect(drawnBarWidth(c.slot, c.series), c.name).toBe(c.drawn)
+    }
+  })
+
+  it('never falls under the 6px floor the rounded data-end needs', () => {
+    /* The floor is an assertion, not a mechanism — recharts cannot widen a
+       bar. If this ever fails, the answer is fewer buckets or a scrolling
+       plot, NOT a quietly hairline chart. */
+    for (const c of CASES) {
+      expect(barWidthFor(c.slot, c.series), c.name).toBeGreaterThanOrEqual(BAR_MIN_WIDTH)
+      expect(barWidthFor(c.slot, c.series), c.name).toBe(c.drawn)
+    }
+  })
+
+  it('caps at 24 and never exceeds its share of the slot', () => {
+    for (const c of CASES) {
+      const w = drawnBarWidth(c.slot, c.series)
+      expect(w, c.name).toBeLessThanOrEqual(BAR_MAX_WIDTH)
+      expect(w * c.series + 2 * BAR_CATEGORY_GAP_PX, c.name).toBeLessThanOrEqual(c.slot)
+    }
+  })
+
+  it('leaves a real gap inside a compared pair', () => {
+    const compared = CASES.find((c) => c.series === 2)
+    const w = drawnBarWidth(compared.slot, 2)
+    // two bars, 1px of category gap each side, and the barGap between them
+    expect(2 * w + 2 * BAR_CATEGORY_GAP_PX + BAR_GAP_PX).toBeLessThanOrEqual(compared.slot)
+    expect(compared.slot - 2 * w - 2 * BAR_CATEGORY_GAP_PX).toBeGreaterThanOrEqual(BAR_GAP_PX)
+  })
+
+  it('is what the "42%" model could never give — the hairlines this replaced', () => {
+    /* barCategoryGap as a PERCENTAGE is applied to both sides, so the bar kept
+       16% of its slot and the compared pair 8% each with the barGap collapsed
+       to nothing. These are the widths measured on the shipped card. */
+    expect(barWidthUnderThePercentageModel(11.42, 1)).toBe(1) // Hour
+    expect(barWidthUnderThePercentageModel(8.61, 1)).toBe(1) // Day, 31
+    expect(barWidthUnderThePercentageModel(22.83, 1)).toBe(3) // Month
+    expect(barWidthUnderThePercentageModel(22.83, 2)).toBe(1) // Month + compare
+    for (const c of CASES) {
+      const was = barWidthUnderThePercentageModel(c.slot, c.series)
+      const now = drawnBarWidth(c.slot, c.series)
+      if (was >= BAR_MIN_WIDTH) {
+        /* Only the Year views ever cleared the floor, and only because three
+           buckets (or one) leave an enormous slot — the old model had no
+           maxBarSize either, so a single year drew a 42px slab. The cap is
+           what holds those now. */
+        expect(now, c.name).toBe(BAR_MAX_WIDTH)
+      } else {
+        expect(now, c.name).toBeGreaterThan(was)
+      }
+    }
+  })
+
+  it('collapses the barGap rather than returning a negative bar', () => {
+    // A slot too tight for 2px between the pair still yields a positive bar.
+    const w = drawnBarWidth(4, 2)
+    expect(w).toBeGreaterThan(0)
+    expect(w).toBeCloseTo(1, 5)
+  })
+
+  it('returns nothing before the plot has been measured', () => {
+    expect(drawnBarWidth(0, 1)).toBe(0)
+    expect(drawnBarWidth(0, 2)).toBe(0)
+    expect(barWidthFor(0, 1)).toBe(0)
+  })
+})
+
+describe('barTopRadius — a bounded dome, not a half-round cap', () => {
+  it('bounds the data-end at 8px however wide the bar gets', () => {
+    expect(barTopRadius(BAR_MAX_WIDTH)).toBe(BAR_MAX_RADIUS)
+    expect(barTopRadius(89)).toBe(BAR_MAX_RADIUS)
+  })
+
+  it('stays half the bar while the bar is narrower than 16', () => {
+    expect(barTopRadius(9)).toBe(4.5)
+    expect(barTopRadius(6)).toBe(3)
+    expect(barTopRadius(16)).toBe(8)
+  })
+
+  it('draws no radius on no bar', () => {
+    expect(barTopRadius(0)).toBe(0)
+    expect(barTopRadius(-4)).toBe(0)
+  })
+})
+
+describe('nearestBucketIndex — §19 routes the POINTER to the nearest bucket', () => {
+  // The Daily geometry above: plot starts at the 44px axis, 31 buckets of 8.61.
+  const LEFT = 44
+  const SLOT = 8.61
+
+  it('resolves a tap inside the plot to the bucket it landed in', () => {
+    expect(nearestBucketIndex(LEFT + 1, LEFT, SLOT, 31)).toBe(0)
+    expect(nearestBucketIndex(LEFT + SLOT * 3 + 2, LEFT, SLOT, 31)).toBe(3)
+  })
+
+  it('clamps rather than returning a bucket that does not exist', () => {
+    expect(nearestBucketIndex(0, LEFT, SLOT, 31)).toBe(0)
+    expect(nearestBucketIndex(10_000, LEFT, SLOT, 31)).toBe(30)
+  })
+
+  it('reports no bucket when there is no plot yet', () => {
+    expect(nearestBucketIndex(100, LEFT, 0, 31)).toBe(-1)
+    expect(nearestBucketIndex(100, LEFT, SLOT, 0)).toBe(-1)
   })
 })
