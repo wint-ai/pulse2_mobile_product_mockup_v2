@@ -49,17 +49,25 @@
  *    is what that slot is for: the scope you are in, and the control that
  *    changes it.
  *
- * THE AVATAR IS NOT THE NODE'S RASTER. Figma fills it from an expiring
- * figma.com/api/mcp/asset URL, which check-shell-contract.mjs bans outright
- * because those die in about a week. It draws the persona's initials on
- * bg-primary instead — the same disc AccountScreenV2 already draws for the
- * same person at 40px, so the two agree and the header names whoever is
- * actually signed in.
+ * THE AVATAR IS THE NODE'S OWN PICTURE, fetched and committed.
+ * Figma serves it from a figma.com/api/mcp/asset URL that dies in about a
+ * week, and check-shell-contract.mjs bans referencing one of those at runtime
+ * — so the file was downloaded while the link was still alive and committed
+ * as src/assets/avatar.jpg. (It arrives named .png and is actually a 460x460
+ * JPEG; the extension here follows the bytes.) Nothing points at figma.com.
+ *
+ * The persona's initials stay UNDERNEATH it, on the bg-primary disc
+ * AccountScreenV2 draws for the same person at 40px. They are invisible while
+ * the image loads correctly and are what remains if it ever fails, so the
+ * control still identifies who is signed in rather than going blank.
+ * Note the design's avatar is one fixed portrait: it illustrates the slot, it
+ * does not vary by persona the way the initials do.
  */
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUserContext } from '@/context/UserContext'
+import avatarUrl from '@/assets/avatar.jpg'
 
 /* Figtree Medium, spelled as the node spells it. Kept as a constant because
    the escaped `\/` has to survive into the class string: in a PLAIN JS string
@@ -166,16 +174,33 @@ export default function MobileHeaderBar({
             on the content row. Opens More, on the profile view. */}
         <button
           type="button"
-          onClick={() => navigate('/account?view=profile')}
+          /* To More itself, NOT to the "Personal information" sub-page behind
+             it. Owner: "why do we need two user profiles pages". More already
+             opens on the profile summary — name, email, role — so deep-linking
+             past it put the user one screen further from everything else that
+             lives there, for two fields they had not asked for. */
+          onClick={() => navigate('/account')}
           aria-label={persona?.name ? `${persona.name} — profile and More` : 'Profile and More'}
           className={cn(
-            'content-stretch flex items-center justify-center relative shrink-0 size-[28px] cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:opacity-60',
+            'content-stretch flex items-center justify-center overflow-clip relative shrink-0 size-[28px] cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:opacity-60',
             String.raw`rounded-[var(--rounded-full,9999px)] bg-primary text-primary-foreground`,
           )}
           data-node-id="199383:141510"
           data-name="Avatar"
         >
           <span className="font-bold text-[11px] leading-none">{initialsOf(persona?.name)}</span>
+          {/* The node's <img>, verbatim: absolutely filled, object-cover,
+              rounded-full and pointer-events-none so the button keeps the
+              click. It sits ON the initials, which is why they are the
+              fallback and not a second control. */}
+          <img
+            alt=""
+            src={avatarUrl}
+            className={cn(
+              'absolute inset-0 max-w-none object-cover pointer-events-none size-full',
+              String.raw`rounded-[var(--rounded-full,9999px)]`,
+            )}
+          />
         </button>
       </div>
     </div>

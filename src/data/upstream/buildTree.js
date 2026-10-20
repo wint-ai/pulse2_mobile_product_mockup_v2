@@ -59,6 +59,19 @@ function relativeAge(hoursAgo) {
   return `${days}d ${Math.round(hoursAgo % 24)}h`;
 }
 
+/**
+ * "Apr 02, 2026 08:13:15" — the format the Alert card's Detected line draws
+ * (Figma 199394:79703). Added ALONGSIDE clockFromHoursAgo rather than
+ * replacing it: a bare "08:13" is still what the compact surfaces want, and
+ * changing that field's meaning would ripple through every one of them.
+ */
+function stampFromHoursAgo(hoursAgo) {
+  const d = new Date(Date.now() - hoursAgo * 3600000);
+  const p2 = (n) => String(n).padStart(2, '0');
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  return `${month} ${p2(d.getDate())}, ${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+}
+
 function clockFromHoursAgo(hoursAgo) {
   const d = new Date(Date.now() - hoursAgo * 3600000);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -80,6 +93,7 @@ function buildAlert(id, leak, valve, comm, power) {
       label: leak === 'high' ? 'High Flow Water Event' : 'Low Flow Water Event',
       age: relativeAge(hoursAgo),
       startedAt: clockFromHoursAgo(hoursAgo),
+      startedAtStamp: stampFromHoursAgo(hoursAgo),
       volume: `${volume.toLocaleString('en-US')}L`,
       flowRate: `${flowRate} L/hour`,
     };

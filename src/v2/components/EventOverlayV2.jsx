@@ -490,7 +490,7 @@ export default function EventOverlayV2({
 
   return (
     <div
-      className="absolute inset-0 z-40 content-stretch flex flex-col gap-[var(--p-0,0px)] items-start overflow-hidden p-[var(--spacing\/2,8px)]"
+      className="absolute inset-0 z-40 content-stretch flex flex-col gap-[var(--p-0,0px)] items-start overflow-hidden px-[var(--spacing\/4,16px)] py-[var(--spacing\/2,8px)]"
       style={{ backgroundImage: SHEET_BG }}
       role="dialog"
       aria-modal="true"
@@ -499,14 +499,34 @@ export default function EventOverlayV2({
       {/* Fixed chrome. Figma nests this and the list in one auto-layout column
           with gap-[22px]; here the list has to own the scroll, so the gap moves
           onto the scroller as pt-[22px] and this stays shrink-0. */}
-      <div className="content-stretch flex flex-col gap-[22px] items-start pt-[10px] px-[var(--pro\/space\/2\,5,10px)] relative shrink-0 w-full">
-        <div className="content-stretch flex flex-col gap-[22px] items-end relative shrink-0 w-full">
+      {/* 199375:138276's root is the SAME root the Location and System frames
+          use — gap-[18px] px-[16px] py-[8px] — and 199375:138279 is the same
+          h-[59px] py-[24px] Mobile Header Bar. This overlay had been built on
+          the 8px root those frames carried BEFORE the 2026-10-20 refetch, plus
+          a 10px inset of its own, which is why its back control landed at
+          x=18/y=18 against x=16/y=22.5 everywhere else. Owner: "why arrow not
+          always the same position on screen". Cards move 18 -> 16, the same
+          move the two pages already made. */}
+      <div className="content-stretch flex flex-col gap-[22px] items-start px-[var(--p-0,0px)] relative shrink-0 w-full">
+        {/* items-start, not items-end. This column used to push the back
+            control to the RIGHT edge, so the arrow sat top-right here and
+            top-left on every other screen — owner: "why arrow not always the
+            same position on screen". The node does not put it there: in
+            199375:138280 the header bar's content row holds ONE child,
+            199375:138281, a `flex-[1_0_0] min-w-px` left group carrying the
+            30px disc. That is the same left group the System and Location
+            bars use, so the arrow belongs in the same place on all three. */}
+        <div className="content-stretch flex flex-col gap-[22px] items-start relative shrink-0 w-full">
 
           {/* Account scope gets a bare close, top right. Location scope puts the
               breadcrumb on the left, because the scope is what the row no longer
               repeats. */}
           {isLocation ? (
-            <div className="content-stretch flex gap-[22px] items-center relative shrink-0 w-full">
+            <div className="content-stretch flex gap-[var(--spacing\/2,8px)] items-center relative shrink-0 w-full">
+              {/* Back FIRST, then the breadcrumb. The node draws no breadcrumb
+                  at all — it is this app's, and it keeps its place — but the
+                  disc goes where the other two screens put it. */}
+              {closeButton}
               <div className="content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] h-[44px] items-center min-w-px py-[var(--p-0,0px)] relative">
                 <nav
                   aria-label="Breadcrumb"
@@ -545,10 +565,17 @@ export default function EventOverlayV2({
                   </div>
                 </nav>
               </div>
-              {closeButton}
             </div>
           ) : (
-            closeButton
+            /* 199375:138280 > :138281 — the header bar's content row and its
+               flex-1 left group, which is what lands the disc on the left. */
+            <div className="content-stretch flex flex-col h-[59px] items-center justify-center py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full">
+              <div className="content-center flex flex-wrap gap-[10px] items-center justify-center relative shrink-0 w-full">
+                <div className="content-stretch flex flex-[1_0_0] items-center min-w-px relative">
+                  {closeButton}
+                </div>
+              </div>
+            </div>
           )}
 
           <div className="content-stretch flex flex-col gap-[22px] items-start relative shrink-0 w-full">
@@ -666,7 +693,7 @@ export default function EventOverlayV2({
           gives the card h-[701px] + overflow-clip instead, which is a frame
           height, not a page height. */}
       <div
-        className="px-[var(--pro\/space\/2\,5,10px)] pt-[22px] pb-[var(--spacing\/2,8px)] w-full"
+        className="px-[var(--p-0,0px)] pt-[22px] pb-[var(--spacing\/2,8px)] w-full"
         style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
       >
         {/* The "Liquid" effect style. Every component of it resolves to 0 /

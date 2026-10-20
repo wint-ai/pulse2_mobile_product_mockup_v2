@@ -163,6 +163,10 @@ const META_TIME = String.raw`font-sans font-[var(--font\/weight\/font-normal,400
 const META_DURATION = String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis`
 
 const AVATAR_ALERT = String.raw`bg-[var(--colors\/red\/100,#ffe2e2)] content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[42px]`
+/* 199394:79694 — the redrawn mobile card scales the same disc up to 61px
+   around a 37px glyph. Kept beside the 42px one rather than replacing it:
+   `water-event` and `ignored` still draw the smaller disc. */
+const AVATAR_ALERT_LG = String.raw`bg-[var(--colors\/red\/100,#ffe2e2)] content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[61px]`
 const AVATAR_MUTED = String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[42px]`
 /* src/v2/icons/Waves is the same Phosphor glyph, exported into a 21-unit box at
    stroke 1.08063; the alert-card export is a 19.111-unit box at stroke 1.58861.
@@ -220,7 +224,7 @@ const SHELL_WATER_EVENT = `${SHELL} max-w-[440px]`
    -> gap-[12px], px-[18px] py-[12px] -> a uniform p-[18px], and no height at
    all — the frame hugs its content now. min-h-[178px] went with it: the node
    sets none, and the three unit chips below already carry the card past 178. */
-const SHELL_MOBILE = String.raw`bg-[#fafbfc] border border-[var(--colors\/red\/500,#fb2c36)] border-solid content-stretch flex flex-col gap-[12px] items-start p-[18px] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full`
+const SHELL_MOBILE = String.raw`bg-[#fafbfc] border border-[var(--colors\/red\/500,#fb2c36)] border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full`
 const INNER_COLUMN = 'content-stretch flex flex-[1_0_0] flex-col items-start justify-between min-h-px relative w-full'
 
 /* Gradient stacks on the sensor stat badges. Each badge carries its own angle in
@@ -255,7 +259,7 @@ const CHIP_VALUE_SM = String.raw`font-sans font-[var(--font\/weight\/font-semibo
 const MOCK_EVENT = {
   title: 'High flow event',
   value: '13,564',
-  unit: 'L/H flow rate',
+  unit: 'L/H',
   status: 'Ongoing',
   detectedLabel: 'Detected',
   detectedAt: 'Apr 02, 2026 08:13:15',
@@ -500,97 +504,133 @@ export default function AlertCard({
   if (variant === 'mobile') {
     return shell(SHELL_MOBILE, (
       <>
-        {/* 199383:142348 > :142389. Figma wraps the status pill in two bare
-            boxes; they are kept so the pill keeps hugging at the card's left
-            edge while the shell's own gap-[12px] does the vertical spacing
-            INNER_COLUMN's justify-between used to do (the frame has no fixed
-            height any more, so "spread to fill" had nothing to spread into). */}
-        <div className="content-stretch flex flex-col items-start relative shrink-0 w-full">
-          <div className="content-stretch flex gap-[4px] items-center justify-center relative shrink-0">
-            {/* A "1 / 1" pager is a control that cannot do anything —
-                there is no next alert to page to. The carousel is the real
-                pager anyway; this only earns its place once there are two.
+        {/* 199394:79687 — the three rows are ONE group at gap-[17px]. The
+            shell's own gap-[20px] is what separates that group from the
+            action row below, which the node does not draw at all. */}
+        <div className="content-stretch flex flex-col gap-[17px] items-start relative shrink-0 w-full">
+          {/* 199383:142348 > :142389. Figma wraps the status pill in two bare
+              boxes; they are kept so the pill keeps hugging at the card's left
+              edge while the shell's own gap-[12px] does the vertical spacing
+              INNER_COLUMN's justify-between used to do (the frame has no fixed
+              height any more, so "spread to fill" had nothing to spread into). */}
+          <div className="content-stretch flex flex-col items-start relative shrink-0 w-full">
+            <div className="content-stretch flex gap-[4px] items-center justify-center relative shrink-0">
+              {/* A "1 / 1" pager is a control that cannot do anything —
+                  there is no next alert to page to. The carousel is the real
+                  pager anyway; this only earns its place once there are two.
 
-                199383:141993 draws no pager at all, but it is a single-alert
-                frame, so the node cannot say whether a two-alert card still
-                wants one. It is live functionality (onAction('paginate')),
-                so it stays under its existing pageCount > 1 gate, and the
-                wrapper above is a row rather than the node's flex-col for
-                that reason only — with one alert, the node's layout. */}
-            {data.pageCount > 1 ? (
-            <Button
-              type="button"
-              size="xs"
-              variant="secondary"
-              onClick={act('paginate')}
-              aria-label={`Alert ${data.page} of ${data.pageCount}. Show next`}
-              className={String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch cursor-pointer flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0 ${CTRL_SHADOW}`}
-            >
-              <p className={PAGER_LABEL}>
-                <span className={`${PAGER_SPAN} text-[#62748e]`}>{data.page} /</span>
-                <span className={PAGER_SPAN}>{' '}</span>
-                <span className={`${PAGER_SPAN} text-[#90a1b9]`}>{data.pageCount}</span>
-              </p>
-            </Button>
-            ) : null}
-            {/* Figma draws "Ongoing" with the Button component, but it states
-                status and has no destination — a Badge, so it is not a dead
-                button. `destructive` is the matching Type and its
-                border-transparent keeps the pill borderless as drawn.
-                199383:142434 darkens the fill one step, red/500 -> red/600. */}
-            <Badge
-              variant="destructive"
-              className={String.raw`bg-[var(--colors\/red\/600,#e7000b)] content-stretch flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0 ${CTRL_SHADOW}`}
-            >
-              <span className="[word-break:break-word] font-sans font-medium leading-[var(--text\/button-xs\/size,12px)] relative shrink-0 text-[#fafbfc] text-[length:var(--text\/button-xs\/size,12px)] whitespace-nowrap">
-                {data.status}
-              </span>
-            </Badge>
-          </div>
-        </div>
-
-        {/* 199383:141999. The avatar + title row, without EventSummary: the
-            shared piece pairs the title with the flow figure underneath it,
-            and on this node the figure has moved into the first chip below.
-            EventSummary still serves `water-event` and `ignored` unchanged.
-            The title is the node's own 24px (text/2xl) at tracking-[-0.6px],
-            two steps up from the 16px TITLE those variants draw. */}
-        <div className="content-stretch flex gap-[11px] items-center relative shrink-0">
-          <div className={AVATAR_ALERT}>
-            <div className="relative shrink-0 size-[19.111px]">
-              <Waves size={19.111} className={`block size-full text-[#fb2c36] ${WAVES_WEIGHT}`} />
+                  199383:141993 draws no pager at all, but it is a single-alert
+                  frame, so the node cannot say whether a two-alert card still
+                  wants one. It is live functionality (onAction('paginate')),
+                  so it stays under its existing pageCount > 1 gate, and the
+                  wrapper above is a row rather than the node's flex-col for
+                  that reason only — with one alert, the node's layout. */}
+              {data.pageCount > 1 ? (
+              <Button
+                type="button"
+                size="xs"
+                variant="secondary"
+                onClick={act('paginate')}
+                aria-label={`Alert ${data.page} of ${data.pageCount}. Show next`}
+                className={String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch cursor-pointer flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0 ${CTRL_SHADOW}`}
+              >
+                <p className={PAGER_LABEL}>
+                  <span className={`${PAGER_SPAN} text-[#62748e]`}>{data.page} /</span>
+                  <span className={PAGER_SPAN}>{' '}</span>
+                  <span className={`${PAGER_SPAN} text-[#90a1b9]`}>{data.pageCount}</span>
+                </p>
+              </Button>
+              ) : null}
+              {/* Figma draws "Ongoing" with the Button component, but it states
+                  status and has no destination — a Badge, so it is not a dead
+                  button. `destructive` is the matching Type and its
+                  border-transparent keeps the pill borderless as drawn.
+                  199383:142434 darkens the fill one step, red/500 -> red/600. */}
+              <Badge
+                variant="destructive"
+                /* 199394:79691 — back to red/500. The node this card was last
+                   traced from (199383:142434) darkened the fill one step to
+                   red/600; the redraw does not. */
+                className={String.raw`bg-[var(--colors\/red\/500,#fb2c36)] content-stretch flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0 ${CTRL_SHADOW}`}
+              >
+                <span className="[word-break:break-word] font-sans font-medium leading-[var(--text\/button-xs\/size,12px)] relative shrink-0 text-[#fafbfc] text-[length:var(--text\/button-xs\/size,12px)] whitespace-nowrap">
+                  {data.status}
+                </span>
+              </Badge>
             </div>
           </div>
-          <div className="content-stretch flex items-start relative shrink-0">
-            <p
-              className={String.raw`[word-break:break-word] font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-none,24px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/2xl\/size,24px)] tracking-[-0.6px] whitespace-nowrap`}
-              dir="auto"
-            >
-              {data.title}
+
+          {/* 199394:79692 -> :79693. The avatar and the title, and UNDER the
+              title the figure, in one "Unit wrapper". This is the 2026-10-20
+              redraw: the card used to restate the figures as THREE chips —
+              "L/H flow rate 127", "Duration 10h 07m", "Detected 03:43" — which
+              is what the previous node drew. The owner, with this node open:
+              "this is still not as in figma". It was not: I had been building
+              against a payload fetched before the designer rewrote the card.
+
+              Now: the flow figure sits inline with its unit in a single chip
+              beneath the title, and duration moves to the end of the Detected
+              line in red. The same five values are still on screen — nothing
+              was dropped to reach the layout, only rearranged.
+
+              The glyph box is 61px around a 37px wave (:79694/:79695), up from
+              42/19.111, and the title block is a `justify-between` column the
+              full height of that disc, which is what sets the gap between the
+              title and the chip. */}
+          <div className="content-stretch flex items-center justify-between relative shrink-0 w-full">
+            <div className="content-stretch flex gap-[11px] items-center relative shrink-0">
+              <div className={AVATAR_ALERT_LG}>
+                <div className="relative shrink-0 size-[37px]">
+                  <Waves size={37} className={`block size-full text-[#fb2c36] ${WAVES_WEIGHT}`} />
+                </div>
+              </div>
+              <div className="flex flex-row items-center self-stretch">
+                <div className="[word-break:break-word] content-stretch flex flex-col h-full items-start justify-between relative shrink-0">
+                  {/* 199394:79697 — w-[170px] and NOT whitespace-nowrap: the node
+                      gives the title a fixed measure and lets it wrap, which is
+                      what keeps a long event name from pushing the card wide. */}
+                  <p
+                    className={String.raw`font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-none,24px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/2xl\/size,24px)] tracking-[-0.6px] w-[170px]`}
+                    dir="auto"
+                  >
+                    {data.title}
+                  </p>
+                  {/* Unit wrapper 199394:79723 — h-[27px], and unlike the three
+                      chips it replaces the FIGURE leads and the unit follows, so
+                      this is not a UnitChip with its arguments swapped: the two
+                      halves take different type and different colour. */}
+                  <div
+                    className={String.raw`content-stretch flex gap-[var(--spacing\/1\,5,6px)] h-[27px] items-center px-[8px] py-[4px] relative rounded-[12px] shrink-0 whitespace-nowrap`}
+                    style={{ backgroundImage: CHIP_SHEEN(166.10511761460668) }}
+                  >
+                    <p className={String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative shrink-0 text-[16px] text-[color:var(--colors\/red\/500,#fb2c36)] text-ellipsis`}>
+                      {data.value}
+                    </p>
+                    <p className={String.raw`font-sans font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative shrink-0 text-[#62748e] text-[14px] text-ellipsis`}>
+                      {data.unit}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 199394:79701 — "Detected · <timestamp> · <duration>", the duration
+              in red/700. This is DetectedRow's shape, but the node's own type
+              differs from the one DetectedRow carries for the other variants
+              (12/16.5 regular label, 14/20 medium stamp, 14/20 semibold red
+              duration), so it is spelled out here rather than bent to fit. */}
+          <div className="[word-break:break-word] content-stretch flex gap-[7px] items-center relative shrink-0 whitespace-nowrap">
+            <p className={String.raw`font-sans font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-snug,16.5px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis`}>
+              {data.detectedLabel}
+            </p>
+            <p className={String.raw`font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative shrink-0 text-[14px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis`}>
+              {data.detectedAt}
+            </p>
+            <p className={String.raw`font-sans font-semibold leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative shrink-0 text-[14px] text-[color:var(--colors\/red\/700,#c10007)] text-ellipsis`}>
+              {data.duration}
             </p>
           </div>
-        </div>
-
-        {/* 199383:142572 — the figures, as three "Unit wrapper" chips: the flow
-            rate, the duration, and the detection timestamp. This replaces
-            DetectedRow ("Detected · <at> · <duration>") on this variant only;
-            the same four fields are still on screen, with `duration` gaining
-            the node's literal "Duration" caption and `unit` / `value` moving
-            out of the title block. Chips 1 and 2 share a row at gap-[11px],
-            chip 3 sits under them at the column's gap-[9px]. */}
-        <div className="[word-break:break-word] content-stretch flex flex-col gap-[9px] items-start relative shrink-0 whitespace-nowrap">
-          <div className="content-stretch flex gap-[11px] items-start relative shrink-0">
-            <UnitChip deg={169.1652530804488} label={data.unit} value={data.value} />
-            <UnitChip deg={167.3997851232744} label="Duration" value={data.duration} valueClass={CHIP_VALUE_ALERT} />
-          </div>
-          <UnitChip
-            deg={173.14228302199342}
-            className="text-[14px]"
-            labelClass={CHIP_LABEL}
-            label={data.detectedLabel}
-            value={data.detectedAt}
-            valueClass={CHIP_VALUE_SM}
-          />
         </div>
 
         {actions ? (

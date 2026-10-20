@@ -141,7 +141,7 @@
  * font-size utility and silently drops a leading- that precedes one.
  */
 import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
@@ -305,13 +305,7 @@ export default function AccountScreenV2() {
   const { persona, setPersona, visibleSystems = [] } = useUserContext() || {}
   const { t, i18n } = useTranslation()
 
-  /* The header avatar on the other v2 screens opens the profile directly
-     (owner: "Avatar open user profile and 'More'"), so the view is
-     addressable. Read once as the initial state rather than kept in sync:
-     the in-screen back control has to be able to leave the profile without
-     the URL dragging it straight back. */
-  const [searchParams] = useSearchParams()
-  const [view, setView] = useState(searchParams.get('view') === 'profile' ? 'profile' : 'main')
+  const [view, setView] = useState('main')
   const [pushOn, setPushOn] = useState(false)
   const [smsOn, setSmsOn] = useState(false)
   const [showWarning, setShowWarning] = useState(false)

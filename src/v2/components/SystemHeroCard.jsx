@@ -127,8 +127,23 @@ export default function SystemHeroCard({
     <div className={cn('relative shrink-0 w-full overflow-x-clip', className)} data-hero-tone={tone}>
       {/* The wave — 199383:141500 (alert) / 199394:79634 (calm). `top-0`
           rather than the node's top-[148px] because this element now BEGINS
-          where the node puts the wave; the left offsets are the node's own,
-          which is why the page bleeds this component to the full phone width.
+          where the node puts the wave.
+
+          CENTRED, which is the one number here that is NOT the node's.
+          Owner: "the waves component is not right and left symetric in the
+          screen". It is not, and the frames are where that comes from — on a
+          393 frame they place the same layer two different ways:
+
+              alert   left 17, w 369  ->  17 left,  7 right
+              calm    left  9, w 385  ->   9 left, -1 right (1px PAST the edge)
+
+          Neither is symmetric, the two disagree with each other, and in the
+          calm state the wave runs off the right of the phone. That is a layer
+          nudged by hand on the canvas, not a spec: a centred background does
+          not get a different inset per alert state. So each tone keeps its own
+          WIDTH, which does differ by design, and the placement becomes
+          inset-x-0 + mx-auto. Same reasoning as the figure below, which is
+          already centred rather than carrying the node's left-[132px].
 
           aria-hidden: it is weather, not information — the figure in front of
           it carries the meaning. It is deliberately allowed to run past this
@@ -138,7 +153,8 @@ export default function SystemHeroCard({
         aria-hidden="true"
         className={cn(
           'absolute mix-blend-multiply pointer-events-none rounded-[20px] top-0',
-          alert ? 'h-[291px] left-[17px] w-[369px]' : 'h-[303px] left-[9px] w-[385px]',
+          'inset-x-0 mx-auto',
+          alert ? 'h-[291px] w-[369px]' : 'h-[303px] w-[385px]',
         )}
         data-node-id={alert ? '199383:141500' : '199394:79634'}
       >

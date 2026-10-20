@@ -274,6 +274,27 @@ const SYSTEM = {
    reachable from HomeAllAccounts' TriageBand rows
    (HomeAllAccounts.jsx:1046 -> :1268). Reported to the owner rather than
    papered over with a replacement surface this page invented. */
+/**
+ * Is this system's alert an ACTIVE WATER EVENT, as opposed to a device fault?
+ *
+ * `buildAlert` returns a non-null alert for four different things: a high or
+ * low flow event, and also 'offline', 'valve-error' and 'power-lost'. Those
+ * last three are real faults and the app reports them — on the valve card, in
+ * System health, and in /alerts — but they are not water events.
+ *
+ * The distinction had been made in ONE place (alertCardsFor, which returns no
+ * card for a fault) and not in the other (the page's own `alerting`), so a
+ * system with a valve error or a lost AC feed rendered the whole page in its
+ * alert state with no alert card to explain it: a red consumption banner over
+ * a system with nothing wrong with its water. The owner, on exactly that:
+ * "why the banner is red if no active water event".
+ *
+ * Both now read this.
+ */
+function isWaterEvent(alert) {
+  return alert?.type === 'leak-high' || alert?.type === 'leak-low'
+}
+
 function alertCardsFor(alert, systemId) {
   if (!alert) return []
 
@@ -299,9 +320,15 @@ function alertCardsFor(alert, systemId) {
        fault branch gets the summary only. */
     leak,
     value: rate ?? alert.volume ?? '',
-    unit: rate ? 'L/H flow rate' : '',
+    /* 'L/H', not 'L/H flow rate': in the redrawn card (199394:79723) the
+       figure and its unit sit together in one chip, so the unit is a unit and
+       not a caption. */
+    unit: rate ? 'L/H' : '',
     detectedLabel: 'Detected',
-    detectedAt: alert.startedAt,
+    /* The node's Detected line carries a full date and time
+       ("Apr 02, 2026 08:13:15"), not the bare clock the compact surfaces use.
+       Falls back so a caller without the richer field still renders. */
+    detectedAt: alert.startedAtStamp ?? alert.startedAt,
     duration: alert.age,
   }]
 }
@@ -1032,7 +1059,20 @@ export default function SystemPageV2Screen() {
      status above System type and drops Active policy below Insights, because
      when something is wrong the valve is the thing you reach for. So the order
      is data, not markup. */
+  /* `alerting` stays ANY alert, water event or device fault. The cards that
+     take it report system state, and v2ControlsWired pins the reason: on a
+     fault system the carousel draws no card, so the System type card's status
+     dot ("Alerting") is what still tells a screen reader the system is in
+     trouble. Narrowing this is how you make a fault silently disappear —
+     which a first pass at the fix below did, and that test caught it. */
   const alerting = Boolean(system.alert)
+  /* The CONSUMPTION BANNER is the one thing that follows the water event
+     instead. Owner: "why the banner is red if no active water event". A red
+     wave across the consumption figure says the water is wrong; a valve error
+     or a lost AC feed is not that, and with the carousel gated to leaks there
+     was no card on the page to explain the red. The fault keeps every other
+     way it had of being seen. */
+  const waterAlerting = isWaterEvent(system.alert)
 
   /* PRD 06 + 14: Ignore is a WARNING-state action. getLeakState reads the
      incident's own steps and answers 'Warning' | 'Ongoing' | 'ShutOff';
@@ -1318,7 +1358,7 @@ export default function SystemPageV2Screen() {
             the scroller's top inset and the tab row still lands on the node's
             y=92. */}
         <div
-          className="content-stretch flex flex-col gap-[22px] items-start pt-[25px] -mx-[16px] w-[calc(100%+32px)] px-[16px] relative"
+          className="content-stretch flex flex-col gap-[22px] items-start pt-[25px] -mx-[16px] w-[calc(100%+32px)] px-[16px] relative [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', minHeight: 0 }}
           data-node-id="198379:80449"
         >
@@ -1430,7 +1470,7 @@ export default function SystemPageV2Screen() {
               unit={heroFigures.unit}
               delta={heroDelta}
               rangeLabel={consumptionView.label}
-              tone={system.alert ? 'alert' : 'calm'}
+              tone={waterAlerting ? 'alert' : 'calm'}
               expanded={chartOpen}
               /* BOTH sides of the 2026-10-20 merge land here, and they do not
                  actually disagree — one says WHERE the chart opens, the other
