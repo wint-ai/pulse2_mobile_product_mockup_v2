@@ -86,7 +86,8 @@ import TriageBand from '@/v2/components/TriageBand'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
-import { CaretDown, CustomerSupport, Menu10 } from '@/v2/icons'
+import { CaretDown } from '@/v2/icons'
+import MobileHeaderBar from '@/v2/components/MobileHeaderBar'
 /* The chart's window arithmetic — §3.1-§3.6 and the §4 matrix. Shared with
    SystemPageV2Screen so the two screens cannot drift apart, and kept out of
    this file because a page may only export its component. */
@@ -1266,121 +1267,23 @@ export default function HomeAllAccounts({ expanded = false }) {
           className="content-stretch flex flex-col gap-[25px] items-start relative shrink-0 w-full"
           data-node-id="199360:129728"
         >
-          {/* Mobile Header Bar — 199360:129729 / 199371:137022. No px of its
-              own: the root's px-16 is the inset. */}
-          <div
-            className="content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[59px] items-center justify-center py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full"
-            data-node-id="199360:129729"
-            data-name="Mobile Header Bar"
-          >
-            {/* content — 199360:129730 */}
-            <div
-              className="content-center flex flex-wrap gap-y-[10px] items-center justify-between relative shrink-0 w-full"
-              data-node-id="199360:129730"
-              data-name="content"
-            >
-              {/* left group — 199360:129731 */}
-              <div
-                className="content-stretch flex flex-[1_0_0] items-center min-w-px relative"
-                data-node-id="199360:129731"
-              >
-                {/* 199371:129958 — the 30px round back control, wrapping a 24px
-                    Tabler chevron-left. The node's glyph is a raster on an
-                    expiring figma.com/api/mcp/asset URL and is never referenced
-                    at runtime; lucide's ChevronLeft at 24 is the stand-in, the
-                    same substitution EventOverlayV2.jsx:487 already makes for
-                    the same glyph.
-                    Figma draws a back affordance with nowhere to go — a frame
-                    has no history. On /location/:name "back" means the account
-                    roll-up, so it goes to "/"; on "/" there is no parent scope
-                    and it falls back to browser history. */}
-                <button
-                  type="button"
-                  aria-label="Back"
-                  onClick={() => (locationName ? navigate('/') : navigate(-1))}
-                  className="bg-[#fafbfc] border border-solid border-white content-stretch cursor-pointer flex items-center justify-center pr-[2px] relative rounded-[120.833px] shrink-0 size-[30px]"
-                  data-node-id="199371:129958"
-                >
-                  <span className="flex items-center justify-center relative shrink-0 size-[24px]">
-                    <ChevronLeft size={24} className="text-[#0a0a0a]" aria-hidden="true" />
-                  </span>
-                </button>
-
-                {/* ── CONFLICT, RESOLVED IN FAVOUR OF THE LIVE APP ──────────
-                    The node has NO burger. It has a back control and an avatar,
-                    and nothing on it opens a navigation drawer.
-                    This burger is the ONLY thing in the whole app that opens
-                    WintSidebarV2, which is the only way to change scope — so
-                    deleting it for fidelity would strand the user on whatever
-                    scope they arrived with. v2-page-parity Rule 0 forbids that.
-                    It is kept, placed inside the node's own left group, and
-                    drawn in the SAME 30px round frame 199371:129958 gives the
-                    back control, so no geometry is invented for it. Flagged for
-                    the owner: the node needs a drawer affordance, or the scope
-                    slot beside it has to become the only one. */}
-                <button
-                  type="button"
-                  aria-label="Menu"
-                  onClick={() => setDrawerOpen(true)}
-                  className="bg-[#fafbfc] border border-solid border-white content-stretch cursor-pointer flex items-center justify-center ml-[6px] relative rounded-[120.833px] shrink-0 size-[30px]"
-                >
-                  {/* The glyph frame is 17.071px and Figma insets the artwork
-                      20.83% on every side, which puts 9.958px of path plus its
-                      1.419 stroke — 11.3769px of ink, Menu10's whole viewBox —
-                      inside it. Rendering Menu10 at 17.071 would draw it half
-                      again too large. */}
-                  <span className="flex items-center justify-center overflow-clip relative shrink-0 size-[17.071px]">
-                    <Menu10 size={11.3769} className="text-[#0a0a0a]" />
-                  </span>
-                </button>
-
-                {/* 199360:129733 — the scope slot: a 16px/24px medium slate-800
-                    label and a 24px chevron-down. The node types an ACCOUNT
-                    name ("Meridian Realty Group (MRG)"); this page serves both
-                    "/" and "/location/:locationName", so it renders the route's
-                    own scope — "All Accounts" unscoped, the location's name
-                    otherwise. That label is also what replaced the 24px <h1>
-                    the superseded frame put inside the scroller.
-                    The chevron-down states that the scope is changeable, and
-                    the drawer is the thing that changes it, so the slot opens
-                    the drawer rather than being a picture of a control. */}
-                <button
-                  type="button"
-                  aria-label={`Scope: ${scopeTitle}. Change scope`}
-                  onClick={() => setDrawerOpen(true)}
-                  className="content-stretch cursor-pointer flex flex-[1_0_0] h-[28px] items-center justify-center min-w-px pr-[7px] relative rounded-[23px]"
-                  data-node-id="199360:129733"
-                >
-                  <p
-                    className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/base\/size,16px)] leading-[var(--text\/base\/lh,24px)] whitespace-nowrap"
-                    dir="auto"
-                    data-node-id="199360:129734"
-                  >
-                    {scopeTitle}
-                  </p>
-                  <span className="flex items-center justify-center relative shrink-0 size-[24px]">
-                    <ChevronDown size={24} className="text-[#0a0a0a]" aria-hidden="true" />
-                  </span>
-                </button>
-              </div>
-
-              {/* Avatar — 199360:129736. The node fills this with a RASTER on an
-                  expiring figma.com/api/mcp/asset URL, so the photo itself is
-                  unavailable to this build and nothing references that URL. The
-                  28px round frame is rendered, and the app's existing
-                  right-hand header action — the CustomerSupport glyph — rides
-                  in it. It is drawn, not wired, exactly as it was before this
-                  pass: the delivery canvas has no support destination and this
-                  page may not invent one. Flagged for the owner. */}
-              <span
-                className="content-stretch flex items-center justify-center overflow-clip relative rounded-[var(--rounded-full,9999px)] shrink-0 size-[28px]"
-                data-node-id="199360:129736"
-                data-name="Avatar"
-              >
-                <CustomerSupport width={21.995} height={19.995} className="text-[#0a0a0a]" />
-              </span>
-            </div>
-          </div>
+          {/* Mobile Header Bar - 199360:129729 / 199371:137022, now shared
+              with the System page: 199383:141502 draws the identical bar, and
+              two hand-matched copies of one node drift apart. MobileHeaderBar
+              holds the geometry and the owner's instruction for what each
+              control does. No px of its own - the root's px-16 is the inset. */}
+          <MobileHeaderBar
+            nodeId="199360:129729"
+            /* The route IS the scope, so the slot names the route: "All
+               Accounts" on /, the location on /location/:name. */
+            label={scopeTitle}
+            /* The account roll-up is the real parent of a location. On / there
+               is no parent scope, so no arrow is drawn rather than one that
+               goes nowhere. */
+            onBack={locationName ? () => navigate('/') : undefined}
+            backLabel={locationName ? 'Back to all accounts' : 'Back'}
+            onOpenTree={() => setDrawerOpen(true)}
+          />
 
           {/* 199360:129737 — the tab row, immediately after the header bar.
               LOCA/LOCB DISAGREE HERE AND NOWHERE ELSE IN THE CHROME. locA

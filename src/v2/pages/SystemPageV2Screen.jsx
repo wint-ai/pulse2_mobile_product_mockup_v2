@@ -149,11 +149,10 @@ import SystemTypeCard from '@/v2/components/SystemTypeCard'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
 import ActivePolicyCard from '@/v2/components/ActivePolicyCard'
 import InsightsCard from '@/v2/components/InsightsCard'
-import ScopePill from '@/v2/components/ScopePill'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import InfoAccordion from '@/v2/components/InfoAccordion'
 import SystemHeroCard from '@/v2/components/SystemHeroCard'
-import { CustomerSupport } from '@/v2/icons'
+import MobileHeaderBar from '@/v2/components/MobileHeaderBar'
 /* The Mobile Header Bar moved here out of SystemHeroCard, and brought these
    with it: shadcn <Button> so the burger's focus ring comes from --ring, and
    cn() for the one class string on the bar that varies. `Menu10` went the
@@ -161,7 +160,6 @@ import { CustomerSupport } from '@/v2/icons'
    node names is menu-01, which is drawn inline below for the reason recorded
    in the HEADER REDRAW block. */
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 /* The chart's window arithmetic — §3.1-§3.6 and the §4 matrix. Shared with
    HomeAllAccounts so the two screens cannot drift apart, and kept out of this
    file because a page may only export its component. */
@@ -583,7 +581,6 @@ function ActionPolicyCard({ policies }) {
    own fallbacks. String.raw because `\/` in a plain JS string collapses to a
    bare `/`, which Tailwind then reads as an opacity modifier and the class
    never reaches the DOM. */
-const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
 
 /**
  * One tab trigger — Figma 199383:141512 "Tabs" (sysA) / 199394:20601 (sysB),
@@ -1231,7 +1228,20 @@ export default function SystemPageV2Screen() {
         style={{ flex: 1, minHeight: 0 }}
         data-node-id="198379:80447"
       >
-        {/* ── MOBILE HEADER BAR — 199383:141502 (alert) / 199394:20586 (calm).
+        {/* MOBILE HEADER BAR - 199383:141502 (alert) / 199394:20586 (calm).
+         *
+         * The bar itself now lives in MobileHeaderBar, because the Location
+         * frames draw the identical bar (199360:129729) and two hand-matched
+         * copies of one node drift apart. That file holds the node's geometry
+         * and the owner's instruction for what each control does; this one
+         * only says what those controls mean ON A SYSTEM.
+         *
+         * IT IS FIXED CHROME, not the first thing in the scroll. A Figma frame
+         * has no scroll model, so the node cannot answer this and the reason
+         * is the app's: the bar is the only door into the navigation drawer,
+         * and a door that scrolls out of reach is one you have to hunt for.
+         * It is also what the app-shell contract means by chrome - a shrink-0
+         * sibling of the scroller, not a sticky child.
          *
          * LIFTED OUT OF SystemHeroCard, 2026-10-20. It used to be drawn ON the
          * hero wave, which made the page read
@@ -1239,191 +1249,30 @@ export default function SystemPageV2Screen() {
          * against a design that reads
          *     header bar -> tabs -> consumption hero -> cards
          * In both nodes the bar is the first child of a gap-[25px] column
-         * (199383:141501 / 199394:20585) whose second child is the Tabs row,
-         * and the consumption copy is an absolute sibling pinned BELOW the
-         * tabs. The repo owner, on the old arrangement: "this is not even
-         * similar to figma, not layout not entity screens."
+         * (199383:141501 / 199394:20585) whose second child is the Tabs row.
          *
-         * IT IS FIXED CHROME, not the first thing in the scroll. A Figma frame
-         * has no scroll model so the node cannot answer this; the reasons are
-         * the app's, not the design's. This bar carries the burger — the ONLY
-         * way into the navigation drawer — and ScopePill's back control. Both
-         * are navigation, and navigation that scrolls out of reach is a
-         * control you have to hunt for. It is also what the app-shell contract
-         * means by chrome (`shrink-0` sibling, NOT sticky: it is already
-         * outside the scroller) and what HomeAllAccounts already does with the
-         * same component.
-         *
-         * THE REDRAW, and what the 2026-10-20 refetch settled. This bar was
-         * previously traced from 199383:141502 while the calm frame still drew
-         * a DIFFERENT bar (h-[42px], a 22px burger beside a Remix arrow, an
-         * absolutely-positioned 18/32 title). That disagreement is GONE: the
-         * calm frame's bar is now 199394:20586 and is the same bar, atom for
-         * atom — h-[59px], gap-[6px], py-[24px], items-center justify-center,
-         * a `content` row at justify-between, a flex-1 left group holding a
-         * 30px round back control and the scope slot, and a 28px Avatar.
-         *
-         * NO px. Neither node emits horizontal padding on the bar — the root
-         * frame's 16px is the inset — and now that this is page chrome rather
-         * than something bled out of the gutter, that lands where Figma puts
-         * it. The old copy carried a px-[16px] it could not justify.
-         *
-         * WHAT THE NODE COULD NOT DICTATE, and why:
-         *   burger        NEITHER frame draws one any more (the calm frame's
-         *                 menu-01 went with its old header). It is the only
-         *                 thing that opens the navigation drawer, so it stays,
-         *                 inside the node's own flex-1 left group. Removing it
-         *                 is the page owner's call, not this file's. The glyph
-         *                 is inline SVG: the old node named "Huge Icons /
-         *                 menu-01" and @/v2/icons only owns menu-10, which
-         *                 carries an extra dot, so swapping it would change the
-         *                 drawing. Adding Menu01 to the icon set is the right
-         *                 fix and is outside these two files.
-         *   chevron-left  the node's 30px round back control. ScopePill fills
-         *                 the scope slot and already draws a back chevron and
-         *                 owns the back behaviour, so the circle is not
-         *                 duplicated here.
-         *   chevron-down  drawn inside the scope slot after the label. Omitted
-         *                 on the bare fallback — there is nothing to open from
-         *                 there — and ScopePill draws its own caret.
-         *   avatar photo  a raster on a figma.com/api/mcp/asset URL, which
-         *                 expires in ~7 days and must never be referenced at
-         *                 runtime. There is no local asset. The 28px
-         *                 rounded-full FRAME is kept and carries the support
-         *                 control the page already had.
-         *
-         * THE SECOND ROW IS THE SYSTEM'S NAME, and it is the one thing here
-         * that no node asks for. NEITHER frame names the system anywhere: the
-         * scope slot reads "Meridian Realty Group (MRG)" — an ACCOUNT — and
-         * the only other proper nouns on either frame are "Water line" (the
-         * pipe topology) and "SN 4471822" (a serial). Losing which system you
-         * are looking at is a functional regression, not a pixel one, and
-         * systemPageRouteData.dom.test.jsx asserts the name is rendered.
-         * It goes HERE rather than anywhere else because the bar is already a
-         * `flex-col gap-[6px] h-[59px]` — a column with a row gap and ONE row
-         * in it. A 28px row plus 6px plus a 24px line is 58px: the node's own
-         * height was cut for two rows and only one is filled. So the name
-         * costs the page no vertical space at all, and nothing below it moves.
-         * Flagged for the owner: if the design means the system name to be
-         * gone, deleting this <p> is the whole change. */}
-        <div
-          className="content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[59px] items-center justify-center py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full"
-          data-node-id="199383:141502"
-          data-name="Mobile Header Bar"
-        >
-          {/* 199383:141503 "content" — row gap only (the column gap is 0: the
-              back control sits flush against the scope slot), with the
-              right-hand Avatar pushed out by justify-between. */}
-          <div
-            className="content-center flex flex-wrap gap-y-[10px] items-center justify-between relative shrink-0 w-full"
-            data-name="content"
-            data-node-id="199383:141503"
-          >
-            {/* 199383:141504 — the flex-1 left group. In the node it holds the
-                round back control and the scope slot; here it also holds the
-                drawer burger, which the nodes dropped but the app still
-                needs. */}
-            <div
-              className="content-stretch flex flex-[1_0_0] items-center min-w-px relative"
-              data-node-id="199383:141504"
-            >
-              <Button
-                type="button"
-                variant="ghost"
-                size={null}
-                onClick={() => setDrawerOpen(true)}
-                aria-label="Open navigation"
-                className="content-stretch flex gap-[var(--pro\/space\/1\,5,6.40148663520813px)] h-[34px] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10.669px)] shrink-0 w-[22px] text-[color:var(--colors\/slate\/900,#0f172b)] hover:bg-card/30 hover:text-current"
-                data-node-id="I199359:126788;50600:52769;199359:126918"
-              >
-                {/* Huge Icons / menu-01 — three rules inset 20.83%/16.67% in a
-                    17.071px box, which is what the node drew. */}
-                <span className="overflow-clip relative shrink-0 size-[17.071px]">
-                  <svg viewBox="0 0 17 17" fill="none" className="block size-full" aria-hidden="true">
-                    <path
-                      d="M2.85 4.27h11.37M2.85 8.54h11.37M2.85 12.8h11.37"
-                      stroke="currentColor"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
-              </Button>
-
-              {/* The scope slot, 199383:141507. The comp centres a LOCATION
-                  name here; ScopePill is that, made operable — it owns the
-                  back behaviour and draws its own caret. When the system has
-                  no parent ScopePill renders nothing, so the slot falls back
-                  to the node's own bare label, verbatim. */}
-              {system.parentName ? (
-                <ScopePill
-                  label={system.parentName}
-                  onOpenTree={() => setDrawerOpen(true)}
-                  onBack={() => navigate(`/location/${encodeURIComponent(system.parentName)}`)}
-                  backLabel={`Back to ${system.parentName}`}
-                />
-              ) : (
-                <div
-                  className="content-stretch flex flex-[1_0_0] h-[28px] items-center justify-center min-w-px pr-[7px] relative rounded-[23px]"
-                  data-node-id="199383:141507"
-                >
-                  <p
-                    className={cn(
-                      '[word-break:break-word] relative shrink-0 whitespace-nowrap',
-                      FIG_MED,
-                      String.raw`font-[var(--font\/weight\/font-medium,500)]`,
-                      String.raw`text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/base\/size,16px)] leading-[var(--text\/base\/lh,24px)]`,
-                    )}
-                    dir="auto"
-                    data-node-id="199383:141508"
-                  >
-                    {system.title}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* 199383:141510 "Avatar" — a 28px rounded-full frame at the right
-                of the bar. The node fills it with a photo from an expiring
-                figma.com asset URL, so the picture is not reproduced; the
-                frame is, and it carries the control the page already had.
-                Deliberately inert — this app has no support route — but it
-                renders and focuses exactly as it did. */}
-            <span
-              className="content-stretch flex items-center justify-center relative rounded-[var(--rounded-full,9999px)] shrink-0 size-[28px]"
-              data-node-id="199383:141510"
-              data-name="Avatar"
-            >
-              <button
-                type="button"
-                aria-disabled="true"
-                aria-label="Customer support"
-                className="cursor-default flex items-center justify-center overflow-clip relative shrink-0 size-[24px] text-[#0a0a0a]"
-                data-node-id="I198379:80448;50600:52769;198379:80622"
-              >
-                <CustomerSupport width={21.995} height={19.995} />
-              </button>
-            </span>
-          </div>
-
-          {/* The system's own name — see the note above for why it lives in
-              the bar's unused second row. 198379:80454's type, dropped to the
-              bar's own 16/24 so the two rows sit in one block. */}
-          {system.title ? (
-            <h1
-              className={cn(
-                '[word-break:break-word] relative shrink-0 w-full overflow-hidden text-center text-ellipsis whitespace-nowrap',
-                FIG_MED,
-                String.raw`font-[var(--font\/weight\/font-medium,500)]`,
-                String.raw`text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/base\/size,16px)] leading-[var(--text\/base\/lh,24px)]`,
-              )}
-              dir="auto"
-              data-node-id="198379:80454"
-            >
-              {system.title}
-            </h1>
-          ) : null}
-        </div>
+         * NO px. Neither node emits horizontal padding on the bar - the root
+         * frame's 16px is the inset - so nothing is added here. */}
+        <MobileHeaderBar
+          nodeId="199383:141502"
+          /* THE SLOT CARRIES THE SYSTEM, not the parent location.
+             The node centres an ACCOUNT here ("Meridian Realty Group (MRG)"),
+             because that frame's scope is an account. On /system/:id the scope
+             is the system, so that is what the slot names — and it is how the
+             system's name survives the bar losing its second row. Dropping the
+             name outright is not on the table: systemPageRouteData.dom.test.jsx
+             pins it, and it is the whole guard against the Floor-26 bug, where
+             every system in the app rendered the same hardcoded building. */
+          label={system.title || system.parentName || 'System'}
+          /* A frame has no history. The parent location is the real parent
+             scope, so that is where back goes; when the system has no parent
+             the control is not drawn at all rather than drawn inert. */
+          onBack={system.parentName
+            ? () => navigate(`/location/${encodeURIComponent(system.parentName)}`)
+            : undefined}
+          backLabel={system.parentName ? `Back to ${system.parentName}` : 'Back'}
+          onOpenTree={() => setDrawerOpen(true)}
+        />
 
         {/* Content 198379:80449 — the one scrolling region on this screen.
 
