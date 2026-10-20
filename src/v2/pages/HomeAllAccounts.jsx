@@ -85,7 +85,6 @@ import SystemHealthCard from '@/v2/components/SystemHealthCard'
 import TriageBand from '@/v2/components/TriageBand'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
-import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
 import { CaretDown } from '@/v2/icons'
 import MobileHeaderBar from '@/v2/components/MobileHeaderBar'
 /* The pill tab row, shared with SystemPageV2Screen. It used to be a local
@@ -863,11 +862,26 @@ export default function HomeAllAccounts({ expanded = false }) {
   const [consumptionPeriod, setConsumptionPeriod] = useState('M')
   const [consumptionOffset, setConsumptionOffset] = useState(0)
 
-  /* §20.1 / PLS-WC-15 — the trail of periods OPENED, newest last. Each entry
-     is the {period, offset} a drill-down was launched from, which is what lets
-     the return restore both rather than dropping the user on the newest window
-     the way the grouping control does (§3.1). */
-  const [consumptionTrail, setConsumptionTrail] = useState([])
+  /* NO DRILL TRAIL HERE ANY MORE. §20.1 / PLS-WC-15 kept a `consumptionTrail`
+     of the {period, offset} each drill-down was launched from, to drive the
+     "‹ Back to Monthly" pill above the chart. The owner saw that pill on
+     2026-10-20 — "what is back to monthly? remove it." — so the pill and its
+     `returnFromDrill` went, and on this page NOTHING ELSE READ THE TRAIL: it
+     was written by the drill and cleared by the grouping control and Today,
+     and never read again. Dead state, so it went with the pill.
+
+     SystemPageV2Screen is the other half of this and keeps its trail, because
+     the hero's "See more" reads `periodTrail[0]` to unwind a drill. This page
+     has no hero and no "See more" — the chart is always on screen — so there
+     is nothing here to unwind. If a hero ever lands on this page, the trail
+     comes back with it.
+
+     What the removal costs: after drilling Monthly -> Daily, picking Month
+     from the grouping dropdown resets the offset to 0 (§3.1) and lands on the
+     newest twelve months, not the window the drill was launched from. That
+     window is still reachable with the period stepper or the Select period
+     sheet, just not in one tap. The owner accepted that; do not restore the
+     pill without asking him. */
 
   const consumptionView = useMemo(
     () => getFleetConsumptionSeries(scopedSystems, consumptionPeriod, consumptionOffset),
@@ -913,8 +927,7 @@ export default function HomeAllAccounts({ expanded = false }) {
     [consumptionPeriod, consumptionView],
   )
 
-  /* §4: a pick sets the period and keeps the grouping, the comparison and the
-     trail. */
+  /* §4: a pick sets the period and keeps the grouping and the comparison. */
   const applyMonth = (selection) => {
     setConsumptionOffset(offsetForPickedMonth(consumptionPeriod, selection, consumptionBounds))
     setPickerOpen(false)
@@ -939,13 +952,13 @@ export default function HomeAllAccounts({ expanded = false }) {
      the row it implements. */
 
   /* §3.1 — selecting a grouping ALWAYS returns to the newest window, and is
-     therefore never a way back to a period you were looking at (§3.6). The
-     trail goes with it: the drill it recorded no longer describes what is on
-     screen. */
+     therefore never a way back to a period you were looking at (§3.6). Since
+     2026-10-20 it is the ONLY way back up out of a drill-down on this page,
+     and it is a reset, not a return — see the note where the trail used to
+     be. */
   const selectConsumptionPeriod = (next) => {
     setConsumptionPeriod(next)
     setConsumptionOffset(0)
-    setConsumptionTrail([])
     // PLS-WC-20: comparison is Monthly-only, so anything else clears it.
     if (next !== 'M') setCompareConsumption(false)
   }
@@ -965,21 +978,9 @@ export default function HomeAllAccounts({ expanded = false }) {
     // Hourly is the floor of the series and a bucket with no reading has
     // nothing behind it — §3.5's two blocked cases both land here.
     if (!target) return
-    setConsumptionTrail((trail) => [...trail, { period: consumptionPeriod, offset: consumptionOffset }])
     setConsumptionPeriod(target.period)
     setConsumptionOffset(target.offset)
     if (target.period !== 'M') setCompareConsumption(false)
-  }
-
-  /* §3.6 / PLS-WC-15 — the return restores the grouping AND the period it was
-     opened from. */
-  const returnFromDrill = () => {
-    const previous = consumptionTrail[consumptionTrail.length - 1]
-    if (!previous) return
-    setConsumptionTrail((trail) => trail.slice(0, -1))
-    setConsumptionPeriod(previous.period)
-    setConsumptionOffset(previous.offset)
-    if (previous.period !== 'M') setCompareConsumption(false)
   }
 
   /* §3.4 — Today: Hourly on the newest window, the picker closed, and the
@@ -987,13 +988,11 @@ export default function HomeAllAccounts({ expanded = false }) {
   const jumpToToday = () => {
     setConsumptionPeriod('H')
     setConsumptionOffset(0)
-    setConsumptionTrail([])
     setCompareConsumption(false)
     setPickerOpen(false)
   }
 
   const consumptionSteps = stepAvailability(consumptionPeriod, consumptionOffset, consumptionBounds)
-  const returnTo = consumptionTrail[consumptionTrail.length - 1]?.period ?? null
 
   /* The Overview cards, in the node's order. Held in a variable so the tab
      body below stays one expression per tab.
@@ -1065,11 +1064,11 @@ export default function HomeAllAccounts({ expanded = false }) {
           template name; the card is Water consumption. It used to ship its own
           traced series; it now plots the fleet, so the figures under it belong
           to the systems this screen is actually reporting on. */}
-      {/* §3.6 / §19 — the way back out of a drill-down, above the card it
-          returns. It renders only while there is something to return to, so it
-          cannot read as a dead control on a chart nobody has drilled into. */}
-      <ConsumptionReturnControl toPeriod={returnTo} onReturn={returnFromDrill} />
-
+      {/* The "‹ Back to Monthly" pill stood here — §3.6 / §19's way back out
+          of a drill-down. Removed 2026-10-20 on the owner's instruction ("what
+          is back to monthly? remove it."), along with the trail that fed it;
+          see the note where `consumptionTrail` was declared for what that
+          costs. Do not put this back without asking. */}
       <WaterConsumptionCardV2
         data={consumptionView.series}
         period={consumptionPeriod}

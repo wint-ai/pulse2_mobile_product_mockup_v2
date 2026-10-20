@@ -115,7 +115,6 @@
  *   InsightsCard        no node on either frame. Ordered last of the mapped
  *                       cards so it cannot displace one the nodes do draw.
  *   InfoAccordion       the real General Info content; see the tab note below.
- *   ConsumptionReturnControl  the drill-down's way back; rides with the chart.
  *   the burger            NEITHER frame draws one any more. It is the only
  *                         way into the navigation drawer, so it stays in the
  *                         header bar's left group.
@@ -143,7 +142,6 @@ import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
-import ConsumptionReturnControl from '@/v2/components/ConsumptionReturnControl'
 import SystemTopologyCard from '@/v2/components/SystemTopologyCard'
 import SystemTypeCard from '@/v2/components/SystemTypeCard'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
@@ -744,9 +742,27 @@ export default function SystemPageV2Screen() {
   const [periodOffset, setPeriodOffset] = useState(0)
 
   /* §20.1 / PLS-WC-15 — the trail of periods OPENED, newest last. Each entry
-     is the {period, offset} a drill-down was launched from, which is what lets
-     the return restore both rather than dropping the user on the newest window
-     the way the grouping control does (§3.1). */
+     is the {period, offset} a drill-down was launched from.
+
+     THE VISIBLE CONTROL IS GONE; THE TRAIL IS NOT. 2026-10-20, the owner's
+     instruction on seeing the pill above the chart: "what is back to monthly?
+     remove it." ConsumptionReturnControl and `returnFromDrill` were removed
+     here and on HomeAllAccounts. DO NOT RESTORE THEM without asking.
+
+     What that costs, measured in the browser before the removal: drilling
+     from the Nov 2024 - Oct 2025 window into Oct 25 opens Daily / "October
+     2025", and the pill put Nov 2024 - Oct 2025 back in ONE tap. Without it,
+     picking Month from the grouping dropdown lands on Nov 2025 - Oct 2026 —
+     `selectPeriod` resets the offset to 0 (§3.1), so the dropdown is a reset,
+     never a way back. The window is still reachable, just not in one tap:
+     dropdown -> Month, then the period stepper or the Select period sheet.
+     The owner accepted that; it was his ask.
+
+     THE TRAIL ITSELF STILL DOES WORK, which is why it stays: openChartFromHero
+     reads `periodTrail[0]` so the hero's "See more" unwinds a drill and
+     reopens on the caption's window with compare on — a behaviour the owner
+     asked for explicitly, and the one most at risk from a careless cleanup
+     here. Delete the trail and that breaks. */
   const [periodTrail, setPeriodTrail] = useState([])
 
   /* "See more" sits in the hero at the very top; the chart it reveals lands
@@ -909,16 +925,10 @@ export default function SystemPageV2Screen() {
     if (target.period !== 'M') setCompareConsumption(false)
   }
 
-  /* §3.6 / PLS-WC-15 — the return restores the grouping AND the period it was
-     opened from. */
-  const returnFromDrill = () => {
-    const previous = periodTrail[periodTrail.length - 1]
-    if (!previous) return
-    setPeriodTrail((trail) => trail.slice(0, -1))
-    setPeriod(previous.period)
-    setPeriodOffset(previous.offset)
-    if (previous.period !== 'M') setCompareConsumption(false)
-  }
+  /* §3.6 / PLS-WC-15 used to put a `returnFromDrill` here, driving the
+     "‹ Back to Monthly" pill above the chart. Both went on 2026-10-20 at the
+     owner's instruction — see the note on `periodTrail` above for what that
+     costs and why the trail itself stayed. */
 
   /* ── The hero's "See more" ──────────────────────────────────────────────
      The hero prints a headline over a date range and offers one control. The
@@ -938,11 +948,11 @@ export default function SystemPageV2Screen() {
      neither matched the twelve-month window the control is understood to
      offer. So opening unwinds the drill to the window it was launched from —
      `periodTrail[0]`, the entry the oldest drill recorded — and empties the
-     trail. Emptying it is what makes the reset coherent rather than cosmetic:
-     `returnTo` is read off the trail's tail, so ConsumptionReturnControl stops
-     rendering at exactly the moment the window it pointed at is the one on
-     screen. Clearing the trail while leaving the drilled window would leave
-     the user stranded a level down with no way back.
+     trail. Unwinding and emptying are ONE action: the trail describes drills
+     that are still on screen, and once the window it recorded IS the window on
+     screen there is nothing left to unwind. Emptying it while leaving the
+     drilled window would be the incoherent half — it would strand the user a
+     level down with no record of where he came from.
 
      This is NOT a grouping reset. A grouping the user chose from the dropdown
      clears the trail itself (§3.1), so there is nothing to unwind and Yearly
@@ -1134,7 +1144,6 @@ export default function SystemPageV2Screen() {
   })()
 
   const steps = stepAvailability(period, periodOffset, consumptionBounds)
-  const returnTo = periodTrail[periodTrail.length - 1]?.period ?? null
 
   /* AlertCard reports every tap through onAction(actionId, event) and reads no
      store itself — it is presentational, and the screen decides what each id
@@ -1680,12 +1689,12 @@ export default function SystemPageV2Screen() {
                       if (!chartOpen) return null
                       return (
                         <Fragment key={key}>
-      {/* §3.6 / §19 — the way back out of a drill-down, above the
-      card it returns. It renders only while there is something
-      to return to, so it cannot read as a dead control on a
-      chart nobody has drilled into. */}
-      <ConsumptionReturnControl toPeriod={returnTo} onReturn={returnFromDrill} />
-
+      {/* The "‹ Back to Monthly" pill stood here — §3.6 / §19's way back out
+      of a drill-down. Removed 2026-10-20 on the owner's instruction ("what is
+      back to monthly? remove it."). See the note on `periodTrail` above: the
+      one-tap return to the window a drill was launched from is what went; the
+      trail stayed, because the hero's "See more" still unwinds a drill with
+      it. Do not put this back without asking. */}
       <div
       ref={chartRef}
       className="content-stretch flex flex-col items-center min-w-[288px] overflow-clip relative scroll-mt-[8px] shrink-0 w-full"

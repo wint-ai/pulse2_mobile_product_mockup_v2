@@ -21,8 +21,8 @@
 // WHY THE CARD IS WRAPPED. The drill is triggered by clicking a bar, and
 // recharts draws no bars under happy-dom — there is no layout, so the plot has
 // zero width and the bar shapes that carry role="button" are never rendered.
-// consumptionDefaultAndReturn.dom.test.jsx hits the same wall and exercises
-// ConsumptionReturnControl directly. Here the drill has to go through the
+// consumptionDefaultAndReturn.dom.test.jsx hits the same wall and works around
+// it differently. Here the drill has to go through the
 // SCREEN's handler, so the real card is rendered inside a wrapper that adds
 // the one affordance recharts would otherwise provide: a button that calls
 // `onDrillDown` with a real bucket key off the data the screen passed. Nothing
@@ -134,7 +134,7 @@ describe('the hero "See more" is an entry point into the chart', () => {
     expect(captionRange(container)).toBe(lastProps.monthLabel)
   })
 
-  it('re-opens on the caption window after a drill-down, with nothing to return to', () => {
+  it('re-opens on the caption window after a drill-down, and never shows a return control', () => {
     const { container } = mount()
     fireEvent.click(seeMore(container))
 
@@ -145,7 +145,12 @@ describe('the hero "See more" is an entry point into the chart', () => {
     fireEvent.click(within(container).getByTestId('test-drill'))
     expect(lastProps.period).toBe('D')
     expect(lastProps.monthLabel).not.toBe(opened)
-    expect(within(container).getByTestId('consumption-return')).toBeTruthy()
+    /* AND NO WAY BACK IS OFFERED. The "‹ Back to Monthly" pill used to appear
+       exactly here; the owner removed it on 2026-10-20 — "what is back to
+       monthly? remove it." This asserts the drill still WORKS without it, so a
+       future reader can see that the absence is the instruction and not a
+       broken render. */
+    expect(within(container).queryByTestId('consumption-return')).toBeNull()
     // The caption follows the chart down — they never disagree, which is the
     // reason the reset below is about determinism, not about a mismatch.
     expect(captionRange(container)).toBe(lastProps.monthLabel)
@@ -157,9 +162,12 @@ describe('the hero "See more" is an entry point into the chart', () => {
     expect(lastProps.monthLabel).toBe(opened)
     expect(captionRange(container)).toBe(opened)
     expect(currentGranularity(container)).toBe('Month')
-    /* The trail went with the window. Clearing one without the other would
-       leave "Back to Monthly" pointing at the window already on screen. */
-    expect(within(container).queryByTestId('consumption-return')).toBeNull()
+    /* THE TRAIL IS STILL THERE AND STILL DOES THIS. The pill it used to feed
+       was removed on 2026-10-20, but `periodTrail` was deliberately kept:
+       openChartFromHero reads `periodTrail[0]` and that is what unwound the
+       drill three lines up. Deleting the trail as "dead code" because its
+       visible control is gone breaks this assertion, which is the whole
+       point of it being written down here. */
     expect(compareSwitch(container).getAttribute('aria-checked')).toBe('true')
   })
 
