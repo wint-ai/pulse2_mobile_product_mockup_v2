@@ -61,6 +61,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+/* The node's chevron-left / chevron-down are Tabler rasters on expiring
+   figma.com/api/mcp/asset URLs, so neither is referenced at runtime. lucide
+   carries both at the node's 24px — the same substitution EventOverlayV2 makes
+   for the same chevron-left glyph. */
+import { ChevronDown, ChevronLeft } from 'lucide-react'
 import TabBar from '@/components/TabBar'
 import ActiveWaterEventsCard from '@/v2/components/ActiveWaterEventsCard'
 /* EventOverlayV2, not EventOverlay. Both were rebuilt from the same five
@@ -257,32 +262,73 @@ function DonutPlots({ className }) {
 // ── Pieces ─────────────────────────────────────────────────────────────────
 
 /**
- * One tab trigger. Figma draws the selected and unselected states as two
- * different nodes, not one node with an override:
- *   I198314:73491;101485:143349;198314:73487  TabsTrigger            (selected)
- *   I198314:73491;101485:143349;198314:73490  TabsTrigger/line/false (rest)
- * so both are written out as whole JSX trees. That also keeps every Figma
+ * One tab trigger.
+ *
+ * The row — Figma 199360:129743 (ALERT, locA) — draws its three triggers as
+ * THREE DIFFERENT NODES, not one node with overrides:
+ *   I199360:129743;101485:143349;199360:129739  TabsTrigger                     Overview, selected
+ *   I199360:129743;101485:143349;199396:84067   TabsTrigger                     Locations, at rest
+ *   I199360:129743;101485:143349;199360:129742  TabsTrigger/line/false/default  General Info
+ * so all three are written out as whole JSX trees. That also keeps every Figma
  * class a literal attribute, which is the only place the `\/` escape survives.
- */
-/**
- * The tab row — Figma 199383:141499 / 199359:126785.
  *
- * The design moved from an UNDERLINE tab (a 2px wint-blue rule under the
- * active label, from 198314:73491) to a PILL tab: every trigger sits on a
- * slate-200 ground at h-32 / radius 14, and the active one is filled #c7e3ff
- * with semibold wint-blue text. The middle trigger carries a count Badge.
+ * Two readings that are the node's, not a simplification:
+ *  · GEOMETRY IS PER POSITION, not per state. The outer two triggers are
+ *    `flex-[1_0_0]`; the middle one is `shrink-0`, because the Badge riding in
+ *    it makes it intrinsically wide. Selecting a different tab therefore does
+ *    not make the middle trigger grow.
+ *  · SELECTION changes only three things: the fill (slate-500 against #fafbfc),
+ *    the label colour (#edf1fc against slate-500) and the focus ring on the
+ *    inner content box.
  *
- * Two details that are the design's, not a simplification:
- *  · the active and inactive pills use radius 14, but the LAST trigger is a
- *    different component in Figma ("TabsTrigger/line/false/default") at
- *    radius 26 — so the row is not three copies of one shape.
- *  · the Badge is slate-200 on a slate-200 pill, i.e. invisible as a fill; it
- *    reads only through its slate-400 numeral. That is what the node emits.
+ * RESTYLED 2026-10-20 against a re-fetch of 199323:12113. The previous reading
+ * had the selected pill at `bg-[#c7e3ff]` with wint-blue-accent text and the
+ * two at rest on `bg-[var(--colors\/slate\/200,#e2e8f0)]`. The designer has
+ * since moved the whole row: selected is now a DARK slate-500 pill with near
+ * white text, and both resting pills are the card wash #fafbfc. locB
+ * (199371:137019, the CALM state) still emits the OLD styling — see the note
+ * at the tab row in the page body. locA is the state this follows.
  */
-function TabTrigger({ label, count, active, onClick, pill = 'default' }) {
+function TabTrigger({ label, count, active, onClick, pill = 'default', grow = true }) {
   const radius = pill === 'wide'
     ? String.raw`rounded-[var(--component\/tabs\/list\/radius-horizontal,26px)]`
     : String.raw`rounded-[var(--component\/tabs\/trigger\/radius,14px)]`
+
+  /* The label's `leading-` is spelled AFTER its size on purpose. Figma emits
+     its utilities alphabetically, which puts `leading-[…]` first; anything that
+     later runs these through tailwind-merge treats leading- as conflicting with
+     a font-size atom and silently drops whichever came first. Order is
+     meaningless to CSS, so the safe order is the one written here. */
+  const labelClass = [
+    '[word-break:break-word] overflow-hidden relative shrink-0 text-[14px] text-center text-ellipsis whitespace-nowrap',
+    pill === 'wide'
+      ? String.raw`leading-[var(--text\/sm\/lh,20px)]`
+      : String.raw`leading-[var(--text\/sm-tight\/lh,20px)]`,
+    active
+      ? 'font-semibold text-[#edf1fc]'
+      : pill === 'wide'
+        ? String.raw`font-[var(--font\/weight\/font-medium,500)] text-[color:var(--colors\/slate\/500,#62748e)]`
+        : String.raw`font-medium text-[color:var(--colors\/slate\/500,#62748e)]`,
+  ].join(' ')
+
+  /* The count Badge — I199360:129743;101485:143349;199396:84067;121116:90300.
+     It carries NO fill class; the node paints it with the same two-layer wash
+     the frame root uses, at 145.43deg, as a raw gradient. Carried verbatim as
+     an inline style because that is what Figma emits and there is no utility
+     for it. */
+  const badge = count != null ? (
+    <span
+      className={String.raw`content-stretch flex h-[20px] items-center justify-center min-w-[20px] overflow-clip pl-[var(--component\/badge\/px,8px)] pr-[var(--spacing\/2,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)] shrink-0`}
+      style={{ backgroundImage: 'linear-gradient(145.43317186803606deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)' }}
+    >
+      <span
+        className={String.raw`[word-break:break-word] overflow-hidden relative shrink-0 tabular-nums text-[14px] leading-[var(--text\/xs\/lh,20px)] font-[var(--font\/weight\/font-medium,400)] text-[color:var(--colors\/slate\/400,#90a1b9)] text-ellipsis whitespace-nowrap`}
+        aria-label={`${count} ${label.toLowerCase()}`}
+      >
+        {count}
+      </span>
+    </span>
+  ) : null
 
   return (
     <button
@@ -293,46 +339,42 @@ function TabTrigger({ label, count, active, onClick, pill = 'default' }) {
          it opens, not by how many things are behind it, and folding the number
          in renamed this control from "Systems" to "Systems 103" — which broke
          systemsTabScope's lookup and would break anyone navigating by name.
-         The number is still announced, as the badge's own label below. */
+         The number is still announced, as the badge's own label above. */
       aria-label={label}
       className={[
-        'content-stretch cursor-pointer flex flex-[1_0_0] h-[32px] items-center justify-center min-w-[56px] relative',
+        'content-stretch cursor-pointer flex h-[32px] items-center min-w-[56px] relative',
+        grow ? 'flex-[1_0_0]' : 'shrink-0',
         pill === 'wide'
-          ? String.raw`gap-[var(--spacing\/2,8px)] px-[var(--spacing\/2,8px)] py-[var(--spacing\/1,4px)]`
-          : 'flex-col',
+          ? String.raw`gap-[var(--spacing\/2,8px)] justify-center px-[var(--spacing\/2,8px)] py-[var(--spacing\/1,4px)]`
+          : active
+            ? 'flex-col'
+            : 'flex-col justify-center',
         radius,
-        active ? 'bg-[#c7e3ff]' : String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)]`,
+        /* The node draws only ONE selected trigger, the default pill. A
+           selected WIDE pill is a state the delivery canvas does not contain,
+           so it takes the same fill rule rather than inventing a third. */
+        active ? String.raw`bg-[var(--colors\/slate\/500,#62748e)]` : 'bg-[#fafbfc]',
       ].join(' ')}
     >
-      <span
-        className={[
-          String.raw`content-stretch flex gap-[var(--component\/tabs\/trigger\/gap,6px)] items-center overflow-clip relative shrink-0`,
-          pill === 'wide' ? '' : String.raw`px-[var(--component\/tabs\/trigger\/px,8px)] py-[var(--component\/tabs\/trigger\/py,4px)] ${radius}`,
-        ].join(' ')}
-      >
+      {pill === 'wide' ? (
+        <>
+          <span className={labelClass}>{label}</span>
+          {badge}
+        </>
+      ) : (
+        /* ;121116:90211 (selected) / ;121116:90297 (at rest) — the inner
+           content box. The selected one, and only it, carries the focus ring. */
         <span
           className={[
-            '[word-break:break-word] overflow-hidden relative shrink-0 text-[14px] text-center text-ellipsis whitespace-nowrap',
-            String.raw`leading-[var(--text\/sm-tight\/lh,20px)]`,
-            active
-              ? String.raw`font-semibold text-[color:var(--wint-blue-accent,#0b81f8)]`
-              : String.raw`font-medium text-[color:var(--colors\/slate\/500,#62748e)]`,
+            String.raw`content-stretch flex gap-[var(--component\/tabs\/trigger\/gap,6px)] items-center overflow-clip px-[var(--component\/tabs\/trigger\/px,8px)] py-[var(--component\/tabs\/trigger\/py,4px)] relative shrink-0`,
+            radius,
+            active ? String.raw`drop-shadow-[0px_0px_0px_var(--ring-focus,rgba(161,161,161,0.5))]` : '',
           ].join(' ')}
         >
-          {label}
+          <span className={labelClass}>{label}</span>
+          {badge}
         </span>
-
-        {count != null ? (
-          <span className={String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex h-[20px] items-center justify-center min-w-[20px] overflow-clip pl-[var(--component\/badge\/px,8px)] pr-[var(--spacing\/2,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)] shrink-0`}>
-            <span
-              className={String.raw`[word-break:break-word] leading-[var(--text\/xs\/lh,20px)] overflow-hidden relative shrink-0 tabular-nums text-[14px] text-[color:var(--colors\/slate\/400,#90a1b9)] text-ellipsis whitespace-nowrap`}
-              aria-label={`${count} ${label.toLowerCase()}`}
-            >
-              {count}
-            </span>
-          </span>
-        ) : null}
-      </span>
+      )}
     </button>
   )
 }
@@ -1064,9 +1106,12 @@ export default function HomeAllAccounts({ expanded = false }) {
   const consumptionSteps = stepAvailability(consumptionPeriod, consumptionOffset, consumptionBounds)
   const returnTo = consumptionTrail[consumptionTrail.length - 1]?.period ?? null
 
-  /* The five cards of the Body wrapper, in the comp's order. Held in a variable
-     because the two states wrap them in two different Body wrappers (the gap
-     differs) and the wrapper's class string must stay a literal attribute. */
+  /* The Overview cards, in the node's order. Held in a variable so the tab
+     body below stays one expression per tab.
+     The two states no longer wrap these differently: 199360:129787 (ALERT)
+     and 199371:137036 (CALM) both stack at gap-20, so the 14px/10px split
+     that used to branch on `expanded` is gone with the frames it came from.
+     `expanded` still selects MOCK_WATER_EVENTS when there is no dataset. */
   const cards = (
     <>
       {/* The triage band. Answers "is anything wrong, where, how urgent" before
@@ -1192,151 +1237,248 @@ export default function HomeAllAccounts({ expanded = false }) {
        siblings. The Figma root itself is the child below — it is `items-start`,
        which would shrink a full-width TabBar to its content. */
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
-      {/* Root — 198314:73471. size-full dropped: under Phone.jsx the height
-          comes from flex:1, not from the 2155px frame. The frame's own
-          background is the five-stop wash that src/index.css keeps as
-          --app-bg, painted by the wrapper above. */}
+      {/* Root — 199323:12113 "Accont / location" (ALERT) and its twin
+          199371:137019 (CALM). Both emit this frame identically.
+          `size-full` dropped: under Phone.jsx the height comes from flex:1, not
+          from the frame. The frame's own backgroundImage is the five-stop wash
+          that src/index.css keeps as --app-bg, painted by the wrapper above.
+
+          SUPERSEDES 198314:73471, which this page was built from. That frame
+          put a 24px "All Accounts" <h1> at the top of the scroller and padded
+          the root at 8px with a second 10px inset inside. The current node has
+          neither: the scope NAME moved into the header bar, and the root pads
+          once at px-16 / py-8 with a gap of 18 between the chrome and the
+          cards. */}
       <div
-        className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-start p-[var(--spacing\/2,8px)] relative w-full"
+        className="content-stretch flex flex-col gap-[18px] items-start px-[var(--spacing\/4,16px)] py-[var(--spacing\/2,8px)] relative w-full"
         style={{ flex: 1, minHeight: 0 }}
-        data-node-id="198314:73471"
-        data-name="All accounts"
+        data-node-id="199323:12113"
+        data-name="Accont / location"
       >
-        {/* Mobile Header Bar — 199323:12113 (alert) / 199371:137019 (calm),
-            the current Account/Location design. Both state h-[59px]; this was
-            h-[42px], carried from the superseded 198314:73478. Everything else
-            on the bar (the gap, the 24px vertical padding, items-center
-            justify-center) the new nodes state identically, so only the height
-            moved. */}
+        {/* 199360:129728 — the chrome group: header bar, then tabs, 25px apart.
+            In Figma this is just a frame; here it is the shell contract's fixed
+            chrome, so it is shrink-0 and sits OUTSIDE the one scroller below.
+            The tabs living here rather than inside the scrolling body is the
+            "tabs are not in the right place" report: they used to be the third
+            thing inside the scroller, under a title row the node no longer has,
+            and they scrolled away with the cards. */}
         <div
-          className="content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[59px] items-center justify-center px-[var(--pro\/space\/4,16px)] py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full"
-          data-node-id="199323:12113"
-          data-name="Mobile Header Bar"
+          className="content-stretch flex flex-col gap-[25px] items-start relative shrink-0 w-full"
+          data-node-id="199360:129728"
         >
-          <div className="content-center flex flex-wrap gap-[var(--pro\/space\/4,4px_16px)] items-center relative shrink-0 w-full">
-            {/* I198314:73478;50600:52769;198314:73473. Figma pins this at
-                w-[287px], which is exactly "everything but the support glyph"
-                at 375; flex-[1_0_0] is the same edge there and keeps the
-                support glyph flush right at 393. */}
-            <button
-              type="button"
-              aria-label="Menu"
-              onClick={() => setDrawerOpen(true)}
-              className="content-stretch cursor-pointer drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex flex-[1_0_0] gap-[var(--pro\/space\/1\,5,6.40148663520813px)] h-[34.141px] items-center min-w-px p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,27.74px)] shrink-0"
+          {/* Mobile Header Bar — 199360:129729 / 199371:137022. No px of its
+              own: the root's px-16 is the inset. */}
+          <div
+            className="content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[59px] items-center justify-center py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full"
+            data-node-id="199360:129729"
+            data-name="Mobile Header Bar"
+          >
+            {/* content — 199360:129730 */}
+            <div
+              className="content-center flex flex-wrap gap-y-[10px] items-center justify-between relative shrink-0 w-full"
+              data-node-id="199360:129730"
+              data-name="content"
             >
-              {/* The glyph frame is 17.071px and Figma insets the artwork 20.83%
-                  on every side, which puts 9.958px of path plus its 1.419
-                  stroke — 11.3769px of ink, Menu10's whole viewBox — inside it.
-                  Rendering Menu10 at 17.071 would draw it half again too large. */}
-              <span className="flex items-center justify-center overflow-clip relative shrink-0 size-[17.071px]">
-                <Menu10 size={11.3769} className="text-[#0a0a0a]" />
+              {/* left group — 199360:129731 */}
+              <div
+                className="content-stretch flex flex-[1_0_0] items-center min-w-px relative"
+                data-node-id="199360:129731"
+              >
+                {/* 199371:129958 — the 30px round back control, wrapping a 24px
+                    Tabler chevron-left. The node's glyph is a raster on an
+                    expiring figma.com/api/mcp/asset URL and is never referenced
+                    at runtime; lucide's ChevronLeft at 24 is the stand-in, the
+                    same substitution EventOverlayV2.jsx:487 already makes for
+                    the same glyph.
+                    Figma draws a back affordance with nowhere to go — a frame
+                    has no history. On /location/:name "back" means the account
+                    roll-up, so it goes to "/"; on "/" there is no parent scope
+                    and it falls back to browser history. */}
+                <button
+                  type="button"
+                  aria-label="Back"
+                  onClick={() => (locationName ? navigate('/') : navigate(-1))}
+                  className="bg-[#fafbfc] border border-solid border-white content-stretch cursor-pointer flex items-center justify-center pr-[2px] relative rounded-[120.833px] shrink-0 size-[30px]"
+                  data-node-id="199371:129958"
+                >
+                  <span className="flex items-center justify-center relative shrink-0 size-[24px]">
+                    <ChevronLeft size={24} className="text-[#0a0a0a]" aria-hidden="true" />
+                  </span>
+                </button>
+
+                {/* ── CONFLICT, RESOLVED IN FAVOUR OF THE LIVE APP ──────────
+                    The node has NO burger. It has a back control and an avatar,
+                    and nothing on it opens a navigation drawer.
+                    This burger is the ONLY thing in the whole app that opens
+                    WintSidebarV2, which is the only way to change scope — so
+                    deleting it for fidelity would strand the user on whatever
+                    scope they arrived with. v2-page-parity Rule 0 forbids that.
+                    It is kept, placed inside the node's own left group, and
+                    drawn in the SAME 30px round frame 199371:129958 gives the
+                    back control, so no geometry is invented for it. Flagged for
+                    the owner: the node needs a drawer affordance, or the scope
+                    slot beside it has to become the only one. */}
+                <button
+                  type="button"
+                  aria-label="Menu"
+                  onClick={() => setDrawerOpen(true)}
+                  className="bg-[#fafbfc] border border-solid border-white content-stretch cursor-pointer flex items-center justify-center ml-[6px] relative rounded-[120.833px] shrink-0 size-[30px]"
+                >
+                  {/* The glyph frame is 17.071px and Figma insets the artwork
+                      20.83% on every side, which puts 9.958px of path plus its
+                      1.419 stroke — 11.3769px of ink, Menu10's whole viewBox —
+                      inside it. Rendering Menu10 at 17.071 would draw it half
+                      again too large. */}
+                  <span className="flex items-center justify-center overflow-clip relative shrink-0 size-[17.071px]">
+                    <Menu10 size={11.3769} className="text-[#0a0a0a]" />
+                  </span>
+                </button>
+
+                {/* 199360:129733 — the scope slot: a 16px/24px medium slate-800
+                    label and a 24px chevron-down. The node types an ACCOUNT
+                    name ("Meridian Realty Group (MRG)"); this page serves both
+                    "/" and "/location/:locationName", so it renders the route's
+                    own scope — "All Accounts" unscoped, the location's name
+                    otherwise. That label is also what replaced the 24px <h1>
+                    the superseded frame put inside the scroller.
+                    The chevron-down states that the scope is changeable, and
+                    the drawer is the thing that changes it, so the slot opens
+                    the drawer rather than being a picture of a control. */}
+                <button
+                  type="button"
+                  aria-label={`Scope: ${scopeTitle}. Change scope`}
+                  onClick={() => setDrawerOpen(true)}
+                  className="content-stretch cursor-pointer flex flex-[1_0_0] h-[28px] items-center justify-center min-w-px pr-[7px] relative rounded-[23px]"
+                  data-node-id="199360:129733"
+                >
+                  <p
+                    className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/base\/size,16px)] leading-[var(--text\/base\/lh,24px)] whitespace-nowrap"
+                    dir="auto"
+                    data-node-id="199360:129734"
+                  >
+                    {scopeTitle}
+                  </p>
+                  <span className="flex items-center justify-center relative shrink-0 size-[24px]">
+                    <ChevronDown size={24} className="text-[#0a0a0a]" aria-hidden="true" />
+                  </span>
+                </button>
+              </div>
+
+              {/* Avatar — 199360:129736. The node fills this with a RASTER on an
+                  expiring figma.com/api/mcp/asset URL, so the photo itself is
+                  unavailable to this build and nothing references that URL. The
+                  28px round frame is rendered, and the app's existing
+                  right-hand header action — the CustomerSupport glyph — rides
+                  in it. It is drawn, not wired, exactly as it was before this
+                  pass: the delivery canvas has no support destination and this
+                  page may not invent one. Flagged for the owner. */}
+              <span
+                className="content-stretch flex items-center justify-center overflow-clip relative rounded-[var(--rounded-full,9999px)] shrink-0 size-[28px]"
+                data-node-id="199360:129736"
+                data-name="Avatar"
+              >
+                <CustomerSupport width={21.995} height={19.995} className="text-[#0a0a0a]" />
               </span>
-            </button>
-            {/* I198314:73478;50600:52769;198314:73477. Same arithmetic: a 24px
-                frame, artwork inset 12.5%/8.33%, stroke bleed 5.54%/4.99% —
-                21.995 x 19.995 of ink, which is CustomerSupport's viewBox, so
-                width/height are passed rather than a square `size`. */}
-            <span className="flex items-center justify-center overflow-clip relative shrink-0 size-[24px]">
-              <CustomerSupport width={21.995} height={19.995} className="text-[#0a0a0a]" />
-            </span>
+            </div>
+          </div>
+
+          {/* 199360:129737 — the tab row, immediately after the header bar.
+              LOCA/LOCB DISAGREE HERE AND NOWHERE ELSE IN THE CHROME. locA
+              (199323:12113, ALERT) emits the restyled row this follows:
+              selected is slate-500 with #edf1fc text, both resting pills are
+              #fafbfc, and the Badge is a raw gradient. locB (199371:137019,
+              CALM) still emits the previous styling — #c7e3ff selected with
+              wint-blue text on slate-200 pills. Same component, two different
+              paints, so one of the two frames is mid-edit. locA is the brief's
+              reference and is followed; the tabs are not a state of the alert,
+              so when locB catches up nothing here should need to change. */}
+          <div
+            className="content-stretch flex items-center justify-between relative shrink-0 w-full"
+            data-node-id="199360:129737"
+          >
+            <div
+              className="content-stretch flex flex-[1_0_0] gap-[var(--p-0,0px)] h-[36px] items-start min-w-px pr-[var(--component\/tabs\/list\/padding,3px)] py-[var(--component\/tabs\/list\/padding,3px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)]"
+              data-node-id="199360:129743"
+              data-name="Tabs"
+            >
+              <div
+                className="content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center min-w-px relative"
+                data-node-id="I199360:129743;101485:143349"
+                data-name="slot"
+              >
+                <TabTrigger label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')} />
+                {/* ── CONFLICT, REPORTED NOT RESOLVED ───────────────────────
+                    Figma labels the middle trigger "Locations" and gives it a
+                    count Badge. This tab opens the SYSTEMS table
+                    (SystemsTableCard, scoped by scopedSystems), so the label is
+                    left as "Systems" and the count reports what the tab
+                    actually opens. Renaming it would change what the control
+                    means, not how it looks, and would break anyone — including
+                    systemsTabScope — who navigates by name. The owner has to
+                    decide whether the design wants a genuine Locations tab.
+                    `grow={false}` is the node's: this trigger is shrink-0
+                    because its Badge makes it intrinsically wide. */}
+                <TabTrigger
+                  label="Systems"
+                  count={live?.stats?.total ?? null}
+                  grow={false}
+                  active={tab === 'systems'}
+                  onClick={() => setTab('systems')}
+                />
+                <TabTrigger label="General Info" pill="wide" active={tab === 'general'} onClick={() => setTab('general')} />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Content — 198314:73479. shrink-0 in Figma only because Figma frames
-            have no scroll model; here it is the screen's one scroller and keeps
-            the designed gap-[22px] / pt-[20px] / px-[10px]. */}
+        {/* 199360:129787 / 199371:137036 — the cards, 20px apart. shrink-0 in
+            Figma only because a Figma frame has no scroll model; here it is the
+            screen's ONE scroller.
+            The 20px gap is both states' — the 14px/10px split this page used to
+            branch on belonged to the superseded 198314:73492 / 198328:89082
+            Body wrappers, and the current node draws one gap for both.
+            pb-16 is the only value here the node cannot state: a frame has no
+            scroll padding, and without it the last card sits flush against the
+            TabBar. */}
         <div
-          className="content-stretch flex flex-col gap-[22px] items-start pt-[20px] px-[var(--pro\/space\/2\,5,10px)] relative w-full"
+          className="content-stretch flex flex-col gap-[20px] items-start pb-[var(--spacing\/4,16px)] relative w-full"
           style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
-          data-node-id="198314:73479"
-          data-name="Content"
+          data-node-id="199360:129787"
         >
-          {/* 198314:73480 / :73481 */}
-          <div className="content-stretch flex gap-[10px] items-center relative shrink-0 w-full">
-            <h1 className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh,32px)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/2xl\/size,24px)] tracking-[-0.6px] whitespace-nowrap">
-              {scopeTitle}
-            </h1>
-          </div>
-
-          {/* 198314:73484 */}
-          <div className="content-stretch flex flex-col gap-[14px] items-start relative shrink-0 w-full">
-            {/* 198314:73485 / :73491 */}
-            <div className="content-stretch flex items-center justify-between relative shrink-0 w-full">
-              <div
-                className="content-stretch flex flex-[1_0_0] gap-[var(--p-0,0px)] h-[36px] items-start min-w-px pr-[var(--component\/tabs\/list\/padding,3px)] py-[var(--component\/tabs\/list\/padding,3px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)]"
-                data-node-id="198314:73491"
-                data-name="Tabs"
-              >
-                <div className="content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center min-w-px relative">
-                  <TabTrigger label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')} />
-                  {/* The count is the design's: 199383:141499 draws a Badge on
-                      the middle trigger. Figma labels it "Locations"; this tab
-                      renders the SYSTEMS table, so the label is left alone and
-                      the count reports what the tab actually opens. Flagged
-                      for the owner — renaming it is a content change, not a
-                      restyle. */}
-                  <TabTrigger label="Systems" count={live?.stats?.total ?? null} active={tab === 'systems'} onClick={() => setTab('systems')} />
-                  <TabTrigger label="General Info" pill="wide" active={tab === 'general'} onClick={() => setTab('general')} />
-                </div>
-              </div>
+          {tab === 'overview' ? (
+            cards
+          ) : tab === 'systems' ? (
+            /* System — the table from Figma "Table 16 - Pro Application
+               Block", screenSize=Small (176511:26284), carrying the content
+               of the desktop systems table (198736:52372). scopedSystems is
+               already the account/location resolution the health card uses,
+               so the tab reports on exactly the systems this screen is
+               scoped to rather than the whole fleet. */
+            <SystemsTableCard
+              systems={scopedSystems}
+              selection={systemFilters}
+              onOpenFilters={() => setSystemFiltersOpen(true)}
+              description={
+                locationName
+                  ? `See information about all systems at ${decodeURIComponent(locationName)}.`
+                  : 'See information about all systems.'
+              }
+              onOpenSystem={s => navigate(`/system/${s.id}`)}
+            />
+          ) : (
+            /* NOT DESIGNED. The delivery canvas draws this tab on both frames
+               but has no content frame for it anywhere, and inventing one is
+               forbidden. Honest placeholder until a comp exists — do not fill
+               it with plausible-looking fields. */
+            <div className="bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[4px] items-center justify-center py-[40px] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full">
+              <p className="font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm\/size,14px)]">
+                General Info
+              </p>
+              <p className="font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh,16px)] text-[color:var(--colors\/slate\/400,#90a1b9)] text-[12px]">
+                No design yet for this tab.
+              </p>
             </div>
-
-            {tab === 'overview' ? (
-              expanded ? (
-                /* Body wrapper — 198328:89082. The expanded frame tightens the
-                   stack to 10px; everything else about it is unchanged. */
-                <div
-                  className="content-stretch flex flex-col gap-[10px] items-start pb-[var(--spacing\/4,16px)] px-[var(--p-0,0px)] relative shrink-0 w-full"
-                  data-node-id="198328:89082"
-                  data-name="Body wrapper"
-                >
-                  {cards}
-                </div>
-              ) : (
-                /* Body wrapper — 198314:73492 */
-                <div
-                  className="content-stretch flex flex-col gap-[14px] items-start pb-[var(--spacing\/4,16px)] px-[var(--p-0,0px)] relative shrink-0 w-full"
-                  data-node-id="198314:73492"
-                  data-name="Body wrapper"
-                >
-                  {cards}
-                </div>
-              )
-            ) : tab === 'systems' ? (
-              /* System — the table from Figma "Table 16 - Pro Application
-                 Block", screenSize=Small (176511:26284), carrying the content
-                 of the desktop systems table (198736:52372). scopedSystems is
-                 already the account/location resolution the health card uses,
-                 so the tab reports on exactly the systems this screen is
-                 scoped to rather than the whole fleet. */
-              <div className="content-stretch flex flex-col items-start pb-[var(--spacing\/4,16px)] px-[var(--p-0,0px)] relative shrink-0 w-full">
-                <SystemsTableCard
-                  systems={scopedSystems}
-                  selection={systemFilters}
-                  onOpenFilters={() => setSystemFiltersOpen(true)}
-                  description={
-                    locationName
-                      ? `See information about all systems at ${decodeURIComponent(locationName)}.`
-                      : 'See information about all systems.'
-                  }
-                  onOpenSystem={s => navigate(`/system/${s.id}`)}
-                />
-              </div>
-            ) : (
-              /* NOT DESIGNED. The delivery canvas draws this tab on both frames
-                 but has no content frame for it anywhere, and inventing one is
-                 forbidden. Honest placeholder until a comp exists — do not fill
-                 it with plausible-looking fields. */
-              <div className="bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[4px] items-center justify-center py-[40px] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full">
-                <p className="font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm\/size,14px)]">
-                  General Info
-                </p>
-                <p className="font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh,16px)] text-[color:var(--colors\/slate\/400,#90a1b9)] text-[12px]">
-                  No design yet for this tab.
-                </p>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {/* One water event, full screen — the destination the card's rows now
