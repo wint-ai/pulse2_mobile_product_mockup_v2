@@ -1112,23 +1112,7 @@ export default function HomeAllAccounts({ expanded = false }) {
         onShowPast={() => openOverlay('water', { tab: 'history' })}
       />
 
-      {/* 198314:73639. No onViewAll: the delivery canvas has no Insights list
-          screen, so the card renders its "View all" inert rather than this page
-          inventing a route for it. */}
-      {/* `live ?` not `live?.insights?.length ?` — a scope with no insights is a
-          real, renderable state, and the length test turned it into the comp's
-          four invented rows. MOCK_INSIGHTS is reachable only when there is no
-          dataset at all, which is what it is for. */}
-      <InsightsCard
-        rows={live ? live.insights : MOCK_INSIGHTS}
-        /* Both destinations already existed; the card was simply never given
-           them. /kpi/insights is a real route (KPIDetailScreen handles
-           type === 'insights'), and every row carries its own systemId. The
-           card's note that "there is no Insights list screen" was true when it
-           was written and is not any more. */
-        onViewAll={() => navigate('/kpi/insights')}
-        onSelectRow={row => row.systemId && navigate(`/system/${row.systemId}`)}
-      />
+
 
       {/* 198314:73649 — the layer is named "Balance", a leftover shadcn
           template name; the card is Water consumption. It used to ship its own
@@ -1157,6 +1141,28 @@ export default function HomeAllAccounts({ expanded = false }) {
         canToday={canJumpToToday(consumptionPeriod, consumptionOffset)}
         canStepPrev={consumptionSteps.canStepPrev}
         canStepNext={consumptionSteps.canStepNext}
+      />
+
+      {/* Figma 199323:12113 / 199371:137019 order: System health -> Water
+         events -> Water consumption -> Insights. Insights used to sit above
+         the chart, which is the one place the page disagreed with the node.
+         Both states draw the same order. */}
+      {/* 198314:73639. No onViewAll: the delivery canvas has no Insights list
+          screen, so the card renders its "View all" inert rather than this page
+          inventing a route for it. */}
+      {/* `live ?` not `live?.insights?.length ?` — a scope with no insights is a
+          real, renderable state, and the length test turned it into the comp's
+          four invented rows. MOCK_INSIGHTS is reachable only when there is no
+          dataset at all, which is what it is for. */}
+      <InsightsCard
+        rows={live ? live.insights : MOCK_INSIGHTS}
+        /* Both destinations already existed; the card was simply never given
+           them. /kpi/insights is a real route (KPIDetailScreen handles
+           type === 'insights'), and every row carries its own systemId. The
+           card's note that "there is no Insights list screen" was true when it
+           was written and is not any more. */
+        onViewAll={() => navigate('/kpi/insights')}
+        onSelectRow={row => row.systemId && navigate(`/system/${row.systemId}`)}
       />
 
       {/* 198314:73650 */}

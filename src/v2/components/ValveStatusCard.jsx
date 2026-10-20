@@ -161,6 +161,13 @@ function WarningGlyph() {
 export default function ValveStatusCard({
   state = 'open',
   onToggle,
+  /* Render the card as a READOUT: everything the design draws, minus the
+     action. EventFocusOverlay needs the card's face but not a second way to
+     shut the water off — the owner's "now we have 2 valve CTA", 2026-10-17 —
+     and that surface already carries the primary in its footer. The previous
+     fix was a hand copy of this card's atoms in that file, which silently went
+     stale the moment this card was rebuilt. A prop here keeps one source. */
+  interactive = true,
   label = 'Valve status',
   stateLabel,
   handlingLabel = 'Valve handling:',
@@ -210,16 +217,21 @@ export default function ValveStatusCard({
         </div>
 
         {/* The card ASKS; it does not act. The caller turns this into a
-            ValveConfirmSheet intent — same contract the switch had. */}
-        <button
-          type="button"
-          onClick={() => onToggle?.(isOpen ? 'closed' : 'open')}
-          className={BTN}
-          data-node-id={NODE.button}
-          data-name="Button"
-        >
-          <p className={BTN_TEXT}>{action}</p>
-        </button>
+            ValveConfirmSheet intent — same contract the switch had.
+            As a readout the action is omitted entirely rather than disabled: a
+            greyed button still reads as "you may do this here", and the point
+            is that the control lives elsewhere on that surface. */}
+        {interactive ? (
+          <button
+            type="button"
+            onClick={() => onToggle?.(isOpen ? 'closed' : 'open')}
+            className={BTN}
+            data-node-id={NODE.button}
+            data-name="Button"
+          >
+            <p className={BTN_TEXT}>{action}</p>
+          </button>
+        ) : null}
       </div>
 
       {t === 'alert' ? (
