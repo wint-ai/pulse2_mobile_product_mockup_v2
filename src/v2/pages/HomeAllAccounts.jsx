@@ -263,37 +263,74 @@ function DonutPlots({ className }) {
  * so both are written out as whole JSX trees. That also keeps every Figma
  * class a literal attribute, which is the only place the `\/` escape survives.
  */
-function TabTrigger({ label, active, onClick }) {
-  if (active) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        aria-current="page"
-        className="content-stretch cursor-pointer flex flex-[1_0_0] flex-col items-center min-w-[56px] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)]"
-        data-node-id="I198314:73491;101485:143349;198314:73487"
-      >
-        <span className="content-stretch drop-shadow-[0px_0px_0px_var(--ring-focus,rgba(161,161,161,0.5))] flex gap-[var(--component\/tabs\/trigger\/gap,6px)] items-center overflow-clip px-[var(--component\/tabs\/trigger\/px,8px)] py-[var(--component\/tabs\/trigger\/py,4px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)] shrink-0">
-          <span className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--wint-blue-accent,#0b81f8)] text-center text-ellipsis whitespace-nowrap">
-            {label}
-          </span>
-        </span>
-        {/* 121116:90215 / :90216 — the 2px rule, which overhangs 2px to the right. */}
-        <span className="absolute bottom-0 content-stretch flex flex-col items-start left-0 py-[var(--p-0,0px)] right-[-2px]">
-          <span className="bg-[var(--wint-blue-accent,#0b81f8)] h-[2px] relative shrink-0 w-full" />
-        </span>
-      </button>
-    )
-  }
+/**
+ * The tab row — Figma 199383:141499 / 199359:126785.
+ *
+ * The design moved from an UNDERLINE tab (a 2px wint-blue rule under the
+ * active label, from 198314:73491) to a PILL tab: every trigger sits on a
+ * slate-200 ground at h-32 / radius 14, and the active one is filled #c7e3ff
+ * with semibold wint-blue text. The middle trigger carries a count Badge.
+ *
+ * Two details that are the design's, not a simplification:
+ *  · the active and inactive pills use radius 14, but the LAST trigger is a
+ *    different component in Figma ("TabsTrigger/line/false/default") at
+ *    radius 26 — so the row is not three copies of one shape.
+ *  · the Badge is slate-200 on a slate-200 pill, i.e. invisible as a fill; it
+ *    reads only through its slate-400 numeral. That is what the node emits.
+ */
+function TabTrigger({ label, count, active, onClick, pill = 'default' }) {
+  const radius = pill === 'wide'
+    ? String.raw`rounded-[var(--component\/tabs\/list\/radius-horizontal,26px)]`
+    : String.raw`rounded-[var(--component\/tabs\/trigger\/radius,14px)]`
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className="content-stretch cursor-pointer flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center justify-center min-w-[56px] px-[var(--spacing\/2,8px)] py-[var(--spacing\/1,4px)] relative rounded-[var(--component\/tabs\/list\/radius-horizontal,26px)]"
-      data-node-id="I198314:73491;101485:143349;198314:73490"
+      aria-current={active ? 'page' : undefined}
+      /* The count is decoration on the accessible name: a tab is found by what
+         it opens, not by how many things are behind it, and folding the number
+         in renamed this control from "Systems" to "Systems 103" — which broke
+         systemsTabScope's lookup and would break anyone navigating by name.
+         The number is still announced, as the badge's own label below. */
+      aria-label={label}
+      className={[
+        'content-stretch cursor-pointer flex flex-[1_0_0] h-[32px] items-center justify-center min-w-[56px] relative',
+        pill === 'wide'
+          ? String.raw`gap-[var(--spacing\/2,8px)] px-[var(--spacing\/2,8px)] py-[var(--spacing\/1,4px)]`
+          : 'flex-col',
+        radius,
+        active ? 'bg-[#c7e3ff]' : String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)]`,
+      ].join(' ')}
     >
-      <span className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--colors\/slate\/500,#62748e)] text-center text-ellipsis whitespace-nowrap">
-        {label}
+      <span
+        className={[
+          String.raw`content-stretch flex gap-[var(--component\/tabs\/trigger\/gap,6px)] items-center overflow-clip relative shrink-0`,
+          pill === 'wide' ? '' : String.raw`px-[var(--component\/tabs\/trigger\/px,8px)] py-[var(--component\/tabs\/trigger\/py,4px)] ${radius}`,
+        ].join(' ')}
+      >
+        <span
+          className={[
+            '[word-break:break-word] overflow-hidden relative shrink-0 text-[14px] text-center text-ellipsis whitespace-nowrap',
+            String.raw`leading-[var(--text\/sm-tight\/lh,20px)]`,
+            active
+              ? String.raw`font-semibold text-[color:var(--wint-blue-accent,#0b81f8)]`
+              : String.raw`font-medium text-[color:var(--colors\/slate\/500,#62748e)]`,
+          ].join(' ')}
+        >
+          {label}
+        </span>
+
+        {count != null ? (
+          <span className={String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex h-[20px] items-center justify-center min-w-[20px] overflow-clip pl-[var(--component\/badge\/px,8px)] pr-[var(--spacing\/2,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)] shrink-0`}>
+            <span
+              className={String.raw`[word-break:break-word] leading-[var(--text\/xs\/lh,20px)] overflow-hidden relative shrink-0 tabular-nums text-[14px] text-[color:var(--colors\/slate\/400,#90a1b9)] text-ellipsis whitespace-nowrap`}
+              aria-label={`${count} ${label.toLowerCase()}`}
+            >
+              {count}
+            </span>
+          </span>
+        ) : null}
       </span>
     </button>
   )
@@ -1188,8 +1225,14 @@ export default function HomeAllAccounts({ expanded = false }) {
               >
                 <div className="content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center min-w-px relative">
                   <TabTrigger label="Overview" active={tab === 'overview'} onClick={() => setTab('overview')} />
-                  <TabTrigger label="Systems" active={tab === 'systems'} onClick={() => setTab('systems')} />
-                  <TabTrigger label="General Info" active={tab === 'general'} onClick={() => setTab('general')} />
+                  {/* The count is the design's: 199383:141499 draws a Badge on
+                      the middle trigger. Figma labels it "Locations"; this tab
+                      renders the SYSTEMS table, so the label is left alone and
+                      the count reports what the tab actually opens. Flagged
+                      for the owner — renaming it is a content change, not a
+                      restyle. */}
+                  <TabTrigger label="Systems" count={live?.stats?.total ?? null} active={tab === 'systems'} onClick={() => setTab('systems')} />
+                  <TabTrigger label="General Info" pill="wide" active={tab === 'general'} onClick={() => setTab('general')} />
                 </div>
               </div>
             </div>

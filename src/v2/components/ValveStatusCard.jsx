@@ -1,124 +1,135 @@
 /**
- * Valve status card — v2, both states of the redesigned System page.
+ * Valve status card — v2, System page.
  *
- * SOURCE — two nodes inside two different "System page_mobile" frames:
- *   calm   199296:50251  (in 199296:50183)  card only, one row
- *   alert  199296:50515  (in 199296:50454)  same row + a red "Valve handling" strip
+ * SOURCE — the card was REDESIGNED. It is read from the saved emitted code of
+ * the two current "System page_mobile" variants rather than re-fetched (Figma
+ * MCP reads are metered and a rate-limit refusal reads exactly like a missing
+ * node):
+ *   sysA  199383:141499  ->  "IOT overview" 199383:141553
+ *   sysB  199359:126785  ->  "IOT overview" 199384:143046
+ * The two nodes are byte-identical apart from their ids and one gradient angle
+ * (see GRADIENT below), so sysA's ids are carried as the canonical ones.
  *
- * The two are ONE component driven by `tone`, because the row itself is not
- * identical between them — see TONE DIFFS below. Every emitted Tailwind class
- * is carried across literally (the `var(--token,fallback)` arbitrary values
- * included); each node keeps its own `data-node-id`.
+ * WHAT CHANGED FROM THE PREVIOUS NODES (199296:50251 / 199296:50515)
+ *   1. THE SWITCH IS GONE. The old card drove the valve from a SwitchToggle
+ *      (track 199296:50257 + thumb + glyph). The new node has no switch at
+ *      all: the action is a full "Close valve" Button (199383:141566) that
+ *      takes the remaining width of the row (`flex-[1_0_0]`).
+ *   2. The row is no longer title | value | switch across one line. It is now
+ *      a two-column row (`gap-8`, `w-full`): a LEFT STACK (141555, `gap-8`)
+ *      holding the title over a value line, and the Button beside it.
+ *   3. The value line (141558, `gap-9.75`) leads with the valve glyph
+ *      (141559, the 16.497x15.75 "Group") and then the state word at
+ *      19.501/29.251 in slate-600 — the glyph moved out of the switch thumb
+ *      and became part of the readout.
+ *   4. The title is one style now. The old node branched it (calm: 18/18
+ *      SemiBold slate-800 tracking -0.45; alert: 12/16 Medium slate-500); the
+ *      new node draws Figtree Medium 500, 14/20, `var(--foreground,#0a0a0a)`
+ *      in BOTH variants. The 215.5px title box survives unchanged.
+ *   5. Card padding is `px-[16px]` + `items-start` (was `px-18` / `pl-18
+ *      pr-20`), and the fixed `h-[67px] justify-center` calm height is gone —
+ *      the card is content-sized in both states.
+ *   6. The handling strip is no longer a red panel. `bg-red/50` is replaced by
+ *      the page's own two-layer gradient, and its width is `w-full` rather
+ *      than the old fixed 320px. Everything inside it (red/200 disc, 12px
+ *      Phosphor warning, SemiBold 14/20 headline, Regular 14/20 body) is
+ *      unchanged.
  *
- * TONE DIFFS (calm -> alert), all of them:
- *   1. Card padding/height. calm: `h-[67px] justify-center px-[18px]`.
- *      alert: no fixed height, no justify-center, `pl-[18px] pr-[20px]` —
- *      the right pad grows by 2px and the card is content-sized.
- *   2. Row layout. calm: `flex items-center justify-between w-full` (title,
- *      value and switch pushed apart across the full width).
- *      alert: `flex gap-[8px] items-center` with NO `w-full` and no
- *      `justify-between` — the three children sit packed at the left.
- *   3. Title typography. calm is the card heading: Figtree SemiBold 600,
- *      18/18, slate-800 #1d293d, tracking -0.45px.
- *      alert demotes it to a caption: Figtree Medium 500, 12/16,
- *      slate-500 #62748e, no tracking. (The 215.5px title box is unchanged.)
- *   4. alert appends the strip 199296:50532 — red/50 panel, 80px tall,
- *      radius 11, px-13, a red/200 disc holding a 12px Phosphor warning glyph,
- *      a SemiBold 14/20 slate-900 headline and a Regular 14/20 gray-700 body.
- *   The value text ("Open") and the whole SwitchToggle are byte-identical
- *   between the two nodes; only their node ids differ.
+ * GRADIENT — sysA emits 168.92503170733684deg, sysB 168.2758303032674deg for
+ * the same strip. Figma re-derives the angle from the layer's bounding box, so
+ * this is a measurement artefact rather than two designs; sysA's is used.
  *
- * ASSETS — nothing downloaded. The glyph riding the switch thumb (imgGroup,
- * 8daa2.svg) is this project's own valve mark: the SVG is the ValveStatus
- * `open` variant scaled by exactly 1.16258 (14.5649x13.9511 vs 12.5282x12,
- * stroke 1.02908 vs 0.885173), so ValveStatus is reused rather than re-fetched.
- * Figma's own box for it stretches the artwork, hence preserveAspectRatio.
- * The Phosphor warning glyph is inlined from the export verbatim.
+ * ASSETS — nothing downloaded; no figma.com asset URL is referenced at
+ * runtime. The "Group" (imgGroup, 832ed.svg) is this project's own valve mark:
+ * it is the ValveStatus `open` variant scaled by 1.16258, so ValveStatus is
+ * reused. The Phosphor warning glyph is inlined below from the export.
  *
- * STATE — there is no shared valve action in this app. Like ValveControlCard
- * (v1) and SystemPageV2Screen's `closedValves` map, the caller owns the value:
- * pass `state` + `onToggle`. Nothing is persisted here.
+ * TONE — the design gives ONE card, and it draws the handling strip. There is
+ * no variant without it, so `tone` keeps the only job it can be shown to have:
+ * `alert` draws the strip, `calm` omits it. (Reported: with the strip now
+ * neutral rather than red, it may be intended on both states — the frames
+ * cannot settle it.)
+ *
+ * WORDING — Figma only ever draws the valve OPEN, so it only ever draws
+ * "Close valve". The closed-state action word has no frame; it is derived
+ * ("Open valve") the same way the closed state word is, because a button that
+ * still says "Close valve" on a shut valve is a dead control. Flagged as the
+ * one invented string on this card.
+ *
+ * STATE — unchanged. There is no shared valve action in this app: the caller
+ * owns the value and the confirmation. `onToggle(next)` still fires with
+ * 'closed' | 'open', which is what SystemPageV2Screen turns into a
+ * ValveConfirmSheet intent. Nothing is persisted here.
  */
 
 import { cn } from '@/lib/utils'
 import ValveStatus from '@/v2/components/ValveStatus'
 
-/* Figma node ids, per tone — the two frames draw the same card with different
-   ids, so the attribute has to follow the tone or half of them would be lies. */
+/* sysA's ids. sysB draws the same card as
+   141553->143046, 141554->143047, 141555->143048, 141556->143049,
+   141557->143050, 141558->143051, 141559->143052, 141565->143058,
+   141566->143059, 141567->143060, 141568->143061, 141569->143062,
+   141570->143063, 141571->143064, 141572->143065. */
 const NODE = {
-  calm: {
-    card: '199296:50251',
-    row: '199296:50252',
-    titleBox: '199296:50253',
-    title: '199296:50254',
-    value: '199296:50255',
-    switchBox: '199296:50256',
-    track: '199296:50257',
-    thumb: '199296:50258',
-    glyph: '199296:50259',
-  },
-  alert: {
-    card: '199296:50515',
-    row: '199296:50516',
-    titleBox: '199296:50517',
-    title: '199296:50518',
-    value: '199296:50519',
-    switchBox: '199296:50520',
-    track: '199296:50521',
-    thumb: '199296:50522',
-    glyph: '199296:50523',
-  },
+  card: '199383:141553',
+  row: '199383:141554',
+  stack: '199383:141555',
+  titleBox: '199383:141556',
+  title: '199383:141557',
+  valueRow: '199383:141558',
+  glyph: '199383:141559',
+  value: '199383:141565',
+  button: '199383:141566',
+  strip: '199383:141567',
 }
 
-// Shared between 199296:50251 and 199296:50515; the tone-specific padding and
-// height are appended per tone below.
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[16px] items-start py-[12px] relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
+// 199383:141553
+const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[16px] items-start px-[16px] py-[12px] relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
 
-const CARD_TONE = {
-  calm: String.raw`h-[67px] justify-center px-[18px]`,
-  alert: String.raw`pl-[18px] pr-[20px]`,
+// 199383:141554
+const ROW = String.raw`content-stretch flex gap-[8px] items-center relative shrink-0 w-full`
+
+// 199383:141555 — the title/value stack the Button sits beside.
+const STACK = String.raw`content-stretch flex flex-col gap-[8px] items-start relative shrink-0 min-w-0`
+
+/* 199383:141556. Figma's `w-[215.5px]` is measured on a 375pt frame; at 393
+   with this card's padding a fixed-width box beside a `flex-[1_0_0]` button
+   overflows the column, so the box is capped rather than fixed. Same number,
+   expressed as the maximum it was. */
+const TITLE_BOX = String.raw`content-stretch flex items-center relative shrink-0 max-w-[215.5px]`
+
+// 199383:141557 — ONE style now, no tone branch.
+const TITLE = String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap`
+
+// 199383:141558
+const VALUE_ROW = String.raw`content-stretch flex gap-[9.75px] items-center relative shrink-0`
+
+// 199383:141559 — the "Group" box; ValveStatus fills it.
+const GLYPH_BOX = String.raw`h-[15.75px] relative shrink-0 w-[16.497px]`
+
+// 199383:141565
+const VALUE = String.raw`[word-break:break-word] flex flex-col font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-medium,500)] justify-center leading-[0] relative shrink-0 text-[19.501px] text-[color:var(--colors\/slate\/600,#45556c)] whitespace-nowrap`
+
+/* 199383:141566 "Button", verbatim apart from being a real <button> instead of
+   Figma's <div> (the node already carries `cursor-pointer`, so it is meant to
+   be one). Its two drop-shadow layers both resolve to rgba(0,0,0,0), i.e. no
+   shadow, but they are carried rather than "corrected" like every other token
+   on this card. */
+const BTN = String.raw`bg-[#f2f6ff] border border-[var(--colors\/slate\/900,#0f172b)] border-solid content-stretch cursor-pointer drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex flex-[1_0_0] gap-[var(--spacing\/1,4px)] items-center justify-center min-w-px px-[var(--component\/button\/size-xs\/px,10px)] py-[12px] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+
+// I199383:141566;100985:11132
+const BTN_TEXT = String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif] font-semibold leading-[var(--text\/button-xs\/size,20px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/button-xs\/size,14px)] whitespace-nowrap`
+
+/* 199383:141567 — the handling strip. The old red/50 fill is gone; the node
+   paints the page's own two-layer gradient, carried as an inline style because
+   Figma emits it as one (an arbitrary Tailwind value cannot hold the commas). */
+const STRIP = String.raw`content-stretch flex flex-col gap-[8px] h-[80px] items-start justify-center px-[13px] relative rounded-[11px] shrink-0 w-full max-w-full`
+const STRIP_GRADIENT = {
+  backgroundImage:
+    'linear-gradient(168.92503170733684deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
 }
 
-const ROW_TONE = {
-  calm: String.raw`content-stretch flex items-center justify-between relative shrink-0 w-full`,
-  /* Figma emits this row without w-full or justify-between, and with a
-     shrink-0 215.5px title box — measured on a 375pt frame. At 393 with this
-     card's own padding the three children's intrinsic width exceeds the
-     column, and because the row cannot shrink it pushed the switch off the
-     right edge of the phone and gave the page a horizontal scrollbar. Same
-     three children, same gap; the row now fills its parent and the title
-     takes the slack, which is what 215.5 was expressing. */
-  alert: String.raw`content-stretch flex gap-[8px] items-center justify-between relative shrink-0 w-full`,
-}
-
-const TITLE_TONE = {
-  calm: String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/lg\/lh-none,18px)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/lg\/size,18px)] tracking-[-0.45px] whitespace-nowrap`,
-  alert: String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/xs\/size,12px)] whitespace-nowrap`,
-}
-
-const VALUE = String.raw`[word-break:break-word] flex flex-col font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-medium,500)] justify-center leading-[0] relative shrink-0 text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/base\/size,16px)] whitespace-nowrap`
-
-/* SwitchToggle 199296:50257 / 199296:50521, verbatim apart from (a) being a
-   real <button role="switch"> instead of Figma's <div>, and (b) the off branch.
-   Figma only ever draws the valve OPEN, where the track is overridden to
-   wint-blue-accent while the thumb and border still resolve the "off" tokens —
-   that mix is the design, not a mistake, so it is kept. `closed` has no frame;
-   it mirrors the open one onto the project's existing off-track token. */
-const TRACK = String.raw`border-[1.469px] border-[var(--component\/switch\/border\/off,rgba(0,0,0,0))] border-solid content-stretch drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex h-[27.025px] items-center p-[1.469px] relative rounded-[14686.031px] shrink-0 w-[47px] cursor-pointer outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50`
-
-/* A switch's thumb sits on the side its state points at: right when open,
-   left when closed. Figma draws this control only in its open state and
-   places the thumb LEFT on a blue track — faithful to the frame, but on a
-   real screen it reads as "off" next to a label saying "Open", which is how
-   it was reported. The frame is drawing an off-state thumb over an on-state
-   track; we follow the semantics, not that artefact. */
-const TRACK_ON = String.raw`bg-[var(--wint-blue-accent,#0b81f8)] justify-end`
-const TRACK_OFF = String.raw`bg-[var(--component\/switch\/track\/off-bg,#e5e5e5)] justify-start`
-
-const THUMB = String.raw`bg-[var(--component\/switch\/off-thumb-bg,white)] relative flex items-center justify-center overflow-hidden rounded-[14686.031px] shadow-[var(--shadow\/x,0px)_var(--shadow\/switch-thumb\/layer-2\/y,0px)_var(--shadow\/switch-thumb\/layer-2\/blur,0px)_var(--shadow\/switch-thumb\/layer-2\/spread,0px)_var(--shadow\/switch-thumb\/layer-2\/color,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/switch-thumb\/layer-1\/y,0px)_var(--shadow\/switch-thumb\/layer-1\/blur,0px)_var(--shadow\/switch-thumb\/layer-1\/spread,0px)_var(--shadow\/switch-thumb\/layer-1\/color,rgba(0,0,0,0))] shrink-0 size-[23.5px]`
-
-
-// Phosphor Icons / warning 199296:50535 — export verbatim (12x12, #FB2C36).
+// Phosphor Icons / warning 199383:141570 — export verbatim (12x12, #FB2C36).
 function WarningGlyph() {
   return (
     <svg
@@ -160,88 +171,71 @@ export default function ValveStatusCard({
   ...props
 }) {
   const t = tone === 'alert' ? 'alert' : 'calm'
-  const id = NODE[t]
   const isOpen = state === 'open'
   // Figma draws "Open"; the closed wording has no frame, so it is derived and
   // still overridable, which is what keeps every drawn string a prop.
   const value = stateLabel ?? (isOpen ? 'Open' : 'Closed')
+  // See WORDING above — "Open valve" is derived, not drawn.
+  const action = isOpen ? 'Close valve' : 'Open valve'
 
   return (
-    <div
-      className={cn(CARD, CARD_TONE[t], className)}
-      data-node-id={id.card}
-      data-name="IOT overview"
-      {...props}
-    >
-      <div className={ROW_TONE[t]} data-node-id={id.row}>
-        <div
-          className="content-stretch flex min-w-0 flex-1 items-center relative max-w-[215.5px]"
-          data-node-id={id.titleBox}
-        >
-          <p className={TITLE_TONE[t]} dir="auto" data-node-id={id.title}>
-            {label}
-          </p>
-        </div>
-        <div className={VALUE} data-node-id={id.value}>
-          <p className={String.raw`leading-[var(--text\/base\/lh,24px)]`} dir="auto">
-            {value}
-          </p>
-        </div>
-        <div
-          className="content-stretch flex items-center relative shrink-0"
-          data-node-id={id.switchBox}
-        >
-          <button
-            type="button"
-            role="switch"
-            aria-checked={isOpen}
-            aria-label={label}
-            onClick={() => onToggle?.(isOpen ? 'closed' : 'open')}
-            className={cn(TRACK, isOpen ? TRACK_ON : TRACK_OFF)}
-            data-node-id={id.track}
-            data-name="SwitchToggle"
-          >
-            {/* The glyph rides INSIDE the thumb rather than being absolutely
-                placed against the track. Figma positions it with percentage
-                insets measured off the 44.062x24.087 padding box and stretches
-                it (preserveAspectRatio="none"); at our resolved size that put
-                the mark outside the white circle and left it behind when the
-                thumb moved. Centring it in the thumb keeps the two together in
-                both states, at the glyph's own aspect ratio. */}
-            <span className={THUMB} data-node-id={id.thumb} data-name="thumb">
+    <div className={cn(CARD, className)} data-node-id={NODE.card} data-name="IOT overview" {...props}>
+      <div className={ROW} data-node-id={NODE.row}>
+        <div className={STACK} data-node-id={NODE.stack}>
+          <div className={TITLE_BOX} data-node-id={NODE.titleBox}>
+            <p className={TITLE} dir="auto" data-node-id={NODE.title}>
+              {label}
+            </p>
+          </div>
+
+          <div className={VALUE_ROW} data-node-id={NODE.valueRow}>
+            {/* Figma wraps the exported SVG in an `inset-[-3.98%_-3.8%_…]`
+                bleed box, which only exists because the export bakes the
+                stroke outside the artwork's bounds. Our own vector draws
+                inside its viewBox, so it fills the Group box directly; the
+                box itself is the node's, to the thousandth. */}
+            <div className={GLYPH_BOX} data-node-id={NODE.glyph} data-name="Group">
               <ValveStatus
                 state={isOpen ? 'open' : 'closed'}
-                /* 15px, not the 13.5 the frame resolves to: the artwork's
-                   0.885 stroke on a 12.5 viewBox lands under a pixel at 13.5
-                   and reads as a smudge on a 23.5px thumb. */
-                className="block size-[15px]"
-                data-node-id={id.glyph}
+                className="absolute inset-0 block size-full"
+                preserveAspectRatio="none"
               />
-            </span>
-          </button>
+            </div>
+            <div className={VALUE} data-node-id={NODE.value}>
+              <p className="leading-[29.251px]" dir="auto">
+                {value}
+              </p>
+            </div>
+          </div>
         </div>
+
+        {/* The card ASKS; it does not act. The caller turns this into a
+            ValveConfirmSheet intent — same contract the switch had. */}
+        <button
+          type="button"
+          onClick={() => onToggle?.(isOpen ? 'closed' : 'open')}
+          className={BTN}
+          data-node-id={NODE.button}
+          data-name="Button"
+        >
+          <p className={BTN_TEXT}>{action}</p>
+        </button>
       </div>
 
       {t === 'alert' ? (
-        /* 199296:50532 — the strip only the alert frame draws. Figma fixes it
-           at 320px, the content width of the 375pt frame; max-w-full keeps it
-           from overflowing a narrower host without changing it at that width. */
-        <div
-          className={String.raw`bg-[var(--colors\/red\/50,#fef2f2)] content-stretch flex flex-col gap-[8px] h-[80px] items-start justify-center px-[13px] relative rounded-[11px] shrink-0 w-[320px] max-w-full`}
-          data-node-id="199296:50532"
-        >
+        <div className={STRIP} style={STRIP_GRADIENT} data-node-id={NODE.strip}>
           <div
             className="content-stretch flex gap-[8px] items-start relative shrink-0 w-full"
-            data-node-id="199296:50533"
+            data-node-id="199383:141568"
           >
             <div
               className={String.raw`bg-[var(--colors\/red\/200,#ffc9c9)] content-stretch flex items-center justify-center relative rounded-[20px] shrink-0 size-[16px]`}
-              data-node-id="199296:50534"
+              data-node-id="199383:141569"
               data-name="rightIcon"
             >
               <div
                 className="relative shrink-0 size-[12px]"
-                data-node-id="199296:50535"
+                data-node-id="199383:141570"
                 data-name="Phosphor Icons / warning"
               >
                 <WarningGlyph />
@@ -249,12 +243,12 @@ export default function ValveStatusCard({
             </div>
             <p
               className={String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap`}
-              data-node-id="199296:50536"
+              data-node-id="199383:141571"
             >{`${handlingLabel} ${handling} `}</p>
           </div>
           <p
             className={String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-normal,400)] leading-[var(--font\/line-height\/leading-5,20px)] relative shrink-0 text-[color:var(--colors\/gray\/700,#364153)] text-[length:var(--font\/size\/text-sm,14px)] tracking-[var(--font\/tracking\/tracking-normal,0px)] w-full`}
-            data-node-id="199296:50537"
+            data-node-id="199383:141572"
           >{`${handlingDescription} `}</p>
         </div>
       ) : null}

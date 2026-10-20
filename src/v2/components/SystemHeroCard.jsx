@@ -31,6 +31,8 @@
  *                in Geist Bold 16/24
  *   see more     Figtree Light 14/18
  *   header bar   h-42, px-16 py-24, 18px Figtree Medium title, tracking -0.6
+ *                — SUPERSEDED. See HEADER REDRAW below: 199383:141502 redraws
+ *                  this bar at h-59 with a 16/24 slate-800 title.
  */
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -60,6 +62,76 @@ import wave from '@/assets/system-hero-wave.png'
  * menu-01" and @/v2/icons only owns menu-10 (which carries an extra dot), so
  * swapping it would change the drawing. Adding Menu01 to the icon set is the
  * right fix and is outside this file.
+ */
+
+/* HEADER REDRAW — read off two NEWER System page_mobile frames, again from
+ * saved emitted code, never a live Figma read:
+ *   199383:141499  the alert frame   (header 199383:141502)
+ *   199359:126785  the calm frame    (header 199359:126788)
+ *
+ * The two frames DISAGREE about the header, so only one could be followed.
+ * 199383 is the later node and is the one this file now draws:
+ *
+ *            199383:141502 (followed)          199359:126788 (not followed)
+ *   height   h-[59px]                          h-[42px]
+ *   content  gap-y-[10px], justify-between     gap-[4px_10px], justify-center
+ *   left     flex-1 group 141504: a 30px       a 22px burger + a 24px Remix
+ *            round back control (141505,       arrow-left-s-line, tight gap-2
+ *            #fafbfc on a white border,
+ *            rounded-120.833, pr-2) holding
+ *            a 24px Tabler chevron-left,
+ *            then the scope slot 141507
+ *   title    16/24 Figtree Medium slate-800,   18/32 Figtree Medium slate-800,
+ *            no tracking, inside 141507        tracking -0.6, ABSOLUTELY
+ *            (flex-1 h-28 pr-7 rounded-23)     positioned at left-[183px]
+ *            followed by a 24px chevron-down
+ *   right    Avatar 141510, size-28,           nothing
+ *            rounded-[var(--rounded-full)]
+ * Both frames agree the title ink is slate-800; this file drew slate-900, and
+ * that is now fixed either way.
+ *
+ * WHAT THE NODE COULD NOT DICTATE, and why:
+ *   burger          199383:141502 has no burger at all. It is the only thing
+ *                   that opens the navigation drawer from `onOpenMenu`, so it
+ *                   stays, inside the node's own flex-1 left group. Removing
+ *                   it is the page owner's call, not this file's.
+ *   chevron-left    the node's back control. The page fills `scope` with
+ *                   ScopePill, which already draws a back chevron and owns the
+ *                   back behaviour, so the circle is not duplicated here.
+ *   chevron-down    drawn inside 141507 after the label. Omitted on the bare
+ *                   `title` fallback — there is nothing to open from there, and
+ *                   ScopePill draws its own caret when `scope` is passed.
+ *   avatar photo    a raster on a figma.com/api/mcp/asset URL, which expires in
+ *                   ~7 days and must never be referenced at runtime. There is
+ *                   no local asset for it. The 28px rounded-full FRAME is kept
+ *                   and carries `headerAction`.
+ *   px-16           NEITHER new node emits horizontal padding on the bar — the
+ *                   frame supplies 8px from its root `p-[8px]`, which this
+ *                   component is deliberately bled out of by the page
+ *                   (`-mx-[18px]`). px-16 is left as it was rather than swapped
+ *                   for a derived number.
+ *
+ * NOT ACTED ON — the stat block and the wave both moved, and the two frames
+ * contradict each other, so this is reported rather than guessed:
+ *   · Neither frame draws the calm glass panel any more. 199359:126909 (calm)
+ *     is the bare h-120 w-121 justify-between stack this file currently draws
+ *     only for `alert`.
+ *   · 199383:141631 (alert) reorders it completely: "Water consumption" 16/24
+ *     Figtree Bold on top, then the date range, then a gap-8 row of the figure
+ *     ("5,830" 42.222/58.056 + a separate "L" at 20/20) beside a delta PILL
+ *     (bg rgba(241,245,249,0.28), h-34 w-70, rounded-9, "+120%" Geist Medium
+ *     20/20), then "See more".
+ *   · Ink is inverted between the frames: the alert frame draws white, the calm
+ *     frame draws slate-50. This file draws the opposite pair.
+ *   · Both stat blocks are absolutely positioned at page level (top-186 alert /
+ *     top-163 calm, left-[calc(50%-0.5px)]), not in flow.
+ *   · The wave is no longer full-bleed: 199383:141500 is h-303 left-9 w-385
+ *     rounded-20 (alert tint, opacity-50 + #ff7b7d), 199359:127281 is h-411
+ *     left-19 w-364 with no radius (opacity-90). Those two placements do not
+ *     agree with each other either.
+ *   · Both frames draw a Tabs row ("Overview" | "Locations", h-36, triggers
+ *     h-32 rounded-14, a Badge h-20 on the second) between the header and the
+ *     content. The page removed its tab row on purpose; nothing here re-adds it.
  */
 
 /* The nodes spell two families — Geist for the figures, Figtree for the words.
@@ -189,57 +261,92 @@ export default function SystemHeroCard({
         )}
       </div>
 
-      {/* Mobile Header Bar — 199296:50192 / 199296:50463. It sits ON the wave,
-          which is why it belongs to this component rather than to the page
-          chrome above the scroller. */}
+      {/* Mobile Header Bar — 199383:141502, the redrawn bar from the newer
+          System page_mobile (199383:141499). It sits ON the wave, which is why
+          it belongs to this component rather than to the page chrome above the
+          scroller. See the HEADER REDRAW note at the top of this file for what
+          the node changed and what it could not dictate here. */}
       <div
-        className="content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[42px] items-center justify-center px-[var(--pro\/space\/4,16px)] py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full"
-        data-node-id={alert ? '199296:50463' : '199296:50192'}
+        className="content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[59px] items-center justify-center px-[var(--pro\/space\/4,16px)] py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full"
+        data-node-id="199383:141502"
+        data-name="Mobile Header Bar"
       >
-        {/* Figma emits this row's gap as the two-value token `gap-[4px_10px]`;
-            Tailwind drops a two-length `gap-[…]`, so it is split per axis. */}
-        <div className="content-center flex flex-wrap gap-x-[10px] gap-y-[4px] items-center relative shrink-0 w-full">
-          <Button
-            type="button"
-            variant="ghost"
-            size={null}
-            onClick={onOpenMenu}
-            aria-label="Open navigation"
-            className="content-stretch flex gap-[var(--pro\/space\/1\,5,6.40148663520813px)] h-[34px] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10.669px)] shrink-0 w-[22px] text-[color:var(--colors\/slate\/900,#0f172b)] hover:bg-card/30 hover:text-current"
-            data-node-id={alert ? 'I199296:50463;50600:52769;199296:50457' : 'I199296:50192;50600:52769;199296:50186'}
+        {/* 199383:141503 "content" — the node emits row-gap only (column gap is
+            0: the back control sits flush against the scope slot) and pushes
+            the right-hand avatar out with justify-between. */}
+        <div
+          className="content-center flex flex-wrap gap-y-[10px] items-center justify-between relative shrink-0 w-full"
+          data-name="content"
+          data-node-id="199383:141503"
+        >
+          {/* 199383:141504 — the flex-1 left group. In the node it holds the
+              round back control and the scope slot; here it also holds the
+              drawer burger, which the node dropped but the app still needs. */}
+          <div
+            className="content-stretch flex flex-[1_0_0] items-center min-w-px relative"
+            data-node-id="199383:141504"
           >
-            {/* Huge Icons / menu-01 — three rules inset 20.83%/16.67% in a
-                17.071px box, which is what the node draws. */}
-            <span className="overflow-clip relative shrink-0 size-[17.071px]">
-              <svg viewBox="0 0 17 17" fill="none" className="block size-full" aria-hidden="true">
-                <path
-                  d="M2.85 4.27h11.37M2.85 8.54h11.37M2.85 12.8h11.37"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </span>
-          </Button>
-
-          {scope ?? (
-            <p
-              className={cn(
-                '[word-break:break-word] flex-[1_0_0] min-w-px relative',
-                FIG_MED,
-                String.raw`font-[var(--font\/weight\/font-medium,500)]`,
-                String.raw`text-[18px] text-[color:var(--colors\/slate\/900,#0f172b)] text-center tracking-[-0.6px] leading-[var(--text\/2xl\/lh,32px)]`,
-              )}
-              dir="auto"
-              data-node-id={alert ? 'I199296:50463;50600:52769;199296:50458' : 'I199296:50192;50600:52769;199296:50187'}
+            <Button
+              type="button"
+              variant="ghost"
+              size={null}
+              onClick={onOpenMenu}
+              aria-label="Open navigation"
+              className="content-stretch flex gap-[var(--pro\/space\/1\,5,6.40148663520813px)] h-[34px] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10.669px)] shrink-0 w-[22px] text-[color:var(--colors\/slate\/900,#0f172b)] hover:bg-card/30 hover:text-current"
+              data-node-id="I199359:126788;50600:52769;199359:126918"
             >
-              {title}
-            </p>
-          )}
+              {/* Huge Icons / menu-01 — three rules inset 20.83%/16.67% in a
+                  17.071px box, which is what the node draws. */}
+              <span className="overflow-clip relative shrink-0 size-[17.071px]">
+                <svg viewBox="0 0 17 17" fill="none" className="block size-full" aria-hidden="true">
+                  <path
+                    d="M2.85 4.27h11.37M2.85 8.54h11.37M2.85 12.8h11.37"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+            </Button>
 
-          {/* Balances the burger so the title stays optically centred, and
-              carries whatever control the page still needs up here. */}
-          <span className="flex items-center justify-end shrink-0 w-[22px]">{headerAction}</span>
+            {scope ?? (
+              /* 199383:141507 — the scope slot, verbatim. The node puts a
+                 24px chevron-down after the label; it is omitted on this
+                 fallback because nothing is passed to open, and a caret with
+                 no menu behind it is a false affordance. When the page passes
+                 `scope` (it passes ScopePill, which draws its own caret and
+                 its own back chevron) that control fills this slot instead. */
+              <div
+                className="content-stretch flex flex-[1_0_0] h-[28px] items-center justify-center min-w-px pr-[7px] relative rounded-[23px]"
+                data-node-id="199383:141507"
+              >
+                <p
+                  className={cn(
+                    '[word-break:break-word] relative shrink-0 whitespace-nowrap',
+                    FIG_MED,
+                    String.raw`font-[var(--font\/weight\/font-medium,500)]`,
+                    String.raw`leading-[var(--text\/base\/lh,24px)] text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/base\/size,16px)]`,
+                  )}
+                  dir="auto"
+                  data-node-id="199383:141508"
+                >
+                  {title}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 199383:141510 "Avatar" — a 28px rounded-full frame at the right of
+              the bar. The node fills it with a photo served from an expiring
+              figma.com asset URL, so the picture is not reproduced; the frame
+              is, and it carries whatever control the page puts up here. */}
+          <span
+            className="content-stretch flex items-center justify-center relative rounded-[var(--rounded-full,9999px)] shrink-0 size-[28px]"
+            data-node-id="199383:141510"
+            data-name="Avatar"
+          >
+            {headerAction}
+          </span>
         </div>
       </div>
 

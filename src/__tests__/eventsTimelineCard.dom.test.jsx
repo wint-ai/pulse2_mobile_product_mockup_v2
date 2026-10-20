@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 //
-// EventsTimelineCard, after the redesigned System page (Figma 199296:50453
-// calm / 199296:50716 alert). These lock the three things the redesign touched
-// that nothing else guards:
+// EventsTimelineCard, after the redesigned System page (Figma 199383:141630,
+// the alert page 199383:141499 / 199359:126908, the calm page 199359:126785).
+// These lock the three things the redesign touched that nothing else guards:
 //
 //  1. The "n sent" chip read `event.notifications.count`, but the live page
 //     passes recipientsOf()'s return value (src/data/upstream/generateEvents.js)
@@ -12,9 +12,14 @@
 //     <button aria-haspopup="listbox"> whose options are the status labels the
 //     supplied events actually carry — never invented categories — and a
 //     `period` value the card does not offer must NOT empty the card.
-//  3. `tone` is the ONLY difference between the two Figma states: the header
-//     title's weight/colour/tracking. Everything else is identical in both
-//     emitted ranges, so nothing else may branch on it.
+//  3. The two Figma states are now IDENTICAL — the header title that used to
+//     differ (calm regular/slate-700 vs alert semibold/slate-800) is semibold /
+//     slate-800 / -0.45px in both. `tone` is still a prop two callers pass, so
+//     it must keep being accepted, and nothing may branch on it.
+//     The title's own line-height is asserted because CardTitle is
+//     cn("...leading-none...", className) and tailwind-merge DELETES a
+//     `leading-` spelled before `text-[length:...]` — which is Figma's own
+//     alphabetical order, and which silently dropped the design's 18px once.
 //
 // The empty state and the Figma `\/` token spellings are asserted alongside,
 // because both have regressed here before.
@@ -47,7 +52,7 @@ const EVENTS = [
   },
 ]
 
-const TITLE_NODE = '[data-node-id="I199296:50453;149:2490;2780:50631"]'
+const TITLE_NODE = '[data-node-id="I199383:141630;149:2490;2780:50631"]'
 
 describe('EventsTimelineCard renders the routed system’s own events', () => {
   it('draws the supplied events and never the mock defaults', () => {
@@ -135,7 +140,7 @@ describe('the "All" control is a real filter wired from the event data', () => {
   })
 })
 
-describe('tone is the only difference between the two Figma states', () => {
+describe('the header title matches the one spelling both Figma states draw', () => {
   const titleClass = (tone) => {
     const { container } = render(<EventsTimelineCard events={EVENTS} tone={tone} />)
     const cls = container.querySelector(TITLE_NODE).className
@@ -143,35 +148,53 @@ describe('tone is the only difference between the two Figma states', () => {
     return cls
   }
 
-  it('calm draws the regular slate/700 title, alert the semibold slate/800 one', () => {
-    const calm = titleClass('calm')
-    const alert = titleClass('alert')
-    expect(calm).toContain('font-normal,400')
-    expect(calm).toContain('slate\\/700,#314158')
-    expect(alert).toContain('font-semibold,600')
-    expect(alert).toContain('slate\\/800,#1d293d')
-    expect(alert).toContain('tracking-[-0.45px]')
+  it('is semibold slate/800 at 18px with -0.45px tracking, in BOTH tones', () => {
+    for (const tone of ['calm', 'alert']) {
+      const cls = titleClass(tone)
+      expect(cls).toContain('font-semibold,600')
+      expect(cls).toContain(String.raw`slate\/800,#1d293d`)
+      expect(cls).toContain('tracking-[-0.45px]')
+      expect(cls).toContain(String.raw`text-[length:var(--text\/lg\/size,18px)]`)
+      // The pre-redesign calm spelling is gone from both Figma nodes.
+      expect(cls).not.toContain(String.raw`slate\/700,#314158`)
+      expect(cls).not.toContain('font-normal,400')
+    }
   })
 
-  it('the rows are byte-identical between the two states', () => {
-    const rowsFor = (tone) => {
+  it('keeps leading-[18px] through CardTitle’s cn() instead of losing it to twMerge', () => {
+    // Figma's alphabetical order puts `leading-` before `text-[length:...]`,
+    // which tailwind-merge treats as a font-size conflict and deletes.
+    expect(titleClass('calm')).toContain(String.raw`leading-[var(--text\/lg\/lh-none,18px)]`)
+  })
+
+  it('carries the Figtree family with a real fallback, not the bare Figma style name', () => {
+    const cls = titleClass('alert')
+    expect(cls).toContain(String.raw`font-[family-name:var(--font\/family\/sans,`)
+    expect(cls).toContain("'Figtree','Inter',sans-serif]")
+  })
+
+  it('renders byte-identically in the two states — nothing branches on tone', () => {
+    const htmlFor = (tone) => {
       const { container } = render(<EventsTimelineCard events={EVENTS} tone={tone} />)
-      const html = container.querySelector('ul').outerHTML
+      // The root's own data-node-id names which Figma node is being stood in
+      // for, so it is the one attribute allowed to differ.
+      const html = container.firstElementChild.innerHTML
       cleanup()
       return html
     }
-    expect(rowsFor('calm')).toBe(rowsFor('alert'))
+    expect(htmlFor('calm')).toBe(htmlFor('alert'))
   })
 })
 
 describe('the Figma token spellings survive into the DOM', () => {
   it('keeps the escaped var() names and the fixed card box', () => {
     const { container } = render(<EventsTimelineCard events={EVENTS} />)
-    const root = container.querySelector('[data-node-id="199296:50453"]')
+    // Default tone is 'calm' -> the calm page's card, 199359:126908.
+    const root = container.querySelector('[data-node-id="199359:126908"]')
     // A plain JS string through cn() would have eaten this backslash.
     expect(root.className).toContain('--border-width\\/border,1px')
     expect(root.className).toContain('rounded-[var(--rounded-2xl,18px)]')
-    expect(root.className).toContain('h-[380px]')
+    expect(root.className).toContain('max-h-[380px]')
     expect(root.className).toContain('overflow-clip')
     // ...and a doubled backslash would emit a class Tailwind never generates.
     expect(root.className).not.toContain('\\\\/')

@@ -43,6 +43,54 @@
  * Every emitted class is kept verbatim, escaped var() fallbacks and all. The
  * backslashes only survive in a JSX string attribute or a String.raw template
  * — a plain JS string handed to cn() eats them and the class never lands.
+ *
+ * ── RE-READ against the two NEWER System page_mobile frames ──────────────────
+ * Again from saved emitted code, never a live Figma read:
+ *   199383:141499  the ALERT frame  (this card: 199383:141576, data-name
+ *                  "Topology", the same shell name as 199296:50268/50538)
+ *   199359:126785  the CALM frame   (this card: 199359:126854)
+ *
+ * WHAT IS ALREADY A MATCH — the calm branch below is byte-identical to the calm
+ * frame 199359:126854, shell and all: bg-#fafbfc / rounded-2xl 18 / p-18 /
+ * gap-19; the 9px disc + "Business Hours" (Figtree SemiBold 14/19.25 slate-900,
+ * through the same 198064:50481 › 198064:50433 › 199150:124756 › 198064:50427
+ * instance chain) + "8AM-8PM" (Figtree Medium 12/15 slate-500); both chips
+ * bg-#e2eafc, px-13 py-9, rounded-11, 14/20 SemiBold slate-900 w-full. Nothing
+ * there needed changing. Only `dir="auto"` was missing from the description
+ * (199359:126857 carries it) and is now restored.
+ *
+ * WHERE THE TWO NEW FRAMES DISAGREE — reported, not silently resolved:
+ *   title    199383:141578 is Figtree Regular/400, leading text/lg/lh-none 18,
+ *            slate-700, text/lg/size 18 — i.e. exactly what this file already
+ *            draws for calm. 199359:126856 instead draws it Figtree Medium/500,
+ *            leading text/sm/lh 20, --foreground #0a0a0a, text/sm/size 14.
+ *            The alert frame is the later node and agrees with this file, so
+ *            the type is left alone.
+ *   descr.   the calm frame keeps it ("Current active policy"); the alert frame
+ *            drops the description row entirely. It is a prop with a default,
+ *            so it stays and the caller decides.
+ *   chips    calm frame: both chips bg-#e2eafc, each a single SemiBold string
+ *            ("Alerts", "Valve handling: Auto shut-off "). Alert frame:
+ *            bg-[var(--colors\/slate\/100,#f1f5f9)] on both, and the second
+ *            chip is a flex ROW of two runs — "Valve handling" in Figtree
+ *            Medium slate-600 (#45556c) then "Auto shut-off " in Figtree
+ *            SemiBold slate-900, gap-8, items-center, whitespace-nowrap
+ *            (199383:141627 / 141628 / 142573). This branch draws chips only
+ *            in CALM, where the calm frame already matches, so neither the
+ *            slate-100 fill nor the split row has a place to land yet.
+ *
+ * NOT IMPLEMENTED — the alert state was redesigned out from under this file:
+ * 199383:141576 draws the ALERT card as the calm card (title + policy rows +
+ * two slate-100 chips) and carries NO hairline rule, NO "Current Mode" row, NO
+ * "Learn more" caret and NO Home/Away segmented control. Neither new frame
+ * contains the strings "Current Mode", "Home", "Away" or "Learn more", or the
+ * #cde6ff selected fill. Following it literally would delete the radiogroup,
+ * its roving-tabindex keyboard handling, `onModeChange` and `onLearnMore` —
+ * working functionality this repo does not drop without the owner saying so —
+ * and any blend of the old and new alert cards would be an invented layout
+ * (there is no frame that shows rows, chips, rule and toggle together). So the
+ * alert branch is left exactly as 199296:50538 drew it, and this is flagged for
+ * the owner instead.
  */
 
 import { useId } from 'react'
@@ -185,6 +233,7 @@ export default function ActivePolicyCard({
           {description ? (
             <p
               className="leading-[var(--font\/line-height\/leading-5,20px)] min-w-full relative shrink-0 text-[color:var(--colors\/gray\/700,#364153)] text-[length:var(--font\/size\/text-sm,14px)] tracking-[var(--font\/tracking\/tracking-normal,0px)] w-[min-content]"
+              dir="auto"
               data-node-id="199296:50271"
             >
               {description}

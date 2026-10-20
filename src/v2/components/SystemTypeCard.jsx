@@ -1,45 +1,67 @@
 /**
- * The System page's "System type" card — Figma "System page_mobile", two states:
- *   calm   199296:50210  (inside frame 199296:50183)
- *   alert  199296:50475  (inside frame 199296:50454)
+ * The System page's "System type" card — Figma "System page_mobile".
+ *
+ * RECONCILED 2026-10-20 against the current pair of frames:
+ *   alert  199383:141519  (inside frame 199383:141499 — the frame that also
+ *                          carries the red-bordered "Alert card" 199383:141993)
+ *   calm   199359:126797  (inside frame 199359:126785 — no alert card, and it
+ *                          continues into the "Water consumption_M" chart)
+ * The older pair (199296:50210 calm / 199296:50475 alert) is superseded. The
+ * tone -> frame mapping above is read off the PAGE CONTEXT: the frame with an
+ * Alert card above the stack is the alerting state, exactly as the old pair
+ * was arranged. See "WHERE THE TWO FRAMES DISAGREE" below — they swapped the
+ * two layouts relative to the old pair, which is surprising enough to be worth
+ * a second pair of eyes before this ships.
  *
  * It carries the system-type headline ("Water line"), the small branch
  * schematic (device badge + status halo + pipe elbow), the device photo, the
  * serial number, and the device-count chip — plus the disclosure control at
  * the bottom that reveals the system status below the card.
  *
- * ONE COMPONENT, TWO STATES. `tone` is the only switch. The seven things it
- * changes, all measured off the two nodes rather than guessed:
- *   1. root gap            22px (calm) -> 16px (alert)
- *   2. root padding        pt-12 (calm) -> py-12 (alert)
- *   3. content row         items-center + justify-between + px-18 (calm)
- *                          -> items-start + gap-12 + px-20 (alert)
- *   4. heading stack gap   10px (calm) -> 6px (alert)
- *   5. photo halo          the 141px #e9f0fd disc (199296:50243) and the
- *                          wrapper's gap-10 exist in calm ONLY
- *   6. footer stack        gap-12 + h-43 + items-center (calm)
- *                          -> gap-10 + auto height + items-start (alert)
- *      divider            full-width Line 6 (calm) -> fixed 335px Line 4 (alert)
- *      toggle row         auto width, centred by the stack (calm)
- *                          -> w-full + justify-center (alert)
- *   7. toggle label        "Show system status" (calm) -> "Show more" (alert)
+ * ONE COMPONENT, TWO STATES. `tone` is the only switch, and the new frames
+ * shrink what it changes to FOUR things, all measured off the two nodes:
+ *   1. content row   h-[144px] items-center justify-between px-[16px]  (alert)
+ *                    -> gap-[12px] h-[121px] items-start px-[20px]     (calm)
+ *   2. title size    text-xl 20px / leading 32.5px, no tracking        (alert)
+ *                    -> text-lg 18px / leading 18px / -0.45px tracking (calm)
+ *   3. pipe elbow    left-[32px] top-[121px]  (alert, the taller row)
+ *                    -> left-[29px] top-[97px]                         (calm)
+ *   4. divider       w-full (alert) -> w-[335px] (calm, see the note there)
  *
- * What `tone` does NOT change, and a literal reading of the two frames is the
- * only way to know it: the card border stays white in both (the red border in
- * the alert frame belongs to the separate Alert card, 199296:50466), the badge
- * halo and status dot stay green (#53c846, ac146.svg is byte-identical in both
- * exports), and every class on the schematic, the chip, the serial and the
- * photo image itself is the same in both states.
+ * What `tone` no longer changes, because the two frames now agree on it:
+ *   - the card chassis: gap-[16px] py-[12px] items-center justify-center
+ *   - the heading stack gap: 6px in both (was 10px in the old calm node)
+ *   - the eyebrow: 14px/20px on --foreground (was 12px slate-400 in both old
+ *     nodes — this is the single biggest visual change in this pass)
+ *   - the photo wrapper: no gap, and NO #e9f0fd halo disc. The old calm node's
+ *     141px disc (199296:50243) is gone from both new frames; it is deleted
+ *     here rather than kept behind a flag.
+ *   - the footer: gap-[10px] items-start, no fixed h-[43px]
+ *   - the toggle row: w-full + justify-center
+ *   - the toggle label: "Show more" in BOTH frames. The old calm default
+ *     "Show system status" is gone; the `toggleLabel` prop still overrides it
+ *     and the disclosure behaviour is untouched.
+ *   - the badge, halo, status dot, branch text, serial and chip: byte-identical
+ *     classes in both frames, and unchanged from the old pair.
  *
- * ASSETS. Nothing new ships. The device photo is the repo's existing
- * `wint-vma-front.png` (the same product shot as Figma's 803b7.png). Every
- * other asset in the node is a circle, a 1px rule or a single-glyph icon, so
- * they are drawn here as CSS or inline SVG rather than shipped as files:
- *   93f3b.svg / ac146.svg / a98db.svg  ->  rounded-full divs
- *   7e55a.svg / 171d3.svg              ->  a 1px #e2e8f0 rule
- *   3d2f7.svg  (Vector 6, the elbow)   ->  <PipeElbow/>, the exported path
- *   67869.svg  (Remix ram-2-line)      ->  <DeviceGlyph/>, the exported path
- *   a7613.svg  (Tabler chevron-down)   ->  <ChevronDown/>, the exported path
+ * WHERE THE TWO FRAMES DISAGREE (and this file therefore has to pick a side):
+ * the four `tone` branches above ARE the disagreements. There is no third
+ * source that says which layout belongs to which state, only the page context.
+ * Note that relative to the OLD pair the layouts are swapped: old-calm was
+ * items-center/justify-between (now alert) and old-alert was items-start/
+ * gap-[12px] (now calm). If that swap turns out to be a Figma inconsistency
+ * rather than a decision, flipping it is a one-line change in each branch.
+ *
+ * ASSETS. Nothing new ships, and nothing is hotlinked. Every asset hash in the
+ * card region is identical across both frames, and identical to the old pair:
+ *   803b7.png  (VMA_Front_5189 2)   ->  the repo's `wint-vma-front.png`
+ *   93f3b.svg / ac146.svg           ->  rounded-full divs (status halo + dot)
+ *   cb6bd.svg (alert) / 171d3.svg (calm)  ->  a 1px #e2e8f0 rule. Two hashes
+ *                                       because the two rules are drawn at
+ *                                       different widths; same 1px fill.
+ *   3d2f7.svg  (Vector 6, the elbow)->  <PipeElbow/>, the exported path
+ *   67869.svg  (Remix ram-2-line)   ->  <DeviceGlyph/>, the exported path
+ *   a7613.svg  (Tabler chevron-down)->  <ChevronDown/>, the exported path
  *
  * NOTE ON CLASS STRINGS: Figma's design-token classes contain escaped slashes
  * (`var(--pro\/space\/4,16px)`). A plain JS string eats the backslash, so every
@@ -68,10 +90,16 @@ const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:R
    atom. Same class set as the node, different order, or the card renders at
    the browser's default line-height and every row sits a few px off. */
 
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col items-center justify-center relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full`
+/* 199383:141519 / 199359:126797 — identical in both frames, chassis included. */
+const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[16px] items-center justify-center py-[12px] relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full`
 
-const EYEBROW = String.raw`font-medium relative shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)] text-[length:var(--text\/button-xs\/size,12px)] leading-[var(--text\/button-xs\/size,12px)]`
-const TITLE = String.raw`font-[var(--font\/weight\/font-semibold,600)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/lg\/size,18px)] tracking-[-0.45px] leading-[var(--text\/lg\/lh-none,18px)]`
+/* 199383:141523 / 199359:126801 — 14px on --foreground in BOTH new frames. */
+const EYEBROW = String.raw`font-[var(--font\/weight\/font-medium,500)] relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)]`
+
+/* 199383:141524 / 199359:126802 — the one type ramp the two frames disagree on. */
+const TITLE = String.raw`font-[var(--font\/weight\/font-semibold,600)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)]`
+const TITLE_ALERT = String.raw`text-[length:var(--text\/xl\/size,20px)] leading-[var(--text\/xl\/lh-relaxed,32.5px)]`
+const TITLE_CALM = String.raw`text-[length:var(--text\/lg\/size,18px)] tracking-[-0.45px] leading-[var(--text\/lg\/lh-none,18px)]`
 
 const BADGE = String.raw`content-stretch flex gap-[var(--component\/badge\/gap,4.8px)] items-center justify-center overflow-clip px-[var(--component\/tabs\/trigger\/gap,7.2px)] py-[var(--component\/badge\/py,2.4px)] relative rounded-[var(--component\/badge\/radius,31.2px)] shrink-0 size-[24px]`
 
@@ -117,7 +145,7 @@ const DeviceGlyph = ({ size = 19.749, ...props }) => (
   </svg>
 )
 
-/* Tabler Icons / chevron-down, a7613.svg. */
+/* Tabler Icons / chevron-down, a7613.svg — the same hash in both frames. */
 const ChevronDown = (props) => (
   <svg
     viewBox="0 0 17.36 17.36"
@@ -157,9 +185,10 @@ const PipeElbow = (props) => (
 
 /* ------------------------------------------------------------------ model */
 
-/* The halo and dot are #53c846 in both frames. The other tones are this app's
-   existing status palette, so a system that is not healthy can say so without
-   the card needing a second variant. */
+/* The halo and dot are #53c846 in both frames (ac146.svg / 93f3b.svg are the
+   same hashes in both exports). The other tones are this app's existing status
+   palette, so a system that is not healthy can say so without the card needing
+   a second variant. */
 const STATUS_COLOR = {
   ok: '#53c846',
   warn: '#f0b100',
@@ -191,7 +220,7 @@ const deviceText = (d) =>
  * @param {string}   tone          'calm' | 'alert'
  * @param {boolean}  expanded      controlled disclosure state; omit for uncontrolled
  * @param {Function} onToggle      called with the next expanded state
- * @param {string}   toggleLabel   footer control text; defaults per tone
+ * @param {string}   toggleLabel   footer control text; defaults to Figma's "Show more"
  * @param {string}   className     appended to the card root
  */
 export default function SystemTypeCard({
@@ -226,41 +255,42 @@ export default function SystemTypeCard({
 
   const dotColor = STATUS_COLOR[status] ?? STATUS_COLOR.ok
   const dotLabel = statusLabel ?? STATUS_LABEL[status] ?? STATUS_LABEL.ok
-  const label = toggleLabel ?? (alert ? 'Show more' : 'Show system status')
+  /* Both frames say "Show more". `toggleLabel` is still the override. */
+  const label = toggleLabel ?? 'Show more'
 
-  /* 199296:50216 / 199296:50481 — identical in both states. */
+  /* 199383:141525 / 199359:126803 — identical in both frames. */
   const schematic = (
     <div
       className="content-stretch flex flex-col gap-[18px] items-center relative shrink-0"
-      data-node-id={alert ? '199296:50481' : '199296:50216'}
+      data-node-id={alert ? '199383:141525' : '199359:126803'}
     >
       <div
         className="content-stretch flex gap-[4px] items-center relative shrink-0"
-        data-node-id={alert ? '199296:50482' : '199296:50217'}
+        data-node-id={alert ? '199383:141526' : '199359:126804'}
       >
         <div
           className="content-stretch flex gap-[4px] items-center relative shrink-0"
-          data-node-id={alert ? '199296:50485' : '199296:50220'}
+          data-node-id={alert ? '199383:141529' : '199359:126807'}
         >
           <div
             className="content-stretch flex gap-[4px] items-center relative shrink-0"
-            data-node-id={alert ? '199296:50486' : '199296:50221'}
+            data-node-id={alert ? '199383:141530' : '199359:126808'}
           >
             {/* badge + halo + status dot */}
             <div
               className="content-stretch flex gap-[6px] items-end relative shrink-0"
-              data-node-id={alert ? '199296:50487' : '199296:50222'}
+              data-node-id={alert ? '199383:141531' : '199359:126809'}
             >
               <div
                 className={cn(BADGE, GLYPH_COLOR)}
                 data-name="Badge"
-                data-node-id={alert ? '199296:50490' : '199296:50225'}
+                data-node-id={alert ? '199383:141532' : '199359:126810'}
               >
                 <div className="content-stretch flex flex-col items-start relative shrink-0" data-name="leftIcon">
                   <div
                     className="relative shrink-0 size-[19.749px]"
                     data-name="Remix Icons / ram-2-line"
-                    data-node-id={alert ? '199296:50489' : '199296:50224'}
+                    data-node-id={alert ? '199383:141653' : '199359:126935'}
                   >
                     <DeviceGlyph size="100%" className="absolute inset-0 block" />
                   </div>
@@ -269,7 +299,7 @@ export default function SystemTypeCard({
               {/* Ellipse 3 — the 10%-opacity status halo behind the glyph. */}
               <div
                 className="absolute left-[-2px] opacity-[calc(var(--opacity-10,100)/100)] size-[29px] top-[-3px]"
-                data-node-id={alert ? '199296:50491' : '199296:50226'}
+                data-node-id={alert ? '199383:141533' : '199359:126811'}
                 aria-hidden="true"
               >
                 <div className="block size-full rounded-full opacity-[0.1]" style={{ backgroundColor: dotColor }} />
@@ -277,7 +307,7 @@ export default function SystemTypeCard({
               {/* Ellipse 2 — the solid status dot. */}
               <div
                 className="absolute left-[20px] size-[6px] top-[19px]"
-                data-node-id={alert ? '199296:50492' : '199296:50227'}
+                data-node-id={alert ? '199383:141534' : '199359:126812'}
                 role="img"
                 aria-label={dotLabel}
               >
@@ -286,23 +316,23 @@ export default function SystemTypeCard({
             </div>
             <div
               className="flex flex-row items-center self-stretch"
-              data-node-id={alert ? '199296:50493' : '199296:50228'}
+              data-node-id={alert ? '199383:141535' : '199359:126813'}
             >
               <div className="content-stretch flex gap-[6px] h-full items-center relative shrink-0">
                 <div
                   className={cn(FIG_MED, BRANCH)}
-                  data-node-id={alert ? '199296:50494' : '199296:50229'}
+                  data-node-id={alert ? '199383:141536' : '199359:126814'}
                 >
                   <p className={BRANCH_LINE}>{topology}</p>
                 </div>
                 <div
                   className="content-stretch flex h-full items-center justify-center pt-[5px] relative shrink-0"
-                  data-node-id={alert ? '199296:50495' : '199296:50230'}
+                  data-node-id={alert ? '199383:141537' : '199359:126815'}
                 >
                   <p
                     className={cn(FIG_MED, SERIAL)}
                     dir="auto"
-                    data-node-id={alert ? '199296:50496' : '199296:50231'}
+                    data-node-id={alert ? '199383:141538' : '199359:126816'}
                   >
                     {serialNumber}
                   </p>
@@ -313,11 +343,11 @@ export default function SystemTypeCard({
         </div>
       </div>
       {/* device-count chip */}
-      <div className={CHIP} data-node-id={alert ? '199296:50505' : '199296:50240'}>
+      <div className={CHIP} data-node-id={alert ? '199383:141543' : '199359:126821'}>
         <p
           className={cn(FIG_REG, CHIP_TEXT)}
           dir="auto"
-          data-node-id={alert ? '199296:50506' : '199296:50241'}
+          data-node-id={alert ? '199383:141544' : '199359:126822'}
         >
           {devices.map((d, i) => {
             const last = i === devices.length - 1
@@ -335,40 +365,40 @@ export default function SystemTypeCard({
 
   return (
     <div
-      className={cn(CARD, alert ? 'gap-[16px] py-[12px]' : 'gap-[22px] pt-[12px]', className)}
+      className={cn(CARD, className)}
       data-name="IOT overview"
-      data-node-id={alert ? '199296:50475' : '199296:50210'}
+      data-node-id={alert ? '199383:141519' : '199359:126797'}
     >
-      {/* content row — 199296:50211 / 199296:50476 */}
+      {/* content row — 199383:141520 / 199359:126798. The one structural
+          disagreement between the two frames; see the header note. */}
       <div
         className={cn(
-          'content-stretch flex h-[121px] relative shrink-0 w-full',
-          alert ? 'gap-[12px] items-start px-[20px]' : 'items-center justify-between px-[18px]',
+          'content-stretch flex relative shrink-0 w-full',
+          alert
+            ? 'h-[144px] items-center justify-between px-[16px]'
+            : 'gap-[12px] h-[121px] items-start px-[20px]',
         )}
-        data-node-id={alert ? '199296:50476' : '199296:50211'}
+        data-node-id={alert ? '199383:141520' : '199359:126798'}
       >
         <div
           className="content-stretch flex flex-col gap-[22px] h-full items-start relative shrink-0 w-[158px]"
-          data-node-id={alert ? '199296:50477' : '199296:50212'}
+          data-node-id={alert ? '199383:141521' : '199359:126799'}
         >
           <div
-            className={cn(
-              '[word-break:break-word] content-stretch flex flex-col items-start relative shrink-0 whitespace-nowrap',
-              alert ? 'gap-[6px]' : 'gap-[10px]',
-            )}
-            data-node-id={alert ? '199296:50478' : '199296:50213'}
+            className="[word-break:break-word] content-stretch flex flex-col gap-[6px] items-start relative shrink-0 whitespace-nowrap"
+            data-node-id={alert ? '199383:141522' : '199359:126800'}
           >
             <p
               className={cn(FIG_MED, EYEBROW)}
               dir="auto"
-              data-node-id={alert ? '199296:50479' : '199296:50214'}
+              data-node-id={alert ? '199383:141523' : '199359:126801'}
             >
               {typeLabel}
             </p>
             <p
-              className={cn(FIG_SEMI, TITLE)}
+              className={cn(FIG_SEMI, TITLE, alert ? TITLE_ALERT : TITLE_CALM)}
               dir="auto"
-              data-node-id={alert ? '199296:50480' : '199296:50215'}
+              data-node-id={alert ? '199383:141524' : '199359:126802'}
             >
               {title}
             </p>
@@ -376,28 +406,16 @@ export default function SystemTypeCard({
           {schematic}
         </div>
 
-        {/* device photo — 199296:50242 / 199296:50507. The #e9f0fd disc behind
-            it (199296:50243) and the wrapper's gap-10 are calm-only. */}
+        {/* device photo — 199383:141545 / 199359:126823. Identical in both
+            frames, and neither still draws the old calm node's #e9f0fd disc. */}
         <div
-          className={cn(
-            'content-stretch flex items-center justify-center relative rounded-[8px] shrink-0 w-[116px]',
-            alert ? null : 'gap-[10px]',
-          )}
-          data-node-id={alert ? '199296:50507' : '199296:50242'}
+          className="content-stretch flex items-center justify-center relative rounded-[8px] shrink-0 w-[116px]"
+          data-node-id={alert ? '199383:141545' : '199359:126823'}
         >
-          {alert ? null : (
-            <div
-              className="absolute left-[-14px] size-[141px] top-[-10.5px]"
-              data-node-id="199296:50243"
-              aria-hidden="true"
-            >
-              <div className="block size-full rounded-full bg-[#e9f0fd]" />
-            </div>
-          )}
           <div
             className="h-[116px] mix-blend-multiply relative shrink-0 w-[97px]"
             data-name="VMA_Front_5189 2"
-            data-node-id={alert ? '199296:50508' : '199296:50244'}
+            data-node-id={alert ? '199383:141546' : '199359:126824'}
           >
             <img
               alt={photoAlt}
@@ -409,10 +427,15 @@ export default function SystemTypeCard({
       </div>
 
       {/* Vector 6 — the pipe run out of the badge. Positioned against the card
-          root, which is why the card is `relative`. */}
+          root, which is why the card is `relative`. The alert frame's row is
+          23px taller, so the elbow moves with it: 32/121 there, 29/97 in calm. */}
       <div
-        className={cn('absolute h-[26px] left-[29px] top-[97px] w-[13px]', PIPE_COLOR)}
-        data-node-id={alert ? '199296:50509' : '199296:50245'}
+        className={cn(
+          'absolute h-[26px] w-[13px]',
+          alert ? 'left-[32px] top-[121px]' : 'left-[29px] top-[97px]',
+          PIPE_COLOR,
+        )}
+        data-node-id={alert ? '199383:141547' : '199359:126825'}
         aria-hidden="true"
       >
         <div className="absolute inset-[0_0_-1.92%_-3.85%]">
@@ -420,22 +443,19 @@ export default function SystemTypeCard({
         </div>
       </div>
 
-      {/* footer — 199296:50246 / 199296:50510 */}
+      {/* footer — 199383:141548 / 199359:126826 */}
       <div
-        className={cn(
-          'content-stretch flex flex-col relative shrink-0 w-full',
-          alert ? 'gap-[10px] items-start' : 'gap-[12px] h-[43px] items-center',
-        )}
-        data-node-id={alert ? '199296:50510' : '199296:50246'}
+        className="content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full"
+        data-node-id={alert ? '199383:141548' : '199359:126826'}
       >
         <div
-          /* Figma pins the alert divider at w-[335px], which is the frame's
-             full width — the designer drew it edge-to-edge. Inside this card's
-             own padding the content box is 317px at 393, so taken literally it
-             hangs 18px out and gives the whole page a horizontal scrollbar.
-             w-full is what 335 was expressing. */
-          className={cn('h-0 relative shrink-0 w-full', alert ? 'max-w-[335px]' : null)}
-          data-node-id={alert ? '199296:50511' : '199296:50247'}
+          /* The alert frame draws this rule w-full. The calm frame pins it at
+             w-[335px], which is the frame's full width — the designer drew it
+             edge-to-edge. Taken literally inside this card it would hang out
+             past the card's own box and give the page a horizontal scrollbar,
+             so 335 is expressed as w-full capped at 335. */
+          className={cn('h-0 relative shrink-0 w-full', alert ? null : 'max-w-[335px]')}
+          data-node-id={alert ? '199383:141549' : '199359:126827'}
           aria-hidden="true"
         >
           <div className={RULE_FILL} />
@@ -444,23 +464,20 @@ export default function SystemTypeCard({
           type="button"
           onClick={handleToggle}
           aria-expanded={isExpanded}
-          className={cn(
-            'content-stretch flex items-center relative shrink-0 cursor-pointer bg-transparent border-0 p-0',
-            alert ? 'justify-center w-full' : null,
-          )}
-          data-node-id={alert ? '199296:50512' : '199296:50248'}
+          className="content-stretch flex items-center justify-center relative shrink-0 w-full cursor-pointer bg-transparent border-0 p-0"
+          data-node-id={alert ? '199383:141550' : '199359:126828'}
         >
           <span
             className={cn(FIG_MED, TOGGLE_LABEL)}
             dir="auto"
-            data-node-id={alert ? '199296:50513' : '199296:50249'}
+            data-node-id={alert ? '199383:141551' : '199359:126829'}
           >
             {label}
           </span>
           <span
             className={cn('relative shrink-0 size-[17.36px]', CHEVRON_COLOR)}
             data-name="Tabler Icons / chevron-down"
-            data-node-id={alert ? '199296:50514' : '199296:50250'}
+            data-node-id={alert ? '199383:141552' : '199359:126830'}
           >
             <ChevronDown
               className={cn(
