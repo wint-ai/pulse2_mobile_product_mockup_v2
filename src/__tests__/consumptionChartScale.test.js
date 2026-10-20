@@ -21,13 +21,10 @@ import {
   nearestBucketIndex,
   niceScale,
   niceStep,
-  showsValueLabels,
-  valueLabelEvery,
-  valueLabelFontSize,
   xLabelEvery,
   yAxisWidth,
 } from '@/v2/components/chartScale'
-import { axisFormatter } from '@/v2/components/chartAxis'
+import { axisFormatter, axisUnitLabel } from '@/v2/components/chartAxis'
 
 describe('niceStep — the 1/1.2/1.5/2/2.5/3/4/5/6/8/10 ladder (PLS-WC-26, §14.1)', () => {
   it('rounds up to the next rung, scaled by the power of ten', () => {
@@ -113,31 +110,20 @@ describe('x label density (PLS-WC-31, §14.6)', () => {
   })
 })
 
-describe('bar value labels (PLS-WC-35/36, §13)', () => {
-  it('thins by ceil(26 / slot width), not by bucket count', () => {
-    expect(valueLabelEvery(26)).toBe(1)
-    expect(valueLabelEvery(40)).toBe(1)
-    expect(valueLabelEvery(13)).toBe(2)
-    expect(valueLabelEvery(9)).toBe(3)
-  })
+/* The 'bar value labels (PLS-WC-35/36, §13)' block stood here and pinned
+   valueLabelEvery's ceil(26 / slot) cadence, valueLabelFontSize's 12 -> 10
+   step and showsValueLabels' one-series rule.
 
-  it('draws none at all when there is no measured slot', () => {
-    expect(valueLabelEvery(0)).toBe(Infinity)
-  })
+   It went on 2026-10-20 with the thing it described. The owner: "remove
+   numbers above bars it looks strange on mobile." WaterConsumptionCardV2's
+   renderBarShape was the only caller of all three helpers, so the helpers went
+   too rather than staying exported and unreachable, and a test of a deleted
+   function is not a rule anyone can keep. Nothing here was weakened to make a
+   failing assertion pass: the subject no longer exists.
 
-  it('drops to 10px under a 40px slot', () => {
-    expect(valueLabelFontSize(53)).toBe(12)
-    expect(valueLabelFontSize(40)).toBe(12)
-    expect(valueLabelFontSize(27)).toBe(10) // §19: Monthly at 360px
-  })
-
-  it('shows labels only for exactly one value-carrying series', () => {
-    expect(showsValueLabels(1)).toBe(true)
-    // A supply/return pair: one number over two bars names neither.
-    expect(showsValueLabels(2)).toBe(false)
-    expect(showsValueLabels(0)).toBe(false)
-  })
-})
+   §13 is the PRD section this contradicts, and the value labels were also the
+   agreed non-colour route to the numbers when the 2.18:1 series fill was
+   accepted. Both are flagged for the owner in the card. */
 
 describe('bucket names and openability (§18, §3.5)', () => {
   const june = { day: 'Jun 26', litres: 18_432, key: { kind: 'month', y: 2026, m: 5 } }
@@ -220,20 +206,13 @@ describe('width-driven thinning', () => {
     expect(xLabelEvery(12, slotAt360, approxTextWidth('Jun 25', 12))).toBeGreaterThan(1)
   })
 
-  it('thins value labels against the value it will actually draw', () => {
-    const slot = 11
-    // The PRD's constant assumes ~26px; "356.8K" is nearer 40.
-    const assumed = valueLabelEvery(slot)
-    const measured = valueLabelEvery(slot, approxTextWidth('356.8K', 10))
-    expect(measured).toBeGreaterThan(assumed)
-    expect(measured * slot).toBeGreaterThanOrEqual(approxTextWidth('356.8K', 10))
-  })
+  /* 'thins value labels against the value it will actually draw' sat here and
+     went with valueLabelEvery — see the note above the deleted block. The
+     x-axis half of the same rule is untouched and is still asserted below. */
 
   it('never returns a cadence below 1, whatever it is handed', () => {
     expect(xLabelEvery(0, 0, 0)).toBe(1)
     expect(xLabelEvery(12, 1000, 1)).toBeGreaterThanOrEqual(1)
-    expect(valueLabelEvery(0)).toBe(Infinity)
-    expect(valueLabelEvery(1000, 10)).toBe(1)
   })
 })
 
@@ -379,5 +358,73 @@ describe('nearestBucketIndex — §19 routes the POINTER to the nearest bucket',
   it('reports no bucket when there is no plot yet', () => {
     expect(nearestBucketIndex(100, LEFT, 0, 31)).toBe(-1)
     expect(nearestBucketIndex(100, LEFT, SLOT, 0)).toBe(-1)
+  })
+})
+
+/*
+ * THE Y AXIS UNIT — and the gutter it must not spend.
+ *
+ * The owner asked for units on the y axis. What makes this a scale question
+ * rather than a copy one is that `yAxisWidth` sizes the gutter from the widest
+ * tick string, and the plot — hence every bar — gets what the gutter leaves.
+ * These cases are the measurement that chose a caption over a tick suffix, so
+ * that a later "just append it to the formatter" has to argue with a number.
+ */
+describe('y axis unit (the owner’s “add units to the y axis”)', () => {
+  it('names the unit for a units KEY, and falls back rather than printing nothing', () => {
+    expect(axisUnitLabel('liters')).toBe('L')
+    expect(axisUnitLabel('gallons')).toBe('gal')
+    expect(axisUnitLabel('cubic_meters')).toBe('m³')
+    // AccountScreenV2 still keeps its picker in local state no one reads, so
+    // the chart calls this with nothing. That must be litres, not blank.
+    expect(axisUnitLabel()).toBe('L')
+    expect(axisUnitLabel('furlongs')).toBe('L')
+    expect(axisUnitLabel(null)).toBe('L')
+  })
+
+  it('keeps the unit OUT of the tick strings, so the gutter does not grow', () => {
+    const dayTicks = [0, 100_000, 200_000, 300_000, 400_000]
+    const format = axisFormatter(400_000)
+    expect(dayTicks.map(format)).toEqual(['0K', '100K', '200K', '300K', '400K'])
+    // The axis is the same width it was before the unit existed.
+    expect(yAxisWidth(dayTicks, format)).toBe(44)
+  })
+
+  it('is why the unit is not a tick suffix: the 31-bucket worst case is ON the floor', () => {
+    /* Measured at 393px, where the chart surface is 311px wide. The top tick is
+       always the widest, so "unit on the top tick only" and "unit on every
+       tick" cost exactly the same — there is no cheap middle option. */
+    const SURFACE_393 = 311
+    const dayTicks = [0, 100_000, 200_000, 300_000, 400_000]
+    const bare = yAxisWidth(dayTicks, axisFormatter(400_000))
+    const suffixed = yAxisWidth(dayTicks, (v) => `${axisFormatter(400_000)(v)} L`)
+    expect(bare).toBe(44)
+    expect(suffixed).toBe(59)
+
+    const barAt = (yWidth, buckets) =>
+      barWidthFor(bucketSlotWidth(SURFACE_393 - yWidth, buckets), 1)
+    // Daily survives the suffix only by a rounding: 8.61px of slot becomes
+    // 8.13, and both floor to the same 6px bar.
+    expect(barAt(bare, 31)).toBe(BAR_MIN_WIDTH)
+    expect(barAt(suffixed, 31)).toBe(BAR_MIN_WIDTH)
+    expect(bucketSlotWidth(SURFACE_393 - suffixed, 31)).toBeLessThan(
+      bucketSlotWidth(SURFACE_393 - bare, 31),
+    )
+    // Hourly does not: 15px of gutter is a whole pixel off every bar.
+    expect(barAt(bare, 24)).toBe(9)
+    expect(barAt(suffixed, 24)).toBe(8)
+
+    // The caption spends none of it, which is the whole argument for it.
+    expect(barAt(bare, 24)).toBe(9)
+    expect(barAt(bare, 12)).toBe(20)
+  })
+
+  it('places the caption where the tick text ends, not in the open gutter', () => {
+    // recharts right-aligns a left tick at `width - tickSize - tickMargin`.
+    const TICK_MARGIN = 14
+    const hour = yAxisWidth([0, 6000, 12000, 18000, 24000], axisFormatter(24000))
+    const day = yAxisWidth([0, 100_000, 200_000, 300_000, 400_000], axisFormatter(400_000))
+    expect(hour - TICK_MARGIN).toBe(23) // §14.4's designed tick column
+    expect(day - TICK_MARGIN).toBe(30) // a wider ladder moves it, and the caption with it
   })
 })

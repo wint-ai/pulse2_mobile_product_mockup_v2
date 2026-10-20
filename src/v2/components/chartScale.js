@@ -107,36 +107,14 @@ export function yAxisWidth(ticks, format, fontSize = 12, tickMargin = 14) {
   return Math.ceil(Math.max(23, widest) + tickMargin)
 }
 
-/**
- * §13 — bar value labels thin to the SLOT, not to a bucket count. A fixed
- * "14 buckets or fewer" rule means the same chart gains and loses its numbers
- * depending on how many days a month happens to have.
- */
-export function valueLabelEvery(slotWidth, labelWidth = 26) {
-  if (!(slotWidth > 0)) return Infinity
-  /* §13's constant is 26 — the width the PRD assumes a value label takes. A
-     six-character value ("356.8K") is nearer 40px, so at an 11px Daily slot
-     the 26 gave every 3rd bucket and the labels overlapped into
-     "356.8K360.7K362.3K". The rule is unchanged; it is just measured against
-     the label that will actually be drawn rather than a constant that assumed
-     a shorter one. */
-  return Math.max(1, Math.ceil(Math.max(26, labelWidth) / slotWidth))
-}
-
-/** §13 — 12px, dropping to 10px when the slot is under 40px. */
-export function valueLabelFontSize(slotWidth) {
-  return slotWidth > 0 && slotWidth < 40 ? 10 : 12
-}
-
-/**
- * PLS-WC-36 — value labels appear only when exactly one series carries a value
- * per bucket. A comparison still qualifies (the grey bar is a reference, not a
- * second reading); a supply/return pair does not — one number over two bars
- * names neither of them.
- */
-export function showsValueLabels(valueCarryingSeriesCount) {
-  return valueCarryingSeriesCount === 1
-}
+/* §13's bar-value-label rules — valueLabelEvery, valueLabelFontSize and
+   showsValueLabels — stood here until 2026-10-20, when the owner asked for the
+   numbers above the bars to go ("remove numbers above bars it looks strange on
+   mobile"). WaterConsumptionCardV2's renderBarShape was their only caller, so
+   they were deleted with it rather than left as three exported functions no
+   module imports. The reasoning they encoded — thin to the SLOT, not to a
+   bucket count; measure against the label that will actually be drawn — is
+   worth re-reading in git history before any value label comes back. */
 
 /** What one step finer is called, for the drill-down hint. §2 "Opens into". */
 const FINER_BUCKET = { Y: 'month', M: 'day', D: 'hour' }

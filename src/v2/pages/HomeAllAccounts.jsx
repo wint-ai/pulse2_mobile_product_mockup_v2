@@ -1072,7 +1072,11 @@ export default function HomeAllAccounts({ expanded = false }) {
       <WaterConsumptionCardV2
         data={consumptionView.series}
         period={consumptionPeriod}
-        monthLabel={consumptionView.label}
+        /* The period CONTROL reads the SHORT label; the hero caption above
+           still reads `label`. Only Hourly differs between the two — see
+           bucketHourly in consumptionSeries.js for the measurement that
+           forced it. */
+        monthLabel={consumptionView.labelShort ?? consumptionView.label}
         onPeriodChange={selectConsumptionPeriod}
         onMonthChange={stepConsumption}
         picker="dropdown"

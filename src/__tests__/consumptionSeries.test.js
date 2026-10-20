@@ -197,3 +197,46 @@ describe('getFleetConsumptionSeries', () => {
     expect(days.every((d) => /^[A-Z][a-z]{2} \d{1,2}$/.test(d))).toBe(true)
   })
 })
+
+/* labelShort exists because §2's long Hourly label does not fit the control it
+   is the label for — the owner screenshotted it cut to "Tuesday, October 20,
+   2". It abbreviates the two NAMES and nothing else, and `label` keeps §2's
+   long form for every other reader (the hero caption, the tooltip heading).
+   The pairing is what matters: the two must name the same day, or the control
+   and the caption above it would disagree about what is on screen. */
+describe('labelShort — the period CONTROL\'s reading of the label', () => {
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December']
+
+  it('abbreviates the weekday and the month at Hourly, and nothing else', () => {
+    for (const system of sample) {
+      const { label, labelShort } = getConsumptionSeries(system.id, system.name, 'H', 0)
+      expect(label, system.id).toMatch(/^[A-Z][a-z]+day, [A-Z][a-z]+ \d{1,2}, \d{4}$/)
+      expect(labelShort, system.id).toMatch(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}, \d{4}$/)
+      // Same day, said shorter: each name is its own first three letters, and
+      // the day and the year are untouched.
+      const [, wd, mo, rest] = /^([A-Za-z]+), ([A-Za-z]+) (\d{1,2}, \d{4})$/.exec(label)
+      expect(labelShort).toBe(`${wd.slice(0, 3)}, ${mo.slice(0, 3)} ${rest}`)
+      expect(MONTHS).toContain(mo)
+    }
+  })
+
+  it('is the label itself at every other grouping — only Hourly is too long', () => {
+    for (const system of sample) {
+      for (const period of ['D', 'M', 'Y']) {
+        const view = getConsumptionSeries(system.id, system.name, period, 0)
+        expect(view.labelShort ?? view.label, `${system.id} @ ${period}`).toBe(view.label)
+      }
+    }
+  })
+
+  it('carries through the fleet merge, so the home screen gets it too', () => {
+    const fleet = getFleetConsumptionSeries(sample, 'H', 0)
+    expect(fleet.labelShort).toMatch(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}, \d{4}$/)
+    expect(fleet.label).toMatch(/^[A-Z][a-z]+day, [A-Z][a-z]+ \d{1,2}, \d{4}$/)
+    for (const period of ['D', 'M', 'Y']) {
+      const view = getFleetConsumptionSeries(sample, period, 0)
+      expect(view.labelShort, `fleet @ ${period}`).toBe(view.label)
+    }
+  })
+})

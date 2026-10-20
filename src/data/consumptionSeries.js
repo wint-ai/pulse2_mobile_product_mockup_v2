@@ -23,6 +23,8 @@ const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 const MONTH_NAME = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAY_NAME = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+/* The same weekday abbreviated, for `labelShort` — see bucketHourly. */
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** Whole-month index, so arithmetic never goes through Date's day-overflow. */
 const monthIndex = (y, m) => y * 12 + m;
@@ -242,12 +244,27 @@ function bucketHourly(daily, offset, systemId, monitoring) {
 
   const at = parseISO(day.date);
   /* §2: "Sunday, May 3, 2026" — the period label is long-form because it is a
-     control with room, unlike the axis ticks, which §14.7 keeps short. */
+     control with room, unlike the axis ticks, which §14.7 keeps short.
+     `label` is that long form and is unchanged: it is what the System page's
+     hero caption prints and what §2 specifies.
+
+     `labelShort` is the SAME date with the two names abbreviated, and it
+     exists because §2's premise turned out to be false — the control does not
+     have room. Measured in Chrome at the control's own type (Figtree 500,
+     14px): the longest long-form Hourly label, "Wednesday, September 20,
+     2026", is 210.6px of text, and the gap between the two chevrons is 165px
+     at a 393px frame and 132px at 360px. It clipped at both, which is what the
+     owner screenshotted ("why text cutted"). "Wed, Sep 20, 2026" is 121.9px
+     and fits with room to spare at both widths.
+     Only the period CONTROL reads labelShort. Every other consumer — the hero
+     caption, the tooltip heading — still reads `label`, so §2's long form is
+     not lost, only abbreviated where it physically cannot fit. */
   const when = new Date(Date.UTC(at.y, at.m, at.d));
-  const weekday = WEEKDAY_NAME[when.getUTCDay()];
+  const dow = when.getUTCDay();
   return {
     series: hourlyFromDay(systemId, monitoring, day),
-    label: `${weekday}, ${MONTH_NAME[at.m]} ${at.d}, ${at.y}`,
+    label: `${WEEKDAY_NAME[dow]}, ${MONTH_NAME[at.m]} ${at.d}, ${at.y}`,
+    labelShort: `${WEEKDAY_SHORT[dow]}, ${MONTH_SHORT[at.m]} ${at.d}, ${at.y}`,
     unitLabel: 'Hour',
   };
 }
@@ -280,11 +297,15 @@ export function getFleetConsumptionSeries(systems, period = 'D', offset = 0) {
   const keyOf = new Map();
   const order = [];
   let label = '';
+  let labelShort = '';
   let unitLabel = 'Day';
 
   for (const system of systems ?? []) {
     const part = getConsumptionSeries(system.id, system.name, period, offset);
     if (part.label) label = part.label;
+    /* Only Hourly carries a distinct short form; everywhere else the two are
+       the same string, so the fallback keeps one label for the fleet too. */
+    if (part.label) labelShort = part.labelShort ?? part.label;
     unitLabel = part.unitLabel;
     for (const point of part.series) {
       if (!totals.has(point.day)) {
@@ -311,6 +332,7 @@ export function getFleetConsumptionSeries(systems, period = 'D', offset = 0) {
   return {
     series: order.map((day) => ({ day, litres: totals.get(day), key: keyOf.get(day) })),
     label,
+    labelShort: labelShort || label,
     unitLabel,
   };
 }

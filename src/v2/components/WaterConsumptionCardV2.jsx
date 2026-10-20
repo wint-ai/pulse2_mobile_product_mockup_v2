@@ -107,7 +107,7 @@ import {
 } from '@/components/ui/chart'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { axisFormatter } from './chartAxis'
+import { axisFormatter, axisUnitLabel } from './chartAxis'
 import {
   BAR_CATEGORY_GAP_PX,
   BAR_GAP_PX,
@@ -120,13 +120,11 @@ import {
   nearestBucketIndex,
   niceScale,
   prefersReducedMotion,
-  showsValueLabels,
-  valueLabelEvery,
-  valueLabelFontSize,
   xLabelEvery,
   yAxisWidth,
   approxTextWidth,
 } from './chartScale'
+import { CalendarClock } from 'lucide-react'
 import CaretDown from '@/v2/icons/CaretDown'
 import FunnelSimple from '@/v2/icons/FunnelSimple'
 
@@ -279,8 +277,25 @@ function PeriodDropdown({ label, ariaLabel, onOpen }) {
      32px caption track it sits in, not 24), its pr token is 8px rather than 4,
      and component/calendar/day-radius is 26 — a pill, matching the nav buttons
      either side of it — rather than 8. */
-  const box = String.raw`flex h-[32px] max-w-[224px] min-w-0 items-center gap-[var(--p-0,0px)] overflow-clip bg-[var(--component\/calendar\/dropdown\/bg,rgba(0,0,0,0))] py-[var(--p-0,0px)] pl-[8px] pr-[var(--component\/calendar\/caption-label\/pr,8px)] rounded-[var(--component\/calendar\/day-radius,26px)]`
-  const text = String.raw`overflow-hidden text-ellipsis whitespace-nowrap font-[number:var(--font\/weight\/font-medium,500)] text-[14px] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)]`
+  /* WIDTH, 2026-10-20. Figma's trigger is `max-w-[224px]` and shrink-to-fit,
+     which is right for a left-aligned month name in a 339px artboard and wrong
+     here: the trigger then took the width of whatever string it held, so the
+     label between the two chevrons was a different size at every grouping
+     (measured at 393px: 32.7px at Yearly, 104.9 Daily, 151.1 Monthly, 165
+     Hourly) and ALSO clipped, because 165 is all the gap there is. The owner
+     screenshotted both halves of that at once: "why text cutted / make it
+     looks always same size between arrows."
+     So the trigger is `w-full` — it IS the gap between the chevrons — and the
+     text is centred inside it. Same box at every grouping by construction,
+     at any frame width, with no magic number to keep in step with the
+     longest string.
+     The ellipsis pair stays as the guard it always was. It is not the fix and
+     it must never engage: the longest label any grouping can produce is
+     Monthly's "Dec 2025 - Nov 2026" at 136.2px, against a 146px text area at
+     a 360px frame. See consumptionSeries.js's bucketHourly for why Hourly is
+     abbreviated rather than measured at its 210.6px long form. */
+  const box = String.raw`flex h-[32px] w-full min-w-0 items-center justify-center gap-[var(--p-0,0px)] overflow-clip bg-[var(--component\/calendar\/dropdown\/bg,rgba(0,0,0,0))] py-[var(--p-0,0px)] pl-[8px] pr-[var(--component\/calendar\/caption-label\/pr,8px)] rounded-[var(--component\/calendar\/day-radius,26px)]`
+  const text = String.raw`block w-full text-center overflow-hidden text-ellipsis whitespace-nowrap font-[number:var(--font\/weight\/font-medium,500)] text-[14px] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)]`
 
   if (!onOpen) return <span className={cn(box, text)}>{label}</span>
 
@@ -573,6 +588,11 @@ const X_AXIS_HEIGHT = 28
    the legend and the day row. */
 const LEGEND_HEIGHT = 22
 const PLOT_HEIGHT = CHART_HEIGHT - X_AXIS_HEIGHT
+/* §14.4's gap between the tick column and the plot. recharts right-aligns a
+   left tick at `width - tickSize - tickMargin`, so `yWidth - Y_TICK_MARGIN` is
+   the x the tick text ENDS at — which is where the unit caption has to end too,
+   or it reads as floating in the gutter rather than labelling the ladder. */
+const Y_TICK_MARGIN = 14
 
 /* Tick labels take their unit from the TOP of the scale, not from each value.
    The old formatter divided every tick by 1000 and appended K regardless of
@@ -656,22 +676,36 @@ const CHART_CONFIG_COMPARE = {
   prevLitres: { label: 'Previous period', color: '#6bb1fa' },
 }
 
-/* PLS-WC-35/36 (§13) — the bar and its value label.
+/* PLS-WC-35/36 (§13) — the bar.
    The bucket's TARGET is no longer drawn here; see BucketTargets below.
 
-   Both are drawn inside recharts' own SVG surface rather than as an HTML
+   THE VALUE LABEL IS GONE, 2026-10-20 — the owner: "remove numbers above bars
+   it looks strange on mobile." It drew fmtL(row.litres) at y - 6 above every
+   valueEvery'th bar, thinned to the slot by chartScale's valueLabelEvery /
+   valueLabelFontSize / showsValueLabels. Those three helpers had no other
+   caller, so they went with it rather than staying as dead code; their tests
+   went with them. §13 is the section this contradicts.
+
+   READ THIS BEFORE PUTTING ANYTHING IN ITS PLACE. The series fill measures
+   2.18:1 against the card surface, under the 3:1 the palette rule asks for.
+   When that was raised the owner ruled "accept it", and the stated basis was
+   that these labels plus the per-bucket aria-labels carried the values without
+   colour. Removing them leaves the aria-labels and the tooltip as the only
+   routes to a number. That is a change to the basis of that ruling and it is
+   flagged for the owner, not quietly compensated for: no axis annotations, no
+   always-on tooltip, no table view (declined already).
+
+   The bar is drawn inside recharts' own SVG surface rather than as an HTML
    overlay over the plot. An overlay was the obvious shape and it is the wrong
    one: recharts reads the period detail (§3.7) off pointer events on the chart
    wrapper, and an overlay swallows every mousemove before the wrapper sees it —
    the card would gain keyboard access and lose hover in the same commit. Events
    from a <rect> inside the surface still bubble to the wrapper, so both work. */
-function renderBarShape(shapeProps, opts) {
-  const { x, y, width, height, fill, index, payload } = shapeProps
-  const { showValueLabels, valueEvery, valueFontSize } = opts
-  const row = payload ?? {}
+function renderBarShape(shapeProps) {
+  const { x, y, width, height, fill } = shapeProps
 
   const hasBar = Number.isFinite(y) && Number.isFinite(height) && height > 0
-  const showValue = showValueLabels && hasBar && index % valueEvery === 0
+  if (!hasBar) return <g />
   /* The comp's rounded-t-[100px] clamps to min(width, height) / 2 — a
      half-round dome. That was invisible on the 3px bars this card used to
      draw; at a real 21-24px it swallows the top of a short reading and the
@@ -681,32 +715,15 @@ function renderBarShape(shapeProps, opts) {
 
   return (
     <g>
-      {hasBar ? (
-        <Rectangle
-          x={x}
-          y={y}
-          width={width}
-          height={height}
-          fill={fill}
-          radius={[r, r, 0, 0]}
-          isAnimationActive={false}
-        />
-      ) : null}
-      {showValue ? (
-        /* §13: positioned at the CURRENT series' own horizontal centre, not the
-           bucket's — with a comparison beside it those are different places and
-           a centred number names neither bar. */
-        <text
-          x={x + width / 2}
-          y={y - 6}
-          textAnchor="middle"
-          fontSize={valueFontSize}
-          fill="#737373"
-          className="pointer-events-none select-none"
-        >
-          {fmtL(row.litres)}
-        </text>
-      ) : null}
+      <Rectangle
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={fill}
+        radius={[r, r, 0, 0]}
+        isAnimationActive={false}
+      />
     </g>
   )
 }
@@ -738,7 +755,7 @@ function renderBarShape(shapeProps, opts) {
    Not-openable buckets are aria-disabled, never `disabled`. A disabled control
    fires no events, which would leave Hourly — the grouping with the finest data
    — unable to report anything at all. */
-function BucketTargets({ rows, period, onDrillDown, plotLeft, plotWidth, plotHeight }) {
+function BucketTargets({ rows, period, onDrillDown, plotLeft, plotWidth, plotHeight, armed, onArm }) {
   if (!(plotWidth > 0) || !(plotHeight > 0) || !rows?.length) return null
 
   const slot = plotWidth / rows.length
@@ -746,14 +763,45 @@ function BucketTargets({ rows, period, onDrillDown, plotLeft, plotWidth, plotHei
   const open = (row) => {
     if (canOpen && isBucketOpenable(row, period)) onDrillDown(row.key)
   }
-  const anyOpenable = canOpen && rows.some((row) => isBucketOpenable(row, period))
 
+  /* TWO-STAGE POINTER, 2026-10-20 — the owner: "one click on bars show the
+     hover and 2 clicks drill down."
+
+     A phone has no hover, so until now the only way to read a bucket's value
+     was to drill into it — the reading and the navigation were the same
+     gesture, and the cheaper one was unreachable. So the plate ARMS a bucket
+     on the first tap and opens it on the second.
+
+     The rules, spelled out because the edges are what decide whether it feels
+     right:
+       • first tap on a bucket           reveal it; never drill
+       • second tap on the SAME bucket   drill
+       • tap on a DIFFERENT bucket       that is ITS first tap — move the
+                                         reveal there, do not drill
+       • tap outside the plot            dismiss (the card owns that listener)
+       • grouping / step / Today         clear it (the card owns that effect)
+       • no finer grouping (Hourly)      the second tap does nothing, exactly
+                                         as the first did nothing before
+     There is NO timer anywhere in this: it is "tap, then tap again", not a
+     double-click, so an armed index is the whole mechanism and a slow second
+     tap works as well as a fast one.
+
+     KEYBOARD IS UNCHANGED and deliberately so: focus already reveals a bucket
+     (recharts' own keyboard interaction), so the reading half is free there
+     and Enter still opens in one press. Making a keyboard user press Enter
+     twice would be two presses to do what one press already did, to solve a
+     problem keyboards do not have. */
   const onPlotClick = (event) => {
     const svg = event.currentTarget.ownerSVGElement
     if (!svg) return
     const box = svg.getBoundingClientRect()
     const i = nearestBucketIndex(event.clientX - box.left, plotLeft, slot, rows.length)
-    if (i >= 0) open(rows[i])
+    if (i < 0) return
+    if (i !== armed) {
+      onArm?.(i)
+      return
+    }
+    open(rows[i])
   }
 
   /* ON TOP, and it has to be asked for. SVG has no z-index, so recharts sorts
@@ -776,7 +824,10 @@ function BucketTargets({ rows, period, onDrillDown, plotLeft, plotWidth, plotHei
         /* Not focusable and not announced: it is the pointer's route to the
            nearest bucket, and the per-bucket rects below are what AT reads. */
         aria-hidden="true"
-        style={{ cursor: anyOpenable ? 'pointer' : 'default' }}
+        /* Always a pointer now. It used to read `anyOpenable`, because a tap
+           that could not drill did nothing; the first tap always reveals, so
+           the plate is live at every grouping — Hourly included. */
+        style={{ cursor: 'pointer' }}
         onClick={onPlotClick}
       />
       {rows.map((row, i) => (
@@ -967,6 +1018,11 @@ export default function WaterConsumptionCardV2({
 
   const axisFormat = axisFormatter(domainMax)
   const yWidth = yAxisWidth(ticks, axisFormat)
+  /* The unit is printed ONCE, above the tick column — see chartAxis.js for the
+     measurements that ruled out putting it on the ticks. It is deliberately
+     NOT part of `axisFormat`, because anything axisFormat returns widens
+     `yWidth` and the gutter is what sets the bar width. */
+  const unitLabel = axisUnitLabel()
 
 
   /* PLS-WC-31 / §14.6: a constant density of about thirteen labels at ANY
@@ -974,11 +1030,11 @@ export default function WaterConsumptionCardV2({
      stepped from "every bucket" to "every 2nd" between 8 and 9 and stayed there
      to 16 — a 12-bar and a 16-bar chart drew the same six labels. recharts'
      `interval` counts buckets to SKIP after each tick, hence labelEvery - 1. */
-  /* §13: bar value labels thin to the SLOT, so the plot's real width has to be
-     measured — "14 buckets or fewer" means the same chart gains and loses its
-     numbers depending on how many days a month happens to have. 37 is the plot
-     origin (§14.4). A host with no ResizeObserver (happy-dom included) simply
-     measures 0 and draws no value labels, which is a degradation, not a crash. */
+  /* The plot's real width is measured rather than assumed: the x-label cadence
+     and the bucket targets are both sized from the SLOT, and a slot is only
+     knowable once the plot has a width. 37 is the plot origin (§14.4). A host
+     with no ResizeObserver (happy-dom included) measures 0, which thins the
+     axis labels and draws no targets — a degradation, not a crash. */
   const [plotEl, setPlotEl] = useState(null)
   const [plotWidth, setPlotWidth] = useState(0)
   useEffect(() => {
@@ -1024,22 +1080,36 @@ export default function WaterConsumptionCardV2({
   const barWidth = drawnBarWidth(slotWidth, comparing ? 2 : 1)
   const prevRadius = barTopRadius(barWidth)
   const chartConfig = comparing ? CHART_CONFIG_COMPARE : CHART_CONFIG
-  /* PLS-WC-36: exactly ONE series carries a value per bucket here. The
-     comparison bar is a reference, not a second reading, so a compared window
-     still carries its numbers (§13) — a supply/return pair would not, and the
-     agent that adds it has to count 2 here. */
-  const valueCarryingSeries = 1
-  const showValueLabels = showsValueLabels(valueCarryingSeries) && slotWidth > 0
-  const valueLabelWidth = plotted.reduce(
-    (max, row) =>
-      row.litres === null || row.litres === undefined
-        ? max
-        : Math.max(max, approxTextWidth(fmtL(row.litres), valueLabelFontSize(slotWidth))),
-    0,
-  )
-  const valueEvery = valueLabelEvery(slotWidth, valueLabelWidth)
-  const valueFontSize = valueLabelFontSize(slotWidth)
   const animateBars = !prefersReducedMotion()
+
+  /* §19 + the owner's two-stage tap. The ARMED bucket lives here rather than
+     in BucketTargets because the two things that have to clear it — a window
+     that moved and a tap that landed outside the plot — are not visible from
+     inside the plate.
+
+     A window that moved: period and monthLabel together name the window, so
+     any grouping change, any step, any pick and Today all land here. An armed
+     bucket must not survive into the next view and drill on the next tap. */
+  const [armedBucket, setArmedBucket] = useState(null)
+  useEffect(() => {
+    setArmedBucket(null)
+  }, [period, monthLabel])
+
+  /* A tap outside the plot dismisses. The listener is only mounted while
+     something is armed, and it runs on pointerdown — i.e. BEFORE the plate's
+     own click — so a tap that lands on another bucket is not cleared out from
+     under the handler that is about to re-arm it. `closest` is guarded
+     because an SVG event target is not always an Element. */
+  useEffect(() => {
+    if (armedBucket === null) return undefined
+    const dismiss = (event) => {
+      const el = event.target
+      if (el && typeof el.closest === 'function' && el.closest('.pulse-bucket-targets')) return
+      setArmedBucket(null)
+    }
+    document.addEventListener('pointerdown', dismiss, true)
+    return () => document.removeEventListener('pointerdown', dismiss, true)
+  }, [armedBucket])
 
   /* PLS-WC-19 / §6: the metrics row is hidden ENTIRELY when the window has no
      data — three figures all reading zero say less than the empty state does,
@@ -1247,7 +1317,7 @@ export default function WaterConsumptionCardV2({
                   /* Dropdown group — …;199338:53569;198674:177605.
                      gap-8px even at one child: the node carries the gap for the
                      Double case and the Single case sits in the same box. */
-                  <div className="flex min-w-0 shrink items-center gap-[8px]">
+                  <div className="flex min-w-0 flex-1 items-center gap-[8px]">
                     {dropdowns.map((d) => (
                       <PeriodDropdown
                         key={d.key}
@@ -1259,7 +1329,7 @@ export default function WaterConsumptionCardV2({
                   </div>
                 ) : (
                   <span
-                    className={String.raw`truncate text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]`}
+                    className={String.raw`min-w-0 flex-1 truncate text-center text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]`}
                   >
                     {monthLabel}
                   </span>
@@ -1278,16 +1348,43 @@ export default function WaterConsumptionCardV2({
             {/* §3.4 / §16 — Today: slate-100, 32 tall, radius 10. Unavailable
                 when the chart is already at Hourly on the newest window, which
                 only the host can know, so it reads canToday. Drawn only when a
-                handler exists: a Today that cannot jump is worse than none. */}
+                handler exists: a Today that cannot jump is worse than none.
+
+                AN ICON, NOT THE WORD, since 2026-10-20 — the owner: "the today
+                button make it overwhelmed."
+
+                The obvious reading of that is to draw it only when it would do
+                something. That was checked against canJumpToToday and it is
+                NOT the fix: that predicate is false only at Hourly on the
+                newest window, so the word pill stays visible and ENABLED on
+                Day, Month and Year at offset 0 — three of the four groupings a
+                viewer lands on. It would have decluttered one view in four.
+
+                What the 62px word actually costs is the label beside it. The
+                row is 278px at a 360px frame; the pill plus its gap takes 70 of
+                them, which leaves 132px between the chevrons against a longest
+                label of 136.2px — Monthly clipped at 360px for exactly this
+                reason, independently of Hourly. At 32px the same control leaves
+                162px, and every grouping fits with room.
+
+                So it keeps its handler, its disabled rule, its accessible name
+                and its 32px-tall tap target, and loses only the word. It is
+                still ALWAYS drawn (disabled, as the chevrons are) rather than
+                toggled, because a control that appears and disappears would
+                move the label it sits beside — the other half of what the owner
+                asked for. CalendarClock is lucide-react, the icon source this
+                card's neighbours already use, and it says both halves of what
+                the control does: today, hour by hour. */}
             {onToday ? (
               <button
                 type="button"
                 aria-label="Jump to today, hour by hour."
+                title="Today"
                 disabled={canToday === false}
                 onClick={() => onToday()}
-                className={String.raw`flex h-[32px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--colors\/slate\/100,#f1f5f9)] px-[12px] font-medium text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)] outline-none hover:bg-[var(--colors\/slate\/200,#e2e8f0)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-[var(--colors\/slate\/100,#f1f5f9)]`}
+                className={String.raw`flex size-[32px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--colors\/slate\/100,#f1f5f9)] text-[color:var(--colors\/slate\/800,#1d293d)] outline-none hover:bg-[var(--colors\/slate\/200,#e2e8f0)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-[var(--colors\/slate\/100,#f1f5f9)]`}
               >
-                Today
+                <CalendarClock className="size-4" aria-hidden="true" />
               </button>
             ) : null}
           </div>
@@ -1373,9 +1470,52 @@ export default function WaterConsumptionCardV2({
                  plot start inside the control above it and the whole card read
                  as misaligned. The value is 24 — see the header's note. */
               String.raw`px-[var(--component\/card\/padding,24px)]`,
-              String.raw`pt-[var(--pro\/space\/4,16px)] pb-[var(--spacing\/5,20px)]`,
+              /* The 16px of pro/space/4 that used to sit here is NOT gone — it
+                 has become the unit caption's own band: a 12px line plus the
+                 4px below it. Card height, plot height and gutter are all
+                 unchanged; what was blank padding now carries the unit. When
+                 there is no data to label the caption is not drawn, and this
+                 falls back to the original 16px. */
+              windowHasData
+                ? String.raw`pt-0 pb-[var(--spacing\/5,20px)]`
+                : String.raw`pt-[var(--pro\/space\/4,16px)] pb-[var(--spacing\/5,20px)]`,
             )}
           >
+            {/* THE UNIT, ONCE — the owner's "add units to the y axis".
+                It is a caption over the tick column and not a suffix on every
+                tick because `yAxisWidth` sizes the gutter from the widest tick
+                string and the gutter is what sets the bar width: at 393px the
+                31-bucket Daily bar is already ON the 6px floor, and "400K L"
+                costs 15px of the 267px plot. chartAxis.js carries the numbers.
+                `aria-hidden` because every bucket's accessible name already
+                ends in "litres" — a screen reader does not need a loose "L",
+                and the ticks themselves are not announced either.
+                No `shrink-0`: it renders an expression, and scripts/
+                check-text-overflow.mjs is right to forbid that pairing. */}
+            {windowHasData && (
+              <div
+                aria-hidden="true"
+                data-axis-unit={unitLabel}
+                /* Right-aligned to where the tick text ENDS, so the unit sits
+                   directly over the ladder rather than adrift in the gutter.
+                   An inline width because the value is derived — Tailwind v4
+                   scans source text and never generates an interpolated class. */
+                style={{ width: Math.max(0, yWidth - Y_TICK_MARGIN) }}
+                className={cn(
+                  /* #737373 is the colour this card declares for the ticks a
+                     few lines below; the caption belongs to the same ladder, so
+                     it is read from the same place rather than picked afresh. */
+                  /* 12 of line plus 4 of margin is exactly the 16px of
+                     padding-top this replaced — recharts then draws the top
+                     tick 2px inside the surface, so the caption clears it by
+                     6px and does not read as a sixth rung on the ladder. */
+                  'text-right text-[#737373] mb-[4px]',
+                  String.raw`text-[length:var(--text\/xs\/size,12px)] leading-[var(--text\/xs\/lh-none,12px)]`,
+                )}
+              >
+                {unitLabel}
+              </div>
+            )}
             {/* aspect-auto cancels ChartContainer's aspect-video: the phone frame
                 needs an explicit height, never a fixed pixel width.
                 185px is the comp's box for the WHOLE plot area — the day row
@@ -1456,7 +1596,7 @@ export default function WaterConsumptionCardV2({
                   tickLine={false}
                   axisLine={false}
                   tickSize={0}
-                  tickMargin={14}
+                  tickMargin={Y_TICK_MARGIN}
                   tickFormatter={axisFormat}
                   tick={{ fontFamily: 'var(--font-sans)', fontSize: 12 }}
                 />
@@ -1471,6 +1611,18 @@ export default function WaterConsumptionCardV2({
                 />
                 <ChartTooltip
                   cursor={{ fill: 'var(--color-litres)', fillOpacity: 0.12 }}
+                  /* The armed bucket PINS the tooltip, which is how a tap
+                     "shows the hover" on a device that has none.
+                     `active` is the switch recharts documents for it: true
+                     keeps the tooltip up once an index is set, undefined
+                     leaves recharts in charge — so a desktop hover is
+                     untouched while nothing is armed. `defaultIndex` is the
+                     index to show when no pointer interaction has happened at
+                     all, which is the pure-touch case where no mousemove was
+                     ever synthesised. Both are needed: neither covers the
+                     other's case. */
+                  active={armedBucket === null ? undefined : true}
+                  defaultIndex={armedBucket === null ? undefined : armedBucket}
                   /* Each granularity needs its own phrasing. Blindly
                      prefixing the scope label gives "2025 2024–2026" on Y and
                      "14 Sep 22, 2026" on H. */
@@ -1520,23 +1672,21 @@ export default function WaterConsumptionCardV2({
                   fill="var(--color-litres)"
                   isAnimationActive={animateBars}
                   animationBegin={0}
-                  /* The shape draws the bar and its value label only. The
-                     bucket's hit target used to live in here too, riding the
+                  /* The shape draws the bar, and nothing else. The bucket's
+                     hit target used to live in here too, riding the
                      `background` rect this Bar asked for — and a bucket with
                      no reading never reached the shape at all, so it never got
-                     one. BucketTargets below builds them from the rows. */
-                  shape={(shapeProps) =>
-                    renderBarShape(shapeProps, {
-                      showValueLabels,
-                      valueEvery,
-                      valueFontSize,
-                    })
-                  }
+                     one. BucketTargets below builds them from the rows. The
+                     value label that used to ride here is gone; see
+                     renderBarShape for who asked and what it cost. */
+                  shape={renderBarShape}
                 />
                 <BucketTargets
                   rows={plotted}
                   period={period}
                   onDrillDown={onDrillDown}
+                  armed={armedBucket}
+                  onArm={setArmedBucket}
                   plotLeft={yWidth}
                   plotWidth={innerPlotWidth}
                   plotHeight={PLOT_HEIGHT - (comparing ? LEGEND_HEIGHT : 0)}

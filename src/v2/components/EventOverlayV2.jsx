@@ -63,10 +63,10 @@
  * inlined below from the downloaded SVG, viewBox included.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { Funnel, MessageBlocked, Waves, WifiDisconnected02 } from '@/v2/icons'
-import { ChevronLeft } from 'lucide-react'
+import { CaretDown, Funnel, MessageBlocked, Waves, WifiDisconnected02 } from '@/v2/icons'
+import { Check, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ValveStatus from './ValveStatus'
 
@@ -466,6 +466,20 @@ export default function EventOverlayV2({
   const inTab = inDataset.filter((e) => (isHistory ? !!e.resolved : !e.resolved))
   const visible = activeFilter === 'all' ? inTab : inTab.filter((e) => e.type === activeFilter)
 
+  /* The filter options, in CHIP_ORDER — the same list, in the same order, that
+     the chip row drew, with All first. The count on each is LIVE and is
+     computed against `inTab`, exactly as each chip's was, so an option that
+     currently matches nothing still appears and honestly reads 0. */
+  const filterOptions = [
+    { id: 'all', label: 'All', count: inTab.length },
+    ...CHIP_ORDER[family].map((type) => ({
+      id: type,
+      type,
+      label: TYPES[type].label,
+      count: inTab.filter((e) => e.type === type).length,
+    })),
+  ]
+
   const title = `${inTab.length} ${NOUN[family][tab]}`
   // Only the 27px title dot goes slate in History; the All chip's dot stays red
   // in every frame (checked against both exported assets).
@@ -637,50 +651,42 @@ export default function EventOverlayV2({
               </ToggleGroup>
             </div>
 
-            {/* Chips + result count. Figma pins this block at w-[390px], which
-                is wider than the 393px frame minus its gutters — that is how the
-                chips bleed off the right edge. Here the block is full width and
-                the chip row alone scrolls sideways, so the sheet never does. */}
-            <div className="content-stretch flex flex-col h-[92px] items-start justify-between pr-[var(--spacing\/4,16px)] relative shrink-0 w-full">
-              <div className="-mx-[18px] overflow-x-auto px-[18px] w-[calc(100%+36px)] [&::-webkit-scrollbar]:h-0">
-                <div className="content-stretch flex gap-[2px] items-center relative w-max">
-                  <FilterChip
-                    selected={activeFilter === 'all'}
-                    onClick={() => setFilter('all')}
-                    label="All"
-                    count={inTab.length}
-                  />
-                  {CHIP_ORDER[family].map((type) => (
-                    <FilterChip
-                      key={type}
-                      selected={activeFilter === type}
-                      onClick={() => setFilter(type)}
-                      label={TYPES[type].label}
-                      count={inTab.filter((e) => e.type === type).length}
-                      type={type}
-                    />
-                  ))}
-                </div>
-              </div>
+            {/* Filter + result count.
+                2026-10-20, the owner on the chip row: "i want to hide this
+                under the filter icon — keep same functionalities." The row of
+                chips that stood here was a w-[390px] block inside a 393px frame
+                minus its gutters, so it bled off the right edge and had to
+                scroll sideways to be reachable at all. It is now collapsed
+                behind the funnel the "Showing" line already carried.
+                NOTHING the chips did is gone: every chip is an option in the
+                menu, in the same per-dataset order (CHIP_ORDER), each carrying
+                the same LIVE count it carried as a chip, and the current
+                selection plus its own count stay on the trigger while the menu
+                is shut — a filtered list that reads as a complete one is the
+                bug this collapse would otherwise introduce. */}
+            <div className="content-stretch flex gap-[var(--spacing\/2,8px)] items-center justify-between pr-[var(--spacing\/4,16px)] relative shrink-0 w-full">
+              <EventFilterMenu
+                value={activeFilter}
+                options={filterOptions}
+                onChange={setFilter}
+                label={family === 'water' ? 'Filter water events' : 'Filter alerts'}
+              />
 
-              <div className="content-stretch flex gap-[6px] items-center relative shrink-0" style={{ color: SLATE_500 }}>
-                <span className="relative shrink-0 size-[16px] flex items-center justify-center">
-                  <Funnel size={16} />
-                </span>
-                <span className="content-stretch flex gap-[var(--component\/breadcrumb\/item\/gap,6px)] items-center justify-center p-[var(--p-0,0px)] relative shrink-0">
-                  {/* `inTab`, not `inDataset`. The funnel line states what the
-                      CHIPS narrowed, so its denominator has to be the same set
-                      the All chip counts — the tab you are looking at. While
-                      every row this overlay was ever given was unresolved the
-                      two were identical, so this changes nothing that renders
-                      today; it is what keeps the Active tab reading
-                      "Showing 50 of 50" now that resolved rows travel in the
-                      same array, instead of "Showing 50 of 153" with 103 of
-                      those sitting in History where the chips cannot reach
-                      them. The tab filter itself is untouched. */}
-                  <span className="[word-break:break-word] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
-                    Showing {visible.length} of {inTab.length}
-                  </span>
+              <div className="content-stretch flex gap-[6px] items-center min-w-0 relative" style={{ color: SLATE_500 }}>
+                {/* `inTab`, not `inDataset`. This line states what the FILTER
+                    narrowed, so its denominator has to be the same set the All
+                    option counts — the tab you are looking at. While every row
+                    this overlay was ever given was unresolved the two were
+                    identical, so this changes nothing that renders today; it is
+                    what keeps the Active tab reading "Showing 50 of 50" now
+                    that resolved rows travel in the same array, instead of
+                    "Showing 50 of 153" with 103 of those sitting in History
+                    where the filter cannot reach them. The tab filter itself is
+                    untouched.
+                    The funnel glyph that led this line is now the menu's
+                    trigger, six pixels to the left — one funnel, not two. */}
+                <span className="[word-break:break-word] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
+                  Showing {visible.length} of {inTab.length}
                 </span>
               </div>
             </div>
@@ -733,65 +739,261 @@ export default function EventOverlayV2({
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-/** A filter chip. `type` absent means the All chip, which draws the 24px
- *  location dot instead of a tinted disc. The selected state is two colour
- *  swaps, carried as inline style so the static Figma classes can stay literal
- *  (see the escaping note at the top of the file). */
-function FilterChip({ selected, onClick, label, count, type }) {
+/** One filter option's glyph — the 24px disc the chips drew, unchanged, so an
+ *  option in the menu is recognisably the chip it replaces. `type` absent means
+ *  the All option, which draws the 24px location dot instead of a tinted disc.
+ *  It stays red in History — verified against both exported assets. */
+function FilterGlyph({ type }) {
   const t = type ? TYPES[type] : null
-  const ink = selected ? SLATE_800 : SLATE_600
+
+  if (!t) {
+    return (
+      <span aria-hidden="true" className="relative shrink-0 size-[24px]" style={{ color: RED_500 }}>
+        <LocationDot size={24} />
+      </span>
+    )
+  }
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={selected}
-      className="bg-[#fafbfc] border border-solid content-stretch cursor-pointer flex h-[36px] items-center pl-[5px] pr-[11px] relative rounded-[var(--rounded-3xl,26px)] shrink-0"
-      style={{ borderColor: selected ? SLATE_600 : SLATE_200 }}
+    <span
+      aria-hidden="true"
+      className={
+        t.chipNudge
+          ? 'content-stretch flex items-start justify-center pt-[4px] relative rounded-[17.19px] shrink-0 size-[24px]'
+          : 'content-stretch flex items-center justify-center relative rounded-[17.19px] shrink-0 size-[24px]'
+      }
+      style={{ background: t.chipTint, color: t.glyph }}
     >
-      <span className="content-stretch flex gap-[9px] items-center relative shrink-0">
-        <span className="content-stretch flex gap-[6px] items-center relative shrink-0">
-          {t ? (
-            <span
-              className={
-                t.chipNudge
-                  ? 'content-stretch flex items-start justify-center pt-[4px] relative rounded-[17.19px] shrink-0 size-[24px]'
-                  : 'content-stretch flex items-center justify-center relative rounded-[17.19px] shrink-0 size-[24px]'
-              }
-              style={{ background: t.chipTint, color: t.glyph }}
-            >
-              {t.valve
-                // `size` is the ARTWORK box, not the frame box: ValveStatus's
-                // error variant has a 12.5281x12 viewBox, so 12.5281 draws it
-                // 1:1. Figma agrees — node 198378:73285 is a 24px disc holding
-                // a 16px ValveStatus frame whose group is 11.643x11.115, which
-                // is 12.5281x12 once the 0.4426 half-stroke halo is added.
-                // Passing 16 here meet-fit the artwork to 16x15.33, ~28% large.
-                ? <ValveStatus state="error" size={12.5281} className="relative shrink-0" />
-                : <t.ChipIcon size={13} className="relative shrink-0" />}
-            </span>
-          ) : (
-            // The All chip reuses the title dot at 24px. It stays red in
-            // History — verified against both exported assets.
-            <span className="relative shrink-0 size-[24px]" style={{ color: RED_500 }}>
-              <LocationDot size={24} />
-            </span>
-          )}
-          <span
-            className="[word-break:break-word] font-medium leading-[var(--text\/sm\/lh-tight,18px)] overflow-hidden relative shrink-0 text-[14px] text-ellipsis whitespace-nowrap"
-            style={{ color: ink }}
-          >
-            {label}
-          </span>
+      {t.valve
+        // `size` is the ARTWORK box, not the frame box: ValveStatus's error
+        // variant has a 12.5281x12 viewBox, so 12.5281 draws it 1:1. Figma
+        // agrees — node 198378:73285 is a 24px disc holding a 16px ValveStatus
+        // frame whose group is 11.643x11.115, which is 12.5281x12 once the
+        // 0.4426 half-stroke halo is added. Passing 16 here meet-fit the
+        // artwork to 16x15.33, ~28% large.
+        ? <ValveStatus state="error" size={12.5281} className="relative shrink-0" />
+        : <t.ChipIcon size={13} className="relative shrink-0" />}
+    </span>
+  )
+}
+
+/* ── EventFilterMenu — the chip row, collapsed ─────────────────────────────
+   Owner, 2026-10-20: "i want to hide this under the filter icon — keep same
+   functionalities."
+
+   WHY A DROPDOWN AND NOT SystemsFilterSheet. That sheet is this project's
+   precedent for a RICH filter: several categories, multi-select, a draft that
+   Cancel can throw away, a search box. This filter is one single-select
+   dimension with at most five options (alerts: All + four types; water: All +
+   two), applied the instant it is tapped and with nothing to cancel. A sheet
+   would take the whole frame and two taps — open, pick, and it dismisses
+   itself — to do what a three-to-five row listbox does in place. So this is
+   the house dropdown instead: the SAME control TopUsageCard's period pill and
+   WaterConsumptionCardV2's GranularityDropdown already are, down to the
+   keyboard contract.
+
+   NO PORTAL, deliberately. The list is an absolutely-positioned child of a
+   relative wrapper inside the overlay, so it is laid out in the phone frame's
+   own coordinate space. Radix's <Select> / <DropdownMenu> portal to
+   document.body, which escapes the fixed 393x852 frame in Phone.jsx and paints
+   over the whole browser window — a bug already fixed three times here. Do not
+   reintroduce it by reaching for a portal primitive.
+   z-30 is what lifts the open list over the event card below it: the overlay
+   root is the stacking context (z-40, positioned) and the card is z-auto, so a
+   positive z-index on the list is the whole of what is needed.
+
+   WHAT STAYS VISIBLE WHILE SHUT: the funnel, the selected option's LABEL, and
+   its live COUNT. A chip row's one real advantage over a menu is that it
+   reports counts without being touched; the trigger keeps the count for the
+   filter in force, and the menu carries the rest. The trigger's border also
+   darkens to slate/600 whenever the filter is narrower than All — the same
+   selected treatment the chip itself used.
+
+   ARIA: a real button carrying aria-haspopup="listbox" + aria-expanded opens a
+   role="listbox" whose role="option" children carry aria-selected. Arrow keys
+   / Home / End move the active option, Enter or Space picks it, type-ahead
+   jumps to the first option whose label starts with what was typed, Escape and
+   Tab close, an outside pointerdown closes, and focus returns to the trigger on
+   every close. */
+const FILTER_TRIGGER = String.raw`bg-[#fafbfc] border border-solid content-stretch cursor-pointer flex gap-[6px] h-[36px] items-center min-w-0 outline-none pl-[11px] pr-[9px] relative rounded-[var(--rounded-3xl,26px)] focus-visible:ring-[3px] focus-visible:ring-ring/50`
+/* text-[14px] BEFORE leading-[]: tailwind-merge counts a font-size as
+   conflicting with a line-height and drops a leading-* that precedes it. */
+const FILTER_TRIGGER_LABEL = String.raw`[word-break:break-word] font-medium min-w-0 overflow-hidden relative text-[14px] leading-[var(--text\/sm\/lh-tight,18px)] text-ellipsis whitespace-nowrap`
+const FILTER_TRIGGER_COUNT = String.raw`[word-break:break-word] font-bold relative text-[16px] leading-[var(--text\/base\/lh-relaxed,26px)] tracking-[var(--text\/base\/heading-tracking,-0.4px)] whitespace-nowrap`
+const FILTER_MENU = String.raw`absolute left-0 top-[calc(100%+6px)] z-30 bg-[#fafbfc] border border-solid border-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex flex-col items-stretch max-w-[260px] min-w-[204px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
+const FILTER_ITEM = String.raw`content-stretch cursor-pointer flex gap-[8px] items-center justify-between min-h-[40px] outline-none px-[8px] py-[4px] rounded-[8px] text-left w-full hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:bg-[var(--colors\/slate\/100,#f1f5f9)]`
+
+function EventFilterMenu({ value, options, onChange, label }) {
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const wrapRef = useRef(null)
+  const triggerRef = useRef(null)
+  const itemRefs = useRef([])
+  const typed = useRef({ text: '', at: 0 })
+
+  const selectedIndex = Math.max(0, options.findIndex((o) => o.id === value))
+  const current = options[selectedIndex] ?? options[0]
+  const narrowed = current?.id !== 'all'
+
+  /* Escape and any outside pointerdown close it. A popover dismissable only by
+     re-tapping its own trigger is a trap on a touch screen — the same note the
+     other two instances carry.
+     The keydown listener is registered in the CAPTURE phase so Escape closes
+     the menu without also reaching the overlay's own Escape handler, which
+     would otherwise shut the whole sheet behind it. */
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setOpen(false)
+      triggerRef.current?.focus()
+    }
+    const onDown = (e) => {
+      if (!wrapRef.current?.contains(e.target)) setOpen(false)
+    }
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('pointerdown', onDown)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('pointerdown', onDown)
+    }
+  }, [open])
+
+  /* Roving focus: whichever option is active holds the caret while the menu is
+     open, so the arrow keys and the screen reader agree on where you are. */
+  useEffect(() => {
+    if (open) itemRefs.current[activeIndex]?.focus()
+  }, [open, activeIndex])
+
+  const openMenu = () => {
+    setActiveIndex(selectedIndex)
+    setOpen(true)
+  }
+  const closeMenu = () => {
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
+  const choose = (option) => {
+    closeMenu()
+    onChange?.(option.id)
+  }
+
+  const onTriggerKeyDown = (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+    e.preventDefault()
+    openMenu()
+  }
+
+  const onMenuKeyDown = (e) => {
+    const last = options.length - 1
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex((i) => (i >= last ? 0 : i + 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex((i) => (i <= 0 ? last : i - 1))
+    } else if (e.key === 'Home') {
+      e.preventDefault()
+      setActiveIndex(0)
+    } else if (e.key === 'End') {
+      e.preventDefault()
+      setActiveIndex(last)
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      choose(options[activeIndex] ?? current)
+    } else if (e.key === 'Tab') {
+      closeMenu()
+    } else if (e.key.length === 1 && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      /* Type-ahead, with a buffer that expires after a second so a later "l"
+         searches for Low Flow instead of extending "va" into "val". */
+      const now = Date.now()
+      const text = (now - typed.current.at > 1000 ? '' : typed.current.text) + e.key.toLowerCase()
+      typed.current = { text, at: now }
+      const hit = options.findIndex((o) => o.label.toLowerCase().startsWith(text))
+      if (hit >= 0) setActiveIndex(hit)
+    }
+  }
+
+  return (
+    <div ref={wrapRef} className="relative min-w-0">
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        /* The accessible name carries the filter IN FORCE and its count, so a
+           narrowed list announces itself without the menu being opened — the
+           one thing a chip row gave for free. */
+        aria-label={`${label}, currently ${current.label}, ${current.count}`}
+        onClick={() => (open ? closeMenu() : openMenu())}
+        onKeyDown={onTriggerKeyDown}
+        className={FILTER_TRIGGER}
+        style={{ borderColor: narrowed ? SLATE_600 : SLATE_200 }}
+      >
+        <span aria-hidden="true" className="relative shrink-0 size-[16px] flex items-center justify-center" style={{ color: narrowed ? SLATE_800 : SLATE_500 }}>
+          <Funnel size={16} />
         </span>
-        <span
-          className="[word-break:break-word] font-bold leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative shrink-0 text-[16px] text-ellipsis tracking-[var(--text\/base\/heading-tracking,-0.4px)] whitespace-nowrap"
-          style={{ color: ink }}
-        >
-          {count}
+        <span className={FILTER_TRIGGER_LABEL} style={{ color: narrowed ? SLATE_800 : SLATE_600 }}>
+          {current.label}
         </span>
-      </span>
-    </button>
+        <span className={FILTER_TRIGGER_COUNT} style={{ color: narrowed ? SLATE_800 : SLATE_600 }}>
+          {current.count}
+        </span>
+        <CaretDown
+          size={16}
+          aria-hidden="true"
+          className="relative shrink-0 transition-transform"
+          style={{ color: SLATE_500, transform: open ? 'rotate(180deg)' : undefined }}
+        />
+      </button>
+
+      {open ? (
+        <div className={FILTER_MENU} role="listbox" aria-label={label} onKeyDown={onMenuKeyDown}>
+          {options.map((option, i) => {
+            const selected = option.id === value
+            return (
+              <button
+                key={option.id}
+                ref={(node) => {
+                  itemRefs.current[i] = node
+                }}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                tabIndex={i === activeIndex ? 0 : -1}
+                onClick={() => choose(option)}
+                className={cn(FILTER_ITEM, selected && String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)]`)}
+                style={{ color: selected ? SLATE_800 : SLATE_600 }}
+              >
+                <span className="content-stretch flex gap-[6px] items-center min-w-0 relative">
+                  <FilterGlyph type={option.type} />
+                  <span
+                    className={cn(
+                      String.raw`[word-break:break-word] min-w-0 overflow-hidden relative text-[14px] leading-[var(--text\/sm\/lh-tight,18px)] text-ellipsis whitespace-nowrap`,
+                      selected ? 'font-medium' : '',
+                    )}
+                  >
+                    {option.label}
+                  </span>
+                </span>
+                <span className="content-stretch flex gap-[4px] items-center relative">
+                  <span className={FILTER_TRIGGER_COUNT}>{option.count}</span>
+                  {/* aria-hidden: the tick is the statement aria-selected
+                      already makes, and unhidden it would append to the
+                      option's own accessible name. */}
+                  {selected ? (
+                    <Check size={14} aria-hidden="true" className="relative shrink-0" style={{ color: WINT_BLUE }} />
+                  ) : (
+                    <span aria-hidden="true" className="relative shrink-0 size-[14px]" />
+                  )}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
