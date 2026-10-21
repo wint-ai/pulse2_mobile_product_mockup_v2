@@ -618,7 +618,28 @@ export default function HomeAllAccounts({ expanded = false }) {
          untinted blue at every percentage. No extra thresholds are invented
          here: >= 90 was a band the PRD does not define. */
       health: { percent, tone: percent === 100 ? 'healthy' : 'intermediate' },
-      stats: { requireAttention: activeEvents.length, total: systems.length },
+      /* HEALTH IS ERRORS. WATER EVENTS ARE NOT HEALTH.
+         Owner, 2026-10-21: "we need to make a super clear separation between
+         health which is errors and water events they are not the same —
+         system can be 100% health but with active water event."
+         They were not separate here. `healthy` counts systems passing the
+         four PRD-09 checks (comm / valve / power / recipients) and was
+         computed above, then thrown away: the card was fed
+         `total - requireAttention`, and requireAttention is the LEAK count.
+         At 210 Harborview that printed "5 / 5 need attention" over a single
+         Offline tile, because four of the five had a water event and no fault
+         at all.
+         Both numbers are published now, each under a name that says which it
+         is, so a caller cannot reach for the wrong one by accident. */
+      stats: {
+        total: systems.length,
+        /** Systems with no device fault — the health number. */
+        healthy,
+        /** Systems with an ACTIVE WATER EVENT. Not a health measure. */
+        waterEvents: activeEvents.length,
+        /** @deprecated reads as health and is not. Use `waterEvents`. */
+        requireAttention: activeEvents.length,
+      },
       /* The four issue pills of 198601:62957 — Offline systems / Valve errors /
          Disconnected power / Missing recipients.
          computeWidgets NESTS these (`widgets.valves.error`,
@@ -1053,7 +1074,10 @@ export default function HomeAllAccounts({ expanded = false }) {
       <SystemHealthCard
         className="-mt-[37px] z-[1]"
         total={live?.stats?.total ?? 0}
-        healthy={Math.max(0, (live?.stats?.total ?? 0) - (live?.stats?.requireAttention ?? 0))}
+        /* The error-free count, NOT total minus leaks — see the note on
+           `stats` above. A system with an active water event and no fault is
+           healthy, and this card is the one that says so. */
+        healthy={live?.stats?.healthy ?? 0}
         valveErrors={live?.issues?.valve ?? 0}
         offline={live?.issues?.offline ?? 0}
         noPower={live?.issues?.power ?? 0}
