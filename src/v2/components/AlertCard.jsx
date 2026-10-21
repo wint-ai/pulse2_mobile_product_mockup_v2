@@ -56,14 +56,14 @@ import { Waves, WifiDisconnected02 } from '@/v2/icons'
  * "Tabler Icons / chevron-left" and "Tabler Icons / chevron-right"; fetching
  * those two nodes individually returns the geometry below. The smile also
  * arrived wrapped in `-rotate-180 -scale-x-100`, which belongs to the
- * placeholder and not to these, so it is gone. #62748E in every variant, so the
- * shipped stroke stays rather than currentColor.
+ * placeholder and not to these, so it is gone. #62748E in every variant, carried
+ * by a text-[#62748e] on the slot so the stroke can be currentColor.
  */
 function ChevronLeft({ className }) {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
       className={className} aria-hidden="true" focusable="false">
-      <path d="M10 4L6 8L10 12" stroke="#62748E" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 4L6 8L10 12" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -72,7 +72,7 @@ function ChevronRight({ className }) {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"
       className={className} aria-hidden="true" focusable="false">
-      <path d="M6 4L10 8L6 12" stroke="#62748E" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -103,15 +103,15 @@ function BrandDrops({ size = 16, strokeWidth = 1.2635, className }) {
 }
 
 /* Phosphor Icons / dots-three — a 14x14 asset drawn into a 12x14 slot (hence
-   preserveAspectRatio="none"), #45556C in both sensor variants, so the shipped
-   fill stays. */
+   preserveAspectRatio="none"), #45556C in both sensor variants — one paint, so
+   currentColor carries it from a text-[#45556c] at the call site. */
 function DotsThree({ className }) {
   return (
     <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg"
       preserveAspectRatio="none" className={className} aria-hidden="true" focusable="false">
-      <path d="M7 7.65625C7.36244 7.65625 7.65625 7.36244 7.65625 7C7.65625 6.63756 7.36244 6.34375 7 6.34375C6.63756 6.34375 6.34375 6.63756 6.34375 7C6.34375 7.36244 6.63756 7.65625 7 7.65625Z" fill="#45556C" />
-      <path d="M10.7188 7.65625C11.0812 7.65625 11.375 7.36244 11.375 7C11.375 6.63756 11.0812 6.34375 10.7188 6.34375C10.3563 6.34375 10.0625 6.63756 10.0625 7C10.0625 7.36244 10.3563 7.65625 10.7188 7.65625Z" fill="#45556C" />
-      <path d="M3.28125 7.65625C3.64369 7.65625 3.9375 7.36244 3.9375 7C3.9375 6.63756 3.64369 6.34375 3.28125 6.34375C2.91881 6.34375 2.625 6.63756 2.625 7C2.625 7.36244 2.91881 7.65625 3.28125 7.65625Z" fill="#45556C" />
+      <path d="M7 7.65625C7.36244 7.65625 7.65625 7.36244 7.65625 7C7.65625 6.63756 7.36244 6.34375 7 6.34375C6.63756 6.34375 6.34375 6.63756 6.34375 7C6.34375 7.36244 6.63756 7.65625 7 7.65625Z" fill="currentColor" />
+      <path d="M10.7188 7.65625C11.0812 7.65625 11.375 7.36244 11.375 7C11.375 6.63756 11.0812 6.34375 10.7188 6.34375C10.3563 6.34375 10.0625 6.63756 10.0625 7C10.0625 7.36244 10.3563 7.65625 10.7188 7.65625Z" fill="currentColor" />
+      <path d="M3.28125 7.65625C3.64369 7.65625 3.9375 7.36244 3.9375 7C3.9375 6.63756 3.64369 6.34375 3.28125 6.34375C2.91881 6.34375 2.625 6.63756 2.625 7C2.625 7.36244 2.91881 7.65625 3.28125 7.65625Z" fill="currentColor" />
     </svg>
   )
 }
@@ -298,7 +298,7 @@ function Pager({ page, pageCount, totalTone = 'text-[#90a1b9]', onClick }) {
       className={`${PAGER_BTN} ${CTRL_SHADOW}`}
     >
       <span className={ICON_SLOT}>
-        <ChevronLeft className="block size-full" />
+        <ChevronLeft className="block size-full text-[#62748e]" />
       </span>
       <p className={PAGER_LABEL}>
         <span className={`${PAGER_SPAN} text-[#62748e]`}>{page} /</span>
@@ -311,7 +311,7 @@ function Pager({ page, pageCount, totalTone = 'text-[#90a1b9]', onClick }) {
         <span className={`${PAGER_SPAN} ${totalTone}`}>{pageCount}</span>
       </p>
       <span className={ICON_SLOT}>
-        <ChevronRight className="block size-full" />
+        <ChevronRight className="block size-full text-[#62748e]" />
       </span>
     </Button>
   )
@@ -402,7 +402,7 @@ function SensorGroupHeader({ group, onMore, chipClass = COUNT_CHIP }) {
         >
           <span className="content-stretch flex flex-col items-start relative rounded-[3px] shrink-0">
             <span className="h-[14px] relative shrink-0 w-[12px]">
-              <DotsThree className="absolute block inset-0 max-w-none size-full" />
+              <DotsThree className="absolute block inset-0 max-w-none size-full text-[#45556c]" />
             </span>
           </span>
         </button>
@@ -598,15 +598,26 @@ export default function AlertCard({
                   {/* Unit wrapper 199394:79723 — h-[27px], and unlike the three
                       chips it replaces the FIGURE leads and the unit follows, so
                       this is not a UnitChip with its arguments swapped: the two
-                      halves take different type and different colour. */}
+                      halves take different type and different colour.
+                      Figma gives both halves shrink-0 + text-ellipsis, which
+                      cannot both be true: a node that never shrinks never
+                      ellipsises. The pair is now shrink-able with the truncate
+                      trio on each half, and the chip takes the SAME 170px
+                      measure the title above it carries. A ceiling is required,
+                      not optional: the chip's own min-content equals its
+                      max-content once the text cannot wrap, so a shrink-to-fit
+                      box has nothing to shrink to and the chip runs off the
+                      card (measured 498px against a 377px card edge). 170px
+                      changes nothing at real data — the chip measures ~73px.
+                      */}
                   <div
-                    className={String.raw`content-stretch flex gap-[var(--spacing\/1\,5,6px)] h-[27px] items-center px-[8px] py-[4px] relative rounded-[12px] shrink-0 whitespace-nowrap`}
+                    className={String.raw`content-stretch flex gap-[var(--spacing\/1\,5,6px)] h-[27px] items-center max-w-[170px] px-[8px] py-[4px] relative rounded-[12px] shrink-0`}
                     style={{ backgroundImage: CHIP_SHEEN(166.10511761460668) }}
                   >
-                    <p className={String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative shrink-0 text-[16px] text-[color:var(--colors\/red\/500,#fb2c36)] text-ellipsis`}>
+                    <p className={String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative text-[16px] text-[color:var(--colors\/red\/500,#fb2c36)] text-ellipsis whitespace-nowrap`}>
                       {data.value}
                     </p>
-                    <p className={String.raw`font-sans font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative shrink-0 text-[#62748e] text-[14px] text-ellipsis`}>
+                    <p className={String.raw`font-sans font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative text-[#62748e] text-[14px] text-ellipsis whitespace-nowrap`}>
                       {data.unit}
                     </p>
                   </div>
@@ -619,15 +630,24 @@ export default function AlertCard({
               in red/700. This is DetectedRow's shape, but the node's own type
               differs from the one DetectedRow carries for the other variants
               (12/16.5 regular label, 14/20 medium stamp, 14/20 semibold red
-              duration), so it is spelled out here rather than bent to fit. */}
-          <div className="[word-break:break-word] content-stretch flex gap-[7px] items-center relative shrink-0 whitespace-nowrap">
-            <p className={String.raw`font-sans font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-snug,16.5px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis`}>
+              duration), so it is spelled out here rather than bent to fit.
+
+              Same shrink-0/text-ellipsis contradiction as the chip, and the
+              same ceiling: max-w-full, which here resolves against the
+              w-full column the row sits in, so the three values share the
+              card width and ellipsise instead of running past it. The
+              whitespace-nowrap moves off this row onto the three <p>s, where
+              it completes overflow-hidden + text-ellipsis; it is inherited
+              either way, so nothing renders differently.
+              */}
+          <div className="[word-break:break-word] content-stretch flex gap-[7px] items-center max-w-full relative shrink-0">
+            <p className={String.raw`font-sans font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-snug,16.5px)] overflow-hidden relative text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis whitespace-nowrap`}>
               {data.detectedLabel}
             </p>
-            <p className={String.raw`font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative shrink-0 text-[14px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis`}>
+            <p className={String.raw`font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative text-[14px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis whitespace-nowrap`}>
               {data.detectedAt}
             </p>
-            <p className={String.raw`font-sans font-semibold leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative shrink-0 text-[14px] text-[color:var(--colors\/red\/700,#c10007)] text-ellipsis`}>
+            <p className={String.raw`font-sans font-semibold leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative text-[14px] text-[color:var(--colors\/red\/700,#c10007)] text-ellipsis whitespace-nowrap`}>
               {data.duration}
             </p>
           </div>
