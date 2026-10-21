@@ -2,9 +2,16 @@
 //
 // Two things the screens own that the chart cannot prove about itself.
 //
-// PLS-WC-03 — Monthly is the default grouping at EVERY level. Both screens
-// opened on Daily, which answers "what did this month look like, day by day"
-// before the user has said which month they mean.
+// PLS-WC-03 — Monthly is the default grouping, and the HOME screen still obeys
+// it: it opened on Daily, which answers "what did this month look like, day by
+// day" before the user has said which month they mean.
+//
+// THE SYSTEM PAGE WAS CARVED OUT OF THAT RULE ON 2026-10-21. The owner, on its
+// hero: "this dates needs to be date to month / eg for today 1-21.10 / compare
+// is to last dates in previous month". That window is the Daily grouping at
+// offset 0 and nothing else, so the page opens on it. The rule's objection
+// above does not apply to it: the user has not had to say which month he
+// means, because month-to-date names itself.
 //
 // PLS-WC-15 / §3.6 / §20.1 USED TO BE THE OTHER HALF of this file: a
 // "‹ Back to Monthly" pill that restored the grouping AND the period a
@@ -82,16 +89,50 @@ const opensOnMonthly = (container) => {
   expect(currentGranularity(container)).not.toBe('Day')
 }
 
-describe('PLS-WC-03 — Monthly is the default grouping', () => {
-  it('on the home screen', () => {
+/* The System page's counterpart, read off the same control.
+   THE SYSTEM PAGE NO LONGER OPENS ON MONTHLY. The owner, 2026-10-21, on its
+   hero: "this dates needs to be date to month / eg for today 1-21.10 /
+   compare is to last dates in previous month". Month-to-date IS the Daily
+   window at offset 0 — the calendar month drawn at true length with the days
+   it has not reached left null (§5 / PLS-WC-17) — so the page opens on Day
+   and the hero captions the elapsed span. PLS-WC-03 still governs the home
+   screen, which has no hero caption and which the owner said nothing about,
+   so the two screens now open on different groupings ON PURPOSE. */
+const opensOnMonthToDate = (container) => {
+  const view = within(container)
+  expect(view.getAllByText('Daily Avg L').length).toBeGreaterThan(0)
+  expect(currentGranularity(container)).toBe('Day')
+  /* And the caption is the owner's form: day-range then month, no year.
+     Pinned here as well as in systemHeroSeeMore.dom.test.jsx because this is
+     the file that says what the page OPENS on, and the caption is half of
+     that answer. */
+  expect(view.getAllByText(/^[A-Z][a-z]{2} \d{1,2}(–\d{1,2})?$/).length).toBeGreaterThan(0)
+}
+
+describe('the default window', () => {
+  it('is Monthly on the home screen (PLS-WC-03)', () => {
     opensOnMonthly(mountHome().container)
   })
 
-  it('on a system page', () => {
-    opensOnMonthly(mountSystem().container)
+  it('is month-to-date on a system page (owner, 2026-10-21)', () => {
+    opensOnMonthToDate(mountSystem().container)
   })
 
-  it('and Daily is still reachable from it', () => {
+  /* Rule 0 — the twelve-month window was not removed from the System page,
+     only stepped off as the default. One tap on the grouping dropdown is
+     still all it takes, and the hero follows the chart back to it: Monthly
+     carries no `labelRange`, so the caption reverts to the range form. */
+  it('and Monthly is still one tap away on a system page', () => {
+    const { container } = mountSystem()
+    const view = within(container)
+    pickGranularity(container, 'Month')
+    expect(currentGranularity(container)).toBe('Month')
+    expect(view.getAllByText('Monthly Avg L').length).toBeGreaterThan(0)
+    expect(view.getAllByText('Nov 2025 - Oct 2026').length).toBeGreaterThan(0)
+    expect(view.queryByText(/Nothing flowed in yet/i)).toBeNull()
+  })
+
+  it('and Daily is still reachable from Monthly on the home screen', () => {
     const { container } = mountHome()
     const view = within(container)
     pickGranularity(container, 'Day')

@@ -253,6 +253,57 @@ export function windowMonthsOf(series) {
 }
 
 /**
+ * THE COMPARISON SPAN — "compare is to last dates in previous month"
+ * (the owner, 2026-10-21).
+ *
+ * A month-to-date window is 21 days long on the 21st, but the window before
+ * it is a WHOLE month. Handing that whole month over as the comparison would
+ * say October's first three weeks ran below September — of course they did,
+ * September had thirty days in it. The honest comparison is the SAME SPAN:
+ * the previous window's first N buckets, where N is how many buckets the
+ * current window has actually read.
+ *
+ * ── The clamp ──
+ * N is capped by the previous window's own length, and that cap IS the
+ * short-month rule: on 31 March the current window has read 31 days and
+ * February offers 28 (29 in a leap year), so the span comes back 28 long and
+ * the comparison is 1-28 February. Nothing special-cases February, or leap
+ * years, or the 31st — `slice` cannot return rows that are not there. The
+ * same goes for January, where the previous window is December of the
+ * previous year: the caller gets there by asking the data layer for
+ * `offset - 1`, and bucketDaily does that arithmetic on a whole-month index
+ * precisely so a year boundary is not a special case either.
+ *
+ * ── Why this is a function and not a chart prop ──
+ * It returns DATA, positionally aligned with `current`, and says nothing
+ * about how the comparison is drawn. Two bar series, an overlaid line, a
+ * cumulative pace line and a weekly roll-up can all be built on it, which is
+ * deliberate: the form is an open question and this must not foreclose it.
+ *
+ * @param current  the window being read, newest-last (rows may carry null)
+ * @param previous the window before it, same shape
+ * @returns rows from `previous`, index-aligned with `current`, never longer
+ *          than either of them.
+ */
+export function previousSpanAligned(current, previous) {
+  const span = (current ?? []).filter(isReading).length
+  if (!span) return []
+  return (previous ?? []).slice(0, span)
+}
+
+/**
+ * The litres a span adds up to, nulls excluded — PLS-WC-17's rule that an
+ * unreached bucket reports nothing rather than zero, applied to a total.
+ * Returns null when the span holds no reading at all, so a caller can tell
+ * "nothing yet" from "nothing used".
+ */
+export function spanTotal(rows) {
+  const read = (rows ?? []).filter(isReading)
+  if (!read.length) return null
+  return read.reduce((sum, row) => sum + row.litres, 0)
+}
+
+/**
  * PLS-WC-08 — the oldest period the picker may offer, in the {y,m} shape the
  * cross-file contract spells for this prop (`max` predates it and stays
  * {month, year}).

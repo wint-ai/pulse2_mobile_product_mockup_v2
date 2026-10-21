@@ -53,7 +53,12 @@ describe('advanced period picker', () => {
     expect(within(container).getByText('Select month')).toBeTruthy()
     // The advanced variant, per 198674:184354.
     expect(within(container).getByText(/Pick the last month of the window/i)).toBeTruthy()
-    expect(within(container).getByText(/Latest 12 months/i)).toBeTruthy()
+    /* The footer shortcut's copy is PER GROUPING (footerLabelFor), and the
+       System page now opens on the month-to-date window — the Daily grouping
+       at offset 0 (owner, 2026-10-21) — so the shortcut names the latest
+       MONTH, not the latest twelve. It read "Latest 12 months" here only
+       because the page used to open on Monthly. */
+    expect(within(container).getByText(/Latest month/i)).toBeTruthy()
   })
 
   it('Cancel discards without changing the chart scope', () => {

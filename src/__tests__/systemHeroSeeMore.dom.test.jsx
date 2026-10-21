@@ -153,11 +153,38 @@ const captionRange = (c) => {
   return node.textContent.replace(/^Water consumption\s*/, '').trim()
 }
 
-/* The caption reads `consumptionView.label`; the card's period control reads
-   `labelShort`, which falls back to `label` everywhere except Hourly. Nothing
-   here is Hourly, so the two are the same string and comparing them is still
-   the "one window, read twice" assertion it has always been. */
+/* The card's period control reads `labelShort`, which falls back to `label`
+   everywhere except Hourly. Nothing here is Hourly, so this is `label`. */
 const chartLabel = () => lastProps.monthLabel
+
+/* ONE WINDOW, READ TWICE — STILL TRUE, NO LONGER ONE STRING.
+   Until 2026-10-21 the caption WAS `consumptionView.label`, so the assertion
+   could be `caption === chartLabel()`. The owner then asked for the hero to
+   name the elapsed span instead: "this dates needs to be date to month / eg
+   for today 1-21.10". The Daily window therefore carries a third label,
+   `labelRange`, and the hero prints it — so on a Daily window the two
+   readers SPELL the same window differently ("Oct 1–21" in the caption,
+   "October 2026" in the period control, which has to split a month from a
+   year and cannot do it to a bare range).
+
+   The invariant that matters is unchanged and is what this helper pins: the
+   caption names the window the chart is plotting. It re-derives the expected
+   spelling from the rows the SCREEN handed the card, rather than importing
+   the production rule, so that a change to either side fails here instead of
+   quietly agreeing with itself. */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const expectedCaption = () => {
+  const read = (lastProps.data ?? []).filter((r) => r.litres != null)
+  if (!read.length || read[0].key?.kind !== 'day') return chartLabel()
+  const from = read[0].key
+  const to = read[read.length - 1].key
+  return from.d === to.d
+    ? `${MONTHS[from.m]} ${from.d}`
+    : `${MONTHS[from.m]} ${from.d}–${to.d}`
+}
+
+/* The assertion the old `caption === chartLabel()` was always making. */
+const namesTheChartsWindow = (c) => expect(captionRange(c)).toBe(expectedCaption())
 
 describe('the consumption chart is always on the page', () => {
   it('is mounted on arrival, with no interaction', () => {
@@ -165,12 +192,23 @@ describe('the consumption chart is always on the page', () => {
 
     expect(chartNode(container), 'the chart is not on the page').toBeTruthy()
     expect(lastProps, 'the card never rendered').toBeTruthy()
-    /* And it opens on the default window, Monthly (PLS-WC-03), which is the
-       window the hero's caption names. */
-    expect(lastProps.period).toBe('M')
-    expect(captionRange(container)).toBe(chartLabel())
-    /* Nothing is pre-compared: the comparison is something the control turns
-       on, not a default. */
+    /* AND IT OPENS ON MONTH-TO-DATE. The owner, 2026-10-21: "this dates needs
+       to be date to month / eg for today 1-21.10". That window is the Daily
+       grouping at offset 0 — the calendar month drawn at its true length with
+       the days it has not reached left null (§5 / PLS-WC-17) — so `period` is
+       'D' and the caption is the elapsed span of it. It was 'M' here until
+       that instruction (PLS-WC-03). */
+    expect(lastProps.period).toBe('D')
+    expect(captionRange(container)).toMatch(/^[A-Z][a-z]{2} \d{1,2}(–\d{1,2})?$/)
+    namesTheChartsWindow(container)
+    /* The comparison is OFFERED on this window and is OFF until asked for.
+       PLS-WC-20 made the switch Monthly-only; Daily was added on 2026-10-21
+       with the owner's ruling on what the comparison should LOOK like there —
+       bars for the current month with the previous month's matching dates as
+       an overlaid line, because "60 bars on mobile is not a good idea". So
+       the switch is drawn here, and nothing is pre-compared: a comparison is
+       something a control turns on, not a default. */
+    expect(compareSwitch(container)).toBeTruthy()
     expect(compareSwitch(container).getAttribute('aria-checked')).toBe('false')
   })
 
@@ -215,6 +253,12 @@ describe('the hero "See more" is a jump into the chart', () => {
   it('turns the comparison on, against a real previous window', () => {
     const { container } = mount()
 
+    /* ON MONTHLY. The page opens on month-to-date now, and PLS-WC-20 keeps
+       the comparison Monthly-only — so the window that HAS a compare switch
+       has to be chosen before the jump can be asked to turn it on. Picking a
+       grouping clears the trail (§3.1), which is exactly the state this case
+       wants: no drill to unwind, just the comparison. */
+    pickGranularity(container, 'Month')
     fireEvent.click(seeMore(container))
 
     const sw = compareSwitch(container)
@@ -225,20 +269,64 @@ describe('the hero "See more" is a jump into the chart', () => {
     expect(lastProps.compareData?.length).toBe(lastProps.data.length)
   })
 
+  /* THE OWNER'S ORIGINAL ASK, ON THE WINDOW THE PAGE NOW OPENS ON: "when user
+     clicks on see more it redirect him the consumption chart with context of
+     the date written above and with the compare to previous month". The
+     caption says Oct 1–21; the chart lands on that window with September's
+     matching dates over it. */
+  it('compares month-to-date against the same dates last month', () => {
+    const { container } = mount()
+    expect(captionRange(container)).toBe('Oct 1–21')
+
+    fireEvent.click(seeMore(container))
+
+    expect(lastProps.period).toBe('D')
+    expect(compareSwitch(container).getAttribute('aria-checked')).toBe('true')
+
+    /* THE COMPARISON IS SHORTER THAN THE AXIS, and that is the point. The
+       month is drawn at its true length (§5), so `data` is all 31 days of
+       October with 21 readings in it; the comparison is September 1-21 and
+       NOT all thirty of September, because comparing three weeks against a
+       month would only be a statement about September being longer. */
+    const read = lastProps.data.filter((r) => r.litres != null)
+    expect(lastProps.data).toHaveLength(31)
+    expect(read).toHaveLength(21)
+    expect(lastProps.compareData).toHaveLength(21)
+    expect(lastProps.compareData[0].key).toMatchObject({ y: 2026, m: 8, d: 1 })
+    expect(lastProps.compareData[20].key).toMatchObject({ y: 2026, m: 8, d: 21 })
+
+    /* And the legend says so in the caption's own form, which is what stops
+       it reading "Previous period" over a line that is nothing of the kind. */
+    expect(lastProps.seriesLabel).toBe('Oct 1–21')
+    expect(lastProps.compareLabel).toBe('Sep 1–21')
+  })
+
   it('lands on the window the caption names, and keeps naming it', () => {
     const { container } = mount()
     fireEvent.click(seeMore(container))
 
-    expect(captionRange(container)).toBe(chartLabel())
-    expect(lastProps.period).toBe('M')
+    namesTheChartsWindow(container)
+    // The month-to-date window is where the page already was, so the jump
+    // lands on it rather than moving to it.
+    expect(lastProps.period).toBe('D')
+    expect(captionRange(container)).toBe('Oct 1–21')
 
-    // One step back moves BOTH, because there is only one window.
+    /* One step back moves BOTH, because there is only one window — and it
+       moves the caption off month-to-date onto a COMPLETE month, which is
+       the span rule stating itself: September reports Sep 1–30 because all
+       thirty of its days carry a reading, while October reports Oct 1–21
+       because only twenty-one of its do. */
     fireEvent.click(within(container).getByRole('button', { name: 'Previous period' }))
-    expect(captionRange(container)).toBe(chartLabel())
+    namesTheChartsWindow(container)
+    expect(captionRange(container)).toBe('Sep 1–30')
   })
 
   it('unwinds a drill-down back to the caption window, and never shows a return control', () => {
     const { container } = mount()
+    // The drill below opens a Daily window, so it has to start on Monthly to
+    // be a drill at all. §3.1 clears the trail on the pick, so the unwind
+    // this case is about is recorded by the drill and nothing else.
+    pickGranularity(container, 'Month')
     fireEvent.click(seeMore(container))
 
     const opened = chartLabel()
@@ -256,7 +344,8 @@ describe('the hero "See more" is a jump into the chart', () => {
     expect(within(container).queryByTestId('consumption-return')).toBeNull()
     // The caption follows the chart down — they never disagree, which is the
     // reason the unwind below is about determinism, not about a mismatch.
-    expect(captionRange(container)).toBe(chartLabel())
+    // Down here the window is Daily, so the caption is in the span form.
+    namesTheChartsWindow(container)
 
     /* ONE tap, from the drilled state. There is no "See less" to close first
        any more, so the unwind has to happen on the jump itself. */
@@ -280,6 +369,8 @@ describe('the hero "See more" is a jump into the chart', () => {
 
   it('turns the comparison on at every tap, and lets the user turn it off', () => {
     const { container } = mount()
+    // Monthly, for the switch — see the case above.
+    pickGranularity(container, 'Month')
     fireEvent.click(seeMore(container))
 
     fireEvent.click(compareSwitch(container))
@@ -298,6 +389,8 @@ describe('the hero "See more" is a jump into the chart', () => {
 
   it('withholds the comparison where the series has no previous period', () => {
     const { container } = mount()
+    // Monthly, for the switch — see the case above.
+    pickGranularity(container, 'Month')
     fireEvent.click(seeMore(container))
 
     // Walk to the oldest window the series can fill (PLS-WC-09 stops us there).
@@ -320,17 +413,24 @@ describe('the hero "See more" is a jump into the chart', () => {
     expect(compareSwitch(container).getAttribute('aria-checked')).toBe('false')
     expect(lastProps.compareData).toBeNull()
     // Still the same one window, and still the caption's.
-    expect(captionRange(container)).toBe(chartLabel())
+    namesTheChartsWindow(container)
   })
 })
 
 describe('the jump keeps a grouping the user picked (§4)', () => {
-  it('does not drag a self-picked grouping back to Monthly', () => {
+  it('does not drag a self-picked grouping back to the default window', () => {
     const { container } = mount()
     fireEvent.click(seeMore(container))
 
-    pickGranularity(container, 'Day')
-    expect(currentGranularity(container)).toBe('Day')
+    /* YEARLY, NOT DAILY. This case needs a grouping the user chose that is
+       NOT the one the page opens on, and since 2026-10-21 the page opens on
+       Daily. Yearly also keeps the case's second half honest: it has no
+       previous window at all (§2 — it is the whole series at once), so
+       PLS-WC-20 leaves the comparison off for the same reason it used to
+       here. The owner's ruling on exactly this: "ok so w/o compare, just
+       take me to relevant dates." */
+    pickGranularity(container, 'Year')
+    expect(currentGranularity(container)).toBe('Year')
     const picked = captionRange(container)
     expect(picked).toBe(chartLabel())
     // PLS-WC-20: outside Monthly the card does not even draw the switch.
@@ -343,7 +443,7 @@ describe('the jump keeps a grouping the user picked (§4)', () => {
     const before = scrollSpy.mock.calls.length
     fireEvent.click(seeMore(container))
 
-    expect(currentGranularity(container)).toBe('Day')
+    expect(currentGranularity(container)).toBe('Year')
     expect(captionRange(container)).toBe(picked)
     expect(chartLabel()).toBe(picked)
     expect(compareSwitch(container)).toBeNull()

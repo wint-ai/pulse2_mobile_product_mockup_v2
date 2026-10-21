@@ -102,10 +102,16 @@ function fmtL(n) {
 describe('the consumption chart plots the routed system', () => {
   it('shows this system\u2019s own total, not the traced comp series', () => {
     for (const system of distinct) {
-      // 'M', not 'D': PLS-WC-03 makes Monthly the default grouping, so the
-      // newest MONTHLY window is what the card totals on first paint.
-      const { series } = getConsumptionSeries(system.id, system.name, 'M', 0)
-      const expected = fmtL(series.reduce((sum, p) => sum + p.litres, 0))
+      /* 'D', not 'M'. The System page used to open on Monthly (PLS-WC-03);
+         since 2026-10-21 it opens on the MONTH-TO-DATE window, which is the
+         Daily grouping at offset 0, so that is what the card totals on first
+         paint. The nulls are dropped explicitly rather than left to coerce to
+         0 in the sum: PLS-WC-17 says an unreached day reports nothing, and a
+         total that only happens to come out right is not the assertion. */
+      const { series } = getConsumptionSeries(system.id, system.name, 'D', 0)
+      const expected = fmtL(
+        series.filter((p) => p.litres != null).reduce((sum, p) => sum + p.litres, 0),
+      )
 
       const { container, unmount } = mountAt(system.id)
       const view = within(container)

@@ -103,8 +103,9 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Bar,
-  BarChart,
   CartesianGrid,
+  ComposedChart,
+  Line,
   Rectangle,
   ReferenceLine,
   XAxis,
@@ -128,8 +129,6 @@ import {
   BAR_MAX_WIDTH,
   barTopRadius,
   bucketAccessibleName,
-  bucketSlotWidth,
-  drawnBarWidth,
   isBucketOpenable,
   nearestBucketIndex,
   niceScale,
@@ -643,8 +642,80 @@ const CHART_CONFIG = {
 
 const CHART_CONFIG_COMPARE = {
   litres: { label: 'Litres', color: 'var(--primary)' },
-  prevLitres: { label: 'Previous period', color: '#6bb1fa' },
+  /* --chart-2 IS the #6bb1fa that was hard-coded here: oklch(0.75046 0.12587
+     246.447) is that hex, and the token is defined per theme, so the
+     comparison now follows the four themes instead of staying one fixed blue
+     on all of them. It is also the lighter step of the one brand hue the note
+     above argues for, which is what the token was aliased for. */
+  prevLitres: { label: 'Previous period', color: 'var(--chart-2)' },
 }
+
+/* ── THE COMPARISON IS A LINE OVER THE BARS, NOT A SECOND BAR SERIES ───────
+ *
+ * The owner, 2026-10-21, on seeing month-to-date proposed with a paired bar:
+ * "we need to think smartly how to do that, 60 bars on mobile is not a good
+ * idea." He is right, and the geometry says so: at a 393px frame the plot is
+ * about 333px once the card padding and the y-axis gutter are taken out, so
+ * 31 days paired two-up gives each bar under 4px — below BAR_MIN_WIDTH, which
+ * this chart's own sizing rule calls the width where the 4px rounded data-end
+ * stops being drawable and a bar renders as a dome with no shaft. Month-to-
+ * date is the DEFAULT window on the System page now, so that would not have
+ * been an edge case; it would have been the main path.
+ *
+ * Overlaying a line instead halves the mark count, which gives the bars back
+ * their full slot. It also says the right thing: "the same dates last month"
+ * is a BENCHMARK to read the current month against, not a competitor beside
+ * it, and a thin recessive line is how a benchmark is drawn.
+ *
+ * AND IT KEEPS THE BAR DRILL-DOWN. That was the deciding argument. Tapping a
+ * bar is existing behaviour — one tap shows the value, two drill in (§3.5 /
+ * BucketTargets) — and every all-line alternative on the table (a cumulative
+ * pace chart, two lines) would have dropped it. v2-page-parity Rule 0:
+ * working functionality is not silently removed.
+ *
+ * THE LEGEND IS NOT OPTIONAL HERE, and it must separate the two by FORM.
+ * Colour alone cannot carry it when one series is bars and the other is a
+ * line, so the legend's swatches are glyphs of the marks themselves:
+ * ChartLegendContent renders `config.icon` in place of its colour square.
+ * They paint from the --color-<key> custom properties ChartStyle puts on the
+ * container, so the glyph and the mark can never disagree about the colour.
+ */
+const BarsGlyph = () => (
+  <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+    <rect x="1.25" y="4" width="3.5" height="8" rx="1.25" fill="var(--color-litres)" />
+    <rect x="7.25" y="1.5" width="3.5" height="10.5" rx="1.25" fill="var(--color-litres)" />
+  </svg>
+)
+
+const LineGlyph = () => (
+  <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+    <path
+      d="M0.75 8.75 L4 5.25 L7.25 7.75 L11.25 2.75"
+      fill="none"
+      stroke="var(--color-prevLitres)"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
+/**
+ * Which groupings can carry a comparison at all.
+ *
+ * PLS-WC-20 made this Monthly-only, and the reason given was that "on Hour
+ * and Day the windows are too short to read against each other". DAILY WAS
+ * ADDED ON 2026-10-21, because the owner asked for exactly that comparison on
+ * exactly that window — "compare is to last dates in previous month" — and
+ * the objection does not survive it: the two windows being read against each
+ * other are the same dates of consecutive months, which is the most legible
+ * pairing the series has.
+ *
+ * Hourly and Yearly are unchanged and still cannot compare: an hour against
+ * the same hour yesterday is noise, and Yearly plots the whole span at once
+ * so there is no previous year left over to compare with.
+ */
+const COMPARABLE_PERIODS = new Set(['M', 'D'])
 
 /* PLS-WC-35/36 (§13) — the bar.
    The bucket's TARGET is no longer drawn here; see BucketTargets below.
@@ -895,6 +966,17 @@ export default function WaterConsumptionCardV2({
   compare: compareProp,
   onCompareChange,
   compareData,
+  /* What the LEGEND calls the two series while comparing. Both are optional
+     and both fall back to the generic wording in CHART_CONFIG_COMPARE.
+     They exist because "Previous period" stopped being true on 2026-10-21:
+     the comparison is now the previous month's MATCHING DATES, not the whole
+     of it, and a legend that says "previous period" next to a 21-day line
+     over a 21-day month is describing something the chart is not drawing.
+     The host passes the spans it actually plotted — "Oct 1–21" and
+     "Sep 1–21" — because only the host knows them. Kept to a span rather than
+     a sentence so the two entries sit on one line at a 393px frame. */
+  seriesLabel,
+  compareLabel,
   monthLabel: monthLabelProp,
   onMonthChange,
   /* Which picker the caption row draws — see DROPDOWN_PICKERS above. Defaults
@@ -952,7 +1034,7 @@ export default function WaterConsumptionCardV2({
   /* Merge the previous window onto the plotted rows by bucket position, so
      bar N and its comparison share an x slot even when the two windows have
      different lengths (Feb vs Mar, a partial current month). */
-  const plotted = compareOn && period === 'M' && compareData?.length
+  const plotted = compareOn && COMPARABLE_PERIODS.has(period) && compareData?.length
     ? series.map((row, i) => ({ ...row, prevLitres: compareData[i]?.litres ?? null }))
     : series
 
@@ -1042,14 +1124,39 @@ export default function WaterConsumptionCardV2({
       xLabelWidth + 6
 
   const innerPlotWidth = Math.max(0, plotWidth - yWidth)
-  const slotWidth = bucketSlotWidth(innerPlotWidth, plotted.length)
-  const comparing = Boolean(compareOn && period === 'M' && compareData?.length)
-  /* What recharts will draw, given the px geometry on <BarChart> below. Only
-     the comparison bar and the legend need it up here — the current series
-     gets its own exact width handed to the shape. */
-  const barWidth = drawnBarWidth(slotWidth, comparing ? 2 : 1)
-  const prevRadius = barTopRadius(barWidth)
-  const chartConfig = comparing ? CHART_CONFIG_COMPARE : CHART_CONFIG
+  const comparing = Boolean(compareOn && COMPARABLE_PERIODS.has(period) && compareData?.length)
+  /* What recharts will draw, given the px geometry on <ComposedChart> below.
+     ONE BAR SERIES, ALWAYS — this used to pass 2 while comparing, because the
+     comparison was a second bar sharing the slot. It is a LINE now (see the
+     note on BarsGlyph above), so the bars keep their whole slot whether the
+     comparison is on or off and the two-series branch of drawnBarWidth is not
+     reached from this view at all. That branch is deliberately left in place:
+     it is the sizing rule for a paired bar, and nothing says no view will ask
+     for one again.
+
+     MEASURED IN CHROMIUM, 2026-10-21, not estimated. The plot is 274px wide
+     at a 393px frame and 241px at 360px — narrower than a reading of the card
+     padding alone suggests, because the y-axis gutter comes out of it too.
+     And a Daily window ALWAYS has a full month of slots, never just the
+     elapsed ones: §5 keeps the month at its true length, so month-to-date is
+     31 slots with 21 bars in them, not 21 slots. One slot is therefore 8.84px
+     at 393 and 7.77px at 360, whatever the day of the month.
+         one bar series  ->  6px at 393, 5px at 360   (what ships)
+         two bar series  ->  2px at 393, 1px at 360   (what was proposed)
+     The 6px is BAR_MIN_WIDTH exactly. The 5px at 360px is UNDER it and is a
+     pre-existing defect this change does not alter — identical with the
+     comparison on or off — but it is now on the default path, which it was
+     not while the page opened on Monthly. Flagged, not silently inherited.
+
+     Nothing in this component reads the number any more — recharts hands the
+     shape its own exact width — so there is no local to hold it. The rule it
+     would have called is pinned in consumptionChartScale.test.js instead. */
+  const chartConfig = comparing
+    ? {
+        litres: { ...CHART_CONFIG_COMPARE.litres, label: seriesLabel ?? CHART_CONFIG_COMPARE.litres.label, icon: BarsGlyph },
+        prevLitres: { ...CHART_CONFIG_COMPARE.prevLitres, label: compareLabel ?? CHART_CONFIG_COMPARE.prevLitres.label, icon: LineGlyph },
+      }
+    : CHART_CONFIG
   const animateBars = !prefersReducedMotion()
 
   /* §19 + the owner's two-stage tap. The ARMED bucket lives here rather than
@@ -1094,7 +1201,7 @@ export default function WaterConsumptionCardV2({
     if (!next) return
     // Compare is monthly-only, so leaving Monthly clears it — otherwise the
     // switch would stay on while hidden and keep a ghost series on the chart.
-    if (next !== 'M' && compareOn) setCompare(false)
+    if (!COMPARABLE_PERIODS.has(next) && compareOn) setCompare(false)
     setPeriodState(next)
     onPeriodChange?.(next)
   }
@@ -1366,11 +1473,15 @@ export default function WaterConsumptionCardV2({
               cardContent, NOT of the gap-12 control wrapper above, so it sits
               20px below the caption rather than 12 — and it comes AFTER the
               caption, which is the order the node lists.
-              MONTHLY ONLY. "The previous period" is only a meaningful
-              comparison month-over-month here; on Hour and Day the windows are
-              too short to read against each other, and Year already plots the
-              whole span at once so there is no previous year to compare with. */}
-          {period === 'M' && (
+              MONTHLY *AND DAILY*. This was Monthly only (PLS-WC-20), on the
+              argument that "on Hour and Day the windows are too short to read
+              against each other". Daily was added on 2026-10-21 because the
+              owner asked for precisely that comparison on precisely that
+              window — "compare is to last dates in previous month" — and the
+              argument does not hold against it: the same dates of consecutive
+              months is the most legible pairing the series has. Hour and Year
+              are unchanged; see COMPARABLE_PERIODS for both reasons. */}
+          {COMPARABLE_PERIODS.has(period) && (
             <CompareSwitch
               checked={compareOn}
               onChange={setCompare}
@@ -1524,9 +1635,14 @@ export default function WaterConsumptionCardV2({
                 '[&_[data-bucket]:focus-visible]:outline-primary',
               )}
             >
-              <BarChart
+              <ComposedChart
                 accessibilityLayer
                 data={plotted}
+                /* COMPOSED, not BarChart, since 2026-10-21: the comparison is
+                   a Line laid over the bars rather than a second Bar beside
+                   them, and only ComposedChart hosts both. Every geometry prop
+                   below is unchanged and still means what it meant; see the
+                   note on BarsGlyph for why the form changed. */
                 /* PIXELS, not a percentage — see the long note in chartScale.js.
                    A percentage is applied to BOTH sides of the column, so the
                    "42%" this used to pass left the bar 16% of its slot and the
@@ -1612,28 +1728,23 @@ export default function WaterConsumptionCardV2({
                 {/* A LEGEND, only while comparing. One series needs none — the
                     card title names it — but two unlabelled blues are a riddle.
                     ChartLegendContent reads its labels and swatches from the
-                    config, which is why prevLitres had to be added there. */}
+                    config, which is why prevLitres had to be added there.
+
+                    MANDATORY NOW, AND BY FORM. While the comparison was a
+                    second bar, the legend was a courtesy and colour alone
+                    could carry it. The comparison is a LINE over BARS since
+                    2026-10-21, so the two marks differ in shape before they
+                    differ in colour and the legend has to say which is which:
+                    `chartConfig` gives each entry a glyph of its own mark
+                    (BarsGlyph / LineGlyph) in place of ChartLegendContent's
+                    colour square. The labels are the two spans the host
+                    plotted — "Oct 1–21" and "Sep 1–21" — which is what makes
+                    "the same dates last month" legible without a sentence. */}
                 {comparing ? (
                   <ChartLegend
                     verticalAlign="bottom"
                     height={22}
                     content={<ChartLegendContent className="gap-4 pt-1 text-[12px]" />}
-                  />
-                ) : null}
-                {/* The comp draws the switch OFF, so Figma specifies no
-                    appearance for a comparison series. The treatment here is
-                    the one invented thing in this card and it is flagged in
-                    CHART_CONFIG_COMPARE above: the PREVIOUS window is the
-                    lighter step of the one brand hue and sits to the LEFT,
-                    because the pair is ordered in time. The slate #cad5e2 it
-                    replaces failed the palette validator on both lightness and
-                    chroma and read as a disabled control. */}
-                {comparing ? (
-                  <Bar
-                    dataKey="prevLitres"
-                    fill="var(--color-prevLitres)"
-                    radius={[prevRadius, prevRadius, 0, 0]}
-                    isAnimationActive={animateBars}
                   />
                 ) : null}
                 <Bar
@@ -1651,6 +1762,38 @@ export default function WaterConsumptionCardV2({
                      renderBarShape for who asked and what it cost. */
                   shape={renderBarShape}
                 />
+                {/* THE COMPARISON, AS A LINE OVER THE BARS.
+                    The comp draws the switch OFF, so Figma specifies no
+                    appearance for a comparison series; the treatment is this
+                    card's own and is argued in full on BarsGlyph above. It
+                    used to be a second <Bar> sharing the slot, which at a
+                    31-day month on a 393px frame left each bar under 4px.
+
+                    AFTER the bars in source order, so it paints OVER them:
+                    the benchmark has to be readable against the thing it is a
+                    benchmark for. Recessive by every other means — 1.5px, no
+                    dots at rest, the lighter step of the one brand hue — so it
+                    reads as a reference and not as a second reading.
+
+                    connectNulls={false} is the rule the sparkline already
+                    follows: a bucket with no reading is a GAP, never a zero,
+                    so the line breaks there instead of diving to the baseline
+                    and inventing a dry day (PLS-WC-17). `activeDot` is what
+                    marks the compared day under the tooltip, including the
+                    pinned tooltip the two-stage tap puts up. */}
+                {comparing ? (
+                  <Line
+                    key={'compare-' + period + '-' + monthLabel + '-' + plotted.length}
+                    dataKey="prevLitres"
+                    type="linear"
+                    stroke="var(--color-prevLitres)"
+                    strokeWidth={1.5}
+                    dot={false}
+                    activeDot={{ r: 3, strokeWidth: 0 }}
+                    connectNulls={false}
+                    isAnimationActive={animateBars}
+                  />
+                ) : null}
                 <BucketTargets
                   rows={plotted}
                   period={period}
@@ -1661,7 +1804,7 @@ export default function WaterConsumptionCardV2({
                   plotWidth={innerPlotWidth}
                   plotHeight={PLOT_HEIGHT - (comparing ? LEGEND_HEIGHT : 0)}
                 />
-              </BarChart>
+              </ComposedChart>
             </ChartContainer>
             </div>
           </CardContent>

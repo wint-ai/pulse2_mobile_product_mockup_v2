@@ -19,6 +19,8 @@ import {
   periodOffsetRange,
   pickerMin,
   pickerSelection,
+  previousSpanAligned,
+  spanTotal,
   stepAvailability,
   windowMonthsOf,
 } from '@/v2/lib/consumptionWindow'
@@ -205,5 +207,129 @@ describe('§3.3 — what the picker is told', () => {
   it('offers the oldest month the series holds as its floor', () => {
     expect(pickerMin(BOUNDS)).toEqual({ y: 2024, m: 0 })
     expect(pickerMin(null)).toBeNull()
+  })
+})
+
+/* ── The comparison span ────────────────────────────────────────────────────
+ *
+ * "compare is to last dates in previous month" — the owner, 2026-10-21, on
+ * the System page hero.
+ *
+ * A month-to-date window is 21 days long on the 21st; the window before it is
+ * a whole month. Comparing against all of it would say October's first three
+ * weeks ran below September, which is only a statement about September having
+ * thirty days. previousSpanAligned() cuts the previous window to the same
+ * span, and the SHORT-MONTH RULE falls out of that cut rather than being
+ * special-cased: it can only return rows that exist, so a 31-day span against
+ * February comes back 28 long.
+ *
+ * Synthetic rows below where the calendar matters, because the dataset ends in
+ * October 2026 and cannot be asked what 31 March does. The real data layer is
+ * then used for the cases it CAN answer, so the two halves meet.
+ */
+const days = (y, m, from, to, litres = 10) => {
+  const rows = []
+  for (let d = from; d <= to; d += 1) rows.push({ day: `${m}/${d}`, litres, key: { kind: 'day', y, m, d } })
+  return rows
+}
+/* A month drawn at its true length with the days it has not reached left null
+   — §5 / PLS-WC-17, which is what makes the read rows the elapsed span. */
+const monthToDate = (y, m, length, reached, litres = 10) =>
+  days(y, m, 1, length, litres).map((row, i) => (i < reached ? row : { ...row, litres: null }))
+
+describe('previousSpanAligned — the comparison is the same dates, not the same month', () => {
+  it('cuts the previous month to the days the current one has reached', () => {
+    const october = monthToDate(2026, 9, 31, 21)
+    const september = days(2026, 8, 1, 30)
+
+    const span = previousSpanAligned(october, september)
+
+    expect(span).toHaveLength(21)
+    expect(span[0].key).toEqual({ kind: 'day', y: 2026, m: 8, d: 1 })
+    expect(span[20].key).toEqual({ kind: 'day', y: 2026, m: 8, d: 21 })
+    // And it never reaches past the span into days October has not seen.
+    expect(span.some((row) => row.key.d > 21)).toBe(false)
+  })
+
+  it('CLAMPS to a short previous month — 31 March compares against 1-28 February', () => {
+    const march = monthToDate(2027, 2, 31, 31)
+    const february = days(2027, 1, 1, 28)
+
+    const span = previousSpanAligned(march, february)
+
+    /* 31 read days, 28 available. The answer is February's whole length and
+       not a 31-row array with three holes on the end, which is what asking
+       for a 31st of February would otherwise produce. */
+    expect(span).toHaveLength(28)
+    expect(span[27].key).toEqual({ kind: 'day', y: 2027, m: 1, d: 28 })
+  })
+
+  it('takes the extra day in a leap February', () => {
+    expect(previousSpanAligned(monthToDate(2028, 2, 31, 31), days(2028, 1, 1, 29))).toHaveLength(29)
+  })
+
+  it('is the whole previous window where the spans match — Monthly is unaffected', () => {
+    const now = at('M', 0).series
+    const before = at('M', -1).series
+    const span = previousSpanAligned(now, before)
+    // Twelve read buckets against twelve: the cut is a no-op, which is why
+    // this change left the Monthly comparison exactly as it was.
+    expect(span).toHaveLength(12)
+    expect(span).toEqual(before)
+  })
+
+  it('says nothing rather than something wrong when either side is missing', () => {
+    expect(previousSpanAligned([], days(2026, 8, 1, 30))).toEqual([])
+    expect(previousSpanAligned(undefined, undefined)).toEqual([])
+    expect(previousSpanAligned(monthToDate(2026, 9, 31, 0), days(2026, 8, 1, 30))).toEqual([])
+    expect(previousSpanAligned(days(2026, 9, 1, 5), undefined)).toEqual([])
+  })
+})
+
+describe('previousSpanAligned over the real series', () => {
+  it('compares October 1-21 against September 1-21', () => {
+    const october = at('D', 0).series
+    const september = at('D', -1).series
+    const span = previousSpanAligned(october, september)
+
+    expect(october.filter((r) => r.litres != null)).toHaveLength(21)
+    expect(span).toHaveLength(21)
+    expect(span[0].key).toMatchObject({ y: 2026, m: 8, d: 1 })
+    expect(span[20].key).toMatchObject({ y: 2026, m: 8, d: 21 })
+  })
+
+  /* JANUARY IS NOT A SPECIAL CASE, and this is where that is proved end to
+     end. The previous window is reached by asking the data layer for
+     `offset - 1`, and bucketDaily steps a whole-month index (y * 12 + m)
+     rather than a Date month, so January's predecessor is December of the
+     PREVIOUS YEAR and nothing here had to know that. January 2026 is nine
+     months back from the last reading's month, October 2026. */
+  it('crosses the year boundary — January compares against the previous December', () => {
+    const january = at('D', -9).series
+    const december = at('D', -10).series
+
+    expect(january[0].key).toMatchObject({ y: 2026, m: 0, d: 1 })
+    expect(december[0].key).toMatchObject({ y: 2025, m: 11, d: 1 })
+
+    const span = previousSpanAligned(january, december)
+    // A complete January: 31 read days against December's 31.
+    expect(span).toHaveLength(31)
+    expect(span[30].key).toMatchObject({ y: 2025, m: 11, d: 31 })
+  })
+})
+
+describe('spanTotal', () => {
+  it('sums only the buckets that carry a reading (PLS-WC-17)', () => {
+    expect(spanTotal(monthToDate(2026, 9, 31, 21, 10))).toBe(210)
+  })
+
+  it('reports nothing, not zero, for a span with no reading at all', () => {
+    expect(spanTotal(monthToDate(2026, 9, 31, 0))).toBeNull()
+    expect(spanTotal([])).toBeNull()
+    expect(spanTotal(undefined)).toBeNull()
+  })
+
+  it('still totals a span that is genuinely zero', () => {
+    expect(spanTotal(days(2026, 9, 1, 3, 0))).toBe(0)
   })
 })
