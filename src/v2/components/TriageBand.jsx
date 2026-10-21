@@ -233,7 +233,21 @@ const EMPTY_SUB = String.raw`font-[var(--font\/weight\/font-normal,400)] relativ
 
 /* 199375:139983 / 139984 — the tip. */
 const TIP = String.raw`bg-[#daecff] content-stretch flex gap-[10px] h-[65px] items-center px-[7px] relative rounded-[14px] shrink-0 w-full`
-const TIP_TEXT = String.raw`[word-break:break-word] flex flex-col font-[var(--font\/weight\/font-normal,400)] justify-center relative shrink-0 text-[color:var(--wint-blue-accent,#0b81f8)] w-[214px] leading-[0]`
+/* 199375:139984 is a WRAPPER around a <p>, and the distinction is the whole
+   bug. Figma's vertical-centring idiom for a text node is
+   `flex flex-col justify-center leading-[0] text-[0px]`, and it works there
+   because the node holds exactly one child. This tip holds THREE runs — the
+   sentence, a 12px "L", and " loss" — and putting that idiom on the <p>
+   itself made each run a flex ITEM, so they stacked into four lines inside a
+   65px box and spilled out of it. The owner: "this is broken".
+   The wrapper carries the idiom; the <p> stays a paragraph and its spans stay
+   inline. */
+const TIP_TEXT = String.raw`[word-break:break-word] flex flex-col justify-center leading-[0] relative shrink-0 text-[0px] w-[214px]`
+const TIP_P = String.raw`font-[var(--font\/weight\/font-normal,400)] text-[color:var(--wint-blue-accent,#0b81f8)]`
+/* 199375:139972 "Huge Icons / token-circle", 33px. It was missing entirely —
+   the tip rendered as a bare band of text. Inlined rather than referenced
+   from figma.com, whose asset URLs expire in about a week. */
+const TIP_ICON = String.raw`relative shrink-0 size-[33px] rounded-[137.5px]`
 const TIP_RUN = String.raw`text-[14px] leading-[var(--text\/xs\/lh,20px)]`
 const TIP_UNIT = String.raw`[word-break:break-word] font-normal text-[12px] tracking-[0.12px] leading-[16px]`
 
@@ -450,14 +464,30 @@ export default function TriageBand({
             </div>
 
             <div className={TIP} data-node-id="199375:139983">
+              <span
+                className={TIP_ICON}
+                data-name="Huge Icons / token-circle"
+                data-node-id="199375:139972"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 29.5625 29.5625" fill="none" className="absolute inset-[8.33%] block size-[83.34%]">
+                  <path
+                    d="M9.59863 13.2912L8.25468 14.1465C7.79011 14.4422 7.79011 15.1203 8.25468 15.416L9.59863 16.2713C11.0848 17.2172 12.3453 18.4777 13.2912 19.9639L14.1465 21.3078C14.4422 21.7724 15.1203 21.7724 15.416 21.3078L16.2713 19.9639C17.2172 18.4777 18.4777 17.2172 19.9639 16.2713L21.3078 15.416C21.7724 15.1203 21.7724 14.4422 21.3078 14.1465L19.9639 13.2912C18.4777 12.3453 17.2172 11.0848 16.2713 9.59863L15.416 8.25468C15.1203 7.79011 14.4422 7.79011 14.1465 8.25468L13.2912 9.59863C12.3453 11.0848 11.0848 12.3453 9.59863 13.2912Z"
+                    stroke="#0B82F8" strokeWidth="2.0625" strokeLinejoin="round"
+                  />
+                  <circle cx="14.7812" cy="14.7812" r="13.75" stroke="#0B82F8" strokeWidth="2.0625" strokeLinejoin="round" />
+                </svg>
+              </span>
               {/* Frozen Figma copy — see the note at the top. The "L" is a
                   12px Geist run inside a 14px sentence, which is how
                   199375:139984 sets it. */}
-              <p className={cn(FIG_REG, TIP_TEXT)} data-node-id="199375:139984">
-                <span className={TIP_RUN}>Leak prevention for your system can prevent up to 25K</span>
-                <span className={cn(GEIST_REG, TIP_UNIT)}>L</span>
-                <span className={TIP_RUN}>{` loss`}</span>
-              </p>
+              <div className={cn(FIG_REG, TIP_TEXT)} data-node-id="199375:139984">
+                <p className={TIP_P}>
+                  <span className={TIP_RUN}>Leak prevention for your system can prevent up to 25K</span>
+                  <span className={cn(GEIST_REG, TIP_UNIT)}>L</span>
+                  <span className={TIP_RUN}>{` loss`}</span>
+                </p>
+              </div>
             </div>
           </div>
         </div>
