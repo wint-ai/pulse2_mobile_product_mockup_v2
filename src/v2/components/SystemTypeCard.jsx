@@ -84,7 +84,9 @@
  * pasted back in from Figma — but no live class string in this file carries
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
-import { useState } from 'react'
+import { useId, useState } from 'react'
+import { Gauge, Plug, Wifi, WifiOff } from 'lucide-react'
+import ValveStatus from '@/v2/components/ValveStatus'
 import { cn } from '@/lib/utils'
 import vmaFront from '@/assets/wint-vma-front.png'
 
@@ -200,6 +202,52 @@ const PipeElbow = (props) => (
    same hashes in both exports). The other tones are this app's existing status
    palette, so a system that is not healthy can say so without the card needing
    a second variant. */
+/* ── expanded body — 199427:138742 ─────────────────────────────────────────
+ * The disclosure used to reveal NOTHING. `isExpanded` set aria-expanded and
+ * rotated the chevron, and that was all: the control promised a region to a
+ * screen reader that did not exist, and did nothing at all for everyone else.
+ * The owner, on the way it opens: "show more/less is blocking".
+ *
+ * 199427:138706 is the open state of this card, 397px against the closed
+ * 190px, and 199427:138742 is what fills the gap — a "System status" heading
+ * with the toggle on its RIGHT, then five rows with two rules between them.
+ * The centred "Show more" footer is not kept alongside it: in the open frame
+ * the control has moved into that heading, so the card has one toggle, not
+ * two.
+ */
+const BODY = String.raw`content-stretch flex flex-col gap-[16px] items-start px-[20px] relative shrink-0 w-full`
+const BODY_HEAD = String.raw`content-stretch flex h-[18px] items-center justify-between relative shrink-0 w-full`
+const BODY_TITLE = String.raw`[word-break:break-word] font-semibold relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] whitespace-nowrap leading-[18px]`
+const BODY_TOGGLE = String.raw`content-stretch flex items-center relative shrink-0 cursor-pointer bg-transparent border-0 p-0 after:absolute after:content-[''] after:inset-x-[-8px] after:inset-y-[-14px]`
+const BODY_TOGGLE_TEXT = String.raw`[word-break:break-word] font-medium relative shrink-0 text-slate-500 text-xs whitespace-nowrap leading-4`
+const ROWS = String.raw`content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full`
+const ROW = String.raw`content-stretch flex items-center justify-between relative shrink-0 w-full`
+const ROW_LEFT = String.raw`content-stretch flex gap-[6px] items-center relative shrink-0`
+const ROW_LABEL = String.raw`[word-break:break-word] font-medium relative shrink-0 text-slate-500 text-sm whitespace-nowrap leading-5`
+const ROW_RIGHT = String.raw`content-stretch flex gap-[5px] items-center justify-end relative shrink-0`
+const ROW_VALUE = String.raw`[word-break:break-word] font-medium relative shrink-0 text-slate-600 text-sm whitespace-nowrap leading-5`
+const ROW_BADGE = String.raw`content-stretch flex items-center justify-center overflow-clip relative rounded-[31.2px] shrink-0 size-[24px]`
+
+/* The node's 22px "Location Dot" on the Power and Connectivity rows is a
+   status indicator, not a pin: a filled dot inside a pale disc of the same
+   hue. Green when the thing is as it should be, red when it is not — and the
+   row always PRINTS its state beside it, so colour is never the only carrier
+   (WCAG 1.4.1). */
+function StatusDot({ ok }) {
+  return (
+    <span
+      className={cn(
+        'content-stretch flex items-center justify-center relative shrink-0 size-[22px] rounded-full',
+        ok ? 'bg-[#dcfce7]' : 'bg-[#ffe2e2]',
+      )}
+      aria-hidden="true"
+      data-name="Location Dot"
+    >
+      <span className={cn('block rounded-full size-[7px]', ok ? 'bg-[#00a63e]' : 'bg-[#e7000b]')} />
+    </span>
+  )
+}
+
 const STATUS_COLOR = {
   ok: '#53c846',
   warn: '#f0b100',
@@ -248,6 +296,8 @@ export default function SystemTypeCard({
   expanded,
   onToggle,
   toggleLabel,
+  /** { valve, comm, power } — the system's own state, for the open body. */
+  systemStatus,
   className,
 }) {
   const alert = tone === 'alert'
@@ -256,6 +306,8 @@ export default function SystemTypeCard({
      no behaviour, and a disclosure control that does nothing is worse than no
      control at all — so the card can always open itself. */
   const [selfExpanded, setSelfExpanded] = useState(false)
+  /* aria-controls needs a stable id, and two of these cards can be on one page. */
+  const bodyId = useId()
   const isExpanded = expanded ?? selfExpanded
 
   const handleToggle = () => {
@@ -266,8 +318,27 @@ export default function SystemTypeCard({
 
   const dotColor = STATUS_COLOR[status] ?? STATUS_COLOR.ok
   const dotLabel = statusLabel ?? STATUS_LABEL[status] ?? STATUS_LABEL.ok
-  /* Both frames say "Show more". `toggleLabel` is still the override. */
+  /* Both CLOSED frames say "Show more"; the open one says "Show less", in its
+     own heading. `toggleLabel` still overrides the closed label. */
   const label = toggleLabel ?? 'Show more'
+
+  /* 199427:138748's five rows, against the system's real state.
+     Power / Connectivity / Valve come straight off the dataset. METER DOES
+     NOT EXIST IN IT — `unitsFor` carries a meter MODEL, never a meter state —
+     so rather than invent a fault the row reports what can actually be known:
+     a meter you cannot reach is not reporting. Flagged here so it is not
+     mistaken for real telemetry. */
+  const st = systemStatus ?? {}
+  const online = st.comm !== 'offline'
+  const POWER = { ac: 'AC', 'ac-lost': 'AC lost', battery: 'Battery' }
+  const VALVE = { open: 'Open', closed: 'Closed', error: 'Error' }
+  const statusRows = [
+    { key: 'unit', label: 'IOT Unit', glyph: 'device', value: null },
+    { key: 'power', label: 'Power', glyph: 'dot', ok: st.power === 'ac', value: POWER[st.power] ?? 'Unknown', icon: 'plug' },
+    { key: 'comm', label: 'Connectivity', glyph: 'dot', ok: online, value: online ? 'Connected' : 'Disconnected', icon: 'wifi' },
+    { key: 'valve', label: 'Valve', glyph: 'valve', rule: true, value: VALVE[st.valve] ?? 'Unknown', icon: 'valve' },
+    { key: 'meter', label: 'Meter', glyph: 'gauge', rule: true, value: online ? 'Running' : 'Not reporting', icon: 'plug' },
+  ]
 
   /* 199383:141525 / 199359:126803 — identical in both frames. */
   const schematic = (
@@ -454,7 +525,8 @@ export default function SystemTypeCard({
         </div>
       </div>
 
-      {/* footer — 199383:141548 / 199359:126826 */}
+      {/* footer — 199383:141548 / 199359:126826 when closed; when open the
+          toggle moves into the body's own heading, so only the rule stays. */}
       <div
         className="content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full"
         data-node-id={alert ? '199383:141548' : '199359:126826'}
@@ -471,34 +543,101 @@ export default function SystemTypeCard({
         >
           <div className={RULE_FILL} />
         </div>
-        <button
-          type="button"
-          onClick={handleToggle}
-          aria-expanded={isExpanded}
-          className="content-stretch flex items-center justify-center relative shrink-0 w-full cursor-pointer bg-transparent border-0 p-0"
-          data-node-id={alert ? '199383:141550' : '199359:126828'}
-        >
-          <span
-            className={cn('font-sans', TOGGLE_LABEL)}
-            dir="auto"
-            data-node-id={alert ? '199383:141551' : '199359:126829'}
+
+        {isExpanded ? null : (
+          <button
+            type="button"
+            onClick={handleToggle}
+            aria-expanded={false}
+            aria-controls={bodyId}
+            className="content-stretch flex items-center justify-center relative shrink-0 w-full cursor-pointer bg-transparent border-0 p-0"
+            data-node-id={alert ? '199383:141550' : '199359:126828'}
           >
-            {label}
-          </span>
-          <span
-            className={cn('relative shrink-0 size-[17.36px]', CHEVRON_COLOR)}
-            data-name="Tabler Icons / chevron-down"
-            data-node-id={alert ? '199383:141552' : '199359:126830'}
-          >
-            <ChevronDown
-              className={cn(
-                'absolute inset-0 block max-w-none size-full transition-transform duration-200',
-                isExpanded ? 'rotate-180' : null,
-              )}
-            />
-          </span>
-        </button>
+            <span
+              className={cn('font-sans', TOGGLE_LABEL)}
+              dir="auto"
+              data-node-id={alert ? '199383:141551' : '199359:126829'}
+            >
+              {label}
+            </span>
+            <span
+              className={cn('relative shrink-0 size-[17.36px]', CHEVRON_COLOR)}
+              data-name="Tabler Icons / chevron-down"
+              data-node-id={alert ? '199383:141552' : '199359:126830'}
+            >
+              <ChevronDown className="absolute inset-0 block max-w-none size-full" />
+            </span>
+          </button>
+        )}
       </div>
+
+      {/* 199427:138742 — the open body. */}
+      {isExpanded ? (
+        <div className={BODY} id={bodyId} data-node-id="199427:138742">
+          <div className={BODY_HEAD} data-node-id="199427:138743">
+            <p className={cn('font-sans', BODY_TITLE)} dir="auto" data-node-id="199427:138744">
+              System status
+            </p>
+            <button
+              type="button"
+              onClick={handleToggle}
+              aria-expanded
+              aria-controls={bodyId}
+              className={BODY_TOGGLE}
+              data-node-id="199427:138745"
+            >
+              <span className={cn('font-sans', BODY_TOGGLE_TEXT)} dir="auto" data-node-id="199427:138746">
+                Show less
+              </span>
+              <span
+                className={cn('relative shrink-0 size-[17.36px]', CHEVRON_COLOR)}
+                data-name="Tabler Icons / chevron-up"
+                data-node-id="199427:138747"
+              >
+                <ChevronDown className="absolute inset-0 block max-w-none size-full rotate-180" />
+              </span>
+            </button>
+          </div>
+
+          <div className={ROWS} data-node-id="199427:138748">
+            {statusRows.map(row => (
+              <div key={row.key} className="contents">
+                {/* 199427:138837 / :138849 — a rule above the valve and meter
+                    rows, which is where the node separates the device's own
+                    state from the unit's. */}
+                {row.rule ? (
+                  <div className="h-0 relative shrink-0 w-full" aria-hidden="true">
+                    <div className={RULE_FILL} />
+                  </div>
+                ) : null}
+                <div className={ROW}>
+                  <span className={ROW_LEFT}>
+                    {row.glyph === 'dot' ? <StatusDot ok={row.ok} /> : (
+                      <span className={ROW_BADGE} aria-hidden="true">
+                        {row.glyph === 'device' ? <DeviceGlyph className="block size-[19.749px]" />
+                          : row.glyph === 'valve' ? <ValveStatus className="block size-[17.28px]" />
+                          : <Gauge className="block size-[17.28px] text-[#62748e]" strokeWidth={1.75} />}
+                      </span>
+                    )}
+                    <span className={cn('font-sans', ROW_LABEL)} dir="auto">{row.label}</span>
+                  </span>
+                  {row.value ? (
+                    <span className={cn(ROW_RIGHT, row.icon === 'valve' ? 'gap-[3px]' : null)}>
+                      <span className={cn('font-sans', ROW_VALUE)} dir="auto">{row.value}</span>
+                      <span className="relative shrink-0 size-[17.36px] text-[#45556c]" aria-hidden="true">
+                        {row.icon === 'wifi' ? (online ? <Wifi className="block size-full" strokeWidth={1.75} />
+                                                      : <WifiOff className="block size-full" strokeWidth={1.75} />)
+                          : row.icon === 'valve' ? <ValveStatus className="block size-full" />
+                          : <Plug className="block size-full" strokeWidth={1.75} />}
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

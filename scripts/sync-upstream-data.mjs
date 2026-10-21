@@ -27,7 +27,26 @@ const WEB_REPO = process.env.PULSE2_WEB_REPO || 'C:/Projects/pulse2_product_sand
 // ── Demo constants, mirrored verbatim from the web repo ──────────────────────
 // web: src/demoMode.ts
 const MRG_ACCOUNT_ID = '0015800001fvUFkAAM';
-const ALL_CLEAR_LOCATION_IDS = ['esrt-bldg-D', 'esrt-bldg-E'];
+/* DELIBERATE DIVERGENCE FROM THE WEB, requested 2026-10-21: "i want at least
+   3 location fully healthy wo any water events".
+
+   The web's DEMO_ALL_CLEAR_LOCATION_IDS is ['esrt-bldg-D', 'esrt-bldg-E'] and
+   was checked against the live repo on the day — upstream really does have
+   two, so this is an addition rather than a sync that drifted.
+
+   Building C is the third because the five residential buildings are the only
+   nodes in this dataset that an all-clear id can name: every other location
+   holds CRM systems whose state comes from the shared hash, and silencing one
+   of those would make the mobile app disagree with the web about a system the
+   web has an opinion on. A, B and C are identical in structure (10 apartments
+   each, apt-2 high flow, apt-5 low flow), so C costs the fleet exactly one
+   high-flow and one low-flow event and nothing else.
+
+   Everything beneath an all-clear id is clear of BOTH water events and device
+   errors — see isAllClearDemoSystem in src/data/upstream/parity.js, which
+   gates systemEventType and systemErrorKind — so these are fully healthy
+   locations, not merely event-free ones. */
+const ALL_CLEAR_LOCATION_IDS = ['esrt-bldg-C', 'esrt-bldg-D', 'esrt-bldg-E'];
 // web: src/data/mockData.ts — DEMO MODE restructure block
 const BUILDING_ADDRESSES = [
   '350 5th Avenue, New York, NY 10118',

@@ -2,20 +2,16 @@
   "_meta": {
     "description": "MRG demo scope imported from the Pulse 2.0 WEB sandbox. Generated file — do not edit by hand.",
     "generator": "scripts/sync-upstream-data.mjs",
-    "generatedAt": "2026-09-15T11:14:27.415Z",
+    "generatedAt": "2026-10-21T11:28:18.016Z",
     "source": {
       "repo": "wint-ai/pulse2_product_sandbox",
-      "commit": "0734751ec429b9190c544a22f6c47fe05e3d9c14",
-      "uncommittedDataFiles": [
-        "src/data/insightsMockData.ts",
-        "src/data/mockData.ts",
-        "src/demoMode.ts",
-        "src/system-page/data/eventsTimelineMockData.ts"
-      ]
+      "commit": "eeb570b1c4efbe73358df1bc6d870e259c6d565a",
+      "uncommittedDataFiles": []
     },
     "demo": {
       "accountId": "0015800001fvUFkAAM",
       "allClearLocationIds": [
+        "esrt-bldg-C",
         "esrt-bldg-D",
         "esrt-bldg-E"
       ]
@@ -29,6 +25,7 @@
   },
   "rootAccountId": "0015800001fvUFkAAM",
   "allClearLocationIds": [
+    "esrt-bldg-C",
     "esrt-bldg-D",
     "esrt-bldg-E"
   ],
