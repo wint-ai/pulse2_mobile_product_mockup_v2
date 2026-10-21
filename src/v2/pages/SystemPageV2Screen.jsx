@@ -195,6 +195,7 @@ import WaterEventFeedbackSheet from '@/v2/components/WaterEventFeedbackSheet'
 import { tagEventKey } from '@/data/eventFeedbackStore'
 import { ignoreIncident, isIgnored } from '@/data/ignoredIncidents'
 import { startInvestigating, isInvestigating } from '@/data/investigatingStore'
+import { LocationDot } from '@/v2/icons'
 
 /* ── Mock data ──────────────────────────────────────────────────────────────
    Verbatim from the frame, including the repeated policy figures. */
@@ -352,10 +353,10 @@ function ArrowRightSLine({ fill }) {
 // 10.666x2.66, centred in the frame's 16px Icon Placeholder.
 function MoreHorizontal() {
   return (
-    <svg width="10.666" height="2.66" viewBox="0 0 10.666 2.66" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-      <path d="M5.33338 0.664961C5.70065 0.664961 5.99842 0.962731 5.99842 1.33C5.99842 1.69727 5.70065 1.99504 5.33338 1.99504H5.32752C4.96026 1.99504 4.66249 1.69727 4.66249 1.33C4.66249 0.962731 4.96026 0.664961 5.32752 0.664961H5.33338Z" stroke="#90A1B9" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9.33599 0.664961C9.70326 0.664961 10.001 0.962731 10.001 1.33C10.001 1.69727 9.70326 1.99504 9.33599 1.99504H9.33013C8.96286 1.99504 8.66509 1.69727 8.66509 1.33C8.66509 0.962731 8.96286 0.664961 9.33013 0.664961H9.33599Z" stroke="#90A1B9" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M1.33599 0.664961C1.70326 0.664961 2.00103 0.962731 2.00103 1.33C2.00103 1.69727 1.70326 1.99504 1.33599 1.99504H1.33013C0.962859 1.99504 0.66509 1.69727 0.66509 1.33C0.66509 0.962731 0.962859 0.664961 1.33013 0.664961H1.33599Z" stroke="#90A1B9" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="10.666" height="2.66" viewBox="0 0 10.666 2.66" fill="none" className="text-slate-400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <path d="M5.33338 0.664961C5.70065 0.664961 5.99842 0.962731 5.99842 1.33C5.99842 1.69727 5.70065 1.99504 5.33338 1.99504H5.32752C4.96026 1.99504 4.66249 1.69727 4.66249 1.33C4.66249 0.962731 4.96026 0.664961 5.32752 0.664961H5.33338Z" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9.33599 0.664961C9.70326 0.664961 10.001 0.962731 10.001 1.33C10.001 1.69727 9.70326 1.99504 9.33599 1.99504H9.33013C8.96286 1.99504 8.66509 1.69727 8.66509 1.33C8.66509 0.962731 8.96286 0.664961 9.33013 0.664961H9.33599Z" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M1.33599 0.664961C1.70326 0.664961 2.00103 0.962731 2.00103 1.33C2.00103 1.69727 1.70326 1.99504 1.33599 1.99504H1.33013C0.962859 1.99504 0.66509 1.69727 0.66509 1.33C0.66509 0.962731 0.962859 0.664961 1.33013 0.664961H1.33599Z" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -364,12 +365,12 @@ function MoreHorizontal() {
 // 11.7451x11.25 drawn inside a 15px box.
 function ValveStatusGlyph() {
   return (
-    <svg width="11.7451" height="11.25" viewBox="0 0 11.7451 11.25" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-      <path d="M5.87257 10.8351C8.00831 10.8351 9.73968 9.1037 9.73968 6.96796C9.73968 4.83222 8.00831 3.10086 5.87257 3.10086C3.73683 3.10086 2.00547 4.83222 2.00547 6.96796C2.00547 9.1037 3.73683 10.8351 5.87257 10.8351Z" stroke="#62748E" strokeWidth="0.82985" strokeMiterlimit="10" strokeLinecap="round" />
-      <path d="M5.87257 1.85611V0.495155" stroke="#62748E" strokeWidth="0.82985" strokeMiterlimit="10" strokeLinecap="round" />
-      <path d="M2.94047 0.414925H8.80474" stroke="#62748E" strokeWidth="0.82985" strokeMiterlimit="10" strokeLinecap="round" />
-      <path d="M1.73162 6.5625H0.414925" stroke="#62748E" strokeWidth="0.82985" strokeMiterlimit="10" strokeLinecap="round" />
-      <path d="M11.3302 6.56252H10.0135" stroke="#62748E" strokeWidth="0.82985" strokeMiterlimit="10" strokeLinecap="round" />
+    <svg width="11.7451" height="11.25" viewBox="0 0 11.7451 11.25" fill="none" className="text-slate-500" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <path d="M5.87257 10.8351C8.00831 10.8351 9.73968 9.1037 9.73968 6.96796C9.73968 4.83222 8.00831 3.10086 5.87257 3.10086C3.73683 3.10086 2.00547 4.83222 2.00547 6.96796C2.00547 9.1037 3.73683 10.8351 5.87257 10.8351Z" stroke="currentColor" strokeWidth="0.82985" strokeMiterlimit="10" strokeLinecap="round" />
+      <path d="M5.87257 1.85611V0.495155" stroke="currentColor" strokeWidth="0.82985" strokeMiterlimit="10" strokeLinecap="round" />
+      <path d="M2.94047 0.414925H8.80474" stroke="currentColor" strokeWidth="0.82985" strokeMiterlimit="10" strokeLinecap="round" />
+      <path d="M1.73162 6.5625H0.414925" stroke="currentColor" strokeWidth="0.82985" strokeMiterlimit="10" strokeLinecap="round" />
+      <path d="M11.3302 6.56252H10.0135" stroke="currentColor" strokeWidth="0.82985" strokeMiterlimit="10" strokeLinecap="round" />
     </svg>
   )
 }
@@ -378,8 +379,8 @@ function ValveStatusGlyph() {
 // the frame's 16px box (preserveAspectRatio="none" in the export).
 function FloodLine() {
   return (
-    <svg width="16" height="16" viewBox="0 0 15 15" fill="none" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-      <path d="M9.99902 11.5225C10.6988 12.0383 11.5641 12.3437 12.5 12.3437H13.2812V12.6562H12.5C11.6739 12.6562 10.9005 12.4361 10.2344 12.0508L10 11.915L9.76465 12.0508C9.09951 12.4357 8.32624 12.6562 7.5 12.6562C6.67385 12.6562 5.90041 12.4361 5.23438 12.0508L5 11.915L4.76465 12.0508C4.09949 12.4357 3.32625 12.6562 2.5 12.6562H1.71875V12.3437H2.5C3.4355 12.3437 4.29969 12.0376 4.99902 11.5225C5.69879 12.0383 6.5641 12.3437 7.5 12.3437C8.43547 12.3437 9.29971 12.0376 9.99902 11.5225ZM11.7188 5.51562L11.5654 5.37598L7.81543 1.9668L7.5 1.68066L7.18457 1.9668L3.43457 5.37598L3.28125 5.51562V10.0596C3.17878 10.0846 3.07485 10.1059 2.96875 10.1211V6.40625H1.83789L7.39453 1.35449C7.43547 1.31728 7.49176 1.3054 7.54199 1.31933L7.58887 1.3418L7.61035 1.35937L13.1621 6.40625H12.0312V10.1201C11.9253 10.105 11.8211 10.0855 11.7188 10.0605V5.51562Z" stroke="#62748E" strokeWidth="0.9375" />
+    <svg width="16" height="16" viewBox="0 0 15 15" fill="none" preserveAspectRatio="none" className="text-slate-500" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <path d="M9.99902 11.5225C10.6988 12.0383 11.5641 12.3437 12.5 12.3437H13.2812V12.6562H12.5C11.6739 12.6562 10.9005 12.4361 10.2344 12.0508L10 11.915L9.76465 12.0508C9.09951 12.4357 8.32624 12.6562 7.5 12.6562C6.67385 12.6562 5.90041 12.4361 5.23438 12.0508L5 11.915L4.76465 12.0508C4.09949 12.4357 3.32625 12.6562 2.5 12.6562H1.71875V12.3437H2.5C3.4355 12.3437 4.29969 12.0376 4.99902 11.5225C5.69879 12.0383 6.5641 12.3437 7.5 12.3437C8.43547 12.3437 9.29971 12.0376 9.99902 11.5225ZM11.7188 5.51562L11.5654 5.37598L7.81543 1.9668L7.5 1.68066L7.18457 1.9668L3.43457 5.37598L3.28125 5.51562V10.0596C3.17878 10.0846 3.07485 10.1059 2.96875 10.1211V6.40625H1.83789L7.39453 1.35449C7.43547 1.31728 7.49176 1.3054 7.54199 1.31933L7.58887 1.3418L7.61035 1.35937L13.1621 6.40625H12.0312V10.1201C11.9253 10.105 11.8211 10.0855 11.7188 10.0605V5.51562Z" stroke="currentColor" strokeWidth="0.9375" />
     </svg>
   )
 }
@@ -387,9 +388,9 @@ function FloodLine() {
 // Huge Icons / shut-down — 11.83 drawn inside the frame's 14px box.
 function ShutDown() {
   return (
-    <svg width="11.83" height="11.8289" viewBox="0 0 11.83 11.8289" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-      <path d="M3.50529 1.24833C1.8181 2.12152 0.665 3.88304 0.665 5.91388C0.665 8.81337 3.0155 11.1639 5.915 11.1639C8.81449 11.1639 11.165 8.81337 11.165 5.91388C11.165 3.88304 10.0119 2.12152 8.32471 1.24833" stroke="#90A1B9" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M5.915 0.665V4.74833" stroke="#90A1B9" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="11.83" height="11.8289" viewBox="0 0 11.83 11.8289" fill="none" className="text-slate-400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <path d="M3.50529 1.24833C1.8181 2.12152 0.665 3.88304 0.665 5.91388C0.665 8.81337 3.0155 11.1639 5.915 11.1639C8.81449 11.1639 11.165 8.81337 11.165 5.91388C11.165 3.88304 10.0119 2.12152 8.32471 1.24833" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5.915 0.665V4.74833" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -397,8 +398,8 @@ function ShutDown() {
 // Lucide Icons / bell — 14x14, fills its box.
 function Bell() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-      <path d="M6.00836 12.25C6.106 12.4276 6.24954 12.5757 6.42398 12.6789C6.59842 12.782 6.79737 12.8364 7.00003 12.8364C7.20269 12.8364 7.40163 12.782 7.57607 12.6789C7.75052 12.5757 7.89405 12.4276 7.99169 12.25M3.5 4.66667C3.5 3.73841 3.86875 2.84817 4.52513 2.19179C5.1815 1.53542 6.07174 1.16667 7 1.16667C7.92826 1.16667 8.8185 1.53542 9.47487 2.19179C10.1313 2.84817 10.5 3.73841 10.5 4.66667C10.5 8.75 12.25 9.91667 12.25 9.91667H1.75C1.75 9.91667 3.5 8.75 3.5 4.66667Z" stroke="#90A1B9" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-slate-400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <path d="M6.00836 12.25C6.106 12.4276 6.24954 12.5757 6.42398 12.6789C6.59842 12.782 6.79737 12.8364 7.00003 12.8364C7.20269 12.8364 7.40163 12.782 7.57607 12.6789C7.75052 12.5757 7.89405 12.4276 7.99169 12.25M3.5 4.66667C3.5 3.73841 3.86875 2.84817 4.52513 2.19179C5.1815 1.53542 6.07174 1.16667 7 1.16667C7.92826 1.16667 8.8185 1.53542 9.47487 2.19179C10.1313 2.84817 10.5 3.73841 10.5 4.66667C10.5 8.75 12.25 9.91667 12.25 9.91667H1.75C1.75 9.91667 3.5 8.75 3.5 4.66667Z" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -406,26 +407,17 @@ function Bell() {
 // Huge Icons / clock-01 — 12.9967 inside the frame's 14px box.
 function Clock01() {
   return (
-    <svg width="12.9967" height="12.9967" viewBox="0 0 12.9967 12.9967" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-      <circle cx="6.49833" cy="6.49833" r="5.83333" stroke="#62748E" strokeWidth="1.33" />
-      <path d="M6.49833 4.165V6.49833L7.665 7.665" stroke="#62748E" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="12.9967" height="12.9967" viewBox="0 0 12.9967 12.9967" fill="none" className="text-slate-500" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <circle cx="6.49833" cy="6.49833" r="5.83333" stroke="currentColor" strokeWidth="1.33" />
+      <path d="M6.49833 4.165V6.49833L7.665 7.665" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
 
-/* Location Dot — the state pip inside the Off / On badges. One glyph, two
-   bakes in the design: #FB2C36 for Off, #008236 for On. */
-function LocationDot({ fill }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-      <circle opacity="0.1" cx="6" cy="6" r="3.78947" fill={fill} />
-      <circle opacity="0.1" cx="6" cy="6" r="6" fill={fill} />
-      <circle cx="6" cy="6" r="1.26316" fill={fill} />
-    </svg>
-  )
-}
-
-const DOT_FILL = { off: '#FB2C36', on: '#008236' }
+/* Location Dot — the state pip inside the Off / On badges. ONE glyph, two
+   bakes in the design, so the tint is a call-site class on the shared
+   src/v2/icons/LocationDot. */
+const DOT_TINT = { off: 'text-[#fb2c36]', on: 'text-[#008236]' }
 
 /* ── Action Policy card (198379:80616) ─────────────────────────────────────
    No component exists for this one yet, so it is built here from the frame.
@@ -436,7 +428,7 @@ function PolicyStateBadge({ label, tone }) {
     <div className="bg-[#fafbfc] content-stretch flex gap-[var(--component\/badge\/gap,4px)] h-[20px] items-center justify-center overflow-clip px-[var(--component\/tabs\/trigger\/gap,6px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0">
       <div className="content-stretch flex flex-col items-start relative shrink-0">
         <div className="relative shrink-0 size-[12px] flex items-center justify-center">
-          <LocationDot fill={DOT_FILL[tone] ?? DOT_FILL.off} />
+          <LocationDot size={12} className={DOT_TINT[tone] ?? DOT_TINT.off} />
         </div>
       </div>
       <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative min-w-px text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis whitespace-nowrap">
@@ -500,8 +492,8 @@ function PolicyBlock({ policy }) {
             {/* 1px divider — Figma rotates a 19px line 90deg inside a w-0 box */}
             <div className="flex h-[19px] items-center justify-center relative shrink-0 w-0">
               <div className="flex-none rotate-90">
-                <svg width="19" height="1" viewBox="0 0 19 1" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-                  <line y1="0.5" x2="19" y2="0.5" stroke="#90A1B9" />
+                <svg width="19" height="1" viewBox="0 0 19 1" fill="none" className="text-slate-400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                  <line y1="0.5" x2="19" y2="0.5" stroke="currentColor" />
                 </svg>
               </div>
             </div>

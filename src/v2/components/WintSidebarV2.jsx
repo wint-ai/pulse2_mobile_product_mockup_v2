@@ -61,7 +61,16 @@ import { BellDot, ChevronsUpDown } from 'lucide-react'
 // The rest of the frame's glyphs are inlined below because src/v2/icons has no
 // match — and note src/v2/icons/ArrowDropDownLine.jsx actually holds Remix
 // arrow-drop-RIGHT-line, so neither caret is imported from there.
-import { Briefcase08, CloseFill, PinLocation03, Search01 } from '@/v2/icons'
+import {
+  ArrowsInLineVertical,
+  Briefcase08,
+  CloseFill,
+  FunnelSimple,
+  LocationDot,
+  PhotoSensor3,
+  PinLocation03,
+  Search01,
+} from '@/v2/icons'
 import { Input } from '@/components/ui/input'
 import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub,
@@ -143,57 +152,6 @@ function indentFor(depth) {
 // star, photo-sensor-3 and report-analytics. Shipping those would have been the
 // same class of mistake as the water-line pipe that came back as a loop.
 
-/** Phosphor arrows-in-line-vertical — collapse all. Export was framed at y+8. */
-function ArrowsInLineVertical({ size = 16, className }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
-      xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
-      <g transform="translate(0,-8)">
-        <path d="M13.5 16H2.5" stroke="#62748E" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M8 9V14" stroke="#62748E" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M10 12L8 14L6 12" stroke="#62748E" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M8 23V18" stroke="#62748E" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M6 20L8 18L10 20" stroke="#62748E" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-    </svg>
-  )
-}
-
-/**
- * Phosphor funnel-simple — three rules, NOT the funnel outline that
- * src/v2/icons/Funnel.jsx holds. Different glyph, hence a second one here.
- */
-function FunnelSimple({ size = 16, className }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
-      xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
-      <path d="M4 8.5H12" stroke="#90A1B9" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M1.5 5.5H14.5" stroke="#90A1B9" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M6.5 11.5H9.5" stroke="#90A1B9" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-/** Tabler photo-sensor-3 — the system leaf. Export framed at x+16, y+7. */
-function PhotoSensor3({ size = 14, className }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 14 14" fill="none"
-      xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
-      <g transform="translate(-16,-7)" stroke="#90A1B9" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M25.9165 9.33325H26.4998C26.8093 9.33325 27.106 9.45617 27.3248 9.67496C27.5436 9.89375 27.6665 10.1905 27.6665 10.4999V11.0833" />
-        <path d="M27.6665 16.9167V17.5001C27.6665 17.8095 27.5436 18.1062 27.3248 18.325C27.106 18.5438 26.8093 18.6667 26.4998 18.6667H25.9165" />
-        <path d="M20.0835 18.6667H19.5002C19.1907 18.6667 18.894 18.5438 18.6752 18.325C18.4564 18.1062 18.3335 17.8095 18.3335 17.5001V16.9167" />
-        <path d="M18.3335 11.0833V10.4999C18.3335 10.1905 18.4564 9.89375 18.6752 9.67496C18.894 9.45617 19.1907 9.33325 19.5002 9.33325H20.0835" />
-        <path d="M21.25 14C21.25 14.4641 21.4344 14.9092 21.7626 15.2374C22.0908 15.5656 22.5359 15.75 23 15.75C23.4641 15.75 23.9092 15.5656 24.2374 15.2374C24.5656 14.9092 24.75 14.4641 24.75 14C24.75 13.5359 24.5656 13.0908 24.2374 12.7626C23.9092 12.4344 23.4641 12.25 23 12.25C22.5359 12.25 22.0908 12.4344 21.7626 12.7626C21.4344 13.0908 21.25 13.5359 21.25 14Z" />
-        <path d="M23 17.5V18.6667" />
-        <path d="M18.3335 14H19.5002" />
-        <path d="M23 9.33325V10.4999" />
-        <path d="M27.6667 14H26.5" />
-      </g>
-    </svg>
-  )
-}
-
 /**
  * Tabler star — the pin affordance. Export framed at x+231, y+6. Recoloured to
  * currentColor because this is the one glyph the design tints two ways (the
@@ -210,18 +168,6 @@ function TablerStar({ size = 16, className, filled = false }) {
           strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round"
         />
       </g>
-    </svg>
-  )
-}
-
-/** "Location Dot" (I198378:74033;197423:250713) — 14px, two 10% haloes. */
-function LocationDot({ size = 14, className }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 14 14" fill="none"
-      xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
-      <circle opacity="0.1" cx="7" cy="7" r="4.42105" fill="#E7000B" />
-      <circle opacity="0.1" cx="7" cy="7" r="7" fill="#E7000B" />
-      <circle cx="7" cy="7" r="1.47368" fill="#E7000B" />
     </svg>
   )
 }
@@ -254,7 +200,7 @@ function GroupLine({ size = 16, className }) {
       <g transform="translate(-8,-8)">
         <path
           d="M9.3335 22.6667C9.3335 19.7212 11.7213 17.3334 14.6668 17.3334C17.6124 17.3334 20.0002 19.7212 20.0002 22.6667H18.6668C18.6668 20.4576 16.876 18.6667 14.6668 18.6667C12.4577 18.6667 10.6668 20.4576 10.6668 22.6667H9.3335ZM14.6668 16.6667C12.4568 16.6667 10.6668 14.8767 10.6668 12.6667C10.6668 10.4567 12.4568 8.66675 14.6668 8.66675C16.8768 8.66675 18.6668 10.4567 18.6668 12.6667C18.6668 14.8767 16.8768 16.6667 14.6668 16.6667ZM14.6668 15.3334C16.1402 15.3334 17.3335 14.1401 17.3335 12.6667C17.3335 11.1934 16.1402 10.0001 14.6668 10.0001C13.1935 10.0001 12.0002 11.1934 12.0002 12.6667C12.0002 14.1401 13.1935 15.3334 14.6668 15.3334ZM20.1893 17.8019C22.0431 18.6375 23.3335 20.5014 23.3335 22.6667H22.0002C22.0002 21.0427 21.0324 19.6448 19.642 19.0181L20.1893 17.8019ZM19.731 10.2756C21.0631 10.8248 22.0002 12.1358 22.0002 13.6667C22.0002 15.5802 20.5363 17.1502 18.6668 17.3185V15.9765C19.798 15.8149 20.6668 14.8427 20.6668 13.6667C20.6668 12.7463 20.1346 11.9508 19.3608 11.571L19.731 10.2756Z"
-          fill="#314158"
+          fill="currentColor"
         />
       </g>
     </svg>
@@ -266,7 +212,7 @@ function ReportAnalytics({ size = 16, className }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
       xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
-      <g transform="translate(-8,-8)" stroke="#314158" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round">
+      <g transform="translate(-8,-8)" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14.0002 11.3333H12.6668C12.3132 11.3333 11.9741 11.4737 11.724 11.7238C11.474 11.9738 11.3335 12.313 11.3335 12.6666V20.6666C11.3335 21.0202 11.474 21.3593 11.724 21.6094C11.9741 21.8594 12.3132 21.9999 12.6668 21.9999H19.3335C19.6871 21.9999 20.0263 21.8594 20.2763 21.6094C20.5264 21.3593 20.6668 21.0202 20.6668 20.6666V12.6666C20.6668 12.313 20.5264 11.9738 20.2763 11.7238C20.0263 11.4737 19.6871 11.3333 19.3335 11.3333H18.0002" />
         <path d="M14 11.3333C14 10.9797 14.1405 10.6406 14.3905 10.3905C14.6406 10.1405 14.9797 10 15.3333 10H16.6667C17.0203 10 17.3594 10.1405 17.6095 10.3905C17.8595 10.6406 18 10.9797 18 11.3333C18 11.687 17.8595 12.0261 17.6095 12.2761C17.3594 12.5262 17.0203 12.6667 16.6667 12.6667H15.3333C14.9797 12.6667 14.6406 12.5262 14.3905 12.2761C14.1405 12.0261 14 11.687 14 11.3333Z" />
         <path d="M14 19.3333V16" />
@@ -442,7 +388,7 @@ function NodeIcon({ node, depth = 0, active = false }) {
   if (node.kind === 'system') {
     return (
       <span className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[14px]">
-        <PhotoSensor3 size={14} />
+        <PhotoSensor3 size={14} className="text-slate-400" />
       </span>
     )
   }
@@ -676,7 +622,7 @@ export default function WintSidebarV2({ open, onClose }) {
               // WCAG 2.5.8 floor.
               className="content-stretch flex gap-[var(--spacing\/1\,5,6px)] h-[32px] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10px)] shrink-0 w-[18px] active:bg-white/60 before:absolute before:-inset-x-[7px] before:inset-y-0 before:content-['']"
             >
-              <ArrowsInLineVertical size={16} />
+              <ArrowsInLineVertical size={16} className="text-slate-500" />
             </button>
             <p className="[word-break:break-word] flex-[1_0_0] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] min-w-px relative text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/xs\/size,12px)]">
               Locations
@@ -710,7 +656,7 @@ export default function WintSidebarV2({ open, onClose }) {
               title="Filter — not implemented"
               className="content-stretch flex gap-[var(--spacing\/1\,5,6px)] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10px)] shrink-0 size-[32px]"
             >
-              <FunnelSimple size={16} />
+              <FunnelSimple size={16} className="text-slate-400" />
             </span>
           </div>
         </div>
@@ -779,8 +725,8 @@ export default function WintSidebarV2({ open, onClose }) {
             {/* DELIBERATELY INERT — "Users" and "Reports" have no PRD and no
                 designed screen. There is no route to send them to and inventing
                 one would be a guess, so they render and do nothing. */}
-            <FooterRow icon={<GroupLine size={16} />} label="Users" />
-            <FooterRow icon={<ReportAnalytics size={16} />} label="Reports" />
+            <FooterRow icon={<GroupLine size={16} className="text-slate-700" />} label="Users" />
+            <FooterRow icon={<ReportAnalytics size={16} className="text-slate-700" />} label="Reports" />
           </div>
 
           <div className="content-stretch flex items-center justify-between pr-[var(--spacing\/2,8px)] relative shrink-0 w-full">
@@ -950,7 +896,7 @@ function TreeRow({
           aria-label="Active event or alert in this location"
           className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[14px]"
         >
-          <LocationDot size={14} />
+          <LocationDot size={14} className="text-red-600" />
         </span>
       )}
 

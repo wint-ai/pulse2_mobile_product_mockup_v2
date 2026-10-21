@@ -65,7 +65,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { CaretDown, Funnel, MessageBlocked, Waves, WifiDisconnected02 } from '@/v2/icons'
+import { CaretDown, Funnel, LocationDot, MessageBlocked, Waves, WifiDisconnected02 } from '@/v2/icons'
 import { Check, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ValveStatus from './ValveStatus'
@@ -104,26 +104,6 @@ const SHEET_BG =
   ' linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)'
 
 // ── Inlined Figma assets ───────────────────────────────────────────────────
-
-/** "Location Dot" — three concentric circles, the outer two at 10% opacity.
- *  Exported at 27px for the title and 24px for the All chip; identical
- *  geometry, so one viewBox serves both. Shipped red (#FB2C36) everywhere
- *  except the History title, which is slate-400 — hence currentColor. */
-const LocationDot = ({ size = 27, ...props }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 27 27"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    aria-hidden="true"
-    {...props}
-  >
-    <circle opacity="0.1" cx="13.5" cy="13.5" r="8.52632" fill="currentColor" />
-    <circle opacity="0.1" cx="13.5" cy="13.5" r="13.5" fill="currentColor" />
-    <circle cx="13.5" cy="13.5" r="2.84211" fill="currentColor" />
-  </svg>
-)
 
 /** Phosphor "waves" with only TWO traces — a genuinely different export from
  *  the three-trace glyph in @/v2/icons, not a crop of it, and the one the Low

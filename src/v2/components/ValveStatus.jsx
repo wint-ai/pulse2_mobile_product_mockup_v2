@@ -12,6 +12,15 @@
  * 16x16 frame rather than filling it, so that entry keeps a 0 0 16 16 viewBox
  * and translates the exported paths by the inset. (An earlier note here claimed
  * the no-valve artwork fills the box; it does not.)
+ *
+ * NON-THEMEABLE — DELIBERATE. The 26 hex paint attributes below are NOT
+ * un-migrated tokenization debt and must not be "cleaned up" into currentColor
+ * or token classes. Every state is TWO-TONE (an ink stroke over a tint fill,
+ * and `error` additionally carries a strokeDasharray); `currentColor` carries
+ * exactly one colour, so it cannot express any of them. These five glyphs are
+ * the product's valve semantics, drawn the same way in every theme. See
+ * docs/TOKENIZATION-PLAN.md, Phase 5, "Declare the domain glyphs
+ * non-themeable". Any future no-raw-color CI rule must allowlist this file.
  */
 
 const VARIANTS = {

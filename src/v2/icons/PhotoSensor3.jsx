@@ -1,14 +1,15 @@
 // Tabler Icons / photo-sensor-3 — the "Topology" chip glyph in the Systems
 // Health card (Figma 198601:62957 -> ;198601:62355, drawn at 16.842px).
 //
-// PROVENANCE: copied verbatim from the module-local `PhotoSensor3` in
-// src/v2/components/WintSidebarV2.jsx, which is not exported. The paths, the
-// translate(-16,-7) that shifts Tabler's raw coordinates back into a 0 0 14 14
-// box, the 1.33 stroke and both linecaps are byte-identical. The ONE change:
-// the sidebar hard-codes stroke="#90A1B9"; this copy uses currentColor so it
-// follows the icons/ contract ("colour comes from the surrounding text
-// colour"). Tint the callsite with text-[#90a1b9] to get the original.
-// If the sidebar's copy ever changes shape, change this one too.
+// PROVENANCE: this is now the ONLY copy. It began as a verbatim copy of the
+// module-local `PhotoSensor3` in src/v2/components/WintSidebarV2.jsx, which
+// did not export it; that copy has since been deleted and the sidebar imports
+// this one. The paths, the translate(-16,-7) that shifts Tabler's raw
+// coordinates back into a 0 0 14 14 box, the 1.33 stroke and both linecaps are
+// unchanged from that export. The one difference from the sidebar's old copy:
+// it hard-coded stroke="#90A1B9", while this follows the icons/ contract
+// ("colour comes from the surrounding text colour"). Both call sites tint with
+// text-slate-400, which resolves to that same #90a1b9.
 export default function PhotoSensor3({ size = 14, className, ...props }) {
   return (
     <svg

@@ -160,7 +160,7 @@ function PolicyDot({ color = '#1a6fe0' }) {
 function ChevronDown1736() {
   return (
     <svg
-      className="absolute block inset-0 max-w-none size-full"
+      className="absolute block inset-0 max-w-none size-full text-slate-500"
       width="17.36"
       height="17.36"
       viewBox="0 0 17.36 17.36"
@@ -172,7 +172,7 @@ function ChevronDown1736() {
     >
       <path
         d="M4.34 6.51L8.68 10.85L13.02 6.51"
-        stroke="#62748e"
+        stroke="currentColor"
         strokeWidth="1.085"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -253,7 +253,7 @@ export default function ActivePolicyCard({
           <div className="h-0 relative shrink-0 w-full" data-node-id="199296:50610">
             <div className="absolute inset-[-1px_0_0_0]">
               <svg
-                className="block max-w-none size-full"
+                className="block max-w-none size-full text-slate-200"
                 width="335"
                 height="1"
                 viewBox="0 0 335 1"
@@ -263,7 +263,7 @@ export default function ActivePolicyCard({
                 aria-hidden="true"
                 focusable="false"
               >
-                <path d="M0 0.5H335" stroke="#E2E8F0" />
+                <path d="M0 0.5H335" stroke="currentColor" />
               </svg>
             </div>
           </div>

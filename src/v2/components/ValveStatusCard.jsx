@@ -145,7 +145,9 @@ const STRIP_GRADIENT = {
     'linear-gradient(168.92503170733684deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
 }
 
-// Phosphor Icons / warning 199383:141570 — export verbatim (12x12, #FB2C36).
+// Phosphor Icons / warning 199383:141570 — export verbatim (12x12). The
+// shipped #FB2C36 is colors/red/500, so the strokes and the dot are
+// currentColor and the call site pins text-red-500.
 function WarningGlyph() {
   return (
     <svg
@@ -161,14 +163,14 @@ function WarningGlyph() {
     >
       <path
         d="M6.67547 1.88531L10.7752 9.00422C11.0625 9.50578 10.6913 10.125 10.0997 10.125H1.90031C1.30875 10.125 0.9375 9.50578 1.22484 9.00422L5.32453 1.88531C5.61984 1.37156 6.38016 1.37156 6.67547 1.88531Z"
-        stroke="#FB2C36"
+        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M6 6.75V4.875" stroke="#FB2C36" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 6.75V4.875" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
       <path
         d="M6 9C6.31066 9 6.5625 8.74816 6.5625 8.4375C6.5625 8.12684 6.31066 7.875 6 7.875C5.68934 7.875 5.4375 8.12684 5.4375 8.4375C5.4375 8.74816 5.68934 9 6 9Z"
-        fill="#FB2C36"
+        fill="currentColor"
       />
     </svg>
   )
@@ -262,7 +264,7 @@ export default function ValveStatusCard({
               data-name="rightIcon"
             >
               <div
-                className="relative shrink-0 size-[12px]"
+                className="relative shrink-0 size-[12px] text-red-500"
                 data-node-id="199383:141570"
                 data-name="Phosphor Icons / warning"
               >

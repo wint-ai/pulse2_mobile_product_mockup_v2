@@ -113,6 +113,8 @@ import {
   windowSerials,
   yearNavState,
 } from './monthPickerModel'
+import ChevronLeft16 from '@/v2/icons/ChevronLeft16'
+import ChevronRight16 from '@/v2/icons/ChevronRight16'
 
 // ── Palette, as the Figma variables on these two nodes resolve ─────────────
 const BLUE = '#0b81f8' // wint-blue-accent
@@ -131,51 +133,6 @@ function clampToDate(month, year) {
 
 /* Huge Icons / arrow-left-01-round, as the design draws it at 16px inside the
    32px nav circle. Stroke is currentColor so the circle tints it. */
-function ChevronLeft16({ className }) {
-  return (
-    <svg
-      className={className}
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path
-        d="M10 4L6 8L10 12"
-        stroke="currentColor"
-        strokeWidth="1.33"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-/* Huge Icons / arrow-right-01-round. */
-function ChevronRight16({ className }) {
-  return (
-    <svg
-      className={className}
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path
-        d="M6 4L10 8L6 12"
-        stroke="currentColor"
-        strokeWidth="1.33"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 /**
  * @param {object}   props
  * @param {'simple'|'window'} [props.variant]  which frame to render.

@@ -127,6 +127,8 @@ import {
 import { CalendarClock } from 'lucide-react'
 import CaretDown from '@/v2/icons/CaretDown'
 import FunnelSimple from '@/v2/icons/FunnelSimple'
+import ChevronLeft16 from '@/v2/icons/ChevronLeft16'
+import ChevronRight16 from '@/v2/icons/ChevronRight16'
 
 /* ── Inlined Figma assets ──────────────────────────────────────────────────
    Figma's asset URLs expire in ~7 days, so nothing may reference them at
@@ -140,52 +142,6 @@ import FunnelSimple from '@/v2/icons/FunnelSimple'
    3-point polyline inside a 16x16 box is a chevron; the smile asset was a
    14.67-diameter circle with two eyes, which is not. Stroke is left at the
    shipped #62748E — the design tints both the same, so nothing to recolour. */
-
-// Tabler Icons / chevron-left — Figma asset 07a4d214-d3e5-4a7e-8807-548b1509dc25
-function ChevronLeft16({ className }) {
-  return (
-    <svg
-      className={className}
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path
-        d="M10 4L6 8L10 12"
-        stroke="#62748E"
-        strokeWidth="1.33"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-// Tabler Icons / chevron-right — Figma asset 50984ff1-8718-4840-b2ea-cb789fc59a21
-function ChevronRight16({ className }) {
-  return (
-    <svg
-      className={className}
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-    >
-      <path
-        d="M6 4L10 8L6 12"
-        stroke="#62748E"
-        strokeWidth="1.33"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 /* Empty-state illustration — Figma node 198424:63958. It is a raster (PNG),
    not an SVG, so it is inlined as a data URI rather than redrawn or swapped
@@ -1311,7 +1267,7 @@ export default function WaterConsumptionCardV2({
                   onClick={() => stepMonth(-1)}
                   className={CAPTION_NAV}
                 >
-                  <ChevronLeft16 className="size-4" />
+                  <ChevronLeft16 className="size-4 text-slate-500" />
                 </button>
                 {usesDropdowns ? (
                   /* Dropdown group — …;199338:53569;198674:177605.
@@ -1341,7 +1297,7 @@ export default function WaterConsumptionCardV2({
                   onClick={() => stepMonth(1)}
                   className={CAPTION_NAV}
                 >
-                  <ChevronRight16 className="size-4" />
+                  <ChevronRight16 className="size-4 text-slate-500" />
                 </button>
               </div>
             )}

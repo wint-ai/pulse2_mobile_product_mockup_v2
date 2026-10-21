@@ -38,8 +38,20 @@ export { default as ArrowsInLineVertical } from './ArrowsInLineVertical'
 export { default as FunnelSimple } from './FunnelSimple'
 
 // ── Systems Health "Systems types" chips (Figma 198601:62957) ──────────────
-// Duplicates of module-local glyphs in WintSidebarV2.jsx / AlertCard.jsx,
-// which do not export them. See each file's PROVENANCE note.
+// PhotoSensor3 is now THE copy — WintSidebarV2.jsx imports it from here.
+// FloodLine and BrandDrops are still duplicates of module-local glyphs in
+// AlertCard.jsx, which does not export them. See each file's PROVENANCE note.
 export { default as PhotoSensor3 } from './PhotoSensor3'
 export { default as FloodLine } from './FloodLine'
 export { default as BrandDrops } from './BrandDrops'
+
+// ── Shared glyphs promoted out of component files ─────────────────────────
+// Each of these was defined in two or more components with identical
+// geometry. The copies are gone; these are the only definitions.
+//   LocationDot    — was 6 copies (sidebar, system page, topology card,
+//                    systems-health card, event overlay, active-events card)
+//   ChevronLeft16  — was 2 (MonthPickerSheet, WaterConsumptionCardV2)
+//   ChevronRight16 — was 2 (the same pair)
+export { default as LocationDot } from './LocationDot'
+export { default as ChevronLeft16 } from './ChevronLeft16'
+export { default as ChevronRight16 } from './ChevronRight16'

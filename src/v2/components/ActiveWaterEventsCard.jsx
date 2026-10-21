@@ -60,40 +60,9 @@
  */
 
 import { useMemo, useState } from 'react'
-import { Waves } from '@/v2/icons'
+import { LocationDot, Waves } from '@/v2/icons'
 
 // ── Inlined Figma assets ───────────────────────────────────────────────────
-
-/**
- * Header "Location Dot" — three concentric circles, the outer two at 10%.
- *
- * Figma's asset for this instance (81540666…) is NOT the location dot: it came
- * back as "Lucide Icons / smile", the placeholder glyph sitting in the Featured
- * Icon component this instance is swapped from. The node screenshot plainly
- * shows the concentric red dot, so the export is stale. Rather than ship a
- * smiley or guess, the geometry is the project's own Location Dot export taken
- * from the sibling desktop header (198209:67180) — the same component, drawn
- * there at 27px and here at 44px, which is why the viewBox stays 27 and only
- * the rendered size changes. Fills are currentColor so the caller tints it.
- */
-function LocationDot({ size = 44, className }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 27 27"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-hidden="true"
-      focusable="false"
-    >
-      <circle opacity="0.1" cx="13.5" cy="13.5" r="13.5" fill="currentColor" />
-      <circle opacity="0.1" cx="13.5" cy="13.5" r="8.52632" fill="currentColor" />
-      <circle cx="13.5" cy="13.5" r="2.84211" fill="currentColor" />
-    </svg>
-  )
-}
 
 /**
  * Header collapse chevron, 16px.
@@ -177,8 +146,8 @@ function RowRule() {
   return (
     <div className="h-0 relative shrink-0 w-full">
       <div className="absolute inset-[-1px_0_0_0]">
-        <svg viewBox="0 0 307 1" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="block max-w-none size-full" aria-hidden="true">
-          <line y1="0.5" x2="307" y2="0.5" stroke="#E2E8F0" />
+        <svg viewBox="0 0 307 1" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="block max-w-none size-full text-slate-200" aria-hidden="true">
+          <line y1="0.5" x2="307" y2="0.5" stroke="currentColor" />
         </svg>
       </div>
     </div>
@@ -193,8 +162,8 @@ function CellHairline() {
       <div className="flex-none rotate-90">
         <div className="h-0 relative w-[12px]">
           <div className="absolute inset-[-1px_0_0_0]">
-            <svg viewBox="0 0 12 1" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="block max-w-none size-full" aria-hidden="true">
-              <line y1="0.5" x2="12" y2="0.5" stroke="#90A1B9" />
+            <svg viewBox="0 0 12 1" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="block max-w-none size-full text-slate-400" aria-hidden="true">
+              <line y1="0.5" x2="12" y2="0.5" stroke="currentColor" />
             </svg>
           </div>
         </div>

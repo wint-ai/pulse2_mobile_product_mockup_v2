@@ -6,6 +6,11 @@
 // same single filled path, already on currentColor there — nothing changed.
 // Duplicated rather than imported because AlertCard.jsx does not export it;
 // if that glyph changes, change this one too.
+//
+// NOT the same glyph as the `FloodLine` in src/v2/pages/SystemPageV2Screen.jsx,
+// despite the shared name: that one is a 0 0 15 15 STROKED outline drawn with
+// preserveAspectRatio="none", this one a 0 0 16 16 filled path. Different
+// artwork, so they were deliberately left as two components.
 export default function FloodLine({ size = 16, className, ...props }) {
   return (
     <svg

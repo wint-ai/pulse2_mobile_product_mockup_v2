@@ -172,7 +172,7 @@ import { cn } from '@/lib/utils'
 function ChevronDown12({ className }) {
   return (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
-      <path d="M3 4.5L6 7.5L9 4.5" stroke="#62748E" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -181,7 +181,7 @@ function ChevronDown12({ className }) {
 function ChevronUp12({ className }) {
   return (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
-      <path d="M3 7.5L6 4.5L9 7.5" stroke="#62748E" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 7.5L6 4.5L9 7.5" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -190,8 +190,8 @@ function ChevronUp12({ className }) {
 function PlusSign12() {
   return (
     <span className="flex items-center justify-center overflow-clip shrink-0 size-[12px]">
-      <svg width="9.33" height="9.33" viewBox="0 0 9.33 9.33" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-        <path d="M4.665 0.665V8.665M8.665 4.665H0.665" stroke="#314158" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
+      <svg width="9.33" height="9.33" viewBox="0 0 9.33 9.33" fill="none" className="text-slate-700" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+        <path d="M4.665 0.665V8.665M8.665 4.665H0.665" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </span>
   )
@@ -214,10 +214,10 @@ function Wifi02() {
 /** Lucide Icons / bell — 2706:17682, as exported at 12px. */
 function Bell12() {
   return (
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0" aria-hidden="true" focusable="false">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="shrink-0 text-slate-500" aria-hidden="true" focusable="false">
       <path
         d="M5.15002 10.5C5.23372 10.6522 5.35675 10.7792 5.50627 10.8676C5.65579 10.956 5.82631 11.0027 6.00002 11.0027C6.17373 11.0027 6.34426 10.956 6.49378 10.8676C6.6433 10.7792 6.76633 10.6522 6.85002 10.5M3 4C3 3.20435 3.31607 2.44129 3.87868 1.87868C4.44129 1.31607 5.20435 1 6 1C6.79565 1 7.55871 1.31607 8.12132 1.87868C8.68393 2.44129 9 3.20435 9 4C9 7.5 10.5 8.5 10.5 8.5H1.5C1.5 8.5 3 7.5 3 4Z"
-        stroke="#62748E"
+        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -537,7 +537,7 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
                       : String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)]`,
                   )}
                 >
-                  {isOpen ? <ChevronUp12 /> : <ChevronDown12 />}
+                  {isOpen ? <ChevronUp12 className="text-slate-500" /> : <ChevronDown12 className="text-slate-500" />}
                 </button>
               ) : null}
             </div>
@@ -636,7 +636,7 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
                       {sent} sent
                     </span>
                   </div>
-                  <ChevronDown12 />
+                  <ChevronDown12 className="text-slate-500" />
                 </div>
               ) : null}
             </div>

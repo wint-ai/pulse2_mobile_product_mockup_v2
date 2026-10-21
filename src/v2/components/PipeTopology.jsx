@@ -13,6 +13,15 @@
  * The tile is a fixed 177x112 canvas. On a 375px phone that fits inside a card
  * with room to spare, so it scales via the `scale` prop rather than reflowing:
  * a schematic that rewraps is no longer the same schematic.
+ *
+ * NON-THEMEABLE — DELIBERATE. The 14 hex paint attributes below are NOT
+ * un-migrated tokenization debt and must not be "cleaned up" into currentColor
+ * or token classes. The pipes, sensors, junction and connectors are
+ * multi-colour schematic artwork pixel-placed on this fixed 177x112 canvas;
+ * `currentColor` carries one colour and cannot express them, and repainting
+ * them per theme would change what the schematic says, not just how it looks.
+ * See docs/TOKENIZATION-PLAN.md, Phase 5, "Declare the domain glyphs
+ * non-themeable". Any future no-raw-color CI rule must allowlist this file.
  */
 
 import ValveStatus from './ValveStatus'
