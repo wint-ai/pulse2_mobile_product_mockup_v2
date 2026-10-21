@@ -1361,21 +1361,18 @@ export default function EventFocusOverlay({
             Collapsed by default except the facts on a fault, which has no
             incident timeline below to read instead (v1's ErrorAlertDetail has
             none either). */}
-        {/* Owner's call, 2026-10-18: "important data from the event details
-            can be shown without this section". For a water event these four
-            ARE the event — what state it is in, which way the flow is wrong,
-            and whether the system will shut itself off — so they are read, not
-            opened. The accordion survives only for the fault case, which
-            carries chrome (severity badge, battery level) that does not
-            compress into a strip. */}
-        {isWater ? (
-          <div className="grid grid-cols-2 gap-x-[12px] gap-y-[10px] rounded-[12px] bg-slate-50 px-[12px] py-[10px]">
-            <Fact label="State" value={leakState} />
-            <Fact label="Flow level" value={isLowFlow ? 'Low flow' : 'High flow'} />
-            <Fact label="Auto-shutoff" value={policy?.autoShutoff} />
-            <Fact label="Detection" value={policy?.detection} />
-          </div>
-        ) : null}
+        {/* THE FOUR-FACT STRIP IS GONE, 2026-10-21, at the owner's request.
+            It had been promoted out of the accordion on 2026-10-18 on the
+            grounds that State / Flow level / Auto-shutoff / Detection ARE the
+            event; three of the four turned out to be said already, directly
+            above it:
+              State        the alert card's status pill ("Ongoing")
+              Flow level   the event's own title ("High Flow Water Event")
+              Auto-shutoff the valve handling panel, in a full sentence
+            So the strip was mostly restating its neighbours.
+            DETECTION is the one thing that went with it and is now stated
+            nowhere on this surface — flagged to the owner rather than quietly
+            re-homed, since where it belongs is a design question. */}
 
         {!isWater ? (
         <Section id={`event-facts-${sysId}`} title="Event details" defaultOpen>
