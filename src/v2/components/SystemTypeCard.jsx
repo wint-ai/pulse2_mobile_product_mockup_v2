@@ -120,7 +120,20 @@ const BRANCH = String.raw`[word-break:break-word] flex flex-col font-medium just
 const BRANCH_LINE = String.raw`leading-6`
 const SERIAL = String.raw`[word-break:break-word] font-medium relative shrink-0 text-slate-400 text-xs whitespace-nowrap leading-3`
 
-const CHIP = String.raw`absolute bg-[#ebf0fa] content-stretch flex h-[20px] items-center justify-center left-[28px] rounded-[10px] top-[43px] w-[113px]`
+/* The plate was a frozen #ebf0fa, so "2 Valves" / "2 Meters" sat on a pale
+   blue that no theme could move: 1.29:1 against its slate-600 ink under
+   dark, measured. --chip-bg is the token that names this surface.
+
+   TWO THINGS ABOUT THAT TOKEN. It is a GRADIENT, not a colour -- the
+   panel-and-chip wash eight components used to write out by hand -- so it
+   has to be consumed as a background-IMAGE (`bg-[image:...]`); fed to
+   `bg-[var(--chip-bg)]` Tailwind would emit it as a background-color and
+   the declaration would simply be dropped. And in `light` it is that wash
+   rather than this flat #ebf0fa, so consuming it unconditionally would
+   move light pixels. `light` therefore keeps the literal and every other
+   theme takes the token, where the wash is re-derived per theme and the
+   slate-600 ink lands on a surface that moved with it. */
+const CHIP = String.raw`absolute bg-[#ebf0fa] [[data-theme]:not([data-theme=light])_&]:bg-[image:var(--chip-bg)] content-stretch flex h-[20px] items-center justify-center left-[28px] rounded-[10px] top-[43px] w-[113px]`
 const CHIP_TEXT = String.raw`[word-break:break-word] font-normal overflow-hidden relative shrink-0 text-[12px] text-slate-600 text-ellipsis whitespace-pre leading-[0]`
 const CHIP_RUN = String.raw`leading-3`
 
@@ -252,7 +265,10 @@ const STATUS_COLOR = {
   ok: '#53c846',
   warn: '#f0b100',
   alert: '#fb2c36',
-  offline: '#90a1b9',
+  /* #90a1b9 IS --slate-400, exactly -- the ramp step, written out. Swapped
+     to the token: bit-identical in `light`, and it now follows a theme
+     like the other three, which are already semantic colours. */
+  offline: 'var(--slate-400)',
 }
 const STATUS_LABEL = {
   ok: 'Online',
@@ -494,14 +510,45 @@ export default function SystemTypeCard({
           className="content-stretch flex items-center justify-center relative rounded-[8px] shrink-0 w-[116px]"
           data-node-id={alert ? '199383:141545' : '199359:126823'}
         >
+          {/* THE RENDER NEEDS A LIGHT PLATE ON A DARK GROUND, AND THERE IS NO
+              BLEND MODE THAT AVOIDS IT. Unlike the two wave heroes, this raster
+              really is a white-ground product photo: wint-vma-front.png is an
+              8-bit RGB PNG with no alpha channel at all, and `multiply` is what
+              knocks its white ground out against the white card in `light`.
+              On a dark card `multiply` gives backdrop x source ~= black --
+              measured internal range 1.11:1 under dark against 7.46:1 under
+              light, a black rectangle with a faint "wint" ghost in it.
+
+              Every blend mode that could knock out white instead keeps it:
+              `screen` and `lighten` both resolve a white ground to white, and
+              `darken` resolves the whole frame to the dark backdrop. The asset
+              has no alpha to rescue and Figma has no dark variant of it. So the
+              remaining correct move is Carbon's: if only one asset exists, keep
+              it on a light container and swap the CONTAINER per mode.
+
+              The plate is the raster's OWN ground colour (pure white, which is
+              what the asset's corners are) mixed 12% toward the theme's
+              --background. That is Apple's HIG rule applied literally -- "if
+              you display a content image that includes a white background,
+              consider slightly darkening the image to prevent the background
+              from glowing" -- dim, not scrim: the photo is not veiled, the
+              surface under it is lowered. #ffffff here is a measurement of the
+              asset, not a palette choice; --background is what carries the
+              theme, so the plate picks up each theme's cast and stays light
+              even under `contrast`.
+
+              `light` keeps `mix-blend-multiply` on this wrapper and gets no
+              plate, so it is pixel-identical. Elsewhere the multiply moves down
+              onto the <img> and runs against the plate instead of the card,
+              which reproduces the light composite exactly one layer in. */}
           <div
-            className="h-[116px] mix-blend-multiply relative shrink-0 w-[97px]"
+            className="h-[116px] mix-blend-multiply [[data-theme]:not([data-theme=light])_&]:mix-blend-normal [[data-theme]:not([data-theme=light])_&]:isolate [[data-theme]:not([data-theme=light])_&]:rounded-[8px] [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,#ffffff_88%,var(--background))] relative shrink-0 w-[97px]"
             data-name="VMA_Front_5189 2"
             data-node-id={alert ? '199383:141546' : '199359:126824'}
           >
             <img
               alt={photoAlt}
-              className="absolute inset-0 max-w-none object-cover pointer-events-none size-full"
+              className="absolute inset-0 max-w-none object-cover pointer-events-none size-full [[data-theme]:not([data-theme=light])_&]:mix-blend-multiply"
               src={photo}
             />
           </div>

@@ -53,8 +53,25 @@ import wave from '@/assets/system-hero-wave.png'
 /* 199414:130120 / :130123 / :130126 — all three identical but for width, which
    the node sizes to its own numeral. Here they size to content, so a four-digit
    count does not clip. */
-const CHIP = String.raw`content-stretch flex gap-[8px] h-[32px] items-center justify-between px-[9px] relative rounded-[18px] bg-[rgba(241,245,249,0.28)]`
-const CHIP_NUM = String.raw`[word-break:break-word] font-['Geist:Medium','Geist','Inter',sans-serif] font-medium leading-[22.762px] relative shrink-0 text-[15.933px] text-background whitespace-nowrap`
+/* The plate is a translucent veil of the hero's own ink, not a surface in
+   its own right: what the numerals actually read against is the blue the
+   veil lifts. `light` keeps the literal byte for byte (pixel parity);
+   every other theme computes the same 28% veil from --ink-on-color, so
+   the value is no longer frozen. Under `contrast` --ink-on-color is dark,
+   so the veil goes dark there too and the pair stays coherent. */
+const CHIP = String.raw`content-stretch flex gap-[8px] h-[32px] items-center justify-between px-[9px] relative rounded-[18px] bg-[rgba(241,245,249,0.28)] [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)]`
+/* `text-background` IS THE WRONG TOKEN AND ALWAYS WAS. This numeral is ink
+   sitting on a coloured ground, which is precisely the case src/index.css
+   keeps --ink-on-color for; --background happens to be #F4F6F9 in `light`
+   and so resolved to the right pixels by coincidence. On `dark` it
+   resolves to the near-black app ground and the numerals vanish into the
+   veil behind them -- 2.3:1, measured.
+   `light` keeps --background so this change is provably zero-pixel there;
+   the two differ by (6,5,3) in sRGB, which is why the bug was invisible
+   until a theme moved one of them. Reconciling `light` onto
+   --ink-on-color is a one-line follow-up for a change that is allowed to
+   move light pixels. */
+const CHIP_NUM = String.raw`[word-break:break-word] font-['Geist:Medium','Geist','Inter',sans-serif] font-medium leading-[22.762px] relative shrink-0 text-[15.933px] text-background [[data-theme]:not([data-theme=light])_&]:text-ink-on-color whitespace-nowrap`
 
 const fmt = (n) => Number(n ?? 0).toLocaleString('en-US')
 
@@ -90,10 +107,44 @@ export default function SystemsOverviewHero({
       data-node-id="199414:130115"
       data-name="Systems overview hero"
     >
-      {/* 199414:130117. aria-hidden: weather, not information. */}
+      {/* 199414:130117. aria-hidden: weather, not information.
+
+          THE BLEND MODE IS THEME-CONDITIONAL, AND IT HAS TO BE.
+          `multiply` is `result = backdrop x source`. In `light` the backdrop
+          is --background (#F4F6F9, L=0.957), so the composite works out to
+          roughly `0.096 + 0.861 x raster` — i.e. the raster itself, very
+          slightly lifted and washed. On a dark ground the backdrop is ~0.09
+          and the same expression collapses to `0.009 + 0.081 x raster`: a
+          near-black rectangle carrying about 0.3% of a stop. Measured before
+          this change, the layer's own internal dynamic range was 1.10:1 under
+          dark against 3.14:1 under light. The water art was gone.
+
+          The fix is NOT a scrim and NOT a second asset. Note what the crop of
+          this raster actually contains: the <img> below is scaled to 143.88%
+          and offset by -17%/-65%, so the visible region is ENTIRELY wave —
+          there is no white ground inside this box to knock out. `multiply`
+          was never knocking anything out here; it was only tinting the raster
+          toward the page. So on every theme but `light` the blend simply goes
+          away and the raster paints itself, at the opacity-90 it already has:
+          `0.1 x backdrop + 0.9 x raster`.
+
+          That is also, for free, exactly what Apple's HIG asks for -- "if you
+          display a content image that includes a white background, consider
+          slightly darkening the image to prevent the background from glowing",
+          i.e. dim, do not scrim. Compare the two expressions term by term:
+          light maps the raster into [0.096, 0.957], dark into [0.009, 0.909].
+          The dark composite is UNIFORMLY slightly darker than the light one at
+          every input value, so the hero does not glare, and its range widens
+          rather than collapsing.
+
+          `light` keeps `mix-blend-multiply` untouched and is pixel-identical.
+          The variant is written as "any theme that declares one and is not
+          light" rather than naming dark/sand/contrast, so a theme added later
+          is handled without editing this file — and a document with no
+          data-theme at all (SSR, jsdom) still gets the `light` path. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 mix-blend-multiply pointer-events-none rounded-[17px] overflow-hidden"
+        className="absolute inset-0 mix-blend-multiply [[data-theme]:not([data-theme=light])_&]:mix-blend-normal pointer-events-none rounded-[17px] overflow-hidden"
         data-node-id="199414:130117"
       >
         <img
