@@ -100,12 +100,42 @@ import { computeSystemHealth } from '@/utils/systemHealth'
 
 // ── Measured constants ─────────────────────────────────────────────────────
 
-/** 198378:74013, verbatim. Five stops at 0.8 alpha over a flat white layer. */
+/**
+ * ── The wash, themed ───────────────────────────────────────────────────────
+ * Nine components in this codebase paint the same two-layer Figma wash at
+ * nine different angles over TWO different stop sets. Written out as literals
+ * they are a LIGHT wash and stayed light under every theme while the ink on
+ * them followed --foreground — which is why this drawer measured 1.05:1 and
+ * read white-on-white under `dark`.
+ *
+ * NOT var(--chip-bg), which bakes one angle (170.67deg) in: a custom
+ * property's inner var() resolves at computed-value time on the element that
+ * DECLARES it, so a call-site --chip-bg-angle never reaches a gradient
+ * declared on :root. Verified in the browser — 42deg in, 170.67deg out. What
+ * does work is the stop LIST, which needs no per-element context:
+ *
+ *     linear-gradient(<this site's angle>, var(--chip-bg-stops)), WASH_BASE
+ *
+ * Under `light` --chip-bg-stops is literally the rgba list this constant used
+ * to carry, so `light` is byte-identical; every other theme computes it.
+ *
+ * This plate also carries a FIFTH stop at 82.858% that --chip-bg-stops does
+ * not (binding it to the four-stop list alone moves 32.6% of the panel by up
+ * to 17/255 under `light` — measured). It is appended from --wash-4, which is
+ * that stop's colour on every theme that declares it and whose var() fallback
+ * is `light`'s own literal.
+ */
+/* The flat layer under the wash. index.css maps it to --card by identity: it
+   was #ffffff, which is exactly `light`'s --card. */
+const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
+/* The 82.858% tail. --wash-4 is declared by every theme but `light`, which
+   keeps literals (index.css, Ruling B) — so the fallback is what `light`
+   paints, and it is this stop's original value. */
+const WASH_TAIL = 'color-mix(in oklab, var(--wash-4, rgb(233, 237, 243)) 80%, transparent)'
+
+/** 198378:74013. Figma's angle, four stops from the token, plus the tail. */
 const PANEL_BG =
-  'linear-gradient(125.34006894835755deg, rgba(233, 238, 248, 0.8) 8.3855%, ' +
-  'rgba(227, 235, 249, 0.8) 32.2%, rgba(228, 235, 250, 0.8) 40.822%, ' +
-  'rgba(212, 226, 255, 0.8) 71.236%, rgba(233, 237, 243, 0.8) 82.858%), ' +
-  'linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)'
+  `linear-gradient(125.34006894835755deg, var(--chip-bg-stops), ${WASH_TAIL} 82.858%), ${WASH_BASE}`
 
 /** Panel is 357 of the frame's 402 — 88.8%, capped so it never exceeds 357. */
 const PANEL_WIDTH_PCT = '88.8%'
@@ -116,7 +146,12 @@ const PANEL_MAX_WIDTH = 357
  * underlying screen already dimmed inside "Location opt b". Sampling it
  * (#B3C1D5 over an ~#E9EFFC app background) works out to slate-900 at ~25%.
  */
-const SCRIM = 'rgba(15, 23, 42, 0.25)'
+/* A scrim is anchored to DARKNESS, not to the ramp: pointing it at
+   --slate-900 would invert it under `dark` and paint a white veil over a
+   dark app. --scrim is therefore a token of its own; the literal stays as
+   the fallback so `light` is unchanged, and so is every theme until the
+   token lands. */
+const SCRIM = 'var(--scrim, rgba(15, 23, 42, 0.25))'
 
 /**
  * Badge tone. NOT account-vs-location, which is what the first pass assumed —
@@ -124,14 +159,25 @@ const SCRIM = 'rgba(15, 23, 42, 0.25)'
  * card's badge is #f0f4fb/slate-600 (198378:74031) and every other badge, root
  * accounts included ("South Quarter", "East Quarter"), is slate-200/slate-400.
  */
-const BADGE_TONE_ACTIVE = { background: '#f0f4fb', color: 'var(--slate-600)' }
+const BADGE_TONE_ACTIVE = {
+  /* Same wash as the panel, and the same trap: flat #f0f4fb under a themed
+     --slate-600 ink measured 1.34:1 in `dark`. #f0f4fb is a flat sample of
+     that wash rather than a fifth stop of it, so --chip-bg at its default
+     angle is the right binding — a 34x20 pill cannot show an angle anyway. */
+  background: 'var(--chip-bg)',
+  color: 'var(--slate-600)',
+}
 const BADGE_TONE_REST = {
   background: 'var(--slate-200)',
   color: 'var(--slate-400)',
 }
 
-/** Tabler star ships #90A1B9; the pinned tint is the amber v1 already uses. */
-const STAR_OFF = '#90a1b9'
+/* Tabler star ships #90A1B9 — which is exactly --slate-400, so the unpinned
+   star follows the ramp instead of freezing light-grey on a dark panel.
+   STAR_ON stays a literal on purpose: the pinned amber is a semantic accent
+   (same reasoning as --ink-on-color in src/index.css) and has to stay amber
+   under every theme. */
+const STAR_OFF = 'var(--slate-400)'
 const STAR_ON = '#f5a524'
 
 /**
@@ -240,14 +286,38 @@ function ReportAnalytics({ size = 16, className }) {
 /**
  * The App.jsx helper of the same name is module-private and this file may not
  * edit App.jsx, so it is restated here. 198378:74017 sizes it 52x29.25.
+ *
+ * TWO assets, not one. wint-logo.svg is a navy #20294C wordmark; once the
+ * panel above stopped being a hard-coded light wash it sits on --card and
+ * measures ~1.3:1 under `dark`. public/wint-logo-white.svg is the shipped
+ * white cut and is swapped in by CSS rather than by state, so the choice is
+ * made at paint time and needs no re-render when the theme changes.
+ *
+ * `dark` and `contrast` only. `sand` is a light theme (--card is white) and
+ * leaves the navy mark at 12.2:1; `contrast` paints the panel magenta, where
+ * navy measures 1.87:1 and white 5.8:1. The switch is on [data-theme] rather
+ * than on `dark:` so it does not depend on the .dark class the boot script
+ * adds for the stock shadcn utilities.
+ *
+ * currentColor is not an option here: an external SVG loaded through <img>
+ * has no CSS context, and public/ is not this change's to edit. Note that
+ * wint-logo-white.svg paints the brand dot white too — it is a flat white
+ * cut of the whole mark, not a recolour of the wordmark alone.
  */
 function WintLogo() {
   return (
-    <img
-      src={`${import.meta.env.BASE_URL}wint-logo.svg`}
-      alt="Wint"
-      className="h-[29.25px] w-[52px]"
-    />
+    <>
+      <img
+        src={`${import.meta.env.BASE_URL}wint-logo.svg`}
+        alt="Wint"
+        className="h-[29.25px] w-[52px] [[data-theme=dark]_&]:hidden [[data-theme=contrast]_&]:hidden"
+      />
+      <img
+        src={`${import.meta.env.BASE_URL}wint-logo-white.svg`}
+        alt="Wint"
+        className="hidden h-[29.25px] w-[52px] [[data-theme=dark]_&]:block [[data-theme=contrast]_&]:block"
+      />
+    </>
   )
 }
 

@@ -154,9 +154,20 @@ const BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold lead
    paints the page's own two-layer gradient, carried as an inline style because
    Figma emits it as one (an arbitrary Tailwind value cannot hold the commas). */
 const STRIP = String.raw`content-stretch flex flex-col gap-[8px] h-[80px] items-start justify-center px-[13px] relative rounded-[11px] shrink-0 w-full max-w-full`
+/* The wash, themed. The angle stays here, the colours come from the shipped
+   stop list — under `light` that token IS the rgba literal this carried, so
+   `light` is byte-identical. NOT var(--chip-bg)/var(--app-bg): those bake one
+   angle in at :root and a call-site angle override cannot reach them. See
+   WintSidebarV2.jsx for the full note. */
+const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
+
+/* Painted as literals this strip stayed #edf1f9 under `dark` while its own
+   text followed the theme: "Valve handling: Auto shut-off" measured 1.08:1. */
 const STRIP_GRADIENT = {
+  /* --app-bg-stops, not --chip-bg-stops: this strip's stops are the page
+     root's set (29.24 / 12.35 / 17.588 / 76.864), not the chip set. */
   backgroundImage:
-    'linear-gradient(168.92503170733684deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
+    `linear-gradient(168.92503170733684deg, var(--app-bg-stops)), ${WASH_BASE}`,
 }
 
 // Phosphor Icons / warning 199383:141570 — export verbatim (12x12). The

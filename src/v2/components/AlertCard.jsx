@@ -239,10 +239,21 @@ const SHELL_WATER_EVENT = `${SHELL} max-w-[440px]`
 const SHELL_MOBILE = String.raw`bg-surface-card border border-red-500 border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[18px] shrink-0 w-full`
 const INNER_COLUMN = 'content-stretch flex flex-[1_0_0] flex-col items-start justify-between min-h-px relative w-full'
 
+/* The wash, themed. The angle stays here, the colours come from the shipped
+   stop list — under `light` that token IS the rgba literal this carried, so
+   `light` is byte-identical. NOT var(--chip-bg)/var(--app-bg): those bake one
+   angle in at :root and a call-site angle override cannot reach them. See
+   WintSidebarV2.jsx for the full note. */
+const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
+
 /* Gradient stacks on the sensor stat badges. Each badge carries its own angle in
-   the design (the gradient is baked per-instance), so they are not collapsed. */
+   the design (the gradient is baked per-instance), so they are not collapsed.
+
+   THEMED: the angle stays here, the stop list comes from --chip-bg-stops.
+   Painted as literals, this light wash left the `338 L/H` chip at 3.36:1 for
+   the figure and 2.32:1 for the unit under `dark`. */
 const BADGE_SHEEN = (deg) =>
-  `linear-gradient(${deg}deg, rgba(233, 238, 248, 0.8) 8.3855%, rgba(227, 235, 249, 0.8) 32.2%, rgba(228, 235, 250, 0.8) 40.822%, rgba(212, 226, 255, 0.8) 71.236%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)`
+  `linear-gradient(${deg}deg, var(--chip-bg-stops)), ${WASH_BASE}`
 
 /* ── "Unit wrapper" chips (199383:142005 / :142386 / :142430) ───────────────
  * The mobile card's figures moved out of the title block and the meta row and
@@ -251,9 +262,13 @@ const BADGE_SHEEN = (deg) =>
  * parameter and the three are not collapsed into one. The stop list is carried
  * EXACTLY as Figma emits it, out-of-order offsets and all (12.35% trails
  * 29.24%); CSS clamps a non-monotonic stop to its predecessor, which is the
- * render the design file itself shows. */
+ * render the design file itself shows.
+ *
+ * THEMED the same way as BADGE_SHEEN — note the DIFFERENT stop set, which is
+ * the page root's rather than the tile's and is why the two cannot collapse
+ * onto one token. Flat, the overlay flow chip measured 2.30:1 under `dark`. */
 const CHIP_SHEEN = (deg) =>
-  `linear-gradient(${deg}deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)`
+  `linear-gradient(${deg}deg, var(--app-bg-stops)), ${WASH_BASE}`
 
 const CHIP = String.raw`content-stretch flex gap-1.5 items-center justify-center px-[8px] py-[4px] relative rounded-[12px] shrink-0`
 const CHIP_LABEL = String.raw`font-sans font-medium leading-5 overflow-hidden relative shrink-0 text-muted-foreground text-ellipsis`

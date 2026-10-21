@@ -171,9 +171,20 @@ import { useRef } from 'react'
    carried, which is why it survived that tone's removal rather than being
    retyped. The stop order is the design's and is not ascending; see the
    --app-bg note in src/index.css for why that is left alone. */
+/* The wash, themed. The angle stays here, the colours come from the shipped
+   stop list — under `light` that token IS the rgba literal this carried, so
+   `light` is byte-identical. NOT var(--chip-bg)/var(--app-bg): those bake one
+   angle in at :root and a call-site angle override cannot reach them. See
+   WintSidebarV2.jsx for the full note. */
+const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
+
+/* Painted as literals, the "Systems 103" badge read as a light sticker on a
+   dark bar under `dark` — 4.22:1, and visually wrong rather than merely dim. */
 const BADGE_WASH = {
+  /* --app-bg-stops: this badge paints the FRAME ROOT's stop set, which is
+     what the comment above already says it shares. */
   backgroundImage:
-    'linear-gradient(145.43317186803606deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
+    `linear-gradient(145.43317186803606deg, var(--app-bg-stops)), ${WASH_BASE}`,
 }
 
 /* The one radius ruling 2 puts on every trigger. Not a scale step and not a
