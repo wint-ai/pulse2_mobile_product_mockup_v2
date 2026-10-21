@@ -86,6 +86,20 @@
  * outside these two files, so lucide's ChartLine stands in: the same subject,
  * from a set this repo already draws from (ScopePill takes its back chevron
  * from it). Swapping in a real chart-03 later is a one-line change here.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { ChartLine } from 'lucide-react'
 
@@ -103,9 +117,6 @@ import wave from '@/assets/system-hero-wave.png'
    treats `leading-*` as conflicting with a font-size atom, and Figma emits
    alphabetically, so a `leading-[…]` written BEFORE a `text-[length:…]` is
    silently deleted. Where cn() IS used below, the size is spelled first. */
-const FIG_BOLD = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Bold'),'Figtree','Inter',sans-serif]`
-const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
-const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
 const GEIST = "font-['Geist:Medium','Geist','Figtree',sans-serif]"
 
 export default function SystemHeroCard({
@@ -193,28 +204,28 @@ export default function SystemHeroCard({
       >
         {/* 199396:84051 — caption over date range, both centred and white. */}
         <div
-          className={String.raw`[word-break:break-word] content-stretch flex flex-col items-start leading-[0] relative shrink-0 text-[color:var(--colors\/white,white)] text-[length:var(--text\/base\/size,16px)] text-center w-full`}
+          className={String.raw`[word-break:break-word] content-stretch flex flex-col items-start leading-[0] relative shrink-0 text-white text-base text-center w-full`}
           data-node-id="199396:84051"
         >
           <div
-            className={String.raw`flex flex-col ${FIG_BOLD} font-[var(--font\/weight\/font-bold,700)] justify-center relative shrink-0 w-full`}
+            className={String.raw`flex flex-col font-sans font-bold justify-center relative shrink-0 w-full`}
             data-node-id="199383:141632"
           >
-            <p className={String.raw`leading-[var(--text\/base\/lh,24px)]`}>Water consumption</p>
+            <p className={String.raw`leading-6`}>Water consumption</p>
           </div>
           {rangeLabel ? (
             <div
-              className={String.raw`flex flex-col ${FIG_MED} font-[var(--font\/weight\/font-medium,500)] justify-center relative shrink-0 w-full`}
+              className={String.raw`flex flex-col font-sans font-medium justify-center relative shrink-0 w-full`}
               data-node-id="199383:141633"
             >
-              <p className={String.raw`leading-[var(--text\/base\/lh,24px)]`}>{rangeLabel}</p>
+              <p className={String.raw`leading-6`}>{rangeLabel}</p>
             </div>
           ) : null}
         </div>
 
         {/* 199383:141635 — the figure and its unit. */}
         <div
-          className={String.raw`[word-break:break-word] content-stretch flex ${GEIST} font-[var(--font\/weight\/font-medium,500)] gap-[8px] items-center leading-[0] relative shrink-0 text-[color:var(--colors\/white,white)] tracking-[-1.0556px] whitespace-nowrap`}
+          className={String.raw`[word-break:break-word] content-stretch flex ${GEIST} font-medium gap-[8px] items-center leading-[0] relative shrink-0 text-white tracking-[-1.0556px] whitespace-nowrap`}
           data-node-id="199383:141635"
         >
           <div className="flex flex-col justify-center relative shrink-0 text-[42.222px]" data-node-id="199383:141636">
@@ -238,7 +249,7 @@ export default function SystemHeroCard({
               data-node-id="199383:141638"
             >
               <div
-                className={String.raw`[word-break:break-word] flex flex-col ${GEIST} font-[var(--font\/weight\/font-medium,500)] justify-center leading-[0] relative shrink-0 text-[20px] text-[color:var(--colors\/white,white)] tracking-[-1.0556px] whitespace-nowrap`}
+                className={String.raw`[word-break:break-word] flex flex-col ${GEIST} font-medium justify-center leading-[0] relative shrink-0 text-[20px] text-white tracking-[-1.0556px] whitespace-nowrap`}
                 data-node-id="199383:141639"
               >
                 <p className="leading-[20px]">{delta}</p>
@@ -282,7 +293,7 @@ export default function SystemHeroCard({
             >
               <ChartLine className="size-[16px] shrink-0" aria-hidden="true" />
               <span
-                className={String.raw`[word-break:break-word] ${FIG_REG} font-[var(--font\/weight\/font-normal,400)] relative shrink-0 text-[length:var(--text\/xs\/size,12px)] leading-[var(--text\/xs\/lh-snug,16.5px)] whitespace-nowrap`}
+                className={String.raw`[word-break:break-word] font-sans font-normal relative shrink-0 text-xs leading-[16.5px] whitespace-nowrap`}
                 data-node-id="199383:141640"
               >
                 See more

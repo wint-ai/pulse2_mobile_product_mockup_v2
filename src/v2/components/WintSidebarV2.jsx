@@ -47,6 +47,20 @@
  * not touch UserContext scope at all — picking a row moves the user somewhere,
  * nothing more. The data layer below is carried over from WintSidebar.jsx
  * unchanged; only the markup and styling are new.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -110,10 +124,10 @@ const SCRIM = 'rgba(15, 23, 42, 0.25)'
  * card's badge is #f0f4fb/slate-600 (198378:74031) and every other badge, root
  * accounts included ("South Quarter", "East Quarter"), is slate-200/slate-400.
  */
-const BADGE_TONE_ACTIVE = { background: '#f0f4fb', color: 'var(--colors\\/slate\\/600,#45556c)' }
+const BADGE_TONE_ACTIVE = { background: '#f0f4fb', color: 'var(--slate-600)' }
 const BADGE_TONE_REST = {
-  background: 'var(--colors\\/slate\\/200,#e2e8f0)',
-  color: 'var(--colors\\/slate\\/400,#90a1b9)',
+  background: 'var(--slate-200)',
+  color: 'var(--slate-400)',
 }
 
 /** Tabler star ships #90A1B9; the pinned tint is the amber v1 already uses. */
@@ -577,7 +591,7 @@ export default function WintSidebarV2({ open, onClose }) {
             The frame puts the Header at y=-2 with a 44px box, so the rule
             lands on y=41..42 of the render — hence h-[42px] here rather than
             the node's nominal 44. */}
-        <div className="border-[var(--colors\/slate\/200,#e2e8f0)] border-b border-solid content-stretch flex h-[42px] items-center justify-between px-[var(--spacing\/3,12px)] relative shrink-0">
+        <div className="border-border border-b border-solid content-stretch flex h-[42px] items-center justify-between px-3 relative shrink-0">
           <div className="content-stretch flex items-start pl-[6px] relative shrink-0">
             <WintLogo />
           </div>
@@ -591,7 +605,7 @@ export default function WintSidebarV2({ open, onClose }) {
             // justify-center pushed it 6px inboard. before:-inset-[10px] grows
             // the touch target back to 36px without moving a pixel of the glyph,
             // the same pattern as the footer bell (198378:74089).
-            className="content-stretch flex items-center justify-center relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] shrink-0 size-[16px] before:absolute before:-inset-[10px] before:content-[''] active:opacity-60"
+            className="content-stretch flex items-center justify-center relative rounded-md shrink-0 size-[16px] before:absolute before:-inset-[10px] before:content-[''] active:opacity-60"
           >
             {/* No opacity class: 198378:74018 emits bare (the tool does emit
                 opacity when it exists — sibling 198378:74065 comes back with
@@ -620,15 +634,15 @@ export default function WintSidebarV2({ open, onClose }) {
               // buttons in this file already use. A QA sweep measured this one
               // at 19px across, the only control here still under the 24px
               // WCAG 2.5.8 floor.
-              className="content-stretch flex gap-[var(--spacing\/1\,5,6px)] h-[32px] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10px)] shrink-0 w-[18px] active:bg-white/60 before:absolute before:-inset-x-[7px] before:inset-y-0 before:content-['']"
+              className="content-stretch flex gap-1.5 h-[32px] items-center justify-center p-0 relative rounded-lg shrink-0 w-[18px] active:bg-white/60 before:absolute before:-inset-x-[7px] before:inset-y-0 before:content-['']"
             >
               <ArrowsInLineVertical size={16} className="text-slate-500" />
             </button>
-            <p className="[word-break:break-word] flex-[1_0_0] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] min-w-px relative text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/xs\/size,12px)]">
+            <p className="[word-break:break-word] flex-[1_0_0] font-medium leading-4 min-w-px relative text-muted-foreground text-xs">
               Locations
             </p>
           </div>
-          <div className="content-stretch flex gap-[var(--p-0,0px)] items-center relative shrink-0">
+          <div className="content-stretch flex gap-0 items-center relative shrink-0">
             {/* data-open rather than a ternary into cn(): a Figma var() class
                 must stay inside a literal JSX attribute or its backslashes are
                 eaten — see the escaping note at the top of the file. */}
@@ -638,7 +652,7 @@ export default function WintSidebarV2({ open, onClose }) {
               onClick={() => { setSearchOpen(v => !v); if (searchOpen) setQuery('') }}
               aria-label="Search locations"
               aria-expanded={searchOpen}
-              className="content-stretch flex gap-[var(--spacing\/1\,5,6px)] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10px)] shrink-0 size-[32px] data-[open=false]:active:bg-white/60 data-[open=true]:bg-white/70"
+              className="content-stretch flex gap-1.5 items-center justify-center p-0 relative rounded-lg shrink-0 size-[32px] data-[open=false]:active:bg-white/60 data-[open=true]:bg-white/70"
             >
               {/* The frame flips search-01 vertically (-rotate-180 -scale-x-100
                   on I198378:74026;…;59428:44419). Without it the magnifier
@@ -654,7 +668,7 @@ export default function WintSidebarV2({ open, onClose }) {
               role="img"
               aria-label="Filter locations (not implemented)"
               title="Filter — not implemented"
-              className="content-stretch flex gap-[var(--spacing\/1\,5,6px)] items-center justify-center p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,10px)] shrink-0 size-[32px]"
+              className="content-stretch flex gap-1.5 items-center justify-center p-0 relative rounded-lg shrink-0 size-[32px]"
             >
               <FunnelSimple size={16} className="text-slate-400" />
             </span>
@@ -673,7 +687,7 @@ export default function WintSidebarV2({ open, onClose }) {
               onChange={e => setQuery(e.target.value)}
               placeholder="Search locations and systems"
               aria-label="Search locations and systems"
-              className="h-[32px] rounded-[8px] border-[var(--colors\/slate\/200,#e2e8f0)] bg-white/70 text-[14px] shadow-none"
+              className="h-[32px] rounded-[8px] border-border bg-white/70 text-[14px] shadow-none"
             />
           </div>
         )}
@@ -691,12 +705,12 @@ export default function WintSidebarV2({ open, onClose }) {
         >
           {!hasAnyLocation ? (
             /* EMPTY STATE — persona scope resolves to nothing at all. */
-            <p className="px-[6px] py-[40px] text-center text-[14px] text-[color:var(--colors\/slate\/400,#90a1b9)]">
+            <p className="px-[6px] py-[40px] text-center text-[14px] text-slate-400">
               No locations in this account yet.
             </p>
           ) : visibleTree.length === 0 ? (
             /* EMPTY STATE — the search matched nothing. */
-            <p className="px-[6px] py-[40px] text-center text-[14px] text-[color:var(--colors\/slate\/400,#90a1b9)]">
+            <p className="px-[6px] py-[40px] text-center text-[14px] text-slate-400">
               Nothing matches “{query.trim()}”.
             </p>
           ) : (
@@ -720,8 +734,8 @@ export default function WintSidebarV2({ open, onClose }) {
         </SidebarProvider>
 
         {/* ── Footer · 198378:74083 ───────────────────────────────────────── */}
-        <div className="border-[var(--colors\/slate\/200,#e2e8f0)] border-solid border-t content-stretch flex flex-col gap-[var(--spacing\/2,8px)] items-start p-[var(--spacing\/4,16px)] relative shrink-0">
-          <div className="content-stretch flex flex-col gap-[var(--spacing\/1,4px)] items-start relative shrink-0 w-full">
+        <div className="border-border border-solid border-t content-stretch flex flex-col gap-2 items-start p-4 relative shrink-0">
+          <div className="content-stretch flex flex-col gap-1 items-start relative shrink-0 w-full">
             {/* DELIBERATELY INERT — "Users" and "Reports" have no PRD and no
                 designed screen. There is no route to send them to and inventing
                 one would be a guess, so they render and do nothing. */}
@@ -729,7 +743,7 @@ export default function WintSidebarV2({ open, onClose }) {
             <FooterRow icon={<ReportAnalytics size={16} className="text-slate-700" />} label="Reports" />
           </div>
 
-          <div className="content-stretch flex items-center justify-between pr-[var(--spacing\/2,8px)] relative shrink-0 w-full">
+          <div className="content-stretch flex items-center justify-between pr-2 relative shrink-0 w-full">
             {/* 198378:74088 is a fixed 188px box inside a justify-between row,
                 NOT flex:1. Letting it grow makes justify-between inert and
                 collapses the 113px gap the frame leaves before the bell
@@ -739,23 +753,23 @@ export default function WintSidebarV2({ open, onClose }) {
             <button
               type="button"
               onClick={() => go('/select')}
-              className="content-stretch flex gap-[var(--component\/sidebar\/menu-button\/gap,8px)] h-[49px] items-center px-[var(--component\/sidebar\/menu-button\/padding,8px)] py-[var(--component\/sidebar\/menu-button\/py,8px)] relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] shrink-0 text-left w-[188px] active:bg-white/60"
+              className="content-stretch flex gap-2 h-[49px] items-center px-2 py-2 relative rounded-md shrink-0 text-left w-[188px] active:bg-white/60"
             >
               {/* SidebarMediaAsset — 32px, radius 8. The frame fills it with a
                   photo; this app identifies a persona by emoji + tint, so the
                   tile keeps the geometry and carries the persona mark. */}
               <span
                 aria-hidden="true"
-                className="content-stretch flex items-center justify-center overflow-clip relative rounded-[var(--component\/sidebar\/media-asset\/radius,8px)] shrink-0 size-[32px] text-[18px]"
+                className="content-stretch flex items-center justify-center overflow-clip relative rounded-md shrink-0 size-[32px] text-[18px]"
                 style={{ background: persona.bg || '#EEF3FA' }}
               >
                 {persona.icon || '👤'}
               </span>
-              <span className="[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col items-start justify-center min-w-px relative text-[color:var(--colors\/slate\/700,#314158)] whitespace-nowrap">
-                <span className="font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh-tight,18px)] overflow-hidden relative min-w-px text-[14px] text-ellipsis w-full">
+              <span className="[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col items-start justify-center min-w-px relative text-slate-700 whitespace-nowrap">
+                <span className="font-medium leading-[18px] overflow-hidden relative min-w-px text-[14px] text-ellipsis w-full">
                   {persona.name}
                 </span>
-                <span className="font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-tight,15px)] overflow-hidden relative shrink-0 text-[12px] text-ellipsis w-full">
+                <span className="font-normal leading-[15px] overflow-hidden relative shrink-0 text-[12px] text-ellipsis w-full">
                   {persona.email || persona.role}
                 </span>
               </span>
@@ -767,7 +781,7 @@ export default function WintSidebarV2({ open, onClose }) {
               aria-label="Alerts"
               // 198378:74089 is a bare 16px glyph. before:-inset-[10px] grows
               // the touch target to 36px without moving a single pixel of it.
-              className="content-stretch flex items-center justify-center relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] shrink-0 size-[16px] before:absolute before:-inset-[10px] before:content-[''] active:opacity-60"
+              className="content-stretch flex items-center justify-center relative rounded-md shrink-0 size-[16px] before:absolute before:-inset-[10px] before:content-[''] active:opacity-60"
             >
               <BellDot size={16} className="text-[#314158]" />
             </button>
@@ -916,10 +930,10 @@ function TreeRow({
           onClick={e => { e.stopPropagation(); onToggleExpanded() }}
           aria-expanded={isOpen}
           aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${node.name}`}
-          className="content-stretch flex h-[20px] items-center justify-center min-w-[34px] overflow-clip pl-[var(--component\/badge\/px,8px)] pr-[var(--spacing\/0\,5,2px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0"
+          className="content-stretch flex h-[20px] items-center justify-center min-w-[34px] overflow-clip pl-2 pr-0.5 py-0.5 relative rounded-[26px] shrink-0"
           style={isActive ? BADGE_TONE_ACTIVE : BADGE_TONE_REST}
         >
-          <span className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative min-w-px tabular-nums text-[12px] text-ellipsis whitespace-nowrap">
+          <span className="[word-break:break-word] font-medium leading-4 overflow-hidden relative min-w-px tabular-nums text-[12px] text-ellipsis whitespace-nowrap">
             {node.systems.length}
           </span>
           {isOpen ? <ArrowDropDown size={16} /> : <ArrowDropRight size={16} />}
@@ -953,7 +967,7 @@ function TreeRow({
         // `text-[14px]` here is silently deleted and the row sits a few pixels
         // off. `leading-` therefore trails `text-[14px]` below, against Figma's
         // alphabetical emission order. Same class set — do not re-sort it.
-        className="content-stretch flex gap-[var(--component\/sidebar\/menu-button\/gap,8px)] h-[36px] items-center overflow-clip px-[var(--spacing\/1\,5,6px)] py-[var(--component\/sidebar\/menu-button\/py,8px)] relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] w-full font-[number:var(--font\/weight\/font-normal,400)] text-[14px] leading-[var(--text\/sm\/lh-none,14px)] text-[color:var(--colors\/slate\/800,#1d293d)] hover:bg-white/50 hover:text-[color:var(--colors\/slate\/800,#1d293d)] active:bg-white/70 active:text-[color:var(--colors\/slate\/800,#1d293d)] data-[active=true]:bg-[var(--card,white)] data-[active=true]:font-[number:var(--font\/weight\/font-normal,500)] data-[active=true]:text-[color:var(--sidebar\/foreground,#0a0a0a)] data-[active=true]:shadow-none data-[active=true]:hover:bg-[var(--card,white)] data-[active=true]:hover:text-[color:var(--sidebar\/foreground,#0a0a0a)] data-[active=true]:active:text-[color:var(--sidebar\/foreground,#0a0a0a)]"
+        className="content-stretch flex gap-2 h-[36px] items-center overflow-clip px-1.5 py-2 relative rounded-md w-full font-normal text-[14px] leading-[14px] text-slate-800 hover:bg-white/50 hover:text-slate-800 active:bg-white/70 active:text-slate-800 data-[active=true]:bg-card data-[active=true]:font-medium data-[active=true]:text-sidebar-foreground data-[active=true]:shadow-none data-[active=true]:hover:bg-card data-[active=true]:hover:text-sidebar-foreground data-[active=true]:active:text-sidebar-foreground"
       >
         {row}
       </SidebarMenuButton>
@@ -975,7 +989,7 @@ function TreeRow({
       // font size (`text-sm/6` sets both). `leading-` must therefore come
       // AFTER `text-[14px]`, not before it as Figma emits it — otherwise the
       // line-height is dropped. Same class set; do not re-sort alphabetically.
-      className="content-stretch cursor-pointer flex gap-[var(--component\/sidebar\/menu-sub-item\/gap,8px)] h-[28px] items-center overflow-clip pr-[var(--spacing\/1\,5,6px)] relative rounded-[var(--component\/sidebar\/menu-sub-item\/radius,8px)] w-full translate-x-0 font-[var(--font\/weight\/font-normal,400)] text-[14px] leading-[var(--text\/sm\/lh-none,14px)] text-[color:var(--colors\/slate\/800,#1d293d)] data-[leaf=false]:pl-[var(--pro\/space\/2,6px)] data-[leaf=true]:pl-[var(--pro\/space\/5,16px)] hover:bg-white/50 hover:text-[color:var(--colors\/slate\/800,#1d293d)] active:bg-white/70 active:text-[color:var(--colors\/slate\/800,#1d293d)] data-[active=true]:bg-[var(--card,white)] data-[active=true]:text-[color:var(--colors\/slate\/800,#1d293d)]"
+      className="content-stretch cursor-pointer flex gap-2 h-[28px] items-center overflow-clip pr-1.5 relative rounded-md w-full translate-x-0 font-normal text-[14px] leading-[14px] text-slate-800 data-[leaf=false]:pl-1.5 data-[leaf=true]:pl-4 hover:bg-white/50 hover:text-slate-800 active:bg-white/70 active:text-slate-800 data-[active=true]:bg-card data-[active=true]:text-slate-800"
     >
       {row}
     </SidebarMenuSubButton>
@@ -988,16 +1002,16 @@ function TreeRow({
  */
 function FooterRow({ icon, label }) {
   return (
-    <div className="content-stretch flex gap-[var(--p-0,0px)] items-center p-[var(--p-0,0px)] relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)] shrink-0 w-full">
+    <div className="content-stretch flex gap-0 items-center p-0 relative rounded-md shrink-0 w-full">
       <div
         aria-disabled="true"
         title={`${label} — no screen designed yet`}
-        className="content-stretch flex flex-[1_0_0] gap-[var(--component\/sidebar\/menu-button\/gap,8px)] h-[32px] items-center min-w-px px-[var(--component\/sidebar\/menu-button\/padding,8px)] py-[var(--component\/sidebar\/menu-button\/py,8px)] relative rounded-[var(--component\/sidebar\/menu-button\/radius,8px)]"
+        className="content-stretch flex flex-[1_0_0] gap-2 h-[32px] items-center min-w-px px-2 py-2 relative rounded-md"
       >
         <span className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]">
           {icon}
         </span>
-        <span className="[word-break:break-word] flex-[1_0_0] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/sm\/lh-none,14px)] min-w-px overflow-hidden relative text-[14px] text-[color:var(--colors\/slate\/700,#314158)] text-ellipsis whitespace-nowrap">
+        <span className="[word-break:break-word] flex-[1_0_0] font-normal leading-[14px] min-w-px overflow-hidden relative text-[14px] text-slate-700 text-ellipsis whitespace-nowrap">
           {label}
         </span>
       </div>

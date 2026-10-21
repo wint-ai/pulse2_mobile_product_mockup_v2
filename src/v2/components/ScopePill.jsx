@@ -28,6 +28,20 @@
  *
  * The Figma header bar (199296:50192) centres a location name — "Floor 26" —
  * in exactly this slot, so this is the comp's own layout, made operable.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { ChevronLeft } from 'lucide-react'
 
@@ -82,7 +96,7 @@ export default function ScopePill({
              ~1cm floor without spending header height on it. */
           className={cn(
             'relative size-[24px] shrink-0 rounded-[8px] p-0',
-            String.raw`text-[color:var(--colors\/slate\/700,#314158)]`,
+            String.raw`text-slate-700`,
             "before:absolute before:-inset-[10px] before:content-['']",
             'hover:bg-card/40 hover:text-current',
           )}
@@ -102,7 +116,7 @@ export default function ScopePill({
           'relative min-w-0 max-w-full justify-start gap-[6px] rounded-[10px] px-[10px] py-[5px]',
           'border border-solid border-card/70 bg-card/55 backdrop-blur-[6px]',
           "before:absolute before:-inset-y-[6px] before:-inset-x-0 before:content-['']",
-          String.raw`text-[color:var(--colors\/slate\/900,#0f172b)]`,
+          String.raw`text-foreground`,
           'hover:bg-card/75 hover:text-current',
         )}
       >
@@ -111,8 +125,8 @@ export default function ScopePill({
             it does not wrap the header or push the caret off the row. */}
         <span
           className={cn(
-            String.raw`min-w-0 flex-1 truncate text-left font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`,
-            String.raw`font-[var(--font\/weight\/font-medium,500)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh-tight,18px)]`,
+            String.raw`min-w-0 flex-1 truncate text-left font-sans`,
+            String.raw`font-medium text-sm leading-[18px]`,
           )}
         >
           {label}

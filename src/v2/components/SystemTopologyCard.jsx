@@ -47,6 +47,20 @@
  *     single-valve system, and no valves at all means no footer.
  *   - the schematic takes the worst valve state on the loop, so the
  *     infographic moves with the system instead of sitting static.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { Settings, PowerOff, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -60,8 +74,6 @@ const POWER_LABEL = { ac: 'AC', battery: 'Battery', 'ac-lost': 'AC lost' }
 /* The node names Geist; this project ships Figtree and falls back to Inter.
    Both are carried so the token resolves the same way it does everywhere else
    in src/v2. */
-const FAM_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Geist:SemiBold'),'Figtree','Inter',sans-serif]`
-const FAM_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif]`
 
 /* Class ORDER matters in every atom below, because these run through cn() and
    so through twMerge. Tailwind's `text-sm/6` shorthand sets size *and*
@@ -73,35 +85,35 @@ const FAM_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Geist:Med
    re-sort these back into alphabetical order. */
 const TEXT_TITLE = cn(
   '[word-break:break-word] whitespace-nowrap',
-  FAM_SEMI,
-  String.raw`font-[number:var(--font\/weight\/font-medium,600)] text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/base\/size,16px)] leading-[var(--text\/base\/lh,24px)]`,
+  'font-sans',
+  String.raw`font-semibold text-foreground text-base leading-6`,
 )
 const TEXT_NAME = cn(
   '[word-break:break-word] whitespace-nowrap',
-  FAM_MED,
-  String.raw`font-[number:var(--font\/weight\/font-medium,500)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/base\/size,16px)] leading-[var(--text\/base\/lh,24px)]`,
+  'font-sans',
+  String.raw`font-medium text-slate-600 text-base leading-6`,
 )
 const TEXT_SN = cn(
   '[word-break:break-word] whitespace-nowrap font-medium text-[12px]',
-  FAM_MED,
-  String.raw`leading-[var(--text\/button-xs\/size,12px)] text-[color:var(--colors\/slate\/400,#90a1b9)]`,
+  'font-sans',
+  String.raw`leading-3 text-slate-400`,
 )
 const TEXT_BADGE = cn(
   '[word-break:break-word] overflow-hidden text-ellipsis whitespace-nowrap text-[12px]',
-  FAM_MED,
-  String.raw`font-[number:var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)]`,
+  'font-sans',
+  String.raw`font-medium leading-4`,
 )
 const TEXT_BUTTON = cn(
   '[word-break:break-word] whitespace-nowrap font-medium',
-  FAM_MED,
-  String.raw`text-[length:var(--text\/button-xs\/size,12px)] leading-[var(--text\/button-xs\/size,12px)]`,
+  'font-sans',
+  String.raw`text-xs leading-3`,
 )
 
 /* Radius 8 and px 8 — rounded rects, not pills. The node's drop-shadow is two
    layers that both resolve to rgba(0,0,0,0) at zero blur, i.e. no shadow, so
    they are dropped rather than emitted as a no-op filter. */
-const BTN = String.raw`flex shrink-0 items-center justify-center gap-[var(--spacing\/1,4px)] bg-[#f2f6ff] px-[var(--component\/button\/size-xs\/px,8px)] py-[var(--p-0,0px)] rounded-[var(--component\/button\/size-xs\/radius,8px)]`
-const BTN_OUTLINE = String.raw`border border-solid border-[var(--wint-blue-accent,#0b81f8)]`
+const BTN = String.raw`flex shrink-0 items-center justify-center gap-1 bg-[#f2f6ff] px-2 py-0 rounded-md`
+const BTN_OUTLINE = String.raw`border border-solid border-primary`
 const FOCUS = 'cursor-pointer outline-none hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50'
 
 // ── glyphs the node draws, duplicated from TopologyCard.jsx, which does not
@@ -153,7 +165,7 @@ const PillConnector = () => (
 /** The 24px badge that opens both the name row and the valve row. */
 function RoundBadge({ children }) {
   return (
-    <div className={String.raw`flex size-[24px] shrink-0 items-center justify-center gap-[var(--component\/badge\/gap,4.8px)] overflow-clip px-[var(--component\/tabs\/trigger\/gap,7.2px)] py-[var(--component\/badge\/py,2.4px)] rounded-[var(--component\/badge\/radius,31.2px)]`}>
+    <div className={String.raw`flex size-[24px] shrink-0 items-center justify-center gap-[4.8px] overflow-clip px-[7.2px] py-[2.4px] rounded-[31.2px]`}>
       <div className="flex shrink-0 flex-col items-start">{children}</div>
     </div>
   )
@@ -162,7 +174,7 @@ function RoundBadge({ children }) {
 /** Collapsed's icon-only status chip — 20px square, px-2, white. */
 function IconChip({ children }) {
   return (
-    <div className={String.raw`flex size-[20px] shrink-0 items-center justify-center gap-[var(--component\/badge\/gap,4px)] overflow-clip bg-white px-[var(--component\/sheet\/header\/gap,2px)] py-[var(--component\/badge\/py,2px)] rounded-[var(--component\/badge\/radius,26px)] text-[color:var(--colors\/slate\/500,#62748e)]`}>
+    <div className={String.raw`flex size-[20px] shrink-0 items-center justify-center gap-1 overflow-clip bg-white px-0.5 py-0.5 rounded-[26px] text-muted-foreground`}>
       <span className="flex size-[12px] shrink-0 items-center justify-center">{children}</span>
     </div>
   )
@@ -171,16 +183,16 @@ function IconChip({ children }) {
 /** Expanded's word badge — h-24, px-8, radius 26, white. */
 function WordBadge({ icon, children, tone = 'slate-500' }) {
   return (
-    <div className={String.raw`flex h-[24px] shrink-0 items-center justify-center gap-[var(--component\/badge\/gap,4px)] overflow-clip bg-white px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] rounded-[var(--component\/badge\/radius,26px)]`}>
-      <span className="flex size-[12px] shrink-0 items-center justify-center text-[color:var(--colors\/slate\/500,#62748e)]">
+    <div className={String.raw`flex h-[24px] shrink-0 items-center justify-center gap-1 overflow-clip bg-white px-2 py-0.5 rounded-[26px]`}>
+      <span className="flex size-[12px] shrink-0 items-center justify-center text-muted-foreground">
         {icon}
       </span>
       <p
         className={cn(
           TEXT_BADGE,
           tone === 'slate-600'
-            ? String.raw`text-[color:var(--colors\/slate\/600,#45556c)]`
-            : String.raw`text-[color:var(--colors\/slate\/500,#62748e)]`,
+            ? String.raw`text-slate-600`
+            : String.raw`text-muted-foreground`,
         )}
       >
         {children}
@@ -258,7 +270,7 @@ function CompactTile({ device }) {
         <div className="flex shrink-0 items-center gap-[4px]">
           <div className="flex shrink-0 items-end">
             <RoundBadge>
-              <div className="relative size-[19.2px] shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)]">
+              <div className="relative size-[19.2px] shrink-0 text-slate-400">
                 <Ram2Line />
               </div>
             </RoundBadge>
@@ -338,7 +350,7 @@ function DeviceCard({ device, onCloseValve }) {
             <div className="flex shrink-0 items-center gap-[4px]">
               <div className="flex shrink-0 items-end">
                 <RoundBadge>
-                  <div className="relative size-[19.2px] shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)]">
+                  <div className="relative size-[19.2px] shrink-0 text-slate-400">
                     <Ram2Line />
                   </div>
                 </RoundBadge>
@@ -382,7 +394,7 @@ function DeviceCard({ device, onCloseValve }) {
                 className={cn(BTN, BTN_OUTLINE, FOCUS, 'h-[24px]')}
               >
                 <span
-                  className={cn(TEXT_BUTTON, String.raw`text-[color:var(--wint-blue-accent,#0b81f8)]`)}
+                  className={cn(TEXT_BUTTON, String.raw`text-primary`)}
                 >
                   Close valve
                 </span>
@@ -424,7 +436,7 @@ export default function SystemTopologyCard({
   return (
     <div
       className={cn(
-        String.raw`flex w-full flex-col items-start justify-center gap-[17px] rounded-[var(--rounded-2xl,18px)] border border-solid border-white bg-[#fafbfc] px-[16px] py-[12px]`,
+        String.raw`flex w-full flex-col items-start justify-center gap-[17px] rounded-[18px] border border-solid border-white bg-[#fafbfc] px-[16px] py-[12px]`,
         className,
       )}
       data-node-id={expanded ? '198736:153302' : '198629:57165'}
@@ -453,7 +465,7 @@ export default function SystemTopologyCard({
                 BTN,
                 FOCUS,
                 'size-[24px] p-0',
-                String.raw`text-[color:var(--colors\/slate\/900,#0f172b)]`,
+                String.raw`text-foreground`,
               )}
             >
               <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-[16px]">
@@ -524,7 +536,7 @@ export default function SystemTopologyCard({
             'disabled:cursor-default disabled:opacity-40 disabled:hover:brightness-100',
           )}
         >
-          <span className={cn(TEXT_BUTTON, String.raw`text-[color:var(--wint-blue-accent,#0b81f8)]`)}>
+          <span className={cn(TEXT_BUTTON, String.raw`text-primary`)}>
             {closableCount > 1 ? 'Close all valves' : 'Close valve'}
           </span>
         </button>

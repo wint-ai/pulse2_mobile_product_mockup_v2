@@ -133,8 +133,11 @@ describe('Systems Health — a checked zero looks different from an empty field'
     )
     // Four of the five dimensions are clear: offline, power, recipients and
     // "Require attention". Valve is not, and gets no mark.
+    // Phase 3 (docs/TOKENIZATION-PLAN.md): the mark's ink is now the theme
+    // utility `text-slate-300` rather than the #cad5e2 the Figma token
+    // fallback used to paint. Same colour, one source of truth.
     const marks = [...container.querySelectorAll('svg')].filter((el) =>
-      (el.getAttribute('class') || '').includes('#cad5e2'),
+      (el.getAttribute('class') || '').includes('text-slate-300'),
     )
     expect(marks.length).toBe(4)
 

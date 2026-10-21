@@ -216,8 +216,7 @@ describe('SystemHealthCard — all healthy / empty', () => {
       .find((b) => b.getAttribute('aria-label') === name)
     expect(by('Valve errors: 1').className).toContain('from-[#fff1f1]')
     expect(by('Offline systems: 1').className).toContain('from-[#fff1f1]')
-    expect(by('Disconnected power: 0').className)
-      .toContain(String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)]`)
+    expect(by('Disconnected power: 0').className).toContain('bg-slate-100')
     expect(by('Disconnected power: 0').className).not.toContain('from-[#fff1f1]')
   })
 
@@ -238,15 +237,15 @@ describe('SystemHealthCard — Figma class fidelity', () => {
     const { container } = render(<SystemHealthCard {...ALERTING} />)
 
     const heading = container.querySelector('[data-node-id="199323:12128"]')
-    expect(heading.className).toContain(String.raw`leading-[var(--text\/sm\/lh,20px)]`)
-    expect(heading.className).toContain(String.raw`text-[length:var(--text\/sm\/size,14px)]`)
+    expect(heading.className).toContain('leading-5')
+    expect(heading.className).toContain('text-sm')
 
     const label = container.querySelector('[data-node-id="199360:129783"]')
     expect(label.className).toContain('leading-[0]')
-    expect(label.className).toContain(String.raw`text-[length:var(--text\/lg\/size,18px)]`)
+    expect(label.className).toContain('text-lg')
   })
 
-  it('carries the escaped var() token classes verbatim into the DOM', () => {
+  it('carries the design values as theme utilities, with no var() fallback left', () => {
     const { container } = render(<SystemHealthCard {...ALERTING} />)
 
     /* The slate-100 fleet row that stood here is gone — see the note at the
@@ -255,12 +254,13 @@ describe('SystemHealthCard — Figma class fidelity', () => {
     expect(bar.className).toContain('gap-[1.622px]')
     expect(bar.className).toContain('h-[15px]')
 
-    expect(segments(container).red.className)
-      .toContain(String.raw`bg-[var(--colors\/red\/700,#c10007)]`)
+    expect(segments(container).red.className).toContain('bg-red-700')
 
     const card = container.firstElementChild
     expect(card.className).toContain('gap-[15px]')
-    expect(card.className).toContain('rounded-[var(--rounded-3xl,22px)]')
+    expect(card.className).toContain('rounded-[22px]')
+    // Phase 3: no two-argument var() survives in this component.
+    expect(card.className).not.toContain('var(--')
     expect(card.getAttribute('data-name')).toBe('IOT overview')
   })
 

@@ -30,19 +30,31 @@
  * under a #ff7b7d mix-blend-color layer and reads red; here the node has no
  * tint layer at all, so the raster's own blue comes through. That is the whole
  * difference between the two heroes.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { BrandDrops, FloodLine, PhotoSensor3 } from '@/v2/icons'
 import { cn } from '@/lib/utils'
 import wave from '@/assets/system-hero-wave.png'
 
-const FIG_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
-const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
 
 /* 199414:130120 / :130123 / :130126 — all three identical but for width, which
    the node sizes to its own numeral. Here they size to content, so a four-digit
    count does not clip. */
 const CHIP = String.raw`content-stretch flex gap-[8px] h-[32px] items-center justify-between px-[9px] relative rounded-[18px] bg-[rgba(241,245,249,0.28)]`
-const CHIP_NUM = String.raw`[word-break:break-word] font-['Geist:Medium','Geist','Inter',sans-serif] font-[var(--font\/weight\/font-medium,500)] leading-[22.762px] relative shrink-0 text-[15.933px] text-[color:var(--background,white)] whitespace-nowrap`
+const CHIP_NUM = String.raw`[word-break:break-word] font-['Geist:Medium','Geist','Inter',sans-serif] font-medium leading-[22.762px] relative shrink-0 text-[15.933px] text-background whitespace-nowrap`
 
 const fmt = (n) => Number(n ?? 0).toLocaleString('en-US')
 
@@ -99,14 +111,14 @@ export default function SystemsOverviewHero({
       <p
         className={cn(
           '[word-break:break-word] absolute left-[36px] top-[41px] whitespace-nowrap text-[#fafbfc] text-[34.646px]',
-          FIG_SEMI,
-          String.raw`font-[var(--font\/weight\/font-semibold,600)]`,
+          'font-sans',
+          String.raw`font-semibold`,
         )}
         dir="auto"
         data-node-id="199414:130118"
       >
         <span className="leading-[39.37px]">{`${fmt(total)} `}</span>
-        <span className={cn(FIG_REG, 'font-normal leading-[39.37px]')}>{unit}</span>
+        <span className={cn('font-sans', 'font-normal leading-[39.37px]')}>{unit}</span>
       </p>
 
       {/* 199417:131528 — the three chips, left-anchored at the node's own 21px

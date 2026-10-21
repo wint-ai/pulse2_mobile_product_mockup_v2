@@ -118,6 +118,20 @@
  *   · Visible labels stay Figma's ("Show all", "High Flow"); accessible names
  *     use the product's vocabulary ("View all 4 water events", "High flow").
  *     Same split SystemHealthCard makes.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { ArrowRight } from 'lucide-react'
 import { Waves } from '@/v2/icons'
@@ -126,11 +140,6 @@ import { cn } from '@/lib/utils'
 /* ----------------------------------------------------------------- type */
 
 /* Figma names the family per weight; the fallbacks are this project's. */
-const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
-const FIG_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
-const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
-const FIG_HEAD = String.raw`font-[family-name:var(--font\/family\/heading,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
-const GEIST_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif]`
 
 /* NOTE ON CLASS ORDER. Every string below spells `leading-[…]` AFTER its
    `text-[length:…]` / `text-[Npx]`, which is the reverse of Figma's
@@ -143,7 +152,7 @@ const GEIST_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Geist:R
 /* --------------------------------------------------------------- chassis */
 
 /* 199359:128986 (alert) / 199371:137191 (calm). */
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col items-center pb-[16px] pt-[12px] relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full`
+const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col items-center pb-[16px] pt-[12px] relative rounded-[22px] shrink-0 w-full`
 const CARD_GAP_ALERT = String.raw`gap-[12px]`
 const CARD_GAP_CALM = String.raw`gap-[20px]`
 
@@ -157,39 +166,39 @@ const HEAD_ROW = String.raw`content-stretch flex h-[28px] items-center justify-b
 const HEAD_LEFT = String.raw`content-stretch flex gap-[12px] items-center relative shrink-0`
 
 /* 199359:128991 */
-const HEAD_TITLE = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap leading-[var(--text\/sm\/lh,20px)]`
+const HEAD_TITLE = String.raw`[word-break:break-word] font-medium relative shrink-0 text-foreground text-sm whitespace-nowrap leading-5`
 
 /* 199359:128992 / 128993 — the count pill. */
 const PILL = String.raw`content-stretch flex flex-col items-center justify-center px-[6px] relative rounded-[10px] shrink-0`
-const PILL_ALERT = String.raw`bg-[var(--colors\/red\/600,#e7000b)]`
-const PILL_CALM = String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)]`
-const PILL_TEXT = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] relative text-[length:var(--text\/base\/size,16px)] text-center tracking-[var(--text\/base\/heading-tracking,-0.4px)] w-full leading-[var(--text\/base\/lh-snug,22px)]`
+const PILL_ALERT = String.raw`bg-red-600`
+const PILL_CALM = String.raw`bg-slate-200`
+const PILL_TEXT = String.raw`[word-break:break-word] font-medium relative text-base text-center tracking-[-0.4px] w-full leading-[22px]`
 const PILL_INK_ALERT = String.raw`text-[#fafbfc]`
 /* See note 3 at the top: #fafbfc on #e2e8f0 is unreadable. */
-const PILL_INK_CALM = String.raw`text-[color:var(--colors\/slate\/600,#45556c)]`
+const PILL_INK_CALM = String.raw`text-slate-600`
 
 /* 199359:128994 / 199371:137199 — one button, two labels. */
-const ACTION = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-end px-0 py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 after:absolute after:content-[''] after:inset-x-0 after:inset-y-[-6px]`
+const ACTION = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex gap-1.5 h-[36px] items-center justify-end px-0 py-0 relative rounded-[26px] shrink-0 after:absolute after:content-[''] after:inset-x-0 after:inset-y-[-6px]`
 const ACTION_FIXED_W = String.raw`w-[99px]`
-const ACTION_TEXT = String.raw`[word-break:break-word] font-medium relative shrink-0 text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap leading-[var(--text\/sm-tight\/lh,20px)]`
-const ACTION_ICON = String.raw`content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px] text-[color:var(--colors\/slate\/600,#45556c)]`
+const ACTION_TEXT = String.raw`[word-break:break-word] font-medium relative shrink-0 text-slate-600 text-sm whitespace-nowrap leading-5`
+const ACTION_ICON = String.raw`content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px] text-slate-600`
 
 /* ------------------------------------------------------------------ rows */
 
 /* 199359:129095 — the Body wrapper. */
-const BODY = String.raw`content-stretch flex flex-col gap-[10px] items-center px-[var(--spacing\/4,16px)] relative shrink-0 w-full`
+const BODY = String.raw`content-stretch flex flex-col gap-[10px] items-center px-4 relative shrink-0 w-full`
 
 /* 199375:140741 / 140740 / 140738 / 140742 — a 1px rule above EVERY row,
    including the first; there is none after the last. */
-const RULE = String.raw`border-[color:var(--colors\/slate\/200,#e2e8f0)] border-solid border-t-[length:var(--border-width\/border,1px)] h-0 relative shrink-0 w-full`
+const RULE = String.raw`border-border border-solid border-t h-0 relative shrink-0 w-full`
 
 /* 199359:129097 and its three siblings. */
-const ROW = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex flex-col gap-[var(--spacing\/2,8px)] items-start px-0 py-[12px] relative rounded-[14px] shrink-0 text-left w-full`
-const ROW_STATIC = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-default flex flex-col gap-[var(--spacing\/2,8px)] items-start px-0 py-[12px] relative rounded-[14px] shrink-0 text-left w-full`
+const ROW = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex flex-col gap-2 items-start px-0 py-[12px] relative rounded-[14px] shrink-0 text-left w-full`
+const ROW_STATIC = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-default flex flex-col gap-2 items-start px-0 py-[12px] relative rounded-[14px] shrink-0 text-left w-full`
 /* rounded-[14px] on a transparent row is there for a pressed fill; the fill
    itself is the one the previous implementation already shipped, kept so the
    row does not lose its affordance feedback. */
-const ROW_HOVER = String.raw`hover:bg-[var(--colors\/slate\/100,#f1f5f9)]`
+const ROW_HOVER = String.raw`hover:bg-slate-100`
 
 const ROW_INNER = String.raw`content-stretch flex gap-[7px] items-center relative shrink-0 w-full`
 const BADGE_COL = String.raw`content-stretch flex flex-col items-center relative shrink-0`
@@ -200,41 +209,41 @@ const ROW_MAIN = String.raw`content-stretch flex flex-[1_0_0] items-center justi
 /* Figma: w-[215px] shrink-0. See the WIDTHS note. */
 const ROW_TEXT = String.raw`content-stretch flex flex-[1_0_0] flex-col gap-[3px] items-start min-w-px relative`
 const NAME_ROW = String.raw`content-stretch flex items-center min-w-px relative w-full`
-const NAME = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] min-w-px overflow-hidden relative text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,16px)] text-ellipsis whitespace-nowrap leading-[var(--text\/sm\/lh,22px)]`
+const NAME = String.raw`[word-break:break-word] font-semibold min-w-px overflow-hidden relative text-foreground text-base text-ellipsis whitespace-nowrap leading-[22px]`
 
 /* 199364:129818 — the location line. This is the entire point of the widget:
    the screen had no "where" before it. Figma prints city, a 12px tick, then
    the street address. */
 const WHERE_ROW = String.raw`content-stretch flex gap-[5px] items-center relative shrink-0 w-full`
-const CITY = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] min-w-px overflow-hidden relative text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/xs\/size,12px)] text-ellipsis whitespace-nowrap leading-[var(--text\/xs\/lh-snug,16.5px)]`
+const CITY = String.raw`[word-break:break-word] font-normal min-w-px overflow-hidden relative text-muted-foreground text-xs text-ellipsis whitespace-nowrap leading-[16.5px]`
 /* 199364:129820 — a 12px line, rotated 90deg into a zero-width box. */
-const WHERE_TICK = String.raw`border-[color:var(--colors\/slate\/200,#e2e8f0)] border-l-[length:var(--border-width\/border,1px)] border-solid h-[12px] relative shrink-0 w-0`
-const ADDRESS = String.raw`[word-break:break-word] flex-[1_0_0] font-[var(--font\/weight\/font-normal,400)] min-w-px overflow-hidden relative text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis whitespace-nowrap leading-[var(--text\/xs\/lh-snug,16.5px)]`
+const WHERE_TICK = String.raw`border-border border-l border-solid h-[12px] relative shrink-0 w-0`
+const ADDRESS = String.raw`[word-break:break-word] flex-[1_0_0] font-normal min-w-px overflow-hidden relative text-[12px] text-muted-foreground text-ellipsis whitespace-nowrap leading-[16.5px]`
 
 /* 199364:129817 — duration over kind, right-aligned. */
 const META_COL = String.raw`content-stretch flex flex-col gap-[3px] items-center justify-center relative shrink-0`
 const DUR_ROW = String.raw`content-stretch flex gap-[5px] h-[20px] items-center relative shrink-0`
-const DURATION = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] min-w-px overflow-hidden relative text-[12px] text-ellipsis whitespace-nowrap leading-[var(--text\/xs\/lh,16px)]`
-const KIND = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] min-w-px overflow-hidden relative text-[12px] text-[color:var(--colors\/slate\/800,#1d293d)] text-ellipsis whitespace-nowrap leading-[var(--text\/xs\/lh-snug,16.5px)]`
+const DURATION = String.raw`[word-break:break-word] font-medium min-w-px overflow-hidden relative text-[12px] text-ellipsis whitespace-nowrap leading-4`
+const KIND = String.raw`[word-break:break-word] font-normal min-w-px overflow-hidden relative text-[12px] text-slate-800 text-ellipsis whitespace-nowrap leading-[16.5px]`
 
 /* ------------------------------------------------------------ empty state */
 
 /* 199371:137293 — h-[178px] kept so the card keeps its height without the
    illustration; see the DROPPED note. */
-const EMPTY_BODY = String.raw`content-stretch flex flex-col gap-[13px] h-[178px] items-center justify-center px-[var(--spacing\/4,16px)] relative shrink-0 w-full`
+const EMPTY_BODY = String.raw`content-stretch flex flex-col gap-[13px] h-[178px] items-center justify-center px-4 relative shrink-0 w-full`
 const EMPTY_TEXT = String.raw`content-stretch flex flex-col gap-[6px] items-center relative shrink-0 w-full`
 /* Figma h-[98px] on this row budgets for the 89px screenshot beside the copy;
    with no screenshot it would be 50px of hole, so the row sizes to its copy
    and centres it. */
 const EMPTY_HERO = String.raw`content-stretch flex gap-[14px] items-center justify-center relative shrink-0 w-full`
 const EMPTY_COPY = String.raw`[word-break:break-word] content-stretch flex flex-col gap-[9px] items-center justify-center relative shrink-0 text-center whitespace-nowrap`
-const EMPTY_TITLE = String.raw`font-[var(--font\/weight\/font-semibold,600)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/lg\/size,18px)] tracking-[-0.45px] leading-[var(--text\/lg\/lh-none,18px)]`
-const EMPTY_SUB = String.raw`font-[var(--font\/weight\/font-normal,400)] relative shrink-0 text-[color:var(--muted-foreground,#737373)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)]`
+const EMPTY_TITLE = String.raw`font-semibold relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] leading-[18px]`
+const EMPTY_SUB = String.raw`font-normal relative shrink-0 text-muted-foreground text-sm leading-5`
 
 /* 199375:139983 / 139984 — the tip. */
 const TIP = String.raw`bg-[#daecff] content-stretch flex gap-[10px] h-[65px] items-center px-[7px] relative rounded-[14px] shrink-0 w-full`
-const TIP_TEXT = String.raw`[word-break:break-word] flex flex-col font-[var(--font\/weight\/font-normal,400)] justify-center relative shrink-0 text-[color:var(--wint-blue-accent,#0b81f8)] w-[214px] leading-[0]`
-const TIP_RUN = String.raw`text-[14px] leading-[var(--text\/xs\/lh,20px)]`
+const TIP_TEXT = String.raw`[word-break:break-word] flex flex-col font-normal justify-center relative shrink-0 text-primary w-[214px] leading-[0]`
+const TIP_RUN = String.raw`text-[14px] leading-5`
 const TIP_UNIT = String.raw`[word-break:break-word] font-normal text-[12px] tracking-[0.12px] leading-[16px]`
 
 /* ----------------------------------------------------------------- tones */
@@ -244,14 +253,14 @@ const TONE = {
   high: {
     label: 'High Flow',   // visible: Figma's casing
     name: 'High flow',    // accessible: the product's
-    badge: String.raw`bg-[var(--colors\/red\/100,#ffe2e2)]`,
-    ink: String.raw`text-[color:var(--colors\/red\/700,#c10007)]`,
+    badge: String.raw`bg-red-100`,
+    ink: String.raw`text-red-700`,
   },
   low: {
     label: 'Low Flow',
     name: 'Low flow',
-    badge: String.raw`bg-[var(--colors\/orange\/100,#ffedd4)]`,
-    ink: String.raw`text-[color:var(--colors\/orange\/600,#f54a00)]`,
+    badge: String.raw`bg-[var(--orange-100)]`,
+    ink: String.raw`text-orange-600`,
   },
 }
 
@@ -306,22 +315,22 @@ function EventRow({ event, onSelect }) {
         <span className={ROW_MAIN} data-node-id="I199359:129097;199344:113165">
           <span className={ROW_TEXT} data-node-id="I199359:129097;199364:129816">
             <span className={NAME_ROW}>
-              <span className={cn(FIG_SEMI, NAME)}>{event.systemName}</span>
+              <span className={cn('font-sans', NAME)}>{event.systemName}</span>
             </span>
             <span className={WHERE_ROW} data-node-id="I199359:129097;199364:129818">
-              {city && <span className={cn(FIG_REG, CITY)}>{city}</span>}
+              {city && <span className={cn('font-sans', CITY)}>{city}</span>}
               {city && address && (
                 <span className={WHERE_TICK} aria-hidden="true" data-node-id="I199359:129097;199364:129820" />
               )}
-              {address && <span className={cn(FIG_REG, ADDRESS)}>{address}</span>}
+              {address && <span className={cn('font-sans', ADDRESS)}>{address}</span>}
             </span>
           </span>
 
           <span className={META_COL} data-node-id="I199359:129097;199364:129817">
             <span className={DUR_ROW}>
-              <span className={cn(FIG_MED, DURATION, tone.ink)}>{event.duration}</span>
+              <span className={cn('font-sans', DURATION, tone.ink)}>{event.duration}</span>
             </span>
-            <span className={cn(FIG_REG, KIND)}>{tone.label}</span>
+            <span className={cn('font-sans', KIND)}>{tone.label}</span>
           </span>
         </span>
       </span>
@@ -387,14 +396,14 @@ export default function TriageBand({
         <div className={HEAD_COL} data-node-id="199359:128988">
           <div className={HEAD_ROW} data-name="Heading 1" data-node-id="199359:128989">
             <div className={HEAD_LEFT} data-node-id="199359:128990">
-              <p className={cn(FIG_MED, HEAD_TITLE)} data-node-id="199359:128991">
+              <p className={cn('font-sans', HEAD_TITLE)} data-node-id="199359:128991">
                 Water events
               </p>
               <div
                 className={cn(PILL, hasEvents ? PILL_ALERT : PILL_CALM)}
                 data-node-id="199359:128992"
               >
-                <p className={cn(FIG_HEAD, PILL_TEXT, hasEvents ? PILL_INK_ALERT : PILL_INK_CALM)}>
+                <p className={cn('font-sans', PILL_TEXT, hasEvents ? PILL_INK_ALERT : PILL_INK_CALM)}>
                   {events.length}
                 </p>
               </div>
@@ -409,7 +418,7 @@ export default function TriageBand({
                 data-name="Button"
                 data-node-id="199359:128994"
               >
-                <span className={cn(FIG_MED, ACTION_TEXT)}>{action.label}</span>
+                <span className={cn('font-sans', ACTION_TEXT)}>{action.label}</span>
                 <span className={ACTION_ICON} data-name="Icon Placeholder">
                   <ArrowRight
                     size={16}
@@ -440,10 +449,10 @@ export default function TriageBand({
           <div className={EMPTY_TEXT} data-name="Text" data-node-id="199375:138169">
             <div className={EMPTY_HERO} data-node-id="199375:138170">
               <div className={EMPTY_COPY} data-node-id="199375:140910">
-                <p className={cn(FIG_SEMI, EMPTY_TITLE)} dir="auto" data-node-id="199375:138171">
+                <p className={cn('font-sans', EMPTY_TITLE)} dir="auto" data-node-id="199375:138171">
                   No active water events
                 </p>
-                <p className={cn(FIG_REG, EMPTY_SUB)} data-node-id="199375:138172">
+                <p className={cn('font-sans', EMPTY_SUB)} data-node-id="199375:138172">
                   Everything looks good!
                 </p>
               </div>
@@ -453,9 +462,9 @@ export default function TriageBand({
               {/* Frozen Figma copy — see the note at the top. The "L" is a
                   12px Geist run inside a 14px sentence, which is how
                   199375:139984 sets it. */}
-              <p className={cn(FIG_REG, TIP_TEXT)} data-node-id="199375:139984">
+              <p className={cn('font-sans', TIP_TEXT)} data-node-id="199375:139984">
                 <span className={TIP_RUN}>Leak prevention for your system can prevent up to 25K</span>
-                <span className={cn(GEIST_REG, TIP_UNIT)}>L</span>
+                <span className={cn('font-sans', TIP_UNIT)}>L</span>
                 <span className={TIP_RUN}>{` loss`}</span>
               </p>
             </div>

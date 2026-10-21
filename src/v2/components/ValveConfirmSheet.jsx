@@ -23,6 +23,20 @@
  * inside the page instead: SystemsFilterSheet:97, IgnoreBottomSheet,
  * BottomSheet. This follows that house pattern, and keeps the shadcn Button
  * for the two actions.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { useEffect } from 'react'
 
@@ -43,13 +57,11 @@ import { Separator } from '@/components/ui/separator'
  * Radix's <Separator> is a plain <div>, NOT a portal — unlike <Sheet>, it is
  * safe inside the 393x852 frame.
  */
-const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
-const FIG_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
 
 /* Line-height LAST in both — twMerge drops a `leading-` that precedes a
    font-size atom. */
-const TITLE = String.raw`text-center font-[var(--font\/weight\/font-semibold,600)] text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/lg\/size,18px)] tracking-[-0.45px] leading-[var(--text\/lg\/lh-none,18px)]`
-const BODY = String.raw`mt-[8px] text-center text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)]`
+const TITLE = String.raw`text-center font-semibold text-foreground text-lg tracking-[-0.45px] leading-[18px]`
+const BODY = String.raw`mt-[8px] text-center text-slate-600 text-sm leading-5`
 
 /** @param {{action: 'close'|'open'|'close-all'|null}} props */
 export default function ValveConfirmSheet({ action, deviceName, valveCount, onConfirm, onCancel }) {
@@ -97,7 +109,7 @@ export default function ValveConfirmSheet({ action, deviceName, valveCount, onCo
         className="absolute inset-0 cursor-default bg-foreground/45"
       />
 
-      <div className="relative flex flex-col rounded-t-[var(--rounded-2xl,18px)] bg-[#fafbfc] px-[20px] pb-[24px] pt-[12px]">
+      <div className="relative flex flex-col rounded-t-[18px] bg-[#fafbfc] px-[20px] pb-[24px] pt-[12px]">
         {/* The grab handle v1 drew, kept so the sheet reads as a sheet — now
             the shadcn Separator, which already carries bg-border. */}
         <Separator
@@ -105,8 +117,8 @@ export default function ValveConfirmSheet({ action, deviceName, valveCount, onCo
           className="mx-auto mb-[16px] rounded-[2px] data-[orientation=horizontal]:h-[4px] data-[orientation=horizontal]:w-[36px]"
         />
 
-        <h2 className={`${FIG_SEMI} ${TITLE}`}>{title}</h2>
-        <p className={`${FIG_REG} ${BODY}`}>
+        <h2 className={`font-sans ${TITLE}`}>{title}</h2>
+        <p className={`font-sans ${BODY}`}>
           {/* Naming the device matters on a system with several valves —
               "the valve" is ambiguous once the topology card is open. */}
           {deviceName && action !== 'close-all' ? `${deviceName} — ${body}` : body}

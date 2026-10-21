@@ -91,6 +91,20 @@
  * (there is no frame that shows rows, chips, rule and toggle together). So the
  * alert branch is left exactly as 199296:50538 drew it, and this is flagged for
  * the owner instead.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { useId } from 'react'
@@ -100,29 +114,26 @@ import { cn } from '@/lib/utils'
 /* The frame names the family as a Figma style ("Figtree:SemiBold"), which is
    not a font the browser can resolve. Carried with the project's own fallback
    chain, same as SystemHeroCard / SystemTopologyCard do. */
-const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
-const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
-const FIG_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
 
 /* Card shell 199296:50268 / 199296:50538 — byte-identical on both nodes. */
-const CARD = String.raw`bg-[#fafbfc] content-stretch flex flex-col gap-[19px] items-start p-[18px] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full`
+const CARD = String.raw`bg-[#fafbfc] content-stretch flex flex-col gap-[19px] items-start p-[18px] relative rounded-[18px] shrink-0 w-full`
 
 /* 199296:50618 / 199296:50621 — the two halves of the mode control. Held as
    String.raw constants and swapped whole rather than merged through cn():
    twMerge cannot tell `border-[length:var(--border-width\/border,1px)]` from
    `border-[var(--wint-blue-accent,#0b81f8)]` and drops one of them. */
-const MODE_BASE = String.raw`content-stretch flex flex-[1_0_0] flex-col h-[42px] items-center justify-center min-w-px pt-[var(--component\/input-group\/block\/textarea-top\/pb,4px)] relative rounded-[9px]`
-const MODE_ON = String.raw`bg-[#cde6ff] border-[length:var(--border-width\/border,1px)] border-[var(--wint-blue-accent,#0b81f8)] border-solid `
-const MODE_OFF = String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] `
-const MODE_LABEL = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh,32px)] relative shrink-0 text-[length:var(--text\/2xl\/size,24px)] tracking-[-0.6px] whitespace-nowrap`
-const MODE_LABEL_ON = String.raw`text-[color:var(--wint-blue-accent,#0b81f8)]`
-const MODE_LABEL_OFF = String.raw`text-[color:var(--colors\/slate\/500,#62748e)]`
+const MODE_BASE = String.raw`content-stretch flex flex-[1_0_0] flex-col h-[42px] items-center justify-center min-w-px pt-1 relative rounded-[9px]`
+const MODE_ON = String.raw`bg-[#cde6ff] border border-primary border-solid `
+const MODE_OFF = String.raw`bg-slate-100 `
+const MODE_LABEL = String.raw`[word-break:break-word] font-medium leading-8 relative shrink-0 text-2xl tracking-[-0.6px] whitespace-nowrap`
+const MODE_LABEL_ON = String.raw`text-primary`
+const MODE_LABEL_OFF = String.raw`text-muted-foreground`
 
 const FOCUS = 'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
 
 /* 199296:50338 / 199296:50341 — the two chips are the same node twice over. */
 const CHIP = String.raw`bg-[#e2eafc] content-stretch flex flex-col gap-[8px] items-start justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full`
-const CHIP_TEXT = String.raw`[word-break:break-word] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/sm\/size,14px)] w-full`
+const CHIP_TEXT = String.raw`[word-break:break-word] leading-5 relative shrink-0 text-foreground text-sm w-full`
 /* Figma draws exactly two chips, so only two ids exist. A third would be the
    same node again; it renders without one rather than claiming a false id. */
 const CHIP_NODE_IDS = ['199296:50338', '199296:50341']
@@ -214,25 +225,25 @@ export default function ActivePolicyCard({
     <div className={cn(CARD, className)} data-node-id={alert ? '199296:50538' : '199296:50268'} data-name="Topology">
       {alert ? (
         <p
-          className={`[word-break:break-word] ${FIG_SEMI} font-[var(--font\\/weight\\/font-semibold,600)] leading-[var(--text\\/lg\\/lh-none,18px)] relative shrink-0 text-[color:var(--colors\\/slate\\/800,#1d293d)] text-[length:var(--text\\/lg\\/size,18px)] tracking-[-0.45px] whitespace-nowrap`}
+          className={`[word-break:break-word] font-sans font-semibold leading-[18px] relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] whitespace-nowrap`}
           data-node-id="199296:50539"
         >
           {title}
         </p>
       ) : (
         <div
-          className={`[word-break:break-word] content-stretch flex flex-col ${FIG_REG} font-[var(--font\\/weight\\/font-normal,400)] gap-[9px] items-start relative shrink-0 w-full`}
+          className={`[word-break:break-word] content-stretch flex flex-col font-sans font-normal gap-[9px] items-start relative shrink-0 w-full`}
           data-node-id="199296:50269"
         >
           <p
-            className="leading-[var(--text\/lg\/lh-none,18px)] relative shrink-0 text-[color:var(--colors\/slate\/700,#314158)] text-[length:var(--text\/lg\/size,18px)] whitespace-nowrap"
+            className="leading-[18px] relative shrink-0 text-slate-700 text-lg whitespace-nowrap"
             data-node-id="199296:50270"
           >
             {title}
           </p>
           {description ? (
             <p
-              className="leading-[var(--font\/line-height\/leading-5,20px)] min-w-full relative shrink-0 text-[color:var(--colors\/gray\/700,#364153)] text-[length:var(--font\/size\/text-sm,14px)] tracking-[var(--font\/tracking\/tracking-normal,0px)] w-[min-content]"
+              className="leading-5 min-w-full relative shrink-0 text-gray-700 text-sm tracking-normal w-[min-content]"
               dir="auto"
               data-node-id="199296:50271"
             >
@@ -279,7 +290,7 @@ export default function ActivePolicyCard({
               data-name="Paragraph"
             >
               <p
-                className={`[word-break:break-word] ${FIG_SEMI} font-semibold leading-[var(--text\\/sm-tight\\/lh,20px)] relative shrink-0 text-[color:var(--colors\\/slate\\/500,#62748e)] text-[length:var(--text\\/sm-tight\\/size,14px)] text-center whitespace-nowrap`}
+                className={`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-muted-foreground text-sm text-center whitespace-nowrap`}
                 data-node-id="199296:50613"
                 id={modeLabelId}
               >
@@ -294,7 +305,7 @@ export default function ActivePolicyCard({
                 data-node-id="199296:50614"
               >
                 <span
-                  className={`[word-break:break-word] ${FIG_REG} font-[var(--font\\/weight\\/font-normal,400)] leading-[var(--text\\/xs\\/lh-none,12px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\\/slate\\/600,#45556c)] text-ellipsis whitespace-nowrap`}
+                  className={`[word-break:break-word] font-sans font-normal leading-3 overflow-hidden relative shrink-0 text-[12px] text-slate-600 text-ellipsis whitespace-nowrap`}
                   data-node-id="199296:50615"
                 >
                   {learnMoreLabel}
@@ -335,7 +346,7 @@ export default function ActivePolicyCard({
                       data-node-id={index === 0 ? '199296:50619' : index === 1 ? '199296:50622' : undefined}
                     >
                       <span
-                        className={`${MODE_LABEL} ${FIG_MED} ${selected ? MODE_LABEL_ON : MODE_LABEL_OFF}`}
+                        className={`${MODE_LABEL} font-sans ${selected ? MODE_LABEL_ON : MODE_LABEL_OFF}`}
                         dir="auto"
                         data-node-id={index === 0 ? '199296:50620' : index === 1 ? '199296:50623' : undefined}
                       >
@@ -393,7 +404,7 @@ export default function ActivePolicyCard({
                             data-node-id="I199296:50277;199150:124756"
                           >
                             <p
-                              className={`[word-break:break-word] ${FIG_SEMI} font-[var(--font\\/weight\\/font-medium,600)] leading-[var(--text\\/base\\/lh,19.25px)] relative shrink-0 text-[color:var(--colors\\/slate\\/900,#0f172b)] text-[length:var(--text\\/base\\/size,14px)] whitespace-nowrap`}
+                              className={`[word-break:break-word] font-sans font-semibold leading-[19.25px] relative shrink-0 text-foreground text-sm whitespace-nowrap`}
                               dir="auto"
                               data-node-id="I199296:50277;198064:50427"
                             >
@@ -409,7 +420,7 @@ export default function ActivePolicyCard({
                         data-node-id="199296:50278"
                       >
                         <p
-                          className={`[word-break:break-word] ${FIG_MED} font-[var(--font\\/weight\\/font-medium,500)] leading-[var(--text\\/xs\\/lh-tight,15px)] relative shrink-0 text-[color:var(--colors\\/slate\\/500,#62748e)] text-[length:var(--text\\/xs\\/size,12px)] whitespace-nowrap`}
+                          className={`[word-break:break-word] font-sans font-medium leading-[15px] relative shrink-0 text-muted-foreground text-xs whitespace-nowrap`}
                           data-node-id="199296:50301"
                         >
                           {policy.window}
@@ -427,7 +438,7 @@ export default function ActivePolicyCard({
           {chips.map((chip, index) => (
             <div key={`${index}-${chip}`} className={CHIP} data-node-id={CHIP_NODE_IDS[index]}>
               <p
-                className={`${CHIP_TEXT} ${FIG_SEMI} font-[var(--font\\/weight\\/font-semibold,600)]`}
+                className={`${CHIP_TEXT} font-sans font-semibold`}
                 dir="auto"
                 data-node-id={index === 0 ? '199296:50339' : index === 1 ? '199296:50342' : undefined}
               >

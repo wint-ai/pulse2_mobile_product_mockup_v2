@@ -151,26 +151,30 @@ describe('the header title matches the one spelling both Figma states draw', () 
   it('is semibold slate/800 at 18px with -0.45px tracking, in BOTH tones', () => {
     for (const tone of ['calm', 'alert']) {
       const cls = titleClass(tone)
-      expect(cls).toContain('font-semibold,600')
-      expect(cls).toContain(String.raw`slate\/800,#1d293d`)
+      expect(cls).toContain('font-semibold')
+      expect(cls).toContain('text-slate-800')
       expect(cls).toContain('tracking-[-0.45px]')
-      expect(cls).toContain(String.raw`text-[length:var(--text\/lg\/size,18px)]`)
+      expect(cls).toContain('text-lg')
       // The pre-redesign calm spelling is gone from both Figma nodes.
-      expect(cls).not.toContain(String.raw`slate\/700,#314158`)
-      expect(cls).not.toContain('font-normal,400')
+      expect(cls).not.toContain('text-slate-700')
+      expect(cls).not.toContain('font-normal')
     }
   })
 
   it('keeps leading-[18px] through CardTitle’s cn() instead of losing it to twMerge', () => {
-    // Figma's alphabetical order puts `leading-` before `text-[length:...]`,
-    // which tailwind-merge treats as a font-size conflict and deletes.
-    expect(titleClass('calm')).toContain(String.raw`leading-[var(--text\/lg\/lh-none,18px)]`)
+    // Figma's alphabetical order puts `leading-` before the font-size atom,
+    // which tailwind-merge treats as a font-size conflict and deletes. The
+    // atom order in TITLE_FIGMA is deliberate — line-height goes last.
+    expect(titleClass('calm')).toContain('leading-[18px]')
   })
 
-  it('carries the Figtree family with a real fallback, not the bare Figma style name', () => {
+  it('carries the project sans family, not the bare Figma style name', () => {
+    // Phase 3 (docs/TOKENIZATION-PLAN.md) replaced
+    // font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),…] with
+    // `font-sans`, which compiles to var(--font-sans) — one themeable stack.
     const cls = titleClass('alert')
-    expect(cls).toContain(String.raw`font-[family-name:var(--font\/family\/sans,`)
-    expect(cls).toContain("'Figtree','Inter',sans-serif]")
+    expect(cls).toContain('font-sans')
+    expect(cls).not.toContain('Figtree:')
   })
 
   it('renders byte-identically in the two states — nothing branches on tone', () => {
@@ -186,17 +190,17 @@ describe('the header title matches the one spelling both Figma states draw', () 
   })
 })
 
-describe('the Figma token spellings survive into the DOM', () => {
-  it('keeps the escaped var() names and the fixed card box', () => {
+describe('the card box survives cn() into the DOM', () => {
+  it('keeps the border, the radius and the fixed box', () => {
     const { container } = render(<EventsTimelineCard events={EVENTS} />)
     // Default tone is 'calm' -> the calm page's card, 199359:126908.
     const root = container.querySelector('[data-node-id="199359:126908"]')
-    // A plain JS string through cn() would have eaten this backslash.
-    expect(root.className).toContain('--border-width\\/border,1px')
-    expect(root.className).toContain('rounded-[var(--rounded-2xl,18px)]')
+    expect(root.className).toContain('border border-solid border-white')
+    expect(root.className).toContain('rounded-[18px]')
     expect(root.className).toContain('max-h-[380px]')
     expect(root.className).toContain('overflow-clip')
-    // ...and a doubled backslash would emit a class Tailwind never generates.
-    expect(root.className).not.toContain('\\\\/')
+    // Phase 3 deleted every two-argument var() here; an escaped Figma token
+    // name coming back would mean a call site was re-imported un-tokenised.
+    expect(root.className).not.toContain('\\/')
   })
 })

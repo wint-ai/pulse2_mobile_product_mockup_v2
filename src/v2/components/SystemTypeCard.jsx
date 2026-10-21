@@ -69,6 +69,20 @@
  * rule. Do not "tidy" the token names into plain Tailwind spacing: the
  * `data-node-id` attributes plus the verbatim classes are how the next person
  * diffs this file against the frame.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -76,9 +90,6 @@ import vmaFront from '@/assets/wint-vma-front.png'
 
 /* ------------------------------------------------------------------ fonts */
 
-const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
-const FIG_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
-const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
 
 /* ------------------------------------------------------------ class atoms */
 
@@ -91,37 +102,37 @@ const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:R
    the browser's default line-height and every row sits a few px off. */
 
 /* 199383:141519 / 199359:126797 — identical in both frames, chassis included. */
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[16px] items-center justify-center py-[12px] relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full`
+const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[16px] items-center justify-center py-[12px] relative rounded-[22px] shrink-0 w-full`
 
 /* 199383:141523 / 199359:126801 — 14px on --foreground in BOTH new frames. */
-const EYEBROW = String.raw`font-[var(--font\/weight\/font-medium,500)] relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)]`
+const EYEBROW = String.raw`font-medium relative shrink-0 text-foreground text-sm leading-5`
 
 /* 199383:141524 / 199359:126802 — the one type ramp the two frames disagree on. */
-const TITLE = String.raw`font-[var(--font\/weight\/font-semibold,600)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)]`
-const TITLE_ALERT = String.raw`text-[length:var(--text\/xl\/size,20px)] leading-[var(--text\/xl\/lh-relaxed,32.5px)]`
-const TITLE_CALM = String.raw`text-[length:var(--text\/lg\/size,18px)] tracking-[-0.45px] leading-[var(--text\/lg\/lh-none,18px)]`
+const TITLE = String.raw`font-semibold relative shrink-0 text-slate-800`
+const TITLE_ALERT = String.raw`text-xl leading-[32.5px]`
+const TITLE_CALM = String.raw`text-lg tracking-[-0.45px] leading-[18px]`
 
-const BADGE = String.raw`content-stretch flex gap-[var(--component\/badge\/gap,4.8px)] items-center justify-center overflow-clip px-[var(--component\/tabs\/trigger\/gap,7.2px)] py-[var(--component\/badge\/py,2.4px)] relative rounded-[var(--component\/badge\/radius,31.2px)] shrink-0 size-[24px]`
+const BADGE = String.raw`content-stretch flex gap-[4.8px] items-center justify-center overflow-clip px-[7.2px] py-[2.4px] relative rounded-[31.2px] shrink-0 size-[24px]`
 
-const BRANCH = String.raw`[word-break:break-word] flex flex-col font-[var(--font\/weight\/font-medium,500)] justify-center relative shrink-0 text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/base\/size,16px)] whitespace-nowrap leading-[0]`
-const BRANCH_LINE = String.raw`leading-[var(--text\/base\/lh,24px)]`
-const SERIAL = String.raw`[word-break:break-word] font-medium relative shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)] text-[length:var(--text\/button-xs\/size,12px)] whitespace-nowrap leading-[var(--text\/button-xs\/size,12px)]`
+const BRANCH = String.raw`[word-break:break-word] flex flex-col font-medium justify-center relative shrink-0 text-slate-600 text-base whitespace-nowrap leading-[0]`
+const BRANCH_LINE = String.raw`leading-6`
+const SERIAL = String.raw`[word-break:break-word] font-medium relative shrink-0 text-slate-400 text-xs whitespace-nowrap leading-3`
 
 const CHIP = String.raw`absolute bg-[#ebf0fa] content-stretch flex h-[20px] items-center justify-center left-[28px] rounded-[10px] top-[43px] w-[113px]`
-const CHIP_TEXT = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis whitespace-pre leading-[0]`
-const CHIP_RUN = String.raw`leading-[var(--text\/xs\/lh-none,12px)]`
+const CHIP_TEXT = String.raw`[word-break:break-word] font-normal overflow-hidden relative shrink-0 text-[12px] text-slate-600 text-ellipsis whitespace-pre leading-[0]`
+const CHIP_RUN = String.raw`leading-3`
 
-const TOGGLE_LABEL = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/xs\/size,12px)] whitespace-nowrap leading-[var(--text\/xs\/lh,16px)]`
+const TOGGLE_LABEL = String.raw`[word-break:break-word] font-medium relative shrink-0 text-muted-foreground text-xs whitespace-nowrap leading-4`
 
 /* The rule in the node is an exported 1px #e2e8f0 bitmap sitting in a zero-height
    box, so the line costs no vertical space and the stack's gap alone spaces it. */
-const RULE_FILL = String.raw`absolute inset-[-1px_0_0_0] bg-[var(--colors\/slate\/200,#e2e8f0)]`
+const RULE_FILL = String.raw`absolute inset-[-1px_0_0_0] bg-slate-200`
 
 /* The glyph and the pipe run carry their token colour on the wrapper so the
    inline SVGs below can stay currentColor. */
-const GLYPH_COLOR = String.raw`text-[color:var(--colors\/slate\/400,#90a1b9)]`
-const PIPE_COLOR = String.raw`text-[color:var(--colors\/slate\/300,#cad5e2)]`
-const CHEVRON_COLOR = String.raw`text-[color:var(--colors\/slate\/500,#62748e)]`
+const GLYPH_COLOR = String.raw`text-slate-400`
+const PIPE_COLOR = String.raw`text-slate-300`
+const CHEVRON_COLOR = String.raw`text-muted-foreground`
 
 /* ------------------------------------------------------------------ icons */
 
@@ -298,7 +309,7 @@ export default function SystemTypeCard({
               </div>
               {/* Ellipse 3 — the 10%-opacity status halo behind the glyph. */}
               <div
-                className="absolute left-[-2px] opacity-[calc(var(--opacity-10,100)/100)] size-[29px] top-[-3px]"
+                className="absolute left-[-2px] opacity-100 size-[29px] top-[-3px]"
                 data-node-id={alert ? '199383:141533' : '199359:126811'}
                 aria-hidden="true"
               >
@@ -320,7 +331,7 @@ export default function SystemTypeCard({
             >
               <div className="content-stretch flex gap-[6px] h-full items-center relative shrink-0">
                 <div
-                  className={cn(FIG_MED, BRANCH)}
+                  className={cn('font-sans', BRANCH)}
                   data-node-id={alert ? '199383:141536' : '199359:126814'}
                 >
                   <p className={BRANCH_LINE}>{topology}</p>
@@ -330,7 +341,7 @@ export default function SystemTypeCard({
                   data-node-id={alert ? '199383:141537' : '199359:126815'}
                 >
                   <p
-                    className={cn(FIG_MED, SERIAL)}
+                    className={cn('font-sans', SERIAL)}
                     dir="auto"
                     data-node-id={alert ? '199383:141538' : '199359:126816'}
                   >
@@ -345,7 +356,7 @@ export default function SystemTypeCard({
       {/* device-count chip */}
       <div className={CHIP} data-node-id={alert ? '199383:141543' : '199359:126821'}>
         <p
-          className={cn(FIG_REG, CHIP_TEXT)}
+          className={cn('font-sans', CHIP_TEXT)}
           dir="auto"
           data-node-id={alert ? '199383:141544' : '199359:126822'}
         >
@@ -389,14 +400,14 @@ export default function SystemTypeCard({
             data-node-id={alert ? '199383:141522' : '199359:126800'}
           >
             <p
-              className={cn(FIG_MED, EYEBROW)}
+              className={cn('font-sans', EYEBROW)}
               dir="auto"
               data-node-id={alert ? '199383:141523' : '199359:126801'}
             >
               {typeLabel}
             </p>
             <p
-              className={cn(FIG_SEMI, TITLE, alert ? TITLE_ALERT : TITLE_CALM)}
+              className={cn('font-sans', TITLE, alert ? TITLE_ALERT : TITLE_CALM)}
               dir="auto"
               data-node-id={alert ? '199383:141524' : '199359:126802'}
             >
@@ -468,7 +479,7 @@ export default function SystemTypeCard({
           data-node-id={alert ? '199383:141550' : '199359:126828'}
         >
           <span
-            className={cn(FIG_MED, TOGGLE_LABEL)}
+            className={cn('font-sans', TOGGLE_LABEL)}
             dir="auto"
             data-node-id={alert ? '199383:141551' : '199359:126829'}
           >

@@ -22,6 +22,20 @@
  * them per theme would change what the schematic says, not just how it looks.
  * See docs/TOKENIZATION-PLAN.md, Phase 5, "Declare the domain glyphs
  * non-themeable". Any future no-raw-color CI rule must allowlist this file.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import ValveStatus from './ValveStatus'
@@ -113,7 +127,7 @@ function WaterLine({ valve }) {
         </div>
       </At>
       {/* 14px here, not the 10px the loops use — the water line label is larger. */}
-      <p style={{ ...LABEL, left: noValve ? 36.8 : 36.7, top: 0, fontSize: 14, lineHeight: '24.289px', letterSpacing: '0.14px', color: 'var(--slate-500, #62748e)' }}>Supply</p>
+      <p style={{ ...LABEL, left: noValve ? 36.8 : 36.7, top: 0, fontSize: 14, lineHeight: '24.289px', letterSpacing: '0.14px', color: 'var(--slate-500)' }}>Supply</p>
     </>
   )
 }
@@ -175,8 +189,8 @@ function Loop({ valve, junction }) {
           <Junction width="100%" height="100%" />
         </At>
       )}
-      <p style={{ ...LABEL, left: 22, top: 0, fontSize: 10, lineHeight: '17.349px', letterSpacing: '0.1px', color: 'var(--slate-600, #45556c)' }}>Supply</p>
-      <p style={{ ...LABEL, left: 22, top: 76, fontSize: 10, lineHeight: '17.349px', letterSpacing: '0.1px', color: 'var(--slate-600, #45556c)' }}>return</p>
+      <p style={{ ...LABEL, left: 22, top: 0, fontSize: 10, lineHeight: '17.349px', letterSpacing: '0.1px', color: 'var(--slate-600)' }}>Supply</p>
+      <p style={{ ...LABEL, left: 22, top: 76, fontSize: 10, lineHeight: '17.349px', letterSpacing: '0.1px', color: 'var(--slate-600)' }}>return</p>
     </>
   )
 }

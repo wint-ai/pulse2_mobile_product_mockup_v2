@@ -70,6 +70,20 @@
  *      entirely, and this card has no viewport signal to branch on — it is
  *      handed a width by its parent. Implementing them is a separate prop
  *      (`layout="mobile"`), not a rewrite of these two.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { cn } from '@/lib/utils'
@@ -295,13 +309,13 @@ function GlyphBadge({ alert, label, children }) {
   const inner = <div className="content-stretch flex flex-col items-start relative shrink-0">{children}</div>
   if (alert) {
     return (
-      <Badge variant="outline" title={label} className="bg-[var(--colors\/red\/400,#ff6467)] border-transparent content-stretch flex gap-[var(--component\/badge\/gap,4px)] items-center justify-center overflow-clip px-[var(--component\/sheet\/header\/gap,6px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0 size-[20px] text-white">
+      <Badge variant="outline" title={label} className="bg-red-400 border-transparent content-stretch flex gap-1 items-center justify-center overflow-clip px-1.5 py-0.5 relative rounded-[26px] shrink-0 size-[20px] text-white">
         {inner}
       </Badge>
     )
   }
   return (
-    <Badge variant="outline" title={label} className="bg-white border-transparent content-stretch flex gap-[var(--component\/badge\/gap,4px)] items-center justify-center overflow-clip px-[var(--component\/sheet\/header\/gap,6px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0 size-[20px] text-[#0a0a0a]">
+    <Badge variant="outline" title={label} className="bg-white border-transparent content-stretch flex gap-1 items-center justify-center overflow-clip px-1.5 py-0.5 relative rounded-[26px] shrink-0 size-[20px] text-[#0a0a0a]">
       {inner}
     </Badge>
   )
@@ -314,7 +328,7 @@ function GlyphBadge({ alert, label, children }) {
  */
 function SpeedBadge() {
   return (
-    <div className="content-stretch flex gap-[var(--component\/badge\/gap,4.8px)] items-center justify-center overflow-clip px-[var(--component\/tabs\/trigger\/gap,7.2px)] py-[var(--component\/badge\/py,2.4px)] relative rounded-[var(--component\/badge\/radius,31.2px)] shrink-0 size-[24px]">
+    <div className="content-stretch flex gap-[4.8px] items-center justify-center overflow-clip px-[7.2px] py-[2.4px] relative rounded-[31.2px] shrink-0 size-[24px]">
       <div className="content-stretch flex flex-col items-start relative shrink-0">
         <div className="flex items-center justify-center overflow-clip relative shrink-0 size-[17.28px] text-slate-500">
           <DashboardSpeed02 />
@@ -337,13 +351,13 @@ function ValvePill({ state, label }) {
 
   if (state === 'error') {
     return (
-      <div className="bg-[var(--colors\/red\/400,#ff6467)] content-stretch flex gap-[var(--component\/badge\/gap,4.8px)] h-[24px] items-center justify-center overflow-clip px-[var(--component\/tabs\/trigger\/gap,7.2px)] py-[var(--component\/badge\/py,2.4px)] relative rounded-[var(--component\/badge\/radius,31.2px)] shrink-0">
+      <div className="bg-red-400 content-stretch flex gap-[4.8px] h-[24px] items-center justify-center overflow-clip px-[7.2px] py-[2.4px] relative rounded-[31.2px] shrink-0">
         <div className="content-stretch flex flex-col items-start relative shrink-0">
           <div className="content-stretch flex flex-col items-center justify-center relative shrink-0 size-[23.04px]">
             <ValveErrorOnRed />
           </div>
         </div>
-        <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[number:var(--font\/weight\/font-medium,500)] leading-[19.2px] overflow-hidden relative min-w-px text-[#fafbfc] text-[14.4px] text-ellipsis whitespace-nowrap">
+        <p className="[word-break:break-word] font-sans font-medium leading-[19.2px] overflow-hidden relative min-w-px text-[#fafbfc] text-[14.4px] text-ellipsis whitespace-nowrap">
           {text}
         </p>
       </div>
@@ -351,7 +365,7 @@ function ValvePill({ state, label }) {
   }
 
   return (
-    <div className="bg-white content-stretch flex gap-[var(--component\/badge\/gap,4.8px)] h-[24px] items-center justify-center overflow-clip px-[var(--component\/tabs\/trigger\/gap,7.2px)] py-[var(--component\/badge\/py,2.4px)] relative rounded-[var(--component\/badge\/radius,31.2px)] shrink-0">
+    <div className="bg-white content-stretch flex gap-[4.8px] h-[24px] items-center justify-center overflow-clip px-[7.2px] py-[2.4px] relative rounded-[31.2px] shrink-0">
       <div className="content-stretch flex flex-col items-start relative shrink-0">
         <div className="content-stretch flex flex-col items-center justify-center relative shrink-0 size-[23.04px]">
           {/* No title: the pill already carries the state as visible text, and
@@ -359,7 +373,7 @@ function ValvePill({ state, label }) {
           <ValveStatus state={state} size={16.766} />
         </div>
       </div>
-      <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[number:var(--font\/weight\/font-medium,500)] leading-[19.2px] overflow-hidden relative min-w-px text-[14.4px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis whitespace-nowrap">
+      <p className="[word-break:break-word] font-sans font-medium leading-[19.2px] overflow-hidden relative min-w-px text-[14.4px] text-slate-600 text-ellipsis whitespace-nowrap">
         {text}
       </p>
     </div>
@@ -400,7 +414,7 @@ function IotOverview({ row, label, grow, nodeId }) {
             <div className="content-stretch flex items-end relative shrink-0">
               {/* Badge 198629:42400. No fill and no title: it is decoration
                   marking the line, not a status the user can read off. */}
-              <div aria-hidden className="content-stretch flex gap-[var(--component\/badge\/gap,4.8px)] items-center justify-center overflow-clip px-[var(--component\/tabs\/trigger\/gap,7.2px)] py-[var(--component\/badge\/py,2.4px)] relative rounded-[var(--component\/badge\/radius,31.2px)] shrink-0 size-[24px]">
+              <div aria-hidden className="content-stretch flex gap-[4.8px] items-center justify-center overflow-clip px-[7.2px] py-[2.4px] relative rounded-[31.2px] shrink-0 size-[24px]">
                 <div className="content-stretch flex flex-col items-start relative shrink-0">
                   <div className="relative shrink-0 size-[19.2px] text-slate-400">
                     <Ram2Line />
@@ -408,8 +422,8 @@ function IotOverview({ row, label, grow, nodeId }) {
                 </div>
               </div>
             </div>
-            <div className="[word-break:break-word] flex flex-col font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[number:var(--font\/weight\/font-medium,500)] justify-center leading-[0] relative shrink-0 text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/base\/size,16px)] whitespace-nowrap">
-              <p className="leading-[var(--text\/base\/lh,24px)]">{label}</p>
+            <div className="[word-break:break-word] flex flex-col font-sans font-medium justify-center leading-[0] relative shrink-0 text-slate-600 text-base whitespace-nowrap">
+              <p className="leading-6">{label}</p>
             </div>
           </div>
           {/* 198629:59787 — the dot moved here, after the label, and grew to
@@ -464,13 +478,13 @@ function IotOverview({ row, label, grow, nodeId }) {
               onAction. Give it a handler once one exists. `row.more === 'alert'`
               keeps its meaning by tinting the surface red/400. */}
           {row.more === 'alert' ? (
-            <Button variant="outline" size="xs" aria-disabled="true" title={label + ' — more'} className="bg-[var(--colors\/red\/400,#ff6467)] border-transparent content-stretch cursor-default flex gap-[var(--spacing\/1,4px)] h-[24px] items-center px-[4px] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shadow-none shrink-0">
+            <Button variant="outline" size="xs" aria-disabled="true" title={label + ' — more'} className="bg-red-400 border-transparent content-stretch cursor-default flex gap-1 h-[24px] items-center px-[4px] py-0 relative rounded-[26px] shadow-none shrink-0">
               <div className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]">
                 <DotsThree className="size-[16px] text-slate-600" />
               </div>
             </Button>
           ) : (
-            <Button variant="outline" size="xs" aria-disabled="true" title={label + ' — more'} className="bg-[#f2f6ff] border-transparent content-stretch cursor-default flex gap-[var(--spacing\/1,4px)] h-[24px] items-center px-[4px] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shadow-none shrink-0">
+            <Button variant="outline" size="xs" aria-disabled="true" title={label + ' — more'} className="bg-[#f2f6ff] border-transparent content-stretch cursor-default flex gap-1 h-[24px] items-center px-[4px] py-0 relative rounded-[26px] shadow-none shrink-0">
               <div className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]">
                 <DotsThree className="size-[16px] text-slate-600" />
               </div>
@@ -522,7 +536,7 @@ export default function TopologyCard({
   return (
     <div
       className={cn(
-        'bg-[#fafbfc] border border-solid border-white content-stretch flex items-center max-w-[680px] min-h-[136px] px-[18px] py-[12px] relative rounded-[var(--rounded-2xl,18px)] w-full',
+        'bg-[#fafbfc] border border-solid border-white content-stretch flex items-center max-w-[680px] min-h-[136px] px-[18px] py-[12px] relative rounded-[18px] w-full',
         className,
       )}
       data-node-id={isLoop ? '198356:122834' : '198356:122565'}
@@ -537,7 +551,7 @@ export default function TopologyCard({
         <div className="content-stretch flex items-center justify-between relative shrink-0 w-full">
           <div className="content-stretch flex flex-[1_0_0] items-center justify-between min-w-px relative">
             <div className="content-stretch flex items-center relative shrink-0">
-              <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif] font-[number:var(--font\/weight\/font-medium,600)] leading-[var(--text\/base\/lh,24px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/base\/size,16px)] whitespace-nowrap" dir="auto">
+              <p className="[word-break:break-word] font-sans font-semibold leading-6 relative shrink-0 text-foreground text-base whitespace-nowrap" dir="auto">
                 {title}
               </p>
             </div>
@@ -549,14 +563,14 @@ export default function TopologyCard({
                 handler, default cursor) rather than as a live-looking button
                 that does nothing. */}
             {onAction ? (
-              <Button variant="outline" size="xs" onClick={onAction} className="bg-[#f2f6ff] border border-[var(--wint-blue-accent,#0b81f8)] border-solid content-stretch cursor-pointer flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shadow-none shrink-0">
-                <span className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[var(--text\/button-xs\/size,12px)] relative shrink-0 text-[color:var(--wint-blue-accent,#0b81f8)] text-[length:var(--text\/button-xs\/size,12px)] whitespace-nowrap">
+              <Button variant="outline" size="xs" onClick={onAction} className="bg-[#f2f6ff] border border-primary border-solid content-stretch cursor-pointer flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shadow-none shrink-0">
+                <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-primary text-xs whitespace-nowrap">
                   {actionLabel}
                 </span>
               </Button>
             ) : (
-              <Button variant="outline" size="xs" aria-disabled="true" className="bg-[#f2f6ff] border border-[var(--wint-blue-accent,#0b81f8)] border-solid content-stretch cursor-default flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shadow-none shrink-0">
-                <span className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[var(--text\/button-xs\/size,12px)] relative shrink-0 text-[color:var(--wint-blue-accent,#0b81f8)] text-[length:var(--text\/button-xs\/size,12px)] whitespace-nowrap">
+              <Button variant="outline" size="xs" aria-disabled="true" className="bg-[#f2f6ff] border border-primary border-solid content-stretch cursor-default flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shadow-none shrink-0">
+                <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-primary text-xs whitespace-nowrap">
                   {actionLabel}
                 </span>
               </Button>

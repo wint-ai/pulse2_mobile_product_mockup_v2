@@ -84,6 +84,20 @@
  * below is that control carried across rather than re-invented, so the app has
  * ONE dropdown pattern and not two. Do not "restore" the comp's segments
  * without asking the owner first.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -207,8 +221,8 @@ const DROPDOWN_PICKERS = new Set(['dropdown', 'dropdowns'])
        auto-layout bookkeeping and carry no meaning for a w-full flex row.
    Everything else — the slate/100 fill, h-32, rounded-34, the 6px inset, the
    32px pill nav buttons — is the node's. */
-const CAPTION_TRACK = String.raw`flex h-[32px] min-w-0 flex-1 items-center rounded-[34px] bg-[var(--colors\/slate\/100,#f1f5f9)] px-[var(--spacing\/1\,5,6px)] py-[var(--p-0,0px)]`
-const CAPTION_NAV = String.raw`flex size-[32px] shrink-0 items-center justify-center rounded-[var(--component\/button\/size-default\/radius,26px)] opacity-50 outline-none hover:bg-[var(--colors\/slate\/200,#e2e8f0)] hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:opacity-20`
+const CAPTION_TRACK = String.raw`flex h-[32px] min-w-0 flex-1 items-center rounded-[34px] bg-slate-100 px-1.5 py-0`
+const CAPTION_NAV = String.raw`flex size-[32px] shrink-0 items-center justify-center rounded-[26px] opacity-50 outline-none hover:bg-slate-200 hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:opacity-20`
 
 function splitPeriodLabel(label) {
   const m = /^(.*\S)\s+(\S+)$/.exec(String(label ?? '').trim())
@@ -250,8 +264,8 @@ function PeriodDropdown({ label, ariaLabel, onOpen }) {
      Monthly's "Dec 2025 - Nov 2026" at 136.2px, against a 146px text area at
      a 360px frame. See consumptionSeries.js's bucketHourly for why Hourly is
      abbreviated rather than measured at its 210.6px long form. */
-  const box = String.raw`flex h-[32px] w-full min-w-0 items-center justify-center gap-[var(--p-0,0px)] overflow-clip bg-[var(--component\/calendar\/dropdown\/bg,rgba(0,0,0,0))] py-[var(--p-0,0px)] pl-[8px] pr-[var(--component\/calendar\/caption-label\/pr,8px)] rounded-[var(--component\/calendar\/day-radius,26px)]`
-  const text = String.raw`block w-full text-center overflow-hidden text-ellipsis whitespace-nowrap font-[number:var(--font\/weight\/font-medium,500)] text-[14px] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)]`
+  const box = String.raw`flex h-[32px] w-full min-w-0 items-center justify-center gap-0 overflow-clip bg-transparent py-0 pl-[8px] pr-2 rounded-[26px]`
+  const text = String.raw`block w-full text-center overflow-hidden text-ellipsis whitespace-nowrap font-medium text-[14px] leading-5 text-foreground`
 
   if (!onOpen) return <span className={cn(box, text)}>{label}</span>
 
@@ -318,12 +332,12 @@ const PERIODS = [
    Tab close, an outside pointerdown closes, and focus returns to the trigger
    on every close. */
 
-const GRANULARITY_TRIGGER = String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch cursor-pointer flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-center outline-none px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const GRANULARITY_TRIGGER = String.raw`bg-slate-100 content-stretch cursor-pointer flex gap-1.5 h-[36px] items-center justify-center outline-none px-3 py-0 relative rounded-[26px] shrink-0 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 /* text-[length:] BEFORE leading-[]: tailwind-merge counts a font-size as
    conflicting with a line-height and drops a leading-* that precedes it. */
-const GRANULARITY_LABEL = String.raw`[word-break:break-word] font-medium relative shrink-0 text-[color:#171717] text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] whitespace-nowrap`
-const GRANULARITY_MENU = String.raw`absolute right-0 top-[calc(100%+6px)] z-30 bg-white border border-solid border-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex flex-col items-stretch min-w-[132px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
-const GRANULARITY_ITEM = String.raw`cursor-pointer flex gap-[8px] h-[32px] items-center justify-between outline-none px-[8px] rounded-[8px] text-[color:#171717] text-[length:var(--text\/sm-tight\/size,14px)] text-left w-full hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:bg-[var(--colors\/slate\/100,#f1f5f9)]`
+const GRANULARITY_LABEL = String.raw`[word-break:break-word] font-medium relative shrink-0 text-[color:#171717] text-sm leading-5 whitespace-nowrap`
+const GRANULARITY_MENU = String.raw`absolute right-0 top-[calc(100%+6px)] z-30 bg-white border border-solid border-border content-stretch flex flex-col items-stretch min-w-[132px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
+const GRANULARITY_ITEM = String.raw`cursor-pointer flex gap-[8px] h-[32px] items-center justify-between outline-none px-[8px] rounded-[8px] text-[color:#171717] text-sm text-left w-full hover:bg-slate-100 focus-visible:bg-slate-100`
 
 function GranularityDropdown({ value, options, onChange, label = 'Consumption granularity' }) {
   const [open, setOpen] = useState(false)
@@ -452,7 +466,7 @@ function GranularityDropdown({ value, options, onChange, label = 'Consumption gr
               onClick={() => choose(option)}
               className={cn(
                 GRANULARITY_ITEM,
-                option.id === value && String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] font-medium`,
+                option.id === value && String.raw`bg-slate-100 font-medium`,
               )}
             >
               <span className="whitespace-nowrap">{option.name}</span>
@@ -460,7 +474,7 @@ function GranularityDropdown({ value, options, onChange, label = 'Consumption gr
                   makes, and unhidden it would append to the option's own
                   accessible name. */}
               {option.id === value ? (
-                <span aria-hidden="true" className="text-[color:var(--wint-blue-accent,#0b81f8)]">
+                <span aria-hidden="true" className="text-primary">
                   ✓
                 </span>
               ) : null}
@@ -584,8 +598,8 @@ function CompareSwitch({ checked, onChange, label }) {
           'border border-solid border-transparent transition-colors outline-none',
           'focus-visible:ring-[3px] focus-visible:ring-ring/50',
           checked
-            ? String.raw`bg-[var(--wint-blue-accent,#0b81f8)]`
-            : String.raw`bg-[var(--component\/switch\/track\/off-bg,#e5e5e5)]`,
+            ? String.raw`bg-primary`
+            : String.raw`bg-neutral-200`,
         )}
       >
         <span
@@ -597,7 +611,7 @@ function CompareSwitch({ checked, onChange, label }) {
         />
       </button>
       <p
-        className={String.raw`[word-break:break-word] whitespace-nowrap font-[number:var(--font\/weight\/font-normal,400)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/500,#62748e)]`}
+        className={String.raw`[word-break:break-word] whitespace-nowrap font-normal text-sm leading-5 text-muted-foreground`}
       >
         {label}
       </p>
@@ -1121,7 +1135,7 @@ export default function WaterConsumptionCardV2({
            / Year and sat at a different width from its neighbours. Figma's own
            root carries size-full for the same reason (198601:86154). The
            shadcn <Card> in ui/card.jsx does not supply it. */
-        String.raw`w-full gap-0 border-white bg-[#fafbfc] py-0 rounded-[var(--rounded-2xl,18px)]`,
+        String.raw`w-full gap-0 border-white bg-[#fafbfc] py-0 rounded-[18px]`,
         // relative: the scope panel is absolutely positioned against the card
         'relative shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.1)]',
         className,
@@ -1152,10 +1166,10 @@ export default function WaterConsumptionCardV2({
              comp's 32, so the header measures 52 and min-h-48 is the floor it
              no longer sets. Left in place as that floor, for the empty variant
              where the slot renders nothing. */
-          String.raw`items-start gap-[var(--spacing\/3,12px)] min-h-[48px]`,
-          String.raw`px-[var(--component\/card\/padding,24px)]`,
-          String.raw`pt-[var(--component\/card\/padding,24px)]`,
-          String.raw`pb-[var(--p-0,0px)]`,
+          String.raw`items-start gap-3 min-h-[48px]`,
+          String.raw`px-6`,
+          String.raw`pt-6`,
+          String.raw`pb-0`,
         )}
       >
         <CardTitle
@@ -1165,8 +1179,8 @@ export default function WaterConsumptionCardV2({
                moves, but the token name is the design's. leading-* trails the
                size atom — see the TRAP note in the header. */
             String.raw`w-full font-semibold tracking-[-0.45px]`,
-            String.raw`text-[length:var(--text\/title-md\/size,18px)] leading-[var(--text\/title-md\/lh-snug,18px)]`,
-            String.raw`text-[color:var(--colors\/slate\/800,#1d293d)]`,
+            String.raw`text-lg leading-[18px]`,
+            String.raw`text-slate-800`,
           )}
         >
           Water consumption
@@ -1196,7 +1210,7 @@ export default function WaterConsumptionCardV2({
            be dropped. The funnel disclosure that preceded the track came from
            I198378:74362;119647:3846;149:2490, a node no longer in the file. */
         <div
-          className={String.raw`flex w-full flex-col gap-[20px] px-[var(--component\/card\/padding,24px)] pt-[var(--component\/calendar\/padding,12px)] pb-[var(--component\/card\/padding,24px)]`}
+          className={String.raw`flex w-full flex-col gap-[20px] px-6 pt-3 pb-6`}
         >
           <div className="flex w-full flex-col gap-[12px]">
           {/* The grouping segments that used to open this block have become
@@ -1248,7 +1262,7 @@ export default function WaterConsumptionCardV2({
                 className={cn(CAPTION_TRACK, 'justify-center')}
               >
                 <span
-                  className={String.raw`text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]`}
+                  className={String.raw`text-sm leading-5 text-slate-800`}
                 >
                   {monthLabel}
                 </span>
@@ -1285,7 +1299,7 @@ export default function WaterConsumptionCardV2({
                   </div>
                 ) : (
                   <span
-                    className={String.raw`min-w-0 flex-1 truncate text-center text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/800,#1d293d)]`}
+                    className={String.raw`min-w-0 flex-1 truncate text-center text-sm leading-5 text-slate-800`}
                   >
                     {monthLabel}
                   </span>
@@ -1338,7 +1352,7 @@ export default function WaterConsumptionCardV2({
                 title="Today"
                 disabled={canToday === false}
                 onClick={() => onToday()}
-                className={String.raw`flex size-[32px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--colors\/slate\/100,#f1f5f9)] text-[color:var(--colors\/slate\/800,#1d293d)] outline-none hover:bg-[var(--colors\/slate\/200,#e2e8f0)] focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-[var(--colors\/slate\/100,#f1f5f9)]`}
+                className={String.raw`flex size-[32px] shrink-0 items-center justify-center rounded-[10px] bg-slate-100 text-slate-800 outline-none hover:bg-slate-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-slate-100`}
               >
                 <CalendarClock className="size-4" aria-hidden="true" />
               </button>
@@ -1373,8 +1387,8 @@ export default function WaterConsumptionCardV2({
         <div
           className={cn(
             'flex min-h-[185px] flex-1 flex-col items-center justify-center',
-            String.raw`gap-[var(--pro\/space\/4,16px)]`,
-            String.raw`px-[var(--component\/card\/padding,24px)] pb-[var(--spacing\/5,20px)]`,
+            String.raw`gap-4`,
+            String.raw`px-6 pb-5`,
           )}
         >
           <div className="relative h-[74px] w-[144px] shrink-0">
@@ -1389,15 +1403,15 @@ export default function WaterConsumptionCardV2({
           <div
             className={cn(
               'flex w-full flex-col items-center justify-center',
-              String.raw`gap-[var(--pro\/space\/2,8px)]`,
+              String.raw`gap-2`,
             )}
           >
             <div className="flex w-full flex-col items-center justify-center gap-[4px] text-center">
               <p
                 className={cn(
                   String.raw`w-full font-semibold tracking-[-0.45px]`,
-                  String.raw`text-[length:var(--text\/lg\/size,18px)] leading-[var(--text\/lg\/lh-none,18px)]`,
-                  String.raw`text-[color:var(--colors\/slate\/800,#1d293d)]`,
+                  String.raw`text-lg leading-[18px]`,
+                  String.raw`text-slate-800`,
                 )}
               >
                 Nothing flowed in yet
@@ -1408,7 +1422,7 @@ export default function WaterConsumptionCardV2({
               <p
                 className={cn(
                   'w-full text-[#737373]',
-                  String.raw`text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)]`,
+                  String.raw`text-sm leading-5`,
                 )}
               >
                 We’ll show your data when it’s rlevant
@@ -1425,7 +1439,7 @@ export default function WaterConsumptionCardV2({
                  and any box here that insets by a different number makes the
                  plot start inside the control above it and the whole card read
                  as misaligned. The value is 24 — see the header's note. */
-              String.raw`px-[var(--component\/card\/padding,24px)]`,
+              String.raw`px-6`,
               /* The 16px of pro/space/4 that used to sit here is NOT gone — it
                  has become the unit caption's own band: a 12px line plus the
                  4px below it. Card height, plot height and gutter are all
@@ -1433,8 +1447,8 @@ export default function WaterConsumptionCardV2({
                  there is no data to label the caption is not drawn, and this
                  falls back to the original 16px. */
               windowHasData
-                ? String.raw`pt-0 pb-[var(--spacing\/5,20px)]`
-                : String.raw`pt-[var(--pro\/space\/4,16px)] pb-[var(--spacing\/5,20px)]`,
+                ? String.raw`pt-0 pb-5`
+                : String.raw`pt-4 pb-5`,
             )}
           >
             {/* THE UNIT, ONCE — the owner's "add units to the y axis".
@@ -1466,7 +1480,7 @@ export default function WaterConsumptionCardV2({
                      tick 2px inside the surface, so the caption clears it by
                      6px and does not read as a sixth rung on the ladder. */
                   'text-right text-[#737373] mb-[4px]',
-                  String.raw`text-[length:var(--text\/xs\/size,12px)] leading-[var(--text\/xs\/lh-none,12px)]`,
+                  String.raw`text-xs leading-3`,
                 )}
               >
                 {unitLabel}
@@ -1507,7 +1521,7 @@ export default function WaterConsumptionCardV2({
                 '[&_[data-bucket]]:outline-none',
                 '[&_[data-bucket]:focus-visible]:outline-2',
                 '[&_[data-bucket]:focus-visible]:outline-offset-[-2px]',
-                '[&_[data-bucket]:focus-visible]:outline-[color:var(--wint-blue-accent,#0b81f8)]',
+                '[&_[data-bucket]:focus-visible]:outline-primary',
               )}
             >
               <BarChart
@@ -1679,15 +1693,15 @@ export default function WaterConsumptionCardV2({
                  this file already records (pro/space/2 → 8, pro/space/4 → 16)
                  agrees at 4x. The row carried no bottom padding at all once,
                  and the labels sat on the edge. */
-              String.raw`px-[var(--component\/card\/padding,24px)]`,
-              String.raw`pb-[var(--pro\/space\/8,32px)]`,
+              String.raw`px-6`,
+              String.raw`pb-8`,
             )}
           >
             {headline.map((stat) => (
               <div
                 key={stat.label}
                 className={cn(
-                  String.raw`flex shrink-0 flex-col gap-[var(--pro\/space\/0\,5,2px)]`,
+                  String.raw`flex shrink-0 flex-col gap-0.5`,
                   'shrink-0',
                   stat.width ?? 'w-[100px]',
                 )}
@@ -1695,9 +1709,9 @@ export default function WaterConsumptionCardV2({
                 <p
                   className={cn(
                     'whitespace-nowrap font-medium tabular-nums',
-                    String.raw`text-[length:var(--text\/xl\/size,20px)] leading-[var(--text\/xl\/lh-snug,27.5px)]`,
-                    String.raw`tracking-[var(--text\/xl\/heading-tracking,-0.5px)]`,
-                    String.raw`text-[color:var(--colors\/slate\/800,#1d293d)]`,
+                    String.raw`text-xl leading-[27.5px]`,
+                    String.raw`tracking-[-0.5px]`,
+                    String.raw`text-slate-800`,
                   )}
                 >
                   {stat.value}
@@ -1705,8 +1719,8 @@ export default function WaterConsumptionCardV2({
                 <p
                   className={cn(
                     'whitespace-nowrap font-medium',
-                    String.raw`text-[length:var(--text\/base\/size,14px)] leading-[var(--text\/base\/lh,18px)]`,
-                    String.raw`text-[color:var(--colors\/slate\/400,#90a1b9)]`,
+                    String.raw`text-sm leading-[18px]`,
+                    String.raw`text-slate-400`,
                   )}
                 >
                   {stat.label}

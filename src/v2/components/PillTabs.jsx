@@ -42,30 +42,60 @@
  *     is pinned BELOW the tab row (see the hero note in SystemPageV2Screen).
  *     Both rows sit on the same surface.
  *
- * ── THE OWNER'S RULING, 2026-10-20: PALE BLUE ─────────────────────────────
- * ⚠ READ THIS BEFORE "FIXING" THE COLOUR BACK TO THE NEWEST FIGMA EDIT.
- *
- * The owner was shown the evidence above — that locA is the newest edit and
+ * ── RULING 1, 2026-10-20: PALE BLUE — SUPERSEDED, KEPT FOR THE REASONING ──
+ * The owner was shown the evidence above — that locA was the newest edit and
  * the only deliberate one — and ruled for the OTHER treatment: the pale blue
- * that sysA, sysB and locB still draw, three of the four frames. Both pages
- * therefore pass `tone="blue"` explicitly, and that is the ruled state, not a
- * leftover.
+ * that sysA, sysB and locB still drew, three of the four frames. Both pages
+ * passed `tone="blue"`, and locA's dark-slate repaint was carried whole as
+ * `tone="slate"` in case the designer settled there.
  *
- * This is deliberately NOT what "follow the freshest node" would give you. An
- * agent re-deriving the answer from Figma alone will keep landing on slate,
- * because by provenance alone slate is the better-supported reading — so the
- * ruling is written here rather than left to be rediscovered and overturned.
- * If the colour is to change again it takes the owner's word, not a re-trace.
+ * That ruling is NO LONGER IN FORCE. It is kept here because the reasoning is
+ * still the reason this file is trustworthy: the colour of this row is decided
+ * by the owner, not by whichever Figma node was edited last, and an agent
+ * re-deriving it from Figma alone will keep landing somewhere else.
  *
- * `tone="slate"` is kept whole for that reason, exactly as locA emits it: the
- * Figma file is still self-contradictory (locA and locB are one screen in two
- * states and disagree), the designer may yet settle on slate, and dropping the
- * variant now would only mean re-tracing it later. It is not dead code — it is
- * the other half of a contradiction only the designer can close.
+ * ── RULING 2, 2026-10-21: THE OUTLINED TREATMENT, BOTH PAGES, BOTH STATES ──
+ * ⚠ THIS IS THE RULED STATE. Do not "fix" it back to pale blue, and do not
+ *   re-derive it from the three frames that still draw pale blue.
  *
- * The DEFAULT is 'blue' so that a page added later cannot quietly inherit the
- * treatment the owner rejected; both existing call sites still name it anyway,
- * because at the call site the ruled colour should be visible, not implied.
+ * The designer restyled locA (199360:129743) a second time, to an OUTLINED
+ * treatment. Re-read live on 2026-10-21:
+ *   199360:129743  locA (Location, ALERT) — NEW outlined treatment
+ *   199371:137032  locB (Location, CALM ) — unchanged pale blue
+ *   199383:141512  sysA (System,   ALERT) — unchanged pale blue
+ *   199394:20601   sysB                   — not refetched
+ *
+ * So the split described above has not closed: locA still contradicts its own
+ * calm state, which is the thing fact 2 says only the designer can settle. The
+ * owner was shown exactly that — including the contradiction — and ruled:
+ * ADOPT THE OUTLINED TREATMENT ON BOTH PAGES AND BOTH STATES. The three
+ * unchanged frames are stale, not a second design.
+ *
+ * What the outlined treatment is (199360:129737's payload):
+ *   · every trigger sits on the house card surface, selected or not
+ *   · SELECTION IS A BORDER, not a fill — brand-blue 1px, plus a semibold
+ *     brand-blue label where a resting label is medium and muted
+ *   · radius is 100px on EVERY trigger, so the old 14px/26px per-pill radius
+ *     split collapses; `pill` now only distinguishes STRUCTURE (see below)
+ *   · the row is 32px tall, not 36px, and each trigger carries px-[10px]
+ *
+ * ── THE `tone` PROP IS GONE ───────────────────────────────────────────────
+ * Both pages now get one treatment, so `tone="blue"` and `tone="slate"` have
+ * nothing left to select between and both are DELETED rather than left to
+ * argue for a superseded ruling. They are historical, and the history is the
+ * two ruling sections above.
+ *
+ * Both call sites — src/v2/pages/HomeAllAccounts.jsx and
+ * src/v2/pages/SystemPageV2Screen.jsx — still pass `tone="blue"`. That prop is
+ * now accepted and ignored (it is simply not read), so neither page breaks,
+ * but the attribute and the paragraphs of tone commentary around it are dead
+ * and should be removed when those files are next touched. Those are page
+ * files and are outside this component's scope.
+ *
+ * locA's dark-slate repaint IS dropped with the `slate` tone: it was kept only
+ * as the other half of a contradiction, and the owner has now closed the
+ * contradiction in the other direction. Its badge wash survives, because the
+ * outlined badge uses the identical two-layer gradient — see BADGE_WASH.
  *
  * ── WHY NOT src/components/ui/tabs.jsx ─────────────────────────────────────
  * That file is the shadcn/Radix tabs, and it does not fit, for two reasons
@@ -91,68 +121,72 @@
  *    is intrinsically wide and the node gives it `shrink-0` while its
  *    neighbours are `flex-[1_0_0]`. Selecting a different tab therefore does
  *    not make it grow. That is the `grow` field on an item.
- *  · SELECTION changes only the fill, the label colour and the focus ring on
- *    the inner content box. It does not change size.
- *  · The `wide` pill (`TabsTrigger/line/false/default`, radius 26) is a
- *    DIFFERENT component from the default pill (radius 14), so the row is not
- *    three copies of one shape. It has no inner content box — its label is a
- *    direct child — which is why the two branches below are not merged.
- *  · The radius fallbacks are 14px / 26px, read from the in-page payloads. A
- *    standalone fetch of the Tabs node answers 8px / 10px because it resolves
- *    without the page's variable mode; the in-page reading is the correct one.
+ *  · SELECTION changes only the border, the label weight and the label colour,
+ *    plus the focus ring on the inner content box. It does not change size —
+ *    the border is drawn inside the 32px box (Tailwind preflight sets
+ *    `box-sizing: border-box`), so a selected trigger is exactly as tall and
+ *    as wide as a resting one.
+ *  · The `wide` pill (`TabsTrigger/line/false/default`) is still a DIFFERENT
+ *    component from the default pill: it has no inner content box — its label
+ *    is a direct child — and it carries its own `gap-2 py-1`. That is why the
+ *    two branches below are not merged. Under ruling 2 they no longer differ
+ *    in RADIUS: both are 100px.
+ *  · Under ruling 1 the radius fallbacks were 14px / 26px, read from the
+ *    in-page payloads, because a standalone fetch of the Tabs node answers
+ *    8px / 10px — it resolves without the page's variable mode. That trap is
+ *    still live for any other value read off this node; it just no longer
+ *    bites the radius, which ruling 2 fixes at 100px everywhere.
  *  · No `font-[family-name:…]` class is carried. The nodes name Figtree and
  *    the app sets Figtree globally; emitting the class would pin a weight-
  *    suffixed family name ('Figtree:SemiBold') that the app does not register.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. That pass was pixel-neutral everywhere — each value was resolved per
+ * call site against what it already painted.
+ *
+ * THIS FILE IS THE ONE EXCEPTION, and the change is ruling 2 above, not the
+ * token pass: the tab row is deliberately repainted. Ruling 2's values are
+ * written as tokens rather than as the node's hexes — bg-surface-card for
+ * #fafbfc, border-primary / text-primary for #0b81f8, text-muted-foreground
+ * for #62748e, text-slate-400 for #90a1b9 — so the row follows the theme.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { useRef } from 'react'
 
-/* Figma emits these as raw hex, not `var(--token, …)`, and neither value is
-   defined in src/index.css — they are un-tokenised one-offs in the design as
-   well as here, so there is no token spelling to prefer. Everything else below
-   does resolve to a project token and is written in the var() form the node
-   emits: --colors/slate/500 = --slate-500 #62748e, --colors/slate/400 =
-   --slate-400 #90a1b9, --colors/slate/200 = --slate-200 #e2e8f0,
-   --wint-blue-accent = #0b81f8. #fafbfc is the house card surface and is the
-   one sanctioned bare literal. */
-const TONES = {
-  /* locA 199360:129743 — the designer's newest edit, and NOT the shipped one.
-     Kept per the ruling note in the header; do not delete it to tidy up. */
-  slate: {
-    activeFill: String.raw`bg-[var(--colors\/slate\/500,#62748e)]`,
-    activeInk: 'text-[#edf1fc]',
-    restFill: 'bg-[#fafbfc]',
-    /* I…;121116:90300 carries NO fill class under this tone; the node paints
-       the badge with the same two-layer wash the frame root uses, at
-       145.43deg, as a raw gradient. Carried verbatim as an inline style
-       because that is what Figma emits and there is no utility for it. */
-    badgeFill: '',
-    badgeStyle: {
-      backgroundImage:
-        'linear-gradient(145.43317186803606deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
-    },
-  },
-  /* sysA 199383:141512 / sysB 199394:20601 / locB 199371:137032 — three of the
-     four frames, and THE TREATMENT THE OWNER RULED FOR on 2026-10-20. This is
-     what both pages ship. See the header. */
-  blue: {
-    activeFill: 'bg-[#c7e3ff]',
-    activeInk: String.raw`text-[color:var(--wint-blue-accent,#0b81f8)]`,
-    restFill: String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)]`,
-    badgeFill: String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)]`,
-    badgeStyle: undefined,
-  },
+/* The badge's wash. I…;121116:90300 carries no fill CLASS — the node paints
+   the badge with the same two-layer gradient the frame root uses, at
+   145.43deg, as a raw gradient, so it is an inline style and there is no
+   utility for it. This is byte-identical to the wash the deleted `slate` tone
+   carried, which is why it survived that tone's removal rather than being
+   retyped. The stop order is the design's and is not ascending; see the
+   --app-bg note in src/index.css for why that is left alone. */
+const BADGE_WASH = {
+  backgroundImage:
+    'linear-gradient(145.43317186803606deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
 }
 
+/* The one radius ruling 2 puts on every trigger. Not a scale step and not a
+   token — 100px is the node's own value and it reads as "fully round" at this
+   32px height, so it stays an arbitrary length rather than being bent onto
+   --radius-*, which is 10px. */
+const PILL_RADIUS = 'rounded-[100px]'
+
 /** The count Badge — I…;101485:143349;…;121116:90300. */
-function CountBadge({ count, label, tone }) {
+function CountBadge({ count, label }) {
   return (
     <span
-      className={[
-        String.raw`content-stretch flex h-[20px] items-center justify-center min-w-[20px] overflow-clip pl-[var(--component\/badge\/px,8px)] pr-[var(--spacing\/2,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)] shrink-0`,
-        tone.badgeFill,
-      ].join(' ')}
-      style={tone.badgeStyle}
+      className={String.raw`content-stretch flex h-[20px] items-center justify-center min-w-[20px] overflow-clip pl-2 pr-2 py-0.5 relative rounded-md shrink-0`}
+      style={BADGE_WASH}
     >
       {/* The count is decoration on the accessible name: a tab is found by
           what it opens, not by how many things are behind it. Folding the
@@ -160,7 +194,7 @@ function CountBadge({ count, label, tone }) {
           systemsTabScope's lookup and would break anyone navigating by name.
           The number is still announced, as the badge's own label. */}
       <span
-        className={String.raw`[word-break:break-word] overflow-hidden relative shrink-0 tabular-nums text-[14px] leading-[var(--text\/xs\/lh,20px)] font-[var(--font\/weight\/font-medium,400)] text-[color:var(--colors\/slate\/400,#90a1b9)] text-ellipsis whitespace-nowrap`}
+        className={String.raw`[word-break:break-word] overflow-hidden relative shrink-0 tabular-nums font-normal text-slate-400 text-ellipsis whitespace-nowrap text-sm leading-5`}
         aria-label={`${count} ${label.toLowerCase()}`}
       >
         {count}
@@ -173,30 +207,25 @@ function CountBadge({ count, label, tone }) {
  * One trigger. Not exported: a trigger outside a tablist is not a tab, and
  * every pixel below assumes the row's roving-tabindex bookkeeping.
  */
-function TabTrigger({ label, count, active, pill, grow, tone, onSelect, onKeyDown, triggerRef }) {
-  const radius =
-    pill === 'wide'
-      ? String.raw`rounded-[var(--component\/tabs\/list\/radius-horizontal,26px)]`
-      : String.raw`rounded-[var(--component\/tabs\/trigger\/radius,14px)]`
+function TabTrigger({ label, count, active, pill, grow, onSelect, onKeyDown, triggerRef }) {
+  /* The label's `leading-` is spelled LAST on purpose. Figma emits its
+     utilities alphabetically, which puts `leading-…` first; anything that
+     later runs these through tailwind-merge treats leading- as conflicting
+     with a font-size atom and silently drops whichever came first. Order is
+     meaningless to CSS, so the safe order is this one.
 
-  /* The label's `leading-` is spelled AFTER its size on purpose. Figma emits
-     its utilities alphabetically, which puts `leading-[…]` first; anything
-     that later runs these through tailwind-merge treats leading- as
-     conflicting with a font-size atom and silently drops whichever came
-     first. Order is meaningless to CSS, so the safe order is this one. */
+     `text-sm` is Tailwind's 14px step and supplies a 20px line-height of its
+     own; `leading-5` is the same 20px and is kept explicit because the node
+     states it, and because it is what keeps the atom order above meaningful. */
   const labelClass = [
-    '[word-break:break-word] overflow-hidden relative shrink-0 text-[14px] text-center text-ellipsis whitespace-nowrap',
-    pill === 'wide'
-      ? String.raw`leading-[var(--text\/sm\/lh,20px)]`
-      : String.raw`leading-[var(--text\/sm-tight\/lh,20px)]`,
+    '[word-break:break-word] overflow-hidden relative shrink-0 text-center text-ellipsis whitespace-nowrap',
     active
-      ? `font-semibold ${tone.activeInk}`
-      : pill === 'wide'
-        ? String.raw`font-[var(--font\/weight\/font-medium,500)] text-[color:var(--colors\/slate\/500,#62748e)]`
-        : String.raw`font-medium text-[color:var(--colors\/slate\/500,#62748e)]`,
+      ? String.raw`font-semibold text-primary`
+      : String.raw`font-medium text-muted-foreground`,
+    'text-sm leading-5',
   ].join(' ')
 
-  const badge = count != null ? <CountBadge count={count} label={label} tone={tone} /> : null
+  const badge = count != null ? <CountBadge count={count} label={label} /> : null
 
   return (
     <button
@@ -211,19 +240,20 @@ function TabTrigger({ label, count, active, pill, grow, tone, onSelect, onKeyDow
       onClick={onSelect}
       onKeyDown={onKeyDown}
       className={[
-        'content-stretch cursor-pointer flex h-[32px] items-center min-w-[56px] relative',
+        'content-stretch cursor-pointer flex h-[32px] items-center justify-center min-w-[56px] px-2.5 relative',
         grow ? 'flex-[1_0_0]' : 'shrink-0',
-        pill === 'wide'
-          ? String.raw`gap-[var(--spacing\/2,8px)] justify-center px-[var(--spacing\/2,8px)] py-[var(--spacing\/1,4px)]`
-          : active
-            ? 'flex-col'
-            : 'flex-col justify-center',
-        radius,
+        pill === 'wide' ? String.raw`gap-2 py-1` : 'flex-col',
+        PILL_RADIUS,
+        /* Ruling 2: every trigger sits on the house card surface and selection
+           is a 1px brand border, not a fill. bg-surface-card and border-primary
+           are tokens, so the row follows the theme — the #fafbfc / #0b81f8
+           literals the node emits could not. */
+        String.raw`bg-surface-card`,
         /* The nodes draw only ONE selected trigger, the default pill. A
            selected WIDE pill is a state the delivery canvas does not contain,
-           so it takes the same fill rule rather than inventing a third. */
-        active ? tone.activeFill : tone.restFill,
-      ].join(' ')}
+           so it takes the same selection rule rather than inventing a third. */
+        active ? String.raw`border border-primary border-solid` : '',
+      ].filter(Boolean).join(' ')}
     >
       {pill === 'wide' ? (
         <>
@@ -235,10 +265,9 @@ function TabTrigger({ label, count, active, pill, grow, tone, onSelect, onKeyDow
            content box. The selected one, and only it, carries the focus ring. */
         <span
           className={[
-            String.raw`content-stretch flex gap-[var(--component\/tabs\/trigger\/gap,6px)] items-center overflow-clip px-[var(--component\/tabs\/trigger\/px,8px)] py-[var(--component\/tabs\/trigger\/py,4px)] relative shrink-0`,
-            radius,
-            active ? String.raw`drop-shadow-[0px_0px_0px_var(--ring-focus,rgba(161,161,161,0.5))]` : '',
-          ].join(' ')}
+            String.raw`content-stretch flex gap-1.5 items-center overflow-clip px-1.5 py-0.5 relative rounded-md shrink-0`,
+            active ? String.raw`drop-shadow-[0px_0px_0px_rgba(161,161,161,0.5)]` : '',
+          ].filter(Boolean).join(' ')}
         >
           <span className={labelClass}>{label}</span>
           {badge}
@@ -257,21 +286,23 @@ function TabTrigger({ label, count, active, pill, grow, tone, onSelect, onKeyDow
  *                                  only difference between the Location row's
  *                                  "Systems 10" and the System row's plain
  *                                  triggers, so it is a prop, not a variant.
- *                                  `pill` is 'default' (radius 14) or 'wide'
- *                                  (radius 26). `grow` defaults true; pass
- *                                  false for a trigger the node draws shrink-0.
+ *                                  `pill` is 'default' or 'wide'. Under ruling
+ *                                  2 both draw the same 100px radius; 'wide'
+ *                                  still differs structurally — no inner
+ *                                  content box, and its own gap-2 py-1.
+ *                                  `grow` defaults true; pass false for a
+ *                                  trigger the node draws shrink-0.
  * @param {string}   props.value    id of the selected item.
  * @param {Function} props.onChange called with the id to select.
- * @param {'slate'|'blue'} props.tone  see the header. Default 'blue', which is
- *                                  the treatment the owner ruled for on
- *                                  2026-10-20; 'slate' is locA's newer but
- *                                  un-ruled repaint, kept for the designer.
  * @param {string}   props.nodeId     the page's own Tabs node id, for
  *                                    provenance in the DOM.
  * @param {string}   props.slotNodeId the page's own slot node id.
+ *
+ * NOTE: there is no `tone` prop any more — ruling 2 gives both pages one
+ * treatment. Both call sites still pass `tone="blue"`; it is accepted and
+ * ignored, and should be deleted when those page files are next touched.
  */
-export default function PillTabs({ items, value, onChange, tone = 'blue', nodeId, slotNodeId }) {
-  const palette = TONES[tone] ?? TONES.blue
+export default function PillTabs({ items, value, onChange, nodeId, slotNodeId }) {
   const refs = useRef([])
 
   /* Automatic activation (ArrowLeft/Right select as they move), which is the
@@ -293,14 +324,17 @@ export default function PillTabs({ items, value, onChange, tone = 'blue', nodeId
 
   return (
     <div
-      className={String.raw`content-stretch flex flex-[1_0_0] gap-[var(--p-0,0px)] h-[36px] items-start min-w-px pr-[var(--component\/tabs\/list\/padding,3px)] py-[var(--component\/tabs\/list\/padding,3px)] relative rounded-[var(--component\/tabs\/trigger\/radius,14px)]`}
+      /* Ruling 2 drops the row from 36px to 32px, and the node gives the row
+         itself no radius — it has no fill, so there is nothing for a radius to
+         clip and the old `rounded-xl` here was inert. */
+      className={String.raw`content-stretch flex flex-[1_0_0] gap-0 h-[32px] items-start min-w-px pr-[3px] py-[3px] relative`}
       data-node-id={nodeId}
       data-name="Tabs"
     >
       <div
         role="tablist"
         aria-orientation="horizontal"
-        className={String.raw`content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] items-center min-w-px relative`}
+        className={String.raw`content-stretch flex flex-[1_0_0] gap-2 items-center min-w-px relative`}
         data-node-id={slotNodeId}
         data-name="slot"
       >
@@ -315,7 +349,6 @@ export default function PillTabs({ items, value, onChange, tone = 'blue', nodeId
             pill={item.pill ?? 'default'}
             grow={item.grow ?? true}
             active={item.id === value}
-            tone={palette}
             onSelect={() => onChange(item.id)}
             onKeyDown={handleKeyDown(index)}
           />

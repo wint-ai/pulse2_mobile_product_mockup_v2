@@ -60,6 +60,20 @@
  * owns the value and the confirmation. `onToggle(next)` still fires with
  * 'closed' | 'open', which is what SystemPageV2Screen turns into a
  * ValveConfirmSheet intent. Nothing is persisted here.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { cn } from '@/lib/utils'
@@ -84,7 +98,7 @@ const NODE = {
 }
 
 // 199383:141553
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[16px] items-start px-[16px] py-[12px] relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
+const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[16px] items-start px-[16px] py-[12px] relative rounded-[22px] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
 
 // 199383:141554
 const ROW = String.raw`content-stretch flex gap-[8px] items-center relative shrink-0 w-full`
@@ -108,7 +122,7 @@ const STACK = String.raw`content-stretch flex flex-col gap-[8px] items-start rel
 const TITLE_BOX = String.raw`content-stretch flex items-center relative shrink min-w-0 w-[215.5px] max-w-full`
 
 // 199383:141557 — ONE style now, no tone branch.
-const TITLE = String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap`
+const TITLE = String.raw`[word-break:break-word] font-sans font-medium leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
 
 // 199383:141558
 const VALUE_ROW = String.raw`content-stretch flex gap-[9.75px] items-center relative shrink-0`
@@ -117,7 +131,7 @@ const VALUE_ROW = String.raw`content-stretch flex gap-[9.75px] items-center rela
 const GLYPH_BOX = String.raw`h-[15.75px] relative shrink-0 w-[16.497px]`
 
 // 199383:141565
-const VALUE = String.raw`[word-break:break-word] flex flex-col font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-medium,500)] justify-center leading-[0] relative shrink-0 text-[19.501px] text-[color:var(--colors\/slate\/600,#45556c)] whitespace-nowrap`
+const VALUE = String.raw`[word-break:break-word] flex flex-col font-sans font-medium justify-center leading-[0] relative shrink-0 text-[19.501px] text-slate-600 whitespace-nowrap`
 
 /* 199383:141566 "Button", verbatim apart from being a real <button> instead of
    Figma's <div> (the node already carries `cursor-pointer`, so it is meant to
@@ -131,10 +145,10 @@ const VALUE = String.raw`[word-break:break-word] flex flex-col font-[family-name
    space runs out, and `min-w-px` would let the pill crush its own label rather
    than let the title box give way; `min-w-fit` reverses that. At and above the
    node's own frame width the two are indistinguishable. */
-const BTN = String.raw`bg-[#f2f6ff] border border-[var(--colors\/slate\/900,#0f172b)] border-solid content-stretch cursor-pointer drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex flex-[1_0_0] gap-[var(--spacing\/1,4px)] items-center justify-center min-w-fit px-[var(--component\/button\/size-xs\/px,10px)] py-[12px] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const BTN = String.raw`bg-[#f2f6ff] border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex flex-[1_0_0] gap-1 items-center justify-center min-w-fit px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 
 // I199383:141566;100985:11132
-const BTN_TEXT = String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif] font-semibold leading-[var(--text\/button-xs\/size,20px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/button-xs\/size,14px)] whitespace-nowrap`
+const BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
 
 /* 199383:141567 — the handling strip. The old red/50 fill is gone; the node
    paints the page's own two-layer gradient, carried as an inline style because
@@ -259,7 +273,7 @@ export default function ValveStatusCard({
             data-node-id="199383:141568"
           >
             <div
-              className={String.raw`bg-[var(--colors\/red\/200,#ffc9c9)] content-stretch flex items-center justify-center relative rounded-[20px] shrink-0 size-[16px]`}
+              className={String.raw`bg-red-200 content-stretch flex items-center justify-center relative rounded-[20px] shrink-0 size-[16px]`}
               data-node-id="199383:141569"
               data-name="rightIcon"
             >
@@ -272,12 +286,12 @@ export default function ValveStatusCard({
               </div>
             </div>
             <p
-              className={String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap`}
+              className={String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`}
               data-node-id="199383:141571"
             >{`${handlingLabel} ${handling} `}</p>
           </div>
           <p
-            className={String.raw`[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-normal,400)] leading-[var(--font\/line-height\/leading-5,20px)] relative shrink-0 text-[color:var(--colors\/gray\/700,#364153)] text-[length:var(--font\/size\/text-sm,14px)] tracking-[var(--font\/tracking\/tracking-normal,0px)] w-full`}
+            className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-gray-700 text-sm tracking-normal w-full`}
             data-node-id="199383:141572"
           >{`${handlingDescription} `}</p>
         </div>

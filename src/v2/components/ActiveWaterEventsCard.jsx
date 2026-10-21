@@ -57,6 +57,20 @@
  *   chevron, header             → ChevronUp16 / ChevronDown16. Same story.
  *   hairlines                   → Line 6 (#E2E8F0) and Line 1 (#90A1B9).
  *   healthy illustration        → data URI; see ILLUSTRATION.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { useMemo, useState } from 'react'
@@ -218,12 +232,12 @@ function TypeBadge({ type }) {
   if (type === 'leak-low') {
     return (
       <div className="content-stretch flex flex-col gap-[5px] items-center relative shrink-0">
-        <div className="bg-[var(--colors\/orange\/100,#ffedd4)] content-stretch flex flex-col gap-[var(--component\/badge\/gap,4px)] items-center justify-center overflow-clip px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/pro\/application\/inline-hint\/rail\/radius,9999px)] shrink-0 size-[48px]">
+        <div className="bg-[var(--orange-100)] content-stretch flex flex-col gap-1 items-center justify-center overflow-clip px-2 py-0.5 relative rounded-full shrink-0 size-[48px]">
           <div className="content-stretch flex flex-col items-start relative shrink-0">
             <WavesLow21 className="relative shrink-0 size-[21px] text-[#ff6900]" />
           </div>
         </div>
-        <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/orange\/600,#f54a00)] text-ellipsis text-left whitespace-nowrap">
+        <p className="[word-break:break-word] font-sans font-medium leading-4 overflow-hidden relative shrink-0 text-[12px] text-orange-600 text-ellipsis text-left whitespace-nowrap">
           Low Flow
         </p>
       </div>
@@ -231,12 +245,12 @@ function TypeBadge({ type }) {
   }
   return (
     <div className="content-stretch flex flex-col gap-[5px] items-center relative shrink-0">
-      <div className="bg-[var(--colors\/red\/100,#ffe2e2)] content-stretch flex flex-col gap-[var(--component\/badge\/gap,4px)] items-center justify-center overflow-clip px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/pro\/application\/inline-hint\/rail\/radius,9999px)] shrink-0 size-[48px]">
+      <div className="bg-red-100 content-stretch flex flex-col gap-1 items-center justify-center overflow-clip px-2 py-0.5 relative rounded-full shrink-0 size-[48px]">
         <div className="content-stretch flex flex-col items-start relative shrink-0">
           <Waves size={21} className="relative shrink-0 size-[21px] text-[#fb2c36]" />
         </div>
       </div>
-      <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/red\/600,#e7000b)] text-ellipsis text-left whitespace-nowrap">
+      <p className="[word-break:break-word] font-sans font-medium leading-4 overflow-hidden relative shrink-0 text-[12px] text-red-600 text-ellipsis text-left whitespace-nowrap">
         {TYPE_LABEL[type] || TYPE_LABEL['leak-high']}
       </p>
     </div>
@@ -268,20 +282,20 @@ function TypeBadge({ type }) {
  */
 function EventRow({ event, addressOpen = false, onToggleAddress }) {
   return (
-    <div className="content-stretch flex flex-col gap-[var(--spacing\/2,8px)] items-start py-[16px] relative shrink-0 w-full">
+    <div className="content-stretch flex flex-col gap-2 items-start py-[16px] relative shrink-0 w-full">
       <div className="content-stretch flex gap-[17px] items-center relative shrink-0 w-full">
         <TypeBadge type={event.type} />
         <div className="content-stretch flex flex-[1_0_0] flex-col gap-[7px] items-start min-w-px relative">
           {/* Figma has no truncation on the name; max-w-full + ellipsis is
               added so a long system name cannot push the row past 375px. */}
           <div className="content-stretch flex items-center max-w-full relative shrink-0">
-            <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:SemiBold'),'Figtree','Inter',sans-serif] font-semibold leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative min-w-px text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] text-ellipsis text-left whitespace-nowrap">
+            <p className="[word-break:break-word] font-sans font-semibold leading-5 overflow-hidden relative min-w-px text-foreground text-sm text-ellipsis text-left whitespace-nowrap">
               {event.systemName}
             </p>
           </div>
 
           <div className="content-stretch flex gap-[5px] items-center relative shrink-0 w-full">
-            <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal leading-[var(--text\/xs\/lh-snug,16.5px)] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/xs\/size,12px)] text-left whitespace-nowrap">
+            <p className="[word-break:break-word] font-sans font-normal leading-[16.5px] relative shrink-0 text-muted-foreground text-xs text-left whitespace-nowrap">
               {event.location}
             </p>
             {event.address ? <CellHairline /> : null}
@@ -294,14 +308,14 @@ function EventRow({ event, addressOpen = false, onToggleAddress }) {
               onClick={(e) => { e.stopPropagation(); onToggleAddress?.() }}
               aria-expanded={addressOpen}
               aria-label={`Show the full address for ${event.systemName ?? "this event"}`}
-              className="[word-break:break-word] flex-[1_0_0] font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal leading-[var(--text\/xs\/lh-snug,16.5px)] min-w-px overflow-hidden relative text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis text-left whitespace-nowrap flex-[1_0_0] cursor-pointer text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="[word-break:break-word] flex-[1_0_0] font-sans font-normal leading-[16.5px] min-w-px overflow-hidden relative text-[12px] text-muted-foreground text-ellipsis text-left whitespace-nowrap flex-[1_0_0] cursor-pointer text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
               {event.address}
             </button>
           </div>
 
           <div className="content-stretch flex gap-[13px] items-center relative shrink-0">
-            <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal leading-[var(--text\/xs\/lh-snug,16.5px)] overflow-hidden relative min-w-px text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis text-left whitespace-nowrap">
+            <p className="[word-break:break-word] font-sans font-normal leading-[16.5px] overflow-hidden relative min-w-px text-[12px] text-muted-foreground text-ellipsis text-left whitespace-nowrap">
               {event.detectedAt}
             </p>
             {/* Figma's "Duration" caption above this value is hidden in the
@@ -309,7 +323,7 @@ function EventRow({ event, addressOpen = false, onToggleAddress }) {
                 (HomeAllAccounts' rows do not). */}
             {event.duration ? (
               <div className="content-stretch flex gap-[5px] items-center relative shrink-0">
-                <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative min-w-px text-[12px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis text-left whitespace-nowrap">
+                <p className="[word-break:break-word] font-sans font-normal leading-3 overflow-hidden relative min-w-px text-[12px] text-foreground text-ellipsis text-left whitespace-nowrap">
                   {event.duration}
                 </p>
               </div>
@@ -322,7 +336,7 @@ function EventRow({ event, addressOpen = false, onToggleAddress }) {
           string is readable, which is why the annotation makes the address
           itself the control. */}
       {addressOpen && event.address ? (
-        <p className="w-full text-[12px] leading-[var(--text\/xs\/lh-snug,16.5px)] text-[color:var(--colors\/slate\/500,#62748e)]">
+        <p className="w-full text-[12px] leading-[16.5px] text-muted-foreground">
           {event.address}
         </p>
       ) : null}
@@ -340,11 +354,11 @@ function EventRow({ event, addressOpen = false, onToggleAddress }) {
  */
 function WaveDisc({ tone }) {
   return tone === 'low' ? (
-    <div className="bg-[var(--colors\/orange\/100,#ffedd4)] content-stretch flex items-start justify-center pt-[4px] relative rounded-[17.19px] shrink-0 size-[24px]">
+    <div className="bg-[var(--orange-100)] content-stretch flex items-start justify-center pt-[4px] relative rounded-[17.19px] shrink-0 size-[24px]">
       <Waves13Low className="relative shrink-0 size-[13px] text-[#ff6900]" />
     </div>
   ) : (
-    <div className="bg-[var(--colors\/red\/100,#ffe2e2)] content-stretch flex items-center justify-center relative rounded-[17.19px] shrink-0 size-[24px]">
+    <div className="bg-red-100 content-stretch flex items-center justify-center relative rounded-[17.19px] shrink-0 size-[24px]">
       <Waves13 className="relative shrink-0 size-[13px] text-[#fb2c36]" />
     </div>
   )
@@ -362,18 +376,18 @@ function WaveDisc({ tone }) {
  */
 function SummaryPill({ tone, label, count }) {
   return (
-    <div className="bg-[#fafbfc] border border-[var(--colors\/slate\/200,#e2e8f0)] border-solid content-stretch flex flex-[1_0_0] h-[36px] items-center min-w-px pl-[5px] pr-[11px] relative rounded-[var(--rounded-3xl,26px)]">
+    <div className="bg-[#fafbfc] border border-border border-solid content-stretch flex flex-[1_0_0] h-[36px] items-center min-w-px pl-[5px] pr-[11px] relative rounded-[26px]">
       <div className="content-stretch flex flex-[1_0_0] items-center justify-between min-w-px relative">
         <div className="content-stretch flex gap-[6px] items-center relative min-w-0">
           <WaveDisc tone={tone} />
           {/* min-w-0, not shrink-0: with real data these counts run to three
               digits and the label is the half that must give way, exactly as
               in FilterChip. The comp only ever drew a single digit. */}
-          <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[var(--text\/sm\/lh-tight,18px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis whitespace-nowrap" dir="auto">
+          <p className="[word-break:break-word] font-sans font-medium leading-[18px] overflow-hidden relative min-w-px text-[14px] text-slate-600 text-ellipsis whitespace-nowrap" dir="auto">
             {label}
           </p>
         </div>
-        <p className="[word-break:break-word] font-[family-name:var(--font\/family\/heading,'Geist:Bold'),'Figtree','Inter',sans-serif] font-bold leading-[var(--text\/base\/lh-relaxed,26px)] relative shrink-0 text-[16px] text-[color:var(--colors\/slate\/600,#45556c)] tracking-[var(--text\/base\/heading-tracking,-0.4px)] whitespace-nowrap">
+        <p className="[word-break:break-word] font-sans font-bold leading-[26px] relative shrink-0 text-[16px] text-slate-600 tracking-[-0.4px] whitespace-nowrap">
           {count}
         </p>
       </div>
@@ -404,7 +418,7 @@ function FilterChip({ tone, label, count, active, onClick }) {
       aria-pressed={active}
       data-active={active ? 'true' : 'false'}
       onClick={onClick}
-      className="bg-[#fafbfc] border border-[var(--colors\/slate\/200,#e2e8f0)] border-solid content-stretch cursor-pointer data-[active=true]:border-[#90a1b9] flex flex-[1_0_0] h-[36px] items-center min-w-px pl-[5px] pr-[11px] relative rounded-[var(--rounded-3xl,26px)]"
+      className="bg-[#fafbfc] border border-border border-solid content-stretch cursor-pointer data-[active=true]:border-[#90a1b9] flex flex-[1_0_0] h-[36px] items-center min-w-px pl-[5px] pr-[11px] relative rounded-[26px]"
     >
       <div className="content-stretch flex flex-[1_0_0] items-center justify-between min-w-px relative">
         {/* min-w-0, not shrink-0: with two-digit counts the chip cannot fit
@@ -414,11 +428,11 @@ function FilterChip({ tone, label, count, active, onClick }) {
             group gives way instead. */}
         <div className="content-stretch flex gap-[6px] items-center relative min-w-0">
           {disc}
-          <p className="[word-break:break-word] font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[var(--text\/sm\/lh-tight,18px)] overflow-hidden relative min-w-px text-[14px] text-[color:var(--colors\/slate\/600,#45556c)] text-ellipsis whitespace-nowrap" dir="auto">
+          <p className="[word-break:break-word] font-sans font-medium leading-[18px] overflow-hidden relative min-w-px text-[14px] text-slate-600 text-ellipsis whitespace-nowrap" dir="auto">
             {label}
           </p>
         </div>
-        <p className="[word-break:break-word] font-[family-name:var(--font\/family\/heading,'Geist:Bold'),'Figtree','Inter',sans-serif] font-bold leading-[var(--text\/base\/lh-relaxed,26px)] relative shrink-0 text-[16px] text-[color:var(--colors\/slate\/600,#45556c)] tracking-[var(--text\/base\/heading-tracking,-0.4px)] whitespace-nowrap">
+        <p className="[word-break:break-word] font-sans font-bold leading-[26px] relative shrink-0 text-[16px] text-slate-600 tracking-[-0.4px] whitespace-nowrap">
           {count}
         </p>
       </div>
@@ -437,25 +451,25 @@ function FilterChip({ tone, label, count, active, onClick }) {
  */
 function HealthyState({ onShowPast }) {
   return (
-    <div className="bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[40px] items-start justify-center min-h-[133px] pl-[18px] pr-[20px] py-[12px] relative rounded-[var(--rounded-3xl,22px)] w-full">
-      <div className="content-stretch flex flex-[1_0_0] gap-[var(--pro\/space\/4,16px)] items-center min-h-px relative w-full">
+    <div className="bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[40px] items-start justify-center min-h-[133px] pl-[18px] pr-[20px] py-[12px] relative rounded-[22px] w-full">
+      <div className="content-stretch flex flex-[1_0_0] gap-4 items-center min-h-px relative w-full">
         <div className="h-[66px] relative shrink-0 w-[138px]">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <img alt="" className="absolute h-[156.82%] left-0 max-w-none top-[-23.45%] w-full" src={ILLUSTRATION} />
           </div>
         </div>
-        <div className="[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col gap-[var(--pro\/space\/2,8px)] items-start justify-center min-w-px relative">
+        <div className="[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col gap-2 items-start justify-center min-w-px relative">
           <div className="content-stretch flex flex-col gap-[4px] items-start leading-[0] relative shrink-0 w-full">
-            <div className="flex flex-col font-[family-name:var(--font\/family\/sans,'Geist:SemiBold'),'Figtree','Inter',sans-serif] font-semibold justify-center relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/base\/size,16px)] w-full">
-              <p className="leading-[var(--text\/base\/lh,24px)]">No active water events</p>
+            <div className="flex flex-col font-sans font-semibold justify-center relative shrink-0 text-foreground text-base w-full">
+              <p className="leading-6">No active water events</p>
             </div>
-            <div className="flex flex-col font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal justify-center relative shrink-0 text-[color:var(--muted-foreground,#737373)] text-[length:var(--text\/sm\/size,14px)] w-full">
+            <div className="flex flex-col font-sans font-normal justify-center relative shrink-0 text-muted-foreground text-sm w-full">
               {/* Heading and subtitle were the wrong way round: the comp
                   (198328:88860) leads with the FACT — "No active water events"
                   at 24px — and puts the reassurance under it at 20px. We had
                   "Everything looks good!" as the headline, which announces a
                   mood before it reports the state. */}
-              <p className="leading-[var(--text\/sm\/lh,20px)]" dir="auto">
+              <p className="leading-5" dir="auto">
                 Everything looks good!
               </p>
             </div>
@@ -465,7 +479,7 @@ function HealthyState({ onShowPast }) {
           <button
             type="button"
             onClick={() => onShowPast?.()}
-            className="cursor-pointer font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[var(--text\/xs\/lh-tight,15px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--wint-blue-accent,#0b81f8)] text-center text-ellipsis whitespace-nowrap"
+            className="cursor-pointer font-sans font-medium leading-[15px] overflow-hidden relative shrink-0 text-[12px] text-primary text-center text-ellipsis whitespace-nowrap"
           >
             Show past events
           </button>
@@ -484,7 +498,7 @@ function HealthyState({ onShowPast }) {
 //
 // size-full from Figma is deliberately w-full here: a height would crop the
 // list, which is the exact bug this rewrite exists to remove.
-const ROOT_CLASS = String.raw`bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[14px] items-center overflow-clip pt-[var(--p-0,0px)] px-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] shadow-[var(--shadow\/x,0px)_var(--shadow\/popover\/layer-2\/y,2px)_var(--shadow\/popover\/layer-2\/blur,4px)_var(--shadow\/popover\/layer-2\/spread,-2px)_var(--shadow\/popover\/layer-2\/color,rgba(0,0,0,0.1))] w-full`
+const ROOT_CLASS = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[14px] items-center overflow-clip pt-0 px-0 relative rounded-[18px] shadow-[0px_2px_4px_-2px_rgba(0,0,0,0.1)] w-full`
 
 /* The bottom padding is the one measurement the two states do not share.
    Expanded, 198328:89083 pads 24 below the \"Show all\" link. Collapsed,
@@ -493,7 +507,7 @@ const ROOT_CLASS = String.raw`bg-[#fafbfc] border-[length:var(--border-width\/bo
    height is NOT reproduced - a fixed height would crop if the title wrapped
    - so the padding carries the difference instead. */
 const PB_COLLAPSED = 'pb-[15px]'
-const PB_EXPANDED = String.raw`pb-[var(--spacing\/6,24px)]`
+const PB_EXPANDED = String.raw`pb-6`
 
 /**
  * @param {object}   props
@@ -551,16 +565,16 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
         type="button"
         aria-expanded={!collapsed}
         onClick={() => setCollapsed((v) => !v)}
-        className="bg-[#fafbfc] content-stretch cursor-pointer flex gap-[var(--spacing\/3,12px)] items-center pb-[var(--p-0,0px)] pt-[var(--component\/card\/padding-sm,16px)] px-[var(--component\/card\/padding-sm,16px)] relative shrink-0 w-full"
+        className="bg-[#fafbfc] content-stretch cursor-pointer flex gap-3 items-center pb-0 pt-4 px-4 relative shrink-0 w-full"
       >
         <LocationDot size={44} className="relative shrink-0 text-[#fb2c36]" />
-        <div className="content-stretch flex flex-[1_0_0] flex-col gap-[var(--component\/card\/header\/gap,4px)] items-start min-w-px relative">
-          <p className="[word-break:break-word] font-[family-name:var(--font\/family\/heading,'Geist:SemiBold'),'Figtree','Inter',sans-serif] font-semibold leading-[var(--text\/title-md\/lh-snug,18px)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/title-md\/size,18px)] text-left tracking-[-0.45px] w-full">
+        <div className="content-stretch flex flex-[1_0_0] flex-col gap-1 items-start min-w-px relative">
+          <p className="[word-break:break-word] font-sans font-semibold leading-[18px] relative shrink-0 text-slate-800 text-lg text-left tracking-[-0.45px] w-full">
             {list.length} Water events
           </p>
         </div>
         <div className="content-stretch flex gap-[12px] items-center relative shrink-0">
-          <div className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-end relative shrink-0 w-[57px]">
+          <div className="content-stretch flex flex-col gap-0 items-end relative shrink-0 w-[57px]">
             {/* Button I198328:89086;197412:209455;198328:89085. Figma stamps
                 two DROP_SHADOW effects on every Button instance. Both layers
                 fall back to rgba(0,0,0,0) because the project defines none of
@@ -569,7 +583,7 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
                 appears if the tokens land. Byte-identical to AlertCard.jsx's
                 CTRL_SHADOW, which is module-local there, so it is spelled out
                 here — a literal JSX attribute, which keeps the backslashes. */}
-            <div className="content-stretch drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-end px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 w-full">
+            <div className="content-stretch drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex gap-1.5 h-[36px] items-center justify-end px-3 py-0 relative rounded-[26px] shrink-0 w-full">
               <div className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]">
                 {collapsed ? <ChevronDown16 /> : <ChevronUp16 />}
               </div>
@@ -598,7 +612,7 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
 
           {/* List 198328:89087. No height and no scroller: it grows with its
               rows, which is the whole point of rebuilding off the mobile node. */}
-          <div className="content-stretch flex flex-col items-center px-[var(--spacing\/4,16px)] relative shrink-0 w-full">
+          <div className="content-stretch flex flex-col items-center px-4 relative shrink-0 w-full">
             <RowRule />
             {visibleRows.map((event, i) => (
               <div key={event.id ?? i} className="content-stretch flex flex-col items-center relative shrink-0 w-full">
@@ -629,7 +643,7 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
               </div>
             ))}
             {rows.length === 0 ? (
-              <p className="font-[family-name:var(--font\/family\/sans,'Geist:Regular'),'Figtree','Inter',sans-serif] font-normal leading-[var(--text\/sm\/lh,20px)] py-[16px] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/sm\/size,14px)] text-center w-full">
+              <p className="font-sans font-normal leading-5 py-[16px] relative shrink-0 text-muted-foreground text-sm text-center w-full">
                 No {filter === 'leak-high' ? 'high' : 'low'} flow events
               </p>
             ) : null}
@@ -642,9 +656,9 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
             <button
               type="button"
               onClick={() => onShowAll?.()}
-              className="[word-break:break-word] block cursor-pointer font-[family-name:var(--font\/family\/sans,'Geist:Medium'),'Figtree','Inter',sans-serif] font-medium leading-[0] overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/sm-tight\/size,14px)] text-center text-ellipsis w-full whitespace-nowrap"
+              className="[word-break:break-word] block cursor-pointer font-sans font-medium leading-[0] overflow-hidden relative shrink-0 text-muted-foreground text-sm text-center text-ellipsis w-full whitespace-nowrap"
             >
-              <p className="leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden text-[14px] text-ellipsis" dir="auto">
+              <p className="leading-5 overflow-hidden text-[14px] text-ellipsis" dir="auto">
                 Show all
               </p>
             </button>

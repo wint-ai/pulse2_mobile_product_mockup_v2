@@ -89,6 +89,20 @@
  * BEFORE `text-[length:...]` / `text-[22px]`. Figma emits alphabetically, i.e.
  * leading first, so every line-height below has been moved to the END of its
  * atom. Same class set as the node, different order.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { ArrowRight, PowerOff } from 'lucide-react'
 import { PhotoSensor3, PinLocation03, WifiDisconnected02 } from '@/v2/icons'
@@ -97,26 +111,22 @@ import { cn } from '@/lib/utils'
 
 /* ------------------------------------------------------------------ fonts */
 
-const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
-const FIG_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
-const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
-const FIG_HEAD = String.raw`font-[family-name:var(--font\/family\/heading,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
 
 /* ------------------------------------------------------------ class atoms */
 
 /* 199323:12124 / 199371:137037 — identical in both states. */
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[15px] items-center pb-[16px] pt-[12px] relative rounded-[var(--rounded-3xl,22px)] shrink-0 w-full`
+const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[15px] items-center pb-[16px] pt-[12px] relative rounded-[22px] shrink-0 w-full`
 
 /* 199371:129896 / 199323:12127 — the heading block and its row. */
 const HEAD_BLOCK = String.raw`content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full`
 const HEAD_ROW = String.raw`content-stretch flex h-[28px] items-center justify-between px-[20px] relative shrink-0 w-full`
-const HEAD_TITLE = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap leading-[var(--text\/sm\/lh,20px)]`
+const HEAD_TITLE = String.raw`[word-break:break-word] font-medium relative shrink-0 text-foreground text-sm whitespace-nowrap leading-5`
 
 /* 199338:52768 — the "Show all" Button. Figma draws it 99x36; `after:` grows
    the tap target to 99x48 without moving a pixel (the button is already
    `relative`, and the pseudo-element paints nothing). */
-const SHOW_ALL = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-end px-0 py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 w-[99px] after:absolute after:content-[''] after:inset-x-0 after:inset-y-[-6px]`
-const SHOW_ALL_TEXT = String.raw`[word-break:break-word] font-medium relative shrink-0 text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap leading-[var(--text\/sm-tight\/lh,20px)]`
+const SHOW_ALL = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex gap-1.5 h-[36px] items-center justify-end px-0 py-0 relative rounded-[26px] shrink-0 w-[99px] after:absolute after:content-[''] after:inset-x-0 after:inset-y-[-6px]`
+const SHOW_ALL_TEXT = String.raw`[word-break:break-word] font-medium relative shrink-0 text-slate-600 text-sm whitespace-nowrap leading-5`
 const SHOW_ALL_ICON = String.raw`content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]`
 
 /* 199323:12125 / 199323:12126 — the body and its 27px column. */
@@ -129,16 +139,16 @@ const PLAIN_COL = String.raw`content-stretch flex flex-col items-start relative 
 const GAP_10_COL = String.raw`content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full`
 
 /* 199359:128709 — the 53px fleet row. */
-const FLEET_ROW = String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch flex gap-[10px] h-[53px] items-center pl-[15px] relative rounded-[12px] shrink-0 w-full`
+const FLEET_ROW = String.raw`bg-slate-100 content-stretch flex gap-[10px] h-[53px] items-center pl-[15px] relative rounded-[12px] shrink-0 w-full`
 const FLEET_GLYPH = String.raw`block relative shrink-0 size-[23.158px]`
 /* 199359:128708. Figma writes `shrink-0`; a fleet count is dynamic data, and
    this repo's text-overflow checker exists because a shrink-0 text node with
    real data pushes past its box. Swapped for min-w-px + a live ellipsis. */
-const FLEET_COUNT = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] min-w-px overflow-hidden relative text-[22px] text-[color:var(--colors\/slate\/900,#0f172b)] text-center text-ellipsis whitespace-nowrap leading-[0]`
+const FLEET_COUNT = String.raw`[word-break:break-word] font-semibold min-w-px overflow-hidden relative text-[22px] text-foreground text-center text-ellipsis whitespace-nowrap leading-[0]`
 
 /* 199360:129779 — the bar, and its two segments (199360:129780 / 129781). */
 const BAR = String.raw`content-stretch flex gap-[1.622px] h-[15px] items-start relative shrink-0 w-full`
-const BAR_RED = String.raw`bg-[var(--colors\/red\/700,#c10007)] h-full min-w-px relative`
+const BAR_RED = String.raw`bg-red-700 h-full min-w-px relative`
 const BAR_GREEN = String.raw`bg-gradient-to-r from-[#cbf7db] h-full min-w-px relative to-[#81f1aa]`
 const BAR_L = String.raw`rounded-bl-[9068757px] rounded-tl-[9068757px]`
 const BAR_R = String.raw`rounded-br-[9068757px] rounded-tr-[9068757px]`
@@ -146,8 +156,8 @@ const BAR_FULL = String.raw`rounded-[9068757px]`
 
 /* 199360:129782 / 199360:129783 — the bar's label. */
 const BAR_LABEL_ROW = String.raw`content-stretch flex items-center justify-between relative shrink-0 w-full`
-const BAR_LABEL = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] min-w-px overflow-hidden relative text-[color:var(--colors\/red\/400,#ff6467)] text-[length:var(--text\/lg\/size,18px)] text-ellipsis tracking-[var(--text\/lg\/heading-tracking,-0.45px)] whitespace-nowrap leading-[0]`
-const BAR_LABEL_RUN = String.raw`leading-[var(--text\/lg\/lh-relaxed,29.25px)]`
+const BAR_LABEL = String.raw`[word-break:break-word] font-semibold min-w-px overflow-hidden relative text-red-400 text-lg text-ellipsis tracking-[-0.45px] whitespace-nowrap leading-[0]`
+const BAR_LABEL_RUN = String.raw`leading-[29.25px]`
 
 /* 199323:13029 — the counter row. */
 const TILE_ROW = String.raw`content-stretch flex gap-[12px] items-center relative shrink-0 w-full`
@@ -163,28 +173,28 @@ const TILE_ROW = String.raw`content-stretch flex gap-[12px] items-center relativ
    and the tile keeps one set of geometry. */
 const TILE = String.raw`appearance-none border-0 content-stretch cursor-pointer flex flex-[1_0_0] gap-[4px] items-center justify-center min-w-px pb-[7px] pt-[3px] px-0 relative rounded-[18px] text-left`
 const TILE_HOT = String.raw`bg-gradient-to-b from-[#fff1f1] to-[#ffe3e3]`
-const TILE_COLD = String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)]`
+const TILE_COLD = String.raw`bg-slate-100`
 /* 199417:134216 draws the lone kind as ONE tile across the card. */
 const TILE_SOLO = String.raw`appearance-none border-0 content-stretch cursor-pointer flex gap-[4px] items-center justify-center pb-[7px] pt-[3px] px-0 relative rounded-[18px] shrink-0 text-left w-full`
 
 /* 199417:131529 — the all-clear row that stands where the tiles would be. */
 const CLEAR_ROW = String.raw`bg-[#e8f5ff] content-stretch flex h-[43px] items-center px-[11px] relative rounded-[16px] shrink-0 w-full`
-const CLEAR_TEXT = String.raw`[word-break:break-word] flex flex-col font-semibold justify-center leading-[0] relative shrink-0 text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap`
+const CLEAR_TEXT = String.raw`[word-break:break-word] flex flex-col font-semibold justify-center leading-[0] relative shrink-0 text-slate-600 text-sm whitespace-nowrap`
 const TILE_INNER = String.raw`flex flex-row items-center self-stretch`
 const TILE_STACK = String.raw`content-stretch flex flex-col h-full items-center justify-center relative shrink-0`
 const TILE_VALUE_ROW = String.raw`content-stretch flex h-[43px] items-center justify-center mb-[-8px] relative rounded-[16px] shrink-0 w-[89px]`
 const TILE_VALUE_PAIR = String.raw`content-stretch flex gap-[4px] items-center relative shrink-0`
 const TILE_GLYPH_BOX = String.raw`content-stretch flex h-[22px] items-center justify-center px-[15px] relative rounded-[16px] shrink-0 w-[30px]`
-const TILE_COUNT = String.raw`[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] relative shrink-0 text-[22px] text-[color:var(--colors\/slate\/900,#0f172b)] text-center whitespace-nowrap leading-[25px]`
+const TILE_COUNT = String.raw`[word-break:break-word] font-semibold relative shrink-0 text-[22px] text-foreground text-center whitespace-nowrap leading-[25px]`
 const TILE_LABEL_ROW = String.raw`content-stretch flex items-center relative shrink-0`
-const TILE_LABEL = String.raw`[word-break:break-word] flex flex-col font-medium justify-center relative shrink-0 text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap leading-[0]`
-const TILE_LABEL_RUN = String.raw`leading-[var(--text\/sm-tight\/lh,20px)]`
+const TILE_LABEL = String.raw`[word-break:break-word] flex flex-col font-medium justify-center relative shrink-0 text-slate-600 text-sm whitespace-nowrap leading-[0]`
+const TILE_LABEL_RUN = String.raw`leading-5`
 
 /* The emit gives NO colour for any glyph (every one is an <img>). They are
    tinted slate-400 — the one neutral ink this card already uses for a
    non-text mark. ValveStatus is the exception: it carries its own fills from
    the project component and ignores currentColor. */
-const GLYPH_INK = String.raw`text-[color:var(--colors\/slate\/400,#90a1b9)]`
+const GLYPH_INK = String.raw`text-slate-400`
 
 /* ------------------------------------------------------------------ model */
 
@@ -245,13 +255,13 @@ function IssueTile({ issue, count, onSelect, solo = false }) {
               >
                 <IssueGlyph issue={issue} />
               </span>
-              <span className={cn(FIG_SEMI, TILE_COUNT)} dir="auto">
+              <span className={cn('font-sans', TILE_COUNT)} dir="auto">
                 {fmt(count)}
               </span>
             </span>
           </span>
           <span className={TILE_LABEL_ROW}>
-            <span className={cn(FIG_MED, TILE_LABEL)}>
+            <span className={cn('font-sans', TILE_LABEL)}>
               <span className={TILE_LABEL_RUN}>{label}</span>
             </span>
           </span>
@@ -357,7 +367,7 @@ export default function SystemHealthCard({
       {/* 199371:129896 */}
       <div className={HEAD_BLOCK} data-node-id="199371:129896">
         <div className={HEAD_ROW} data-name="Heading 1" data-node-id="199323:12127">
-          <p className={cn(FIG_MED, HEAD_TITLE)} data-node-id="199323:12128">
+          <p className={cn('font-sans', HEAD_TITLE)} data-node-id="199323:12128">
             System health
           </p>
           <button
@@ -368,7 +378,7 @@ export default function SystemHealthCard({
             data-name="Button"
             data-node-id="199338:52768"
           >
-            <span className={cn(FIG_MED, SHOW_ALL_TEXT)} data-node-id="I199338:52768;6724:8007">
+            <span className={cn('font-sans', SHOW_ALL_TEXT)} data-node-id="I199338:52768;6724:8007">
               {/* 199417:131563. With nothing wrong there is no "all" to show;
                   the control offers the history instead. */}
               {allClear ? 'Show past alerts' : 'Show all'}
@@ -427,7 +437,7 @@ export default function SystemHealthCard({
                   </div>
                 </div>
                 <div className={BAR_LABEL_ROW} data-node-id="199360:129782">
-                  <p className={cn(FIG_HEAD, BAR_LABEL)} data-node-id="199360:129783">
+                  <p className={cn('font-sans', BAR_LABEL)} data-node-id="199360:129783">
                     {/* Red only when non-zero — see ZERO IS NOT RED above. */}
                     {/* 199417:131529 greys the numeral at zero rather than
                         letting it read as ink: #cad5e2, not slate-700. */}
@@ -472,7 +482,7 @@ export default function SystemHealthCard({
                   <span className={cn('relative shrink-0 size-[27px]', GLYPH_INK)} aria-hidden="true">
                     <PinLocation03 size="100%" className="absolute inset-0 block" />
                   </span>
-                  <span className={cn(FIG_SEMI, CLEAR_TEXT)}>
+                  <span className={cn('font-sans', CLEAR_TEXT)}>
                     <span className={BAR_LABEL_RUN} dir="auto">
                       All of your systems are running!
                     </span>

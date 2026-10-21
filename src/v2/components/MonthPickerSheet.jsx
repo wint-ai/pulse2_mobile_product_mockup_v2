@@ -101,6 +101,20 @@
  *
  * Nothing mounts this yet. It is self-contained: drop it inside the phone
  * shell (a positioned 393x852 box) and it anchors itself to the bottom edge.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { useEffect, useId, useRef, useState } from 'react'
@@ -303,28 +317,28 @@ function MonthPickerSheetBody({
         aria-labelledby={titleId}
         aria-describedby={isWindow ? helpId : undefined}
         tabIndex={-1}
-        className="absolute bottom-0 left-0 right-0 bg-[var(--popover,white)] border-[length:var(--border-width\/border,1px)] border-[#e5e5e5] border-solid content-stretch flex flex-col gap-[var(--component\/popover\/gap,16px)] items-start justify-end overflow-clip pb-[var(--spacing\/7,28px)] pt-[var(--p-0,0px)] px-[var(--p-0,0px)] rounded-[var(--component\/popover\/radius,18px)] shadow-[0px_-25px_50px_-12px_rgba(0,0,0,0.1)]"
+        className="absolute bottom-0 left-0 right-0 bg-popover border border-[#e5e5e5] border-solid content-stretch flex flex-col gap-4 items-start justify-end overflow-clip pb-7 pt-0 px-0 rounded-[18px] shadow-[0px_-25px_50px_-12px_rgba(0,0,0,0.1)]"
       >
-        <div className="content-stretch flex flex-col gap-[var(--spacing\/1,4px)] items-center justify-center p-[var(--p-0,0px)] relative shrink-0 w-full">
-          <div className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-start p-[var(--p-0,0px)] relative rounded-[var(--component\/calendar\/radius,26px)] shrink-0 w-full">
+        <div className="content-stretch flex flex-col gap-1 items-center justify-center p-0 relative shrink-0 w-full">
+          <div className="content-stretch flex flex-col gap-0 items-start p-0 relative rounded-[26px] shrink-0 w-full">
 
             {/* ── Caption: title (+ subtitle) and the year stepper ────────── */}
-            <div className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-start pb-[var(--spacing\/1\,5,6px)] pt-[var(--component\/calendar\/padding,12px)] px-[var(--component\/calendar\/day-radius,26px)] relative shrink-0 w-full">
+            <div className="content-stretch flex flex-col gap-0 items-start pb-1.5 pt-3 px-[26px] relative shrink-0 w-full">
 
               {/* The simple frame fixes this row at 40px around a 32px
                   trigger; the advanced one hugs, because the subtitle sets the
                   height. Inline because it is the one value that varies. */}
               <div
-                className="content-stretch flex gap-[8px] items-center justify-center px-[var(--spacing\/1\,5,6px)] py-[var(--p-0,0px)] relative shrink-0 w-full"
+                className="content-stretch flex gap-[8px] items-center justify-center px-1.5 py-0 relative shrink-0 w-full"
                 style={{ height: isWindow ? undefined : 40 }}
               >
                 <div
-                  className="content-stretch flex flex-col items-center justify-center px-[8px] py-[var(--p-0,0px)] relative shrink-0 text-center"
+                  className="content-stretch flex flex-col items-center justify-center px-[8px] py-0 relative shrink-0 text-center"
                   style={{ height: isWindow ? undefined : 32 }}
                 >
                   <p
                     id={titleId}
-                    className="[word-break:break-word] font-semibold leading-[var(--text\/base\/lh,24px)] relative shrink-0 text-[length:var(--text\/base\/size,16px)]"
+                    className="[word-break:break-word] font-semibold leading-6 relative shrink-0 text-base"
                     style={{ color: FOREGROUND }}
                   >
                     Select month
@@ -332,7 +346,7 @@ function MonthPickerSheetBody({
                   {isWindow && (
                     <p
                       id={helpId}
-                      className="[word-break:break-word] font-normal leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[length:var(--text\/sm\/size,14px)]"
+                      className="[word-break:break-word] font-normal leading-5 relative shrink-0 text-sm"
                       style={{ color: '#737373' }}
                     >
                       Pick the last month of the window. The 12 months ending there are selected.
@@ -341,22 +355,22 @@ function MonthPickerSheetBody({
                 </div>
               </div>
 
-              <div className="content-stretch flex h-[32px] items-center justify-between py-[var(--p-0,0px)] relative shrink-0 w-full">
+              <div className="content-stretch flex h-[32px] items-center justify-between py-0 relative shrink-0 w-full">
                 <button
                   type="button"
                   aria-label="Previous year"
                   disabled={nav.prevDisabled}
                   onClick={() => setViewYear((y) => y - 1)}
-                  className="bg-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex gap-[var(--p-0,0px)] items-center justify-center opacity-[calc(var(--opacity-50,50)/100)] p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 size-[32px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-25"
+                  className="bg-slate-200 content-stretch flex gap-0 items-center justify-center opacity-50 p-0 relative rounded-[26px] shrink-0 size-[32px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-25"
                   style={{ color: SLATE_600 }}
                 >
                   <ChevronLeft16 className="size-4" />
                 </button>
 
                 <div className="content-stretch flex gap-[8px] items-center relative shrink-0">
-                  <div className="content-stretch flex gap-[var(--p-0,0px)] h-[32px] items-center max-w-[224px] overflow-clip pl-[8px] pr-[var(--component\/calendar\/caption-label\/pr,8px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/calendar\/day-radius,26px)] shrink-0">
+                  <div className="content-stretch flex gap-0 h-[32px] items-center max-w-[224px] overflow-clip pl-[8px] pr-2 py-0 relative rounded-[26px] shrink-0">
                     <p
-                      className="[word-break:break-word] font-medium leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative shrink-0 text-[14px] text-ellipsis whitespace-nowrap"
+                      className="[word-break:break-word] font-medium leading-5 overflow-hidden relative shrink-0 text-[14px] text-ellipsis whitespace-nowrap"
                       style={{ color: FOREGROUND }}
                     >
                       {viewYear}
@@ -369,7 +383,7 @@ function MonthPickerSheetBody({
                   aria-label="Next year"
                   disabled={nav.nextDisabled}
                   onClick={() => setViewYear((y) => y + 1)}
-                  className="bg-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex gap-[var(--p-0,0px)] items-center justify-center opacity-[calc(var(--opacity-50,50)/100)] p-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 size-[32px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-25"
+                  className="bg-slate-200 content-stretch flex gap-0 items-center justify-center opacity-50 p-0 relative rounded-[26px] shrink-0 size-[32px] cursor-pointer disabled:cursor-not-allowed disabled:opacity-25"
                   style={{ color: SLATE_600 }}
                 >
                   <ChevronRight16 className="size-4" />
@@ -378,7 +392,7 @@ function MonthPickerSheetBody({
             </div>
 
             {/* ── Month grid, "Latest 12 months", Cancel / Apply ──────────── */}
-            <div className="content-stretch flex flex-col gap-[var(--component\/calendar\/padding,12px)] items-start px-[var(--component\/calendar\/day-radius,26px)] py-[var(--component\/calendar\/padding,12px)] relative shrink-0 w-full">
+            <div className="content-stretch flex flex-col gap-3 items-start px-[26px] py-3 relative shrink-0 w-full">
               <div className="content-stretch flex flex-col gap-[27px] items-start relative shrink-0 w-full">
 
                 {/* Row gap is the one measurement the two frames differ on:
@@ -415,7 +429,7 @@ function MonthPickerSheetBody({
                             className="border-[0.5px] border-solid content-stretch flex flex-[1_0_0] h-[36px] items-center justify-center min-w-px px-[6px] relative rounded-[7px] cursor-pointer disabled:cursor-not-allowed"
                             style={chipStyle(state)}
                           >
-                            <span className="[word-break:break-word] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[length:var(--text\/sm\/size,14px)] text-center whitespace-nowrap">
+                            <span className="[word-break:break-word] leading-5 relative shrink-0 text-sm text-center whitespace-nowrap">
                               {text}
                             </span>
                           </button>
@@ -429,9 +443,9 @@ function MonthPickerSheetBody({
                   <button
                     type="button"
                     onClick={handleLatest12}
-                    className="bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch flex h-[32px] items-center justify-center px-[6px] relative rounded-[7px] shrink-0 w-full cursor-pointer"
+                    className="bg-slate-100 content-stretch flex h-[32px] items-center justify-center px-[6px] relative rounded-[7px] shrink-0 w-full cursor-pointer"
                   >
-                    <span className="[word-break:break-word] font-normal leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[length:var(--text\/sm\/size,14px)] text-black text-center whitespace-nowrap">
+                    <span className="[word-break:break-word] font-normal leading-5 relative shrink-0 text-sm text-black text-center whitespace-nowrap">
                       {footerLabel}
                     </span>
                   </button>
@@ -441,9 +455,9 @@ function MonthPickerSheetBody({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="bg-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex flex-[1_0_0] gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-center min-w-px px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] cursor-pointer"
+                    className="bg-slate-200 content-stretch flex flex-[1_0_0] gap-1.5 h-[36px] items-center justify-center min-w-px px-3 py-0 relative rounded-[26px] cursor-pointer"
                   >
-                    <span className="[word-break:break-word] font-normal leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[length:var(--text\/sm\/size,14px)] text-black text-center whitespace-nowrap">
+                    <span className="[word-break:break-word] font-normal leading-5 relative shrink-0 text-sm text-black text-center whitespace-nowrap">
                       Cancel
                     </span>
                   </button>
@@ -451,9 +465,9 @@ function MonthPickerSheetBody({
                   <button
                     type="button"
                     onClick={handleApply}
-                    className="bg-[var(--colors\/blue\/50,#eff6ff)] border border-[var(--wint-blue-accent,#0b81f8)] border-solid content-stretch flex flex-[1_0_0] gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-center min-w-px px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] cursor-pointer"
+                    className="bg-blue-50 border border-primary border-solid content-stretch flex flex-[1_0_0] gap-1.5 h-[36px] items-center justify-center min-w-px px-3 py-0 relative rounded-[26px] cursor-pointer"
                   >
-                    <span className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] relative shrink-0 text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap" style={{ color: BLUE }}>
+                    <span className="[word-break:break-word] font-medium leading-5 relative shrink-0 text-sm whitespace-nowrap" style={{ color: BLUE }}>
                       Apply
                     </span>
                   </button>

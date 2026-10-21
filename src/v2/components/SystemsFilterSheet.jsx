@@ -16,6 +16,20 @@
  * The draft is LOCAL until Apply. Cancel restores what was in force, which is
  * what a Cancel button next to an Apply button promises — editing the live
  * filter as the viewer ticks would make Cancel a lie.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
@@ -30,10 +44,10 @@ function CheckBox({ checked, indeterminate }) {
     <span
       aria-hidden="true"
       className={cn(
-        'flex size-[16px] shrink-0 items-center justify-center rounded-[4px] border-[length:var(--border-width\\/border,1px)] border-solid',
+        'flex size-[16px] shrink-0 items-center justify-center rounded-[4px] border border-solid',
         checked || indeterminate
-          ? 'border-[var(--wint-blue-accent,#0b81f8)] bg-[var(--wint-blue-accent,#0b81f8)] text-white'
-          : 'border-[var(--border,#e4e4e7)] bg-[var(--card,white)]',
+          ? 'border-primary bg-primary text-white'
+          : 'border-border bg-card',
       )}
     >
       {indeterminate ? (
@@ -105,8 +119,8 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
 
       {/* #fafbfc, matching the widgets it filters, rather than shadcn's
           plain white — the sheet is part of this app, not the library demo. */}
-      <div className="relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[var(--rounded-2xl,18px)] bg-[#fafbfc]">
-        <div className="flex shrink-0 items-center gap-[8px] border-b-[length:var(--border-width\/border,1px)] border-solid border-[var(--border,#e4e4e7)] px-[16px] py-[12px]">
+      <div className="relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[18px] bg-[#fafbfc]">
+        <div className="flex shrink-0 items-center gap-[8px] border-b border-solid border-border px-[16px] py-[12px]">
           {category ? (
             <button
               type="button"
@@ -115,13 +129,13 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
                 setCategoryId(null)
                 setQuery('')
               }}
-              className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] text-[color:var(--foreground,#0a0a0a)] outline-none hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] text-foreground outline-none hover:bg-slate-100 focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
               <ChevronLeft size={16} />
             </button>
           ) : null}
 
-          <h2 className="flex-1 text-[length:var(--text\/sm\/size,14px)] font-semibold uppercase leading-[var(--text\/sm\/lh,20px)] tracking-[0.4px] text-[color:var(--colors\/slate\/500,#62748e)]">
+          <h2 className="flex-1 text-sm font-semibold uppercase leading-5 tracking-[0.4px] text-muted-foreground">
             {category ? category.label : 'Filter by'}
           </h2>
 
@@ -129,7 +143,7 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
             type="button"
             aria-label="Close filters"
             onClick={onClose}
-            className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] text-[color:var(--muted-foreground,#71717a)] outline-none hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] text-muted-foreground outline-none hover:bg-slate-100 focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             <X size={16} />
           </button>
@@ -148,19 +162,19 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
                     <button
                       type="button"
                       onClick={() => setCategoryId(c.id)}
-                      className="flex w-full items-center gap-[8px] px-[16px] py-[12px] text-left outline-none hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      className="flex w-full items-center gap-[8px] px-[16px] py-[12px] text-left outline-none hover:bg-slate-100 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     >
-                      <span className="flex-1 text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)]">
+                      <span className="flex-1 text-sm leading-5 text-foreground">
                         {c.label}
                       </span>
                       {n > 0 ? (
-                        <span className="flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[var(--wint-blue-accent,#0b81f8)] px-[6px] text-[12px] font-medium leading-[16px] text-white">
+                        <span className="flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-primary px-[6px] text-[12px] font-medium leading-[16px] text-white">
                           {n}
                         </span>
                       ) : null}
                       <ChevronRight
                         size={16}
-                        className="shrink-0 text-[color:var(--muted-foreground,#71717a)]"
+                        className="shrink-0 text-muted-foreground"
                       />
                     </button>
                   </li>
@@ -171,10 +185,10 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
             <div className="flex flex-col">
               {category.searchable ? (
                 <div className="px-[16px] pt-[12px]">
-                  <div className="flex h-[36px] items-center gap-[8px] rounded-[var(--component\/input\/radius,8px)] bg-[var(--colors\/slate\/100,#f1f5f9)] px-[12px]">
+                  <div className="flex h-[36px] items-center gap-[8px] rounded-md bg-slate-100 px-[12px]">
                     <Search01
                       size={16}
-                      className="shrink-0 text-[color:var(--muted-foreground,#737373)]"
+                      className="shrink-0 text-muted-foreground"
                     />
                     <input
                       type="search"
@@ -182,30 +196,30 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
                       onChange={(e) => setQuery(e.target.value)}
                       aria-label={`Search ${category.label.toLowerCase()}`}
                       placeholder={`Search ${category.label.toLowerCase()}...`}
-                      className="w-full min-w-0 bg-transparent text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)] outline-none placeholder:text-[color:var(--muted-foreground,#737373)]"
+                      className="w-full min-w-0 bg-transparent text-sm leading-5 outline-none placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
               ) : null}
 
               {shown.length === 0 ? (
-                <p className="px-[16px] py-[20px] text-center text-[length:var(--text\/sm\/size,14px)] text-[color:var(--muted-foreground,#737373)]">
+                <p className="px-[16px] py-[20px] text-center text-sm text-muted-foreground">
                   Nothing to filter by here.
                 </p>
               ) : (
                 <ul className="flex flex-col py-[4px]">
-                  <li className="border-b-[length:var(--border-width\/border,1px)] border-solid border-[var(--border,#e4e4e7)]">
+                  <li className="border-b border-solid border-border">
                     <button
                       type="button"
                       onClick={toggleAll}
                       aria-pressed={allShownPicked}
-                      className="flex w-full items-center gap-[12px] px-[16px] py-[12px] text-left outline-none hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      className="flex w-full items-center gap-[12px] px-[16px] py-[12px] text-left outline-none hover:bg-slate-100 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     >
                       <CheckBox
                         checked={allShownPicked}
                         indeterminate={!allShownPicked && someShownPicked}
                       />
-                      <span className="text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)]">
+                      <span className="text-sm leading-5 text-foreground">
                         Select all
                       </span>
                     </button>
@@ -217,21 +231,21 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
                         type="button"
                         onClick={() => toggle(o.value)}
                         aria-pressed={picked.includes(o.value)}
-                        className="flex w-full items-center gap-[12px] px-[16px] py-[12px] text-left outline-none hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        className="flex w-full items-center gap-[12px] px-[16px] py-[12px] text-left outline-none hover:bg-slate-100 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       >
                         <CheckBox checked={picked.includes(o.value)} />
                         {/* EVERY category, not only System Type. A column of
                             bare labels is what "still no icons" meant. */}
-                        <span className="flex size-[16px] shrink-0 items-center justify-center text-[color:var(--colors\/slate\/500,#62748e)]">
+                        <span className="flex size-[16px] shrink-0 items-center justify-center text-muted-foreground">
                           <FilterOptionIcon categoryId={category.id} value={o.value} size={16} />
                         </span>
-                        <span className="flex-1 truncate text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)]">
+                        <span className="flex-1 truncate text-sm leading-5 text-foreground">
                           {o.label}
                         </span>
                         {/* The count is ours, not the panel's. A checkbox that
                             silently returns nothing is the complaint this
                             whole tab started from. */}
-                        <span className="shrink-0 text-[12px] leading-[16px] text-[color:var(--muted-foreground,#71717a)]">
+                        <span className="shrink-0 text-[12px] leading-[16px] text-muted-foreground">
                           {o.count}
                         </span>
                       </button>
@@ -243,18 +257,18 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-[8px] border-t-[length:var(--border-width\/border,1px)] border-solid border-[var(--border,#e4e4e7)] px-[16px] py-[12px]">
+        <div className="flex shrink-0 items-center justify-end gap-[8px] border-t border-solid border-border px-[16px] py-[12px]">
           <button
             type="button"
             onClick={onClose}
-            className="flex h-[36px] items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] border-[length:var(--border-width\/border,1px)] border-solid border-[var(--border,#e4e4e7)] px-[16px] text-[length:var(--text\/sm\/size,14px)] font-medium leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)] outline-none hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="flex h-[36px] items-center justify-center rounded-lg border border-solid border-border px-[16px] text-sm font-medium leading-5 text-foreground outline-none hover:bg-slate-100 focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={() => onApply(draft)}
-            className="flex h-[36px] items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] bg-[var(--wint-blue-accent,#0b81f8)] px-[16px] text-[length:var(--text\/sm\/size,14px)] font-medium leading-[var(--text\/sm\/lh,20px)] text-white outline-none hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="flex h-[36px] items-center justify-center rounded-lg bg-primary px-[16px] text-sm font-medium leading-5 text-white outline-none hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             Apply filter
           </button>

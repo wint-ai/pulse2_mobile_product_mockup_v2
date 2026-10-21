@@ -63,6 +63,20 @@
  *
  * Assets: Figma's URLs expire in ~7 days, so nothing here references one. The
  * wave is inlined as a data URI below and every glyph is a project component.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { Check, PowerOff } from 'lucide-react'
@@ -227,7 +241,7 @@ function WaveGauge({ tone }) {
               colors/red/500 it always had. UNVERIFIED against the redesign —
               re-fetch before trusting it. */}
           {tone === 'error' ? (
-            <div className="absolute inset-0 bg-[var(--colors\/red\/500,#fb2c36)] mix-blend-color" />
+            <div className="absolute inset-0 bg-red-500 mix-blend-color" />
           ) : null}
         </div>
       </div>
@@ -241,7 +255,7 @@ function WaveGauge({ tone }) {
    the backslash and the class silently never matches anything in the built
    CSS. The HOT geometry is not a typo — Figma stamps the red instance at 1.2x
    (radius 31.2, gap 4.8, px 10), and h-43 pins the height either way. */
-const CAPSULE_COOL = String.raw`flex h-[43px] w-full min-w-[50px] items-center justify-center gap-[8px] px-[var(--spacing\/3,12px)] rounded-[var(--rounded-3xl,26px)]`
+const CAPSULE_COOL = String.raw`flex h-[43px] w-full min-w-[50px] items-center justify-center gap-[8px] px-3 rounded-[26px]`
 const CAPSULE_HOT = String.raw`relative isolate flex h-[43px] w-full min-w-[50px] items-center justify-center gap-[4.8px] px-[10px] rounded-[31.2px]`
 
 /* The red wash Figma paints behind a non-zero count. Three stacked layers,
@@ -290,11 +304,11 @@ function Capsule({ hot, children }) {
  */
 function AttentionCount({ zero, children }) {
   return zero ? (
-    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] text-center text-[color:var(--colors\/slate\/300,#cad5e2)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
+    <p className="[word-break:break-word] font-medium leading-[39px] text-center text-slate-300 text-2xl tracking-[-0.6px] whitespace-nowrap">
       {children}
     </p>
   ) : (
-    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] text-center text-[color:var(--colors\/red\/500,#fb2c36)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
+    <p className="[word-break:break-word] font-medium leading-[39px] text-center text-red-500 text-2xl tracking-[-0.6px] whitespace-nowrap">
       {children}
     </p>
   )
@@ -306,11 +320,11 @@ function AttentionCount({ zero, children }) {
  *  colors/slate/300 at full strength. */
 function IssueCount({ zero, children }) {
   return zero ? (
-    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] text-center text-[color:var(--colors\/slate\/300,#cad5e2)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
+    <p className="[word-break:break-word] font-medium leading-[39px] text-center text-slate-300 text-2xl tracking-[-0.6px] whitespace-nowrap">
       {children}
     </p>
   ) : (
-    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] opacity-70 text-center text-[color:var(--colors\/red\/500,#fb2c36)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
+    <p className="[word-break:break-word] font-medium leading-[39px] opacity-70 text-center text-red-500 text-2xl tracking-[-0.6px] whitespace-nowrap">
       {children}
     </p>
   )
@@ -343,7 +357,7 @@ function ClearMark() {
     <Check
       aria-hidden="true"
       strokeWidth={3}
-      className="size-[14px] shrink-0 text-[color:var(--colors\/slate\/300,#cad5e2)]"
+      className="size-[14px] shrink-0 text-slate-300"
     />
   )
 }
@@ -351,7 +365,7 @@ function ClearMark() {
 /** The xs caption under every capsule. */
 function TileLabel({ children }) {
   return (
-    <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh-tight,15px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/xs\/size,12px)] whitespace-nowrap">
+    <p className="[word-break:break-word] font-medium leading-[15px] text-slate-600 text-xs whitespace-nowrap">
       {children}
     </p>
   )
@@ -402,7 +416,7 @@ function IssueTile({ glyph, count, label, align = 'center', onSelect }) {
   return (
     <div
       className={cn(
-        String.raw`flex flex-col gap-[6px] text-[color:var(--colors\/slate\/400,#90a1b9)]`,
+        String.raw`flex flex-col gap-[6px] text-slate-400`,
         align === 'start' ? 'items-start' : 'items-center',
       )}
     >
@@ -443,14 +457,14 @@ function SystemTypeChip({ glyph, label, count }) {
   return (
     <div className="flex h-[35px] items-center gap-[4px] rounded-[18px]">
       <div className="flex items-center gap-[5px]">
-        <span className="flex shrink-0 items-center justify-center text-[color:var(--colors\/slate\/400,#90a1b9)]">
+        <span className="flex shrink-0 items-center justify-center text-slate-400">
           {glyph}
         </span>
-        <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/base\/lh,24px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/base\/size,16px)] whitespace-nowrap">
+        <p className="[word-break:break-word] font-medium leading-6 text-slate-600 text-base whitespace-nowrap">
           {label}
         </p>
-        <div className="flex h-[18px] min-w-[19px] shrink-0 flex-col items-center justify-center rounded-[6px] bg-[var(--colors\/slate\/200,#e2e8f0)] px-[4px]">
-          <p className="[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh,24px)] text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/base\/size,16px)] text-center w-full">
+        <div className="flex h-[18px] min-w-[19px] shrink-0 flex-col items-center justify-center rounded-[6px] bg-slate-200 px-[4px]">
+          <p className="[word-break:break-word] font-semibold leading-6 text-foreground text-base text-center w-full">
             {count}
           </p>
         </div>
@@ -527,7 +541,7 @@ export default function SystemsHealthCard({
         /* w-full: the home stack is items-start, and the shadcn <Card> this
            is built on does not carry a width, so the card was sizing to its own
            content and sitting narrower than its w-full neighbours. */
-        'w-full gap-[14px] rounded-[var(--rounded-3xl,22px)] border border-solid border-white bg-[#fafbfc] px-5 py-5',
+        'w-full gap-[14px] rounded-[22px] border border-solid border-white bg-[#fafbfc] px-5 py-5',
         className,
       )}
     >
@@ -538,19 +552,19 @@ export default function SystemsHealthCard({
           <WaveGauge tone={tone} />
           <div className="flex min-w-0 flex-1 flex-col items-start gap-[10px]">
             <div
-              className="flex h-[43px] w-full items-center justify-center gap-[8px] px-[var(--spacing\/2,8px)] rounded-[var(--rounded-3xl,26px)]"
+              className="flex h-[43px] w-full items-center justify-center gap-[8px] px-2 rounded-[26px]"
               style={CAPSULE_FILL}
             >
               {/* Figma 197697:5656, 27x27. colors/blue/500 #2b7fff, the outer two
                   circles at the design's 10% token. One tint only, so the hex
                   is pinned here rather than inherited. */}
               <LocationDot size={27} className="shrink-0 size-[27px] text-[#2b7fff]" />
-              <p className="[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/3xl\/lh-none,30px)] text-right text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--font\/size\/text-3xl,30px)] tracking-[-0.75px] whitespace-nowrap">
+              <p className="[word-break:break-word] font-semibold leading-[30px] text-right text-foreground text-3xl tracking-[-0.75px] whitespace-nowrap">
                 {hasPercent ? `${percent}%` : '—'}
               </p>
             </div>
             <div className="flex items-center gap-[2px]">
-              <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh-tight,18px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
+              <p className="[word-break:break-word] font-medium leading-[18px] text-slate-600 text-sm whitespace-nowrap">
                 Systems Health
               </p>
               {/* Deliberately inert. Every node draws this mark but none
@@ -567,7 +581,7 @@ export default function SystemsHealthCard({
         <div className="flex w-full items-center gap-[28px]">
           <div className="flex min-w-0 flex-1 flex-col items-start gap-[6px]">
             <Capsule>
-              <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-relaxed,39px)] opacity-70 text-center text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/2xl\/size,24px)] tracking-[var(--text\/2xl\/heading-tracking,-0.6px)] whitespace-nowrap">
+              <p className="[word-break:break-word] font-medium leading-[39px] opacity-70 text-center text-foreground text-2xl tracking-[-0.6px] whitespace-nowrap">
                 {total.toLocaleString('en-US')}
               </p>
             </Capsule>
@@ -575,7 +589,7 @@ export default function SystemsHealthCard({
           </div>
           <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-[6px]">
             <Capsule hot={requireAttention !== 0}>
-              <span className="flex shrink-0 items-center text-[color:var(--colors\/slate\/400,#90a1b9)]">
+              <span className="flex shrink-0 items-center text-slate-400">
                 <Warning size={18} />
               </span>
               <AttentionCount zero={requireAttention === 0}>{requireAttention}</AttentionCount>
@@ -656,7 +670,7 @@ export default function SystemsHealthCard({
           static: the comp gives them no affordance and this card has no
           per-type handler to wire one to. */}
       <div className="flex w-full flex-col items-start justify-center gap-[9px]">
-        <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh-tight,18px)] text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
+        <p className="[word-break:break-word] font-medium leading-[18px] text-muted-foreground text-sm whitespace-nowrap">
           Systems types
         </p>
         <div className="flex w-full flex-wrap items-center gap-x-[20px]">
@@ -694,7 +708,7 @@ export default function SystemsHealthCard({
         <button
           type="button"
           onClick={onShowPast}
-          className="self-start cursor-pointer font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh-tight,15px)] text-[12px] text-[color:var(--wint-blue-accent,#0b81f8)] hover:underline"
+          className="self-start cursor-pointer font-medium leading-[15px] text-[12px] text-primary hover:underline"
         >
           Show past alerts
         </button>

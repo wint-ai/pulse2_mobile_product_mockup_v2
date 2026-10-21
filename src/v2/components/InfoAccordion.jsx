@@ -78,6 +78,20 @@
  *   getAccountById                   @/data/accounts   (address / shipping /
  *                                    contacts, via the system's parent account)
  *   locationInfoStore                the two writes: notes + pictures
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { useId, useRef, useState } from 'react'
@@ -118,50 +132,47 @@ import {
 
 /* ------------------------------------------------------------------ fonts */
 
-const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
-const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
-const FIG_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
 
 /* ------------------------------------------------------------ class atoms */
 /* Line-height LAST in every one of these. See the header note. */
 
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full`
+const CARD = String.raw`bg-[#fafbfc] border border-solid border-white relative rounded-[18px] shrink-0 w-full`
 
-const HEADER = String.raw`flex w-full items-center gap-[10px] bg-transparent px-[18px] py-[14px] text-left cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 rounded-[var(--rounded-2xl,18px)]`
+const HEADER = String.raw`flex w-full items-center gap-[10px] bg-transparent px-[18px] py-[14px] text-left cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 rounded-[18px]`
 
-const HEADER_TITLE = String.raw`flex-1 font-[var(--font\/weight\/font-semibold,600)] text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/sm\/size,14px)] tracking-[-0.2px] leading-[var(--text\/sm\/lh,20px)]`
+const HEADER_TITLE = String.raw`flex-1 font-semibold text-slate-800 text-sm tracking-[-0.2px] leading-5`
 
 const PANEL = String.raw`flex flex-col gap-[7px] px-[18px] pb-[16px]`
 
-const LABEL = String.raw`shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[13px] leading-[18px]`
+const LABEL = String.raw`shrink-0 text-muted-foreground text-[13px] leading-[18px]`
 
-const VALUE = String.raw`font-[var(--font\/weight\/font-semibold,600)] inline-flex items-center gap-[6px] text-[color:var(--colors\/slate\/900,#0f172b)] text-[13px] text-right tabular-nums leading-[18px]`
+const VALUE = String.raw`font-semibold inline-flex items-center gap-[6px] text-foreground text-[13px] text-right tabular-nums leading-[18px]`
 
-const BODY_TEXT = String.raw`text-[color:var(--colors\/slate\/800,#1d293d)] text-[14px] whitespace-pre-line leading-[20px]`
+const BODY_TEXT = String.raw`text-slate-800 text-[14px] whitespace-pre-line leading-[20px]`
 
-const MUTED = String.raw`italic text-[color:var(--colors\/slate\/400,#90a1b9)] text-[13px] leading-[18px]`
+const MUTED = String.raw`italic text-slate-400 text-[13px] leading-[18px]`
 
-const LINK = String.raw`inline-flex items-center gap-[6px] text-[color:var(--wint-blue-accent,#0b81f8)] text-[13px] no-underline leading-[18px]`
+const LINK = String.raw`inline-flex items-center gap-[6px] text-primary text-[13px] no-underline leading-[18px]`
 
 /* The small secondary affordance — Edit / Add notes / Add picture / Cancel.
    Everything structural (border, radius, focus ring, hover) comes from
    Button's `outline` variant; this only re-states the design's 13px type, the
    accent ink and the 6px gap. `bg-card` is #FFFFFF, i.e. what `bg-white` was,
    as a token; the variant's own `bg-background` is the page wash, not a chip. */
-const GHOST_BUTTON = String.raw`h-auto self-start gap-[6px] rounded-[8px] border-[var(--colors\/slate\/200,#e2e8f0)] bg-card px-[12px] py-[6px] font-[var(--font\/weight\/font-semibold,600)] text-[color:var(--wint-blue-accent,#0b81f8)] text-[13px] leading-[18px]`
+const GHOST_BUTTON = String.raw`h-auto self-start gap-[6px] rounded-[8px] border-border bg-card px-[12px] py-[6px] font-semibold text-primary text-[13px] leading-[18px]`
 
 /* Save / Cancel inside the notes editor — the same 13px chip, so only the
    variant differs (`default` = bg-primary/text-primary-foreground for Save,
    `outline` + bg-card for Cancel). */
-const EDITOR_BUTTON = String.raw`h-auto rounded-[8px] px-[14px] py-[6px] font-[var(--font\/weight\/font-semibold,600)] text-[13px] leading-[18px]`
+const EDITOR_BUTTON = String.raw`h-auto rounded-[8px] px-[14px] py-[6px] font-semibold text-[13px] leading-[18px]`
 
 /* src/components/ui has `input` but no `textarea`, and notes are multi-line —
    so this one field stays a native <textarea>, wearing the shadcn input's own
    border / ring / radius tokens rather than literals. */
-const TEXTAREA = String.raw`w-full resize-y rounded-[8px] border border-solid border-[var(--colors\/slate\/200,#e2e8f0)] bg-card px-[10px] py-[8px] text-[color:var(--colors\/slate\/900,#0f172b)] text-[14px] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 leading-[21px]`
+const TEXTAREA = String.raw`w-full resize-y rounded-[8px] border border-solid border-border bg-card px-[10px] py-[8px] text-foreground text-[14px] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 leading-[21px]`
 
-const ICON_COLOR = String.raw`text-[color:var(--colors\/slate\/500,#62748e)]`
-const CHEVRON_COLOR = String.raw`text-[color:var(--colors\/slate\/400,#90a1b9)]`
+const ICON_COLOR = String.raw`text-muted-foreground`
+const CHEVRON_COLOR = String.raw`text-slate-400`
 
 /* ----------------------------------------------------------------- pieces */
 
@@ -180,8 +191,8 @@ function KV({ label, value, copy = false }) {
 
   return (
     <div className="flex items-center justify-between gap-[10px] py-[2px]">
-      <span className={`${FIG_REG} ${LABEL}`}>{label}</span>
-      <span className={`${FIG_SEMI} ${VALUE}`}>
+      <span className={`font-sans ${LABEL}`}>{label}</span>
+      <span className={`font-sans ${VALUE}`}>
         {value}
         {copy && value ? (
           <Button
@@ -232,7 +243,7 @@ function InfoSection({ icon, title, children }) {
         className={HEADER}
       >
         <Icon className={cn('size-[18px] shrink-0', ICON_COLOR)} aria-hidden="true" />
-        <span className={`${FIG_SEMI} ${HEADER_TITLE}`}>{title}</span>
+        <span className={`font-sans ${HEADER_TITLE}`}>{title}</span>
         {open ? (
           <ChevronUp className={cn('size-[20px] shrink-0', CHEVRON_COLOR)} aria-hidden="true" />
         ) : (
@@ -281,7 +292,7 @@ function NotesEditor({ scopeId, defaultNotes }) {
           rows={5}
           aria-label={t('info_tab.sections.notes')}
           placeholder="Add notes for this system…"
-          className={`${FIG_REG} ${TEXTAREA}`}
+          className={`font-sans ${TEXTAREA}`}
         />
         <div className="flex justify-end gap-[8px]">
           <Button
@@ -289,7 +300,7 @@ function NotesEditor({ scopeId, defaultNotes }) {
             variant="outline"
             size={null}
             onClick={cancel}
-            className={`${FIG_SEMI} ${EDITOR_BUTTON} border-[var(--colors\\/slate\\/200,#e2e8f0)] bg-card text-[color:var(--colors\\/slate\\/500,#62748e)]`}
+            className={`font-sans ${EDITOR_BUTTON} border-border bg-card text-muted-foreground`}
           >
             {t('info_tab.cancel')}
           </Button>
@@ -297,7 +308,7 @@ function NotesEditor({ scopeId, defaultNotes }) {
             type="button"
             size={null}
             onClick={save}
-            className={`${FIG_SEMI} ${EDITOR_BUTTON}`}
+            className={`font-sans ${EDITOR_BUTTON}`}
           >
             {t('info_tab.save')}
           </Button>
@@ -309,16 +320,16 @@ function NotesEditor({ scopeId, defaultNotes }) {
   return (
     <div className="flex flex-col gap-[10px]">
       {value ? (
-        <p className={`${FIG_REG} ${BODY_TEXT}`}>{value}</p>
+        <p className={`font-sans ${BODY_TEXT}`}>{value}</p>
       ) : (
-        <p className={`${FIG_REG} ${MUTED}`}>{t('info_tab.placeholders.no_notes')}</p>
+        <p className={`font-sans ${MUTED}`}>{t('info_tab.placeholders.no_notes')}</p>
       )}
       <Button
         type="button"
         variant="outline"
         size={null}
         onClick={startEdit}
-        className={`${FIG_SEMI} ${GHOST_BUTTON}`}
+        className={`font-sans ${GHOST_BUTTON}`}
       >
         <Pencil className="size-[14px]" aria-hidden="true" />
         {value ? t('info_tab.edit') : t('info_tab.add_notes')}
@@ -368,7 +379,7 @@ function PicturesEditor({ scopeId }) {
   return (
     <div className="flex flex-col gap-[10px]">
       {pictures.length === 0 ? (
-        <p className={`${FIG_REG} ${MUTED}`}>{t('info_tab.placeholders.no_pictures')}</p>
+        <p className={`font-sans ${MUTED}`}>{t('info_tab.placeholders.no_pictures')}</p>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-[6px]">
           {pictures.map((p, i) => (
@@ -377,7 +388,7 @@ function PicturesEditor({ scopeId }) {
                Figma emits it, while the template-literal atoms above need two. */
             <div
               key={p.id}
-              className="relative aspect-square overflow-hidden rounded-[8px] bg-[var(--colors\/slate\/100,#f1f5f9)]"
+              className="relative aspect-square overflow-hidden rounded-[8px] bg-slate-100"
             >
               <button
                 type="button"
@@ -416,7 +427,7 @@ function PicturesEditor({ scopeId }) {
         variant="outline"
         size={null}
         onClick={() => fileInputRef.current?.click()}
-        className={`${FIG_SEMI} ${GHOST_BUTTON}`}
+        className={`font-sans ${GHOST_BUTTON}`}
       >
         <ImagePlus className="size-[14px]" aria-hidden="true" />
         {t('info_tab.add_picture')}
@@ -485,7 +496,7 @@ export default function InfoAccordion({ system, systemId, className }) {
       ].filter((r) => r.value)
     : []
 
-  const placeholder = (text) => <p className={`${FIG_REG} ${MUTED}`}>{text}</p>
+  const placeholder = (text) => <p className={`font-sans ${MUTED}`}>{text}</p>
 
   return (
     <div
@@ -501,9 +512,9 @@ export default function InfoAccordion({ system, systemId, className }) {
                anatomy" claims Location uses KV; the code does not, and the code
                is the truth here. Carried as the code has it. */
             <div key={row.label} className="flex items-center justify-between gap-[10px] py-[2px]">
-              <span className={`${FIG_REG} ${LABEL}`}>{row.label}</span>
+              <span className={`font-sans ${LABEL}`}>{row.label}</span>
               <span
-                className={`${FIG_SEMI} font-[var(--font\\/weight\\/font-semibold,600)] text-[color:var(--colors\\/slate\\/900,#0f172b)] text-[13px] text-right leading-[18px]`}
+                className={`font-sans font-semibold text-foreground text-[13px] text-right leading-[18px]`}
               >
                 {row.value}
               </span>
@@ -515,7 +526,7 @@ export default function InfoAccordion({ system, systemId, className }) {
       {/* 2 · Address */}
       <InfoSection icon={MapPinHouse} title={t('info_tab.sections.address')}>
         {address ? (
-          <p className={`${FIG_REG} ${BODY_TEXT}`}>{address}</p>
+          <p className={`font-sans ${BODY_TEXT}`}>{address}</p>
         ) : (
           placeholder(t('info_tab.placeholders.no_address'))
         )}
@@ -524,7 +535,7 @@ export default function InfoAccordion({ system, systemId, className }) {
       {/* 3 · Shipping address — "Same as address" only when an address exists. */}
       <InfoSection icon={Truck} title={t('info_tab.sections.shipping_address')}>
         {shippingAddress ? (
-          <p className={`${FIG_REG} ${BODY_TEXT}`}>{shippingAddress}</p>
+          <p className={`font-sans ${BODY_TEXT}`}>{shippingAddress}</p>
         ) : address ? (
           placeholder(t('info_tab.placeholders.same_as_address'))
         ) : (
@@ -546,22 +557,22 @@ export default function InfoAccordion({ system, systemId, className }) {
                   'flex flex-col gap-[4px]',
                   i === 0
                     ? 'pt-[2px]'
-                    : 'border-t border-solid border-[var(--colors\\/slate\\/200,#e2e8f0)] pt-[10px]',
+                    : 'border-t border-solid border-border pt-[10px]',
                 )}
               >
                 <span
-                  className={`${FIG_SEMI} font-[var(--font\\/weight\\/font-semibold,600)] text-[color:var(--colors\\/slate\\/900,#0f172b)] text-[14px] leading-[20px]`}
+                  className={`font-sans font-semibold text-foreground text-[14px] leading-[20px]`}
                 >
                   {c.name}
                 </span>
                 {c.email ? (
-                  <a href={`mailto:${c.email}`} className={`${FIG_REG} ${LINK}`}>
+                  <a href={`mailto:${c.email}`} className={`font-sans ${LINK}`}>
                     <Mail className="size-[14px] shrink-0" aria-hidden="true" />
                     {c.email}
                   </a>
                 ) : null}
                 {c.phone ? (
-                  <a href={`tel:${c.phone.replace(/\s/g, '')}`} className={`${FIG_REG} ${LINK}`}>
+                  <a href={`tel:${c.phone.replace(/\s/g, '')}`} className={`font-sans ${LINK}`}>
                     <Phone className="size-[14px] shrink-0" aria-hidden="true" />
                     {c.phone}
                   </a>
@@ -574,7 +585,7 @@ export default function InfoAccordion({ system, systemId, className }) {
       {info.description ? (
         <InfoSection icon={Info} title={t('info_tab.sections.about')}>
           <p
-            className={`${FIG_REG} text-[color:var(--colors\\/slate\\/600,#45556c)] text-[14px] leading-[22px]`}
+            className={`font-sans text-slate-600 text-[14px] leading-[22px]`}
           >
             {info.description}
           </p>
@@ -587,11 +598,11 @@ export default function InfoAccordion({ system, systemId, className }) {
           {info.protects.map((p, i) => (
             <div key={`${i}-${p}`} className="flex items-center gap-[8px]">
               <span
-                className="size-[6px] shrink-0 rounded-full bg-[var(--wint-blue-accent,#0b81f8)]"
+                className="size-[6px] shrink-0 rounded-full bg-primary"
                 aria-hidden="true"
               />
               <span
-                className={`${FIG_REG} text-[color:var(--colors\\/slate\\/800,#1d293d)] text-[14px] leading-[20px]`}
+                className={`font-sans text-slate-800 text-[14px] leading-[20px]`}
               >
                 {p}
               </span>

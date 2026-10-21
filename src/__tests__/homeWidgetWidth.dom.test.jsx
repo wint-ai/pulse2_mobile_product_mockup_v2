@@ -86,26 +86,23 @@ describe('the consumption card does not resize with the segment picked', () => {
     // px-24 on the header over px-16 on cardContent put the title 8px outside
     // the toggle track it sits above — the "positions look broken" report.
     const { container } = render(consumption('M', 'Oct 2025 - Sep 2026'))
-    // The class is spelled `px-[var(--component\/card\/padding,24px)]` — a real
-    // backslash in the attribute — so scan the strings rather than write a CSS
-    // selector that has to escape it twice over.
-    const boxes = [...container.querySelectorAll('*')]
-      .map((el) => String(el.className))
-      .filter((cls) => cls.includes('card\\/padding'))
+    /* RETARGETED 2026-10-21, Phase 3 of docs/TOKENIZATION-PLAN.md. The class
+       used to be `px-[var(--component\/card\/padding,24px)]` — an escaped
+       Figma token name carrying its own 24px fallback — and this test scanned
+       for that spelling. The token is gone; 24px is the Tailwind scale step 6,
+       so the class is now plain `px-6`.
 
-    expect(boxes.length, 'header and content both use the padding token').toBeGreaterThan(1)
-    /* RETARGETED 2026-10-20. This used to end `not.toContain('padding,24px')`,
-       which pinned the EQUALITY the test is named for by banning the one
-       number that happened to be the odd one out at the time. Figma
-       199323:12260 (alert) and 199371:137298 (calm) now emit the token at 24px
-       on the header px, the header pt AND cardContent's px, so 24 is the
-       shared value and banning it pins the wrong half of the rule. What the
-       test actually proves — every box insets by the SAME token value — is
-       asserted directly instead, which is strictly stronger: the old literal
-       check would have waved through a future 16/20 mix. */
-    const fallbacks = new Set(
-      boxes.flatMap((cls) => [...cls.matchAll(/card\\\/padding,(\d+px)/g)].map((m) => m[1])),
+       What the test proves is unchanged and is still the stronger form of it:
+       every horizontal inset on this card is the SAME step. A future 16/20
+       mix fails here, which is the "positions look broken" report this test
+       was written for. */
+    const boxes = [...container.querySelectorAll('[data-slot="card-header"], [data-slot="card-content"]')]
+    expect(boxes.length, 'header and content both present').toBeGreaterThan(1)
+
+    const insets = new Set(
+      boxes.flatMap((el) => [...String(el.className).matchAll(/(?:^|\s)px-(\d+(?:\.\d+)?)(?:\s|$)/g)].map((m) => m[1])),
     )
-    expect([...fallbacks], 'one inset for every box').toHaveLength(1)
+    expect([...insets], 'one inset for every box').toHaveLength(1)
+    expect([...insets][0], 'the card inset is 24px = step 6').toBe('6')
   })
 })

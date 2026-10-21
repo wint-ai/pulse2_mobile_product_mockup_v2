@@ -41,6 +41,20 @@
  * sequence, but the content is in the DOM the whole time — which keeps the
  * "one tap finishes it" promise honest for keyboard and screen-reader users,
  * and keeps the component testable without fake timers.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, X, TriangleAlert, BellOff, Clock, RotateCcw } from 'lucide-react'
@@ -152,6 +166,11 @@ const SHEET_CSS = `
   60%  { transform: scale(1.1); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
+/* The only two-argument var()s left in src/v2 after Phase 3, and deliberately
+   so: --tx/--ty and --bx/--by are not design tokens. Each particle sets its own
+   pair as an inline style (see the style={{ '--tx': … }} props below), and the
+   second argument is this animation's own default for the frame before that
+   style lands. There is no token to point at and nothing to fail loudly about. */
 .wef-particle { animation: wef-fly 700ms ease-out forwards; opacity: 0; }
 @keyframes wef-fly {
   0%   { transform: translate(-50%,-50%) scale(.4); opacity: 1; }
@@ -194,7 +213,7 @@ const SHEET_CSS = `
 
 /** Yes and No are the same control twice; only the glyph differs. */
 const CHOICE_CLASS =
-  'h-auto flex-col gap-[8px] rounded-[14px] border-[1.5px] border-[#e2e8f0] bg-white px-[12px] py-[20px] text-[17px] font-bold text-[color:var(--colors\\/slate\\/800,#1d293d)]'
+  'h-auto flex-col gap-[8px] rounded-[14px] border-[1.5px] border-[#e2e8f0] bg-white px-[12px] py-[20px] text-[17px] font-bold text-slate-800'
 
 /* Deterministic scatter — the mockup randomises, but a stable render keeps
    snapshots and reviews honest and costs nothing visually. */
@@ -214,7 +233,7 @@ function Particles({ tone }) {
             key={i}
             className={cn(
               'wef-particle absolute left-1/2 top-1/2 size-[7px] rounded-full',
-              tone === 'yes' ? 'bg-[#5c9e1a]' : 'bg-[var(--wint-blue-accent,#0b81f8)]',
+              tone === 'yes' ? 'bg-success' : 'bg-primary',
             )}
             style={{
               '--tx': `calc(-50% + ${x.toFixed(1)}px)`,
@@ -274,13 +293,13 @@ function WarnPoint(props) {
         className={cn(
           'mt-[1px] flex size-[20px] shrink-0 items-center justify-center rounded-full',
           danger
-            ? 'bg-[rgba(219,70,112,.14)] text-[#db4670]'
-            : 'bg-[var(--colors\\/slate\\/100,#f1f5f9)] text-[color:var(--colors\\/slate\\/700,#334155)]',
+            ? 'bg-[rgba(219,70,112,.14)] text-severity-high'
+            : 'bg-slate-100 text-slate-700',
         )}
       >
         <Icon size={12} strokeWidth={2.4} />
       </span>
-      <span className="text-[13px] text-[color:var(--colors\\/slate\\/700,#334155)] leading-[19px]">
+      <span className="text-[13px] text-slate-700 leading-[19px]">
         {children}
       </span>
     </li>
@@ -523,7 +542,7 @@ function FeedbackSheet({
         <div aria-hidden="true" className="mx-auto mb-[6px] mt-[10px] h-[4px] w-[36px] rounded-[2px] bg-[#dee0e3]" />
 
         <div className="flex items-center justify-between gap-[10px] px-[18px] pb-[10px] pt-[4px]">
-          <p className="min-w-0 flex-1 truncate text-[12px] font-medium tracking-[0.2px] text-[color:var(--colors\\/slate\\/500,#62748e)] leading-[16px]">
+          <p className="min-w-0 flex-1 truncate text-[12px] font-medium tracking-[0.2px] text-muted-foreground leading-[16px]">
             {[context, systemName, eventLabel].filter(Boolean).join(' · ')}
           </p>
 
@@ -536,7 +555,7 @@ function FeedbackSheet({
                   'wef-pulse border-transparent px-[10px] py-[4px] text-[12px] font-bold',
                   points >= POINTS.NOTE
                     ? 'bg-[linear-gradient(135deg,rgba(255,184,0,.22),rgba(245,158,11,.28))] text-[#b45309]'
-                    : 'bg-[rgba(11,129,248,.10)] text-[var(--wint-blue-accent,#0b81f8)]',
+                    : 'bg-[rgba(11,129,248,.10)] text-primary',
                 )}
               >
                 +{points}
@@ -549,7 +568,7 @@ function FeedbackSheet({
               size="icon-sm"
               aria-label="Close"
               onClick={() => close(step === 'warning' ? 'cancel' : 'dismiss')}
-              className="rounded-full text-[color:var(--colors\\/slate\\/500,#62748e)]"
+              className="rounded-full text-muted-foreground"
             >
               <X size={16} strokeWidth={2.2} />
             </Button>
@@ -563,16 +582,16 @@ function FeedbackSheet({
               <div className="my-[10px] flex items-center gap-[10px]">
                 <span
                   aria-hidden="true"
-                  className="flex size-[36px] shrink-0 items-center justify-center rounded-full bg-[rgba(219,70,112,.12)] text-[#db4670]"
+                  className="flex size-[36px] shrink-0 items-center justify-center rounded-full bg-[rgba(219,70,112,.12)] text-severity-high"
                 >
                   <TriangleAlert size={20} strokeWidth={2.2} />
                 </span>
-                <h2 className="text-[18px] font-bold tracking-[-0.3px] text-[color:var(--colors\\/slate\\/900,#0f172b)] leading-[24px]">
+                <h2 className="text-[18px] font-bold tracking-[-0.3px] text-foreground leading-[24px]">
                   Ignore this water event?
                 </h2>
               </div>
 
-              <p className="mx-[2px] mb-[12px] text-[13.5px] text-[color:var(--colors\\/slate\\/700,#334155)] leading-[21px]">
+              <p className="mx-[2px] mb-[12px] text-[13.5px] text-slate-700 leading-[21px]">
                 You&rsquo;re telling Wint this flow is OK. Here&rsquo;s what happens:
               </p>
 
@@ -594,7 +613,7 @@ function FeedbackSheet({
                 </WarnPoint>
               </ul>
 
-              <Separator className="mt-[16px] bg-[var(--colors\\/slate\\/100,#f1f5f9)]" />
+              <Separator className="mt-[16px] bg-slate-100" />
               <div className="mt-[12px] flex gap-[10px]">
                 <Button
                   type="button"
@@ -608,7 +627,7 @@ function FeedbackSheet({
                   type="button"
                   variant="destructive"
                   onClick={confirmIgnore}
-                  className="h-[46px] flex-1 rounded-[12px] bg-[#db4670] text-[14px] font-bold hover:bg-[#ba365c]"
+                  className="h-[46px] flex-1 rounded-[12px] bg-severity-high text-[14px] font-bold hover:bg-[#ba365c]"
                 >
                   Ignore anyway
                 </Button>
@@ -619,7 +638,7 @@ function FeedbackSheet({
           {/* ── The one primary question ──────────────────────────────────── */}
           {step === 'question' ? (
             <section>
-              <h2 className="mx-[4px] mb-[20px] mt-[10px] text-[20px] font-bold tracking-[-0.3px] text-[color:var(--colors\\/slate\\/900,#0f172b)] leading-[26px]">
+              <h2 className="mx-[4px] mb-[20px] mt-[10px] text-[20px] font-bold tracking-[-0.3px] text-foreground leading-[26px]">
                 {PRIMARY_QUESTION}
               </h2>
 
@@ -630,7 +649,7 @@ function FeedbackSheet({
                   onClick={(e) => chooseAnswer('yes', e.currentTarget)}
                   className={CHOICE_CLASS}
                 >
-                  <span aria-hidden="true" className="flex size-[36px] items-center justify-center rounded-full bg-[rgba(92,158,26,.14)] text-[#5c9e1a]">
+                  <span aria-hidden="true" className="flex size-[36px] items-center justify-center rounded-full bg-[rgba(92,158,26,.14)] text-success">
                     <Check size={20} strokeWidth={2.4} />
                   </span>
                   Yes
@@ -641,14 +660,14 @@ function FeedbackSheet({
                   onClick={(e) => chooseAnswer('no', e.currentTarget)}
                   className={CHOICE_CLASS}
                 >
-                  <span aria-hidden="true" className="flex size-[36px] items-center justify-center rounded-full bg-[rgba(11,129,248,.10)] text-[var(--wint-blue-accent,#0b81f8)]">
+                  <span aria-hidden="true" className="flex size-[36px] items-center justify-center rounded-full bg-[rgba(11,129,248,.10)] text-primary">
                     <X size={20} strokeWidth={2.4} />
                   </span>
                   No
                 </Button>
               </div>
 
-              <p className="mt-[12px] text-center text-[11px] text-[color:var(--colors\\/slate\\/500,#62748e)] leading-[15px]">
+              <p className="mt-[12px] text-center text-[11px] text-muted-foreground leading-[15px]">
                 {PRIMARY_HINT}
               </p>
             </section>
@@ -665,20 +684,20 @@ function FeedbackSheet({
                     className={cn(
                       'wef-pop flex size-[56px] items-center justify-center rounded-full',
                       answer === 'yes'
-                        ? 'bg-[rgba(92,158,26,.15)] text-[#5c9e1a]'
-                        : 'bg-[rgba(11,129,248,.15)] text-[var(--wint-blue-accent,#0b81f8)]',
+                        ? 'bg-[rgba(92,158,26,.15)] text-success'
+                        : 'bg-[rgba(11,129,248,.15)] text-primary',
                     )}
                   >
                     <Check size={26} strokeWidth={2.6} />
                   </span>
                 </span>
-                <p className="text-[13px] font-semibold text-[color:var(--colors\\/slate\\/700,#334155)] leading-[18px]">
+                <p className="text-[13px] font-semibold text-slate-700 leading-[18px]">
                   {branch.microcopy}
                 </p>
               </div>
 
               <div className="wef-reveal">
-                <h3 className="mx-[2px] mb-[10px] mt-[14px] text-[15px] font-bold text-[color:var(--colors\\/slate\\/900,#0f172b)] leading-[20px]">
+                <h3 className="mx-[2px] mb-[10px] mt-[14px] text-[15px] font-bold text-foreground leading-[20px]">
                   {branch.heading}
                 </h3>
 
@@ -690,7 +709,7 @@ function FeedbackSheet({
                       pressed={chips.includes(label)}
                       onClick={(e) => toggleChip(label, e.currentTarget)}
                       className={cn(
-                        'h-auto rounded-full border-[1.5px] border-[#e2e8f0] bg-white px-[14px] py-[9px] text-[13px] font-semibold text-[color:var(--colors\\/slate\\/700,#334155)] data-[state=on]:border-[var(--wint-blue-accent,#0b81f8)] data-[state=on]:bg-[rgba(11,129,248,.08)] data-[state=on]:text-[var(--wint-blue-accent,#0b81f8)] leading-[17px]',
+                        'h-auto rounded-full border-[1.5px] border-[#e2e8f0] bg-white px-[14px] py-[9px] text-[13px] font-semibold text-slate-700 data-[state=on]:border-primary data-[state=on]:bg-[rgba(11,129,248,.08)] data-[state=on]:text-primary leading-[17px]',
                         label === SOMETHING_ELSE && 'border-dashed',
                       )}
                     >
@@ -704,7 +723,7 @@ function FeedbackSheet({
                     answer yet. */}
                 {branch.askFixed ? (
                   <>
-                    <h3 className="mx-[2px] mb-[10px] mt-[14px] text-[15px] font-bold text-[color:var(--colors\\/slate\\/900,#0f172b)] leading-[20px]">
+                    <h3 className="mx-[2px] mb-[10px] mt-[14px] text-[15px] font-bold text-foreground leading-[20px]">
                       Was it fixed?
                     </h3>
                     <ToggleGroup
@@ -720,7 +739,7 @@ function FeedbackSheet({
                         <ToggleGroupItem
                           key={value}
                           value={value}
-                          className="h-auto rounded-full border-[1.5px] border-[#e2e8f0] bg-white px-[12px] py-[7px] text-[12.5px] font-semibold text-[color:var(--colors\\/slate\\/700,#334155)] data-[state=on]:border-[var(--wint-blue-accent,#0b81f8)] data-[state=on]:bg-[rgba(11,129,248,.08)] data-[state=on]:text-[var(--wint-blue-accent,#0b81f8)] leading-[16px]"
+                          className="h-auto rounded-full border-[1.5px] border-[#e2e8f0] bg-white px-[12px] py-[7px] text-[12.5px] font-semibold text-slate-700 data-[state=on]:border-primary data-[state=on]:bg-[rgba(11,129,248,.08)] data-[state=on]:text-primary leading-[16px]"
                         >
                           {FIXED_STATE_LABEL[value]}
                         </ToggleGroupItem>
@@ -738,9 +757,9 @@ function FeedbackSheet({
                       aria-label="Note (optional)"
                       placeholder="Describe briefly..."
                       onChange={(e) => changeNote(e.target.value)}
-                      className="h-[72px] w-full resize-none rounded-[10px] border-[1.5px] border-[#e2e8f0] bg-white px-[12px] py-[10px] text-[13px] text-[color:var(--colors\\/slate\\/900,#0f172b)] outline-none focus:border-[var(--wint-blue-accent,#0b81f8)] leading-[18px]"
+                      className="h-[72px] w-full resize-none rounded-[10px] border-[1.5px] border-[#e2e8f0] bg-white px-[12px] py-[10px] text-[13px] text-foreground outline-none focus:border-primary leading-[18px]"
                     />
-                    <p className="mt-[4px] text-right text-[11px] text-[color:var(--colors\\/slate\\/400,#90a1b9)] leading-[15px]">
+                    <p className="mt-[4px] text-right text-[11px] text-slate-400 leading-[15px]">
                       {note.length}/{NOTE_MAX}
                     </p>
                   </div>
@@ -749,17 +768,17 @@ function FeedbackSheet({
                     type="button"
                     variant="link"
                     onClick={() => setNoteOpen(true)}
-                    className="h-auto justify-start px-0 py-[10px] text-[13px] font-semibold text-[var(--wint-blue-accent,#0b81f8)] no-underline hover:no-underline"
+                    className="h-auto justify-start px-0 py-[10px] text-[13px] font-semibold text-primary no-underline hover:no-underline"
                   >
                     + Add note (optional)
                   </Button>
                 )}
 
-                <Separator className="mt-[16px] bg-[var(--colors\\/slate\\/100,#f1f5f9)]" />
+                <Separator className="mt-[16px] bg-slate-100" />
                 <Button
                   type="button"
                   onClick={finish}
-                  className="mt-[12px] h-[46px] w-full rounded-[12px] bg-[var(--wint-blue-accent,#0b81f8)] text-[14px] font-bold"
+                  className="mt-[12px] h-[46px] w-full rounded-[12px] bg-primary text-[14px] font-bold"
                 >
                   Done
                 </Button>
@@ -772,17 +791,17 @@ function FeedbackSheet({
             <section className="flex flex-col items-center gap-[14px] px-[24px] pb-[32px] pt-[36px] text-center">
               <span
                 aria-hidden="true"
-                className="wef-pop flex size-[72px] items-center justify-center rounded-full bg-[rgba(92,158,26,.14)] text-[#5c9e1a]"
+                className="wef-pop flex size-[72px] items-center justify-center rounded-full bg-[rgba(92,158,26,.14)] text-success"
               >
                 <Check size={34} strokeWidth={2.6} />
               </span>
-              <h2 className="text-[18px] font-bold tracking-[-0.3px] text-[color:var(--colors\\/slate\\/900,#0f172b)] leading-[24px]">
+              <h2 className="text-[18px] font-bold tracking-[-0.3px] text-foreground leading-[24px]">
                 Thanks!
               </h2>
-              <p className="text-[32px] font-extrabold tracking-[-0.8px] text-[var(--wint-blue-accent,#0b81f8)] leading-[36px]">
+              <p className="text-[32px] font-extrabold tracking-[-0.8px] text-primary leading-[36px]">
                 +{points} points
               </p>
-              <p className="mt-[4px] text-[13px] text-[color:var(--colors\\/slate\\/500,#62748e)] leading-[18px]">
+              <p className="mt-[4px] text-[13px] text-muted-foreground leading-[18px]">
                 Wint has learned <strong>{learned}</strong> times from your feedback.
               </p>
             </section>
@@ -799,7 +818,7 @@ function FeedbackSheet({
             'wef-float pointer-events-none absolute z-[60] rounded-full px-[11px] py-[5px] font-extrabold tracking-[-0.3px] text-white',
             f.n >= POINTS.NOTE
               ? 'bg-[linear-gradient(135deg,#ffb800_0%,#f59e0b_100%)] text-[15px]'
-              : 'bg-[var(--wint-blue-accent,#0b81f8)] text-[13px]',
+              : 'bg-primary text-[13px]',
           )}
           style={{ left: f.x ?? '50%', top: f.y ?? '20%' }}
         >

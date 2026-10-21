@@ -61,6 +61,20 @@
  * project-owned icon (Waves / Funnel / CloseFill, and ValveStatus for the valve
  * error state — its geometry is byte-for-byte the asset this frame exports) or
  * inlined below from the downloaded SVG, viewBox included.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -484,7 +498,7 @@ export default function EventOverlayV2({
 
   return (
     <div
-      className="absolute inset-0 z-40 content-stretch flex flex-col gap-[var(--p-0,0px)] items-start overflow-hidden px-[var(--spacing\/4,16px)] py-[var(--spacing\/2,8px)]"
+      className="absolute inset-0 z-40 content-stretch flex flex-col gap-0 items-start overflow-hidden px-4 py-2"
       style={{ backgroundImage: SHEET_BG }}
       role="dialog"
       aria-modal="true"
@@ -501,7 +515,7 @@ export default function EventOverlayV2({
           x=18/y=18 against x=16/y=22.5 everywhere else. Owner: "why arrow not
           always the same position on screen". Cards move 18 -> 16, the same
           move the two pages already made. */}
-      <div className="content-stretch flex flex-col gap-[22px] items-start px-[var(--p-0,0px)] relative shrink-0 w-full">
+      <div className="content-stretch flex flex-col gap-[22px] items-start px-0 relative shrink-0 w-full">
         {/* items-start, not items-end. This column used to push the back
             control to the RIGHT edge, so the arrow sat top-right here and
             top-left on every other screen — owner: "why arrow not always the
@@ -516,22 +530,22 @@ export default function EventOverlayV2({
               breadcrumb on the left, because the scope is what the row no longer
               repeats. */}
           {isLocation ? (
-            <div className="content-stretch flex gap-[var(--spacing\/2,8px)] items-center relative shrink-0 w-full">
+            <div className="content-stretch flex gap-2 items-center relative shrink-0 w-full">
               {/* Back FIRST, then the breadcrumb. The node draws no breadcrumb
                   at all — it is this app's, and it keeps its place — but the
                   disc goes where the other two screens put it. */}
               {closeButton}
-              <div className="content-stretch flex flex-[1_0_0] gap-[var(--spacing\/2,8px)] h-[44px] items-center min-w-px py-[var(--p-0,0px)] relative">
+              <div className="content-stretch flex flex-[1_0_0] gap-2 h-[44px] items-center min-w-px py-0 relative">
                 <nav
                   aria-label="Breadcrumb"
-                  className="content-center flex flex-wrap gap-[var(--component\/breadcrumb\/item\/gap,6px)] gap-y-[4px] items-center min-w-0 p-[var(--p-0,0px)] relative shrink-0"
+                  className="content-center flex flex-wrap gap-1.5 gap-y-[4px] items-center min-w-0 p-0 relative shrink-0"
                 >
-                  <div className="content-stretch flex gap-[var(--component\/breadcrumb\/item\/gap,6px)] items-center min-w-0 relative shrink-0">
+                  <div className="content-stretch flex gap-1.5 items-center min-w-0 relative shrink-0">
                     {/* The crumbs are inert on purpose: this overlay takes no
                         navigation callback, and a link that silently does
                         nothing reads worse than plain text. */}
                     <span
-                      className="[word-break:break-word] font-medium leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap"
+                      className="[word-break:break-word] font-medium leading-5 relative shrink-0 text-slate-400 text-sm whitespace-nowrap"
                       style={{ fontWeight: 400 }}
                     >
                       Home
@@ -539,7 +553,7 @@ export default function EventOverlayV2({
                     <span className="relative shrink-0 size-[16px] flex items-center justify-center" style={{ color: SLATE_400 }}>
                       <ArrowRightSLine size={16} />
                     </span>
-                    <span className="content-stretch flex items-center justify-center p-[var(--spacing\/0\,5,2px)] relative shrink-0" style={{ color: SLATE_400 }}>
+                    <span className="content-stretch flex items-center justify-center p-0.5 relative shrink-0" style={{ color: SLATE_400 }}>
                       <span className="flex items-center justify-center overflow-clip relative shrink-0 size-[16px]">
                         <MoreHorizontal size={16} />
                       </span>
@@ -551,7 +565,7 @@ export default function EventOverlayV2({
                     </span>
                     <span
                       aria-current="page"
-                      className="[word-break:break-word] leading-[var(--text\/sm\/lh,20px)] min-w-0 overflow-hidden relative text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/sm\/size,14px)] text-ellipsis whitespace-nowrap"
+                      className="[word-break:break-word] leading-5 min-w-0 overflow-hidden relative text-slate-800 text-sm text-ellipsis whitespace-nowrap"
                       style={{ fontWeight: 400 }}
                     >
                       {scopeName}
@@ -563,7 +577,7 @@ export default function EventOverlayV2({
           ) : (
             /* 199375:138280 > :138281 — the header bar's content row and its
                flex-1 left group, which is what lands the disc on the left. */
-            <div className="content-stretch flex flex-col h-[59px] items-center justify-center py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full">
+            <div className="content-stretch flex flex-col h-[59px] items-center justify-center py-6 relative shrink-0 w-full">
               <div className="content-center flex flex-wrap gap-[10px] items-center justify-center relative shrink-0 w-full">
                 <div className="content-stretch flex flex-[1_0_0] items-center min-w-px relative">
                   {closeButton}
@@ -580,7 +594,7 @@ export default function EventOverlayV2({
                 <LocationDot size={27} className="relative shrink-0" />
               </div>
               <h2
-                className="[word-break:break-word] font-medium leading-[var(--text\/2xl\/lh,32px)] min-w-0 overflow-hidden relative text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/2xl\/size,24px)] text-ellipsis tracking-[-0.6px] whitespace-nowrap"
+                className="[word-break:break-word] font-medium leading-8 min-w-0 overflow-hidden relative text-slate-800 text-2xl text-ellipsis tracking-[-0.6px] whitespace-nowrap"
                 dir="auto"
               >
                 {title}
@@ -591,19 +605,19 @@ export default function EventOverlayV2({
                 pill radius lives on this wrapper so the two items only need to
                 square their own corners, which keeps the Figma var() classes
                 out of ToggleGroupItem's twMerge conflict resolution. */}
-            <div className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-end relative shrink-0 w-full">
+            <div className="content-stretch flex flex-col gap-0 items-end relative shrink-0 w-full">
               <ToggleGroup
                 type="single"
                 value={tab}
                 // Radix single-select emits '' when the pressed item is pressed
                 // again; this switch has no "neither" state.
                 onValueChange={(v) => { if (v) setTab(v) }}
-                className="content-stretch drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex gap-[var(--p-0,0px)] items-center overflow-hidden p-[var(--p-0,0px)] relative rounded-[var(--component\/toggle\/radius,26px)] shrink-0 w-full"
+                className="content-stretch drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex gap-0 items-center overflow-hidden p-0 relative rounded-[26px] shrink-0 w-full"
               >
                 <ToggleGroupItem
                   value="active"
                   aria-label="Active events"
-                  className="border-[length:var(--border-width\/border,1px)] border-[var(--colors\/slate\/200,#e2e8f0)] border-solid content-stretch cursor-pointer flex flex-[1_0_0] gap-[var(--component\/toggle\/gap,4px)] h-[36px] items-center justify-center min-h-[36px] min-w-px overflow-clip px-[var(--component\/toggle\/size-default\/padding,12px)] py-[var(--p-0,0px)] relative rounded-none"
+                  className="border border-border border-solid content-stretch cursor-pointer flex flex-[1_0_0] gap-1 h-[36px] items-center justify-center min-h-[36px] min-w-px overflow-clip px-3 py-0 relative rounded-none"
                   style={{
                     background: isHistory ? SLATE_100 : BLUE_100,
                     color: isHistory ? SLATE_800 : WINT_BLUE,
@@ -611,20 +625,20 @@ export default function EventOverlayV2({
                 >
                   {/* `text-left` is the design's own asymmetry: it sits on the
                       Active label and not on History, in both frames. */}
-                  <span className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] relative shrink-0 text-[length:var(--text\/sm-tight\/size,14px)] text-left whitespace-nowrap">
+                  <span className="[word-break:break-word] font-medium leading-5 relative shrink-0 text-sm text-left whitespace-nowrap">
                     Active
                   </span>
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="history"
                   aria-label="Past events"
-                  className="border-[var(--colors\/slate\/200,#e2e8f0)] border-b-[length:var(--border-width\/border,1px)] border-r-[length:var(--border-width\/border,1px)] border-solid border-t-[length:var(--border-width\/border,1px)] content-stretch cursor-pointer flex flex-[1_0_0] gap-[var(--component\/toggle\/gap,4px)] h-[36px] items-center justify-center min-h-[36px] min-w-px overflow-clip px-[var(--component\/toggle\/size-default\/padding,12px)] py-[var(--p-0,0px)] relative rounded-none"
+                  className="border-border border-b border-r border-solid border-t content-stretch cursor-pointer flex flex-[1_0_0] gap-1 h-[36px] items-center justify-center min-h-[36px] min-w-px overflow-clip px-3 py-0 relative rounded-none"
                   style={{
                     background: isHistory ? BLUE_100 : SLATE_100,
                     color: isHistory ? WINT_BLUE : SLATE_800,
                   }}
                 >
-                  <span className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] relative shrink-0 text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap">
+                  <span className="[word-break:break-word] font-medium leading-5 relative shrink-0 text-sm whitespace-nowrap">
                     History
                   </span>
                 </ToggleGroupItem>
@@ -644,7 +658,7 @@ export default function EventOverlayV2({
                 selection plus its own count stay on the trigger while the menu
                 is shut — a filtered list that reads as a complete one is the
                 bug this collapse would otherwise introduce. */}
-            <div className="content-stretch flex gap-[var(--spacing\/2,8px)] items-center justify-between pr-[var(--spacing\/4,16px)] relative shrink-0 w-full">
+            <div className="content-stretch flex gap-2 items-center justify-between pr-4 relative shrink-0 w-full">
               <EventFilterMenu
                 value={activeFilter}
                 options={filterOptions}
@@ -665,7 +679,7 @@ export default function EventOverlayV2({
                     untouched.
                     The funnel glyph that led this line is now the menu's
                     trigger, six pixels to the left — one funnel, not two. */}
-                <span className="[word-break:break-word] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
+                <span className="[word-break:break-word] leading-5 relative shrink-0 text-muted-foreground text-sm whitespace-nowrap">
                   Showing {visible.length} of {inTab.length}
                 </span>
               </div>
@@ -679,18 +693,18 @@ export default function EventOverlayV2({
           gives the card h-[701px] + overflow-clip instead, which is a frame
           height, not a page height. */}
       <div
-        className="px-[var(--p-0,0px)] pt-[22px] pb-[var(--spacing\/2,8px)] w-full"
+        className="px-0 pt-[22px] pb-2 w-full"
         style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
       >
         {/* The "Liquid" effect style. Every component of it resolves to 0 /
             rgba(0,0,0,0) today, so it paints nothing — it is carried verbatim
             so the card picks the shadow up the moment the project defines
             --shadow/popover/layer-2/*, exactly as the design intends. */}
-        <div className="bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col items-center overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] shadow-[var(--shadow\/x,0px)_var(--shadow\/popover\/layer-2\/y,0px)_var(--shadow\/popover\/layer-2\/blur,0px)_var(--shadow\/popover\/layer-2\/spread,0px)_var(--shadow\/popover\/layer-2\/color,rgba(0,0,0,0))] shrink-0 w-full">
-          <div className="content-stretch flex flex-col items-center px-[var(--spacing\/4,16px)] relative shrink-0 w-full">
+        <div className="bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col items-center overflow-clip p-0 relative rounded-[18px] shadow-[0px_0px_0px_0px_rgba(0,0,0,0)] shrink-0 w-full">
+          <div className="content-stretch flex flex-col items-center px-4 relative shrink-0 w-full">
             {visible.length === 0 ? (
               <p
-                className="[word-break:break-word] leading-[var(--text\/sm\/lh,20px)] py-[40px] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/sm\/size,14px)] text-center"
+                className="[word-break:break-word] leading-5 py-[40px] relative shrink-0 text-muted-foreground text-sm text-center"
               >
                 No {isHistory ? 'past' : 'active'} {family === 'water' ? 'water events' : 'alerts'} match this filter.
               </p>
@@ -795,13 +809,13 @@ function FilterGlyph({ type }) {
    jumps to the first option whose label starts with what was typed, Escape and
    Tab close, an outside pointerdown closes, and focus returns to the trigger on
    every close. */
-const FILTER_TRIGGER = String.raw`bg-[#fafbfc] border border-solid content-stretch cursor-pointer flex gap-[6px] h-[36px] items-center min-w-0 outline-none pl-[11px] pr-[9px] relative rounded-[var(--rounded-3xl,26px)] focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const FILTER_TRIGGER = String.raw`bg-[#fafbfc] border border-solid content-stretch cursor-pointer flex gap-[6px] h-[36px] items-center min-w-0 outline-none pl-[11px] pr-[9px] relative rounded-[26px] focus-visible:ring-[3px] focus-visible:ring-ring/50`
 /* text-[14px] BEFORE leading-[]: tailwind-merge counts a font-size as
    conflicting with a line-height and drops a leading-* that precedes it. */
-const FILTER_TRIGGER_LABEL = String.raw`[word-break:break-word] font-medium min-w-0 overflow-hidden relative text-[14px] leading-[var(--text\/sm\/lh-tight,18px)] text-ellipsis whitespace-nowrap`
-const FILTER_TRIGGER_COUNT = String.raw`[word-break:break-word] font-bold relative text-[16px] leading-[var(--text\/base\/lh-relaxed,26px)] tracking-[var(--text\/base\/heading-tracking,-0.4px)] whitespace-nowrap`
-const FILTER_MENU = String.raw`absolute left-0 top-[calc(100%+6px)] z-30 bg-[#fafbfc] border border-solid border-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex flex-col items-stretch max-w-[260px] min-w-[204px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
-const FILTER_ITEM = String.raw`content-stretch cursor-pointer flex gap-[8px] items-center justify-between min-h-[40px] outline-none px-[8px] py-[4px] rounded-[8px] text-left w-full hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:bg-[var(--colors\/slate\/100,#f1f5f9)]`
+const FILTER_TRIGGER_LABEL = String.raw`[word-break:break-word] font-medium min-w-0 overflow-hidden relative text-[14px] leading-[18px] text-ellipsis whitespace-nowrap`
+const FILTER_TRIGGER_COUNT = String.raw`[word-break:break-word] font-bold relative text-[16px] leading-[26px] tracking-[-0.4px] whitespace-nowrap`
+const FILTER_MENU = String.raw`absolute left-0 top-[calc(100%+6px)] z-30 bg-[#fafbfc] border border-solid border-border content-stretch flex flex-col items-stretch max-w-[260px] min-w-[204px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
+const FILTER_ITEM = String.raw`content-stretch cursor-pointer flex gap-[8px] items-center justify-between min-h-[40px] outline-none px-[8px] py-[4px] rounded-[8px] text-left w-full hover:bg-slate-100 focus-visible:bg-slate-100`
 
 function EventFilterMenu({ value, options, onChange, label }) {
   const [open, setOpen] = useState(false)
@@ -943,14 +957,14 @@ function EventFilterMenu({ value, options, onChange, label }) {
                 aria-selected={selected}
                 tabIndex={i === activeIndex ? 0 : -1}
                 onClick={() => choose(option)}
-                className={cn(FILTER_ITEM, selected && String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)]`)}
+                className={cn(FILTER_ITEM, selected && String.raw`bg-slate-100`)}
                 style={{ color: selected ? SLATE_800 : SLATE_600 }}
               >
                 <span className="content-stretch flex gap-[6px] items-center min-w-0 relative">
                   <FilterGlyph type={option.type} />
                   <span
                     className={cn(
-                      String.raw`[word-break:break-word] min-w-0 overflow-hidden relative text-[14px] leading-[var(--text\/sm\/lh-tight,18px)] text-ellipsis whitespace-nowrap`,
+                      String.raw`[word-break:break-word] min-w-0 overflow-hidden relative text-[14px] leading-[18px] text-ellipsis whitespace-nowrap`,
                       selected ? 'font-medium' : '',
                     )}
                   >
@@ -988,8 +1002,8 @@ function EventFilterMenu({ value, options, onChange, label }) {
  *  but a plain JS string literal eats the backslash at parse time while
  *  Tailwind's scanner still emits the escaped selector, so the rule would
  *  silently stop matching. String.raw keeps the two in sync (see header note). */
-const ROW_WRAP_FIRST = String.raw`content-stretch flex flex-col gap-[var(--spacing\/2,8px)] items-start py-[16px] relative shrink-0 w-full`
-const ROW_WRAP = String.raw`content-stretch flex flex-col gap-[var(--spacing\/2,8px)] items-start pr-[var(--spacing\/4,16px)] py-[16px] relative shrink-0 w-full`
+const ROW_WRAP_FIRST = String.raw`content-stretch flex flex-col gap-2 items-start py-[16px] relative shrink-0 w-full`
+const ROW_WRAP = String.raw`content-stretch flex flex-col gap-2 items-start pr-4 py-[16px] relative shrink-0 w-full`
 
 /** One event row.
  *  Account scope stacks the severity label under the 48px badge so the system
@@ -1018,7 +1032,7 @@ function EventRow({ ev, isLocation, rule, first, onSelect }) {
 
   const badge = (
     <span
-      className="content-stretch flex flex-col gap-[var(--component\/badge\/gap,4px)] items-center justify-center overflow-clip px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/pro\/application\/inline-hint\/rail\/radius,26px)] shrink-0 size-[48px]"
+      className="content-stretch flex flex-col gap-1 items-center justify-center overflow-clip px-2 py-0.5 relative rounded-[26px] shrink-0 size-[48px]"
       style={{ background: t.badge, color: t.glyph }}
     >
       <span className="content-stretch flex flex-col items-start relative shrink-0">
@@ -1031,11 +1045,11 @@ function EventRow({ ev, isLocation, rule, first, onSelect }) {
 
   const meta = (
     <div className="content-stretch flex gap-[13px] items-center relative shrink-0">
-      <span className="[word-break:break-word] leading-[var(--text\/xs\/lh-snug,16.5px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis whitespace-nowrap">
+      <span className="[word-break:break-word] leading-[16.5px] overflow-hidden relative shrink-0 text-[12px] text-muted-foreground text-ellipsis whitespace-nowrap">
         {formatStamp(ev.timestamp)}
       </span>
       <div className="content-stretch flex gap-[5px] items-center relative shrink-0">
-        <span className="[word-break:break-word] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis whitespace-nowrap">
+        <span className="[word-break:break-word] leading-3 overflow-hidden relative shrink-0 text-[12px] text-foreground text-ellipsis whitespace-nowrap">
           {formatDuration(ev)}
         </span>
       </div>
@@ -1072,7 +1086,7 @@ function EventRow({ ev, isLocation, rule, first, onSelect }) {
             <div className="content-stretch flex flex-col gap-[5px] items-center relative shrink-0">
               {badge}
               <span
-                className="[word-break:break-word] font-medium leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative shrink-0 text-[12px] text-ellipsis whitespace-nowrap"
+                className="[word-break:break-word] font-medium leading-4 overflow-hidden relative shrink-0 text-[12px] text-ellipsis whitespace-nowrap"
                 style={{ color: t.text }}
               >
                 {t.label}
@@ -1083,7 +1097,7 @@ function EventRow({ ev, isLocation, rule, first, onSelect }) {
           {isLocation ? (
             <div className="content-stretch flex flex-[1_0_0] flex-col gap-[4px] items-start justify-center min-w-px relative">
               <span
-                className="[word-break:break-word] font-medium leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative shrink-0 text-[12px] text-ellipsis whitespace-nowrap"
+                className="[word-break:break-word] font-medium leading-4 overflow-hidden relative shrink-0 text-[12px] text-ellipsis whitespace-nowrap"
                 style={{ color: t.text }}
               >
                 {t.label}
@@ -1095,16 +1109,16 @@ function EventRow({ ev, isLocation, rule, first, onSelect }) {
           ) : (
             <div className="content-stretch flex flex-[1_0_0] flex-col gap-[7px] items-start min-w-px relative">
               <div className="content-stretch flex items-center max-w-full min-w-0 relative shrink-0">
-                <span className="[word-break:break-word] font-semibold leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] text-ellipsis whitespace-nowrap">
+                <span className="[word-break:break-word] font-semibold leading-5 overflow-hidden relative text-foreground text-sm text-ellipsis whitespace-nowrap">
                   {ev.systemName}
                 </span>
               </div>
               <div className="content-stretch flex gap-[5px] items-center relative shrink-0 w-full">
-                <span className="[word-break:break-word] leading-[var(--text\/xs\/lh-snug,16.5px)] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/xs\/size,12px)] whitespace-nowrap">
+                <span className="[word-break:break-word] leading-[16.5px] relative shrink-0 text-muted-foreground text-xs whitespace-nowrap">
                   {ev.city}
                 </span>
                 <CellHairline />
-                <span className="[word-break:break-word] flex-[1_0_0] leading-[var(--text\/xs\/lh-snug,16.5px)] min-w-px overflow-hidden relative text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis whitespace-nowrap">
+                <span className="[word-break:break-word] flex-[1_0_0] leading-[16.5px] min-w-px overflow-hidden relative text-[12px] text-muted-foreground text-ellipsis whitespace-nowrap">
                   {ev.address}
                 </span>
               </div>

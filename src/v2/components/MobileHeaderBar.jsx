@@ -62,6 +62,20 @@
  * control still identifies who is signed in rather than going blank.
  * Note the design's avatar is one fixed portrait: it illustrates the slot, it
  * does not vary by persona the way the initials do.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronLeft } from 'lucide-react'
@@ -73,7 +87,6 @@ import avatarUrl from '@/assets/avatar.jpg'
    the escaped `\/` has to survive into the class string: in a PLAIN JS string
    `\/` collapses to `/`, which Tailwind reads as an opacity modifier, and the
    utility then silently never applies. String.raw is what keeps the bytes. */
-const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
 
 /** AccountScreenV2's rule, so one person gets one set of initials. */
 function initialsOf(name) {
@@ -102,7 +115,7 @@ export default function MobileHeaderBar({
   return (
     <div
       className={cn(
-        String.raw`content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] h-[59px] items-center justify-center py-[var(--pro\/space\/6,24px)] relative shrink-0 w-full`,
+        String.raw`content-stretch flex flex-col gap-1.5 h-[59px] items-center justify-center py-6 relative shrink-0 w-full`,
         className,
       )}
       data-node-id={nodeId}
@@ -150,12 +163,12 @@ export default function MobileHeaderBar({
             <p
               className={cn(
                 '[word-break:break-word] relative min-w-0 overflow-hidden text-ellipsis whitespace-nowrap',
-                FIG_MED,
+                'font-sans',
                 /* `leading-` goes AFTER the size. Figma emits its classes
                    alphabetically, which puts leading- first, and tailwind-merge
                    treats it as conflicting with the font-size atom and deletes
                    it. Same trap, same spelling, both screens. */
-                String.raw`font-[var(--font\/weight\/font-medium,500)] text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/base\/size,16px)] leading-[var(--text\/base\/lh,24px)]`,
+                String.raw`font-medium text-slate-800 text-base leading-6`,
               )}
               dir="auto"
               data-node-id="199383:141508"
@@ -183,7 +196,7 @@ export default function MobileHeaderBar({
           aria-label={persona?.name ? `${persona.name} — profile and More` : 'Profile and More'}
           className={cn(
             'content-stretch flex items-center justify-center overflow-clip relative shrink-0 size-[28px] cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:opacity-60',
-            String.raw`rounded-[var(--rounded-full,9999px)] bg-primary text-primary-foreground`,
+            String.raw`rounded-full bg-primary text-primary-foreground`,
           )}
           data-node-id="199383:141510"
           data-name="Avatar"
@@ -198,7 +211,7 @@ export default function MobileHeaderBar({
             src={avatarUrl}
             className={cn(
               'absolute inset-0 max-w-none object-cover pointer-events-none size-full',
-              String.raw`rounded-[var(--rounded-full,9999px)]`,
+              String.raw`rounded-full`,
             )}
           />
         </button>

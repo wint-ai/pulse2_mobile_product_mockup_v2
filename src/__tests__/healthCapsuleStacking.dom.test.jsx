@@ -156,10 +156,10 @@ describe('the four issue tiles', () => {
     )
     const view = within(container)
 
-    // The hex, not the token path: the class is spelled with a real backslash
-    // (--colors\/red\/500) and matching that through a JS regex literal is all
-    // escaping and no clarity. The fallback colour is unambiguous.
-    const RED = '#fb2c36'
+    // Phase 3 (docs/TOKENIZATION-PLAN.md) replaced the escaped Figma token
+    // class — text-[color:var(--colors\/red\/500,#fb2c36)] — with the theme
+    // utility that resolves to the same paint.
+    const RED = 'text-red-500'
     const figureIn = (name) =>
       String(view.getByRole('button', { name }).querySelector('p').className)
 

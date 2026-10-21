@@ -38,6 +38,20 @@
  *     humidity: 0. See src/data/systemType.js.
  *   - The node's primary "Add member" button. There is no add-system action in
  *     this mockup and a control that does nothing is worse than no control.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { Fragment, useMemo, useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
@@ -72,8 +86,8 @@ const DASH = '—'
    orange the water-events card already uses for a low-flow event, so the two
    surfaces agree about what "low" looks like. */
 const LEAK_TONE = {
-  high: 'bg-[rgba(229,0,11,0.1)] text-[color:var(--destructive,#e7000b)]',
-  low: 'bg-[var(--colors\\/orange\\/100,#ffedd4)] text-[color:var(--colors\\/orange\\/600,#f54a00)]',
+  high: 'bg-[rgba(229,0,11,0.1)] text-destructive',
+  low: 'bg-[var(--orange-100)] text-orange-600',
 }
 const LEAK_LABEL = { high: 'High', low: 'Low' }
 
@@ -82,10 +96,10 @@ function StatusBadge({ tone, children }) {
   return (
     <span
       className={cn(
-        'flex h-[20px] shrink-0 items-center justify-center gap-[var(--component\\/badge\\/gap,4px)]',
-        'overflow-clip px-[var(--component\\/badge\\/px,8px)] py-[var(--component\\/badge\\/py,2px)]',
-        'rounded-[var(--component\\/badge\\/radius,26px)]',
-        'text-[12px] font-medium leading-[var(--text\\/xs\\/lh,16px)] whitespace-nowrap',
+        'flex h-[20px] shrink-0 items-center justify-center gap-1',
+        'overflow-clip px-2 py-0.5',
+        'rounded-[26px]',
+        'text-[12px] font-medium leading-4 whitespace-nowrap',
         tone,
       )}
     >
@@ -98,10 +112,10 @@ function StatusBadge({ tone, children }) {
 function DetailRow({ label, children }) {
   return (
     <div className="flex items-start justify-between gap-[12px] py-[6px]">
-      <span className="shrink-0 text-[12px] leading-[var(--text\/xs\/lh,16px)] text-[color:var(--muted-foreground,#71717a)]">
+      <span className="shrink-0 text-[12px] leading-4 text-muted-foreground">
         {label}
       </span>
-      <span className="min-w-0 text-right text-[12px] leading-[var(--text\/xs\/lh,16px)] text-[color:var(--foreground,#09090b)]">
+      <span className="min-w-0 text-right text-[12px] leading-4 text-foreground">
         {children}
       </span>
     </div>
@@ -120,10 +134,10 @@ function PagerButton({ label, disabled, onClick, children }) {
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'flex size-[32px] shrink-0 items-center justify-center rounded-[var(--component\\/button\\/size-default\\/radius,8px)]',
-        'border-[length:var(--border-width\\/border,1px)] border-solid border-[var(--border,#e4e4e7)]',
-        'text-[color:var(--foreground,#09090b)] outline-none',
-        'hover:bg-[var(--colors\\/slate\\/100,#f1f5f9)]',
+        'flex size-[32px] shrink-0 items-center justify-center rounded-md',
+        'border border-solid border-border',
+        'text-foreground outline-none',
+        'hover:bg-slate-100',
         'focus-visible:ring-[3px] focus-visible:ring-ring/50',
         'disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent',
       )}
@@ -180,28 +194,28 @@ export default function SystemsTableCard({
   const rows = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
 
   return (
-    <div className={cn('flex w-full flex-col gap-[var(--spacing\\/4,16px)]', className)}>
+    <div className={cn('flex w-full flex-col gap-4', className)}>
       {/* DataTableToolbar — I176511:26285;2770:33989 */}
-      <div className="flex w-full flex-col gap-[var(--pro\/space\/5,16px)]">
-        <div className="flex w-full flex-col gap-[var(--pro\/space\/0\,5,2px)]">
+      <div className="flex w-full flex-col gap-4">
+        <div className="flex w-full flex-col gap-0.5">
           <div className="flex items-baseline gap-[8px]">
-            <h2 className="font-semibold tracking-[var(--text\/xl\/heading-tracking,-0.5px)] text-[length:var(--text\/xl\/size,20px)] leading-[var(--font\/line-height\/leading-7,28px)] text-[color:var(--foreground,#0a0a0a)]">
+            <h2 className="font-semibold tracking-[-0.5px] text-xl leading-7 text-foreground">
               {title}
             </h2>
-            <span className="flex h-[20px] min-w-[24px] items-center justify-center rounded-[var(--component\/badge\/radius,26px)] bg-[var(--colors\/slate\/100,#f1f5f9)] px-[var(--component\/badge\/px,8px)] text-[12px] font-medium leading-[var(--text\/xs\/lh,16px)] text-[color:var(--colors\/slate\/600,#45556c)]">
+            <span className="flex h-[20px] min-w-[24px] items-center justify-center rounded-[26px] bg-slate-100 px-2 text-[12px] font-medium leading-4 text-slate-600">
               {systems.length}
             </span>
           </div>
-          <p className="text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--muted-foreground,#737373)]">
+          <p className="text-sm leading-5 text-muted-foreground">
             {description}
           </p>
         </div>
 
         {/* The node's Right row. Its primary button is dropped (see the header
             docblock); the search is real and filters the rows below. */}
-        <div className="flex w-full items-center gap-[var(--component\/data-table\/toolbar\/gap,8px)]">
-          <div className="flex h-[32px] w-full items-center gap-[8px] rounded-[var(--component\/input\/radius,8px)] border-[length:var(--component\/input\/border-width,1px)] border-solid border-[var(--component\/input\/border,#e5e5e5)] bg-[var(--component\/input\/bg,white)] px-[12px]">
-            <Search01 size={16} className="shrink-0 text-[color:var(--muted-foreground,#737373)]" />
+        <div className="flex w-full items-center gap-2">
+          <div className="flex h-[32px] w-full items-center gap-[8px] rounded-md border border-solid border-neutral-200 bg-card px-[12px]">
+            <Search01 size={16} className="shrink-0 text-muted-foreground" />
             <input
               type="search"
               value={query}
@@ -212,7 +226,7 @@ export default function SystemsTableCard({
               }}
               aria-label="Search systems"
               placeholder="Search systems..."
-              className="w-full min-w-0 bg-transparent text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)] outline-none placeholder:text-[color:var(--muted-foreground,#737373)]"
+              className="w-full min-w-0 bg-transparent text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground"
             />
           </div>
 
@@ -221,11 +235,11 @@ export default function SystemsTableCard({
             type="button"
             onClick={onOpenFilters}
             aria-label={activeFilters ? `Filter by (${activeFilters} active)` : 'Filter by'}
-            className="relative flex h-[32px] shrink-0 items-center gap-[6px] rounded-[var(--component\/button\/size-default\/radius,8px)] border-[length:var(--border-width\/border,1px)] border-solid border-[var(--component\/input\/border,#e5e5e5)] bg-[var(--component\/input\/bg,white)] px-[12px] text-[length:var(--text\/sm\/size,14px)] font-medium leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#0a0a0a)] outline-none hover:bg-[var(--colors\/slate\/100,#f1f5f9)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="relative flex h-[32px] shrink-0 items-center gap-[6px] rounded-md border border-solid border-neutral-200 bg-card px-[12px] text-sm font-medium leading-5 text-foreground outline-none hover:bg-slate-100 focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             <FunnelSimple size={16} className="shrink-0" />
             {activeFilters ? (
-              <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--wint-blue-accent,#0b81f8)] px-[5px] text-[11px] font-medium leading-[14px] text-white">
+              <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-[5px] text-[11px] font-medium leading-[14px] text-white">
                 {activeFilters}
               </span>
             ) : null}
@@ -245,7 +259,7 @@ export default function SystemsTableCard({
           usage — is #fafbfc on a WHITE border at radius 18. The table is a
           widget on that screen, so it takes that palette and stops being the
           one panel wearing the library's defaults. */}
-      <div className="w-full overflow-clip rounded-[var(--rounded-2xl,18px)] border-[length:var(--border-width\/border,1px)] border-solid border-white bg-[#fafbfc]">
+      <div className="w-full overflow-clip rounded-[18px] border border-solid border-white bg-[#fafbfc]">
         <Table className="table-fixed">
           {/* The node's grid track, as real columns. */}
           <colgroup>
@@ -254,14 +268,14 @@ export default function SystemsTableCard({
             <col className="w-[56px]" />
           </colgroup>
           <TableHeader>
-            <TableRow className="border-[var(--colors\/slate\/200,#e2e8f0)] hover:bg-transparent">
-              <TableHead className="h-[40px] pl-[var(--pro\/space\/5,16px)] pr-[var(--component\/data-table\/head\/px,8px)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)]">
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="h-[40px] pl-4 pr-2 text-sm leading-5">
                 System
               </TableHead>
-              <TableHead className="h-[40px] px-[var(--component\/data-table\/head\/px,8px)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)]">
+              <TableHead className="h-[40px] px-2 text-sm leading-5">
                 Leak
               </TableHead>
-              <TableHead className="h-[40px] pl-[var(--component\/data-table\/head\/px,8px)] pr-[var(--pro\/space\/5,16px)]">
+              <TableHead className="h-[40px] pl-2 pr-4">
                 <span className="sr-only">Details</span>
               </TableHead>
             </TableRow>
@@ -272,7 +286,7 @@ export default function SystemsTableCard({
               <TableRow className="hover:bg-transparent">
                 <TableCell
                   colSpan={3}
-                  className="h-[64px] px-[var(--pro\/space\/5,16px)] text-center text-[length:var(--text\/sm\/size,14px)] whitespace-normal text-[color:var(--muted-foreground,#737373)]"
+                  className="h-[64px] px-4 text-center text-sm whitespace-normal text-muted-foreground"
                 >
                   {systems.length === 0
                     ? 'No systems at this location.'
@@ -300,21 +314,21 @@ export default function SystemsTableCard({
                         node was drawn against "Emma Roberts". A fixed height
                         forces a single line, which truncated almost every row
                         at about fifteen characters. */}
-                    <TableCell className="min-h-[40px] py-[var(--component\/data-table\/cell\/padding,8px)] pl-[var(--pro\/space\/5,16px)] pr-[var(--component\/data-table\/cell\/padding,8px)] whitespace-normal">
-                      <div className="flex min-w-0 items-center gap-[var(--pro\/space\/2,6px)]">
+                    <TableCell className="min-h-[40px] py-2 pl-4 pr-2 whitespace-normal">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         {/* The glyph IS the system type — Flow Monitoring,
                             Flood Sensor or Humidity Sensor — not a generic
                             equipment mark. Same three glyphs the health card
                             draws on its "Systems types" chips, so the two
                             surfaces cannot drift. */}
-                        <span className="flex size-[32px] shrink-0 items-center justify-center rounded-[var(--rounded-full,9999px)] bg-[var(--colors\/slate\/100,#f1f5f9)] text-[color:var(--colors\/slate\/500,#62748e)]">
+                        <span className="flex size-[32px] shrink-0 items-center justify-center rounded-full bg-slate-100 text-muted-foreground">
                           <SystemTypeIcon system={s} size={16} />
                         </span>
                         <span className="flex min-w-0 flex-1 flex-col justify-center">
-                          <span className="line-clamp-2 text-[length:var(--text\/sm\/size,14px)] font-medium leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#09090b)]">
+                          <span className="line-clamp-2 text-sm font-medium leading-5 text-foreground">
                             {s.name}
                           </span>
-                          <span className="truncate text-[12px] leading-[var(--text\/xs\/lh,16px)] tracking-[0.12px] text-[color:var(--muted-foreground,#71717a)]">
+                          <span className="truncate text-[12px] leading-4 tracking-[0.12px] text-muted-foreground">
                             {s.l4Name || s.l2Name || s.l1Name || DASH}
                           </span>
                         </span>
@@ -322,21 +336,21 @@ export default function SystemsTableCard({
                     </TableCell>
 
                     {/* col-2 — the one status that survives the 80px slot. */}
-                    <TableCell className="h-[64px] p-[var(--component\/data-table\/cell\/padding,8px)] align-middle">
+                    <TableCell className="h-[64px] p-2 align-middle">
                       {leak ? (
                         <StatusBadge tone={LEAK_TONE[leak]}>{LEAK_LABEL[leak]}</StatusBadge>
                       ) : (
-                        <span className="text-[12px] text-[color:var(--muted-foreground,#71717a)]">
+                        <span className="text-[12px] text-muted-foreground">
                           {DASH}
                         </span>
                       )}
                     </TableCell>
 
                     {/* col-3 — the disclosure. */}
-                    <TableCell className="h-[64px] min-h-[40px] py-[var(--component\/data-table\/cell\/padding,8px)] pl-[var(--component\/data-table\/cell\/padding,8px)] pr-[var(--pro\/space\/5,16px)]">
+                    <TableCell className="h-[64px] min-h-[40px] py-2 pl-2 pr-4">
                       <span
                         aria-hidden="true"
-                        className="flex size-[24px] items-center justify-center text-[color:var(--muted-foreground,#71717a)]"
+                        className="flex size-[24px] items-center justify-center text-muted-foreground"
                       >
                         <ChevronDown
                           size={16}
@@ -353,13 +367,13 @@ export default function SystemsTableCard({
                     <TableRow className="hover:bg-transparent">
                       <TableCell
                         colSpan={3}
-                        className="px-[var(--pro\/space\/5,16px)] pt-0 pb-[var(--spacing\/3,12px)] whitespace-normal"
+                        className="px-4 pt-0 pb-3 whitespace-normal"
                       >
-                        <div className="flex flex-col border-t-[length:var(--border-width\/border,1px)] border-solid border-[var(--border,#e4e4e7)] pt-[var(--spacing\/2,8px)]">
+                        <div className="flex flex-col border-t border-solid border-border pt-2">
                           <DetailRow label="Location">
                             <span className="block">{s.l4Name || DASH}</span>
                             {s.address && s.address !== s.l4Name ? (
-                              <span className="block text-[color:var(--muted-foreground,#71717a)]">
+                              <span className="block text-muted-foreground">
                                 {s.address}
                               </span>
                             ) : null}
@@ -382,7 +396,7 @@ export default function SystemsTableCard({
                                 e.stopPropagation()
                                 onOpenSystem(s)
                               }}
-                              className="mt-[var(--spacing\/2,8px)] flex h-[32px] w-full items-center justify-center rounded-[var(--component\/button\/size-default\/radius,8px)] bg-[var(--colors\/slate\/100,#f1f5f9)] text-[length:var(--text\/sm\/size,14px)] font-medium leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#09090b)] outline-none hover:bg-[var(--colors\/slate\/200,#e2e8f0)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                              className="mt-2 flex h-[32px] w-full items-center justify-center rounded-md bg-slate-100 text-sm font-medium leading-5 text-foreground outline-none hover:bg-slate-200 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             >
                               Open system page
                             </button>
@@ -400,11 +414,11 @@ export default function SystemsTableCard({
       </div>
 
       {/* DataTablePagination — I176511:26285;2770:33899 */}
-      <div className="flex h-[52px] w-full items-center justify-between pt-[var(--spacing\/4,16px)]">
-        <p className="pl-[var(--spacing\/2,8px)] text-[length:var(--text\/sm\/size,14px)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--foreground,#09090b)] whitespace-nowrap">
+      <div className="flex h-[52px] w-full items-center justify-between pt-4">
+        <p className="pl-2 text-sm leading-5 text-foreground whitespace-nowrap">
           Page {safePage + 1} of {pageCount}
         </p>
-        <div className="flex items-center gap-[var(--spacing\/2,8px)]">
+        <div className="flex items-center gap-2">
           <PagerButton label="First page" disabled={safePage === 0} onClick={() => setPage(0)}>
             <ChevronsLeft size={16} />
           </PagerButton>

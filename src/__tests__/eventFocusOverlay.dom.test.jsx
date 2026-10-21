@@ -571,7 +571,7 @@ describe('the sheet chrome', () => {
     expect(dialog.className).toContain('absolute inset-0 z-50')
     expect(dialog.className).toContain('justify-end')
     // The panel is capped so the page shows above it, with rounded top corners.
-    const panel = dialog.querySelector('.rounded-t-\\[var\\(--rounded-2xl\\,18px\\)\\]')
+    const panel = dialog.querySelector('.rounded-t-\\[18px\\]')
     expect(panel, 'no bottom-anchored panel').toBeTruthy()
     expect(panel.className).toContain('max-h-[85%]')
   })

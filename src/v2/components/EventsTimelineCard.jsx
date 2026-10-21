@@ -157,6 +157,20 @@
  *                owned as CaretDown.jsx, so that is used, and the slot's
  *                -rotate-180/-scale-x-100 (a net vertical flip, which would
  *                point the caret up) is dropped.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -233,19 +247,16 @@ function Bell12() {
  * Figtree. Same spelling as InsightsCard.jsx:198. Family only; the weight is a
  * separate atom on each node, as Figma emits it.
  */
-const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif]`
-const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif]`
-const FIG_SEMI = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:SemiBold'),'Figtree','Inter',sans-serif]`
 
 /**
  * Card root — 199383:141630 (alert) / 199359:126908 (calm). Identical in both.
  * The shadow is fully transparent because that is what the Figma effect
  * resolves to; it is kept rather than substituted with the project Card's.
  */
-const CARD_ROOT = String.raw`bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[var(--p-0,0px)] max-h-[380px] items-start overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] shadow-[var(--shadow\/x,0px)_var(--shadow\/popover\/layer-2\/y,0px)_var(--shadow\/popover\/layer-2\/blur,0px)_var(--shadow\/popover\/layer-2\/spread,0px)_var(--shadow\/popover\/layer-2\/color,rgba(0,0,0,0))] shrink-0 w-full`
+const CARD_ROOT = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-0 max-h-[380px] items-start overflow-clip p-0 relative rounded-[18px] shadow-[0px_0px_0px_0px_rgba(0,0,0,0)] shrink-0 w-full`
 
 /** CardHeader — I…;149:2490. gap-[var(--p-0,0px)] cancels the project Card's gap-1. */
-const CARD_HEADER = String.raw`content-stretch flex gap-[var(--p-0,0px)] h-[62px] items-center justify-between px-[var(--spacing\/5,20px)] py-[var(--spacing\/3,12px)] relative shrink-0 w-full`
+const CARD_HEADER = String.raw`content-stretch flex gap-0 h-[62px] items-center justify-between px-5 py-3 relative shrink-0 w-full`
 
 /**
  * Header title — I…;149:2490;2780:50631.
@@ -261,21 +272,21 @@ const CARD_HEADER = String.raw`content-stretch flex gap-[var(--p-0,0px)] h-[62px
  * order) is deleted by tailwind-merge and the title silently renders at the
  * UA's ~1.2em instead of the design's 18px.
  */
-const TITLE_FIGMA = String.raw`[word-break:break-word] ${FIG_SEMI} font-[var(--font\/weight\/font-semibold,600)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/lg\/size,18px)] leading-[var(--text\/lg\/lh-none,18px)] tracking-[-0.45px] w-full`
+const TITLE_FIGMA = String.raw`[word-break:break-word] font-sans font-semibold relative shrink-0 text-slate-800 text-lg leading-[18px] tracking-[-0.45px] w-full`
 const TITLE_TONE = {
   calm: TITLE_FIGMA,
   alert: TITLE_FIGMA,
 }
 
 /** The "All" Button — I…;149:2490;197412:209455;199383:141771. */
-const FILTER_BUTTON = String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch cursor-pointer drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))] flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-center px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0`
-const FILTER_LABEL = String.raw`[word-break:break-word] ${FIG_MED} font-medium relative shrink-0 text-[color:#171717] text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] whitespace-nowrap`
+const FILTER_BUTTON = String.raw`bg-slate-100 content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex gap-1.5 h-[36px] items-center justify-center px-3 py-0 relative rounded-[26px] shrink-0`
+const FILTER_LABEL = String.raw`[word-break:break-word] font-sans font-medium relative shrink-0 text-[color:#171717] text-sm leading-5 whitespace-nowrap`
 
 /**
  * cardContent — I…;101006:7299. See deviation 3 in the header comment for
  * flex-1 / overflow-y-auto / justify-start.
  */
-const CARD_CONTENT = String.raw`content-stretch flex flex-[1_1_0%] flex-col gap-[var(--p-0,0px)] items-end justify-start min-h-0 overflow-x-clip overflow-y-auto px-[var(--text\/title\/size,16px)] py-[var(--component\/calendar\/padding,12px)] relative w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`
+const CARD_CONTENT = String.raw`content-stretch flex flex-[1_1_0%] flex-col gap-0 items-end justify-start min-h-0 overflow-x-clip overflow-y-auto px-4 py-3 relative w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`
 
 /**
  * Status pill. `variant` is the shadcn prop the Figma Badge description maps to
@@ -292,52 +303,52 @@ const BADGE_TONE = {
   // 198352:121453 / 198601:86817. slate/100 chip with a #509fef label.
   ended: {
     variant: 'secondary',
-    className: String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] text-[#509fef]`,
+    className: String.raw`bg-slate-100 text-[#509fef]`,
   },
   // 199383:141692 — the redesign's own chip.
   warning: {
     variant: 'secondary',
-    className: String.raw`bg-[var(--colors\/red\/100,#ffe2e2)] text-[color:var(--colors\/red\/900,#82181a)]`,
+    className: String.raw`bg-red-100 text-red-900`,
   },
   // 198352:121557 — the badgeFirst pill, orange on orange.
   warningLead: {
     variant: 'secondary',
-    className: String.raw`bg-[var(--colors\/orange\/100,#ffedd4)] text-[color:var(--colors\/orange\/600,#f54900)]`,
+    className: String.raw`bg-[var(--orange-100)] text-orange-600`,
   },
   // 198352:121511 / 198511:66354.
   shutoff: {
     variant: 'secondary',
-    className: String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] text-[color:var(--colors\/red\/400,#ff6467)]`,
+    className: String.raw`bg-slate-100 text-red-400`,
   },
 }
 
 /** Avatar bubble tint per event kind. 199383:141684 (water) / 198352:121532 (network). */
 const KIND_TONE = {
-  water: String.raw`bg-[var(--colors\/red\/100,#ffe2e2)]`,
-  network: String.raw`bg-[var(--colors\/blue\/100,#dbeafe)]`,
+  water: String.raw`bg-red-100`,
+  network: String.raw`bg-blue-100`,
 }
 
-const BADGE_BASE = String.raw`border-transparent content-stretch flex gap-[var(--component\/badge\/gap,4px)] h-[24px] items-center justify-center overflow-clip px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0`
+const BADGE_BASE = String.raw`border-transparent content-stretch flex gap-1 h-[24px] items-center justify-center overflow-clip px-2 py-0.5 relative rounded-[26px] shrink-0`
 /* ORDER MATTERS. This string is fed to cn(), and tailwind-merge treats a
    `leading-*` atom as conflicting with a font-size atom (Tailwind's
    `text-sm/6` shorthand sets both) — so a `leading-` placed BEFORE
    `text-[12px]` is silently deleted and the badge loses its line-height.
    Figma emits its classes alphabetically, which puts `leading-` first, so a
    verbatim copy has this bug. Same class set, line-height last. */
-const BADGE_LABEL = String.raw`[word-break:break-word] ${FIG_MED} font-[var(--font\/weight\/font-medium,500)] overflow-hidden relative shrink-0 text-[12px] text-ellipsis whitespace-nowrap leading-[var(--text\/xs\/lh,16px)]`
+const BADGE_LABEL = String.raw`[word-break:break-word] font-sans font-medium overflow-hidden relative shrink-0 text-[12px] text-ellipsis whitespace-nowrap leading-4`
 
 /** Avatar column — I…;101006:7299;199383:141683. */
-const AVATAR_COL = String.raw`content-stretch flex flex-col gap-[var(--pro\/space\/1,4px)] items-center relative shrink-0`
+const AVATAR_COL = String.raw`content-stretch flex flex-col gap-1 items-center relative shrink-0`
 /** Text column — I…;101006:7299;199383:141687. */
 const TEXT_COL = String.raw`content-stretch flex flex-[1_0_0] flex-col gap-[23px] items-start min-w-px relative`
 /** "Text" block — I…;101006:7299;199383:141688. */
-const TEXT_BLOCK = String.raw`content-stretch flex flex-col gap-[var(--pro\/space\/1\,5,6px)] items-start relative shrink-0 w-full`
+const TEXT_BLOCK = String.raw`content-stretch flex flex-col gap-1.5 items-start relative shrink-0 w-full`
 /** Footer "Unit wrapper" — I…;101006:7299;199383:141706. */
-const UNIT_WRAPPER = String.raw`content-stretch flex gap-[var(--spacing\/0\,5,2px)] items-center justify-between relative shrink-0 w-full`
+const UNIT_WRAPPER = String.raw`content-stretch flex gap-0.5 items-center justify-between relative shrink-0 w-full`
 
 /** Filter menu. No node in the comp — see the `All` note on the component. */
-const MENU_SHELL = String.raw`absolute right-0 top-[calc(100%+6px)] z-20 bg-white border border-solid border-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex flex-col items-stretch min-w-[132px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
-const MENU_ITEM = String.raw`cursor-pointer flex gap-[8px] h-[32px] items-center justify-between px-[8px] rounded-[8px] text-[color:#171717] text-[length:var(--text\/sm-tight\/size,14px)] text-left w-full hover:bg-[var(--colors\/slate\/100,#f1f5f9)]`
+const MENU_SHELL = String.raw`absolute right-0 top-[calc(100%+6px)] z-20 bg-white border border-solid border-border content-stretch flex flex-col items-stretch min-w-[132px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
+const MENU_ITEM = String.raw`cursor-pointer flex gap-[8px] h-[32px] items-center justify-between px-[8px] rounded-[8px] text-[color:#171717] text-sm text-left w-full hover:bg-slate-100`
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 // Verbatim from the two nodes: three identical rows, each "High Flow Anomaly" /
@@ -440,7 +451,7 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
   const title = (
     /* Figma has `shrink-0 whitespace-nowrap` here; see deviation 4. */
     <p
-      className={String.raw`[word-break:break-word] ${FIG_SEMI} font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/sm\/lh,20px)] min-w-0 overflow-hidden relative text-[color:#0a0a0a] text-[length:var(--text\/sm\/size,14px)] text-ellipsis whitespace-nowrap`}
+      className={String.raw`[word-break:break-word] font-sans font-semibold leading-5 min-w-0 overflow-hidden relative text-[color:#0a0a0a] text-sm text-ellipsis whitespace-nowrap`}
       data-node-id="I199383:141630;101006:7299;199383:141691"
     >
       {event.title}
@@ -533,8 +544,8 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
                   className={cn(
                     'ml-auto content-stretch flex items-center justify-center relative rounded-[6px] shrink-0 size-[24px] cursor-pointer',
                     isOpen
-                      ? String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)]`
-                      : String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)]`,
+                      ? String.raw`bg-slate-200`
+                      : String.raw`bg-slate-100`,
                   )}
                 >
                   {isOpen ? <ChevronUp12 className="text-slate-500" /> : <ChevronDown12 className="text-slate-500" />}
@@ -545,19 +556,19 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
             {/* Metrics — I…;199383:141693. See deviation 5 for flex-wrap. */}
             {event.metrics?.length ? (
               <div
-                className={String.raw`[word-break:break-word] content-stretch flex flex-wrap ${FIG_REG} font-[var(--font\/weight\/font-normal,400)] gap-x-[13px] gap-y-[6px] items-start relative shrink-0 whitespace-nowrap`}
+                className={String.raw`[word-break:break-word] content-stretch flex flex-wrap font-sans font-normal gap-x-[13px] gap-y-[6px] items-start relative shrink-0 whitespace-nowrap`}
                 data-node-id="I199383:141630;101006:7299;199383:141693"
               >
                 {event.metrics.map(m => (
                   <div key={m.label} className="content-stretch flex gap-[5px] items-center relative shrink-0" data-node-id="I199383:141630;101006:7299;199383:141694">
                     <div
-                      className="flex flex-col justify-center leading-[0] overflow-hidden relative shrink-0 text-[color:#737373] text-[length:var(--text\/xs\/size,12px)] text-ellipsis"
+                      className="flex flex-col justify-center leading-[0] overflow-hidden relative shrink-0 text-[color:#737373] text-xs text-ellipsis"
                       data-node-id="I199383:141630;101006:7299;199383:141695"
                     >
-                      <p className="leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden text-[12px] text-ellipsis">{m.label}</p>
+                      <p className="leading-3 overflow-hidden text-[12px] text-ellipsis">{m.label}</p>
                     </div>
                     <p
-                      className="leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis"
+                      className="leading-3 overflow-hidden relative shrink-0 text-[12px] text-foreground text-ellipsis"
                       data-node-id="I199383:141630;101006:7299;199383:141696"
                     >
                       {m.value}
@@ -570,7 +581,7 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
             {/* Cause line — I…;199383:141703. */}
             {event.description ? (
               <p
-                className={String.raw`[word-break:break-word] ${FIG_REG} font-[var(--font\/weight\/font-normal,400)] leading-[var(--font\/line-height\/leading-5,20px)] min-w-full relative shrink-0 text-[color:var(--colors\/gray\/700,#364153)] text-[length:var(--font\/size\/text-sm,14px)] tracking-[var(--font\/tracking\/tracking-normal,0px)] w-[min-content]`}
+                className={String.raw`[word-break:break-word] font-sans font-normal leading-5 min-w-full relative shrink-0 text-gray-700 text-sm tracking-normal w-[min-content]`}
                 data-node-id="I199383:141630;101006:7299;199383:141703"
               >
                 {event.description}
@@ -583,9 +594,9 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
                 behaviour predate the redesign and removing it would drop
                 working functionality. */}
             {isOpen && canExpand ? (
-              <div className="content-stretch flex flex-col items-start pt-[17px] relative shrink-0 text-[length:var(--text\/xs\/size,12px)] text-black font-[var(--font\/weight\/font-normal,400)]">
+              <div className="content-stretch flex flex-col items-start pt-[17px] relative shrink-0 text-xs text-black font-normal">
                 {event.steps.map(step => (
-                  <p key={step} className="leading-[var(--text\/xs\/lh-relaxed,19.5px)] whitespace-nowrap">
+                  <p key={step} className="leading-[19.5px] whitespace-nowrap">
                     {step}
                   </p>
                 ))}
@@ -602,10 +613,10 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
           <div className="content-stretch flex flex-col items-end relative shrink-0 w-full" data-node-id="I199383:141630;101006:7299;199383:141705">
             <div className={UNIT_WRAPPER} data-node-id="I199383:141630;101006:7299;199383:141706" data-name="Unit wrapper">
               <div
-                className={String.raw`[word-break:break-word] flex flex-col ${FIG_REG} font-[var(--font\/weight\/font-normal,400)] justify-center leading-[0] min-w-px overflow-hidden relative shrink text-[color:#737373] text-[length:var(--text\/xs\/size,12px)] text-ellipsis whitespace-nowrap`}
+                className={String.raw`[word-break:break-word] flex flex-col font-sans font-normal justify-center leading-[0] min-w-px overflow-hidden relative shrink text-[color:#737373] text-xs text-ellipsis whitespace-nowrap`}
                 data-node-id="I199383:141630;101006:7299;199383:141707"
               >
-                <p className="leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden text-[12px] text-ellipsis">{event.timestamp}</p>
+                <p className="leading-3 overflow-hidden text-[12px] text-ellipsis">{event.timestamp}</p>
               </div>
 
               {event.tag ? (
@@ -615,10 +626,10 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
                    button, so it does not advertise a tap it cannot honour. */
                 <Badge
                   variant="secondary"
-                  className={cn(BADGE_BASE, String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)]`)}
+                  className={cn(BADGE_BASE, String.raw`bg-slate-100`)}
                   aria-disabled="true"
                 >
-                  <span className={cn(BADGE_LABEL, String.raw`text-[color:var(--colors\/slate\/700,#314158)]`)}>{event.tag}</span>
+                  <span className={cn(BADGE_LABEL, String.raw`text-slate-700`)}>{event.tag}</span>
                   <PlusSign12 />
                 </Badge>
               ) : null}
@@ -627,12 +638,12 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
                 /* Same call as the Tag chip: no notification-list node in the
                    design, so this states the count and is inert by decision. */
                 <div
-                  className="bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch flex gap-[6px] h-[16px] items-center justify-center px-[3px] relative rounded-[6px] shrink-0"
+                  className="bg-slate-100 content-stretch flex gap-[6px] h-[16px] items-center justify-center px-[3px] relative rounded-[6px] shrink-0"
                   aria-disabled="true"
                 >
                   <div className="content-stretch flex gap-[3px] items-center relative shrink-0">
                     <Bell12 />
-                    <span className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden min-w-px text-[12px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis whitespace-nowrap">
+                    <span className="[word-break:break-word] font-normal leading-3 overflow-hidden min-w-px text-[12px] text-foreground text-ellipsis whitespace-nowrap">
                       {sent} sent
                     </span>
                   </div>
@@ -770,7 +781,7 @@ export default function EventsTimelineCard({
       {/* CardHeader — I…;149:2490 */}
       <CardHeader className={CARD_HEADER} data-node-id="I199383:141630;149:2490" data-name="CardHeader">
         <div className="flex-[1_0_0] min-w-px relative" data-node-id="I199383:141630;149:2490;6752:3668" data-name="Title and desc">
-          <div className="bg-clip-padding border-0 border-[transparent] border-solid content-stretch flex flex-col gap-[var(--component\/card\/header\/gap,8px)] items-start py-[var(--spacing\/1\,5,6px)] relative size-full">
+          <div className="bg-clip-padding border-0 border-[transparent] border-solid content-stretch flex flex-col gap-2 items-start py-1.5 relative size-full">
             <CardTitle className={TITLE_TONE[tone] ?? TITLE_TONE.calm} data-node-id="I199383:141630;149:2490;2780:50631">
               Events Timeline
             </CardTitle>
@@ -783,13 +794,13 @@ export default function EventsTimelineCard({
                 overlapping the title, which the fixed frame never had to care
                 about. items-end keeps the right edges flush either way. */}
             <div
-              className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-end justify-center min-w-fit relative shrink-0 w-[57px]"
+              className="content-stretch flex flex-col gap-0 items-end justify-center min-w-fit relative shrink-0 w-[57px]"
               data-node-id="I199383:141630;149:2490;197412:209455"
               data-name="CardAction2"
             >
               <div
                 ref={filterRef}
-                className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-end justify-center relative shrink-0"
+                className="content-stretch flex flex-col gap-0 items-end justify-center relative shrink-0"
                 data-node-id="I199383:141630;149:2490;197412:209455;199383:141770"
                 data-name="CardAction2"
               >
@@ -828,7 +839,7 @@ export default function EventsTimelineCard({
                         role="option"
                         aria-selected={option === activePeriod}
                         onClick={() => selectPeriod(option)}
-                        className={cn(MENU_ITEM, option === activePeriod && String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] font-medium`)}
+                        className={cn(MENU_ITEM, option === activePeriod && String.raw`bg-slate-100 font-medium`)}
                       >
                         <span className="whitespace-nowrap">{option}</span>
                         <span className="text-[color:#737373] text-[12px]">
@@ -851,10 +862,10 @@ export default function EventsTimelineCard({
              minimum honest statement, set in the card's own muted xs type.
              m-auto is where cardContent's justify-center actually reads. */
           <div className="flex flex-col gap-[4px] items-center justify-center m-auto py-[32px] relative text-center w-full">
-            <p className="font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/sm\/size,14px)]">
+            <p className="font-medium leading-5 text-foreground text-sm">
               {events.length === 0 ? 'No events yet' : `No ${activePeriod.toLowerCase()} events`}
             </p>
-            <p className="leading-[var(--text\/xs\/lh,16px)] text-[color:#737373] text-[length:var(--text\/xs\/size,12px)]">
+            <p className="leading-4 text-[color:#737373] text-xs">
               {events.length === 0
                 ? 'Nothing has happened on this system in the selected period.'
                 : 'Nothing on this system matches the current filter.'}

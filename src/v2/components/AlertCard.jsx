@@ -17,24 +17,36 @@
  * value/unit pair and the "Detected · … · …" meta row. The other five variants
  * are untouched and still answer to the nodes above.
  *
- * Figma's own class strings are kept VERBATIM. Every var() it emits carries its
- * literal design fallback (text-[color:var(--colors\/slate\/600,#45556c)]), and
- * none of those token names exist in src/index.css, so the fallback is what
- * renders — the exact design value, with no token wiring. Do not "translate"
- * them into project utilities; that is what broke the previous pass.
+ * TOKENS — SUPERSEDED 2026-10-21 by Phase 3 of docs/TOKENIZATION-PLAN.md.
  *
- * Two mechanical consequences of keeping them verbatim:
+ * This header used to say Figma's class strings were kept VERBATIM, because
+ * none of the token names it emits existed in src/index.css and the inline
+ * fallback was therefore the only thing painting. Phase 1 defined the tokens;
+ * Phase 3 rewrote these call sites onto project utilities and DELETED every
+ * fallback. `text-[color:var(--colors\/slate\/600,#45556c)]` is now
+ * `text-slate-600`; `rounded-[var(--rounded-2xl,18px)]` is `rounded-[18px]`.
  *
- *  1. The `\/` has to survive to the DOM. JSX attribute strings are raw — no
- *     escape processing — so className="…\/…" is safe. A *JS* string literal is
- *     not: "\/" collapses to "/", while the Tailwind rule is generated from the
- *     raw source text (which still has the backslash), and the two stop
- *     matching. Every shared class string below is therefore String.raw``.
+ * The point of deleting the fallback is that a missing token must now fail
+ * LOUDLY. A two-argument var() is a second, invisible source of truth that
+ * wins whenever the token is missing, with no warning and no visual tell —
+ * which is how 1,500 call sites looked tokenised while being hardcoded.
+ * Do not reintroduce one when re-importing from Figma: resolve the fallback
+ * hex to the utility that paints it.
+ *
+ * Two mechanical notes that still apply:
+ *
+ *  1. If an escaped Figma name ever does come back, the `\/` has to survive to
+ *     the DOM. JSX attribute strings are raw — no escape processing — so
+ *     className="…\/…" is safe. A *JS* string literal is not: "\/" collapses
+ *     to "/" while the Tailwind rule is generated from the raw source text,
+ *     and the two stop matching. The String.raw`` tags below are the guard;
+ *     most no longer carry a backslash and are kept for that reason alone.
  *  2. Figma emits font-[family-name:var(--font\/family\/sans,'Figtree:Medium')].
  *     "Figtree:Medium" is a family+style label, not a CSS family: it matches
- *     nothing and the text drops to the UA default font. That one class is
- *     swapped for the project's `font-sans` (Figtree) / `font-mono-label`
- *     (Geist). Weight still comes from Figma's own font-[var(--font\/weight…)].
+ *     nothing and the text drops to the next entry in the stack. Every one of
+ *     those is now `font-sans` (which compiles to var(--font-sans)), with
+ *     `font-mono-label` for the Geist slots that really are Geist. Weight is
+ *     its own atom — font-medium / font-semibold / font-normal.
  *
  * Assets are inlined — Figma asset URLs expire in ~7 days, so nothing here may
  * reference one at runtime.
@@ -147,27 +159,27 @@ const EMPTY_ART = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAATsAAADsCAYAAAA
  * which is raw already. */
 
 /** Two fully-transparent drop shadows Figma stamps on every Button instance. */
-const CTRL_SHADOW = String.raw`drop-shadow-[var(--shadow\/x,0px)_var(--shadows\/scale\/none\/y,0px)_calc(var(--shadows\/scale\/none\/blur,0px)/2)_var(--shadows\/color\/transparent,rgba(0,0,0,0)),var(--shadow\/x,0px)_var(--shadow\/control\/layer-1\/y,0px)_calc(var(--shadow\/control\/layer-1\/blur,0px)/2)_var(--shadow\/control\/layer-1\/color,rgba(0,0,0,0))]`
+const CTRL_SHADOW = String.raw`drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent]`
 
-const PAGER_BTN = String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch cursor-pointer flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--pro\/space\/1,4px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0`
-const PAGER_LABEL = String.raw`[word-break:break-word] font-sans font-medium leading-[0] relative shrink-0 text-[color:var(--secondary-foreground,#171717)] text-[length:var(--text\/button-xs\/size,12px)] whitespace-nowrap`
-const PAGER_SPAN = String.raw`leading-[var(--text\/button-xs\/size,12px)]`
+const PAGER_BTN = String.raw`bg-slate-100 content-stretch cursor-pointer flex gap-1 h-[24px] items-center justify-center px-1 py-0 relative rounded-[26px] shrink-0`
+const PAGER_LABEL = String.raw`[word-break:break-word] font-sans font-medium leading-[0] relative shrink-0 text-secondary-foreground text-xs whitespace-nowrap`
+const PAGER_SPAN = String.raw`leading-3`
 const ICON_SLOT = 'content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]'
 
-const BTN_BLUE = String.raw`bg-[#f2f6ff] border border-[var(--wint-blue-accent,#0b81f8)] border-solid content-stretch cursor-pointer flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0`
-const BTN_BLUE_LABEL = String.raw`[word-break:break-word] font-sans font-medium leading-[var(--text\/button-xs\/size,12px)] relative shrink-0 text-[color:var(--wint-blue-accent,#0b81f8)] text-[length:var(--text\/button-xs\/size,12px)] whitespace-nowrap`
+const BTN_BLUE = String.raw`bg-[#f2f6ff] border border-primary border-solid content-stretch cursor-pointer flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0`
+const BTN_BLUE_LABEL = String.raw`[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-primary text-xs whitespace-nowrap`
 
 const META_ROW = String.raw`[word-break:break-word] content-stretch flex gap-[7px] items-center relative shrink-0 text-[12px] whitespace-nowrap`
-const META_LABEL = String.raw`font-sans font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-snug,16.5px)] overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis`
-const META_TIME = String.raw`font-sans font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis`
-const META_DURATION = String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis`
+const META_LABEL = String.raw`font-sans font-normal leading-[16.5px] overflow-hidden relative shrink-0 text-muted-foreground text-ellipsis`
+const META_TIME = String.raw`font-sans font-normal leading-3 overflow-hidden relative shrink-0 text-foreground text-ellipsis`
+const META_DURATION = String.raw`font-sans font-semibold leading-3 overflow-hidden relative shrink-0 text-foreground text-ellipsis`
 
-const AVATAR_ALERT = String.raw`bg-[var(--colors\/red\/100,#ffe2e2)] content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[42px]`
+const AVATAR_ALERT = String.raw`bg-red-100 content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[42px]`
 /* 199394:79694 — the redrawn mobile card scales the same disc up to 61px
    around a 37px glyph. Kept beside the 42px one rather than replacing it:
    `water-event` and `ignored` still draw the smaller disc. */
-const AVATAR_ALERT_LG = String.raw`bg-[var(--colors\/red\/100,#ffe2e2)] content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[61px]`
-const AVATAR_MUTED = String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[42px]`
+const AVATAR_ALERT_LG = String.raw`bg-red-100 content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[61px]`
+const AVATAR_MUTED = String.raw`bg-slate-200 content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[42px]`
 /* src/v2/icons/Waves is the same Phosphor glyph, exported into a 21-unit box at
    stroke 1.08063; the alert-card export is a 19.111-unit box at stroke 1.58861.
    The paths are proportionally identical, so the project glyph is reused and
@@ -175,28 +187,28 @@ const AVATAR_MUTED = String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)] content-s
    CSS, which outranks the per-path stroke-width attribute. */
 const WAVES_WEIGHT = '[&_path]:[stroke-width:1.74563]'
 
-const TITLE = String.raw`[word-break:break-word] font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/base\/lh,24px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/base\/size,16px)] whitespace-nowrap`
-const TITLE_MUTED = String.raw`[word-break:break-word] font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/base\/lh,24px)] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/base\/size,16px)] whitespace-nowrap`
-const UNIT_WRAP = String.raw`[word-break:break-word] content-stretch flex font-sans font-[var(--font\/weight\/font-normal,400)] gap-[var(--spacing\/0\,5,2px)] items-center leading-[var(--text\/xs\/lh-none,12px)] relative shrink-0 text-[12px] whitespace-nowrap`
-const UNIT_VALUE = String.raw`overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis`
-const UNIT_VALUE_MUTED = String.raw`overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/700,#314158)] text-ellipsis`
+const TITLE = String.raw`[word-break:break-word] font-sans font-medium leading-6 relative shrink-0 text-foreground text-base whitespace-nowrap`
+const TITLE_MUTED = String.raw`[word-break:break-word] font-sans font-medium leading-6 relative shrink-0 text-muted-foreground text-base whitespace-nowrap`
+const UNIT_WRAP = String.raw`[word-break:break-word] content-stretch flex font-sans font-normal gap-0.5 items-center leading-3 relative shrink-0 text-[12px] whitespace-nowrap`
+const UNIT_VALUE = String.raw`overflow-hidden relative shrink-0 text-foreground text-ellipsis`
+const UNIT_VALUE_MUTED = String.raw`overflow-hidden relative shrink-0 text-slate-700 text-ellipsis`
 const UNIT_LABEL = 'overflow-hidden relative shrink-0 text-[#62748e] text-ellipsis'
 
-const COUNT_CHIP = String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex flex-col items-center justify-center relative rounded-[6px] shrink-0 size-[18px]`
+const COUNT_CHIP = String.raw`bg-slate-200 content-stretch flex flex-col items-center justify-center relative rounded-[6px] shrink-0 size-[18px]`
 /* Sensors_Errors' Flood chip alone is drawn 19x18 rather than square
    (198428:97389). Its Humidity sibling (198458:45200) and both Sensors chips
    (198437:81938, 198453:37206) are still size-[18px], so this is one node, not
    a rule. Reproduced as drawn — a lone 1px nudge among three square siblings
    reads more like an authoring slip than a decision, so it is worth a question
    to the designer rather than being normalised away here. */
-const COUNT_CHIP_WIDE = String.raw`bg-[var(--colors\/slate\/200,#e2e8f0)] content-stretch flex flex-col h-[18px] items-center justify-center relative rounded-[6px] shrink-0 w-[19px]`
-const COUNT_TEXT = String.raw`[word-break:break-word] font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh,24px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/base\/size,16px)] text-center w-full`
-const GROUP_LABEL = String.raw`[word-break:break-word] flex flex-col font-sans font-[var(--font\/weight\/font-medium,500)] justify-center leading-[0] relative shrink-0 text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/base\/size,16px)] whitespace-nowrap`
-const DOTS_BADGE = String.raw`content-stretch cursor-pointer flex gap-[var(--component\/badge\/gap,4px)] h-[20px] items-center justify-center overflow-clip px-[var(--component\/tabs\/trigger\/gap,6px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0 w-[14px]`
+const COUNT_CHIP_WIDE = String.raw`bg-slate-200 content-stretch flex flex-col h-[18px] items-center justify-center relative rounded-[6px] shrink-0 w-[19px]`
+const COUNT_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-6 relative shrink-0 text-foreground text-base text-center w-full`
+const GROUP_LABEL = String.raw`[word-break:break-word] flex flex-col font-sans font-medium justify-center leading-[0] relative shrink-0 text-slate-600 text-base whitespace-nowrap`
+const DOTS_BADGE = String.raw`content-stretch cursor-pointer flex gap-1 h-[20px] items-center justify-center overflow-clip px-1.5 py-0.5 relative rounded-[26px] shrink-0 w-[14px]`
 
 const STAT_BADGE = 'content-stretch flex gap-[4.8px] h-[24px] items-center justify-center overflow-clip px-[7.2px] py-[2.4px] relative rounded-[31.2px] shrink-0'
-const STAT_VALUE_ALERT = String.raw`[word-break:break-word] font-mono-label font-medium leading-[23.04px] overflow-hidden relative shrink-0 text-[17.28px] text-[color:var(--colors\/red\/500,#fb2c36)] text-ellipsis whitespace-nowrap`
-const STAT_VALUE_OK = String.raw`[word-break:break-word] font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,19.2px)] overflow-hidden relative shrink-0 text-[14.4px] text-[color:var(--foreground,#0a0a0a)] text-ellipsis whitespace-nowrap`
+const STAT_VALUE_ALERT = String.raw`[word-break:break-word] font-mono-label font-medium leading-[23.04px] overflow-hidden relative shrink-0 text-[17.28px] text-red-500 text-ellipsis whitespace-nowrap`
+const STAT_VALUE_OK = String.raw`[word-break:break-word] font-sans font-medium leading-[19.2px] overflow-hidden relative shrink-0 text-[14.4px] text-foreground text-ellipsis whitespace-nowrap`
 /* The 17.28px wifi slot: Figma nests the leaf twice — an inset box, then a
    negative inset that re-adds the stroke bleed. Both are kept verbatim so the
    glyph lands where it was drawn. */
@@ -204,10 +216,10 @@ const WIFI_SLOT = 'overflow-clip relative shrink-0 size-[17.28px]'
 const WIFI_INNER = 'absolute inset-[16.67%_8.33%_16.67%_8.34%]'
 const WIFI_LEAF = 'absolute inset-[-7.12%_-5.7%]'
 
-const SENSORS_TOTAL = String.raw`[word-break:break-word] font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh,24px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/base\/size,16px)] whitespace-nowrap`
+const SENSORS_TOTAL = String.raw`[word-break:break-word] font-sans font-semibold leading-6 relative shrink-0 text-foreground text-base whitespace-nowrap`
 
 /** Card shells. No `\/` in these, so plain strings are safe. */
-const SHELL = 'bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col h-[136px] items-start justify-center px-[18px] py-[12px] relative rounded-[var(--rounded-2xl,18px)] w-[308px]'
+const SHELL = 'bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col h-[136px] items-start justify-center px-[18px] py-[12px] relative rounded-[18px] w-[308px]'
 const SHELL_WATER_EVENT = `${SHELL} max-w-[440px]`
 /* w-full, not Figma's w-[308px]. 308 is the card's width inside a 375pt
    frame's carousel; on the System page it sits in a column of w-full cards and
@@ -224,7 +236,7 @@ const SHELL_WATER_EVENT = `${SHELL} max-w-[440px]`
    -> gap-[12px], px-[18px] py-[12px] -> a uniform p-[18px], and no height at
    all — the frame hugs its content now. min-h-[178px] went with it: the node
    sets none, and the three unit chips below already carry the card past 178. */
-const SHELL_MOBILE = String.raw`bg-[#fafbfc] border border-[var(--colors\/red\/500,#fb2c36)] border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full`
+const SHELL_MOBILE = String.raw`bg-[#fafbfc] border border-red-500 border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[18px] shrink-0 w-full`
 const INNER_COLUMN = 'content-stretch flex flex-[1_0_0] flex-col items-start justify-between min-h-px relative w-full'
 
 /* Gradient stacks on the sensor stat badges. Each badge carries its own angle in
@@ -243,15 +255,15 @@ const BADGE_SHEEN = (deg) =>
 const CHIP_SHEEN = (deg) =>
   `linear-gradient(${deg}deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)`
 
-const CHIP = String.raw`content-stretch flex gap-[var(--spacing\/1\,5,6px)] items-center justify-center px-[8px] py-[4px] relative rounded-[12px] shrink-0`
-const CHIP_LABEL = String.raw`font-sans font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative shrink-0 text-[#62748e] text-ellipsis`
+const CHIP = String.raw`content-stretch flex gap-1.5 items-center justify-center px-[8px] py-[4px] relative rounded-[12px] shrink-0`
+const CHIP_LABEL = String.raw`font-sans font-medium leading-5 overflow-hidden relative shrink-0 text-[#62748e] text-ellipsis`
 /* The first two chips size their own label at 14px; the "Detected" chip sets
    text-[14px] on the wrapper instead and lets both halves inherit it, so its
    value reads 14px/22.75px where the other two read 16px/26px. */
 const CHIP_LABEL_14 = `${CHIP_LABEL} text-[14px]`
-const CHIP_VALUE_SLATE = String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative shrink-0 text-[16px] text-[color:var(--colors\/slate\/700,#314158)] text-ellipsis`
-const CHIP_VALUE_ALERT = String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative shrink-0 text-[16px] text-[color:var(--colors\/red\/600,#e7000b)] text-ellipsis`
-const CHIP_VALUE_SM = String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/sm\/lh-relaxed,22.75px)] overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/700,#314158)] text-ellipsis`
+const CHIP_VALUE_SLATE = String.raw`font-sans font-semibold leading-[26px] overflow-hidden relative shrink-0 text-[16px] text-slate-700 text-ellipsis`
+const CHIP_VALUE_ALERT = String.raw`font-sans font-semibold leading-[26px] overflow-hidden relative shrink-0 text-[16px] text-red-600 text-ellipsis`
+const CHIP_VALUE_SM = String.raw`font-sans font-semibold leading-[22.75px] overflow-hidden relative shrink-0 text-slate-700 text-ellipsis`
 
 /* ── Mock data ─────────────────────────────────────────────────────────────
  * MOCK ONLY. Every string here is the literal copy on the Figma nodes, so an
@@ -390,10 +402,10 @@ function SensorGroupHeader({ group, onMore, chipClass = COUNT_CHIP }) {
           <p className={COUNT_TEXT} dir="auto">{group.count}</p>
         </div>
         <div className={GROUP_LABEL}>
-          <p className="leading-[var(--text\/base\/lh,24px)]">{group.label}</p>
+          <p className="leading-6">{group.label}</p>
         </div>
       </div>
-      <div className="content-stretch flex gap-[var(--spacing\/2,8px)] items-center relative rounded-bl-[8px] rounded-br-[8px] rounded-tl-[8px] shrink-0">
+      <div className="content-stretch flex gap-2 items-center relative rounded-bl-[8px] rounded-br-[8px] rounded-tl-[8px] shrink-0">
         <button
           type="button"
           onClick={onMore}
@@ -474,25 +486,25 @@ export default function AlertCard({
 
   if (variant === 'empty') {
     return shell(SHELL, (
-      <div className="content-stretch flex flex-[1_0_0] gap-[var(--pro\/space\/4,16px)] items-center min-h-px relative w-full">
+      <div className="content-stretch flex flex-[1_0_0] gap-4 items-center min-h-px relative w-full">
         <div className="h-[60px] relative shrink-0 w-[117px]">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <img alt="" src={EMPTY_ART} className="absolute h-[145.95%] left-0 max-w-none top-[-22.97%] w-full" />
           </div>
         </div>
-        <div className="[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col gap-[var(--pro\/space\/2,8px)] items-start justify-center min-w-px relative">
+        <div className="[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col gap-2 items-start justify-center min-w-px relative">
           <div className="content-stretch flex flex-col gap-[4px] items-start leading-[0] relative shrink-0 w-full">
-            <div className="flex flex-col font-sans font-[var(--font\/weight\/font-semibold,600)] justify-center relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/base\/size,16px)] w-full">
-              <p className="leading-[var(--text\/base\/lh,24px)]">{data.empty.title}</p>
+            <div className="flex flex-col font-sans font-semibold justify-center relative shrink-0 text-foreground text-base w-full">
+              <p className="leading-6">{data.empty.title}</p>
             </div>
-            <div className="flex flex-col font-sans font-[var(--font\/weight\/font-normal,400)] justify-center relative shrink-0 text-[color:var(--muted-foreground,#737373)] text-[length:var(--text\/sm\/size,14px)] w-full">
-              <p className="leading-[var(--text\/sm\/lh,20px)]" dir="auto">{data.empty.body}</p>
+            <div className="flex flex-col font-sans font-normal justify-center relative shrink-0 text-muted-foreground text-sm w-full">
+              <p className="leading-5" dir="auto">{data.empty.body}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={act('show-past-events')}
-            className="cursor-pointer font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh-tight,15px)] overflow-hidden relative shrink-0 text-[12px] text-[color:var(--wint-blue-accent,#0b81f8)] text-center text-ellipsis whitespace-nowrap"
+            className="cursor-pointer font-sans font-medium leading-[15px] overflow-hidden relative shrink-0 text-[12px] text-primary text-center text-ellipsis whitespace-nowrap"
           >
             {data.empty.link}
           </button>
@@ -532,7 +544,7 @@ export default function AlertCard({
                 variant="secondary"
                 onClick={act('paginate')}
                 aria-label={`Alert ${data.page} of ${data.pageCount}. Show next`}
-                className={String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch cursor-pointer flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0 ${CTRL_SHADOW}`}
+                className={String.raw`bg-slate-100 content-stretch cursor-pointer flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`}
               >
                 <p className={PAGER_LABEL}>
                   <span className={`${PAGER_SPAN} text-[#62748e]`}>{data.page} /</span>
@@ -551,9 +563,9 @@ export default function AlertCard({
                 /* 199394:79691 — back to red/500. The node this card was last
                    traced from (199383:142434) darkened the fill one step to
                    red/600; the redraw does not. */
-                className={String.raw`bg-[var(--colors\/red\/500,#fb2c36)] content-stretch flex gap-[var(--spacing\/1,4px)] h-[24px] items-center justify-center px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] shrink-0 ${CTRL_SHADOW}`}
+                className={String.raw`bg-red-500 content-stretch flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`}
               >
-                <span className="[word-break:break-word] font-sans font-medium leading-[var(--text\/button-xs\/size,12px)] relative shrink-0 text-[#fafbfc] text-[length:var(--text\/button-xs\/size,12px)] whitespace-nowrap">
+                <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-[#fafbfc] text-xs whitespace-nowrap">
                   {data.status}
                 </span>
               </Badge>
@@ -590,7 +602,7 @@ export default function AlertCard({
                       gives the title a fixed measure and lets it wrap, which is
                       what keeps a long event name from pushing the card wide. */}
                   <p
-                    className={String.raw`font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/2xl\/lh-none,24px)] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/2xl\/size,24px)] tracking-[-0.6px] w-[170px]`}
+                    className={String.raw`font-sans font-medium leading-6 relative shrink-0 text-foreground text-2xl tracking-[-0.6px] w-[170px]`}
                     dir="auto"
                   >
                     {data.title}
@@ -611,13 +623,13 @@ export default function AlertCard({
                       changes nothing at real data — the chip measures ~73px.
                       */}
                   <div
-                    className={String.raw`content-stretch flex gap-[var(--spacing\/1\,5,6px)] h-[27px] items-center max-w-[170px] px-[8px] py-[4px] relative rounded-[12px] shrink-0`}
+                    className={String.raw`content-stretch flex gap-1.5 h-[27px] items-center max-w-[170px] px-[8px] py-[4px] relative rounded-[12px] shrink-0`}
                     style={{ backgroundImage: CHIP_SHEEN(166.10511761460668) }}
                   >
-                    <p className={String.raw`font-sans font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/base\/lh-relaxed,26px)] overflow-hidden relative text-[16px] text-[color:var(--colors\/red\/500,#fb2c36)] text-ellipsis whitespace-nowrap`}>
+                    <p className={String.raw`font-sans font-semibold leading-[26px] overflow-hidden relative text-[16px] text-red-500 text-ellipsis whitespace-nowrap`}>
                       {data.value}
                     </p>
-                    <p className={String.raw`font-sans font-medium leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative text-[#62748e] text-[14px] text-ellipsis whitespace-nowrap`}>
+                    <p className={String.raw`font-sans font-medium leading-5 overflow-hidden relative text-[#62748e] text-[14px] text-ellipsis whitespace-nowrap`}>
                       {data.unit}
                     </p>
                   </div>
@@ -641,13 +653,13 @@ export default function AlertCard({
               either way, so nothing renders differently.
               */}
           <div className="[word-break:break-word] content-stretch flex gap-[7px] items-center max-w-full relative shrink-0">
-            <p className={String.raw`font-sans font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-snug,16.5px)] overflow-hidden relative text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis whitespace-nowrap`}>
+            <p className={String.raw`font-sans font-normal leading-[16.5px] overflow-hidden relative text-[12px] text-muted-foreground text-ellipsis whitespace-nowrap`}>
               {data.detectedLabel}
             </p>
-            <p className={String.raw`font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] overflow-hidden relative text-[14px] text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis whitespace-nowrap`}>
+            <p className={String.raw`font-sans font-medium leading-5 overflow-hidden relative text-[14px] text-foreground text-ellipsis whitespace-nowrap`}>
               {data.detectedAt}
             </p>
-            <p className={String.raw`font-sans font-semibold leading-[var(--text\/sm-tight\/lh,20px)] overflow-hidden relative text-[14px] text-[color:var(--colors\/red\/700,#c10007)] text-ellipsis whitespace-nowrap`}>
+            <p className={String.raw`font-sans font-semibold leading-5 overflow-hidden relative text-[14px] text-red-700 text-ellipsis whitespace-nowrap`}>
               {data.duration}
             </p>
           </div>
@@ -661,7 +673,7 @@ export default function AlertCard({
               size="xs"
               variant="outline"
               onClick={act('on-it')}
-              className={String.raw`bg-[#f2f6ff] border border-[var(--wint-blue-accent,#0b81f8)] border-solid content-stretch cursor-pointer flex flex-[1_0_0] gap-[var(--spacing\/1,4px)] h-[27px] items-center justify-center min-w-px px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] ${CTRL_SHADOW}`}
+              className={String.raw`bg-[#f2f6ff] border border-primary border-solid content-stretch cursor-pointer flex flex-[1_0_0] gap-1 h-[27px] items-center justify-center min-w-px px-2.5 py-0 relative rounded-[26px] ${CTRL_SHADOW}`}
             >
               <span className={BTN_BLUE_LABEL}>On it</span>
             </Button>
@@ -672,9 +684,9 @@ export default function AlertCard({
               size="xs"
               variant="outline"
               onClick={act('ignore')}
-              className={String.raw`bg-[#f2f6ff] border border-[var(--colors\/slate\/400,#90a1b9)] border-solid content-stretch cursor-pointer flex flex-[1_0_0] gap-[var(--spacing\/1,4px)] h-[27px] items-center justify-center min-w-px px-[var(--component\/button\/size-xs\/px,10px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-xs\/radius,26px)] ${CTRL_SHADOW}`}
+              className={String.raw`bg-[#f2f6ff] border border-slate-400 border-solid content-stretch cursor-pointer flex flex-[1_0_0] gap-1 h-[27px] items-center justify-center min-w-px px-2.5 py-0 relative rounded-[26px] ${CTRL_SHADOW}`}
             >
-              <span className="[word-break:break-word] font-sans font-medium leading-[var(--text\/button-xs\/size,12px)] relative shrink-0 text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/button-xs\/size,12px)] whitespace-nowrap">
+              <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-slate-600 text-xs whitespace-nowrap">
                 Ignore
               </span>
             </Button>
@@ -757,9 +769,9 @@ export default function AlertCard({
           <Badge
             variant="secondary"
             data-status-pill
-            className={String.raw`bg-[var(--colors\/slate\/100,#f1f5f9)] border-[length:var(--component\/badge\/border-width,1px)] border-[var(--colors\/slate\/200,#e2e8f0)] border-solid content-stretch cursor-default flex gap-[var(--component\/badge\/gap,4px)] h-[24px] items-center justify-center px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0`}
+            className={String.raw`bg-slate-100 border border-border border-solid content-stretch cursor-default flex gap-1 h-[24px] items-center justify-center px-2 py-0.5 relative rounded-[26px] shrink-0`}
           >
-            <span className="[word-break:break-word] font-sans font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] relative shrink-0 text-[color:var(--colors\/slate\/400,#90a1b9)] text-[length:var(--text\/xs\/size,12px)] whitespace-nowrap">
+            <span className="[word-break:break-word] font-sans font-medium leading-4 relative shrink-0 text-slate-400 text-xs whitespace-nowrap">
               Ignored
             </span>
           </Badge>

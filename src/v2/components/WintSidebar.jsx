@@ -8,6 +8,20 @@
  * Home silently re-scoped itself behind the user's back). v2 deliberately does
  * not touch UserContext scope at all — picking a row moves the user somewhere,
  * nothing more.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -702,7 +716,7 @@ function TreeRow({
         // Still needed even with the conditional above: the cva base sets
         // data-[active=true]:text-sidebar-accent-foreground (blue), which
         // outranks a plain text-* class on specificity.
-        'data-[active=true]:bg-[var(--card,white)] data-[active=true]:font-medium data-[active=true]:text-[#0a0a0a]',
+        'data-[active=true]:bg-card data-[active=true]:font-medium data-[active=true]:text-[#0a0a0a]',
         // No drop shadow: 198378:74031 specifies none, and the emitter does
         // emit effects when they exist. It was only ever compensating for the
         // panel being flat white — against PANEL_BG's gradient the white card

@@ -23,6 +23,20 @@
  * was drawn over. insightsSparkline.js redraws the same frame (330x86, radius
  * 4.31579, ground #F2F6FF, 2.15789 strokes, #0B82F8 actual over a dashed
  * #90A1B9 baseline) from the system's own series.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { cn } from '@/lib/utils'
@@ -199,8 +213,8 @@ function splitValue(value) {
    alphabetically, which puts `leading-` first — so wherever a verbatim paste
    would have done that, the line-height atom has been moved to the END of the
    string. Same class set, different order. Do not re-sort it back. */
-const FIG_REG = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Regular'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-normal,400)]`
-const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:Medium'),'Figtree','Inter',sans-serif] font-[var(--font\/weight\/font-medium,500)]`
+const FIG_REG = String.raw`font-sans font-normal`
+const FIG_MED = String.raw`font-sans font-medium`
 
 /*
  * The metric frame only ever exports #e7f2eb/#269950, because the figure it
@@ -214,7 +228,7 @@ const FIG_MED = String.raw`font-[family-name:var(--font\/family\/sans,'Figtree:M
 const BADGE_TONE = {
   down: 'bg-[#e7f2eb] text-[#269950]',
   up: 'bg-[rgba(251,44,54,0.08)] text-[#fb2c36]',
-  flat: String.raw`bg-[#f1f5f9] text-[color:var(--colors\/slate\/700,#314158)]`,
+  flat: String.raw`bg-[#f1f5f9] text-slate-700`,
 }
 
 /*
@@ -304,7 +318,7 @@ function InsightsMetricCard({
   return (
     <div
       className={cn(
-        String.raw`bg-[#fafbfc] content-stretch flex flex-col gap-[19px] items-start p-[18px] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full`,
+        String.raw`bg-[#fafbfc] content-stretch flex flex-col gap-[19px] items-start p-[18px] relative rounded-[18px] shrink-0 w-full`,
         className,
       )}
       data-node-id={NODE[0]}
@@ -326,7 +340,7 @@ function InsightsMetricCard({
           className={cn(
             FIG_REG,
             /* leading-* trails the size atom on purpose — see the CLASS ORDER note above FIG_REG. */
-            String.raw`[word-break:break-word] relative shrink-0 text-[color:var(--colors\/slate\/700,#314158)] text-[length:var(--text\/lg\/size,18px)] whitespace-nowrap leading-[var(--text\/lg\/lh-none,18px)]`,
+            String.raw`[word-break:break-word] relative shrink-0 text-slate-700 text-lg whitespace-nowrap leading-[18px]`,
           )}
           data-node-id={NODE[2]}
         >
@@ -338,7 +352,7 @@ function InsightsMetricCard({
             onClick={onViewAll}
             className={cn(
               FIG_MED,
-              String.raw`shrink-0 cursor-pointer rounded-[var(--component\/button\/size-default\/radius,10px)] px-[var(--component\/button\/size-default\/px,10px)] text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/500,#62748e)] outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50`,
+              String.raw`shrink-0 cursor-pointer rounded-lg px-2.5 text-sm leading-5 text-muted-foreground outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50`,
             )}
           >
             View all
@@ -367,7 +381,7 @@ function InsightsMetricCard({
             className={cn(
               FIG_REG,
               /* leading-* trails the size atom on purpose — see the CLASS ORDER note above FIG_REG. */
-              String.raw`[word-break:break-word] relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap leading-[var(--text\/sm\/lh,20px)]`,
+              String.raw`[word-break:break-word] relative shrink-0 text-foreground text-sm whitespace-nowrap leading-5`,
             )}
             data-node-id={NODE[7]}
           >
@@ -383,7 +397,7 @@ function InsightsMetricCard({
             <div
               className={cn(
                 BADGE_TONE[direction] ?? BADGE_TONE.flat,
-                String.raw`content-stretch flex gap-[var(--component\/badge\/gap,4px)] h-[20px] items-center justify-center overflow-clip px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0`,
+                String.raw`content-stretch flex gap-1 h-[20px] items-center justify-center overflow-clip px-2 py-0.5 relative rounded-[26px] shrink-0`,
               )}
               data-node-id={NODE[9]}
               data-name="Badge"
@@ -392,7 +406,7 @@ function InsightsMetricCard({
                 className={cn(
                   FIG_MED,
                   /* leading-* trails the size atom on purpose — see the CLASS ORDER note above FIG_REG. */
-                  String.raw`[word-break:break-word] overflow-hidden relative shrink-0 text-[12px] text-ellipsis whitespace-nowrap tabular-nums leading-[var(--text\/xs\/lh,16px)]`,
+                  String.raw`[word-break:break-word] overflow-hidden relative shrink-0 text-[12px] text-ellipsis whitespace-nowrap tabular-nums leading-4`,
                 )}
                 data-node-id={NODE[10]}
               >
@@ -405,13 +419,13 @@ function InsightsMetricCard({
               className={cn(
                 FIG_REG,
                 /* leading-* trails the size atom on purpose — see the CLASS ORDER note above FIG_REG. */
-                String.raw`[word-break:break-word] content-stretch flex gap-[var(--spacing\/0\,5,2px)] items-center relative shrink-0 text-[12px] whitespace-nowrap tabular-nums leading-[var(--text\/xs\/lh-none,12px)]`,
+                String.raw`[word-break:break-word] content-stretch flex gap-0.5 items-center relative shrink-0 text-[12px] whitespace-nowrap tabular-nums leading-3`,
               )}
               data-node-id={NODE[11]}
               data-name="Unit wrapper"
             >
               <p
-                className={String.raw`overflow-hidden relative shrink-0 text-[color:var(--colors\/slate\/900,#0f172b)] text-ellipsis`}
+                className={String.raw`overflow-hidden relative shrink-0 text-foreground text-ellipsis`}
                 data-node-id={NODE[12]}
               >
                 {litres}
@@ -420,7 +434,7 @@ function InsightsMetricCard({
                   token as slate-500 (#62748e). */}
               {unit && (
                 <p
-                  className="overflow-hidden relative shrink-0 text-[color:var(--muted-foreground,#737373)] text-ellipsis"
+                  className="overflow-hidden relative shrink-0 text-muted-foreground text-ellipsis"
                   data-node-id={NODE[13]}
                 >
                   {unit}
@@ -459,7 +473,7 @@ function InsightsMetricCard({
    canvas height and it is deliberately NOT carried, for the same reason the
    metric card drops the alert state's h-[198px] w-[366px] — see
    homeWidgetWidth.dom.test.jsx. */
-const LIST_SHELL = String.raw`bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[var(--p-0,0px)] items-start overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] w-full`
+const LIST_SHELL = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-0 items-start overflow-clip p-0 relative rounded-[18px] w-full`
 
 /**
  * @param rows  [{ title, addr, kind, delta, deltaTone: 'good'|'bad', value,
@@ -542,16 +556,16 @@ export default function InsightsCard({
        radius and padding from every card around it — visibly a different size
        and shape in the stack. */
     <div className={[LIST_SHELL, className].filter(Boolean).join(' ')}>
-      <div className={String.raw`flex h-[62px] items-center justify-between w-full px-[var(--spacing\/4,16px)] py-[var(--spacing\/3,12px)]`}>
+      <div className={String.raw`flex h-[62px] items-center justify-between w-full px-4 py-3`}>
         {/* 18px slate-800 with -0.45px tracking, in Figma's py-[6px] title box
             (I199323:12261;149:2490;2780:50631). That box and the 32px control
             opposite are what make the header 62px rather than the title's own
             line height. flex-1/min-w-0 is the node's own `flex-[1_0_0]
             min-w-px` on the Title-and-desc wrapper: the title takes the slack
             and the View-all pill keeps its 57px. */}
-        <div className={String.raw`min-w-0 flex-1 py-[var(--spacing\/1\,5,6px)]`}>
+        <div className={String.raw`min-w-0 flex-1 py-1.5`}>
           <div
-            className={String.raw`w-full truncate font-semibold tracking-[-0.45px] text-[length:var(--text\/lg\/size,18px)] leading-[var(--text\/lg\/lh-none,18px)] text-[color:var(--colors\/slate\/800,#1d293d)]`}
+            className={String.raw`w-full truncate font-semibold tracking-[-0.45px] text-lg leading-[18px] text-slate-800`}
           >
             {title}
           </div>
@@ -560,7 +574,7 @@ export default function InsightsCard({
           <button
             type="button"
             onClick={onViewAll}
-            className={String.raw`flex h-[32px] w-[57px] shrink-0 cursor-pointer items-center justify-center rounded-[var(--component\/button\/size-default\/radius,10px)] px-[var(--component\/button\/size-default\/px,10px)] font-medium text-[length:var(--text\/sm-tight\/size,14px)] leading-[var(--text\/sm-tight\/lh,20px)] text-[color:var(--colors\/slate\/500,#62748e)] outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50`}
+            className={String.raw`flex h-[32px] w-[57px] shrink-0 cursor-pointer items-center justify-center rounded-lg px-2.5 font-medium text-sm leading-5 text-muted-foreground outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50`}
           >
             View all
           </button>
@@ -580,7 +594,7 @@ export default function InsightsCard({
           which both insets them by the wrong number and made the interactive
           variant compute its own w-[calc(100%-2rem)] to compensate. */}
       <div
-        className={String.raw`w-full px-[var(--component\/card\/padding-sm,16px)] pt-[var(--component\/calendar\/padding,12px)] pb-[var(--component\/card\/padding,24px)]`}
+        className={String.raw`w-full px-4 pt-3 pb-6`}
       >
         {list.map((row, i) => {
           const rowTone = TONE[row.deltaTone] ?? TONE.good
@@ -598,7 +612,7 @@ export default function InsightsCard({
                    gap and no margin: the node's Goal is a plain justify-between
                    between the 153px name block and the 122px readings group,
                    and the inset comes from cardContent above. */
-                String.raw`w-full py-[var(--spacing\/1\,5,6px)] flex items-center justify-between rounded-[var(--component\/card\/radius,14px)]`,
+                String.raw`w-full py-1.5 flex items-center justify-between rounded-xl`,
                 onSelectRow &&
                   'cursor-pointer rounded-[10px] text-left outline-none transition-colors hover:bg-[rgba(11,129,248,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50',
               )}
@@ -627,7 +641,7 @@ export default function InsightsCard({
                     title= carries the full string for hover and a11y. */}
                 <div className="flex w-full min-w-0 items-end gap-[5px] overflow-hidden text-sm">
                   <span
-                    className={String.raw`min-w-0 truncate font-semibold leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/900,#0f172b)]`}
+                    className={String.raw`min-w-0 truncate font-semibold leading-5 text-foreground`}
                     title={row.title}
                   >
                     {cap(row.title, TITLE_MAX)}
@@ -637,7 +651,7 @@ export default function InsightsCard({
                        address against the 14px title, pb-px included. */
                     <div className="flex h-[20px] min-w-0 items-end justify-center pb-px">
                       <span
-                        className={String.raw`min-w-0 truncate text-[12px] leading-[var(--text\/xs\/lh-snug,16.5px)] text-[color:var(--colors\/slate\/500,#62748e)]`}
+                        className={String.raw`min-w-0 truncate text-[12px] leading-[16.5px] text-muted-foreground`}
                         title={row.addr}
                       >
                         {cap(row.addr, ADDR_MAX)}
@@ -651,7 +665,7 @@ export default function InsightsCard({
                     own grey; slate-400 is the nearest token to what the tinted
                     droplet rendered before, and to the comp's own greys. */}
                 <div
-                  className={String.raw`flex min-w-0 w-full items-center gap-[5px] text-sm leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/900,#0f172b)]`}
+                  className={String.raw`flex min-w-0 w-full items-center gap-[5px] text-sm leading-5 text-foreground`}
                 >
                   {/* A 14px glyph in an 11px slot, exactly as the comp draws it
                       (wrapper …;198328:88555): it overflows 1.5px each side
@@ -684,7 +698,7 @@ export default function InsightsCard({
                        rightIcon and arrow-drop-down-line — is hidden, on all three
                        badges, and the 52px badge leaves no room for a glyph. */
                     <span
-                      className={String.raw`inline-flex h-[20px] items-center justify-center px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] rounded-[var(--component\/badge\/radius,26px)] font-medium tabular-nums text-[12px] leading-[var(--text\/xs\/lh,16px)]`}
+                      className={String.raw`inline-flex h-[20px] items-center justify-center px-2 py-0.5 rounded-[26px] font-medium tabular-nums text-[12px] leading-4`}
                       style={rowTone.chip}
                     >
                       {row.delta}
@@ -692,13 +706,13 @@ export default function InsightsCard({
                   )}
                   {row.value && (
                     <div
-                      className={String.raw`flex items-center gap-[var(--spacing\/0\,5,2px)] tabular-nums whitespace-nowrap text-[12px] leading-[var(--text\/xs\/lh-none,12px)]`}
+                      className={String.raw`flex items-center gap-0.5 tabular-nums whitespace-nowrap text-[12px] leading-3`}
                     >
-                      <span className={String.raw`text-[color:var(--colors\/slate\/900,#0f172b)]`}>{valueNum}</span>
+                      <span className={String.raw`text-foreground`}>{valueNum}</span>
                       {/* Figma calls this --muted-foreground; this project defines
                           that token as slate-500 (#62748e). */}
                       {valueUnit && (
-                        <span className={String.raw`text-[color:var(--muted-foreground,#737373)]`}>{valueUnit}</span>
+                        <span className={String.raw`text-muted-foreground`}>{valueUnit}</span>
                       )}
                     </div>
                   )}

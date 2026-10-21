@@ -218,6 +218,20 @@
  * not go through cn() at all and also keep escaped var() fallbacks intact; the
  * few strings handed to a shadcn component (which does call cn()) carry no
  * leading-*.
+ *
+ * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
+ * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
+ * that paints the same value, and the fallback DELETED. The fallback was a
+ * second, invisible source of truth that won whenever the token was missing,
+ * with no warning and no visual tell; removing it makes a missing token fail
+ * loudly. Nothing below renders differently — each value was resolved per
+ * call site against what it already painted.
+ *
+ * Any note further down about keeping Figma's escaped `\/` token names
+ * VERBATIM, and about String.raw being what carries the backslash, describes
+ * the state BEFORE that pass. It is still the rule if an escaped name is ever
+ * pasted back in from Figma — but no live class string in this file carries
+ * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -271,9 +285,9 @@ import { formatDuration } from '@/utils/format'
    be a Tailwind utility, so they are the token's own custom property with the
    index.css value as the fallback. */
 const TOKEN = {
-  danger: 'var(--danger, #A5455E)',
-  high: 'var(--severity-high, #DB4670)',
-  low: 'var(--severity-low, #F05C25)',
+  danger: 'var(--danger)',
+  high: 'var(--severity-high)',
+  low: 'var(--severity-low)',
 }
 
 /* ── v1 catalogues, carried forward ──────────────────────────────────────── */
@@ -338,7 +352,7 @@ const CHANNEL_LABEL = { push: 'Push', email: 'Email', sms: 'SMS' }
 /* The house card chassis — SystemTypeCard / ValveStatusCard / ActivePolicyCard
    / InsightsCard / EventsTimelineCard all draw this shell, at this radius. */
 const CARD_SHELL =
-  'w-full shrink-0 rounded-[var(--rounded-2xl,18px)] border border-solid border-white bg-[#fafbfc]'
+  'w-full shrink-0 rounded-[18px] border border-solid border-white bg-[#fafbfc]'
 
 /* ── Pure helpers (module-local: a component file may only export its
       component, per the react-refresh rule this repo lints with) ─────────── */
@@ -530,7 +544,7 @@ function advice(type, { hasValve, autoShutoff }) {
 /* The series' one colour, from the design tokens. ChartStyle turns this into
    `--color-lph`, which the <Line> reads. */
 const FLOW_CHART_CONFIG = {
-  lph: { label: 'Flow rate', color: 'var(--wint-blue-accent, #0b81f8)' },
+  lph: { label: 'Flow rate', color: 'var(--primary)' },
 }
 
 /**
@@ -1149,7 +1163,7 @@ export default function EventFocusOverlay({
       {/* The panel. `relative` so it paints over the scrim, `max-h-[85%]` so
           the page shows above it, and the top corners rounded like every other
           sheet in this repo. */}
-      <div className="relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[var(--rounded-2xl,18px)] bg-[var(--background,#F4F6F9)]">
+      <div className="relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[18px] bg-background">
       {/* Header — the event, the system it is on, and BOTH ways out the owner
           asked for. They carry distinct names so a screen reader (and a test)
           can tell them apart; see the `onClose` prop note for when they would
@@ -1266,7 +1280,7 @@ export default function EventFocusOverlay({
             (2026-06-02): two lines max. No "auto-shutoff suppressed" line —
             that was the confirmation-time warning, not a status. */}
         {isWater && ignored ? (
-          <div className="flex w-full shrink-0 items-start gap-[8px] rounded-[10px] bg-[var(--orange-100,#ffedd4)] px-[12px] py-[10px] text-[13px] text-slate-900">
+          <div className="flex w-full shrink-0 items-start gap-[8px] rounded-[10px] bg-[var(--orange-100)] px-[12px] py-[10px] text-[13px] text-slate-900">
             <Flag size={16} className="mt-[1px] shrink-0" style={{ color: TOKEN.low }} />
             <div className="min-w-0">
               <p className="min-w-0 font-bold">Ignored by {ignoredInfo?.ignoredBy || 'You'}</p>
@@ -1280,7 +1294,7 @@ export default function EventFocusOverlay({
             had it. Nothing else in v2 draws this. Only present once someone
             holds the claim; the offer to claim is the footer's primary. */}
         {isWater && investigating && investigatingInfo ? (
-          <div className="flex w-full shrink-0 items-center gap-[9px] rounded-[var(--rounded-2xl,18px)] bg-accent px-[14px] py-[12px]">
+          <div className="flex w-full shrink-0 items-center gap-[9px] rounded-[18px] bg-accent px-[14px] py-[12px]">
             <span
               aria-hidden="true"
               className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] bg-white text-primary"
