@@ -33,8 +33,15 @@ export const DEFAULT_PERSONA = {
   email: 'rami.kletshevsky@wint.ai',
   phone: '+972528542617',
   icon: '⚡',
+  // `color` is this persona's identity mark (every persona has its own)
+  // and stays a literal; it paints a 4px rule and a role caption on the
+  // v1 picker, not a surface.
   color: '#7C3AED',
-  bg: '#F5F3FF',
+  // `bg` IS a surface — the 32px icon tile in the drawer — and as a frozen
+  // #F5F3FF it stayed a pale lavender slab under every dark theme. --accent
+  // is this repo's pale informational wash and themes with the drawer. It is
+  // #f2f6ff in `light`, 3 units off the lavender it replaces.
+  bg: 'var(--accent)',
   isWint: true,
   homePath: '/',
   tabMode: 'manager',
@@ -90,7 +97,7 @@ export const PERSONAS = [
     phone: '+1 212 555 0133',
     icon: '🏢',
     color: '#8B5CF6',
-    bg: '#F5F3FF',
+    bg: 'var(--accent)',   // see DEFAULT_PERSONA: `bg` is a surface, not an identity mark
     isWint: false,
     homePath: '/',
     tabMode: 'manager',

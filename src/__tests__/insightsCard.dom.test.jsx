@@ -131,23 +131,27 @@ describe('the metric card (Figma 199296:50344 / 199296:51143)', () => {
     expect(getByText('-12.5%')).toBeTruthy()
     expect(getByText('-13,564')).toBeTruthy()
     expect(getByText('L')).toBeTruthy()
-    // Derived, not an exported raster: the trace is real markup.
-    expect(container.querySelector('svg path[stroke="#0B82F8"]')).toBeTruthy()
+    /* Derived, not an exported raster: the trace is real markup. The stroke
+       moved from a `stroke="#0B82F8"` presentation attribute to a `style`
+       declaration, because the value is now var(--primary) and a
+       presentation attribute never resolves var(). Pin the drawn path, not
+       the colour. */
+    expect(container.querySelector('[data-spark-points="series"] path[style*="--primary"]')).toBeTruthy()
   })
 
   it('keeps the frame when there is no series to draw', () => {
     const { container } = render(<InsightsCard changePct={-1} changeLitres={-2} />)
     expect(container.querySelector('[data-spark-points="empty"]')).toBeTruthy()
-    expect(container.querySelector('svg path[stroke="#0B82F8"]')).toBeFalsy()
+    expect(container.querySelector('[data-spark-points="empty"] path[style*="--primary"]')).toBeFalsy()
   })
 
   it('does not paint a RISE in water use green', () => {
     const { getByText: down } = card({ changePct: -12.5 })
-    expect(String(down('-12.5%').parentElement.className)).toContain('bg-[#e7f2eb]')
+    expect(String(down('-12.5%').parentElement.className)).toContain('bg-alert-surface-success')
     cleanup()
     const { getByText: up } = card({ changePct: 12.5, changeLitres: 13564 })
     const badge = String(up('+12.5%').parentElement.className)
-    expect(badge).not.toContain('#e7f2eb')
+    expect(badge).not.toContain('alert-surface-success')
     /* insightsModel.js INSIGHT_COLOR['usage-up'] — the repo's own increase
        red, which IS --destructive (#fb2c36). Phase 4 put the badge on the
        token: `text-destructive` on a `bg-destructive/8` wash, where the

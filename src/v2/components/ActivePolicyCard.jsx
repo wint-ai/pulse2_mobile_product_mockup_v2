@@ -123,7 +123,16 @@ const CARD = String.raw`bg-surface-card content-stretch flex flex-col gap-[19px]
    twMerge cannot tell `border-[length:var(--border-width\/border,1px)]` from
    `border-[var(--wint-blue-accent,#0b81f8)]` and drops one of them. */
 const MODE_BASE = String.raw`content-stretch flex flex-[1_0_0] flex-col h-[42px] items-center justify-center min-w-px pt-1 relative rounded-[9px]`
-const MODE_ON = String.raw`bg-[#cde6ff] border border-primary border-solid `
+/* The selected half was a frozen `bg-[#cde6ff]`. Under dark that stayed a
+   light blue slab (14.7:1 against the card) with --primary ink on top of it,
+   which inverts to near-white there — the selected mode became the one you
+   could not read. --secondary is this repo's pale informational blue and is
+   the ground --secondary-foreground (= --primary) is defined against, so the
+   pair moves together under every theme. NOTE: --secondary is #f2f6ff in
+   `light`, a step paler than #cde6ff — the selected state reads slightly
+   quieter there. The border, which is what actually carries "selected", is
+   unchanged. */
+const MODE_ON = String.raw`bg-secondary border border-primary border-solid `
 const MODE_OFF = String.raw`bg-slate-100 `
 const MODE_LABEL = String.raw`[word-break:break-word] font-medium leading-8 relative shrink-0 text-2xl tracking-[-0.6px] whitespace-nowrap`
 const MODE_LABEL_ON = String.raw`text-primary`
@@ -241,6 +250,10 @@ export default function ActivePolicyCard({
           >
             {title}
           </p>
+          {/* `text-gray-700` is left as the stock utility NAME on purpose: it
+              is mapped through --color-gray-700 in @theme inline, so it
+              themes. Unmapped it bound to stock Tailwind's #364153, which no
+              theme could move and which read ~1.8:1 on a dark card. */}
           {description ? (
             <p
               className="leading-5 min-w-full relative shrink-0 text-gray-700 text-sm tracking-normal w-[min-content]"

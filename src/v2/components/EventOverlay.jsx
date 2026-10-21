@@ -37,37 +37,69 @@ import {
 import { CloseFill, Waves, Warning, Funnel } from '@/v2/icons'
 
 // ── Wint tokens (sampled off the Figma variables on these frames) ───────────
-const SLATE_900  = '#0F172B'
-const SLATE_800  = '#1D293D'
-const SLATE_600  = '#45556C'
-const SLATE_500  = '#62748E'
-const SLATE_400  = '#90A1B9'
-const SLATE_200  = '#E2E8F0'
-const RED_600    = '#E7000B'
-const RED_500    = '#FB2C36'
-const RED_100    = '#FFE2E2'
+/* These were the HEX the Figma variables resolve to, which meant that under
+   any theme but `light` this whole overlay stayed painted in light-theme ink
+   — #0F172B body text on a dark sheet. They are now the tokens themselves.
+   Every one below is byte-identical to the token's `light` value, so nothing
+   moves in `light`; what changes is that a theme can reach them.
+   Safe here because, as the CARD_BG note below already says, all of these are
+   applied through inline `style`, where a custom property resolves normally —
+   unlike an SVG presentation attribute, where it would not. */
+const SLATE_900  = 'var(--slate-900)'  /* #0F172B */
+const SLATE_800  = 'var(--slate-800)'  /* #1D293D */
+const SLATE_600  = 'var(--slate-600)'  /* #45556C */
+const SLATE_500  = 'var(--slate-500)'  /* #62748E */
+const SLATE_400  = 'var(--slate-400)'  /* #90A1B9 */
+const SLATE_200  = 'var(--slate-200)'  /* #E2E8F0 */
+const RED_600    = 'var(--red-600)'    /* #E7000B */
+const RED_500    = 'var(--red-500)'    /* #FB2C36 */
+const RED_100    = 'var(--red-100)'    /* #FFE2E2 */
 // Alert-family severity labels are red/900, not red/600. Sampled off the
 // "AC Unplugged" label at Figma 198328:90191, inside frame 198328:90116
 // (Overlay_Alerts, 375px — the mobile frame this file already cites).
 // The water family keeps red/600 (198328:89964 "High Flow").
-const RED_900    = '#82181A'
+// --red-900 is the flat token; --color-red-900 is its @theme inline alias and
+// is NOT usable here. Tailwind does not emit an `@theme inline` entry as a
+// real custom property — it inlines the value into the utilities instead —
+// so var(--color-red-900) resolves to nothing and takes the whole colour
+// declaration with it. Verified in the browser: getPropertyValue on
+// --color-alert-surface-critical returns ''. Bind flat tokens here, utility
+// names in className.
+const RED_900    = 'var(--red-900)'    /* #82181A */
 // The Valve error CHIP disc only. Figma 198328:90165 (and 198378:73285 in the
 // history frame) paint it with a raw, unbound #fcd7db, while the AC Unplugged
 // disc beside it at 198328:90158 uses the red/100 token. The 48px ROW disc for
 // the same type stays red/100. Flagged for the designer — an unbound one-off
 // next to a tokenised neighbour reads like a token slip — but it is what ships.
-const VALVE_100  = '#FCD7DB'
-const ORANGE_600 = '#F54900'
-const ORANGE_100 = '#FFEDD4'
+// It now rides --red-100, the token its own neighbour already uses: one
+// unbound one-off is a token slip, and keeping it unbound while the disc
+// beside it themes would leave a light pink dot on a dark sheet. The 2-unit
+// difference from #FFE2E2 in `light` is the designer's open question, not a
+// value worth freezing a theme over.
+const VALVE_100  = 'var(--red-100)'        /* was #FCD7DB */
+// The repo's own orange/600, one unit of green off the literal that was here
+// (#f54a00 vs #F54900 — the same one-channel drift #0B82F8 had against
+// --primary). Under dark it resolves to --alert-ink-warning.
+const ORANGE_600 = 'var(--orange-600)'     /* was #F54900 */
+const ORANGE_100 = 'var(--orange-100)'     /* #FFEDD4 */
 // The house card surface, as the TOKEN rather than its light-theme hex. Both
 // of this file's uses are inline `style`, where a custom property resolves
 // normally — unlike an SVG presentation attribute, where it would not.
 const CARD_BG    = 'var(--surface-card)'
 
-// The overlay's own ground: a cool diagonal wash over white.
-const SHEET_BG =
-  'linear-gradient(131deg, rgba(233,238,248,0.8) 8%, rgba(227,235,249,0.8) 32%,' +
-  ' rgba(228,235,250,0.8) 41%, rgba(212,226,255,0.8) 71%, rgba(233,237,243,0.8) 83%), #FFFFFF'
+/* The overlay's own ground: the house panel wash, at this sheet's angle.
+   It used to be the gradient written out by hand — a hard-coded `#FFFFFF`
+   base with five rgba stops, i.e. a LIGHT sheet that no theme could move.
+   That is the one thing that could not stay once the ink above became
+   tokens: light ink on a frozen-white sheet is an unreadable overlay.
+   --chip-bg is the shared declaration of this exact wash, and
+   --chip-bg-angle is the knob that lets nine call sites at nine different
+   angles share it; this one is 131deg. The only `light` difference is the
+   trailing rgba(233,237,243,0.8) 83% stop, which the shared ramp does not
+   carry — a flattening of the last 17% of a wash that is already almost
+   flat. */
+const SHEET_BG = 'var(--chip-bg)'
+const SHEET_ANGLE = { '--chip-bg-angle': '131deg' }
 
 // ── Event type table ───────────────────────────────────────────────────────
 // `type` strings match src/data/events.js so a real CURRENT_EVENTS slice can be
@@ -208,7 +240,7 @@ export default function EventOverlay({
 
       <div
         className="absolute inset-x-0 bottom-0 top-3 rounded-t-[26px] overflow-hidden flex flex-col"
-        style={{ background: SHEET_BG }}
+        style={{ ...SHEET_ANGLE, background: SHEET_BG }}
       >
         {/* Header — breadcrumb only in location scope; account scope implies it.
             Figma 198328:89905 puts 22px between the 28px close glyph and the

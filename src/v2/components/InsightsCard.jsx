@@ -57,8 +57,13 @@ import {
   changeDirection,
 } from '@/v2/components/insightsSparkline'
 
-const SUCCESS = '#5C9E1A'
-const SEV_HIGH = '#DB4670'
+/* The two product-semantic trace colours, as tokens rather than as the hex
+   they happened to equal. --success IS #5C9E1A and --severity-high IS
+   #DB4670, so `light` does not move; what changes is that a theme can now
+   reach them. Both are applied through `style`, never as an SVG presentation
+   attribute — see the note on SPARK_* in insightsSparkline.js. */
+const SUCCESS = 'var(--success)'
+const SEV_HIGH = 'var(--severity-high)'
 
 /**
  * Cap a string the way the comp does — "352 Palmer.." — rather than relying on
@@ -95,9 +100,17 @@ const ADDR_MAX = 16
  * draws one blue trace per row, which is exactly the drift the header note
  * describes, so a falling row reads green and a rising one red.
  */
+/* The `good` chip was a frozen pair — #E7F2EB ground, #269950 ink — and it
+   never moved under any theme: 3.18:1 ink-on-ground in BOTH light and dark
+   (below the 4.5:1 a 12px figure needs, in light too), and 16.4:1 against the
+   dark card, another glowing slab. It is the success half of the same alert
+   trio the issue tiles use, so it takes the surface/ink pair whose legibility
+   the tokens guarantee rather than a hand-picked green on a hand-picked mint.
+   `bad` keeps the shape it already had (an alpha wash over whatever is
+   beneath), but its ink joins it on the token. */
 const TONE = {
-  good: { chip: { background: '#E7F2EB', color: '#269950' }, stroke: SUCCESS },
-  bad: { chip: { background: 'color-mix(in oklab, var(--destructive) 8%, transparent)', color: '#FB2C36' }, stroke: SEV_HIGH },
+  good: { chip: { background: 'var(--alert-surface-success)', color: 'var(--alert-ink-success)' }, stroke: SUCCESS },
+  bad: { chip: { background: 'color-mix(in oklab, var(--destructive) 8%, transparent)', color: 'var(--destructive)' }, stroke: SEV_HIGH },
 }
 
 /**
@@ -168,11 +181,14 @@ function Sparkline({ tone, series, baseline }) {
       className="shrink-0"
       aria-hidden="true"
     >
-      <rect width={TILE_W} height={TILE_H} rx="2" fill="#F2F6FF" />
+      {/* Same rule as the big trace: var() tokens have to be applied as CSS
+          properties, because an SVG presentation attribute never resolves
+          them. SPARK_GROUND / SPARK_BASELINE carry the shared values. */}
+      <rect width={TILE_W} height={TILE_H} rx="2" style={{ fill: SPARK_GROUND }} />
       {expected && (
         <path
           d={expected}
-          stroke="#90A1B9"
+          style={{ stroke: SPARK_BASELINE }}
           strokeWidth="1"
           strokeDasharray="2.8 2.8"
           fill="none"
@@ -180,7 +196,7 @@ function Sparkline({ tone, series, baseline }) {
           strokeLinejoin="round"
         />
       )}
-      <path d={actual ?? placeholder} stroke={stroke} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={actual ?? placeholder} style={{ stroke }} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -226,7 +242,11 @@ const FIG_MED = String.raw`font-sans font-medium`
  * is neither good nor bad and reads slate.
  */
 const BADGE_TONE = {
-  down: 'bg-[#e7f2eb] text-[#269950]',
+  /* Same frozen pair as TONE.good above, and the same fix: the success half
+     of the alert trio, so the chip follows the theme and the ink is the
+     partner the token guarantees against that ground. `up` already sat on
+     --destructive and stays put. */
+  down: 'bg-alert-surface-success text-alert-ink-success',
   up: 'bg-destructive/8 text-destructive',
   flat: String.raw`bg-muted text-slate-700`,
 }
@@ -269,11 +289,14 @@ function MetricSparkline({ series, baseline }) {
       aria-hidden="true"
       data-spark-points={actualPath ? 'series' : 'empty'}
     >
-      <rect width={SPARK_W} height={SPARK_H} rx={SPARK_RADIUS} fill={SPARK_GROUND} />
+      {/* fill / stroke go through `style`, never through the presentation
+          attribute: SPARK_* are var() values now and a presentation attribute
+          does not resolve var(). Same for every trace below. */}
+      <rect width={SPARK_W} height={SPARK_H} rx={SPARK_RADIUS} style={{ fill: SPARK_GROUND }} />
       {baselinePath && (
         <path
           d={baselinePath}
-          stroke={SPARK_BASELINE}
+          style={{ stroke: SPARK_BASELINE }}
           strokeWidth={SPARK_STROKE}
           strokeDasharray="6 6"
           strokeLinecap="round"
@@ -285,7 +308,7 @@ function MetricSparkline({ series, baseline }) {
       {actualPath && (
         <path
           d={actualPath}
-          stroke={SPARK_ACTUAL}
+          style={{ stroke: SPARK_ACTUAL }}
           strokeWidth={SPARK_STROKE}
           strokeLinecap="round"
           strokeLinejoin="round"
