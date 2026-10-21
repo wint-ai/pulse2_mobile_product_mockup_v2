@@ -708,6 +708,14 @@ export default function SystemPageV2Screen() {
          The rest of the chain lives in the drawer, which renders the whole
          tree and auto-expands to this system. */
       parentName: sys.l4Name ?? sys.l3Name ?? null,
+      /* The device's own state, carried through rather than left for a caller
+         to dig out of `devices`. The System type card's open body reports all
+         three, and `power` was reading as "Unknown" because this object never
+         had it — `comm` only looked right because its fallback happened to be
+         the healthy answer, which is the worse of the two bugs. */
+      valve: sys.valve ?? null,
+      comm: sys.comm ?? null,
+      power: sys.power ?? null,
       alert: sys.alert ?? null,
       alerts: alertCardsFor(sys.alert ?? null, sys.id),
       insights,
@@ -1658,6 +1666,16 @@ export default function SystemPageV2Screen() {
                             title={system.topology?.pipeTopology ?? 'Water line'}
                             devices={deviceChips}
                             serialNumber={system.serialNumber ?? 'SN 4471822'}
+                            /* The open body's five rows report the system's
+                               real state rather than the frame's literals.
+                               `valveState` is used, not system.valve, so a
+                               valve the user has just closed on this screen
+                               reads closed here too. */
+                            systemStatus={{
+                              valve: valveState ?? system.valve,
+                              comm: system.comm,
+                              power: system.power,
+                            }}
                             status={alerting ? 'alert' : 'ok'}
                             expanded={loopExpanded}
                             onToggle={next => setLoopExpanded(next)}
