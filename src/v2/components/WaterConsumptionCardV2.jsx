@@ -604,7 +604,10 @@ function CompareSwitch({ checked, onChange, label }) {
         <span
           className={cn(
             'block size-[14.4px] rounded-[9999px] bg-card transition-transform',
-            'shadow-[0px_1px_2px_0px_rgba(0,0,0,0.08)]',
+            /* Same black-on-black problem as the card's, one elevation down —
+               see the note on the Card. --shadow-raised is the raised-surface
+               step of that pair; the comp's literal is the fallback. */
+            '[box-shadow:var(--shadow-raised,0px_1px_2px_0px_rgba(0,0,0,0.08))]',
             checked ? 'translate-x-[15.6px]' : 'translate-x-[2px]',
           )}
         />
@@ -916,7 +919,16 @@ function BucketTargets({ rows, period, onDrillDown, plotLeft, plotWidth, plotHei
    This has to be a function rather than the `tick={{ … }}` object it replaces,
    and recharts hands a function tick none of that object's styling: the font
    family and size are therefore set here, and `fill` is passed through from
-   the axis so the ticks keep the colour they render today. */
+   the axis when the axis supplies one.
+
+   THE FALLBACK IS A TOKEN, NOT A LITERAL. It used to be recharts' own '#666',
+   which under `dark` measured 3.28:1 against the plot ground — a FAIL for text,
+   which needs 4.5:1. --neutral-500 is the same token the unit caption above
+   already reads (#737373 in light, re-derived under every other theme), so the
+   caption and the ticks are one ladder rather than two colours that happen to
+   sit next to each other. The ChartContainer rule below paints the same token
+   onto BOTH axes via CSS, which outranks this presentation attribute; this
+   fallback is what a tick gets if that rule is ever lifted. */
 function renderXTick(props, plotRight, dropLast) {
   const { x, y, payload, className, fill, index, visibleTicksCount } = props
   if (dropLast && visibleTicksCount > 1 && index === visibleTicksCount - 1) return null
@@ -932,7 +944,7 @@ function renderXTick(props, plotRight, dropLast) {
       dy="0.71em"
       textAnchor="middle"
       stroke="none"
-      fill={fill ?? '#666'}
+      fill={fill ?? 'var(--neutral-500)'}
       fontFamily="var(--font-sans)"
       fontSize={12}
       className={className}
@@ -1244,7 +1256,17 @@ export default function WaterConsumptionCardV2({
            shadcn <Card> in ui/card.jsx does not supply it. */
         String.raw`w-full gap-0 border-card bg-surface-card py-0 rounded-[18px]`,
         // relative: the scope panel is absolutely positioned against the card
-        'relative shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.1)]',
+        'relative',
+        /* A BLACK SHADOW ON A BLACK GROUND IS NOT A SHADOW. The literal below
+           is the comp's, and it is right on #fafbfc; on the `dark` ground it
+           paints rgba(0,0,0,0.1) over #111114 and lifts the card by nothing at
+           all. --shadow-overlay is the token built the way Primer and Atlassian
+           build one: a shadow colour darker than the PAGE plus a 0 0 0 1px
+           alpha-white ring that exists only on dark grounds, so the card keeps
+           an edge where the blur cannot give it one. The comp's literal stays
+           as the fallback, so `light` is unchanged whether or not the token has
+           landed. */
+        '[box-shadow:var(--shadow-overlay,0px_25px_50px_-12px_rgba(0,0,0,0.1))]',
         className,
       )}
       data-node-id={isEmpty && !scopeSteered ? '198424:63772' : '198424:63770'}
@@ -1607,13 +1629,34 @@ export default function WaterConsumptionCardV2({
                 the XAxis' 28px out of the 185, leaving the 157px of plot that
                 CHART_HEIGHT / PLOT_HEIGHT name and that BucketTargets is sized
                 against.
-                Axis type is Geist (--font-mono-label). The #737373 rule below
-                is the design's muted-foreground; note that in recharts 3.8 the
-                tick TEXT hangs off .recharts-cartesian-axis-tick-label, not
-                .recharts-cartesian-axis-tick, so this selector no longer bites
-                and the ticks render at recharts' own #666. Left as found —
-                changing the axis colour is not this change's business — but
-                recorded so the next reader does not trust it. */}
+                Axis type is Geist (--font-mono-label).
+
+                THE TICK RULE BELOW NOW BITES, AND THE CLASS NAME IS CHECKED
+                AGAINST THE RENDERED DOM rather than against the note it
+                replaces. That note was half right: `.recharts-cartesian-axis-tick`
+                no longer wraps the text in recharts 3.8 — it is the tick LINE's
+                own class — so `[&_.recharts-cartesian-axis-tick_text]` matched
+                nothing and the ticks rendered at recharts' own #666 (3.28:1
+                under `dark`, a FAIL for text at 4.5:1). But the class the note
+                named is not the one that works either: `-tick-label` is a <g>
+                wrapper, and the <text> itself carries
+                `recharts-text recharts-cartesian-axis-tick-value`
+                (CartesianAxis.js:219/230). Measured chain, from the probe:
+                  svg.recharts-surface
+                   > g.recharts-zIndex-layer_2000
+                   > g.recharts-cartesian-axis-tick-labels.recharts-yAxis-tick-labels
+                   > g.recharts-layer.recharts-cartesian-axis-tick-label
+                   > text.recharts-text.recharts-cartesian-axis-tick-value
+                Note the zIndex layer: the labels are hoisted OUT of
+                `.recharts-xAxis` / `.recharts-yAxis`, so a selector scoped to
+                either of those axis groups also matches nothing.
+
+                fill-neutral-500 rather than a raw hex: it is the token the unit
+                caption above reads, it is #737373 in `light` — the value this
+                card has declared for the ticks all along — and it re-derives
+                under dark / sand instead of inverting to a near-black. One rule
+                covers BOTH axes, which is why the YAxis passes no fill of its
+                own. */}
             <div ref={setPlotEl} className="w-full">
             <ChartContainer
               config={chartConfig}
@@ -1622,7 +1665,7 @@ export default function WaterConsumptionCardV2({
                    source text, so an interpolated class is never generated and
                    the box would collapse. CHART_HEIGHT must stay in step. */
                 'aspect-auto h-[185px] w-full',
-                '[&_.recharts-cartesian-axis-tick_text]:fill-[#737373]',
+                '[&_.recharts-cartesian-axis-tick-value]:fill-neutral-500',
                 /* PLS-WC-37 / §18: a visible focus ring on every bucket,
                    including the ones that cannot be opened. It is an `outline`
                    and not a ring/box-shadow utility because the focusable node
@@ -1656,12 +1699,54 @@ export default function WaterConsumptionCardV2({
                 maxBarSize={BAR_MAX_WIDTH}
                 margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
               >
-                {/* #e5e5e5 is the stroke on the comp's own gridline vector, and
-                    PLS-WC-28 / §14.3 draws the ZERO line a step darker than the
-                    rest of the ladder — so a bar reads as standing on something
-                    rather than against one more rung. */}
-                <CartesianGrid vertical={false} stroke="#e5e5e5" />
-                <ReferenceLine y={0} stroke="#d4d4d4" strokeWidth={1} />
+                {/* CHROME, NOT DATA — and that split is the whole fix here.
+                    The comp's gridline vector is #e5e5e5 and the comp's zero
+                    line a step darker at #d4d4d4, and both were written in as
+                    literals. In `light` that is right: #e5e5e5 on the #fafbfc
+                    card measures 1.22:1, correctly subliminal. Inverted onto
+                    the `dark` ground (#111114) the SAME literal measures
+                    14.96:1 — louder than the bars it is meant to sit behind
+                    (14.85:1). A gridline that competes with the data is not a
+                    gridline.
+
+                    So the VALUES move to chrome tokens re-derived per theme,
+                    while the series colours stay hand-authored and are NOT
+                    inverted. Chrome is allowed below 3:1 — WCAG's Understanding
+                    for 1.4.11 does not require a gridline to read a chart whose
+                    axis is labelled — whereas the bars and the comparison line
+                    must clear 3:1 against the ground.
+
+                    PLS-WC-28 / §14.3 IS PRESERVED: the zero line is still a step
+                    STRONGER than the ladder, so a bar reads as standing on
+                    something. The fallback chain spells that step out rather
+                    than assuming the token — a plain `var(--border)` on both
+                    would have flattened the two into one colour, which is the
+                    quiet kind of regression Rule 0 is about.
+
+                    The zero line's fallback is INK AT LOW ALPHA, not a mix of
+                    the border, and that is deliberate: --foreground inverts
+                    with the theme, so one expression draws a line DARKER than
+                    the grid on a light ground and LIGHTER than it on a dark
+                    one, which is what "a step stronger" has to mean on both.
+                    18% is tuned against the comp and measured, not guessed:
+
+                      theme     grid        zero line   step
+                      light     1.19:1      1.46:1      1.23x   (comp: 1.22 / 1.43)
+                      dark      1.30:1      1.68:1      1.29x
+                      sand      1.26:1      1.50:1      1.19x
+
+                    A mix of --border instead went the WRONG WAY under the
+                    `contrast` diagnostic (1.25:1 -> 1.04:1, i.e. fainter), which
+                    is how this landed on ink-at-alpha. */}
+                <CartesianGrid
+                  vertical={false}
+                  stroke="var(--chart-grid, var(--border-subtle, var(--border)))"
+                />
+                <ReferenceLine
+                  y={0}
+                  stroke="var(--chart-axis, var(--border-strong, color-mix(in srgb, var(--foreground) 18%, transparent)))"
+                  strokeWidth={1}
+                />
                 {/* PLS-WC-29 / §14.4: a 23px tick column, right-aligned, with a
                     14px gap to a plot origin of 37 — so a long tick like "600K"
                     runs LEFT into the card's 26px gutter instead of pushing the

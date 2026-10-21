@@ -2,7 +2,28 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import * as RechartsPrimitive from "recharts"
 
-// Format: { THEME_NAME: CSS_SELECTOR }
+/* Format: { THEME_NAME: CSS_SELECTOR }
+ *
+ * THIS REPO DOES NOT USE THE `theme:` KEY, AND THAT IS A DECISION, NOT AN
+ * OVERSIGHT. It is shadcn's documented path for a per-mode SERIES colour, and
+ * it stays wired below for anyone who wants it, but nothing here reaches for
+ * it, for two reasons:
+ *
+ *   1. It only knows two modes. This project ships four themes - light, dark,
+ *      sand, and the `contrast` diagnostic - selected by `data-theme` on
+ *      <html>. `.dark` is set alongside data-theme="dark" so this map would
+ *      cover exactly half of them, and `sand` would silently fall through to
+ *      the light branch.
+ *   2. The series colours are already theme-aware one level down. A config
+ *      entry here names a TOKEN (`var(--chart-2)`), and the token is what is
+ *      re-derived per theme in index.css. One colour per series, four
+ *      resolutions, no per-mode branch in component code.
+ *
+ * Until something uses it, every entry resolved identically in both passes and
+ * the `.dark` block below was a byte-for-byte duplicate of the base block -
+ * dead CSS shipped on every chart, and misleading to read. ChartStyle now
+ * emits a prefixed block only for a mode some entry actually declares.
+ */
 const THEMES = {
   light: "",
   dark: ".dark"
@@ -42,7 +63,30 @@ function ChartContainer({
         data-slot="chart"
         data-chart={chartId}
         className={cn(
-          "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-hidden [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector]:outline-hidden [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-hidden",
+          /* THE TICK SELECTOR WAS DEAD AND IS NOW CHECKED AGAINST THE DOM.
+             Upstream shadcn still ships `.recharts-cartesian-axis-tick text`,
+             which was right for recharts 2.x. In 3.8
+             `.recharts-cartesian-axis-tick` is the tick LINE's own class and
+             has no <text> under it; the label is
+             `text.recharts-text.recharts-cartesian-axis-tick-value` inside a
+             `g.recharts-cartesian-axis-tick-label` wrapper
+             (CartesianAxis.js:219/230/354), and the whole tick-label group is
+             hoisted into a `g.recharts-zIndex-layer_*` OUTSIDE
+             `.recharts-xAxis` / `.recharts-yAxis`. So the old rule matched
+             nothing and every chart in this repo rendered its axis at
+             recharts' own #666 - 3.28:1 on the `dark` ground, a FAIL for text
+             at 4.5:1. A CSS `fill` outranks the presentation attribute
+             recharts writes, so this one rule fixes both axes.
+
+             The two `[stroke='#ccc']` gates below are NOT dead, and are left
+             alone deliberately. #ccc is recharts 3.8's own default stroke for
+             CartesianGrid, ReferenceLine and PolarGrid
+             (CartesianGrid.js:299, ReferenceLine.js:235, PolarGrid.js:55), so
+             they mean "theme the chrome of any chart that did not author a
+             colour of its own". A chart that DOES author one - as
+             WaterConsumptionCardV2 does, onto --chart-grid / --chart-axis -
+             correctly opts out, which is why they never fired there. */
+          "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick-value]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-hidden [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector]:outline-hidden [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-hidden",
           className
         )}
         {...props}>
@@ -65,10 +109,18 @@ const ChartStyle = ({
     return null
   }
 
+  /* The base block (prefix "") always ships. A prefixed one ships only when
+     some entry declares that mode explicitly - otherwise it would resolve to
+     the same declarations and duplicate the base block verbatim. See the note
+     on THEMES. */
+  const themes = Object.entries(THEMES).filter(
+    ([theme, prefix]) => !prefix || colorConfig.some(([, item]) => item.theme?.[theme])
+  )
+
   return (
     <style
       dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
+        __html: themes
           .map(([theme, prefix]) => `
 ${prefix} [data-chart=${id}] {
 ${colorConfig
