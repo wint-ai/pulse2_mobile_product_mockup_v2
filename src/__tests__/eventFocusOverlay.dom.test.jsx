@@ -372,14 +372,36 @@ describe('the collapsible sections', () => {
     expect(graph.panel.hidden).toBe(true)
   })
 
-  it('shows the water facts without an accordion to open', () => {
-    // The four that ARE the event — state, direction, whether it will shut
-    // itself off, and how it was detected — are read, not opened.
+  /* SUPERSEDED 2026-10-21 — the owner removed the four-fact strip this
+     asserted ("remove this from event overlay"). The strip had been promoted
+     out of the accordion three days earlier on the grounds that those four
+     ARE the event.
+     What replaces the assertion is the reason the removal was safe: three of
+     the four are still said on this surface, by the neighbours the strip was
+     restating. That is the Rule 0 guarantee and it is worth keeping. The
+     fourth, Detection, is genuinely gone and is reported to the owner rather
+     than asserted here — a test that pinned its absence would just make the
+     loss harder to reverse. */
+  it('drops the fact strip, and the facts it restated are still said', () => {
     const { container } = renderOverlay()
-    expect(container.textContent).toContain('State')
-    expect(container.textContent).toContain('Flow level')
-    expect(container.textContent).toContain('Auto-shutoff')
-    expect(container.textContent).toContain('Detection')
+    const text = container.textContent
+
+    // The strip itself is gone — no labelled State / Flow level / Auto-shutoff.
+    expect(screen.queryByText('Flow level')).toBeNull()
+    expect(screen.queryByText('Auto-shutoff')).toBeNull()
+
+    // State — the alert card's status pill still carries it.
+    expect(text).toMatch(/Ongoing|Warning|Shut ?off/i)
+    // Flow direction — the event's own title carries it.
+    expect(text).toMatch(/High Flow|Low Flow/i)
+    /* Auto-shutoff — the valve handling panel states the policy in a
+       sentence. Matched on the panel's own label rather than on the words
+       "shut off", because the DISABLED branch does not use them: it reads
+       "Valve handling: Manual only — Nothing will close the valve for you."
+       Asserting the words would have passed only on the enabled fixture. */
+    expect(text).toMatch(/Valve handling/i)
+
+    // And it still is not an accordion.
     expect(screen.queryByRole('button', { name: /^Event details$/ })).toBeNull()
   })
 
