@@ -371,6 +371,8 @@ function EventRow({ event, onSelect }) {
  * @param {string}   className     appended to the card root
  */
 export default function TriageBand({
+  /** Systems in this scope — the quiet state says how many it is watching. */
+  systemCount = 0,
   events = [],
   onSelectEvent,
   onViewAll,
@@ -472,9 +474,22 @@ export default function TriageBand({
                 <p className={cn('font-sans', EMPTY_TITLE)} dir="auto" data-node-id="199375:138171">
                   No active water events
                 </p>
-                <p className={cn('font-sans', EMPTY_SUB)} data-node-id="199375:138172">
-                  Everything looks good!
-                </p>
+                {/* NOT "Everything looks good!". That line claimed the whole
+                    building from a card that measures ONE dimension, and PRD
+                    04a removed exactly it on 2026-06-13 for exactly that
+                    reason: the two-line treatment "implied a global all-clear
+                    that contradicted '1 issue' on the Health widget below".
+                    At 210 Harborview — one Offline system — it printed over a
+                    red fault tile.
+                    What stands here instead says what this card actually
+                    watches, and how much of it. `systemCount` is the scope's
+                    own number; with none passed the sentence drops rather
+                    than reading "0 systems". */}
+                {systemCount > 0 ? (
+                  <p className={cn('font-sans', EMPTY_SUB)} data-node-id="199375:138172">
+                    {`We're watching ${systemCount} ${systemCount === 1 ? 'system' : 'systems'} for the leaks nobody hears`}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -493,14 +508,26 @@ export default function TriageBand({
                   <circle cx="14.7812" cy="14.7812" r="13.75" stroke="#0B82F8" strokeWidth="2.0625" strokeLinejoin="round" />
                 </svg>
               </span>
-              {/* Frozen Figma copy — see the note at the top. The "L" is a
-                  12px Geist run inside a 14px sentence, which is how
-                  199375:139984 sets it. */}
+              {/* THE 25K IS GONE. It was frozen Figma copy and this file's
+                  own note admitted "25K is not derived from anything" — a
+                  number presented as measured that was never computed, in a
+                  product whose credibility is that its numbers are real.
+
+                  What replaces it is the same idea, true: a background flow
+                  at the bottom of the band this product reports (4 L/h) runs
+                  to 35,040 litres a year, and the EPA puts an entire US
+                  family's annual leak waste at 9,400 gal — 35,579 litres. Our
+                  quietest alert is a whole household's yearly waste, and the
+                  comparator belongs to a regulator rather than to us.
+
+                  It is written as a PROJECTION ("a year"), never as a loss
+                  already taken: the dataset's history is 34 days deep and
+                  nothing in it has run longer than 12 hours. */}
               <div className={cn('font-sans', TIP_TEXT)} data-node-id="199375:139984">
                 <p className={TIP_P}>
-                  <span className={TIP_RUN}>Leak prevention for your system can prevent up to 25K</span>
+                  <span className={TIP_RUN}>{`A 4 L/h trickle nobody hears is 35,000`}</span>
                   <span className={cn('font-sans', TIP_UNIT)}>L</span>
-                  <span className={TIP_RUN}>{` loss`}</span>
+                  <span className={TIP_RUN}>{` a year — a household's entire leak waste`}</span>
                 </p>
               </div>
             </div>
