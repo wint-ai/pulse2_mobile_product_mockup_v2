@@ -1,10 +1,10 @@
 /* Figtree is the design system's sans (font/family/sans in the Figma tokens);
    Geist is used for the topology and chart axis labels. Inter is kept only as
-   a fallback for the v1 screens that were built against it. */
+   a fallback for the v1 screens that were built against it — it is loaded from
+   index.html, not here, along with Material Symbols (also v1-only). Loading
+   either one from both places fetched the same stylesheet twice. */
 @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 @import "tailwindcss";
 
@@ -12,8 +12,17 @@
    — which nothing ever sets — is deliberate: it stops the dark: utilities
    that ship inside the stock shadcn components (button, sidebar, sheet)
    from firing on a device that merely prefers dark. Do not remove this
-   without also stripping those utilities. */
-@custom-variant dark (&:is(.dark *));
+   without also stripping those utilities. There is deliberately NO
+   `prefers-color-scheme` media query here and none should be added.
+
+   Two corrections to the original selector, which was `&:is(.dark *)`:
+   - `.dark *` is descendant-only, so a `dark:` utility sitting on the
+     `.dark` element itself never fired. `.dark, .dark *` covers both.
+   - `:is()` takes the specificity of its most specific argument, so a
+     `dark:` utility outranked the un-prefixed one it was meant to pair
+     with. `:where()` is always specificity zero, which is what a variant
+     wants. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* ── Design tokens ────────────────────────────────────────────────────
    Values below are READ OUT OF the Figma design context for the Wint
@@ -31,6 +40,7 @@
    colors/slate/600       #45556c    secondary body text
    colors/slate/500       #62748e    muted-foreground
    colors/slate/400       #90a1b9    placeholder
+   colors/slate/300       #cad5e2    disabled / zeroed figures
    colors/slate/200       #e2e8f0    border / input / separator
    colors/slate/100       #f1f5f9    muted surface
    colors/red/600         #e7000b    alert dot
@@ -42,56 +52,86 @@
 
    Wint severity colours are product semantics and stay as CLAUDE.md
    defines them: high #DB4670, low #F05C25, danger #A5455E, ok #5C9E1A.
+
+   NOTATION: the flat colour tokens are written in OKLCH. Every one was
+   converted from the hex above by exact round-trip — each oklch() here
+   resolves to the identical 8-bit sRGB triple, so the default theme is
+   pixel-identical to the hex version it replaced. The hex is kept in the
+   comment on each line as the reference, not as a second source of truth.
+   The reason for OKLCH is that the non-default palettes are sourced from
+   shadcn, which ships OKLCH, and the gradient stops are to be computed
+   with color-mix() — both want one colour space.
+
+   The two gradients (--app-bg / --tile-bg) deliberately stay in rgba().
+   Gradient interpolation happens in the gradient's own space, so
+   rewriting their stops buys nothing and risks the wash; they are
+   rebuilt with color-mix() when the other themes land.
+
+   The SEMANTIC layer below aliases the ramp — it does not copy it.
+   Changing --slate-900 now moves --foreground, --card-foreground and
+   --popover-foreground with it. Anything still written as a literal is
+   a value that is genuinely not a ramp step.
 */
 
 :root {
   --radius: 0.625rem;
 
-  /* Slate ramp — exactly as the design tokens resolve. */
-  --slate-100: #f1f5f9;
-  --slate-200: #e2e8f0;
-  --slate-400: #90a1b9;
-  --slate-500: #62748e;
-  --slate-600: #45556c;
-  --slate-700: #314158;
-  --slate-800: #1d293d;
-  --slate-900: #0f172b;
+  /* The one place the family stack is written. --font-sans (plain @theme,
+     below) and --font\/family\/sans (shim) both point here. */
+  --font-sans-stack: 'Figtree', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
-  /* Neutral surfaces */
-  --background: #F4F6F9;
-  --foreground: #0f172b;
-  --card: #FFFFFF;
-  --card-foreground: #0f172b;
-  --popover: #FFFFFF;
-  --popover-foreground: #0f172b;
-  --muted: #f1f5f9;
-  --muted-foreground: #62748e;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #0b81f8;
-  --accent: #f2f6ff;
-  --accent-foreground: #0b81f8;
+  /* Slate ramp — exactly as the design tokens resolve. The single source
+     for every neutral below. */
+  --slate-100: oklch(0.96826 0.00685 247.896);  /* #f1f5f9 */
+  --slate-200: oklch(0.92876 0.01262 255.508);  /* #e2e8f0 */
+  --slate-300: oklch(0.86855 0.02161 252.514);  /* #cad5e2 */
+  --slate-400: oklch(0.70382 0.04017 256.993);  /* #90a1b9 */
+  --slate-500: oklch(0.55416 0.04599 257.526);  /* #62748e */
+  --slate-600: oklch(0.44539 0.043 257.421);    /* #45556c */
+  --slate-700: oklch(0.37173 0.04493 257.424);  /* #314158 */
+  --slate-800: oklch(0.27989 0.04077 260.329);  /* #1d293d */
+  --slate-900: oklch(0.2084 0.04166 266.359);   /* #0f172b */
+
+  /* Neutral surfaces. Literals here are the values that are NOT ramp
+     steps: the app ground, white, and the pale blue accent wash. */
+  --background: oklch(0.97248 0.00454 258.325); /* #F4F6F9 — not a ramp step */
+  --foreground: var(--slate-900);
+  --card: oklch(1 0 0);                         /* #FFFFFF — not a ramp step */
+  --card-foreground: var(--slate-900);
+  --popover: oklch(1 0 0);                       /* #FFFFFF — not a ramp step */
+  --popover-foreground: var(--slate-900);
+  --muted: var(--slate-100);
+  --muted-foreground: var(--slate-500);
+  --border: var(--slate-200);
+  --input: var(--slate-200);
+  --ring: var(--primary);
+  --accent: oklch(0.97271 0.01276 266.701);     /* #f2f6ff — not a ramp step */
+  --accent-foreground: var(--primary);
+
+  /* The house card surface. 66 call sites still write #fafbfc directly;
+     they move onto this token in Phase 4. */
+  --surface-card: oklch(0.98761 0.0017 247.839); /* #fafbfc */
 
   /* Wint brand + semantics */
-  --primary: #0b81f8;
-  --primary-foreground: #FFFFFF;
-  --secondary: #f2f6ff;
-  --secondary-foreground: #0b81f8;
-  --destructive: #fb2c36;
-  --destructive-foreground: #FFFFFF;
+  --primary: oklch(0.61304 0.20026 255.339);    /* #0b81f8 — wint-blue-accent */
+  --primary-foreground: oklch(1 0 0);           /* #FFFFFF */
+  --secondary: oklch(0.97271 0.01276 266.701);  /* #f2f6ff — not a ramp step */
+  --secondary-foreground: var(--primary);
+  --destructive: var(--red-500);
+  --destructive-foreground: oklch(1 0 0);       /* #FFFFFF */
 
   /* Red ramp — the alert dot and the error badge are different reds. */
-  --red-100: #ffe2e2;
-  --red-400: #ff6467;
-  --red-500: #fb2c36;
-  --red-600: #e7000b;
-  --orange-100: #ffedd4;
+  --red-100: oklch(0.9365 0.03201 17.738);      /* #ffe2e2 */
+  --red-400: oklch(0.70218 0.18923 22.228);     /* #ff6467 */
+  --red-500: oklch(0.63782 0.23729 25.436);     /* #fb2c36 */
+  --red-600: oklch(0.58304 0.23867 28.476);     /* #e7000b */
+  --orange-100: oklch(0.95396 0.03825 76.199);  /* #ffedd4 */
 
   /* Wint-specific severity colors — bind these directly in components */
-  --severity-high: #DB4670;      /* High Flow Water Event */
-  --severity-low: #F05C25;       /* Low Flow Water Event */
-  --danger: #A5455E;             /* valve errors */
-  --success: #5C9E1A;
+  --severity-high: oklch(0.61471 0.18648 7.537);   /* #DB4670 High Flow Water Event */
+  --severity-low: oklch(0.66149 0.19349 38.766);   /* #F05C25 Low Flow Water Event */
+  --danger: oklch(0.52391 0.12865 6.406);          /* #A5455E valve errors */
+  --success: oklch(0.63087 0.17002 133.628);       /* #5C9E1A */
 
   /* App background — screen roots. 129.43deg in the comp. */
   /* Figma 198314:73471 "All accounts" — the screen root's wash, verbatim from
@@ -124,30 +164,242 @@
       rgba(212, 226, 255, 0.8) 71.236%),
     linear-gradient(90deg, #ffffff 0%, #ffffff 100%);
 
-  --wave-bg-from: #66B5F9;
-  --wave-bg-to: #3E95F6;
-  --wave-mid: #1B79F8;
-  --wave-deep: #0F5FF5;
+  --wave-bg-from: oklch(0.75046 0.12587 246.447); /* #66B5F9 */
+  --wave-bg-to: oklch(0.66437 0.16644 253.637);   /* #3E95F6 */
+  --wave-mid: oklch(0.59816 0.20766 258.291);     /* #1B79F8 */
+  --wave-deep: oklch(0.54305 0.23548 261.91);     /* #0F5FF5 */
+
   /* Side menu — Figma "Side menu_option 2" (198378:73797).
      The stock shadcn values are neutral grays; these bind the drawer to
      the Wint palette above so it matches the rest of the app. */
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #0a0a0a;
-  --sidebar-primary: #0b81f8;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #f2f6ff;
-  --sidebar-accent-foreground: #0b81f8;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #0b81f8;
+  --sidebar: oklch(1 0 0);                        /* #FFFFFF — not a ramp step */
+  --sidebar-foreground: oklch(0.14479 0 0);       /* #0a0a0a — not a ramp step */
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: oklch(1 0 0);     /* #FFFFFF */
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--primary);
+  --sidebar-border: var(--slate-200);
+  --sidebar-ring: var(--primary);
 
   /* Chart series — water consumption reads as one blue material, so the
      scale is a blue ramp rather than a categorical rainbow. 4 and 5 are
-     the semantic escapes for a series that must read as good / critical. */
-  --chart-1: #0b81f8;
-  --chart-2: #66B5F9;
-  --chart-3: #1B79F8;
-  --chart-4: #5C9E1A;
-  --chart-5: #DB4670;
+     the semantic escapes for a series that must read as good / critical,
+     and they alias those semantics rather than restating them.
+     1/2/3 happen to equal --primary / --wave-bg-from / --wave-mid, but
+     only 1 is aliased: the wave is scenery and the chart is data, and a
+     theme should be free to move one without the other. */
+  --chart-1: var(--primary);
+  --chart-2: oklch(0.75046 0.12587 246.447);      /* #66B5F9 */
+  --chart-3: oklch(0.59816 0.20766 258.291);      /* #1B79F8 */
+  --chart-4: var(--success);
+  --chart-5: var(--severity-high);
+}
+
+/* ── TEMPORARY SHIM — Phase 4 deletes this whole block ────────────────
+   WHY IT EXISTS: every name below is spelled the way the Figma export
+   writes it (`--colors\/slate\/500`, `--text\/sm\/size`). They were
+   referenced by ~1,300 call sites across src/v2 and src/components/ui
+   and defined in exactly zero files, so each call site was painted by
+   its own inline `var(…, #hex)` fallback instead. A var() fallback is
+   silent — no warning, no console message, no visual tell — so the
+   token layer looked real while being 94% dead.
+
+   Aliasing the names here flips those call sites live in one file
+   without touching a component, which means from this commit on a
+   change to the ramp above is visible on screen immediately rather
+   than at the end of a four-phase migration.
+
+   IT IS A SHIM, NOT THE DESIGN. Phase 3 rewrites the call sites onto
+   the real tokens and deletes their fallbacks; Phase 4 deletes this
+   block. The `token-exists` CI rule cannot be switched on until it is
+   gone, which is the forcing function. Do not add to it, and do not
+   let a component start depending on one of these names on purpose.
+
+   NOT LISTED HERE, DELIBERATELY: ~25 names whose call sites disagree
+   about the fallback value (e.g. --text\/sm\/lh is 20px at 53 sites and
+   22px at one; --component\/button\/size-default\/radius is 26px, 10px
+   and 8px). Defining one value would silently move the minority sites,
+   and Phase 1 is not allowed a visual change. Those names stay
+   undefined — their fallbacks keep winning exactly as today — and
+   Phase 3 resolves them per call site, which is the only place the
+   question can honestly be answered. The full list is in the Phase 1
+   report.
+   ─────────────────────────────────────────────────────────────────── */
+:root {
+  /* Brand */
+  --wint-blue-accent: var(--primary);
+
+  /* Colour ramps */
+  --colors\/slate\/100: var(--slate-100);
+  --colors\/slate\/200: var(--slate-200);
+  --colors\/slate\/300: var(--slate-300);
+  --colors\/slate\/400: var(--slate-400);
+  --colors\/slate\/500: var(--slate-500);
+  --colors\/slate\/600: var(--slate-600);
+  --colors\/slate\/700: var(--slate-700);
+  --colors\/slate\/800: var(--slate-800);
+  --colors\/slate\/900: var(--slate-900);
+  --colors\/red\/100: var(--red-100);
+  --colors\/red\/400: var(--red-400);
+  --colors\/red\/500: var(--red-500);
+  --colors\/red\/600: var(--red-600);
+  --colors\/orange\/100: var(--orange-100);
+  --colors\/white: oklch(1 0 0);                  /* literal white: captions over photography, not a surface */
+  --sidebar\/foreground: var(--sidebar-foreground);
+
+  /* No token holds these four — see the report, they are a Phase 3/4
+     judgement call (fold into the ramp, or promote to real tokens). */
+  --colors\/red\/200: oklch(0.88341 0.06163 18.387);  /* #ffc9c9 */
+  --colors\/red\/700: oklch(0.50949 0.20858 28.513);  /* #c10007 */
+  --colors\/red\/900: oklch(0.39673 0.14077 25.714);  /* #82181a */
+  --colors\/blue\/50: oklch(0.97048 0.01418 254.604); /* #eff6ff */
+  --colors\/blue\/100: oklch(0.93192 0.03159 255.585);/* #dbeafe */
+  --colors\/gray\/700: oklch(0.37306 0.03431 260.169);/* #364153 — a WARM grey in a cool-slate system */
+
+  /* Type families. Both of these resolved to a non-family string today
+     ('Figtree:Medium', 'Geist:Regular'), which the browser cannot match
+     and skips — see the report: this does NOT restore Geist, because a
+     :root token cannot route some call sites to Geist and others to
+     Figtree. It makes the name real and overridable; Phase 3 routes it. */
+  --font\/family\/sans: var(--font-sans-stack);
+  --font\/family\/heading: var(--font-sans-stack);
+
+  /* Type scale */
+  --text\/xs\/size: 12px;
+  --text\/xs\/lh-none: 12px;
+  --text\/xs\/lh-tight: 15px;
+  --text\/xs\/lh-snug: 16.5px;
+  --text\/xs\/lh-relaxed: 19.5px;
+  --text\/sm\/lh-none: 14px;
+  --text\/sm\/lh-tight: 18px;
+  --text\/sm\/lh-relaxed: 22.75px;
+  --text\/sm-tight\/size: 14px;
+  --text\/sm-tight\/lh: 20px;
+  --text\/base\/lh-snug: 22px;
+  --text\/base\/lh-relaxed: 26px;
+  --text\/base\/heading-tracking: -0.4px;
+  --text\/lg\/size: 18px;
+  --text\/lg\/lh-none: 18px;
+  --text\/lg\/lh-relaxed: 29.25px;
+  --text\/lg\/heading-tracking: -0.45px;
+  --text\/xl\/size: 20px;
+  --text\/xl\/lh-snug: 27.5px;
+  --text\/xl\/lh-relaxed: 32.5px;
+  --text\/xl\/heading-tracking: -0.5px;
+  --text\/2xl\/size: 24px;
+  --text\/2xl\/lh: 32px;
+  --text\/2xl\/lh-none: 24px;
+  --text\/2xl\/lh-relaxed: 39px;
+  --text\/2xl\/heading-tracking: -0.6px;
+  --text\/3xl\/lh-none: 30px;
+  --text\/title\/size: 16px;
+  --text\/title-md\/size: 18px;
+  --text\/title-md\/lh-snug: 18px;
+
+  /* The Figma export also emits a second, flatter set of type names. */
+  --font\/size\/text-sm: 14px;
+  --font\/size\/text-3xl: 30px;
+  --font\/line-height\/leading-5: 20px;
+  --font\/line-height\/leading-7: 28px;
+  --font\/tracking\/tracking-normal: 0px;
+  --font\/weight\/font-semibold: 600;
+  --font\/weight\/font-bold: 700;
+
+  /* Spacing */
+  --p-0: 0px;
+  --spacing\/0\,5: 2px;
+  --spacing\/1: 4px;
+  --spacing\/1\,5: 6px;
+  --spacing\/2: 8px;
+  --spacing\/3: 12px;
+  --spacing\/4: 16px;
+  --spacing\/5: 20px;
+  --spacing\/6: 24px;
+  --spacing\/7: 28px;
+  /* `pro/space` is a parallel scale from the shadcn-pro Figma kit. Note
+     pro/space/5 is 16px, not 20px, at all 5 call sites — that is what
+     the export says and it is reproduced rather than corrected here. */
+  --pro\/space\/0\,5: 2px;
+  --pro\/space\/1: 4px;
+  --pro\/space\/1\,5: 6px;
+  --pro\/space\/2\,5: 10px;
+  --pro\/space\/4: 16px;
+  --pro\/space\/5: 16px;
+  --pro\/space\/6: 24px;
+  --pro\/space\/8: 32px;
+
+  /* Radii + borders */
+  --rounded-2xl: 18px;
+  --rounded-full: 9999px;
+  --border-width\/border: 1px;
+
+  /* Opacity — consumed as `opacity-[calc(var(--opacity-50,50)/100)]`,
+     so these are percentages, not fractions. */
+  --opacity-10: 100;
+  --opacity-50: 50;
+
+  /* Shadows */
+  --shadow\/x: 0px;
+  --shadow\/control\/layer-1\/y: 0px;
+  --shadow\/control\/layer-1\/blur: 0px;
+  --shadow\/control\/layer-1\/color: transparent;
+  --shadows\/scale\/none\/y: 0px;
+  --shadows\/scale\/none\/blur: 0px;
+  --shadows\/color\/transparent: transparent;
+
+  /* Per-component tokens from the Figma kit */
+  --component\/badge\/px: 8px;
+  --component\/badge\/border-width: 1px;
+  --component\/breadcrumb\/item\/gap: 6px;
+  --component\/button\/gap: 6px;
+  --component\/calendar\/padding: 12px;
+  --component\/calendar\/radius: 26px;
+  --component\/calendar\/day-radius: 26px;
+  --component\/calendar\/caption-label\/pr: 8px;
+  --component\/calendar\/dropdown\/bg: transparent;
+  --component\/card\/padding: 24px;
+  --component\/card\/padding-sm: 16px;
+  --component\/card\/radius: 14px;
+  --component\/data-table\/cell\/padding: 8px;
+  --component\/data-table\/head\/px: 8px;
+  --component\/data-table\/toolbar\/gap: 8px;
+  --component\/input\/bg: var(--card);
+  --component\/input\/border: oklch(0.92191 0 0);  /* #e5e5e5 */
+  --component\/input\/border-width: 1px;
+  --component\/input\/radius: 8px;
+  --component\/input-group\/block\/textarea-top\/pb: 4px;
+  --component\/popover\/gap: 16px;
+  --component\/popover\/radius: 18px;
+  --component\/pro\/marketing\/tagline\/chip\/py: 2px;
+  --component\/sidebar\/media-asset\/radius: 8px;
+  --component\/sidebar\/menu-button\/gap: 8px;
+  --component\/sidebar\/menu-button\/padding: 8px;
+  --component\/sidebar\/menu-button\/py: 8px;
+  --component\/sidebar\/menu-button\/radius: 8px;
+  --component\/sidebar\/menu-sub-item\/gap: 8px;
+  --component\/sidebar\/menu-sub-item\/radius: 8px;
+  --component\/switch\/track\/off-bg: oklch(0.92191 0 0);  /* #e5e5e5 */
+  --component\/tabs\/list\/padding: 3px;
+  --component\/tabs\/list\/radius-horizontal: 26px;
+  --component\/tabs\/trigger\/px: 8px;
+  --component\/tabs\/trigger\/py: 4px;
+  --component\/tabs\/trigger\/radius: 14px;
+  --component\/toggle\/gap: 4px;
+  --component\/toggle\/radius: 26px;
+  --component\/toggle\/size-default\/padding: 12px;
+}
+/* ── end shim ─────────────────────────────────────────────────────── */
+
+/* Plain @theme, NOT @theme inline. Inside `@theme inline` Tailwind writes
+   the referenced value straight into the utility, so `.font-sans` compiled
+   to a literal font stack and overriding --font-sans at runtime did
+   nothing to its ~35 usages. Out here it compiles to
+   `font-family: var(--font-sans)` and the override works. The colour
+   tokens below genuinely want `inline` — that is what lets a theme
+   redefine --primary on an ancestor and have every .bg-primary beneath
+   it follow. Fonts were the one token mapped the wrong way round. */
+@theme {
+  --font-sans: var(--font-sans-stack);
 }
 
 @theme inline {
@@ -176,7 +428,8 @@
   --color-danger: var(--danger);
   --color-success: var(--success);
 
-  --font-sans: 'Figtree', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --color-surface-card: var(--surface-card);
+
   --font-mono-label: 'Geist', ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -194,6 +447,7 @@
 
   --color-slate-100: var(--slate-100);
   --color-slate-200: var(--slate-200);
+  --color-slate-300: var(--slate-300);
   --color-slate-400: var(--slate-400);
   --color-slate-500: var(--slate-500);
   --color-slate-600: var(--slate-600);
@@ -224,7 +478,7 @@
 
 html, body, #root {
   height: 100%;
-  font-family: 'Figtree', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans-stack);
   background: var(--background);
   color: var(--foreground);
   -webkit-font-smoothing: antialiased;
@@ -239,7 +493,10 @@ button {
   text-align: right;
 }
 /* Never applied — nothing sets `.dark`. Kept so the @custom-variant above
-   resolves coherently if a dark theme is ever introduced. */
+   resolves coherently if a dark theme is ever introduced. Still hsl() and
+   still only 8 of the ~60 tokens a working dark theme needs: Phase 2
+   replaces this block wholesale from a shadcn palette, so converting these
+   eight to OKLCH now would be churn on code that is about to be deleted. */
 .dark {
   --sidebar: hsl(240 5.9% 10%);
   --sidebar-foreground: hsl(240 4.8% 95.9%);
