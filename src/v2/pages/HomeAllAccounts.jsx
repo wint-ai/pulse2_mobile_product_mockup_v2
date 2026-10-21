@@ -1131,6 +1131,9 @@ export default function HomeAllAccounts({ expanded = false }) {
 
       <TriageBand
         events={waterEvents}
+        /* The quiet state names how many systems it is watching — the scope's
+           own count, not the fleet's. */
+        systemCount={live?.stats?.total ?? 0}
         /* Opens EventFocusOverlay over this page. Row ids are system ids here
            — see the waterEvents mapping in `live` — and the overlay takes a
            systemId, so the row id goes straight through.
