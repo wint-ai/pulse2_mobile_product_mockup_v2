@@ -46,7 +46,7 @@ function CheckBox({ checked, indeterminate }) {
       className={cn(
         'flex size-[16px] shrink-0 items-center justify-center rounded-[4px] border border-solid',
         checked || indeterminate
-          ? 'border-primary bg-primary text-white'
+          ? 'border-primary bg-primary text-primary-foreground'
           : 'border-border bg-card',
       )}
     >
@@ -119,7 +119,7 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
 
       {/* #fafbfc, matching the widgets it filters, rather than shadcn's
           plain white — the sheet is part of this app, not the library demo. */}
-      <div className="relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[18px] bg-[#fafbfc]">
+      <div className="relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[18px] bg-surface-card">
         <div className="flex shrink-0 items-center gap-[8px] border-b border-solid border-border px-[16px] py-[12px]">
           {category ? (
             <button
@@ -168,7 +168,7 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
                         {c.label}
                       </span>
                       {n > 0 ? (
-                        <span className="flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-primary px-[6px] text-[12px] font-medium leading-[16px] text-white">
+                        <span className="flex h-[20px] min-w-[20px] items-center justify-center rounded-full bg-primary px-[6px] text-[12px] font-medium leading-[16px] text-primary-foreground">
                           {n}
                         </span>
                       ) : null}
@@ -268,7 +268,7 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
           <button
             type="button"
             onClick={() => onApply(draft)}
-            className="flex h-[36px] items-center justify-center rounded-lg bg-primary px-[16px] text-sm font-medium leading-5 text-white outline-none hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="flex h-[36px] items-center justify-center rounded-lg bg-primary px-[16px] text-sm font-medium leading-5 text-primary-foreground outline-none hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             Apply filter
           </button>

@@ -198,11 +198,12 @@
  * page that is the frame root (`...relative...`, data-node-id 198379:80447).
  *
  * ── COLOUR / TYPE ────────────────────────────────────────────────────────
- * Every value here is a token from src/index.css, either as a Tailwind utility
- * bound to it in `@theme inline` (text-slate-500, bg-accent, bg-primary) or as
- * `var(--token, fallback)`. The one bare hex is #fafbfc, which IS the house
- * card chassis (SystemTypeCard / ValveStatusCard / ActivePolicyCard /
- * InsightsCard / EventsTimelineCard all spell it). Figtree is the design
+ * Every value here is a token from src/index.css, as a Tailwind utility bound
+ * to it in `@theme inline` (text-slate-500, bg-accent, bg-primary). There is
+ * NO bare hex and no two-argument var() left: Phase 3 deleted the fallbacks
+ * and Phase 4 moved the house card chassis onto `bg-surface-card` +
+ * `border-card` (SystemTypeCard / ValveStatusCard / ActivePolicyCard /
+ * InsightsCard / EventsTimelineCard all draw the same pair). Figtree is the design
  * system's sans and is the document default (index.css:227), so nothing here
  * re-states a family.
  *
@@ -352,7 +353,7 @@ const CHANNEL_LABEL = { push: 'Push', email: 'Email', sms: 'SMS' }
 /* The house card chassis — SystemTypeCard / ValveStatusCard / ActivePolicyCard
    / InsightsCard / EventsTimelineCard all draw this shell, at this radius. */
 const CARD_SHELL =
-  'w-full shrink-0 rounded-[18px] border border-solid border-white bg-[#fafbfc]'
+  'w-full shrink-0 rounded-[18px] border border-solid border-card bg-surface-card'
 
 /* ── Pure helpers (module-local: a component file may only export its
       component, per the react-refresh rule this repo lints with) ─────────── */
@@ -712,7 +713,7 @@ function RecipientList({ recipients }) {
           <div className="flex items-center gap-[8px] py-[6px]">
             <span
               aria-hidden="true"
-              className="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white"
+              className="flex size-[26px] shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground"
             >
               {initialsFor(r.name)}
             </span>
@@ -894,7 +895,7 @@ function FindSystemPanel({ sys, sysId }) {
           }}
           rows={3}
           placeholder="Where to find it, access notes, who to call on site…"
-          className="w-full resize-y rounded-[10px] border border-solid border-slate-200 bg-white px-[10px] py-[8px] text-[13px] text-slate-900 outline-none placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="w-full resize-y rounded-[10px] border border-solid border-slate-200 bg-card px-[10px] py-[8px] text-[13px] text-slate-900 outline-none placeholder:text-slate-400 focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50"
         />
       </div>
     </div>
@@ -1168,7 +1169,7 @@ export default function EventFocusOverlay({
           asked for. They carry distinct names so a screen reader (and a test)
           can tell them apart; see the `onClose` prop note for when they would
           diverge. */}
-      <header className="flex shrink-0 items-center gap-[8px] border-b border-solid border-slate-200 bg-[#fafbfc] px-[10px] py-[7px]">
+      <header className="flex shrink-0 items-center gap-[8px] border-b border-solid border-slate-200 bg-surface-card px-[10px] py-[7px]">
         <Button
           type="button"
           variant="ghost"
@@ -1280,7 +1281,7 @@ export default function EventFocusOverlay({
             (2026-06-02): two lines max. No "auto-shutoff suppressed" line —
             that was the confirmation-time warning, not a status. */}
         {isWater && ignored ? (
-          <div className="flex w-full shrink-0 items-start gap-[8px] rounded-[10px] bg-[var(--orange-100)] px-[12px] py-[10px] text-[13px] text-slate-900">
+          <div className="flex w-full shrink-0 items-start gap-[8px] rounded-[10px] bg-orange-100 px-[12px] py-[10px] text-[13px] text-slate-900">
             <Flag size={16} className="mt-[1px] shrink-0" style={{ color: TOKEN.low }} />
             <div className="min-w-0">
               <p className="min-w-0 font-bold">Ignored by {ignoredInfo?.ignoredBy || 'You'}</p>
@@ -1297,7 +1298,7 @@ export default function EventFocusOverlay({
           <div className="flex w-full shrink-0 items-center gap-[9px] rounded-[18px] bg-accent px-[14px] py-[12px]">
             <span
               aria-hidden="true"
-              className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] bg-white text-primary"
+              className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] bg-card text-primary"
             >
               <Eye size={16} />
             </span>
@@ -1540,7 +1541,7 @@ export default function EventFocusOverlay({
           action, so the claim takes the solid slot back and the footer reads
           exactly as it did before. */}
       {showFooter ? (
-        <footer className="shrink-0 border-t border-solid border-slate-200 bg-[#fafbfc] px-[12px] pb-[12px] pt-[9px]">
+        <footer className="shrink-0 border-t border-solid border-slate-200 bg-surface-card px-[12px] pb-[12px] pt-[9px]">
           {showValveAction ? (
             <>
               <Button

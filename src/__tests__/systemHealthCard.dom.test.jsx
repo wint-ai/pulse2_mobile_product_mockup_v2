@@ -78,7 +78,8 @@ describe('SystemHealthCard — progress bar', () => {
   it('paints the leading count red only while something needs attention', () => {
     const { container } = render(<SystemHealthCard {...ALERTING} />)
     const lead = container.querySelector('[data-node-id="199360:129783"] span')
-    expect(lead.className).toContain('text-[#e7000b]')
+    // Phase 4: #e7000b is --red-600, so the pin is the token, not the hex.
+    expect(lead.className).toContain('text-red-600')
   })
 
   it('moves with the numbers rather than staying at the frozen 18px', () => {
@@ -164,11 +165,12 @@ describe('SystemHealthCard — all healthy / empty', () => {
   it('stops painting the leading zero red', () => {
     const { container } = render(<SystemHealthCard total={48} healthy={48} />)
     const lead = container.querySelector('[data-node-id="199360:129783"] span')
-    expect(lead.className).not.toContain('text-[#e7000b]')
+    expect(lead.className).not.toContain('text-red-600')
     /* 199417:131529 greys the zero to #cad5e2 rather than leaving it at the
        slate-700 the sentence beside it uses. The guarantee is unchanged —
-       zero is never red — only the node's answer for what it is instead. */
-    expect(lead.className).toContain('text-[#cad5e2]')
+       zero is never red — only the node's answer for what it is instead.
+       Phase 4: #cad5e2 is --slate-300, so the pin is the token. */
+    expect(lead.className).toContain('text-slate-300')
     expect(container.querySelector('[data-node-id="199360:129783"]').textContent)
       .toBe('0 / 48 need attention')
   })

@@ -253,7 +253,7 @@ function Bell12() {
  * The shadow is fully transparent because that is what the Figma effect
  * resolves to; it is kept rather than substituted with the project Card's.
  */
-const CARD_ROOT = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-0 max-h-[380px] items-start overflow-clip p-0 relative rounded-[18px] shadow-[0px_0px_0px_0px_rgba(0,0,0,0)] shrink-0 w-full`
+const CARD_ROOT = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-0 max-h-[380px] items-start overflow-clip p-0 relative rounded-[18px] shadow-[0px_0px_0px_0px_rgba(0,0,0,0)] shrink-0 w-full`
 
 /** CardHeader — I…;149:2490. gap-[var(--p-0,0px)] cancels the project Card's gap-1. */
 const CARD_HEADER = String.raw`content-stretch flex gap-0 h-[62px] items-center justify-between px-5 py-3 relative shrink-0 w-full`
@@ -280,7 +280,7 @@ const TITLE_TONE = {
 
 /** The "All" Button — I…;149:2490;197412:209455;199383:141771. */
 const FILTER_BUTTON = String.raw`bg-slate-100 content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex gap-1.5 h-[36px] items-center justify-center px-3 py-0 relative rounded-[26px] shrink-0`
-const FILTER_LABEL = String.raw`[word-break:break-word] font-sans font-medium relative shrink-0 text-[color:#171717] text-sm leading-5 whitespace-nowrap`
+const FILTER_LABEL = String.raw`[word-break:break-word] font-sans font-medium relative shrink-0 text-neutral-900 text-sm leading-5 whitespace-nowrap`
 
 /**
  * cardContent — I…;101006:7299. See deviation 3 in the header comment for
@@ -313,7 +313,7 @@ const BADGE_TONE = {
   // 198352:121557 — the badgeFirst pill, orange on orange.
   warningLead: {
     variant: 'secondary',
-    className: String.raw`bg-[var(--orange-100)] text-orange-600`,
+    className: String.raw`bg-orange-100 text-orange-600`,
   },
   // 198352:121511 / 198511:66354.
   shutoff: {
@@ -347,8 +347,8 @@ const TEXT_BLOCK = String.raw`content-stretch flex flex-col gap-1.5 items-start 
 const UNIT_WRAPPER = String.raw`content-stretch flex gap-0.5 items-center justify-between relative shrink-0 w-full`
 
 /** Filter menu. No node in the comp — see the `All` note on the component. */
-const MENU_SHELL = String.raw`absolute right-0 top-[calc(100%+6px)] z-20 bg-white border border-solid border-border content-stretch flex flex-col items-stretch min-w-[132px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
-const MENU_ITEM = String.raw`cursor-pointer flex gap-[8px] h-[32px] items-center justify-between px-[8px] rounded-[8px] text-[color:#171717] text-sm text-left w-full hover:bg-slate-100`
+const MENU_SHELL = String.raw`absolute right-0 top-[calc(100%+6px)] z-20 bg-card border border-solid border-border content-stretch flex flex-col items-stretch min-w-[132px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
+const MENU_ITEM = String.raw`cursor-pointer flex gap-[8px] h-[32px] items-center justify-between px-[8px] rounded-[8px] text-neutral-900 text-sm text-left w-full hover:bg-slate-100`
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 // Verbatim from the two nodes: three identical rows, each "High Flow Anomaly" /
@@ -451,7 +451,7 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
   const title = (
     /* Figma has `shrink-0 whitespace-nowrap` here; see deviation 4. */
     <p
-      className={String.raw`[word-break:break-word] font-sans font-semibold leading-5 min-w-0 overflow-hidden relative text-[color:#0a0a0a] text-sm text-ellipsis whitespace-nowrap`}
+      className={String.raw`[word-break:break-word] font-sans font-semibold leading-5 min-w-0 overflow-hidden relative text-neutral-950 text-sm text-ellipsis whitespace-nowrap`}
       data-node-id="I199383:141630;101006:7299;199383:141691"
     >
       {event.title}
@@ -498,7 +498,7 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
           ) : (
             <span className="relative shrink-0 size-[13px]" data-node-id="I199383:141630;101006:7299;199383:141685" data-name="Phosphor Icons / waves">
               {/* stroke-width scaled 21→13 so the 13px draw keeps the design's 1.08063 weight */}
-              <Waves size={13} className="absolute block inset-0 max-w-none size-full text-[#FB2C36] [&_path]:[stroke-width:1.746]" />
+              <Waves size={13} className="absolute block inset-0 max-w-none size-full text-destructive [&_path]:[stroke-width:1.746]" />
             </span>
           )}
         </div>
@@ -511,7 +511,7 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
         {!isLast && (
           <Separator
             orientation="vertical"
-            className="data-[orientation=vertical]:h-auto flex-[1_0_0] min-h-px w-px bg-[#E5E5E5]"
+            className="data-[orientation=vertical]:h-auto flex-[1_0_0] min-h-px w-px bg-neutral-200"
             data-node-id="I199383:141630;101006:7299;199383:141686"
             data-name="Separator"
           />
@@ -562,7 +562,7 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
                 {event.metrics.map(m => (
                   <div key={m.label} className="content-stretch flex gap-[5px] items-center relative shrink-0" data-node-id="I199383:141630;101006:7299;199383:141694">
                     <div
-                      className="flex flex-col justify-center leading-[0] overflow-hidden relative shrink-0 text-[color:#737373] text-xs text-ellipsis"
+                      className="flex flex-col justify-center leading-[0] overflow-hidden relative shrink-0 text-neutral-500 text-xs text-ellipsis"
                       data-node-id="I199383:141630;101006:7299;199383:141695"
                     >
                       <p className="leading-3 overflow-hidden text-[12px] text-ellipsis">{m.label}</p>
@@ -613,7 +613,7 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
           <div className="content-stretch flex flex-col items-end relative shrink-0 w-full" data-node-id="I199383:141630;101006:7299;199383:141705">
             <div className={UNIT_WRAPPER} data-node-id="I199383:141630;101006:7299;199383:141706" data-name="Unit wrapper">
               <div
-                className={String.raw`[word-break:break-word] flex flex-col font-sans font-normal justify-center leading-[0] min-w-px overflow-hidden relative shrink text-[color:#737373] text-xs text-ellipsis whitespace-nowrap`}
+                className={String.raw`[word-break:break-word] flex flex-col font-sans font-normal justify-center leading-[0] min-w-px overflow-hidden relative shrink text-neutral-500 text-xs text-ellipsis whitespace-nowrap`}
                 data-node-id="I199383:141630;101006:7299;199383:141707"
               >
                 <p className="leading-3 overflow-hidden text-[12px] text-ellipsis">{event.timestamp}</p>
@@ -842,7 +842,7 @@ export default function EventsTimelineCard({
                         className={cn(MENU_ITEM, option === activePeriod && String.raw`bg-slate-100 font-medium`)}
                       >
                         <span className="whitespace-nowrap">{option}</span>
-                        <span className="text-[color:#737373] text-[12px]">
+                        <span className="text-neutral-500 text-[12px]">
                           {option === ALL ? events.length : events.filter(e => e?.badge?.label === option).length}
                         </span>
                       </button>
@@ -865,7 +865,7 @@ export default function EventsTimelineCard({
             <p className="font-medium leading-5 text-foreground text-sm">
               {events.length === 0 ? 'No events yet' : `No ${activePeriod.toLowerCase()} events`}
             </p>
-            <p className="leading-4 text-[color:#737373] text-xs">
+            <p className="leading-4 text-neutral-500 text-xs">
               {events.length === 0
                 ? 'Nothing has happened on this system in the selected period.'
                 : 'Nothing on this system matches the current filter.'}

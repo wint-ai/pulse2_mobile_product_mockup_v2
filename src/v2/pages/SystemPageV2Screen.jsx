@@ -417,7 +417,7 @@ function Clock01() {
 /* Location Dot — the state pip inside the Off / On badges. ONE glyph, two
    bakes in the design, so the tint is a call-site class on the shared
    src/v2/icons/LocationDot. */
-const DOT_TINT = { off: 'text-[#fb2c36]', on: 'text-[#008236]' }
+const DOT_TINT = { off: 'text-destructive', on: 'text-[#008236]' }
 
 /* ── Action Policy card (198379:80616) ─────────────────────────────────────
    No component exists for this one yet, so it is built here from the frame.
@@ -425,13 +425,13 @@ const DOT_TINT = { off: 'text-[#fb2c36]', on: 'text-[#008236]' }
 
 function PolicyStateBadge({ label, tone }) {
   return (
-    <div className="bg-[#fafbfc] content-stretch flex gap-[var(--component\/badge\/gap,4px)] h-[20px] items-center justify-center overflow-clip px-[var(--component\/tabs\/trigger\/gap,6px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0">
+    <div className="bg-surface-card content-stretch flex gap-1 h-[20px] items-center justify-center overflow-clip px-1.5 py-0.5 relative rounded-[26px] shrink-0">
       <div className="content-stretch flex flex-col items-start relative shrink-0">
         <div className="relative shrink-0 size-[12px] flex items-center justify-center">
           <LocationDot size={12} className={DOT_TINT[tone] ?? DOT_TINT.off} />
         </div>
       </div>
-      <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative min-w-px text-[12px] text-[color:var(--colors\/slate\/500,#62748e)] text-ellipsis whitespace-nowrap">
+      <p className="[word-break:break-word] font-medium leading-4 overflow-hidden relative min-w-px text-[12px] text-muted-foreground text-ellipsis whitespace-nowrap">
         {label}
       </p>
     </div>
@@ -450,7 +450,7 @@ function PolicyBlock({ policy }) {
                 <div className="content-stretch flex items-center relative shrink-0">
                   <div className="content-stretch flex gap-[6px] items-center relative shrink-0">
                     {policy.glyph === 'valve' ? (
-                      <div className="bg-[#fafbfc] content-stretch flex flex-col items-center justify-center relative shrink-0 size-[15px]">
+                      <div className="bg-surface-card content-stretch flex flex-col items-center justify-center relative shrink-0 size-[15px]">
                         <ValveStatusGlyph />
                       </div>
                     ) : (
@@ -458,21 +458,21 @@ function PolicyBlock({ policy }) {
                         <FloodLine />
                       </div>
                     )}
-                    <p className="[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[#0a0a0a] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
+                    <p className="[word-break:break-word] font-semibold leading-5 relative shrink-0 text-neutral-950 text-sm whitespace-nowrap">
                       {policy.name}
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-            <p className="[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[#0a0a0a] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
+            <p className="[word-break:break-word] font-semibold leading-5 relative shrink-0 text-neutral-950 text-sm whitespace-nowrap">
               {policy.schedule}
             </p>
           </div>
         </div>
 
         {/* slate-100 panel */}
-        <div className="bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch flex flex-col gap-[12px] items-start px-[13px] py-[11px] relative rounded-[14px] shrink-0 w-full">
+        <div className="bg-muted content-stretch flex flex-col gap-[12px] items-start px-[13px] py-[11px] relative rounded-[14px] shrink-0 w-full">
           <div className="content-stretch flex gap-[8px] items-start relative shrink-0">
             {/* Auto Shutoff */}
             <div className="content-stretch flex gap-[5px] items-center relative shrink-0">
@@ -482,7 +482,7 @@ function PolicyBlock({ policy }) {
                     <ShutDown />
                   </div>
                 </div>
-                <p className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
+                <p className="[word-break:break-word] font-normal leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap">
                   Auto Shutoff
                 </p>
               </div>
@@ -506,7 +506,7 @@ function PolicyBlock({ policy }) {
                     <Bell />
                   </div>
                 </div>
-                <p className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/sm\/lh,20px)] relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm\/size,14px)] whitespace-nowrap">
+                <p className="[word-break:break-word] font-normal leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap">
                   Alert
                 </p>
               </div>
@@ -519,12 +519,12 @@ function PolicyBlock({ policy }) {
           {/* Window row */}
           <div className="content-stretch flex gap-[8px] items-center relative shrink-0">
             <div className="content-stretch flex items-center relative shrink-0">
-              <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh-tight,15px)] relative shrink-0 text-[#0a0a0a] text-[length:var(--text\/xs\/size,12px)] whitespace-nowrap">
+              <p className="[word-break:break-word] font-medium leading-[15px] relative shrink-0 text-neutral-950 text-xs whitespace-nowrap">
                 {policy.left}
               </p>
             </div>
             <div className="content-stretch flex gap-[4px] items-center relative shrink-0">
-              <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh-tight,15px)] relative shrink-0 text-[color:var(--colors\/slate\/500,#62748e)] text-[length:var(--text\/xs\/size,12px)] whitespace-nowrap">
+              <p className="[word-break:break-word] font-medium leading-[15px] relative shrink-0 text-muted-foreground text-xs whitespace-nowrap">
                 {policy.window}
               </p>
               <div className="overflow-clip relative shrink-0 size-[14px] flex items-center justify-center">
@@ -545,21 +545,21 @@ function ActionPolicyCard({ policies }) {
      flows to its content height here. */
   return (
     <div
-      className="bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[var(--p-0,0px)] items-start overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] shadow-[var(--shadow\/x,0px)_var(--shadow\/popover\/layer-2\/y,0px)_var(--shadow\/popover\/layer-2\/blur,0px)_var(--shadow\/popover\/layer-2\/spread,0px)_var(--shadow\/popover\/layer-2\/color,rgba(0,0,0,0))] shrink-0 w-full"
+      className="bg-surface-card border border-solid border-card content-stretch flex flex-col gap-0 items-start overflow-clip p-0 relative rounded-[18px] shadow-[0px_0px_0px_0px_rgba(0,0,0,0)] shrink-0 w-full"
       data-node-id="198379:80616"
     >
       {/* CardHeader */}
-      <div className="content-stretch flex h-[62px] items-center justify-between px-[var(--spacing\/6,24px)] py-[var(--spacing\/3,12px)] relative shrink-0 w-full">
+      <div className="content-stretch flex h-[62px] items-center justify-between px-6 py-3 relative shrink-0 w-full">
         <div className="flex-[1_0_0] min-w-px relative">
-          <div className="content-stretch flex flex-col gap-[var(--component\/card\/header\/gap,8px)] items-start py-[var(--spacing\/1\,5,6px)] relative size-full">
-            <p className="[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/lg\/lh-none,18px)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/lg\/size,18px)] tracking-[-0.45px] w-full">
+          <div className="content-stretch flex flex-col gap-2 items-start py-1.5 relative size-full">
+            <p className="[word-break:break-word] font-semibold leading-[18px] relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] w-full">
               Action Policy
             </p>
           </div>
         </div>
         <div className="relative shrink-0">
           <div className="content-stretch flex gap-[12px] items-start relative size-full">
-            <div className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-start relative shrink-0 w-[57px]">
+            <div className="content-stretch flex flex-col gap-0 items-start relative shrink-0 w-[57px]">
               {/* Deliberately inert: the delivery canvas has no Action Policy
                   list screen for "View all" to open, and Rule 0 forbids
                   inventing one. aria-disabled + no handler so it does not read
@@ -567,9 +567,9 @@ function ActionPolicyCard({ policies }) {
               <button
                 type="button"
                 aria-disabled="true"
-                className="content-stretch cursor-default flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-center px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 w-full"
+                className="content-stretch cursor-default flex gap-1.5 h-[36px] items-center justify-center px-3 py-0 relative rounded-[26px] shrink-0 w-full"
               >
-                <p className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] relative shrink-0 text-[color:var(--foreground,#0a0a0a)] text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap">
+                <p className="[word-break:break-word] font-medium leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap">
                   View all
                 </p>
               </button>
@@ -579,7 +579,7 @@ function ActionPolicyCard({ policies }) {
       </div>
 
       {/* cardContent */}
-      <div className="content-stretch flex flex-col gap-[var(--spacing\/7,28px)] items-start justify-center overflow-clip px-[24px] py-[var(--component\/calendar\/padding,12px)] relative shrink-0 w-full">
+      <div className="content-stretch flex flex-col gap-7 items-start justify-center overflow-clip px-[24px] py-3 relative shrink-0 w-full">
         {policies.map((policy) => (
           <PolicyBlock key={policy.id} policy={policy} />
         ))}
@@ -1320,7 +1320,7 @@ export default function SystemPageV2Screen() {
           The five-stop wash lives in --app-bg on the outer shell so TabBar
           sits on the same ground. */}
       <div
-        className="content-stretch flex flex-col gap-[var(--p-0,0px)] items-start px-[var(--spacing\/4,16px)] py-[var(--spacing\/2,8px)] relative w-full"
+        className="content-stretch flex flex-col gap-0 items-start px-4 py-2 relative w-full"
         style={{ flex: 1, minHeight: 0 }}
         data-node-id="198379:80447"
       >
@@ -1455,24 +1455,37 @@ export default function SystemPageV2Screen() {
                 and the owner saw one screen's selected tab dark slate and the
                 other's pale blue. Both are now PillTabs.
 
+                ── RULING 1, 2026-10-20: PALE BLUE — SUPERSEDED ────────────
                 sysA (199383:141512) and sysB (199394:20601) both emit the
-                pale-blue pill — re-read live on 2026-10-20, so this is the
-                node's current text, not a stale payload. THE OWNER RULED FOR
-                THAT PALE BLUE on 2026-10-20, so `tone="blue"` below is what
-                both this page and the Location page now ship.
+                pale-blue pill, re-read live on 2026-10-20. The owner ruled for
+                that pale blue and both pages passed `tone="blue"`.
 
-                WHY THAT NEEDS SAYING: by provenance alone the other reading
-                looks better supported. All four instances of this row (the two
-                here, the two on the Location page) come from ONE master — slot
-                101485:143349 — and were byte-identical before 2026-10-20, when
-                the designer restyled exactly one of them, locA, to a dark slate
-                pill. An agent re-deriving the colour from Figma will therefore
-                keep arriving at slate. It is not the shipped answer; the owner's
-                word is. locA's repaint is kept as PillTabs' `tone="slate"` in
-                case the designer settles there.
+                WHY THAT NEEDED SAYING, AND STILL DOES: by provenance alone the
+                other reading looks better supported. All four instances of this
+                row (the two here, the two on the Location page) come from ONE
+                master — slot 101485:143349 — and were byte-identical before
+                2026-10-20, when the designer restyled exactly one of them,
+                locA, to a dark slate pill. An agent re-deriving the colour from
+                Figma keeps arriving at whatever was edited last. That is not
+                the shipped answer; the owner's word is. THAT REASONING IS WHY
+                THIS BLOCK EXISTS — the ruling it was written for is not.
+
+                ── RULING 2, 2026-10-21: THE OUTLINED TREATMENT ───────────
+                ⚠ THIS IS WHAT SHIPS. The designer restyled locA again, to an
+                outlined treatment, and the owner — shown that locA still
+                contradicts its own calm state — ruled to adopt it on BOTH
+                pages and BOTH states. The three frames that still draw pale
+                blue are stale, not a second design. Selection is a 1px
+                brand-blue border and a semibold brand-blue label rather than a
+                fill, every trigger sits on the house card surface at radius
+                100px, and the row is 32px.
+
+                `tone` had nothing left to select between and is GONE from
+                PillTabs; this page no longer passes it. Do not reintroduce it.
+                Full history in PillTabs' header, which is the single copy.
 
                 The Figma file is still self-contradictory either way: locB is
-                the SAME Location screen as locA in its calm state and now
+                the SAME Location screen as locA in its calm state and
                 disagrees with it, which a per-surface design decision could not
                 do. Note also that nothing here sits on the hero wave — Figma
                 puts Tabs in the header group ABOVE Content and pins the wave
@@ -1485,7 +1498,6 @@ export default function SystemPageV2Screen() {
               <PillTabs
                 nodeId="199383:141512"
                 slotNodeId="I199383:141512;101485:143349"
-                tone="blue"
                 value={tab}
                 onChange={setTab}
                 items={[
@@ -1549,7 +1561,7 @@ export default function SystemPageV2Screen() {
                  put at the foot of the Overview scroll. It moved behind the
                  restored tab; it was not re-stubbed. */
               <div
-                className={String.raw`content-stretch flex flex-col gap-[14px] items-start pb-[var(--spacing\/4,16px)] px-[var(--p-0,0px)] relative shrink-0 w-full`}
+                className={String.raw`content-stretch flex flex-col gap-[14px] items-start pb-4 px-0 relative shrink-0 w-full`}
               >
                 <InfoAccordion system={system} />
               </div>
@@ -1558,7 +1570,7 @@ export default function SystemPageV2Screen() {
                except that it is now a tab panel rather than the whole
                scroll body. */
             <div
-              className="content-stretch flex flex-col gap-[14px] items-start justify-center pb-[var(--spacing\/4,16px)] px-[var(--p-0,0px)] relative shrink-0 w-full"
+              className="content-stretch flex flex-col gap-[14px] items-start justify-center pb-4 px-0 relative shrink-0 w-full"
               data-node-id="198379:80459"
             >
                   {/* Alert carousel 198379:80460 / 199296:50466. Only the alert
@@ -1613,7 +1625,7 @@ export default function SystemPageV2Screen() {
                           type="button"
                           onClick={() => setEventFocusOpen(true)}
                           aria-label={`Open ${alert.title || 'event'}`}
-                          className="absolute inset-0 z-10 pointer-events-none rounded-[var(--rounded-2xl,18px)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--wint-blue-accent,#0b81f8)] focus-visible:ring-offset-2"
+                          className="absolute inset-0 z-10 pointer-events-none rounded-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                         />
                         {/* PRD 04a:146-154, locked 2026-06-15: an ignored
                             event renders muted, with the "Ignored by" pill and

@@ -288,7 +288,7 @@ export default function SystemHeroCard({
               size={null}
               onClick={onJumpToChart}
               aria-label="See more: go to the water consumption chart"
-              className="content-stretch flex gap-[5px] items-center justify-center relative shrink-0 rounded-[8px] px-[8px] text-[#fafbfc] hover:bg-card/15 hover:text-current"
+              className="content-stretch flex gap-[5px] items-center justify-center relative shrink-0 rounded-[8px] px-[8px] text-ink-on-color hover:bg-card/15 hover:text-current"
               data-node-id="199396:84062"
             >
               <ChartLine className="size-[16px] shrink-0" aria-hidden="true" />

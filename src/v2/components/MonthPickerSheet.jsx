@@ -131,7 +131,7 @@ import ChevronLeft16 from '@/v2/icons/ChevronLeft16'
 import ChevronRight16 from '@/v2/icons/ChevronRight16'
 
 // ── Palette, as the Figma variables on these two nodes resolve ─────────────
-const BLUE = '#0b81f8' // wint-blue-accent
+const BLUE = 'var(--primary)' // wint-blue-accent
 const BLUE_50 = '#eff6ff' // colors/blue/50
 const SLATE_100 = '#f1f5f9' // colors/slate/100
 const SLATE_600 = '#45556c' // colors/slate/600 — the nav glyph stroke
@@ -317,7 +317,7 @@ function MonthPickerSheetBody({
         aria-labelledby={titleId}
         aria-describedby={isWindow ? helpId : undefined}
         tabIndex={-1}
-        className="absolute bottom-0 left-0 right-0 bg-popover border border-[#e5e5e5] border-solid content-stretch flex flex-col gap-4 items-start justify-end overflow-clip pb-7 pt-0 px-0 rounded-[18px] shadow-[0px_-25px_50px_-12px_rgba(0,0,0,0.1)]"
+        className="absolute bottom-0 left-0 right-0 bg-popover border border-neutral-200 border-solid content-stretch flex flex-col gap-4 items-start justify-end overflow-clip pb-7 pt-0 px-0 rounded-[18px] shadow-[0px_-25px_50px_-12px_rgba(0,0,0,0.1)]"
       >
         <div className="content-stretch flex flex-col gap-1 items-center justify-center p-0 relative shrink-0 w-full">
           <div className="content-stretch flex flex-col gap-0 items-start p-0 relative rounded-[26px] shrink-0 w-full">
@@ -347,7 +347,7 @@ function MonthPickerSheetBody({
                     <p
                       id={helpId}
                       className="[word-break:break-word] font-normal leading-5 relative shrink-0 text-sm"
-                      style={{ color: '#737373' }}
+                      style={{ color: 'var(--neutral-500)' }}
                     >
                       Pick the last month of the window. The 12 months ending there are selected.
                     </p>

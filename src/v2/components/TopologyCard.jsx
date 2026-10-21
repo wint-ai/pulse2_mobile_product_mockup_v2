@@ -315,7 +315,7 @@ function GlyphBadge({ alert, label, children }) {
     )
   }
   return (
-    <Badge variant="outline" title={label} className="bg-white border-transparent content-stretch flex gap-1 items-center justify-center overflow-clip px-1.5 py-0.5 relative rounded-[26px] shrink-0 size-[20px] text-[#0a0a0a]">
+    <Badge variant="outline" title={label} className="bg-card border-transparent content-stretch flex gap-1 items-center justify-center overflow-clip px-1.5 py-0.5 relative rounded-[26px] shrink-0 size-[20px] text-neutral-950">
       {inner}
     </Badge>
   )
@@ -357,7 +357,7 @@ function ValvePill({ state, label }) {
             <ValveErrorOnRed />
           </div>
         </div>
-        <p className="[word-break:break-word] font-sans font-medium leading-[19.2px] overflow-hidden relative min-w-px text-[#fafbfc] text-[14.4px] text-ellipsis whitespace-nowrap">
+        <p className="[word-break:break-word] font-sans font-medium leading-[19.2px] overflow-hidden relative min-w-px text-ink-on-color text-[14.4px] text-ellipsis whitespace-nowrap">
           {text}
         </p>
       </div>
@@ -365,7 +365,7 @@ function ValvePill({ state, label }) {
   }
 
   return (
-    <div className="bg-white content-stretch flex gap-[4.8px] h-[24px] items-center justify-center overflow-clip px-[7.2px] py-[2.4px] relative rounded-[31.2px] shrink-0">
+    <div className="bg-card content-stretch flex gap-[4.8px] h-[24px] items-center justify-center overflow-clip px-[7.2px] py-[2.4px] relative rounded-[31.2px] shrink-0">
       <div className="content-stretch flex flex-col items-start relative shrink-0">
         <div className="content-stretch flex flex-col items-center justify-center relative shrink-0 size-[23.04px]">
           {/* No title: the pill already carries the state as visible text, and
@@ -429,7 +429,7 @@ function IotOverview({ row, label, grow, nodeId }) {
           {/* 198629:59787 — the dot moved here, after the label, and grew to
               20px. Its red/blue ternary is live data wiring, not styling. */}
           <div className="content-stretch flex gap-[4px] items-center relative shrink-0">
-            <div className={row.alert ? 'relative shrink-0 size-[20px] text-[#FB2C36]' : 'relative shrink-0 size-[20px] text-[#2B7FFF]'}>
+            <div className={row.alert ? 'relative shrink-0 size-[20px] text-destructive' : 'relative shrink-0 size-[20px] text-[#2B7FFF]'}>
               <LocationDot size={20} />
             </div>
             <GlyphBadge alert={row.connect === 'alert'} label={label + ' control unit link'}>
@@ -484,7 +484,7 @@ function IotOverview({ row, label, grow, nodeId }) {
               </div>
             </Button>
           ) : (
-            <Button variant="outline" size="xs" aria-disabled="true" title={label + ' — more'} className="bg-[#f2f6ff] border-transparent content-stretch cursor-default flex gap-1 h-[24px] items-center px-[4px] py-0 relative rounded-[26px] shadow-none shrink-0">
+            <Button variant="outline" size="xs" aria-disabled="true" title={label + ' — more'} className="bg-accent border-transparent content-stretch cursor-default flex gap-1 h-[24px] items-center px-[4px] py-0 relative rounded-[26px] shadow-none shrink-0">
               <div className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]">
                 <DotsThree className="size-[16px] text-slate-600" />
               </div>
@@ -496,11 +496,11 @@ function IotOverview({ row, label, grow, nodeId }) {
   )
 
   return grow ? (
-    <div className="bg-[#f2f6ff] content-stretch flex flex-[1_0_0] h-[82px] items-start px-[9px] py-[6px] relative rounded-[12px]" data-node-id={nodeId}>
+    <div className="bg-accent content-stretch flex flex-[1_0_0] h-[82px] items-start px-[9px] py-[6px] relative rounded-[12px]" data-node-id={nodeId}>
       {panel}
     </div>
   ) : (
-    <div className="bg-[#f2f6ff] content-stretch flex h-[82px] items-start px-[9px] py-[6px] relative rounded-[12px] shrink-0" data-node-id={nodeId}>
+    <div className="bg-accent content-stretch flex h-[82px] items-start px-[9px] py-[6px] relative rounded-[12px] shrink-0" data-node-id={nodeId}>
       {panel}
     </div>
   )
@@ -536,7 +536,7 @@ export default function TopologyCard({
   return (
     <div
       className={cn(
-        'bg-[#fafbfc] border border-solid border-white content-stretch flex items-center max-w-[680px] min-h-[136px] px-[18px] py-[12px] relative rounded-[18px] w-full',
+        'bg-surface-card border border-solid border-card content-stretch flex items-center max-w-[680px] min-h-[136px] px-[18px] py-[12px] relative rounded-[18px] w-full',
         className,
       )}
       data-node-id={isLoop ? '198356:122834' : '198356:122565'}
@@ -563,13 +563,13 @@ export default function TopologyCard({
                 handler, default cursor) rather than as a live-looking button
                 that does nothing. */}
             {onAction ? (
-              <Button variant="outline" size="xs" onClick={onAction} className="bg-[#f2f6ff] border border-primary border-solid content-stretch cursor-pointer flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shadow-none shrink-0">
+              <Button variant="outline" size="xs" onClick={onAction} className="bg-accent border border-primary border-solid content-stretch cursor-pointer flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shadow-none shrink-0">
                 <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-primary text-xs whitespace-nowrap">
                   {actionLabel}
                 </span>
               </Button>
             ) : (
-              <Button variant="outline" size="xs" aria-disabled="true" className="bg-[#f2f6ff] border border-primary border-solid content-stretch cursor-default flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shadow-none shrink-0">
+              <Button variant="outline" size="xs" aria-disabled="true" className="bg-accent border border-primary border-solid content-stretch cursor-default flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shadow-none shrink-0">
                 <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-primary text-xs whitespace-nowrap">
                   {actionLabel}
                 </span>
@@ -590,11 +590,11 @@ export default function TopologyCard({
               what the two telemetry panels leave. See header note 4 for why
               min-h-[112px] stays instead of Figma's h-[82px]. */}
           {isLoop ? (
-            <div className="bg-[#f2f6ff] content-stretch flex flex-[1_0_0] items-center justify-center max-w-[350px] min-h-[112px] min-w-[177px] relative rounded-[12px]" data-node-id="198616:114522">
+            <div className="bg-accent content-stretch flex flex-[1_0_0] items-center justify-center max-w-[350px] min-h-[112px] min-w-[177px] relative rounded-[12px]" data-node-id="198616:114522">
               <PipeTopology topology={topology} valve={supply ? supply.valve : 'no-valve'} />
             </div>
           ) : (
-            <div className="bg-[#f2f6ff] content-stretch flex items-center justify-center max-w-[350px] min-h-[112px] min-w-[177px] relative rounded-[12px] w-[350px]" data-node-id="198453:40479">
+            <div className="bg-accent content-stretch flex items-center justify-center max-w-[350px] min-h-[112px] min-w-[177px] relative rounded-[12px] w-[350px]" data-node-id="198453:40479">
               <PipeTopology topology={topology} valve={supply ? supply.valve : 'no-valve'} />
             </div>
           )}

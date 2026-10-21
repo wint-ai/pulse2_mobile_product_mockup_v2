@@ -98,7 +98,7 @@ const NODE = {
 }
 
 // 199383:141553
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[16px] items-start px-[16px] py-[12px] relative rounded-[22px] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
+const CARD = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[16px] items-start px-[16px] py-[12px] relative rounded-[22px] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
 
 // 199383:141554
 const ROW = String.raw`content-stretch flex gap-[8px] items-center relative shrink-0 w-full`
@@ -145,7 +145,7 @@ const VALUE = String.raw`[word-break:break-word] flex flex-col font-sans font-me
    space runs out, and `min-w-px` would let the pill crush its own label rather
    than let the title box give way; `min-w-fit` reverses that. At and above the
    node's own frame width the two are indistinguishable. */
-const BTN = String.raw`bg-[#f2f6ff] border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex flex-[1_0_0] gap-1 items-center justify-center min-w-fit px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const BTN = String.raw`bg-accent border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex flex-[1_0_0] gap-1 items-center justify-center min-w-fit px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 
 // I199383:141566;100985:11132
 const BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`

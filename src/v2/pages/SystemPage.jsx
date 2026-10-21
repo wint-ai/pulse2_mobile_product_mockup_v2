@@ -167,7 +167,7 @@ function ErrorPill() {
   return (
     <span
       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border"
-      style={{ background: 'rgba(219,70,112,0.08)', color: SEV_HIGH, borderColor: 'rgba(219,70,112,0.35)' }}
+      style={{ background: 'color-mix(in oklab, var(--severity-high) 8%, transparent)', color: SEV_HIGH, borderColor: 'color-mix(in oklab, var(--severity-high) 35%, transparent)' }}
     >
       <span aria-hidden>⚠</span> Error
     </span>
@@ -320,7 +320,7 @@ function WaterEventCarousel({ events }) {
       <div className="flex items-start gap-3 px-4 pt-3">
         <div
           className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(219,70,112,0.10)' }}
+          style={{ background: 'color-mix(in oklab, var(--severity-high) 10%, transparent)' }}
         >
           <Waves size={20} color={SEV_HIGH} strokeWidth={2.5} />
         </div>
@@ -416,7 +416,7 @@ function SensorsCard({ sensors }) {
           <div className="mt-1.5">
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border"
-              style={{ background: 'rgba(219,70,112,0.08)', color: SEV_HIGH, borderColor: 'rgba(219,70,112,0.35)' }}
+              style={{ background: 'color-mix(in oklab, var(--severity-high) 8%, transparent)', color: SEV_HIGH, borderColor: 'color-mix(in oklab, var(--severity-high) 35%, transparent)' }}
             >
               <span aria-hidden>⚠</span> {sensors.flood.current} / {sensors.flood.total} total
             </span>

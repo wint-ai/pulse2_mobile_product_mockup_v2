@@ -37,10 +37,14 @@
  *     fight the content once the illustration below goes missing.
  *  2. COUNT PILL FILL. alert red/600 #e7000b; calm slate/200 #e2e8f0.
  *     Carried.
- *  3. COUNT PILL INK. BOTH states write text-[#fafbfc]. On the calm pill that
- *     is #fafbfc on #e2e8f0 — about 1.3:1, invisible. This is the one place
- *     the design is overridden: the zero pill takes slate/600 #45556c ink
- *     (the card's own neutral, already on the button beside it). Reported.
+ *  3. COUNT PILL INK. BOTH states write #fafbfc in Figma. On the calm pill
+ *     that is #fafbfc on #e2e8f0 — about 1.3:1, invisible. This is the one
+ *     place the design is overridden: the zero pill takes slate/600 #45556c
+ *     ink (the card's own neutral, already on the button beside it).
+ *     Reported. Phase 4 tokenised both without touching the override: the
+ *     alert pill's ink is now `text-ink-on-color` (near-white ON A COLOURED
+ *     CHIP, which stays light under every theme — NOT the card surface,
+ *     which inverts), and the calm pill keeps `text-slate-600`.
  *  4. THE TRAILING BUTTON. alert "Show all"; calm "Show past events". Same
  *     node slot, same 99x36 box, same style — the design switches the LABEL
  *     and nothing else. So does this component (see `action` below).
@@ -152,7 +156,7 @@ import { cn } from '@/lib/utils'
 /* --------------------------------------------------------------- chassis */
 
 /* 199359:128986 (alert) / 199371:137191 (calm). */
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col items-center pb-[16px] pt-[12px] relative rounded-[22px] shrink-0 w-full`
+const CARD = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col items-center pb-[16px] pt-[12px] relative rounded-[22px] shrink-0 w-full`
 const CARD_GAP_ALERT = String.raw`gap-[12px]`
 const CARD_GAP_CALM = String.raw`gap-[20px]`
 
@@ -173,8 +177,8 @@ const PILL = String.raw`content-stretch flex flex-col items-center justify-cente
 const PILL_ALERT = String.raw`bg-red-600`
 const PILL_CALM = String.raw`bg-slate-200`
 const PILL_TEXT = String.raw`[word-break:break-word] font-medium relative text-base text-center tracking-[-0.4px] w-full leading-[22px]`
-const PILL_INK_ALERT = String.raw`text-[#fafbfc]`
-/* See note 3 at the top: #fafbfc on #e2e8f0 is unreadable. */
+const PILL_INK_ALERT = String.raw`text-ink-on-color`
+/* See note 3 at the top: Figma's #fafbfc on #e2e8f0 is unreadable. */
 const PILL_INK_CALM = String.raw`text-slate-600`
 
 /* 199359:128994 / 199371:137199 — one button, two labels. */
@@ -275,7 +279,7 @@ const TONE = {
   low: {
     label: 'Low Flow',
     name: 'Low flow',
-    badge: String.raw`bg-[var(--orange-100)]`,
+    badge: String.raw`bg-orange-100`,
     ink: String.raw`text-orange-600`,
   },
 }

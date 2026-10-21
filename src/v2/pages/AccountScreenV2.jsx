@@ -18,15 +18,15 @@
  *
  *   v1 literal                              v2
  *   ──────────────────────────────────────  ─────────────────────────────────
- *   theme.card / theme.cardBorder           the house chassis: bg-[#fafbfc] +
- *                                           border-white + rounded 18px, on
+ *   theme.card / theme.cardBorder           the house chassis: bg-surface-card
+ *                                           + border-card + rounded 18px, on
  *                                           the shadcn <Card> (same chassis as
  *                                           SystemTypeCard / ActivePolicyCard
- *                                           / ValveConfirmSheet). #fafbfc is
- *                                           the one raw hex here: it is the
- *                                           house surface and the canvas
- *                                           exposes no token for it — see the
- *                                           TOKENS note in ValveConfirmSheet.
+ *                                           / ValveConfirmSheet). Both were a
+ *                                           raw #fafbfc / border-white until
+ *                                           Phase 4; --surface-card is
+ *                                           declared by all four themes, so
+ *                                           this card now follows them.
  *   GLOW_PAGE_BG + PipesHeader glow         var(--app-bg), the screen-root wash
  *                                           every other v2 page paints
  *   theme.text                              text-slate-900  (--foreground)
@@ -197,7 +197,7 @@ const EMPTY = '—'
    construction, and these per-child `shrink-0`s stay because they are what the
    reader sees first. */
 const CARD =
-  'shrink-0 gap-0 overflow-hidden rounded-[var(--rounded-2xl,18px)] border border-solid border-white bg-[#fafbfc] py-0 shadow-none'
+  'shrink-0 gap-0 overflow-hidden rounded-[18px] border border-solid border-card bg-surface-card py-0 shadow-none'
 
 const SECTION_TITLE =
   'px-4 pb-[6px] pt-[13px] font-bold tracking-[-0.2px] text-slate-900 text-[15px] leading-[20px]'
@@ -237,7 +237,7 @@ function NotificationSwitch({ on, onToggle, label }) {
     >
       <span
         aria-hidden="true"
-        className="block size-[22px] -translate-x-[9px] rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,43,0.18)] transition-transform group-data-[state=on]:translate-x-[9px]"
+        className="block size-[22px] -translate-x-[9px] rounded-full bg-card shadow-[0_1px_3px_rgba(15,23,43,0.18)] transition-transform group-data-[state=on]:translate-x-[9px]"
       />
     </Toggle>
   )
@@ -485,7 +485,7 @@ export default function AccountScreenV2() {
             {bothOff ? (
               <div
                 role="status"
-                className="flex shrink-0 items-center justify-between gap-2 rounded-[var(--rounded-2xl,18px)] border border-solid border-red-400/40 bg-red-100 px-4 py-[10px]"
+                className="flex shrink-0 items-center justify-between gap-2 rounded-[18px] border border-solid border-red-400/40 bg-red-100 px-4 py-[10px]"
               >
                 <span className="min-w-0 font-medium text-red-600 text-[14px] leading-[18px]">
                   {t('more.both_off_warning')}
@@ -499,7 +499,7 @@ export default function AccountScreenV2() {
             <button
               type="button"
               onClick={switchProfile}
-              className="flex w-full shrink-0 cursor-pointer items-center gap-3 rounded-[var(--rounded-2xl,18px)] border border-solid border-primary/25 bg-secondary px-4 py-[14px] text-start outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="flex w-full shrink-0 cursor-pointer items-center gap-3 rounded-[18px] border border-solid border-primary/25 bg-secondary px-4 py-[14px] text-start outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
               <span className="flex size-[38px] shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <ArrowLeftRight className="size-[20px]" aria-hidden="true" />
@@ -753,7 +753,7 @@ export default function AccountScreenV2() {
               size="icon-sm"
               aria-label={t('common.close')}
               onClick={cancelWarning}
-              className="absolute end-3 top-3 cursor-pointer rounded-full bg-white/15 text-destructive-foreground hover:bg-white/25 hover:text-destructive-foreground"
+              className="absolute end-3 top-3 cursor-pointer rounded-full bg-card/15 text-destructive-foreground hover:bg-card/25 hover:text-destructive-foreground"
             >
               <X className="size-[16px]" />
             </Button>

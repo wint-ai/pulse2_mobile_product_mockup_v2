@@ -109,7 +109,7 @@ export default function ValveConfirmSheet({ action, deviceName, valveCount, onCo
         className="absolute inset-0 cursor-default bg-foreground/45"
       />
 
-      <div className="relative flex flex-col rounded-t-[18px] bg-[#fafbfc] px-[20px] pb-[24px] pt-[12px]">
+      <div className="relative flex flex-col rounded-t-[18px] bg-surface-card px-[20px] pb-[24px] pt-[12px]">
         {/* The grab handle v1 drew, kept so the sheet reads as a sheet — now
             the shadcn Separator, which already carries bg-border. */}
         <Separator

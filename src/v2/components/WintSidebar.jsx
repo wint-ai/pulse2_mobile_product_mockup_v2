@@ -511,7 +511,7 @@ export default function WintSidebar({ open, onClose }) {
               aria-expanded={searchOpen}
               className={cn(
                 'flex size-8 items-center justify-center rounded-md active:bg-slate-900/5',
-                searchOpen ? 'bg-white/70 text-slate-700' : 'text-slate-500',
+                searchOpen ? 'bg-card/70 text-slate-700' : 'text-slate-500',
               )}
             >
               <Search01 size={16} />
@@ -538,7 +538,7 @@ export default function WintSidebar({ open, onClose }) {
               onChange={e => setQuery(e.target.value)}
               placeholder="Search locations and systems"
               aria-label="Search locations and systems"
-              className="h-9 rounded-lg border-slate-200 bg-white/80 text-sm shadow-none"
+              className="h-9 rounded-lg border-slate-200 bg-card/80 text-sm shadow-none"
             />
           </div>
         )}
@@ -591,7 +591,7 @@ export default function WintSidebar({ open, onClose }) {
             <button
               type="button"
               onClick={() => go('/select')}
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1.5 text-left active:bg-white/60"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1.5 text-left active:bg-card/60"
             >
               {/* 198378:74088's SidebarMediaAsset and its Avatar are both 32px.
                   The radius stays at 10: the emitted fallback reads 8px but the
@@ -616,7 +616,7 @@ export default function WintSidebar({ open, onClose }) {
               type="button"
               onClick={() => go('/alerts')}
               aria-label="Alerts"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-700 active:bg-white/60"
+              className="flex size-9 shrink-0 items-center justify-center rounded-full text-slate-700 active:bg-card/60"
             >
               {/* 198378:74089 is a 16px bell-dot; the size-9 wrapper above is
                   the tap target and the /alerts handler, which the frame
@@ -704,15 +704,15 @@ function TreeRow({
         // alike — is 'Geist:Regular' 400 / --colors/slate/800 #1d293d
         // (198378:74037). Applying the active row's typography to all of them
         // was the earlier bug.
-        isActive ? 'font-medium text-[#0a0a0a]' : 'font-normal text-[#1d293d]',
+        isActive ? 'font-medium text-neutral-950' : 'font-normal text-slate-800',
         // sidebarMenuButtonVariants ships hover:/active:text-sidebar-accent-foreground,
         // which outranks a bare text colour on specificity — every row flashed
         // blue on hover, and on touch that fires on every single tap. Pin each
         // row's own resting colour in those states too.
         isActive
-          ? 'hover:text-[#0a0a0a] active:text-[#0a0a0a]'
-          : 'hover:text-[#1d293d] active:text-[#1d293d]',
-        'hover:bg-white/60 active:bg-white/80',
+          ? 'hover:text-neutral-950 active:text-neutral-950'
+          : 'hover:text-slate-800 active:text-slate-800',
+        'hover:bg-card/60 active:bg-card/80',
         // Still needed even with the conditional above: the cva base sets
         // data-[active=true]:text-sidebar-accent-foreground (blue), which
         // outranks a plain text-* class on specificity.
@@ -721,7 +721,7 @@ function TreeRow({
         // emit effects when they exist. It was only ever compensating for the
         // panel being flat white — against PANEL_BG's gradient the white card
         // reads on its own, which is what the frame shows.
-        'data-[active=true]:hover:bg-white',
+        'data-[active=true]:hover:bg-card',
         'data-[active=true]:hover:text-slate-900',
       )}
     >
@@ -766,7 +766,7 @@ function TreeRow({
             role="img"
             aria-label="Active event or alert in this location"
             className="flex size-3 shrink-0 items-center justify-center rounded-full"
-            style={{ background: 'rgba(231,0,11,0.16)' }}
+            style={{ background: 'color-mix(in oklab, var(--red-600) 16%, transparent)' }}
           >
             <span className="size-1.5 rounded-full" style={{ background: ALERT_RED }} />
           </span>
@@ -787,7 +787,7 @@ function TreeRow({
               // slate-200 + slate-400 — collapsed ACCOUNT rows (198378:74081,
               // 74082) included, and an expanded-but-inactive location
               // (198378:74033) too.
-              isActive ? 'bg-[#F0F4FB] text-slate-600' : 'bg-[#E2E8F0] text-slate-400',
+              isActive ? 'bg-[#F0F4FB] text-slate-600' : 'bg-slate-200 text-slate-400',
             )}
           >
             {node.systems.length}

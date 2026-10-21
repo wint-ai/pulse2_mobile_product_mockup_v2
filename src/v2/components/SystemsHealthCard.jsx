@@ -541,7 +541,7 @@ export default function SystemsHealthCard({
         /* w-full: the home stack is items-start, and the shadcn <Card> this
            is built on does not carry a width, so the card was sizing to its own
            content and sitting narrower than its w-full neighbours. */
-        'w-full gap-[14px] rounded-[22px] border border-solid border-white bg-[#fafbfc] px-5 py-5',
+        'w-full gap-[14px] rounded-[22px] border border-solid border-card bg-surface-card px-5 py-5',
         className,
       )}
     >

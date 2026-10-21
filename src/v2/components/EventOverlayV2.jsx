@@ -107,7 +107,7 @@ const ORANGE_600 = '#f54900'
    reconciled against; that value appears nowhere in the new node. */
 const BLUE_100 = '#c7e3ff'
 const SLATE_100 = '#f1f5f9'
-const WINT_BLUE = '#0b81f8'
+const WINT_BLUE = 'var(--primary)'
 
 // The sheet's own ground: Figma's `backgroundImage` on all five frame roots,
 // a cool diagonal wash laid over flat white.
@@ -489,7 +489,7 @@ export default function EventOverlayV2({
       type="button"
       onClick={onClose}
       aria-label="Close"
-      className="flex shrink-0 cursor-pointer items-center justify-center rounded-[120.833px] border border-solid border-white bg-[#fafbfc] pr-[2px] size-[30px]"
+      className="flex shrink-0 cursor-pointer items-center justify-center rounded-[120.833px] border border-solid border-card bg-surface-card pr-[2px] size-[30px]"
       style={{ color: FOREGROUND }}
     >
       <ChevronLeft size={24} aria-hidden="true" />
@@ -700,7 +700,7 @@ export default function EventOverlayV2({
             rgba(0,0,0,0) today, so it paints nothing — it is carried verbatim
             so the card picks the shadow up the moment the project defines
             --shadow/popover/layer-2/*, exactly as the design intends. */}
-        <div className="bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col items-center overflow-clip p-0 relative rounded-[18px] shadow-[0px_0px_0px_0px_rgba(0,0,0,0)] shrink-0 w-full">
+        <div className="bg-surface-card border border-solid border-card content-stretch flex flex-col items-center overflow-clip p-0 relative rounded-[18px] shadow-[0px_0px_0px_0px_rgba(0,0,0,0)] shrink-0 w-full">
           <div className="content-stretch flex flex-col items-center px-4 relative shrink-0 w-full">
             {visible.length === 0 ? (
               <p
@@ -809,12 +809,12 @@ function FilterGlyph({ type }) {
    jumps to the first option whose label starts with what was typed, Escape and
    Tab close, an outside pointerdown closes, and focus returns to the trigger on
    every close. */
-const FILTER_TRIGGER = String.raw`bg-[#fafbfc] border border-solid content-stretch cursor-pointer flex gap-[6px] h-[36px] items-center min-w-0 outline-none pl-[11px] pr-[9px] relative rounded-[26px] focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const FILTER_TRIGGER = String.raw`bg-surface-card border border-solid content-stretch cursor-pointer flex gap-[6px] h-[36px] items-center min-w-0 outline-none pl-[11px] pr-[9px] relative rounded-[26px] focus-visible:ring-[3px] focus-visible:ring-ring/50`
 /* text-[14px] BEFORE leading-[]: tailwind-merge counts a font-size as
    conflicting with a line-height and drops a leading-* that precedes it. */
 const FILTER_TRIGGER_LABEL = String.raw`[word-break:break-word] font-medium min-w-0 overflow-hidden relative text-[14px] leading-[18px] text-ellipsis whitespace-nowrap`
 const FILTER_TRIGGER_COUNT = String.raw`[word-break:break-word] font-bold relative text-[16px] leading-[26px] tracking-[-0.4px] whitespace-nowrap`
-const FILTER_MENU = String.raw`absolute left-0 top-[calc(100%+6px)] z-30 bg-[#fafbfc] border border-solid border-border content-stretch flex flex-col items-stretch max-w-[260px] min-w-[204px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
+const FILTER_MENU = String.raw`absolute left-0 top-[calc(100%+6px)] z-30 bg-surface-card border border-solid border-border content-stretch flex flex-col items-stretch max-w-[260px] min-w-[204px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
 const FILTER_ITEM = String.raw`content-stretch cursor-pointer flex gap-[8px] items-center justify-between min-h-[40px] outline-none px-[8px] py-[4px] rounded-[8px] text-left w-full hover:bg-slate-100 focus-visible:bg-slate-100`
 
 function EventFilterMenu({ value, options, onChange, label }) {
@@ -1069,7 +1069,7 @@ function EventRow({ ev, isLocation, rule, first, onSelect }) {
         className: cn(
           first ? ROW_WRAP_FIRST : ROW_WRAP,
           'cursor-pointer text-left outline-none transition-colors',
-          'hover:bg-[rgba(11,129,248,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50',
+          'hover:bg-primary/4 focus-visible:ring-[3px] focus-visible:ring-ring/50',
         ),
       }
     : { className: first ? ROW_WRAP_FIRST : ROW_WRAP }

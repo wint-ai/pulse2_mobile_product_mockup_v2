@@ -97,7 +97,7 @@ const ADDR_MAX = 16
  */
 const TONE = {
   good: { chip: { background: '#E7F2EB', color: '#269950' }, stroke: SUCCESS },
-  bad: { chip: { background: 'rgba(251,44,54,0.08)', color: '#FB2C36' }, stroke: SEV_HIGH },
+  bad: { chip: { background: 'color-mix(in oklab, var(--destructive) 8%, transparent)', color: '#FB2C36' }, stroke: SEV_HIGH },
 }
 
 /**
@@ -227,8 +227,8 @@ const FIG_MED = String.raw`font-sans font-medium`
  */
 const BADGE_TONE = {
   down: 'bg-[#e7f2eb] text-[#269950]',
-  up: 'bg-[rgba(251,44,54,0.08)] text-[#fb2c36]',
-  flat: String.raw`bg-[#f1f5f9] text-slate-700`,
+  up: 'bg-destructive/8 text-destructive',
+  flat: String.raw`bg-muted text-slate-700`,
 }
 
 /*
@@ -318,7 +318,7 @@ function InsightsMetricCard({
   return (
     <div
       className={cn(
-        String.raw`bg-[#fafbfc] content-stretch flex flex-col gap-[19px] items-start p-[18px] relative rounded-[18px] shrink-0 w-full`,
+        String.raw`bg-surface-card content-stretch flex flex-col gap-[19px] items-start p-[18px] relative rounded-[18px] shrink-0 w-full`,
         className,
       )}
       data-node-id={NODE[0]}
@@ -370,7 +370,7 @@ function InsightsMetricCard({
               overflows 1.5px each side rather than widening the row. #90a1b9
               is the exported asset's own stroke (c5ca5.svg). */}
           <div
-            className="content-stretch flex items-center justify-center relative shrink-0 w-[11px] text-[#90a1b9]"
+            className="content-stretch flex items-center justify-center relative shrink-0 w-[11px] text-slate-400"
             data-node-id={NODE[5]}
           >
             <div className="relative shrink-0 size-[14px]" data-node-id={NODE[6]} data-name="Tabler Icons / droplet-down">
@@ -473,7 +473,7 @@ function InsightsMetricCard({
    canvas height and it is deliberately NOT carried, for the same reason the
    metric card drops the alert state's h-[198px] w-[366px] — see
    homeWidgetWidth.dom.test.jsx. */
-const LIST_SHELL = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-0 items-start overflow-clip p-0 relative rounded-[18px] w-full`
+const LIST_SHELL = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-0 items-start overflow-clip p-0 relative rounded-[18px] w-full`
 
 /**
  * @param rows  [{ title, addr, kind, delta, deltaTone: 'good'|'bad', value,
@@ -614,7 +614,7 @@ export default function InsightsCard({
                    and the inset comes from cardContent above. */
                 String.raw`w-full py-1.5 flex items-center justify-between rounded-xl`,
                 onSelectRow &&
-                  'cursor-pointer rounded-[10px] text-left outline-none transition-colors hover:bg-[rgba(11,129,248,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                  'cursor-pointer rounded-[10px] text-left outline-none transition-colors hover:bg-primary/4 focus-visible:ring-[3px] focus-visible:ring-ring/50',
               )}
               {...(onSelectRow
                 ? { type: 'button', onClick: () => onSelectRow(row), 'aria-label': `Open ${row.title}` }

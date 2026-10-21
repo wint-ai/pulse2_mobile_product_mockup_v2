@@ -87,7 +87,7 @@ const DASH = '—'
    surfaces agree about what "low" looks like. */
 const LEAK_TONE = {
   high: 'bg-[rgba(229,0,11,0.1)] text-destructive',
-  low: 'bg-[var(--orange-100)] text-orange-600',
+  low: 'bg-orange-100 text-orange-600',
 }
 const LEAK_LABEL = { high: 'High', low: 'Low' }
 
@@ -239,7 +239,7 @@ export default function SystemsTableCard({
           >
             <FunnelSimple size={16} className="shrink-0" />
             {activeFilters ? (
-              <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-[5px] text-[11px] font-medium leading-[14px] text-white">
+              <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-[5px] text-[11px] font-medium leading-[14px] text-primary-foreground">
                 {activeFilters}
               </span>
             ) : null}
@@ -259,7 +259,7 @@ export default function SystemsTableCard({
           usage — is #fafbfc on a WHITE border at radius 18. The table is a
           widget on that screen, so it takes that palette and stops being the
           one panel wearing the library's defaults. */}
-      <div className="w-full overflow-clip rounded-[18px] border border-solid border-white bg-[#fafbfc]">
+      <div className="w-full overflow-clip rounded-[18px] border border-solid border-card bg-surface-card">
         <Table className="table-fixed">
           {/* The node's grid track, as real columns. */}
           <colgroup>

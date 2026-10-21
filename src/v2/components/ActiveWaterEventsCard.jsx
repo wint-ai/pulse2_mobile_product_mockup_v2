@@ -232,7 +232,7 @@ function TypeBadge({ type }) {
   if (type === 'leak-low') {
     return (
       <div className="content-stretch flex flex-col gap-[5px] items-center relative shrink-0">
-        <div className="bg-[var(--orange-100)] content-stretch flex flex-col gap-1 items-center justify-center overflow-clip px-2 py-0.5 relative rounded-full shrink-0 size-[48px]">
+        <div className="bg-orange-100 content-stretch flex flex-col gap-1 items-center justify-center overflow-clip px-2 py-0.5 relative rounded-full shrink-0 size-[48px]">
           <div className="content-stretch flex flex-col items-start relative shrink-0">
             <WavesLow21 className="relative shrink-0 size-[21px] text-[#ff6900]" />
           </div>
@@ -247,7 +247,7 @@ function TypeBadge({ type }) {
     <div className="content-stretch flex flex-col gap-[5px] items-center relative shrink-0">
       <div className="bg-red-100 content-stretch flex flex-col gap-1 items-center justify-center overflow-clip px-2 py-0.5 relative rounded-full shrink-0 size-[48px]">
         <div className="content-stretch flex flex-col items-start relative shrink-0">
-          <Waves size={21} className="relative shrink-0 size-[21px] text-[#fb2c36]" />
+          <Waves size={21} className="relative shrink-0 size-[21px] text-destructive" />
         </div>
       </div>
       <p className="[word-break:break-word] font-sans font-medium leading-4 overflow-hidden relative shrink-0 text-[12px] text-red-600 text-ellipsis text-left whitespace-nowrap">
@@ -354,12 +354,12 @@ function EventRow({ event, addressOpen = false, onToggleAddress }) {
  */
 function WaveDisc({ tone }) {
   return tone === 'low' ? (
-    <div className="bg-[var(--orange-100)] content-stretch flex items-start justify-center pt-[4px] relative rounded-[17.19px] shrink-0 size-[24px]">
+    <div className="bg-orange-100 content-stretch flex items-start justify-center pt-[4px] relative rounded-[17.19px] shrink-0 size-[24px]">
       <Waves13Low className="relative shrink-0 size-[13px] text-[#ff6900]" />
     </div>
   ) : (
     <div className="bg-red-100 content-stretch flex items-center justify-center relative rounded-[17.19px] shrink-0 size-[24px]">
-      <Waves13 className="relative shrink-0 size-[13px] text-[#fb2c36]" />
+      <Waves13 className="relative shrink-0 size-[13px] text-destructive" />
     </div>
   )
 }
@@ -376,7 +376,7 @@ function WaveDisc({ tone }) {
  */
 function SummaryPill({ tone, label, count }) {
   return (
-    <div className="bg-[#fafbfc] border border-border border-solid content-stretch flex flex-[1_0_0] h-[36px] items-center min-w-px pl-[5px] pr-[11px] relative rounded-[26px]">
+    <div className="bg-surface-card border border-border border-solid content-stretch flex flex-[1_0_0] h-[36px] items-center min-w-px pl-[5px] pr-[11px] relative rounded-[26px]">
       <div className="content-stretch flex flex-[1_0_0] items-center justify-between min-w-px relative">
         <div className="content-stretch flex gap-[6px] items-center relative min-w-0">
           <WaveDisc tone={tone} />
@@ -418,7 +418,7 @@ function FilterChip({ tone, label, count, active, onClick }) {
       aria-pressed={active}
       data-active={active ? 'true' : 'false'}
       onClick={onClick}
-      className="bg-[#fafbfc] border border-border border-solid content-stretch cursor-pointer data-[active=true]:border-[#90a1b9] flex flex-[1_0_0] h-[36px] items-center min-w-px pl-[5px] pr-[11px] relative rounded-[26px]"
+      className="bg-surface-card border border-border border-solid content-stretch cursor-pointer data-[active=true]:border-slate-400 flex flex-[1_0_0] h-[36px] items-center min-w-px pl-[5px] pr-[11px] relative rounded-[26px]"
     >
       <div className="content-stretch flex flex-[1_0_0] items-center justify-between min-w-px relative">
         {/* min-w-0, not shrink-0: with two-digit counts the chip cannot fit
@@ -451,7 +451,7 @@ function FilterChip({ tone, label, count, active, onClick }) {
  */
 function HealthyState({ onShowPast }) {
   return (
-    <div className="bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[40px] items-start justify-center min-h-[133px] pl-[18px] pr-[20px] py-[12px] relative rounded-[22px] w-full">
+    <div className="bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[40px] items-start justify-center min-h-[133px] pl-[18px] pr-[20px] py-[12px] relative rounded-[22px] w-full">
       <div className="content-stretch flex flex-[1_0_0] gap-4 items-center min-h-px relative w-full">
         <div className="h-[66px] relative shrink-0 w-[138px]">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -498,7 +498,7 @@ function HealthyState({ onShowPast }) {
 //
 // size-full from Figma is deliberately w-full here: a height would crop the
 // list, which is the exact bug this rewrite exists to remove.
-const ROOT_CLASS = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[14px] items-center overflow-clip pt-0 px-0 relative rounded-[18px] shadow-[0px_2px_4px_-2px_rgba(0,0,0,0.1)] w-full`
+const ROOT_CLASS = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[14px] items-center overflow-clip pt-0 px-0 relative rounded-[18px] shadow-[0px_2px_4px_-2px_rgba(0,0,0,0.1)] w-full`
 
 /* The bottom padding is the one measurement the two states do not share.
    Expanded, 198328:89083 pads 24 below the \"Show all\" link. Collapsed,
@@ -565,9 +565,9 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
         type="button"
         aria-expanded={!collapsed}
         onClick={() => setCollapsed((v) => !v)}
-        className="bg-[#fafbfc] content-stretch cursor-pointer flex gap-3 items-center pb-0 pt-4 px-4 relative shrink-0 w-full"
+        className="bg-surface-card content-stretch cursor-pointer flex gap-3 items-center pb-0 pt-4 px-4 relative shrink-0 w-full"
       >
-        <LocationDot size={44} className="relative shrink-0 text-[#fb2c36]" />
+        <LocationDot size={44} className="relative shrink-0 text-destructive" />
         <div className="content-stretch flex flex-[1_0_0] flex-col gap-1 items-start min-w-px relative">
           <p className="[word-break:break-word] font-sans font-semibold leading-[18px] relative shrink-0 text-slate-800 text-lg text-left tracking-[-0.45px] w-full">
             {list.length} Water events
@@ -624,7 +624,7 @@ export default function ActiveWaterEventsCard({ events = MOCK_EVENTS, onShowAll,
                     type="button"
                     onClick={() => onSelectEvent(event)}
                     aria-label={`Open ${event.systemName ?? 'event'}`}
-                    className="w-full cursor-pointer text-left outline-none transition-colors hover:bg-[rgba(11,129,248,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    className="w-full cursor-pointer text-left outline-none transition-colors hover:bg-primary/4 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                   >
                     <EventRow
                       event={event}

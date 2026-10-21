@@ -335,9 +335,9 @@ const PERIODS = [
 const GRANULARITY_TRIGGER = String.raw`bg-slate-100 content-stretch cursor-pointer flex gap-1.5 h-[36px] items-center justify-center outline-none px-3 py-0 relative rounded-[26px] shrink-0 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 /* text-[length:] BEFORE leading-[]: tailwind-merge counts a font-size as
    conflicting with a line-height and drops a leading-* that precedes it. */
-const GRANULARITY_LABEL = String.raw`[word-break:break-word] font-medium relative shrink-0 text-[color:#171717] text-sm leading-5 whitespace-nowrap`
-const GRANULARITY_MENU = String.raw`absolute right-0 top-[calc(100%+6px)] z-30 bg-white border border-solid border-border content-stretch flex flex-col items-stretch min-w-[132px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
-const GRANULARITY_ITEM = String.raw`cursor-pointer flex gap-[8px] h-[32px] items-center justify-between outline-none px-[8px] rounded-[8px] text-[color:#171717] text-sm text-left w-full hover:bg-slate-100 focus-visible:bg-slate-100`
+const GRANULARITY_LABEL = String.raw`[word-break:break-word] font-medium relative shrink-0 text-neutral-900 text-sm leading-5 whitespace-nowrap`
+const GRANULARITY_MENU = String.raw`absolute right-0 top-[calc(100%+6px)] z-30 bg-card border border-solid border-border content-stretch flex flex-col items-stretch min-w-[132px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
+const GRANULARITY_ITEM = String.raw`cursor-pointer flex gap-[8px] h-[32px] items-center justify-between outline-none px-[8px] rounded-[8px] text-neutral-900 text-sm text-left w-full hover:bg-slate-100 focus-visible:bg-slate-100`
 
 function GranularityDropdown({ value, options, onChange, label = 'Consumption granularity' }) {
   const [open, setOpen] = useState(false)
@@ -446,7 +446,7 @@ function GranularityDropdown({ value, options, onChange, label = 'Consumption gr
         <span className={GRANULARITY_LABEL}>{current.name}</span>
         <CaretDown
           size={16}
-          className="relative shrink-0 text-[#171717] transition-transform"
+          className="relative shrink-0 text-neutral-900 transition-transform"
           style={{ transform: open ? 'rotate(180deg)' : undefined }}
         />
       </button>
@@ -604,7 +604,7 @@ function CompareSwitch({ checked, onChange, label }) {
       >
         <span
           className={cn(
-            'block size-[14.4px] rounded-[9999px] bg-white transition-transform',
+            'block size-[14.4px] rounded-[9999px] bg-card transition-transform',
             'shadow-[0px_1px_2px_0px_rgba(0,0,0,0.08)]',
             checked ? 'translate-x-[15.6px]' : 'translate-x-[2px]',
           )}
@@ -638,11 +638,11 @@ function CompareSwitch({ checked, onChange, label }) {
    hue, a pattern fill) fails the validator. Say the word and it reverts to a
    fixed current colour with the previous bar lighter still. */
 const CHART_CONFIG = {
-  litres: { label: 'Litres', color: 'rgba(11,129,248,0.6)' },
+  litres: { label: 'Litres', color: 'color-mix(in oklab, var(--primary) 60%, transparent)' },
 }
 
 const CHART_CONFIG_COMPARE = {
-  litres: { label: 'Litres', color: '#0b81f8' },
+  litres: { label: 'Litres', color: 'var(--primary)' },
   prevLitres: { label: 'Previous period', color: '#6bb1fa' },
 }
 
@@ -1135,7 +1135,7 @@ export default function WaterConsumptionCardV2({
            / Year and sat at a different width from its neighbours. Figma's own
            root carries size-full for the same reason (198601:86154). The
            shadcn <Card> in ui/card.jsx does not supply it. */
-        String.raw`w-full gap-0 border-white bg-[#fafbfc] py-0 rounded-[18px]`,
+        String.raw`w-full gap-0 border-card bg-surface-card py-0 rounded-[18px]`,
         // relative: the scope panel is absolutely positioned against the card
         'relative shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.1)]',
         className,
@@ -1421,7 +1421,7 @@ export default function WaterConsumptionCardV2({
                   the next re-derive silently reverts it. */}
               <p
                 className={cn(
-                  'w-full text-[#737373]',
+                  'w-full text-neutral-500',
                   String.raw`text-sm leading-5`,
                 )}
               >
@@ -1479,7 +1479,7 @@ export default function WaterConsumptionCardV2({
                      padding-top this replaced — recharts then draws the top
                      tick 2px inside the surface, so the caption clears it by
                      6px and does not read as a sixth rung on the ladder. */
-                  'text-right text-[#737373] mb-[4px]',
+                  'text-right text-neutral-500 mb-[4px]',
                   String.raw`text-xs leading-3`,
                 )}
               >

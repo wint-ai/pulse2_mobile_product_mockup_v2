@@ -86,11 +86,12 @@
  * two ruling sections above.
  *
  * Both call sites — src/v2/pages/HomeAllAccounts.jsx and
- * src/v2/pages/SystemPageV2Screen.jsx — still pass `tone="blue"`. That prop is
- * now accepted and ignored (it is simply not read), so neither page breaks,
- * but the attribute and the paragraphs of tone commentary around it are dead
- * and should be removed when those files are next touched. Those are page
- * files and are outside this component's scope.
+ * src/v2/pages/SystemPageV2Screen.jsx — passed a dead `tone="blue"` with
+ * paragraphs of superseded commentary around it. PHASE 4 REMOVED BOTH and
+ * rewrote that prose on the model of this header: ruling 1 kept whole and
+ * marked superseded, ruling 2 as what ships. An unknown prop is still inert
+ * (not read, no fall-back), and a test pins that so a future call site that
+ * passes one does not silently repaint.
  *
  * locA's dark-slate repaint IS dropped with the `slate` tone: it was kept only
  * as the other half of a contradiction, and the owner has now closed the
@@ -299,8 +300,9 @@ function TabTrigger({ label, count, active, pill, grow, onSelect, onKeyDown, tri
  * @param {string}   props.slotNodeId the page's own slot node id.
  *
  * NOTE: there is no `tone` prop any more — ruling 2 gives both pages one
- * treatment. Both call sites still pass `tone="blue"`; it is accepted and
- * ignored, and should be deleted when those page files are next touched.
+ * treatment. Phase 4 removed the leftover `tone="blue"` from both call sites,
+ * so nothing passes it today. An unknown prop stays inert rather than falling
+ * back to a treatment nobody ruled for, and there is a test pinning that.
  */
 export default function PillTabs({ items, value, onChange, nodeId, slotNodeId }) {
   const refs = useRef([])

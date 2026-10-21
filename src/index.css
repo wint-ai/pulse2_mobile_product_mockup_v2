@@ -77,7 +77,8 @@
   --radius: 0.625rem;
 
   /* The one place the family stack is written. --font-sans (plain @theme,
-     below) and --font\/family\/sans (shim) both point here. */
+     below) points here. The Figma-spelled alias --font\/family\/sans used to
+     as well; it died with the Phase 1 shim in Phase 4. */
   --font-sans-stack: 'Figtree', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Slate ramp — exactly as the design tokens resolve. The single source
@@ -108,9 +109,19 @@
   --accent: oklch(0.97271 0.01276 266.701);     /* #f2f6ff — not a ramp step */
   --accent-foreground: var(--primary);
 
-  /* The house card surface. 66 call sites still write #fafbfc directly;
-     they move onto this token in Phase 4. */
+  /* The house card surface. Phase 4 moved the call sites onto it; there
+     were 77, not the 66 Phase 1 counted. */
   --surface-card: oklch(0.98761 0.0017 247.839); /* #fafbfc */
+
+  /* SAME VALUE, DELIBERATELY NOT THE SAME TOKEN. Six sites write #fafbfc
+     as INK — a near-white caption sitting on a severity chip, on the
+     brand blue, or on the hero photograph. Those grounds are product
+     semantics and stay coloured under every theme, so their ink has to
+     stay light under every theme. Pointing them at --surface-card would
+     invert them with the card and bury them. They are the same hex in
+     `light` and must be allowed to diverge everywhere else, which is
+     precisely what a second token is for. */
+  --ink-on-color: oklch(0.98761 0.0017 247.839); /* #fafbfc */
 
   /* Wint brand + semantics */
   --primary: oklch(0.61304 0.20026 255.339);    /* #0b81f8 — wint-blue-accent */
@@ -126,6 +137,28 @@
   --red-500: oklch(0.63782 0.23729 25.436);     /* #fb2c36 */
   --red-600: oklch(0.58304 0.23867 28.476);     /* #e7000b */
   --orange-100: oklch(0.95396 0.03825 76.199);  /* #ffedd4 */
+
+  /* Neutral ramp — a SECOND, TRUE-GREY ramp that the slate one above
+     does not cover. These four are Tailwind v4's stock `neutral` steps,
+     to the bit: they arrived with the shadcn components and the Figma
+     export writes them straight into class strings (#0a0a0a titles,
+     #171717 figures, #737373 captions, #e5e5e5 hairlines) alongside the
+     cool slate ink on the same card.
+
+     THEY ARE DECLARED HERE FOR ONE REASON: `text-neutral-500` without
+     these lines binds to STOCK Tailwind, which no theme can move, so
+     ~30 pieces of card text stayed near-black under `dark` while the
+     card around them went dark. Naming them makes them follow a theme;
+     the values are unchanged, so `light` does not move. Same trap as
+     --color-orange-100, which is fixed in @theme inline below.
+
+     Whether these should eventually fold into the slate ramp is a real
+     question and NOT answered here — folding them moves pixels on
+     every screen, which is not a Phase 4 licence. */
+  --neutral-200: oklch(0.92191 0 0);            /* #e5e5e5 */
+  --neutral-500: oklch(0.55551 0 0);            /* #737373 */
+  --neutral-900: oklch(0.20458 0 0);            /* #171717 */
+  --neutral-950: oklch(0.14479 0 0);            /* #0a0a0a */
 
   /* Wint-specific severity colors — bind these directly in components */
   --severity-high: oklch(0.61471 0.18648 7.537);   /* #DB4670 High Flow Water Event */
@@ -195,201 +228,6 @@
   --chart-5: var(--severity-high);
 }
 
-/* ── TEMPORARY SHIM — Phase 4 deletes this whole block ────────────────
-   WHY IT EXISTS: every name below is spelled the way the Figma export
-   writes it (`--colors\/slate\/500`, `--text\/sm\/size`). They were
-   referenced by ~1,300 call sites across src/v2 and src/components/ui
-   and defined in exactly zero files, so each call site was painted by
-   its own inline `var(…, #hex)` fallback instead. A var() fallback is
-   silent — no warning, no console message, no visual tell — so the
-   token layer looked real while being 94% dead.
-
-   Aliasing the names here flips those call sites live in one file
-   without touching a component, which means from this commit on a
-   change to the ramp above is visible on screen immediately rather
-   than at the end of a four-phase migration.
-
-   IT IS A SHIM, NOT THE DESIGN. Phase 3 rewrites the call sites onto
-   the real tokens and deletes their fallbacks; Phase 4 deletes this
-   block. The `token-exists` CI rule cannot be switched on until it is
-   gone, which is the forcing function. Do not add to it, and do not
-   let a component start depending on one of these names on purpose.
-
-   NOT LISTED HERE, DELIBERATELY: ~25 names whose call sites disagree
-   about the fallback value (e.g. --text\/sm\/lh is 20px at 53 sites and
-   22px at one; --component\/button\/size-default\/radius is 26px, 10px
-   and 8px). Defining one value would silently move the minority sites,
-   and Phase 1 is not allowed a visual change. Those names stay
-   undefined — their fallbacks keep winning exactly as today — and
-   Phase 3 resolves them per call site, which is the only place the
-   question can honestly be answered. The full list is in the Phase 1
-   report.
-   ─────────────────────────────────────────────────────────────────── */
-:root {
-  /* Brand */
-  --wint-blue-accent: var(--primary);
-
-  /* Colour ramps */
-  --colors\/slate\/100: var(--slate-100);
-  --colors\/slate\/200: var(--slate-200);
-  --colors\/slate\/300: var(--slate-300);
-  --colors\/slate\/400: var(--slate-400);
-  --colors\/slate\/500: var(--slate-500);
-  --colors\/slate\/600: var(--slate-600);
-  --colors\/slate\/700: var(--slate-700);
-  --colors\/slate\/800: var(--slate-800);
-  --colors\/slate\/900: var(--slate-900);
-  --colors\/red\/100: var(--red-100);
-  --colors\/red\/400: var(--red-400);
-  --colors\/red\/500: var(--red-500);
-  --colors\/red\/600: var(--red-600);
-  --colors\/orange\/100: var(--orange-100);
-  --colors\/white: oklch(1 0 0);                  /* literal white: captions over photography, not a surface */
-  --sidebar\/foreground: var(--sidebar-foreground);
-
-  /* No token holds these four — see the report, they are a Phase 3/4
-     judgement call (fold into the ramp, or promote to real tokens). */
-  --colors\/red\/200: oklch(0.88341 0.06163 18.387);  /* #ffc9c9 */
-  --colors\/red\/700: oklch(0.50949 0.20858 28.513);  /* #c10007 */
-  --colors\/red\/900: oklch(0.39673 0.14077 25.714);  /* #82181a */
-  --colors\/blue\/50: oklch(0.97048 0.01418 254.604); /* #eff6ff */
-  --colors\/blue\/100: oklch(0.93192 0.03159 255.585);/* #dbeafe */
-  --colors\/gray\/700: oklch(0.37306 0.03431 260.169);/* #364153 — a WARM grey in a cool-slate system */
-
-  /* Type families. Both of these resolved to a non-family string today
-     ('Figtree:Medium', 'Geist:Regular'), which the browser cannot match
-     and skips — see the report: this does NOT restore Geist, because a
-     :root token cannot route some call sites to Geist and others to
-     Figtree. It makes the name real and overridable; Phase 3 routes it. */
-  --font\/family\/sans: var(--font-sans-stack);
-  --font\/family\/heading: var(--font-sans-stack);
-
-  /* Type scale */
-  --text\/xs\/size: 12px;
-  --text\/xs\/lh-none: 12px;
-  --text\/xs\/lh-tight: 15px;
-  --text\/xs\/lh-snug: 16.5px;
-  --text\/xs\/lh-relaxed: 19.5px;
-  --text\/sm\/lh-none: 14px;
-  --text\/sm\/lh-tight: 18px;
-  --text\/sm\/lh-relaxed: 22.75px;
-  --text\/sm-tight\/size: 14px;
-  --text\/sm-tight\/lh: 20px;
-  --text\/base\/lh-snug: 22px;
-  --text\/base\/lh-relaxed: 26px;
-  --text\/base\/heading-tracking: -0.4px;
-  --text\/lg\/size: 18px;
-  --text\/lg\/lh-none: 18px;
-  --text\/lg\/lh-relaxed: 29.25px;
-  --text\/lg\/heading-tracking: -0.45px;
-  --text\/xl\/size: 20px;
-  --text\/xl\/lh-snug: 27.5px;
-  --text\/xl\/lh-relaxed: 32.5px;
-  --text\/xl\/heading-tracking: -0.5px;
-  --text\/2xl\/size: 24px;
-  --text\/2xl\/lh: 32px;
-  --text\/2xl\/lh-none: 24px;
-  --text\/2xl\/lh-relaxed: 39px;
-  --text\/2xl\/heading-tracking: -0.6px;
-  --text\/3xl\/lh-none: 30px;
-  --text\/title\/size: 16px;
-  --text\/title-md\/size: 18px;
-  --text\/title-md\/lh-snug: 18px;
-
-  /* The Figma export also emits a second, flatter set of type names. */
-  --font\/size\/text-sm: 14px;
-  --font\/size\/text-3xl: 30px;
-  --font\/line-height\/leading-5: 20px;
-  --font\/line-height\/leading-7: 28px;
-  --font\/tracking\/tracking-normal: 0px;
-  --font\/weight\/font-semibold: 600;
-  --font\/weight\/font-bold: 700;
-
-  /* Spacing */
-  --p-0: 0px;
-  --spacing\/0\,5: 2px;
-  --spacing\/1: 4px;
-  --spacing\/1\,5: 6px;
-  --spacing\/2: 8px;
-  --spacing\/3: 12px;
-  --spacing\/4: 16px;
-  --spacing\/5: 20px;
-  --spacing\/6: 24px;
-  --spacing\/7: 28px;
-  /* `pro/space` is a parallel scale from the shadcn-pro Figma kit. Note
-     pro/space/5 is 16px, not 20px, at all 5 call sites — that is what
-     the export says and it is reproduced rather than corrected here. */
-  --pro\/space\/0\,5: 2px;
-  --pro\/space\/1: 4px;
-  --pro\/space\/1\,5: 6px;
-  --pro\/space\/2\,5: 10px;
-  --pro\/space\/4: 16px;
-  --pro\/space\/5: 16px;
-  --pro\/space\/6: 24px;
-  --pro\/space\/8: 32px;
-
-  /* Radii + borders */
-  --rounded-2xl: 18px;
-  --rounded-full: 9999px;
-  --border-width\/border: 1px;
-
-  /* Opacity — consumed as `opacity-[calc(var(--opacity-50,50)/100)]`,
-     so these are percentages, not fractions. */
-  --opacity-10: 100;
-  --opacity-50: 50;
-
-  /* Shadows */
-  --shadow\/x: 0px;
-  --shadow\/control\/layer-1\/y: 0px;
-  --shadow\/control\/layer-1\/blur: 0px;
-  --shadow\/control\/layer-1\/color: transparent;
-  --shadows\/scale\/none\/y: 0px;
-  --shadows\/scale\/none\/blur: 0px;
-  --shadows\/color\/transparent: transparent;
-
-  /* Per-component tokens from the Figma kit */
-  --component\/badge\/px: 8px;
-  --component\/badge\/border-width: 1px;
-  --component\/breadcrumb\/item\/gap: 6px;
-  --component\/button\/gap: 6px;
-  --component\/calendar\/padding: 12px;
-  --component\/calendar\/radius: 26px;
-  --component\/calendar\/day-radius: 26px;
-  --component\/calendar\/caption-label\/pr: 8px;
-  --component\/calendar\/dropdown\/bg: transparent;
-  --component\/card\/padding: 24px;
-  --component\/card\/padding-sm: 16px;
-  --component\/card\/radius: 14px;
-  --component\/data-table\/cell\/padding: 8px;
-  --component\/data-table\/head\/px: 8px;
-  --component\/data-table\/toolbar\/gap: 8px;
-  --component\/input\/bg: var(--card);
-  --component\/input\/border: oklch(0.92191 0 0);  /* #e5e5e5 */
-  --component\/input\/border-width: 1px;
-  --component\/input\/radius: 8px;
-  --component\/input-group\/block\/textarea-top\/pb: 4px;
-  --component\/popover\/gap: 16px;
-  --component\/popover\/radius: 18px;
-  --component\/pro\/marketing\/tagline\/chip\/py: 2px;
-  --component\/sidebar\/media-asset\/radius: 8px;
-  --component\/sidebar\/menu-button\/gap: 8px;
-  --component\/sidebar\/menu-button\/padding: 8px;
-  --component\/sidebar\/menu-button\/py: 8px;
-  --component\/sidebar\/menu-button\/radius: 8px;
-  --component\/sidebar\/menu-sub-item\/gap: 8px;
-  --component\/sidebar\/menu-sub-item\/radius: 8px;
-  --component\/switch\/track\/off-bg: oklch(0.92191 0 0);  /* #e5e5e5 */
-  --component\/tabs\/list\/padding: 3px;
-  --component\/tabs\/list\/radius-horizontal: 26px;
-  --component\/tabs\/trigger\/px: 8px;
-  --component\/tabs\/trigger\/py: 4px;
-  --component\/tabs\/trigger\/radius: 14px;
-  --component\/toggle\/gap: 4px;
-  --component\/toggle\/radius: 26px;
-  --component\/toggle\/size-default\/padding: 12px;
-}
-/* ── end shim ─────────────────────────────────────────────────────── */
-
 /* Plain @theme, NOT @theme inline. Inside `@theme inline` Tailwind writes
    the referenced value straight into the utility, so `.font-sans` compiled
    to a literal font stack and overriding --font-sans at runtime did
@@ -428,8 +266,6 @@
   --color-danger: var(--danger);
   --color-success: var(--success);
 
-  --color-surface-card: var(--surface-card);
-
   --font-mono-label: 'Geist', ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -458,6 +294,21 @@
   --color-red-400: var(--red-400);
   --color-red-500: var(--red-500);
   --color-red-600: var(--red-600);
+
+  /* --orange-100 existed from Phase 1 but was never mapped here, so
+     `bg-orange-100` bound to STOCK Tailwind and ignored the project
+     token entirely. Phase 3 worked around it by writing
+     bg-[var(--orange-100)] at 5 sites; those are now plain
+     bg-orange-100 and this line is what makes that correct. */
+  --color-orange-100: var(--orange-100);
+
+  --color-neutral-200: var(--neutral-200);
+  --color-neutral-500: var(--neutral-500);
+  --color-neutral-900: var(--neutral-900);
+  --color-neutral-950: var(--neutral-950);
+
+  --color-surface-card: var(--surface-card);
+  --color-ink-on-color: var(--ink-on-color);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -537,13 +388,14 @@ button {
    inherited unchanged by `dark` and `sand`. `contrast` overrides them,
    because a theme whose job is to move every token has to move those too.
 
-   KNOWN RESIDUE, left deliberately: the handful of LITERAL values in the
-   shim block (--colors\/gray\/700, --colors\/blue\/50, --colors\/blue\/100,
-   --colors\/red\/200|700|900, --component\/switch\/track\/off-bg) do not
-   follow a theme. They are the names Phase 1 could not resolve onto a
-   token; Phase 3 resolves them per call site. Under `dark` they stay
-   light-theme values — that is the instrument working, not a bug to
-   paper over here.
+   THE KNOWN RESIDUE IS GONE. Phase 2 recorded a handful of LITERAL values
+   in the shim block (--colors\/gray\/700, --colors\/blue\/50 and \/100,
+   --colors\/red\/200|700|900, --component\/switch\/track\/off-bg) that
+   followed no theme. Phase 4 deleted the shim and every one of those names
+   turned out to have ZERO call sites left, so none of them needed a home.
+   The literals that DID survive in components are listed in the Phase 4
+   report: decorative one-off washes and the brand-blue variant spellings,
+   which stay literal until the owner rules on them.
    ───────────────────────────────────────────────────────────────────── */
 
 /* ── dark — shadcn Zinc ──────────────────────────────────────────────
@@ -566,6 +418,15 @@ button {
   --slate-700: oklch(92% 0.004 286.32);      /* zinc-200 */
   --slate-800: oklch(96.7% 0.001 286.375);   /* zinc-100 */
   --slate-900: oklch(98.5% 0 0);             /* zinc-50  = shadcn --foreground */
+
+  /* Neutral ramp — INVERTED on the same rule as slate above, and onto
+     the same zinc steps, so true-grey ink and cool-slate ink land on the
+     same lightness under this theme instead of one of them staying put.
+     950 is the darkest ink in `light`, so it maps to the lightest step. */
+  --neutral-200: oklch(27.4% 0.006 286.033); /* zinc-800 */
+  --neutral-500: oklch(70.5% 0.015 286.067); /* zinc-400 */
+  --neutral-900: oklch(96.7% 0.001 286.375); /* zinc-100 */
+  --neutral-950: oklch(98.5% 0 0);           /* zinc-50 */
 
   /* shadcn Zinc, cssVars.dark — verbatim */
   --background: oklch(0.141 0.005 285.823);
@@ -632,6 +493,12 @@ button {
   --slate-700: oklch(37.4% 0.01 67.558);     /* stone-700 */
   --slate-800: oklch(26.8% 0.007 34.298);    /* stone-800 */
   --slate-900: oklch(21.6% 0.006 56.043);    /* stone-900 */
+
+  /* Neutral ramp — Tailwind v4 stone, step for step, no inversion. */
+  --neutral-200: oklch(92.3% 0.003 48.717);  /* stone-200 */
+  --neutral-500: oklch(55.3% 0.013 58.071);  /* stone-500 */
+  --neutral-900: oklch(21.6% 0.006 56.043);  /* stone-900 */
+  --neutral-950: oklch(14.7% 0.004 49.25);   /* stone-950 */
 
   /* shadcn Stone, cssVars.light — verbatim */
   --background: oklch(1 0 0);
@@ -715,6 +582,13 @@ button {
   --ring: oklch(0.85 0.25 110);
 
   --surface-card: oklch(0.8 0.25 85);        /* NOT the mix: it has to shout */
+  --ink-on-color: oklch(0.3 0.25 265);       /* ink moves too, or it is not an instrument */
+
+  /* Neutral ramp — one hue per step, as the slate ramp above. */
+  --neutral-200: oklch(0.82 0.24 95);
+  --neutral-500: oklch(0.7 0.26 310);
+  --neutral-900: oklch(0.6 0.3 170);
+  --neutral-950: oklch(0.5 0.3 240);
 
   /* Product semantics move here and only here. */
   --red-100: oklch(0.75 0.25 340);

@@ -210,10 +210,12 @@ describe('the geometry the first pass got wrong', () => {
   it('paints the power and connectivity badges white', () => {
     // The node gives both `bg-white`; they were transparent on the #f2f6ff
     // panel, so they read as bare text rather than as badges.
+    // Phase 4 spells that white as `bg-card` — --card IS #ffffff in `light`,
+    // so the badge is the same pixel and now follows the theme.
     const { container } = renderOne()
     for (const label of ['AC', 'Connected']) {
       const badge = within(container).getByText(label).closest('div')
-      expect(String(badge.className), label).toContain('bg-white')
+      expect(String(badge.className), label).toContain('bg-card')
     }
   })
 

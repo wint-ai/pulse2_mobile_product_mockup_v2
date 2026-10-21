@@ -116,7 +116,7 @@ import { cn } from '@/lib/utils'
    chain, same as SystemHeroCard / SystemTopologyCard do. */
 
 /* Card shell 199296:50268 / 199296:50538 — byte-identical on both nodes. */
-const CARD = String.raw`bg-[#fafbfc] content-stretch flex flex-col gap-[19px] items-start p-[18px] relative rounded-[18px] shrink-0 w-full`
+const CARD = String.raw`bg-surface-card content-stretch flex flex-col gap-[19px] items-start p-[18px] relative rounded-[18px] shrink-0 w-full`
 
 /* 199296:50618 / 199296:50621 — the two halves of the mode control. Held as
    String.raw constants and swapped whole rather than merged through cn():

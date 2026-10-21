@@ -136,7 +136,7 @@ import {
 /* ------------------------------------------------------------ class atoms */
 /* Line-height LAST in every one of these. See the header note. */
 
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white relative rounded-[18px] shrink-0 w-full`
+const CARD = String.raw`bg-surface-card border border-solid border-card relative rounded-[18px] shrink-0 w-full`
 
 const HEADER = String.raw`flex w-full items-center gap-[10px] bg-transparent px-[18px] py-[14px] text-left cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 rounded-[18px]`
 

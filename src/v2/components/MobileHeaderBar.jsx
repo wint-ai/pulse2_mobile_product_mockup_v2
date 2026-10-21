@@ -137,13 +137,13 @@ export default function MobileHeaderBar({
               type="button"
               onClick={onBack}
               aria-label={backLabel}
-              className="bg-[#fafbfc] border border-solid border-white content-stretch flex items-center justify-center pr-[2px] relative rounded-[120.833px] shrink-0 size-[30px] cursor-pointer outline-none transition-colors hover:bg-white focus-visible:ring-[3px] focus-visible:ring-ring/50 active:opacity-60"
+              className="bg-surface-card border border-solid border-card content-stretch flex items-center justify-center pr-[2px] relative rounded-[120.833px] shrink-0 size-[30px] cursor-pointer outline-none transition-colors hover:bg-card focus-visible:ring-[3px] focus-visible:ring-ring/50 active:opacity-60"
               data-node-id="199383:141505"
             >
               {/* The node's glyph is a Tabler raster on an expiring asset URL;
                   lucide's chevron-left is the same mark at the node's 24px,
                   and is the substitution EventOverlayV2 already makes. */}
-              <ChevronLeft className="size-[24px] text-[#0a0a0a]" aria-hidden="true" />
+              <ChevronLeft className="size-[24px] text-neutral-950" aria-hidden="true" />
             </button>
           ) : null}
 
@@ -157,7 +157,7 @@ export default function MobileHeaderBar({
             onClick={onOpenTree}
             aria-label={`Scope: ${label}. Open the navigation drawer.`}
             aria-haspopup="dialog"
-            className="content-stretch flex flex-[1_0_0] h-[28px] items-center justify-center min-w-px pr-[7px] relative rounded-[23px] cursor-pointer outline-none transition-colors hover:bg-white/60 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="content-stretch flex flex-[1_0_0] h-[28px] items-center justify-center min-w-px pr-[7px] relative rounded-[23px] cursor-pointer outline-none transition-colors hover:bg-card/60 focus-visible:ring-[3px] focus-visible:ring-ring/50"
             data-node-id="199383:141507"
           >
             <p
@@ -176,7 +176,7 @@ export default function MobileHeaderBar({
               {label}
             </p>
             <ChevronDown
-              className="size-[24px] shrink-0 text-[#0a0a0a]"
+              className="size-[24px] shrink-0 text-neutral-950"
               aria-hidden="true"
               data-node-id="199383:141509"
             />

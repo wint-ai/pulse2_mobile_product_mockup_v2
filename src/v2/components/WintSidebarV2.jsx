@@ -420,7 +420,7 @@ function NodeIcon({ node, depth = 0, active = false }) {
     )
   }
   return (
-    <span className="content-stretch flex items-center justify-center overflow-clip relative shrink-0 size-[14px] text-[#90A1B9]">
+    <span className="content-stretch flex items-center justify-center overflow-clip relative shrink-0 size-[14px] text-slate-400">
       <PinLocation03 width={11.6637} height={12.8304} />
     </span>
   )
@@ -616,7 +616,7 @@ export default function WintSidebarV2({ open, onClose }) {
               {/* Remix Icons / close-fill — ONE filled path with mitered ends,
                   not a stroked X with round caps. src/v2/icons/CloseFill.jsx is
                   that exact export scaled x1.75 into a 28 viewBox. */}
-              <CloseFill size={16} className="text-[#0A0A0A]" />
+              <CloseFill size={16} className="text-neutral-950" />
             </span>
           </button>
         </div>
@@ -634,7 +634,7 @@ export default function WintSidebarV2({ open, onClose }) {
               // buttons in this file already use. A QA sweep measured this one
               // at 19px across, the only control here still under the 24px
               // WCAG 2.5.8 floor.
-              className="content-stretch flex gap-1.5 h-[32px] items-center justify-center p-0 relative rounded-lg shrink-0 w-[18px] active:bg-white/60 before:absolute before:-inset-x-[7px] before:inset-y-0 before:content-['']"
+              className="content-stretch flex gap-1.5 h-[32px] items-center justify-center p-0 relative rounded-lg shrink-0 w-[18px] active:bg-card/60 before:absolute before:-inset-x-[7px] before:inset-y-0 before:content-['']"
             >
               <ArrowsInLineVertical size={16} className="text-slate-500" />
             </button>
@@ -652,12 +652,12 @@ export default function WintSidebarV2({ open, onClose }) {
               onClick={() => { setSearchOpen(v => !v); if (searchOpen) setQuery('') }}
               aria-label="Search locations"
               aria-expanded={searchOpen}
-              className="content-stretch flex gap-1.5 items-center justify-center p-0 relative rounded-lg shrink-0 size-[32px] data-[open=false]:active:bg-white/60 data-[open=true]:bg-white/70"
+              className="content-stretch flex gap-1.5 items-center justify-center p-0 relative rounded-lg shrink-0 size-[32px] data-[open=false]:active:bg-card/60 data-[open=true]:bg-card/70"
             >
               {/* The frame flips search-01 vertically (-rotate-180 -scale-x-100
                   on I198378:74026;…;59428:44419). Without it the magnifier
                   renders upside down — bowl low, handle high. */}
-              <span className="content-stretch flex items-center justify-center relative shrink-0 size-[16px] text-[#90A1B9] -scale-y-100">
+              <span className="content-stretch flex items-center justify-center relative shrink-0 size-[16px] text-slate-400 -scale-y-100">
                 <Search01 width={13.33} height={13.33} />
               </span>
             </button>
@@ -687,7 +687,7 @@ export default function WintSidebarV2({ open, onClose }) {
               onChange={e => setQuery(e.target.value)}
               placeholder="Search locations and systems"
               aria-label="Search locations and systems"
-              className="h-[32px] rounded-[8px] border-border bg-white/70 text-[14px] shadow-none"
+              className="h-[32px] rounded-[8px] border-border bg-card/70 text-[14px] shadow-none"
             />
           </div>
         )}
@@ -753,7 +753,7 @@ export default function WintSidebarV2({ open, onClose }) {
             <button
               type="button"
               onClick={() => go('/select')}
-              className="content-stretch flex gap-2 h-[49px] items-center px-2 py-2 relative rounded-md shrink-0 text-left w-[188px] active:bg-white/60"
+              className="content-stretch flex gap-2 h-[49px] items-center px-2 py-2 relative rounded-md shrink-0 text-left w-[188px] active:bg-card/60"
             >
               {/* SidebarMediaAsset — 32px, radius 8. The frame fills it with a
                   photo; this app identifies a persona by emoji + tint, so the
@@ -773,7 +773,7 @@ export default function WintSidebarV2({ open, onClose }) {
                   {persona.email || persona.role}
                 </span>
               </span>
-              <ChevronsUpDown size={16} className="shrink-0 text-[#0A0A0A]" />
+              <ChevronsUpDown size={16} className="shrink-0 text-neutral-950" />
             </button>
             <button
               type="button"
@@ -783,7 +783,7 @@ export default function WintSidebarV2({ open, onClose }) {
               // the touch target to 36px without moving a single pixel of it.
               className="content-stretch flex items-center justify-center relative rounded-md shrink-0 size-[16px] before:absolute before:-inset-[10px] before:content-[''] active:opacity-60"
             >
-              <BellDot size={16} className="text-[#314158]" />
+              <BellDot size={16} className="text-slate-700" />
             </button>
           </div>
         </div>
@@ -967,7 +967,7 @@ function TreeRow({
         // `text-[14px]` here is silently deleted and the row sits a few pixels
         // off. `leading-` therefore trails `text-[14px]` below, against Figma's
         // alphabetical emission order. Same class set — do not re-sort it.
-        className="content-stretch flex gap-2 h-[36px] items-center overflow-clip px-1.5 py-2 relative rounded-md w-full font-normal text-[14px] leading-[14px] text-slate-800 hover:bg-white/50 hover:text-slate-800 active:bg-white/70 active:text-slate-800 data-[active=true]:bg-card data-[active=true]:font-medium data-[active=true]:text-sidebar-foreground data-[active=true]:shadow-none data-[active=true]:hover:bg-card data-[active=true]:hover:text-sidebar-foreground data-[active=true]:active:text-sidebar-foreground"
+        className="content-stretch flex gap-2 h-[36px] items-center overflow-clip px-1.5 py-2 relative rounded-md w-full font-normal text-[14px] leading-[14px] text-slate-800 hover:bg-card/50 hover:text-slate-800 active:bg-card/70 active:text-slate-800 data-[active=true]:bg-card data-[active=true]:font-medium data-[active=true]:text-sidebar-foreground data-[active=true]:shadow-none data-[active=true]:hover:bg-card data-[active=true]:hover:text-sidebar-foreground data-[active=true]:active:text-sidebar-foreground"
       >
         {row}
       </SidebarMenuButton>
@@ -989,7 +989,7 @@ function TreeRow({
       // font size (`text-sm/6` sets both). `leading-` must therefore come
       // AFTER `text-[14px]`, not before it as Figma emits it — otherwise the
       // line-height is dropped. Same class set; do not re-sort alphabetically.
-      className="content-stretch cursor-pointer flex gap-2 h-[28px] items-center overflow-clip pr-1.5 relative rounded-md w-full translate-x-0 font-normal text-[14px] leading-[14px] text-slate-800 data-[leaf=false]:pl-1.5 data-[leaf=true]:pl-4 hover:bg-white/50 hover:text-slate-800 active:bg-white/70 active:text-slate-800 data-[active=true]:bg-card data-[active=true]:text-slate-800"
+      className="content-stretch cursor-pointer flex gap-2 h-[28px] items-center overflow-clip pr-1.5 relative rounded-md w-full translate-x-0 font-normal text-[14px] leading-[14px] text-slate-800 data-[leaf=false]:pl-1.5 data-[leaf=true]:pl-4 hover:bg-card/50 hover:text-slate-800 active:bg-card/70 active:text-slate-800 data-[active=true]:bg-card data-[active=true]:text-slate-800"
     >
       {row}
     </SidebarMenuSubButton>

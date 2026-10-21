@@ -195,7 +195,11 @@ describe('the card box survives cn() into the DOM', () => {
     const { container } = render(<EventsTimelineCard events={EVENTS} />)
     // Default tone is 'calm' -> the calm page's card, 199359:126908.
     const root = container.querySelector('[data-node-id="199359:126908"]')
-    expect(root.className).toContain('border border-solid border-white')
+    /* Phase 4: the rim is `border-card`, not a literal `border-white`.
+       --card IS #ffffff in `light`, so this is the same pixel and a
+       different, themeable name. */
+    expect(root.className).toContain('border border-solid border-card')
+    expect(root.className).toContain('bg-surface-card')
     expect(root.className).toContain('rounded-[18px]')
     expect(root.className).toContain('max-h-[380px]')
     expect(root.className).toContain('overflow-clip')

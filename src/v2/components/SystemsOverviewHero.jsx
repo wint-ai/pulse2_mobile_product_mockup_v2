@@ -110,7 +110,7 @@ export default function SystemsOverviewHero({
           design never showed, and the chips below it are left-anchored anyway. */}
       <p
         className={cn(
-          '[word-break:break-word] absolute left-[36px] top-[41px] whitespace-nowrap text-[#fafbfc] text-[34.646px]',
+          '[word-break:break-word] absolute left-[36px] top-[41px] whitespace-nowrap text-ink-on-color text-[34.646px]',
           'font-sans',
           String.raw`font-semibold`,
         )}
@@ -133,7 +133,7 @@ export default function SystemsOverviewHero({
           <span key={key} className={CHIP} role="img" aria-label={`${name}: ${fmt(counts[key])}`}>
             <span
               aria-hidden="true"
-              className="relative shrink-0 text-[#fafbfc]"
+              className="relative shrink-0 text-ink-on-color"
               style={{ width: size, height: size }}
             >
               {glyph}

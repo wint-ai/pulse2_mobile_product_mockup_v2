@@ -112,7 +112,7 @@ const TEXT_BUTTON = cn(
 /* Radius 8 and px 8 — rounded rects, not pills. The node's drop-shadow is two
    layers that both resolve to rgba(0,0,0,0) at zero blur, i.e. no shadow, so
    they are dropped rather than emitted as a no-op filter. */
-const BTN = String.raw`flex shrink-0 items-center justify-center gap-1 bg-[#f2f6ff] px-2 py-0 rounded-md`
+const BTN = String.raw`flex shrink-0 items-center justify-center gap-1 bg-accent px-2 py-0 rounded-md`
 const BTN_OUTLINE = String.raw`border border-solid border-primary`
 const FOCUS = 'cursor-pointer outline-none hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50'
 
@@ -174,7 +174,7 @@ function RoundBadge({ children }) {
 /** Collapsed's icon-only status chip — 20px square, px-2, white. */
 function IconChip({ children }) {
   return (
-    <div className={String.raw`flex size-[20px] shrink-0 items-center justify-center gap-1 overflow-clip bg-white px-0.5 py-0.5 rounded-[26px] text-muted-foreground`}>
+    <div className={String.raw`flex size-[20px] shrink-0 items-center justify-center gap-1 overflow-clip bg-card px-0.5 py-0.5 rounded-[26px] text-muted-foreground`}>
       <span className="flex size-[12px] shrink-0 items-center justify-center">{children}</span>
     </div>
   )
@@ -183,7 +183,7 @@ function IconChip({ children }) {
 /** Expanded's word badge — h-24, px-8, radius 26, white. */
 function WordBadge({ icon, children, tone = 'slate-500' }) {
   return (
-    <div className={String.raw`flex h-[24px] shrink-0 items-center justify-center gap-1 overflow-clip bg-white px-2 py-0.5 rounded-[26px]`}>
+    <div className={String.raw`flex h-[24px] shrink-0 items-center justify-center gap-1 overflow-clip bg-card px-2 py-0.5 rounded-[26px]`}>
       <span className="flex size-[12px] shrink-0 items-center justify-center text-muted-foreground">
         {icon}
       </span>
@@ -264,7 +264,7 @@ function CompactTile({ device }) {
   return (
     <div
       data-device-id={device.id}
-      className="relative flex h-[82px] min-w-px flex-1 items-start rounded-[12px] bg-[#f2f6ff] p-[6px]"
+      className="relative flex h-[82px] min-w-px flex-1 items-start rounded-[12px] bg-accent p-[6px]"
     >
       <div className="relative flex h-full shrink-0 flex-col items-start justify-between">
         <div className="flex shrink-0 items-center gap-[4px]">
@@ -314,7 +314,7 @@ function DeviceCard({ device, onCloseValve }) {
   return (
     <div
       data-device-id={device.id}
-      className="flex h-[138px] w-full shrink-0 items-start rounded-[12px] bg-[#f2f6ff] px-[9px] py-[10px]"
+      className="flex h-[138px] w-full shrink-0 items-start rounded-[12px] bg-accent px-[9px] py-[10px]"
     >
       <div className="relative flex h-[115px] min-w-px flex-1 items-start gap-[6px]">
         {/* 198756:60276 — between the photo and the details, not down the edge. */}
@@ -436,7 +436,7 @@ export default function SystemTopologyCard({
   return (
     <div
       className={cn(
-        String.raw`flex w-full flex-col items-start justify-center gap-[17px] rounded-[18px] border border-solid border-white bg-[#fafbfc] px-[16px] py-[12px]`,
+        String.raw`flex w-full flex-col items-start justify-center gap-[17px] rounded-[18px] border border-solid border-card bg-surface-card px-[16px] py-[12px]`,
         className,
       )}
       data-node-id={expanded ? '198736:153302' : '198629:57165'}
@@ -490,7 +490,7 @@ export default function SystemTopologyCard({
                 With more than one leg the schematic draws both valves, so it
                 takes the worst state on the loop: an error on either leg is an
                 error on the loop. */}
-            <div className="flex h-[112px] w-full min-w-[112px] max-w-[350px] shrink-0 items-center justify-center rounded-[12px] bg-[#f2f6ff]">
+            <div className="flex h-[112px] w-full min-w-[112px] max-w-[350px] shrink-0 items-center justify-center rounded-[12px] bg-accent">
               <PipeTopology topology={topology} valve={schematicValve} />
             </div>
             <div className="flex w-full shrink-0 flex-col items-start">

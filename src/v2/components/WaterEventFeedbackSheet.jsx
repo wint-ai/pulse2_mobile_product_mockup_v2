@@ -213,7 +213,7 @@ const SHEET_CSS = `
 
 /** Yes and No are the same control twice; only the glyph differs. */
 const CHOICE_CLASS =
-  'h-auto flex-col gap-[8px] rounded-[14px] border-[1.5px] border-[#e2e8f0] bg-white px-[12px] py-[20px] text-[17px] font-bold text-slate-800'
+  'h-auto flex-col gap-[8px] rounded-[14px] border-[1.5px] border-border bg-card px-[12px] py-[20px] text-[17px] font-bold text-slate-800'
 
 /* Deterministic scatter — the mockup randomises, but a stable render keeps
    snapshots and reviews honest and costs nothing visually. */
@@ -247,7 +247,7 @@ function Particles({ tone }) {
   )
 }
 
-const CELEBRATION_COLORS = ['#f59e0b', '#ffb800', '#0b81f8', '#5c9e1a', '#db4670', '#a855f7']
+const CELEBRATION_COLORS = ['#f59e0b', '#ffb800', 'var(--primary)', '#5c9e1a', '#db4670', '#a855f7']
 
 function Celebration() {
   return (
@@ -263,7 +263,7 @@ function Celebration() {
             className={cn(
               'wef-burst absolute left-1/2 top-[55%]',
               sparkle
-                ? 'size-[6px] rounded-full bg-white shadow-[0_0_8px_#fff,0_0_14px_rgba(255,255,255,.6)]'
+                ? 'size-[6px] rounded-full bg-card shadow-[0_0_8px_#fff,0_0_14px_rgba(255,255,255,.6)]'
                 : square
                   ? 'h-[12px] w-[8px] rounded-[2px]'
                   : 'size-[10px] rounded-full',
@@ -293,7 +293,7 @@ function WarnPoint(props) {
         className={cn(
           'mt-[1px] flex size-[20px] shrink-0 items-center justify-center rounded-full',
           danger
-            ? 'bg-[rgba(219,70,112,.14)] text-severity-high'
+            ? 'bg-severity-high/14 text-severity-high'
             : 'bg-slate-100 text-slate-700',
         )}
       >
@@ -538,7 +538,7 @@ function FeedbackSheet({
         className="absolute inset-0 cursor-default bg-[rgba(20,21,26,0.42)]"
       />
 
-      <div className="wef-sheet relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[24px] bg-[#fafbfc] shadow-[0_-8px_32px_rgba(0,0,0,0.18)]">
+      <div className="wef-sheet relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[24px] bg-surface-card shadow-[0_-8px_32px_rgba(0,0,0,0.18)]">
         <div aria-hidden="true" className="mx-auto mb-[6px] mt-[10px] h-[4px] w-[36px] rounded-[2px] bg-[#dee0e3]" />
 
         <div className="flex items-center justify-between gap-[10px] px-[18px] pb-[10px] pt-[4px]">
@@ -555,7 +555,7 @@ function FeedbackSheet({
                   'wef-pulse border-transparent px-[10px] py-[4px] text-[12px] font-bold',
                   points >= POINTS.NOTE
                     ? 'bg-[linear-gradient(135deg,rgba(255,184,0,.22),rgba(245,158,11,.28))] text-[#b45309]'
-                    : 'bg-[rgba(11,129,248,.10)] text-primary',
+                    : 'bg-primary/10 text-primary',
                 )}
               >
                 +{points}
@@ -582,7 +582,7 @@ function FeedbackSheet({
               <div className="my-[10px] flex items-center gap-[10px]">
                 <span
                   aria-hidden="true"
-                  className="flex size-[36px] shrink-0 items-center justify-center rounded-full bg-[rgba(219,70,112,.12)] text-severity-high"
+                  className="flex size-[36px] shrink-0 items-center justify-center rounded-full bg-severity-high/12 text-severity-high"
                 >
                   <TriangleAlert size={20} strokeWidth={2.2} />
                 </span>
@@ -619,7 +619,7 @@ function FeedbackSheet({
                   type="button"
                   variant="outline"
                   onClick={() => close('cancel')}
-                  className="h-[46px] flex-1 rounded-[12px] bg-white text-[14px] font-bold"
+                  className="h-[46px] flex-1 rounded-[12px] bg-card text-[14px] font-bold"
                 >
                   Cancel
                 </Button>
@@ -649,7 +649,7 @@ function FeedbackSheet({
                   onClick={(e) => chooseAnswer('yes', e.currentTarget)}
                   className={CHOICE_CLASS}
                 >
-                  <span aria-hidden="true" className="flex size-[36px] items-center justify-center rounded-full bg-[rgba(92,158,26,.14)] text-success">
+                  <span aria-hidden="true" className="flex size-[36px] items-center justify-center rounded-full bg-success/14 text-success">
                     <Check size={20} strokeWidth={2.4} />
                   </span>
                   Yes
@@ -660,7 +660,7 @@ function FeedbackSheet({
                   onClick={(e) => chooseAnswer('no', e.currentTarget)}
                   className={CHOICE_CLASS}
                 >
-                  <span aria-hidden="true" className="flex size-[36px] items-center justify-center rounded-full bg-[rgba(11,129,248,.10)] text-primary">
+                  <span aria-hidden="true" className="flex size-[36px] items-center justify-center rounded-full bg-primary/10 text-primary">
                     <X size={20} strokeWidth={2.4} />
                   </span>
                   No
@@ -684,8 +684,8 @@ function FeedbackSheet({
                     className={cn(
                       'wef-pop flex size-[56px] items-center justify-center rounded-full',
                       answer === 'yes'
-                        ? 'bg-[rgba(92,158,26,.15)] text-success'
-                        : 'bg-[rgba(11,129,248,.15)] text-primary',
+                        ? 'bg-success/15 text-success'
+                        : 'bg-primary/15 text-primary',
                     )}
                   >
                     <Check size={26} strokeWidth={2.6} />
@@ -709,7 +709,7 @@ function FeedbackSheet({
                       pressed={chips.includes(label)}
                       onClick={(e) => toggleChip(label, e.currentTarget)}
                       className={cn(
-                        'h-auto rounded-full border-[1.5px] border-[#e2e8f0] bg-white px-[14px] py-[9px] text-[13px] font-semibold text-slate-700 data-[state=on]:border-primary data-[state=on]:bg-[rgba(11,129,248,.08)] data-[state=on]:text-primary leading-[17px]',
+                        'h-auto rounded-full border-[1.5px] border-border bg-card px-[14px] py-[9px] text-[13px] font-semibold text-slate-700 data-[state=on]:border-primary data-[state=on]:bg-primary/8 data-[state=on]:text-primary leading-[17px]',
                         label === SOMETHING_ELSE && 'border-dashed',
                       )}
                     >
@@ -739,7 +739,7 @@ function FeedbackSheet({
                         <ToggleGroupItem
                           key={value}
                           value={value}
-                          className="h-auto rounded-full border-[1.5px] border-[#e2e8f0] bg-white px-[12px] py-[7px] text-[12.5px] font-semibold text-slate-700 data-[state=on]:border-primary data-[state=on]:bg-[rgba(11,129,248,.08)] data-[state=on]:text-primary leading-[16px]"
+                          className="h-auto rounded-full border-[1.5px] border-border bg-card px-[12px] py-[7px] text-[12.5px] font-semibold text-slate-700 data-[state=on]:border-primary data-[state=on]:bg-primary/8 data-[state=on]:text-primary leading-[16px]"
                         >
                           {FIXED_STATE_LABEL[value]}
                         </ToggleGroupItem>
@@ -757,7 +757,7 @@ function FeedbackSheet({
                       aria-label="Note (optional)"
                       placeholder="Describe briefly..."
                       onChange={(e) => changeNote(e.target.value)}
-                      className="h-[72px] w-full resize-none rounded-[10px] border-[1.5px] border-[#e2e8f0] bg-white px-[12px] py-[10px] text-[13px] text-foreground outline-none focus:border-primary leading-[18px]"
+                      className="h-[72px] w-full resize-none rounded-[10px] border-[1.5px] border-border bg-card px-[12px] py-[10px] text-[13px] text-foreground outline-none focus:border-primary leading-[18px]"
                     />
                     <p className="mt-[4px] text-right text-[11px] text-slate-400 leading-[15px]">
                       {note.length}/{NOTE_MAX}
@@ -791,7 +791,7 @@ function FeedbackSheet({
             <section className="flex flex-col items-center gap-[14px] px-[24px] pb-[32px] pt-[36px] text-center">
               <span
                 aria-hidden="true"
-                className="wef-pop flex size-[72px] items-center justify-center rounded-full bg-[rgba(92,158,26,.14)] text-success"
+                className="wef-pop flex size-[72px] items-center justify-center rounded-full bg-success/14 text-success"
               >
                 <Check size={34} strokeWidth={2.6} />
               </span>

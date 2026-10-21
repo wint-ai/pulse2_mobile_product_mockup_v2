@@ -115,7 +115,7 @@ import { cn } from '@/lib/utils'
 /* ------------------------------------------------------------ class atoms */
 
 /* 199323:12124 / 199371:137037 — identical in both states. */
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[15px] items-center pb-[16px] pt-[12px] relative rounded-[22px] shrink-0 w-full`
+const CARD = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[15px] items-center pb-[16px] pt-[12px] relative rounded-[22px] shrink-0 w-full`
 
 /* 199371:129896 / 199323:12127 — the heading block and its row. */
 const HEAD_BLOCK = String.raw`content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full`
@@ -442,11 +442,11 @@ export default function SystemHealthCard({
                     {/* 199417:131529 greys the numeral at zero rather than
                         letting it read as ink: #cad5e2, not slate-700. */}
                     <span
-                      className={cn(BAR_LABEL_RUN, showRed ? 'text-[#e7000b]' : 'text-[#cad5e2]')}
+                      className={cn(BAR_LABEL_RUN, showRed ? 'text-red-600' : 'text-slate-300')}
                     >
                       {`${fmt(attention)} / `}
                     </span>
-                    <span className={cn(BAR_LABEL_RUN, 'text-[#314158]')}>
+                    <span className={cn(BAR_LABEL_RUN, 'text-slate-700')}>
                       {`${fmt(fleet)} need attention`}
                     </span>
                   </p>

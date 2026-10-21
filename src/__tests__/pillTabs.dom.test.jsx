@@ -268,9 +268,10 @@ describe('the one ruled treatment', () => {
     expect(labelSpan(resting).className).toContain('font-medium')
   })
 
-  /* The `tone` prop is gone, but both page files still pass tone="blue" until
-     someone who owns them removes it. An unknown prop must be inert, not a
-     silent fall-back to a treatment nobody ruled for. */
+  /* The `tone` prop is gone, and Phase 4 removed the leftover tone="blue"
+     from both page files, so nothing passes it today. This stays as a
+     regression guard: an unknown prop must be inert, not a silent fall-back
+     to a treatment nobody ruled for. */
   it('ignores a leftover tone prop rather than repainting for it', () => {
     render(<PillTabs items={items} value="a" onChange={() => {}} tone="slate" />)
     const selected = screen.getByRole('tab', { name: 'A' })

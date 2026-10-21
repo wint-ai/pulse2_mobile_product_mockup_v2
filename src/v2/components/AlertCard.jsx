@@ -166,7 +166,7 @@ const PAGER_LABEL = String.raw`[word-break:break-word] font-sans font-medium lea
 const PAGER_SPAN = String.raw`leading-3`
 const ICON_SLOT = 'content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]'
 
-const BTN_BLUE = String.raw`bg-[#f2f6ff] border border-primary border-solid content-stretch cursor-pointer flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0`
+const BTN_BLUE = String.raw`bg-accent border border-primary border-solid content-stretch cursor-pointer flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0`
 const BTN_BLUE_LABEL = String.raw`[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-primary text-xs whitespace-nowrap`
 
 const META_ROW = String.raw`[word-break:break-word] content-stretch flex gap-[7px] items-center relative shrink-0 text-[12px] whitespace-nowrap`
@@ -192,7 +192,7 @@ const TITLE_MUTED = String.raw`[word-break:break-word] font-sans font-medium lea
 const UNIT_WRAP = String.raw`[word-break:break-word] content-stretch flex font-sans font-normal gap-0.5 items-center leading-3 relative shrink-0 text-[12px] whitespace-nowrap`
 const UNIT_VALUE = String.raw`overflow-hidden relative shrink-0 text-foreground text-ellipsis`
 const UNIT_VALUE_MUTED = String.raw`overflow-hidden relative shrink-0 text-slate-700 text-ellipsis`
-const UNIT_LABEL = 'overflow-hidden relative shrink-0 text-[#62748e] text-ellipsis'
+const UNIT_LABEL = 'overflow-hidden relative shrink-0 text-muted-foreground text-ellipsis'
 
 const COUNT_CHIP = String.raw`bg-slate-200 content-stretch flex flex-col items-center justify-center relative rounded-[6px] shrink-0 size-[18px]`
 /* Sensors_Errors' Flood chip alone is drawn 19x18 rather than square
@@ -219,7 +219,7 @@ const WIFI_LEAF = 'absolute inset-[-7.12%_-5.7%]'
 const SENSORS_TOTAL = String.raw`[word-break:break-word] font-sans font-semibold leading-6 relative shrink-0 text-foreground text-base whitespace-nowrap`
 
 /** Card shells. No `\/` in these, so plain strings are safe. */
-const SHELL = 'bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col h-[136px] items-start justify-center px-[18px] py-[12px] relative rounded-[18px] w-[308px]'
+const SHELL = 'bg-surface-card border border-solid border-card content-stretch flex flex-col h-[136px] items-start justify-center px-[18px] py-[12px] relative rounded-[18px] w-[308px]'
 const SHELL_WATER_EVENT = `${SHELL} max-w-[440px]`
 /* w-full, not Figma's w-[308px]. 308 is the card's width inside a 375pt
    frame's carousel; on the System page it sits in a column of w-full cards and
@@ -236,7 +236,7 @@ const SHELL_WATER_EVENT = `${SHELL} max-w-[440px]`
    -> gap-[12px], px-[18px] py-[12px] -> a uniform p-[18px], and no height at
    all — the frame hugs its content now. min-h-[178px] went with it: the node
    sets none, and the three unit chips below already carry the card past 178. */
-const SHELL_MOBILE = String.raw`bg-[#fafbfc] border border-red-500 border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[18px] shrink-0 w-full`
+const SHELL_MOBILE = String.raw`bg-surface-card border border-red-500 border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[18px] shrink-0 w-full`
 const INNER_COLUMN = 'content-stretch flex flex-[1_0_0] flex-col items-start justify-between min-h-px relative w-full'
 
 /* Gradient stacks on the sensor stat badges. Each badge carries its own angle in
@@ -256,7 +256,7 @@ const CHIP_SHEEN = (deg) =>
   `linear-gradient(${deg}deg, rgba(233, 238, 248, 0.8) 29.24%, rgba(212, 226, 255, 0.8) 12.35%, rgba(228, 235, 250, 0.8) 17.588%, rgba(233, 237, 243, 0.8) 76.864%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)`
 
 const CHIP = String.raw`content-stretch flex gap-1.5 items-center justify-center px-[8px] py-[4px] relative rounded-[12px] shrink-0`
-const CHIP_LABEL = String.raw`font-sans font-medium leading-5 overflow-hidden relative shrink-0 text-[#62748e] text-ellipsis`
+const CHIP_LABEL = String.raw`font-sans font-medium leading-5 overflow-hidden relative shrink-0 text-muted-foreground text-ellipsis`
 /* The first two chips size their own label at 14px; the "Detected" chip sets
    text-[14px] on the wrapper instead and lets both halves inherit it, so its
    value reads 14px/22.75px where the other two read 16px/26px. */
@@ -299,7 +299,7 @@ const MOCK_EVENT = {
  * to the next alert. They look individually tappable and deliberately are not —
  * splitting them would mean nesting buttons inside a button.
  */
-function Pager({ page, pageCount, totalTone = 'text-[#90a1b9]', onClick }) {
+function Pager({ page, pageCount, totalTone = 'text-slate-400', onClick }) {
   return (
     <Button
       type="button"
@@ -310,10 +310,10 @@ function Pager({ page, pageCount, totalTone = 'text-[#90a1b9]', onClick }) {
       className={`${PAGER_BTN} ${CTRL_SHADOW}`}
     >
       <span className={ICON_SLOT}>
-        <ChevronLeft className="block size-full text-[#62748e]" />
+        <ChevronLeft className="block size-full text-muted-foreground" />
       </span>
       <p className={PAGER_LABEL}>
-        <span className={`${PAGER_SPAN} text-[#62748e]`}>{page} /</span>
+        <span className={`${PAGER_SPAN} text-muted-foreground`}>{page} /</span>
         <span className={PAGER_SPAN}>{' '}</span>
         {/* Reproduced as drawn. On Water event (198374:56324) the design tints
             the total `text-white`, which is all but invisible on the slate-100
@@ -323,7 +323,7 @@ function Pager({ page, pageCount, totalTone = 'text-[#90a1b9]', onClick }) {
         <span className={`${PAGER_SPAN} ${totalTone}`}>{pageCount}</span>
       </p>
       <span className={ICON_SLOT}>
-        <ChevronRight className="block size-full text-[#62748e]" />
+        <ChevronRight className="block size-full text-muted-foreground" />
       </span>
     </Button>
   )
@@ -337,7 +337,7 @@ function EventSummary({ event, muted }) {
         <div className="relative shrink-0 size-[19.111px]">
           <Waves
             size={19.111}
-            className={`block size-full ${muted ? 'text-[#90a1b9]' : 'text-[#fb2c36]'} ${WAVES_WEIGHT}`}
+            className={`block size-full ${muted ? 'text-slate-400' : 'text-destructive'} ${WAVES_WEIGHT}`}
           />
         </div>
       </div>
@@ -395,8 +395,8 @@ function SensorGroupHeader({ group, onMore, chipClass = COUNT_CHIP }) {
       <div className="content-stretch flex gap-[5px] items-center relative shrink-0">
         <div className="relative shrink-0 size-[16px]">
           {group.kind === 'flood'
-            ? <FloodLine size={16} className="block size-full text-[#62748e]" />
-            : <BrandDrops size={16} className="block size-full text-[#62748e]" />}
+            ? <FloodLine size={16} className="block size-full text-muted-foreground" />
+            : <BrandDrops size={16} className="block size-full text-muted-foreground" />}
         </div>
         <div className={chipClass}>
           <p className={COUNT_TEXT} dir="auto">{group.count}</p>
@@ -414,7 +414,7 @@ function SensorGroupHeader({ group, onMore, chipClass = COUNT_CHIP }) {
         >
           <span className="content-stretch flex flex-col items-start relative rounded-[3px] shrink-0">
             <span className="h-[14px] relative shrink-0 w-[12px]">
-              <DotsThree className="absolute block inset-0 max-w-none size-full text-[#45556c]" />
+              <DotsThree className="absolute block inset-0 max-w-none size-full text-slate-600" />
             </span>
           </span>
         </button>
@@ -547,9 +547,9 @@ export default function AlertCard({
                 className={String.raw`bg-slate-100 content-stretch cursor-pointer flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`}
               >
                 <p className={PAGER_LABEL}>
-                  <span className={`${PAGER_SPAN} text-[#62748e]`}>{data.page} /</span>
+                  <span className={`${PAGER_SPAN} text-muted-foreground`}>{data.page} /</span>
                   <span className={PAGER_SPAN}>{' '}</span>
-                  <span className={`${PAGER_SPAN} text-[#90a1b9]`}>{data.pageCount}</span>
+                  <span className={`${PAGER_SPAN} text-slate-400`}>{data.pageCount}</span>
                 </p>
               </Button>
               ) : null}
@@ -565,7 +565,7 @@ export default function AlertCard({
                    red/600; the redraw does not. */
                 className={String.raw`bg-red-500 content-stretch flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`}
               >
-                <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-[#fafbfc] text-xs whitespace-nowrap">
+                <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-ink-on-color text-xs whitespace-nowrap">
                   {data.status}
                 </span>
               </Badge>
@@ -593,7 +593,7 @@ export default function AlertCard({
             <div className="content-stretch flex gap-[11px] items-center relative shrink-0">
               <div className={AVATAR_ALERT_LG}>
                 <div className="relative shrink-0 size-[37px]">
-                  <Waves size={37} className={`block size-full text-[#fb2c36] ${WAVES_WEIGHT}`} />
+                  <Waves size={37} className={`block size-full text-destructive ${WAVES_WEIGHT}`} />
                 </div>
               </div>
               <div className="flex flex-row items-center self-stretch">
@@ -629,7 +629,7 @@ export default function AlertCard({
                     <p className={String.raw`font-sans font-semibold leading-[26px] overflow-hidden relative text-[16px] text-red-500 text-ellipsis whitespace-nowrap`}>
                       {data.value}
                     </p>
-                    <p className={String.raw`font-sans font-medium leading-5 overflow-hidden relative text-[#62748e] text-[14px] text-ellipsis whitespace-nowrap`}>
+                    <p className={String.raw`font-sans font-medium leading-5 overflow-hidden relative text-muted-foreground text-[14px] text-ellipsis whitespace-nowrap`}>
                       {data.unit}
                     </p>
                   </div>
@@ -673,7 +673,7 @@ export default function AlertCard({
               size="xs"
               variant="outline"
               onClick={act('on-it')}
-              className={String.raw`bg-[#f2f6ff] border border-primary border-solid content-stretch cursor-pointer flex flex-[1_0_0] gap-1 h-[27px] items-center justify-center min-w-px px-2.5 py-0 relative rounded-[26px] ${CTRL_SHADOW}`}
+              className={String.raw`bg-accent border border-primary border-solid content-stretch cursor-pointer flex flex-[1_0_0] gap-1 h-[27px] items-center justify-center min-w-px px-2.5 py-0 relative rounded-[26px] ${CTRL_SHADOW}`}
             >
               <span className={BTN_BLUE_LABEL}>On it</span>
             </Button>
@@ -684,7 +684,7 @@ export default function AlertCard({
               size="xs"
               variant="outline"
               onClick={act('ignore')}
-              className={String.raw`bg-[#f2f6ff] border border-slate-400 border-solid content-stretch cursor-pointer flex flex-[1_0_0] gap-1 h-[27px] items-center justify-center min-w-px px-2.5 py-0 relative rounded-[26px] ${CTRL_SHADOW}`}
+              className={String.raw`bg-accent border border-slate-400 border-solid content-stretch cursor-pointer flex flex-[1_0_0] gap-1 h-[27px] items-center justify-center min-w-px px-2.5 py-0 relative rounded-[26px] ${CTRL_SHADOW}`}
             >
               <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-slate-600 text-xs whitespace-nowrap">
                 Ignore
@@ -816,7 +816,7 @@ export default function AlertCard({
                       <span className={WIFI_SLOT}>
                         <span className={WIFI_INNER}>
                           <span className={WIFI_LEAF}>
-                            <WifiDisconnected02 className="block max-w-none size-full text-[#fb2c36]" preserveAspectRatio="none" />
+                            <WifiDisconnected02 className="block max-w-none size-full text-destructive" preserveAspectRatio="none" />
                           </span>
                         </span>
                       </span>
@@ -831,7 +831,7 @@ export default function AlertCard({
                 value={flood.alerting}
                 icon={
                   <span className="relative shrink-0 size-[19.2px]">
-                    <FloodLine size={19.2} className="absolute block inset-0 max-w-none size-full text-[#fb2c36]" />
+                    <FloodLine size={19.2} className="absolute block inset-0 max-w-none size-full text-destructive" />
                   </span>
                 }
               />
@@ -849,7 +849,7 @@ export default function AlertCard({
                       <span className={WIFI_SLOT}>
                         <span className={WIFI_INNER}>
                           <span className={WIFI_LEAF}>
-                            <WifiConnected02 className="block max-w-none size-full text-[#62748e]" />
+                            <WifiConnected02 className="block max-w-none size-full text-muted-foreground" />
                           </span>
                         </span>
                       </span>
@@ -878,7 +878,7 @@ export default function AlertCard({
                       <span className={WIFI_SLOT}>
                         <span className={WIFI_INNER}>
                           <span className={WIFI_LEAF}>
-                            <WifiDisconnected02 className="block max-w-none size-full text-[#fb2c36]" preserveAspectRatio="none" />
+                            <WifiDisconnected02 className="block max-w-none size-full text-destructive" preserveAspectRatio="none" />
                           </span>
                         </span>
                       </span>
@@ -893,7 +893,7 @@ export default function AlertCard({
                 value={humidity.alerting}
                 icon={
                   <span className="relative shrink-0 size-[23.04px]">
-                    <BrandDrops size={23.04} strokeWidth={0.8333} className="absolute block inset-0 max-w-none size-full text-[#fb2c36]" />
+                    <BrandDrops size={23.04} strokeWidth={0.8333} className="absolute block inset-0 max-w-none size-full text-destructive" />
                   </span>
                 }
               />
@@ -910,7 +910,7 @@ export default function AlertCard({
                     <span className={WIFI_SLOT}>
                       <span className={WIFI_INNER}>
                         <span className={WIFI_LEAF}>
-                          <WifiConnected02 className="block max-w-none size-full text-[#62748e]" />
+                          <WifiConnected02 className="block max-w-none size-full text-muted-foreground" />
                         </span>
                       </span>
                     </span>

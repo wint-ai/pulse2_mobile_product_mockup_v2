@@ -108,21 +108,21 @@ function WaterLine({ valve }) {
       </At>
       {!noValve && (
         <At left={77.2} top={30.16} w={22.771} h={22.771}>
-          <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <div style={{ background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
             <ValveStatus state={valve} size={16.57} />
           </div>
         </At>
       )}
       {/* 34.7 -> 58.7 once the valve is gone: the sensor re-centres the run. */}
       <At left={noValve ? 58.7 : 34.7} top={noValve ? 32.22 : 32.24} w={18.217} h={21.253}>
-        <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+        <div style={{ background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
           {/* 16.699 is the icon FRAME; 42b8e.svg's own root is 15.3039x13.9123.
               Flex-centring the art in the frame reproduces Figma's 0.759/2.277. */}
           <SensorA width={15.3039} height={13.9123} />
         </div>
       </At>
       <At left={0} top={noValve ? 32.69 : 32.72} w={9.109} h={21.253}>
-        <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+        <div style={{ background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
           <ChevronRight width={16.699} height={16.699} stroke="#62748E" />
         </div>
       </At>
@@ -149,7 +149,7 @@ function Loop({ valve, junction }) {
       </At>
       {!noValve && (
         <At left={48.8} top={13.33} w={16.265} h={16.265}>
-          <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <div style={{ background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
             <ValveStatus state={valve} size={11.836} />
           </div>
         </At>
@@ -158,28 +158,28 @@ function Loop({ valve, junction }) {
           return row d3428.svg, which SensorB matches byte for byte. 11.928 is
           the icon frame; 10.9398x9.94578 is the art inside it. */}
       <At left={noValve ? 34.5 : 18.43} top={14.82} w={13.012} h={15.181}>
-        <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+        <div style={{ background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
           <SensorB width={10.9398} height={9.94578} />
         </div>
       </At>
       <At left={0} top={15.16} w={6.506} h={15.181}>
-        <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+        <div style={{ background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
           <ChevronRight width={11.928} height={11.928} />
         </div>
       </At>
       <At left={0} top={63.04} w={5.422} h={15.181}>
-        <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+        <div style={{ background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
           <ChevronLeft width={11.928} height={11.928} />
         </div>
       </At>
       <At left={noValve ? 34.5 : 49.88} top={62.53} w={13.012} h={15.181}>
-        <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+        <div style={{ background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
           <SensorB width={10.9398} height={9.94578} />
         </div>
       </At>
       {!noValve && (
         <At left={17.35} top={60.77} w={16.265} h={16.265}>
-          <div style={{ background: '#f2f6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          <div style={{ background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
             <ValveStatus state={valve} size={11.836} />
           </div>
         </At>
@@ -216,7 +216,7 @@ export default function PipeTopology({
       style={{
         width: TILE_W * scale,
         height: TILE_H * scale,
-        background: '#f2f6ff',
+        background: 'var(--accent)',
         borderRadius: 12 * scale,
         position: 'relative',
         overflow: 'hidden',

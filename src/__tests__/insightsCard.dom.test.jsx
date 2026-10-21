@@ -148,8 +148,13 @@ describe('the metric card (Figma 199296:50344 / 199296:51143)', () => {
     const { getByText: up } = card({ changePct: 12.5, changeLitres: 13564 })
     const badge = String(up('+12.5%').parentElement.className)
     expect(badge).not.toContain('#e7f2eb')
-    // insightsModel.js INSIGHT_COLOR['usage-up'] — the repo's own increase red.
-    expect(badge).toContain('#fb2c36')
+    /* insightsModel.js INSIGHT_COLOR['usage-up'] — the repo's own increase
+       red, which IS --destructive (#fb2c36). Phase 4 put the badge on the
+       token: `text-destructive` on a `bg-destructive/8` wash, where the
+       literal was `#fb2c36` on `rgba(251,44,54,0.08)`. Same colour, and it
+       now follows the theme. */
+    expect(badge).toContain('text-destructive')
+    expect(badge).toContain('bg-destructive/8')
   })
 
   it('stamps the node id of the state it is drawing', () => {

@@ -318,14 +318,14 @@ function TopUsageCard({ data, onSelect, onPeriodChange }) {
 
   return (
     <div
-      className="bg-[#fafbfc] border-[length:var(--border-width\/border,1px)] border-solid border-white content-stretch flex flex-col gap-[var(--p-0,0px)] items-start min-h-[380px] overflow-clip p-[var(--p-0,0px)] relative rounded-[var(--rounded-2xl,18px)] shadow-[var(--shadow\/x,0px)_var(--shadow\/popover\/layer-2\/y,0px)_var(--shadow\/popover\/layer-2\/blur,0px)_var(--shadow\/popover\/layer-2\/spread,0px)_var(--shadow\/popover\/layer-2\/color,rgba(0,0,0,0))] w-full"
+      className="bg-surface-card border border-solid border-card content-stretch flex flex-col gap-0 items-start min-h-[380px] overflow-clip p-0 relative rounded-[18px] shadow-[0px_0px_0px_0px_rgba(0,0,0,0)] w-full"
       data-node-id="198314:73652"
       data-name="Top usage"
     >
       {/* CardHeader — 198314:73655 */}
-      <div className="content-stretch flex gap-[var(--spacing\/3,12px)] h-[60px] items-center px-[var(--pro\/space\/4,16px)] py-[var(--spacing\/3,12px)] relative shrink-0 w-full">
-        <div className="content-stretch flex flex-[1_0_0] flex-col gap-[var(--component\/card\/header\/gap,8px)] items-start min-w-px pr-[7px] relative">
-          <p className="[word-break:break-word] font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/lg\/lh-none,18px)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/lg\/size,18px)] tracking-[-0.45px] w-full">
+      <div className="content-stretch flex gap-3 h-[60px] items-center px-4 py-3 relative shrink-0 w-full">
+        <div className="content-stretch flex flex-[1_0_0] flex-col gap-2 items-start min-w-px pr-[7px] relative">
+          <p className="[word-break:break-word] font-semibold leading-[18px] relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] w-full">
             Top usage
           </p>
         </div>
@@ -340,15 +340,15 @@ function TopUsageCard({ data, onSelect, onPeriodChange }) {
             aria-haspopup="listbox"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen(v => !v)}
-            className="bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch flex gap-[var(--component\/button\/gap,6px)] h-[36px] items-center justify-center px-[var(--component\/button\/size-default\/px,12px)] py-[var(--p-0,0px)] relative rounded-[var(--component\/button\/size-default\/radius,26px)] shrink-0 cursor-pointer"
+            className="bg-muted content-stretch flex gap-1.5 h-[36px] items-center justify-center px-3 py-0 relative rounded-[26px] shrink-0 cursor-pointer"
             data-node-id="I198314:73655;197412:209455;198314:73654"
           >
-            <span className="[word-break:break-word] font-medium leading-[var(--text\/sm-tight\/lh,20px)] relative shrink-0 text-[#171717] text-[length:var(--text\/sm-tight\/size,14px)] whitespace-nowrap">
+            <span className="[word-break:break-word] font-medium leading-5 relative shrink-0 text-neutral-900 text-sm whitespace-nowrap">
               {period.label}
             </span>
             <CaretDown
               size={16}
-              className="relative shrink-0 text-[#171717] transition-transform"
+              className="relative shrink-0 text-neutral-900 transition-transform"
               style={{ transform: menuOpen ? 'rotate(180deg)' : undefined }}
             />
           </button>
@@ -357,7 +357,7 @@ function TopUsageCard({ data, onSelect, onPeriodChange }) {
             <ul
               role="listbox"
               aria-label="Usage period"
-              className="absolute right-0 top-[40px] z-30 min-w-[168px] overflow-hidden rounded-[14px] border border-slate-200 bg-white py-1 shadow-[0_8px_24px_rgba(15,23,42,0.12)]"
+              className="absolute right-0 top-[40px] z-30 min-w-[168px] overflow-hidden rounded-[14px] border border-slate-200 bg-card py-1 shadow-[0_8px_24px_rgba(15,23,42,0.12)]"
             >
               {TOP_USAGE_PERIODS.map(p => (
                 <li key={p.id}>
@@ -369,7 +369,7 @@ function TopUsageCard({ data, onSelect, onPeriodChange }) {
                     className="flex w-full items-center justify-between px-3 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
                   >
                     {p.label}
-                    {p.id === periodId && <span className="text-[#0b81f8]">✓</span>}
+                    {p.id === periodId && <span className="text-primary">✓</span>}
                   </button>
                 </li>
               ))}
@@ -379,19 +379,19 @@ function TopUsageCard({ data, onSelect, onPeriodChange }) {
       </div>
 
       {/* cardContent — 198314:73656 */}
-      <div className="content-stretch flex flex-col gap-[var(--spacing\/3,12px)] h-[167px] items-center justify-center overflow-clip px-[var(--component\/card\/padding,24px)] py-[var(--p-0,0px)] relative shrink-0 w-full">
+      <div className="content-stretch flex flex-col gap-3 h-[167px] items-center justify-center overflow-clip px-6 py-0 relative shrink-0 w-full">
         <div className="overflow-clip relative shrink-0 size-[150px]" data-node-id="198314:73657">
           <DonutPlots className="absolute block inset-0 max-w-none size-full" />
           {/* 198314:73658 — the hole. The export is a single
               <circle cx=60 cy=60 r=60 fill="white"/>, i.e. a plain 120px disc. */}
-          <span className="-translate-x-1/2 -translate-y-1/2 absolute bg-white left-1/2 rounded-full size-[120px] top-1/2" />
+          <span className="-translate-x-1/2 -translate-y-1/2 absolute bg-card left-1/2 rounded-full size-[120px] top-1/2" />
           {/* 198314:73660 / :73661 — the comp stacks these 5.25px apart and sits
               the pair ~2px below the ring's centre. */}
           <span className="-translate-x-1/2 -translate-y-1/2 absolute content-stretch flex flex-col gap-[5.25px] items-center left-1/2 text-center top-[calc(50%+2px)] w-[120px]">
-            <span className="font-[var(--font\/weight\/font-semibold,600)] leading-[var(--text\/xl\/lh-snug,27.5px)] relative shrink-0 text-[color:var(--colors\/slate\/800,#1d293d)] text-[length:var(--text\/xl\/size,20px)] tracking-[var(--text\/xl\/heading-tracking,-0.5px)] w-full">
+            <span className="font-semibold leading-[27.5px] relative shrink-0 text-slate-800 text-xl tracking-[-0.5px] w-full">
               {data.total}
             </span>
-            <span className="font-[var(--font\/weight\/font-normal,400)] leading-[9.375px] relative shrink-0 text-[#737373] text-[9.375px] w-full">
+            <span className="font-normal leading-[9.375px] relative shrink-0 text-neutral-500 text-[9.375px] w-full">
               TOTAL LITERS
             </span>
           </span>
@@ -399,7 +399,7 @@ function TopUsageCard({ data, onSelect, onPeriodChange }) {
       </div>
 
       {/* Legend — 198314:73663, five "Chart / Tooltip / Tooltip Item" rows. */}
-      <div className="content-stretch flex flex-col gap-[9px] items-start pb-[var(--spacing\/4,16px)] px-[var(--spacing\/4,16px)] relative shrink-0 w-full" data-node-id="198314:73663">
+      <div className="content-stretch flex flex-col gap-[9px] items-start pb-4 px-4 relative shrink-0 w-full" data-node-id="198314:73663">
         {data.rows.map((row) => (
           /* Each legend row names a real system, so it navigates to it. The
              comp draws these as static text because a Figma frame has no
@@ -412,28 +412,28 @@ function TopUsageCard({ data, onSelect, onPeriodChange }) {
             onClick={onSelect ? () => onSelect(row.id) : undefined}
             disabled={!onSelect}
             aria-label={`${row.label} — ${row.value} litres, ${row.share} of top usage`}
-            className="content-stretch flex items-center justify-between p-[var(--p-0,0px)] relative shrink-0 w-full text-left enabled:cursor-pointer enabled:hover:opacity-70 disabled:cursor-default"
+            className="content-stretch flex items-center justify-between p-0 relative shrink-0 w-full text-left enabled:cursor-pointer enabled:hover:opacity-70 disabled:cursor-default"
           >
             <div className="content-stretch flex gap-[8px] items-center min-w-px relative">
               {/* The key's colour is per-row data, so it is an inline style —
                   a class built in JS would lose the `\/` escape anyway. */}
               <span
-                className="relative rounded-[var(--component\/pro\/marketing\/tagline\/chip\/py,2px)] shrink-0 size-[8px]"
+                className="relative rounded-[2px] shrink-0 size-[8px]"
                 style={{ background: row.key }}
               />
-              <p className="[word-break:break-word] font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh-none,12px)] overflow-hidden relative min-w-px text-[#737373] text-[12px] text-ellipsis whitespace-nowrap">
+              <p className="[word-break:break-word] font-normal leading-3 overflow-hidden relative min-w-px text-neutral-500 text-[12px] text-ellipsis whitespace-nowrap">
                 {row.label}
               </p>
             </div>
             <div className="content-stretch flex gap-[8px] items-center relative shrink-0">
-              <div className="[word-break:break-word] content-stretch flex font-[var(--font\/weight\/font-normal,400)] gap-[var(--spacing\/0\,5,2px)] items-center leading-[var(--text\/xs\/lh-none,12px)] relative shrink-0 text-[12px] whitespace-nowrap">
-                <p className="overflow-hidden relative min-w-px text-[color:var(--colors\/slate\/800,#1d293d)] text-ellipsis">
+              <div className="[word-break:break-word] content-stretch flex font-normal gap-0.5 items-center leading-3 relative shrink-0 text-[12px] whitespace-nowrap">
+                <p className="overflow-hidden relative min-w-px text-slate-800 text-ellipsis">
                   {row.value}
                 </p>
-                <p className="overflow-hidden relative min-w-px text-[#737373] text-ellipsis">{row.unit}</p>
+                <p className="overflow-hidden relative min-w-px text-neutral-500 text-ellipsis">{row.unit}</p>
               </div>
-              <div className="bg-[var(--colors\/slate\/100,#f1f5f9)] content-stretch flex gap-[var(--component\/badge\/gap,4px)] h-[20px] items-center justify-center overflow-clip px-[var(--component\/badge\/px,8px)] py-[var(--component\/badge\/py,2px)] relative rounded-[var(--component\/badge\/radius,26px)] shrink-0">
-                <p className="[word-break:break-word] font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/xs\/lh,16px)] overflow-hidden relative min-w-px text-[color:var(--colors\/slate\/800,#1d293d)] text-[12px] text-ellipsis whitespace-nowrap">
+              <div className="bg-muted content-stretch flex gap-1 h-[20px] items-center justify-center overflow-clip px-2 py-0.5 relative rounded-[26px] shrink-0">
+                <p className="[word-break:break-word] font-medium leading-4 overflow-hidden relative min-w-px text-slate-800 text-[12px] text-ellipsis whitespace-nowrap">
                   {row.share}
                 </p>
               </div>
@@ -1161,7 +1161,7 @@ export default function HomeAllAccounts({ expanded = false }) {
           once at px-16 / py-8 with a gap of 18 between the chrome and the
           cards. */}
       <div
-        className="content-stretch flex flex-col gap-[18px] items-start px-[var(--spacing\/4,16px)] py-[var(--spacing\/2,8px)] relative w-full"
+        className="content-stretch flex flex-col gap-[18px] items-start px-4 py-2 relative w-full"
         style={{ flex: 1, minHeight: 0 }}
         data-node-id="199323:12113"
         data-name="Accont / location"
@@ -1199,22 +1199,35 @@ export default function HomeAllAccounts({ expanded = false }) {
               The row itself is PillTabs, shared with SystemPageV2Screen.
 
               THE FOUR INSTANCES OF THIS ROW DISAGREE, and this is the only
-              place in the chrome where they do. locA (199360:129743, ALERT)
-              emits the restyled row: slate-500 selected with #edf1fc text,
-              both resting pills #fafbfc, Badge a raw gradient. locB
-              (199371:137032, CALM) and BOTH System-page instances
-              (199383:141512 / 199394:20601) still emit the previous styling —
-              #c7e3ff selected with wint-blue text on slate-200 pills. All four
-              are instances of one master (slot 101485:143349), and before
-              2026-10-20 all four were byte-identical, so three of them are
-              un-propagated rather than a second design.
+              place in the chrome where they do. All four are instances of one
+              master (slot 101485:143349) and were byte-identical before
+              2026-10-20, so the ones that differ are un-propagated rather
+              than a second design.
 
-              THE OWNER RULED FOR THE PALE BLUE on 2026-10-20, having been
-              shown that locA is the newest and only deliberate edit. So
-              `tone="blue"` here is the decision, not a leftover — do not
-              "correct" it to locA's slate because Figma's freshest node says
-              so. locA's repaint is kept as PillTabs' `tone="slate"` in case
-              the designer settles there. Full argument in PillTabs' header. */}
+              ── RULING 1, 2026-10-20: PALE BLUE — SUPERSEDED ──────────────
+              The owner was shown that locA (199360:129743, ALERT) was the
+              newest and only deliberate edit — slate-500 selected, #edf1fc
+              text, both resting pills #fafbfc — and ruled the OTHER way, for
+              the pale blue that locB and both System-page instances still
+              drew. Both pages passed `tone="blue"`; locA's repaint was kept
+              as `tone="slate"`. NOT IN FORCE. Kept because the reasoning is
+              still why this row is trustworthy: its colour is the owner's
+              call, not whichever Figma node was edited last.
+
+              ── RULING 2, 2026-10-21: THE OUTLINED TREATMENT ─────────────
+              ⚠ THIS IS WHAT SHIPS. The designer restyled locA a second time,
+              to an outlined treatment; the owner was shown that locA still
+              contradicts its own calm state and ruled to adopt it on BOTH
+              pages and BOTH states. Selection is a 1px brand-blue border and
+              a semibold brand-blue label, not a fill; every trigger sits on
+              the house card surface at radius 100px; the row is 32px.
+
+              `tone` therefore has nothing left to select between and the prop
+              is GONE from PillTabs. It is no longer passed here. Do not
+              reintroduce it, and do not re-derive this row's colour from the
+              three frames that still draw pale blue — they are stale. The
+              full argument, both rulings and the frame list are in PillTabs'
+              header, which is the single copy of this history. */}
           <div
             className="content-stretch flex items-center justify-between relative shrink-0 w-full"
             data-node-id="199360:129737"
@@ -1222,7 +1235,6 @@ export default function HomeAllAccounts({ expanded = false }) {
             <PillTabs
               nodeId="199360:129743"
               slotNodeId="I199360:129743;101485:143349"
-              tone="blue"
               value={tab}
               onChange={setTab}
               items={[
@@ -1255,7 +1267,7 @@ export default function HomeAllAccounts({ expanded = false }) {
             scroll padding, and without it the last card sits flush against the
             TabBar. */}
         <div
-          className="content-stretch flex flex-col gap-[20px] items-start pb-[var(--spacing\/4,16px)] relative w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="content-stretch flex flex-col gap-[20px] items-start pb-4 relative w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
           data-node-id="199360:129787"
         >
@@ -1284,11 +1296,11 @@ export default function HomeAllAccounts({ expanded = false }) {
                but has no content frame for it anywhere, and inventing one is
                forbidden. Honest placeholder until a comp exists — do not fill
                it with plausible-looking fields. */
-            <div className="bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[4px] items-center justify-center py-[40px] relative rounded-[var(--rounded-2xl,18px)] shrink-0 w-full">
-              <p className="font-[var(--font\/weight\/font-medium,500)] leading-[var(--text\/sm\/lh,20px)] text-[color:var(--colors\/slate\/600,#45556c)] text-[length:var(--text\/sm\/size,14px)]">
+            <div className="bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[4px] items-center justify-center py-[40px] relative rounded-[18px] shrink-0 w-full">
+              <p className="font-medium leading-5 text-slate-600 text-sm">
                 General Info
               </p>
-              <p className="font-[var(--font\/weight\/font-normal,400)] leading-[var(--text\/xs\/lh,16px)] text-[color:var(--colors\/slate\/400,#90a1b9)] text-[12px]">
+              <p className="font-normal leading-4 text-slate-400 text-[12px]">
                 No design yet for this tab.
               </p>
             </div>

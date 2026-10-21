@@ -59,7 +59,10 @@ const RED_900    = '#82181A'
 const VALVE_100  = '#FCD7DB'
 const ORANGE_600 = '#F54900'
 const ORANGE_100 = '#FFEDD4'
-const CARD_BG    = '#FAFBFC'
+// The house card surface, as the TOKEN rather than its light-theme hex. Both
+// of this file's uses are inline `style`, where a custom property resolves
+// normally — unlike an SVG presentation attribute, where it would not.
+const CARD_BG    = 'var(--surface-card)'
 
 // The overlay's own ground: a cool diagonal wash over white.
 const SHEET_BG =
@@ -270,14 +273,14 @@ export default function EventOverlay({
             <ToggleGroupItem
               value="active"
               aria-label="Active events"
-              className="flex-1 h-9 min-h-9 text-sm font-medium border border-[#E2E8F0] bg-[#F1F5F9] text-[#1D293D] hover:bg-[#E9EEF5] hover:text-[#1D293D] data-[state=on]:bg-[#DBEAFE] data-[state=on]:text-[#0B81F8] data-[state=on]:hover:bg-[#DBEAFE]"
+              className="flex-1 h-9 min-h-9 text-sm font-medium border border-border bg-muted text-slate-800 hover:bg-[#E9EEF5] hover:text-slate-800 data-[state=on]:bg-[#DBEAFE] data-[state=on]:text-primary data-[state=on]:hover:bg-[#DBEAFE]"
             >
               Active
             </ToggleGroupItem>
             <ToggleGroupItem
               value="history"
               aria-label="Past events"
-              className="flex-1 h-9 min-h-9 text-sm font-medium border-y border-r border-[#E2E8F0] bg-[#F1F5F9] text-[#1D293D] hover:bg-[#E9EEF5] hover:text-[#1D293D] data-[state=on]:bg-[#DBEAFE] data-[state=on]:text-[#0B81F8] data-[state=on]:hover:bg-[#DBEAFE]"
+              className="flex-1 h-9 min-h-9 text-sm font-medium border-y border-r border-border bg-muted text-slate-800 hover:bg-[#E9EEF5] hover:text-slate-800 data-[state=on]:bg-[#DBEAFE] data-[state=on]:text-primary data-[state=on]:hover:bg-[#DBEAFE]"
             >
               History
             </ToggleGroupItem>
@@ -324,7 +327,7 @@ export default function EventOverlay({
 
         {/* The list owns the scroll — Phone.jsx never does */}
         <div className="px-[18px] pt-[14px] pb-5" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          <Card className="rounded-[18px] border-white py-0 gap-0 px-4 shadow-[0_1px_2px_rgba(20,21,26,0.04)]" style={{ background: CARD_BG }}>
+          <Card className="rounded-[18px] border-card bg-surface-card py-0 gap-0 px-4 shadow-[0_1px_2px_rgba(20,21,26,0.04)]">
             {visible.length === 0 ? (
               <div className="py-10 text-center text-sm" style={{ color: SLATE_500 }}>
                 No {tab === 'history' ? 'past' : 'active'} {family === 'water' ? 'water events' : 'alerts'} match this filter.
@@ -430,7 +433,7 @@ function EventRow({ ev, isLocation, divider }) {
           <span className="text-sm font-medium" style={{ color: t.labelFg ?? t.fg }}>{t.label}</span>
         ) : (
           <>
-            <span className="text-sm font-semibold truncate" style={{ color: '#0A0A0A' }}>{ev.systemName}</span>
+            <span className="text-sm font-semibold truncate" style={{ color: 'var(--neutral-950)' }}>{ev.systemName}</span>
             <div className="flex items-center gap-[5px] text-xs" style={{ color: SLATE_500 }}>
               <span className="shrink-0">{ev.city}</span>
               <span className="w-px h-3 shrink-0" style={{ background: SLATE_200 }} />

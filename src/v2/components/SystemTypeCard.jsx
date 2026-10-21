@@ -104,7 +104,7 @@ import vmaFront from '@/assets/wint-vma-front.png'
    the browser's default line-height and every row sits a few px off. */
 
 /* 199383:141519 / 199359:126797 — identical in both frames, chassis included. */
-const CARD = String.raw`bg-[#fafbfc] border border-solid border-white content-stretch flex flex-col gap-[16px] items-center justify-center py-[12px] relative rounded-[22px] shrink-0 w-full`
+const CARD = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[16px] items-center justify-center py-[12px] relative rounded-[22px] shrink-0 w-full`
 
 /* 199383:141523 / 199359:126801 — 14px on --foreground in BOTH new frames. */
 const EYEBROW = String.raw`font-medium relative shrink-0 text-foreground text-sm leading-5`
@@ -238,12 +238,12 @@ function StatusDot({ ok }) {
     <span
       className={cn(
         'content-stretch flex items-center justify-center relative shrink-0 size-[22px] rounded-full',
-        ok ? 'bg-[#dcfce7]' : 'bg-[#ffe2e2]',
+        ok ? 'bg-[#dcfce7]' : 'bg-red-100',
       )}
       aria-hidden="true"
       data-name="Location Dot"
     >
-      <span className={cn('block rounded-full size-[7px]', ok ? 'bg-[#00a63e]' : 'bg-[#e7000b]')} />
+      <span className={cn('block rounded-full size-[7px]', ok ? 'bg-[#00a63e]' : 'bg-red-600')} />
     </span>
   )
 }
@@ -435,7 +435,7 @@ export default function SystemTypeCard({
             const last = i === devices.length - 1
             return (
               <span key={`${deviceText(d)}-${i}`}>
-                {i > 0 ? <span className={cn(CHIP_RUN, 'text-[#90a1b9]')}>{'|  '}</span> : null}
+                {i > 0 ? <span className={cn(CHIP_RUN, 'text-slate-400')}>{'|  '}</span> : null}
                 <span className={CHIP_RUN}>{last ? deviceText(d) : `${deviceText(d)} `}</span>
               </span>
             )
@@ -616,7 +616,7 @@ export default function SystemTypeCard({
                       <span className={ROW_BADGE} aria-hidden="true">
                         {row.glyph === 'device' ? <DeviceGlyph className="block size-[19.749px]" />
                           : row.glyph === 'valve' ? <ValveStatus className="block size-[17.28px]" />
-                          : <Gauge className="block size-[17.28px] text-[#62748e]" strokeWidth={1.75} />}
+                          : <Gauge className="block size-[17.28px] text-muted-foreground" strokeWidth={1.75} />}
                       </span>
                     )}
                     <span className={cn('font-sans', ROW_LABEL)} dir="auto">{row.label}</span>
@@ -624,7 +624,7 @@ export default function SystemTypeCard({
                   {row.value ? (
                     <span className={cn(ROW_RIGHT, row.icon === 'valve' ? 'gap-[3px]' : null)}>
                       <span className={cn('font-sans', ROW_VALUE)} dir="auto">{row.value}</span>
-                      <span className="relative shrink-0 size-[17.36px] text-[#45556c]" aria-hidden="true">
+                      <span className="relative shrink-0 size-[17.36px] text-slate-600" aria-hidden="true">
                         {row.icon === 'wifi' ? (online ? <Wifi className="block size-full" strokeWidth={1.75} />
                                                       : <WifiOff className="block size-full" strokeWidth={1.75} />)
                           : row.icon === 'valve' ? <ValveStatus className="block size-full" />

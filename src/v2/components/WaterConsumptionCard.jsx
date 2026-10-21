@@ -73,7 +73,7 @@ const PERIODS = [
 // WaterConsumptionCardV2. The saturated --chart-1 (#0b81f8) this replaced was
 // two shades too dark.
 const CHART_CONFIG = {
-  litres: { label: 'Litres', color: 'rgba(11,129,248,0.6)' },
+  litres: { label: 'Litres', color: 'color-mix(in oklab, var(--primary) 60%, transparent)' },
 }
 
 export default function WaterConsumptionCard({
