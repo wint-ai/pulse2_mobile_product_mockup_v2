@@ -6,9 +6,48 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0B95F8" />
+    <meta name="theme-color" content="#f4f6f9" /><!-- the light theme's background token; the boot script below rewrites this per theme -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Theme boot — BLOCKING AND INLINE ON PURPOSE.
+         This runs before the module script below is even requested, which is
+         the whole point: the token set is stamped on <html> before the first
+         paint, so there is no flash of the previous theme on reload or on a
+         deep link. Moving it into the bundle, deferring it, or making it a
+         module would reintroduce that flash.
+         `npm run postbuild` copies dist/index.html to dist/404.html, so deep
+         links on GitHub Pages get this for free.
+         Resolution order: ?theme= (the only way to reach the diagnostic
+         `contrast` theme, and a shareable review link on the deployed site),
+         then localStorage, then light.
+         The four keys and their theme-colors are duplicated from the registry
+         in src/theme/index.js. That duplication is deliberate — an inline
+         pre-bundle script cannot import — and it is the only copy: keep the
+         two in step when adding a theme.
+         The key is 'pulse2-v2-theme', NOT 'pulse2-theme' — the v1 engine
+         src/context/ThemeContext.jsx already owns that one. -->
+    <script>
+      (function () {
+        var THEMES = { light: '#f4f6f9', dark: '#09090b', sand: '#ffffff', contrast: '#be00c0' };
+        var key = null;
+        try {
+          var q = new URLSearchParams(window.location.search).get('theme');
+          if (q && THEMES[q]) key = q;
+        } catch (e) { /* no URLSearchParams */ }
+        if (!key) {
+          try {
+            var saved = localStorage.getItem('pulse2-v2-theme');
+            if (saved && THEMES[saved]) key = saved;
+          } catch (e) { /* localStorage unavailable */ }
+        }
+        if (!key) key = 'light';
+        var root = document.documentElement;
+        root.setAttribute('data-theme', key);
+        if (key === 'dark') root.classList.add('dark');
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', THEMES[key]);
+      })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <title>pulse2-app</title>

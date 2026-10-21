@@ -154,6 +154,7 @@ import {
   Info,
   Mail,
   MessageSquare,
+  Palette,
   Ruler,
   Smartphone,
   User,
@@ -170,6 +171,7 @@ import { cn } from '@/lib/utils'
 import TabBar from '@/components/TabBar'
 import { useUserContext } from '@/context/UserContext'
 import { SUPPORTED_LANGUAGES } from '@/i18n'
+import { SELECTABLE_THEMES, getTheme, setTheme } from '@/theme'
 
 /* The em dash v1 used for every empty field. Written as an escape so the file
    stays ASCII and cannot be mangled by a CRLF/encoding round-trip. */
@@ -324,6 +326,17 @@ export default function AccountScreenV2() {
   const languageOptions = SUPPORTED_LANGUAGES.map((l) => ({ value: l.code, label: l.label }))
   const languageValue =
     (SUPPORTED_LANGUAGES.find((l) => l.code === i18n.language) || SUPPORTED_LANGUAGES[0]).code
+
+  /* The theme is held as a stable KEY, exactly like the units above, and that
+     is ALL React holds: no colour value ever enters component state. The
+     colours live in the token sets in src/index.css and are selected by the
+     data-theme attribute on <html>. (src/context/ThemeContext.jsx is the v1
+     engine — a context full of colour values, and the reason v1 carries ~1,840
+     inline styles. It is not used here and is not extended.)
+     SELECTABLE_THEMES omits the diagnostic `contrast` theme, which is reachable
+     only via ?theme=contrast. */
+  const [themeKey, setThemeKey] = useState(getTheme)
+  const themeOptions = SELECTABLE_THEMES.map((th) => ({ value: th.key, label: t(th.labelKey) }))
 
   function switchProfile() {
     setPersona(null)
@@ -607,6 +620,34 @@ export default function AccountScreenV2() {
                     value={unitsKey}
                     options={unitsOptions}
                     onChange={setUnitsKey}
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Theme. WHY A SEGMENTED PICKER AND NOT A DROPDOWN — three
+                    options in a settings row looks like it wants a shadcn
+                    <Select> or <DropdownMenu>. It cannot be one. Those are
+                    Radix primitives that portal to document.body, and this app
+                    draws inside the fixed 393x852 frame in
+                    src/components/Phone.jsx with overflow:hidden — a portal
+                    escapes that frame by design and renders across the whole
+                    browser window with the phone sitting in the middle of it.
+                    This repo has hit that at least three times; the lesson is
+                    written out in full at src/v2/components/ValveConfirmSheet.jsx:17-24
+                    and worked around at SystemsFilterSheet.jsx:97.
+                    SegmentedPicker is an inline ToggleGroup and never portals.
+                    Do not "improve" this into a dropdown. */}
+                <div className="pt-[10px]">
+                  <div className="mb-2 flex items-center gap-[10px]">
+                    <Palette className={ROW_ICON} aria-hidden="true" />
+                    <span className={ROW_LABEL}>{t('more.theme')}</span>
+                  </div>
+                  <SegmentedPicker
+                    label={t('more.theme')}
+                    value={themeKey}
+                    options={themeOptions}
+                    onChange={(key) => { setThemeKey(setTheme(key)) }}
                   />
                 </div>
               </div>

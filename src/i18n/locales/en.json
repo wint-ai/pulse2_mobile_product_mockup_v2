@@ -154,6 +154,8 @@
       "gallons": "Gallons",
       "cubic_meters": "m³"
     },
+    "theme": "Theme",
+    "themes": { "light": "Light", "dark": "Dark", "sand": "Sand" },
     "notifications": "Notifications",
     "push_notifications_section": "Push Notifications",
     "sms_notifications_section": "SMS Notifications",

@@ -492,18 +492,317 @@ button {
 [dir="rtl"] {
   text-align: right;
 }
-/* Never applied — nothing sets `.dark`. Kept so the @custom-variant above
-   resolves coherently if a dark theme is ever introduced. Still hsl() and
-   still only 8 of the ~60 tokens a working dark theme needs: Phase 2
-   replaces this block wholesale from a shadcn palette, so converting these
-   eight to OKLCH now would be churn on code that is about to be deleted. */
+/* ── THEME SETS — Phase 2 ─────────────────────────────────────────────
+   Four token sets. Three are selectable from Account -> Personal
+   settings; `contrast` is not in the picker and is reachable only by
+   ?theme=contrast.
+
+     light      the :root block above. Wint/Figma, UNCHANGED (Ruling B).
+                Pixel-parity with Figma is a property of THIS theme only
+                — under dark/sand the app is correct, not pixel-matched,
+                and every Figma comparison screenshot stays on `light`.
+     dark       shadcn Zinc `.dark`, transcribed.
+     sand       shadcn Stone light (`:root`), transcribed.
+     contrast   deliberately garish, hand-authored. Its job is to make an
+                un-tokenized surface obvious at a glance: every token here
+                is something violent, so anything that does NOT move when
+                you load ?theme=contrast is still hardcoded. It is the
+                only real measuring instrument — `light` is a no-op,
+                `dark` is too tasteful and `sand` too plausible for a
+                missed surface to show up in them.
+
+   WHERE THE VALUES COME FROM (Ruling A — palettes are sourced, not
+   invented). The semantic tokens below are transcribed verbatim from
+   shadcn's own registry, fetched from
+   https://ui.shadcn.com/r/colors/zinc.json and .../stone.json
+   (the `cssVars.dark` and `cssVars.light` objects). Nothing is
+   hand-tuned. shadcn declares no --destructive-foreground; this repo
+   does, so each set declares its own.
+
+   The neutral ramp (--slate-100..900) has no shadcn equivalent — shadcn
+   ships semantic tokens, not a ramp — so it is taken from the SAME
+   source family: Tailwind v4's own zinc and stone ramps, read out of
+   node_modules/tailwindcss/theme.css. shadcn's zinc/stone semantics ARE
+   Tailwind zinc/stone steps, so the two agree by construction: under
+   `dark`, var(--slate-900) resolves to zinc-50 which is exactly shadcn's
+   --foreground, var(--slate-100) to zinc-800 = its --muted, and
+   var(--slate-500) to zinc-400 = its --muted-foreground. That is the
+   Phase 1 aliasing paying off — those three are not restated below
+   because the ramp already carries them.
+
+   WHAT IS NOT RE-SOURCED, AND WHY. The Wint severity colours
+   (--severity-high / --severity-low / --danger / --success), the red and
+   orange ramps and the --wave-* water art are product semantics, not
+   palette: CLAUDE.md fixes them and shadcn has no equivalent. They are
+   inherited unchanged by `dark` and `sand`. `contrast` overrides them,
+   because a theme whose job is to move every token has to move those too.
+
+   KNOWN RESIDUE, left deliberately: the handful of LITERAL values in the
+   shim block (--colors\/gray\/700, --colors\/blue\/50, --colors\/blue\/100,
+   --colors\/red\/200|700|900, --component\/switch\/track\/off-bg) do not
+   follow a theme. They are the names Phase 1 could not resolve onto a
+   token; Phase 3 resolves them per call site. Under `dark` they stay
+   light-theme values — that is the instrument working, not a bug to
+   paper over here.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* ── dark — shadcn Zinc ──────────────────────────────────────────────
+   The `.dark` class is set alongside data-theme="dark" so the stock
+   shadcn components' own `dark:` utilities fire (see @custom-variant at
+   the top of this file). Both selectors are listed so either one alone
+   still produces a complete token set. */
+[data-theme='dark'],
 .dark {
-  --sidebar: hsl(240 5.9% 10%);
-  --sidebar-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-primary: hsl(224.3 76.3% 48%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(240 3.7% 15.9%);
-  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-  --sidebar-border: hsl(240 3.7% 15.9%);
-  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+  /* Neutral ramp — Tailwind v4 zinc, INVERTED. --slate-900 is this
+     repo's darkest text and --slate-100 its lightest surface, so a dark
+     theme maps 900 -> zinc-50, 800 -> zinc-100 ... 100 -> zinc-800.
+     The mapping is mechanical; no step was chosen by eye. */
+  --slate-100: oklch(27.4% 0.006 286.033);   /* zinc-800 = shadcn --muted */
+  --slate-200: oklch(37% 0.013 285.805);     /* zinc-700 */
+  --slate-300: oklch(44.2% 0.017 285.786);   /* zinc-600 */
+  --slate-400: oklch(55.2% 0.016 285.938);   /* zinc-500 */
+  --slate-500: oklch(70.5% 0.015 286.067);   /* zinc-400 = shadcn --muted-foreground */
+  --slate-600: oklch(87.1% 0.006 286.286);   /* zinc-300 */
+  --slate-700: oklch(92% 0.004 286.32);      /* zinc-200 */
+  --slate-800: oklch(96.7% 0.001 286.375);   /* zinc-100 */
+  --slate-900: oklch(98.5% 0 0);             /* zinc-50  = shadcn --foreground */
+
+  /* shadcn Zinc, cssVars.dark — verbatim */
+  --background: oklch(0.141 0.005 285.823);
+  --card: oklch(0.21 0.006 285.885);
+  --popover: oklch(0.21 0.006 285.885);
+  --primary: oklch(0.92 0.004 286.32);
+  --primary-foreground: oklch(0.21 0.006 285.885);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.552 0.016 285.938);
+  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.274 0.006 286.033);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.552 0.016 285.938);
+
+  /* shadcn declares no --destructive-foreground; this repo does. */
+  --destructive-foreground: oklch(0.985 0 0);
+
+  /* Chart 1-3 are the neutral data series and come from shadcn Zinc.
+     4 and 5 stay aliased to --success / --severity-high: the comment on
+     the :root chart block calls them "the semantic escapes for a series
+     that must read as good / critical", and no shadcn token supplies
+     that meaning. */
+  --chart-1: oklch(0.871 0.006 286.286);
+  --chart-2: oklch(0.552 0.016 285.938);
+  --chart-3: oklch(0.442 0.017 285.786);
+
+  /* Gradient wash stops — see the shared block below for the formula. */
+  --wash-1: color-mix(in oklab, var(--background), var(--primary) 6.3%);
+  --wash-2: color-mix(in oklab, var(--background), var(--primary) 17.5%);
+  --wash-3: color-mix(in oklab, var(--background), var(--primary) 9.1%);
+  --wash-4: color-mix(in oklab, var(--background), var(--primary) 6.5%);
+  --wash-5: color-mix(in oklab, var(--background), var(--primary) 9.3%);
+
+  /* The house card surface. In `light` it is the literal #fafbfc, which
+     is exactly color-mix(in oklab, #ffffff, #F4F6F9 44.8%) — i.e. the
+     card mixed 44.8% toward the ground. The same function is applied
+     here rather than a new value being picked. */
+  --surface-card: color-mix(in oklab, var(--card), var(--background) 44.8%);
+}
+
+/* ── sand — shadcn Stone (light) ─────────────────────────────────────
+   Warm neutral. NOT the retracted `field` theme renamed: `sand` is a
+   third palette, not a legibility feature, and must not be recorded as
+   solving the outdoor-readability problem `field` was built for. */
+[data-theme='sand'] {
+  /* Neutral ramp — Tailwind v4 stone, step for step (sand is a light
+     theme, so no inversion). */
+  --slate-100: oklch(97% 0.001 106.424);     /* stone-100 = shadcn --muted */
+  --slate-200: oklch(92.3% 0.003 48.717);    /* stone-200 = shadcn --border */
+  --slate-300: oklch(86.9% 0.005 56.366);    /* stone-300 */
+  --slate-400: oklch(70.9% 0.01 56.259);     /* stone-400 */
+  --slate-500: oklch(55.3% 0.013 58.071);    /* stone-500 = shadcn --muted-foreground */
+  --slate-600: oklch(44.4% 0.011 73.639);    /* stone-600 */
+  --slate-700: oklch(37.4% 0.01 67.558);     /* stone-700 */
+  --slate-800: oklch(26.8% 0.007 34.298);    /* stone-800 */
+  --slate-900: oklch(21.6% 0.006 56.043);    /* stone-900 */
+
+  /* shadcn Stone, cssVars.light — verbatim */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.147 0.004 49.25);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.147 0.004 49.25);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.147 0.004 49.25);
+  --primary: oklch(0.216 0.006 56.043);
+  --primary-foreground: oklch(0.985 0.001 106.423);
+  --secondary: oklch(0.97 0.001 106.424);
+  --secondary-foreground: oklch(0.216 0.006 56.043);
+  --accent: oklch(0.97 0.001 106.424);
+  --accent-foreground: oklch(0.216 0.006 56.043);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.923 0.003 48.717);
+  --input: oklch(0.923 0.003 48.717);
+  --ring: oklch(0.709 0.01 56.259);
+  --sidebar: oklch(0.985 0.001 106.423);
+  --sidebar-foreground: oklch(0.147 0.004 49.25);
+  --sidebar-primary: oklch(0.216 0.006 56.043);
+  --sidebar-primary-foreground: oklch(0.985 0.001 106.423);
+  --sidebar-accent: oklch(0.97 0.001 106.424);
+  --sidebar-accent-foreground: oklch(0.216 0.006 56.043);
+  --sidebar-border: oklch(0.923 0.003 48.717);
+  --sidebar-ring: oklch(0.709 0.01 56.259);
+
+  --destructive-foreground: oklch(0.985 0.001 106.423);
+
+  --chart-1: oklch(0.869 0.005 56.366);
+  --chart-2: oklch(0.553 0.013 58.071);
+  --chart-3: oklch(0.444 0.011 73.639);
+
+  --wash-1: color-mix(in oklab, var(--background), var(--primary) 6.3%);
+  --wash-2: color-mix(in oklab, var(--background), var(--primary) 17.5%);
+  --wash-3: color-mix(in oklab, var(--background), var(--primary) 9.1%);
+  --wash-4: color-mix(in oklab, var(--background), var(--primary) 6.5%);
+  --wash-5: color-mix(in oklab, var(--background), var(--primary) 9.3%);
+
+  --surface-card: color-mix(in oklab, var(--card), var(--background) 44.8%);
+}
+
+/* ── contrast — the diagnostic, NOT in the picker ────────────────────
+   Reachable only by ?theme=contrast. Deliberately garish and
+   deliberately hand-authored: Ruling A sources the SHIPPED palettes
+   from shadcn, and `contrast` ships to nobody. Every token moves,
+   including the product-semantic ones that `dark` and `sand` inherit,
+   because anything that stays put under this theme is debt.
+   If a surface does not change when you load ?theme=contrast, it is
+   still painted by a hardcoded literal. That is the whole instrument. */
+[data-theme='contrast'] {
+  /* Ramp: one hue per step, so even the step is identifiable on screen. */
+  --slate-100: oklch(0.9 0.2 20);
+  --slate-200: oklch(0.85 0.22 60);
+  --slate-300: oklch(0.88 0.24 110);
+  --slate-400: oklch(0.8 0.2 160);
+  --slate-500: oklch(0.75 0.2 195);
+  --slate-600: oklch(0.65 0.25 250);
+  --slate-700: oklch(0.55 0.28 290);
+  --slate-800: oklch(0.6 0.3 330);
+  --slate-900: oklch(0.65 0.3 10);
+
+  --background: oklch(0.55 0.28 328);        /* magenta ground */
+  --foreground: oklch(0.98 0.2 110);         /* acid yellow */
+  --card: oklch(0.72 0.24 150);              /* lime card */
+  --card-foreground: oklch(0.2 0.2 320);
+  --popover: oklch(0.6 0.25 25);
+  --popover-foreground: oklch(0.98 0.2 110);
+  --primary: oklch(0.85 0.25 110);
+  --primary-foreground: oklch(0.25 0.2 300);
+  --secondary: oklch(0.7 0.22 200);
+  --secondary-foreground: oklch(0.2 0.2 320);
+  --muted: oklch(0.45 0.27 275);
+  --muted-foreground: oklch(0.9 0.2 195);
+  --accent: oklch(0.75 0.25 330);
+  --accent-foreground: oklch(0.98 0.2 110);
+  --destructive: oklch(0.7 0.3 30);
+  --destructive-foreground: oklch(0.98 0.2 110);
+  --border: oklch(0.8 0.25 60);
+  --input: oklch(0.8 0.25 60);
+  --ring: oklch(0.85 0.25 110);
+
+  --surface-card: oklch(0.8 0.25 85);        /* NOT the mix: it has to shout */
+
+  /* Product semantics move here and only here. */
+  --red-100: oklch(0.75 0.25 340);
+  --red-400: oklch(0.7 0.28 350);
+  --red-500: oklch(0.65 0.3 15);
+  --red-600: oklch(0.6 0.3 25);
+  --orange-100: oklch(0.85 0.22 75);
+  --severity-high: oklch(0.7 0.3 345);
+  --severity-low: oklch(0.78 0.24 50);
+  --danger: oklch(0.6 0.3 350);
+  --success: oklch(0.85 0.25 140);
+  --wave-bg-from: oklch(0.85 0.25 140);
+  --wave-bg-to: oklch(0.7 0.25 200);
+  --wave-mid: oklch(0.6 0.28 290);
+  --wave-deep: oklch(0.5 0.3 320);
+  --chart-1: oklch(0.85 0.25 110);
+  --chart-2: oklch(0.7 0.25 200);
+  --chart-3: oklch(0.6 0.28 290);
+  --chart-4: oklch(0.8 0.25 140);
+  --chart-5: oklch(0.65 0.3 10);
+
+  --sidebar: oklch(0.6 0.28 290);
+  --sidebar-foreground: oklch(0.98 0.2 110);
+  --sidebar-primary: oklch(0.85 0.25 110);
+  --sidebar-primary-foreground: oklch(0.25 0.2 300);
+  --sidebar-accent: oklch(0.75 0.25 330);
+  --sidebar-accent-foreground: oklch(0.98 0.2 110);
+  --sidebar-border: oklch(0.8 0.25 60);
+  --sidebar-ring: oklch(0.85 0.25 110);
+
+  --wash-1: color-mix(in oklab, var(--background), var(--primary) 6.3%);
+  --wash-2: color-mix(in oklab, var(--background), var(--primary) 17.5%);
+  --wash-3: color-mix(in oklab, var(--background), var(--primary) 9.1%);
+  --wash-4: color-mix(in oklab, var(--background), var(--primary) 6.5%);
+  --wash-5: color-mix(in oklab, var(--background), var(--primary) 9.3%);
+}
+
+/* ── the two Wint gradients, on every theme but `light` (Ruling C) ───
+   THE GEOMETRY IS FIGMA'S, THE COLOUR IS THE THEME'S, AND THE MIX IS A
+   FUNCTION. No stop value below was picked by hand.
+
+   The angles, the stop POSITIONS and the 0.8 alphas are copied verbatim
+   from the --app-bg / --tile-bg declarations in :root above, including
+   the non-ascending stop order those twenty lines of comment justify.
+   Only each stop's COLOUR changes, and it changes by formula:
+
+       stop = color-mix(in oklab, var(--background), var(--primary) P%)
+
+   The five P values are not a taste. They were SOLVED against `light`'s
+   own literal Figma stops: for each stop, the P that minimises the Oklab
+   distance between color-mix(in oklab, #F4F6F9, #0b81f8 P%) and the
+   Figma colour. The fits are 6.3% -> #e7effa vs #e9eef8, 17.5% -> #d1e3fb
+   vs #d4e2ff, 9.1% -> #e2ecfa vs #e4ebfa, 6.5% vs #e9edf3 and 9.3% vs
+   #e3ebf9 — worst case dE(oklab) 0.009, i.e. the function reproduces
+   Figma's wash on the theme it was derived from. `light` still keeps its
+   literals (Ruling B); every other theme computes.
+
+   The 0.8 alpha is re-applied with a second mix against `transparent`,
+   which is premultiplied and so changes only the alpha.
+
+   The flat second layer was `#ffffff` in :root — which is exactly
+   `light`'s --card — so it maps to var(--card) by identity, not by
+   choice.
+
+   CAREFUL: var() substitutes at computed-value time, so ONE invalid
+   custom property invalidates the whole color-mix() and therefore the
+   whole background-image — and an invalid background-image on the page
+   root is a BLANK SCREEN, not a slightly-off one. There is no partial
+   failure and no console warning. Every theme above declares all five
+   --wash-* tokens; if you add a theme, declare them there too, and load
+   it before you believe it. */
+[data-theme='dark'],
+.dark,
+[data-theme='sand'],
+[data-theme='contrast'] {
+  --app-bg:
+    linear-gradient(101.4227deg,
+      color-mix(in oklab, var(--wash-1) 80%, transparent) 29.24%,
+      color-mix(in oklab, var(--wash-2) 80%, transparent) 12.35%,
+      color-mix(in oklab, var(--wash-3) 80%, transparent) 17.588%,
+      color-mix(in oklab, var(--wash-4) 80%, transparent) 76.864%),
+    linear-gradient(90deg, var(--card) 0%, var(--card) 100%);
+
+  --tile-bg:
+    linear-gradient(170.67deg,
+      color-mix(in oklab, var(--wash-1) 80%, transparent) 8.3855%,
+      color-mix(in oklab, var(--wash-5) 80%, transparent) 32.2%,
+      color-mix(in oklab, var(--wash-3) 80%, transparent) 40.822%,
+      color-mix(in oklab, var(--wash-2) 80%, transparent) 71.236%),
+    linear-gradient(90deg, var(--card) 0%, var(--card) 100%);
 }

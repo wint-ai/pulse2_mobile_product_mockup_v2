@@ -154,6 +154,8 @@
       "gallons": "גלונים",
       "cubic_meters": "מ״ק"
     },
+    "theme": "ערכת נושא",
+    "themes": { "light": "בהיר", "dark": "כהה", "sand": "חול" },
     "notifications": "התראות",
     "push_notifications_section": "התראות באפליקציה",
     "sms_notifications_section": "התראות SMS",
