@@ -77,13 +77,12 @@ import { computeSystemHealth } from '@/utils/systemHealth'
    angle in at :root and a call-site angle override cannot reach them. See
    WintSidebarV2.jsx for the full note. */
 const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
-/* This plate also carries a FIFTH stop at 82.858% that the four-stop token
-   does not; it is appended from --wash-4, whose `light` fallback is that
-   stop's own literal. */
-const WASH_TAIL = 'color-mix(in oklab, var(--wash-4, rgb(233, 237, 243)) 80%, transparent)'
 
+/* --panel-bg-stops, not --chip-bg-stops: this plate carries a FIFTH stop at
+   82.858% that the four-stop list does not, and dropping it moves a third of
+   the panel under `light`. */
 const PANEL_BG =
-  `linear-gradient(125.34006894835755deg, var(--chip-bg-stops), ${WASH_TAIL} 82.858%), ${WASH_BASE}`
+  `linear-gradient(125.34006894835755deg, var(--panel-bg-stops)), ${WASH_BASE}`
 const DIVIDER = '#E2E8F0'
 const ALERT_RED = '#E7000B'
 const BRAND = '#0B95F8'

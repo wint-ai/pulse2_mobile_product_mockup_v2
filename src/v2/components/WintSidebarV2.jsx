@@ -119,23 +119,18 @@ import { computeSystemHealth } from '@/utils/systemHealth'
  * Under `light` --chip-bg-stops is literally the rgba list this constant used
  * to carry, so `light` is byte-identical; every other theme computes it.
  *
- * This plate also carries a FIFTH stop at 82.858% that --chip-bg-stops does
- * not (binding it to the four-stop list alone moves 32.6% of the panel by up
- * to 17/255 under `light` — measured). It is appended from --wash-4, which is
- * that stop's colour on every theme that declares it and whose var() fallback
- * is `light`'s own literal.
+ * FIVE stops, not four: this plate ends on a trailing rgba(233, 237, 243, 0.8)
+ * at 82.858% that --chip-bg-stops does not carry, and dropping it moves 32.6%
+ * of the panel by up to 17/255 under `light` — measured. --panel-bg-stops is
+ * that five-stop list, so `light` is byte-exact rather than merely close.
  */
 /* The flat layer under the wash. index.css maps it to --card by identity: it
    was #ffffff, which is exactly `light`'s --card. */
 const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
-/* The 82.858% tail. --wash-4 is declared by every theme but `light`, which
-   keeps literals (index.css, Ruling B) — so the fallback is what `light`
-   paints, and it is this stop's original value. */
-const WASH_TAIL = 'color-mix(in oklab, var(--wash-4, rgb(233, 237, 243)) 80%, transparent)'
 
-/** 198378:74013. Figma's angle, four stops from the token, plus the tail. */
+/** 198378:74013. Figma's angle, the theme's colour. */
 const PANEL_BG =
-  `linear-gradient(125.34006894835755deg, var(--chip-bg-stops), ${WASH_TAIL} 82.858%), ${WASH_BASE}`
+  `linear-gradient(125.34006894835755deg, var(--panel-bg-stops)), ${WASH_BASE}`
 
 /** Panel is 357 of the frame's 402 — 88.8%, capped so it never exceeds 357. */
 const PANEL_WIDTH_PCT = '88.8%'

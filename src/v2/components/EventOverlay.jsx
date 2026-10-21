@@ -92,14 +92,33 @@ const CARD_BG    = 'var(--surface-card)'
    base with five rgba stops, i.e. a LIGHT sheet that no theme could move.
    That is the one thing that could not stay once the ink above became
    tokens: light ink on a frozen-white sheet is an unreadable overlay.
-   --chip-bg is the shared declaration of this exact wash, and
-   --chip-bg-angle is the knob that lets nine call sites at nine different
-   angles share it; this one is 131deg. The only `light` difference is the
-   trailing rgba(233,237,243,0.8) 83% stop, which the shared ramp does not
-   carry — a flattening of the last 17% of a wash that is already almost
-   flat. */
-const SHEET_BG = 'var(--chip-bg)'
-const SHEET_ANGLE = { '--chip-bg-angle': '131deg' }
+
+   THE ANGLE LIVES HERE, NOT IN THE TOKEN. An earlier pass wrote
+   var(--chip-bg) plus a `--chip-bg-angle: 131deg` override on this element.
+   That cannot work and did not: a custom property's inner var() is
+   substituted at computed-value time on the element that DECLARES it, so
+   :root's --chip-bg already has 170.67deg baked into the value this element
+   inherits, and the override is inert. Measured — the sheet rendered at
+   170.67deg, moving 89% of it against the design and 64% of it by more than
+   1/255. A stop LIST needs no per-element context, which is why
+   --chip-bg-stops is the thing to bind to and the angle stays at the call
+   site.
+
+   TWO STOP SETS EXIST, and picking the wrong one moves `light` as badly as
+   the wrong angle did. --app-bg-stops is the page-root set (29.24 / 12.35 /
+   17.588 / 76.864); this sheet is the panel set, which is --chip-bg-stops.
+   Checked against the original literal, not assumed: the app set lands 17/255
+   out across the sheet, the chip set lands within 1/255.
+
+   The fifth stop is load-bearing too. --chip-bg-stops ends at 71.236%; this
+   sheet (like both drawer plates) carries a trailing rgba(233,237,243,0.8)
+   near 83%, and dropping it leaves 61,845 pixels more than 1/255 out. That is
+   what --panel-bg-stops is: the same list with the tail on it.
+
+   Net effect under `light`: byte-identical to the hand-written gradient this
+   replaced. */
+const SHEET_BG =
+  `linear-gradient(131deg, var(--panel-bg-stops)), var(--card)`
 
 // ── Event type table ───────────────────────────────────────────────────────
 // `type` strings match src/data/events.js so a real CURRENT_EVENTS slice can be
@@ -240,7 +259,7 @@ export default function EventOverlay({
 
       <div
         className="absolute inset-x-0 bottom-0 top-3 rounded-t-[26px] overflow-hidden flex flex-col"
-        style={{ ...SHEET_ANGLE, background: SHEET_BG }}
+        style={{ background: SHEET_BG }}
       >
         {/* Header — breadcrumb only in location scope; account scope implies it.
             Figma 198328:89905 puts 22px between the 28px close glyph and the

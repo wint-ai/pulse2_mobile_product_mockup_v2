@@ -118,14 +118,14 @@ const WINT_BLUE = 'var(--primary)'
    angle in at :root and a call-site angle override cannot reach them. See
    WintSidebarV2.jsx for the full note. */
 const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
-/* The sheet root carries a FIFTH stop at 82.858% that the four-stop token
-   does not; it is appended from --wash-4, whose `light` fallback is that
-   stop's own literal. */
-const WASH_TAIL = 'color-mix(in oklab, var(--wash-4, rgb(233, 237, 243)) 80%, transparent)'
 
-// Flat, this froze the overlay's ground light while its ink followed the theme.
+/* --panel-bg-stops, not --chip-bg-stops: the sheet root carries a FIFTH stop
+   at 82.858% that the four-stop list does not, and dropping it moves 17.3% of
+   the sheet by up to 17/255 under `light`.
+   Flat, this froze the overlay's ground light while its ink followed the
+   theme. */
 const SHEET_BG =
-  `linear-gradient(131.41003432311655deg, var(--chip-bg-stops), ${WASH_TAIL} 82.858%), ${WASH_BASE}`
+  `linear-gradient(131.41003432311655deg, var(--panel-bg-stops)), ${WASH_BASE}`
 
 // ── Inlined Figma assets ───────────────────────────────────────────────────
 
