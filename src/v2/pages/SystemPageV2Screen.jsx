@@ -180,6 +180,7 @@ import {
   windowMonthsOf,
 } from '@/v2/lib/consumptionWindow'
 import { getSystemById } from '@/data/systems'
+import { INSIGHT_KIND, insightValueLabel } from '@/data/upstream/insightsModel'
 import { getCurrentActor } from '@/data/currentUser'
 import { getActiveIncident, getLeakState } from '@/data/incidents'
 import { getConsumption } from '@/data/consumption'
@@ -1796,23 +1797,46 @@ export default function SystemPageV2Screen() {
                     }
 
                     if (key === 'insights') {
-                      /* Insights 199296:50344 / 199296:51143. The sparkline is
-                         drawn from this system's own series, so the curve and
-                         the figure cannot disagree, and both say the same
-                         thing the hero's headline does. */
+                      /* Insights 199296:50344 / 199296:51143.
+                         THIS CARD WAS NOT SHOWING INSIGHTS. It was fed
+                         `heroFigures.pct` / `.deltaLitres` and the CONSUMPTION
+                         series — the hero's own numbers, relabelled "Usage
+                         change". The owner: "still old data in insight". It
+                         was not stale data; it was the wrong data entirely,
+                         and no amount of work on the insight model could reach
+                         it because the card never read one.
+
+                         `system.insights` has been the real thing all along:
+                         getSystemInsights delegates to the upstream model, so
+                         these rows carry the web sandbox's own generators —
+                         30 days of hourly background flow, or daily actual vs
+                         a per-day expected.
+
+                         LIST, not the single metric chart. The web's system
+                         insights is a list of rows each with its own
+                         sparkline (SystemInsightsTab -> InsightRow), a system
+                         carries 0-2 insights rather than exactly one, and the
+                         list variant already draws its own empty state —
+                         which matters here, because most systems have no
+                         insight at all. The mapping is Home's, so the two
+                         screens cannot drift. */
                       return (
                         <InsightsCard
                           key={key}
                           className="shrink-0"
                           tone={alerting ? 'alert' : 'calm'}
-                          changePct={heroFigures.pct}
-                          changeLitres={heroFigures.deltaLitres}
-                          /* Unreached buckets carry litres === null
-                             (PLS-WC-17). Plotting them reads as a crash to
-                             zero in the current, partial period, so the
-                             sparkline sees exactly what the hero's figure
-                             counts. */
-                          series={consumptionView.series.filter(p => p.litres != null)}
+                          rows={(system.insights ?? []).map(row => ({
+                            title: row.name,
+                            addr: row.address,
+                            kind: row.label,
+                            delta: row.kind === INSIGHT_KIND.BACKGROUND_FLOW ? null : insightValueLabel(row),
+                            deltaTone: row.kind === INSIGHT_KIND.USAGE_UP ? 'bad' : 'good',
+                            value: insightValueLabel(row),
+                            systemId: row.systemId,
+                            series: row.series,
+                            baseline: row.baseline,
+                            insightKind: row.kind,
+                          }))}
                         />
                       )
                     }

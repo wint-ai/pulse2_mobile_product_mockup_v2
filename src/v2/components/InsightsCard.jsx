@@ -596,6 +596,18 @@ export default function InsightsCard({
       <div
         className={String.raw`w-full px-4 pt-3 pb-6`}
       >
+        {/* EMPTY IS A REAL STATE HERE, 2026-10-21. On the System page this card
+            lists one system's insights, and the upstream model gives most
+            systems none at all (18 of 103 — see insightSeriesParity). Before,
+            `rows={[]}` rendered a header over nothing, which reads as a card
+            that failed to load rather than a system with nothing to report.
+            The web says so in words too (SystemInsightsTab:
+            "noInsightsForSystem"). */}
+        {list.length === 0 ? (
+          <p className="w-full py-6 text-center text-slate-500 text-[14px] leading-5">
+            No insights for this system
+          </p>
+        ) : null}
         {list.map((row, i) => {
           const rowTone = TONE[row.deltaTone] ?? TONE.good
           const Glyph = kindGlyph(row)
