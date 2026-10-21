@@ -107,7 +107,8 @@
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
-import { useId } from 'react'
+import { useId, useState } from 'react'
+import { House, PlaneTakeoff } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -140,9 +141,36 @@ const CHIP_NODE_IDS = ['199296:50338', '199296:50341']
 
 const DEFAULT_POLICIES = [{ id: 'business-hours', name: 'Business Hours', window: '8AM-8PM' }]
 const DEFAULT_CHIPS = ['Alerts', 'Valve handling: Auto shut-off ']
+/* ICONS AND COPY COME FROM THE PRD, not from taste.
+   docs/PRD/04e-home-away.md in the sandbox repo, locked 2026-06-08 round 6:
+
+     Iconography   Home = `home`, Away = `flight_takeoff`
+     H7            "Away icon = flight_takeoff (airplane). Was `luggage` in
+                    the first draft."
+
+   So Away is a plane, not a suitcase — that choice was made and reversed
+   once already. Material Symbols there, lucide here, which is what shadcn
+   draws with: House and PlaneTakeoff are the same two marks. House is also
+   what TabBar uses for Home, so one concept keeps one glyph.
+
+   The description is the PRD's locked copy, verbatim, both sentences — what
+   water use is expected, and what the valve will do. "No jargon (no
+   'auto-shutoff', no 'policy'). Plain consequence-language." */
 const DEFAULT_MODE_OPTIONS = [
-  { value: 'home', label: 'Home' },
-  { value: 'away', label: 'Away' },
+  {
+    value: 'home',
+    label: 'Home',
+    Icon: House,
+    description:
+      "Water consumption is expected, like a normal day. If a water event is detected, you'll be alerted but the valve will stay open.",
+  },
+  {
+    value: 'away',
+    label: 'Away',
+    Icon: PlaneTakeoff,
+    description:
+      "No water consumption is expected while you're away. If a water event is detected, you'll be alerted and the valve will be closed automatically.",
+  },
 ]
 
 /* 199296:50276 "Ellipse 1" — the whole exported file is a single filled
@@ -208,6 +236,15 @@ export default function ActivePolicyCard({
 }) {
   const alert = tone === 'alert'
   const modeLabelId = `${useId()}-mode`
+
+  /* "Learn more" WAS A DEAD CONTROL. It called `onLearnMore`, and no caller
+     passed one — SystemPageV2Screen mounts this card with `policies`, `mode`
+     and `onModeChange` and nothing else — so the button rendered, focused,
+     and did nothing. A chevron-down promises a disclosure; this is now one.
+     `onLearnMore` is kept as an override for a caller that would rather open
+     its own sheet, which is what PRD 04e eventually wants. */
+  const [explainerOpen, setExplainerOpen] = useState(false)
+  const explainerId = `${modeLabelId}-explainer`
 
   /* Roving tabindex: a radiogroup is one tab stop and the arrows move the
      selection inside it. */
@@ -300,7 +337,9 @@ export default function ActivePolicyCard({
                   the policy explainer, so it is a real button. */}
               <button
                 type="button"
-                onClick={onLearnMore}
+                onClick={() => (onLearnMore ? onLearnMore() : setExplainerOpen(v => !v))}
+                aria-expanded={onLearnMore ? undefined : explainerOpen}
+                aria-controls={onLearnMore ? undefined : explainerId}
                 className={`content-stretch flex gap-[2px] items-center relative shrink-0 cursor-pointer rounded-[8px] ${FOCUS}`}
                 data-node-id="199296:50614"
               >
@@ -311,7 +350,10 @@ export default function ActivePolicyCard({
                   {learnMoreLabel}
                 </span>
                 <span
-                  className="block relative shrink-0 size-[17.36px]"
+                  className={cn(
+                    'block relative shrink-0 size-[17.36px] transition-transform duration-200',
+                    !onLearnMore && explainerOpen ? 'rotate-180' : null,
+                  )}
                   data-node-id="199296:50616"
                   data-name="Tabler Icons / chevron-down"
                 >
@@ -342,9 +384,24 @@ export default function ActivePolicyCard({
                     data-name={index === 0 ? 'Heading 2' : index === 1 ? 'Heading 3' : undefined}
                   >
                     <span
-                      className="content-stretch flex items-center justify-center relative shrink-0"
+                      className="content-stretch flex gap-[8px] items-center justify-center relative shrink-0"
                       data-node-id={index === 0 ? '199296:50619' : index === 1 ? '199296:50622' : undefined}
                     >
+                      {/* The glyph carries the mode; the fill carries the
+                          selection. PRD 04e is explicit that the two modes are
+                          "equally valid life states" and must not be split by
+                          semantic colour — no green for Home, no blue for Away
+                          — so both sides take the SAME treatment and differ
+                          only by icon and by which one is filled. The frame's
+                          selected fill is mode-independent, so it satisfies
+                          that rule as drawn. */}
+                      {option.Icon ? (
+                        <option.Icon
+                          aria-hidden="true"
+                          className={cn('shrink-0 size-[22px]', selected ? MODE_LABEL_ON : MODE_LABEL_OFF)}
+                          strokeWidth={selected ? 2.2 : 1.8}
+                        />
+                      ) : null}
                       <span
                         className={`${MODE_LABEL} font-sans ${selected ? MODE_LABEL_ON : MODE_LABEL_OFF}`}
                         dir="auto"
@@ -357,6 +414,18 @@ export default function ActivePolicyCard({
                 )
               })}
             </div>
+
+            {/* PRD 04e's locked mode description, both sentences: what use is
+                expected, then what the valve will do. It describes the mode
+                you are IN, which is what "Current mode · Learn more" asks. */}
+            {!onLearnMore && explainerOpen ? (
+              <p
+                id={explainerId}
+                className="w-full rounded-[9px] bg-slate-50 px-[12px] py-[10px] font-sans text-[13px] leading-[19px] text-slate-600"
+              >
+                {(modeOptions.find(o => o.value === mode) ?? modeOptions[0])?.description}
+              </p>
+            ) : null}
           </div>
         </>
       ) : (
