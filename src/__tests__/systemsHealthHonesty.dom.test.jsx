@@ -44,8 +44,18 @@ describe('Systems Health — the percentage measures protection, not leaks', () 
         : Math.min(Math.floor((protectedCount / SYSTEMS.length) * 100), 99)
 
     // The page's own arithmetic, restated: floor, and capped at 99.
+    //
+    // Both numbers are snapshots of the dataset, not rules. Leak-free moved
+    // 46 -> 48 on 2026-10-21 when Building C joined D and E as an all-clear
+    // location (owner: "i want at least 3 location fully healthy"), which
+    // took two leaks out of a 103-system fleet. Protection is unchanged at 66
+    // because C's apartments were failing on the leak check alone.
+    //
+    // What this test is actually for is the `not.toBe` above — that the two
+    // counts DIFFER, so the percentage cannot be measuring leaks. That
+    // guarantee is untouched; only the dataset moved underneath it.
     expect(percent).toBe(66)
-    expect(Math.round((leakFreeCount / SYSTEMS.length) * 100)).toBe(46)
+    expect(Math.round((leakFreeCount / SYSTEMS.length) * 100)).toBe(48)
   })
 
   it('never reaches 100% while a single system fails a check (PRD 09:62)', () => {
