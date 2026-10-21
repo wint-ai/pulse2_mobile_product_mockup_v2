@@ -27,7 +27,9 @@
  * Colours are the web's, from insightTypeMeta.ts and InsightsCard.tsx:
  *   increase #FB2C36 · decrease #269950 · background flow #193CB8
  */
-import { getSystemConsumption } from './consumptionModel';
+
+import { isAllClearDemoSystem } from './parity';
+import { generateDailyConsumption, generateRawFlows, seededRng } from './insightSeries';
 
 export const INSIGHT_KIND = {
   USAGE_UP: 'usage-up',
@@ -49,79 +51,149 @@ export const INSIGHT_LABEL = {
 };
 
 /** FNV-1a, matching consumptionModel so the two agree per system. */
-function hash(s) {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return Math.abs(h);
-}
-const unit = (id, key) => (hash(`${id}|insight|${key}`) % 100000) / 100000;
+/* The local hash and its `unit` helper are gone with the old generator:
+   every draw now comes from the web's own seededRng, so a second stream here
+   would only be a way to disagree with upstream. */
 
 /**
  * Insights for one system, in the web's row shape.
  *
- * A system carries 0–2 insights. That is deliberate: the old local generator
- * gave nearly every system something to say, which made the feature look like
- * noise. Insights are meant to be occasional.
+ * REWRITTEN 2026-10-21 to follow the web exactly. Owner: "i want the insight
+ * charts to use same data and patterns exactly as we have in pulse 2 sandbox
+ * project". What stood here derived a series from the system's own
+ * consumption profile and drew a FLAT baseline at the prior 28 days' mean, so
+ * every insight looked alike and none of them looked like the web.
+ *
+ * The web does it in two steps, and so does this now:
+ *
+ *   synthInsightsForSystem(sys)   insightsMockData.ts:1131
+ *       seeded on the system id. An all-clear system gets nothing at all.
+ *       Otherwise rng() < 0.16 buys a background-flow insight and rng() < 0.13
+ *       buys a usage-change one — so MOST SYSTEMS HAVE NONE, which is the
+ *       point: insights are meant to be occasional. Across this 103-system
+ *       fleet that still leaves about thirty, far more than a four-row card
+ *       needs.
+ *
+ *   generateSyntheticDetails(eventId)   insightsMockData.ts:1182
+ *       seeded on the EVENT id, not the system's, so the two insights a
+ *       system can carry do not share a stream. This is where the series
+ *       comes from: 30 days of hourly background flow, or `daysAgo` days of
+ *       daily actual-vs-expected with the event starting 30% in.
+ *
+ * The rng DRAW ORDER is load-bearing and is reproduced call for call — days,
+ * then resolved, then resolvedAt only when resolved, then the type's own
+ * figures. Reordering them silently changes every number in the app.
+ *
+ * WHAT IS NOT PORTED: the ~1,100 lines of hand-authored `allInsightGroups`.
+ * Those are keyed by `waterSystemId` for the web's own demo systems, and
+ * `getInsightsForScope` only reaches for one when the scope contains that
+ * exact id. No MRG system does, so every insight in this dataset comes down
+ * the synthetic path on the web too — the hand-authored list would be dead
+ * weight here. `generateUsageIncreasedSeries` goes with them: it feeds only
+ * the hand-authored groups and nothing in the synthetic path calls it.
  */
 export function getInsightsForSystem(system) {
   if (!system) return [];
-
   const id = system.id;
-  const count = hash(`${id}|insight-count`) % 3; // 0, 1 or 2
-  if (count === 0) return [];
+  // web: an all-clear location has no insights anywhere beneath it.
+  if (isAllClearDemoSystem(id)) return [];
 
-  const profile = getSystemConsumption(id, system, 120);
-  const daily = profile.daily;
-  const window = daily.slice(-28);
-  const series = window.map(d => d.liters);
-
-  // Baseline: the prior 28 days' mean, flat across the window. The web carries
-  // a per-day `expected`; a flat baseline is the honest reduction of that when
-  // we have no forecast model, and it still makes the divergence readable.
-  const prior = daily.slice(-56, -28);
-  const baselineValue = prior.length
-    ? Math.round(prior.reduce((t, d) => t + d.liters, 0) / prior.length)
-    : Math.round(series.reduce((t, v) => t + v, 0) / Math.max(1, series.length));
-  const baseline = series.map(() => baselineValue);
-
-  const actualMean = series.reduce((t, v) => t + v, 0) / Math.max(1, series.length);
+  const rng = seededRng(id);
+  const now = Date.now();
+  const address = [system.l4Name, system.l2Name].filter(Boolean).join(' · ');
   const rows = [];
 
-  // Insight 1 — usage change, measured against the system's own baseline.
-  const pct = baselineValue ? ((actualMean - baselineValue) / baselineValue) * 100 : 0;
-  const up = pct >= 0;
-  rows.push({
-    id: `${id}-usage`,
-    systemId: id,
-    name: system.name,
-    address: [system.l4Name, system.l2Name].filter(Boolean).join(' · '),
-    kind: up ? INSIGHT_KIND.USAGE_UP : INSIGHT_KIND.USAGE_DOWN,
-    label: up ? INSIGHT_LABEL['usage-up'] : INSIGHT_LABEL['usage-down'],
-    deltaPct: Math.abs(pct),
-    liters: Math.abs(Math.round((actualMean - baselineValue) * series.length)),
-    series,
-    baseline,
-  });
+  /* web: synthInsightsForSystem's `make`. The draws happen here in the same
+     order even where this app has no use for the value, because skipping one
+     would shift every draw after it. */
+  const make = (token, i) => {
+    const days = 1 + Math.floor(rng() * 40);
+    const ts = new Date(now - days * 86400000);
+    const resolved = rng() < 0.2;
+    const resolvedAt = resolved
+      ? new Date(ts.getTime() + (1 + Math.floor(rng() * 10)) * 86400000)
+      : null;
+    const eventId = `EVT-${id}-${token}-${i}`;
+    const base = { id: `${id}-gen-${token}-${i}`, eventId, systemId: id, name: system.name, address, timestamp: ts, resolved, resolvedAt };
+    if (token === 'bf') {
+      // Drawn and discarded: the row states `recentFlow` from the DETAILS, as
+      // the web's InsightRow does, not this figure. The draw still has to
+      // happen — see the note above.
+      Math.round((3 + rng() * 25) * 10) / 10;
+      return { ...base, kind: INSIGHT_KIND.BACKGROUND_FLOW };
+    }
+    const sign = rng() < 0.5 ? 1 : -1;
+    Math.round(sign * (2000 + rng() * 13000));
+    return { ...base, kind: 'usage-change' };
+  };
 
-  // Insight 2 — background flow, only on some systems.
-  if (count === 2) {
-    rows.push({
-      id: `${id}-bg`,
-      systemId: id,
-      name: system.name,
-      address: [system.l4Name, system.l2Name].filter(Boolean).join(' · '),
-      kind: INSIGHT_KIND.BACKGROUND_FLOW,
+  if (rng() < 0.16) rows.push(make('bf', 0));
+  if (rng() < 0.13) rows.push(make('uc', 1));
+
+  return rows.map(r => detailsFor(r));
+}
+
+/**
+ * web: generateSyntheticDetails. Seeded on the event id, and memoised the way
+ * upstream memoises it in `generatedDetailsCache` — a 720-point hourly series
+ * is not something to rebuild on every render.
+ */
+const detailsCache = new Map();
+
+function detailsFor(row) {
+  const hit = detailsCache.get(row.eventId);
+  if (hit) return { ...row, ...hit };
+
+  const rng = seededRng(row.eventId);
+  const baseLph = 4 + rng() * 24;                       // 4–28 L/h
+  const volume = Math.round(baseLph * 24 * (10 + rng() * 20)); // 10–30 days worth
+  const daysAgo = 5 + Math.floor(rng() * 25);
+  const start = new Date();
+  start.setDate(start.getDate() - daysAgo - 30);
+  const startIso = start.toISOString().slice(0, 10);
+
+  let out;
+  if (row.kind === INSIGHT_KIND.BACKGROUND_FLOW) {
+    const recentFlow = Math.round(baseLph * 10) / 10;
+    const rawFlows = generateRawFlows(recentFlow, 30, startIso);
+    out = {
       label: INSIGHT_LABEL['background-flow'],
-      flowRate: Math.round((2 + unit(id, 'bg') * 26) * 10) / 10, // 2.0–28.0 L/h
-      series,
-      baseline,
-    });
+      flowRate: recentFlow,
+      liters: volume,
+      /* web InsightRow: spark = rawFlows.map(f => f.backgroundFlow), and NO
+         baseline — background flow has no expected line to be judged against. */
+      series: rawFlows.map(f => f.backgroundFlow),
+      baseline: null,
+    };
+  } else {
+    // web: ~45% of synthetic usage changes are DECREASES, so both directions
+    // show up at every scope; the sign drives the numbers AND the series.
+    const sign = rng() < 0.45 ? -1 : 1;
+    const pctChange = sign * (10 + rng() * 55);
+    const baselineUsage = 200 + rng() * 600;
+    const actual = baselineUsage * (1 + pctChange / 100);
+    const daily = generateDailyConsumption(
+      Math.round(baselineUsage),
+      1 + pctChange / 100,
+      daysAgo,
+      Math.floor(daysAgo * 0.3),
+      startIso,
+      rng,
+    );
+    const up = sign > 0;
+    out = {
+      kind: up ? INSIGHT_KIND.USAGE_UP : INSIGHT_KIND.USAGE_DOWN,
+      label: up ? INSIGHT_LABEL['usage-up'] : INSIGHT_LABEL['usage-down'],
+      deltaPct: Math.round(Math.abs(pctChange) * 10) / 10,
+      liters: Math.abs(Math.round(actual - baselineUsage) * daysAgo),
+      /* web InsightRow: spark = actual, baseline = expected. */
+      series: daily.map(d => d.actual),
+      baseline: daily.map(d => d.expected),
+    };
   }
 
-  return rows;
+  detailsCache.set(row.eventId, out);
+  return { ...row, ...out };
 }
 
 /**
