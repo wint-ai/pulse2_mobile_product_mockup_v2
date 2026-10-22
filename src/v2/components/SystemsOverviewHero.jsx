@@ -45,8 +45,10 @@
  * pasted back in from Figma — but no live class string in this file carries
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
+import { useEffect, useId, useRef, useState } from 'react'
+
 import { BrandDrops, FloodLine, PhotoSensor3 } from '@/v2/icons'
-import { SYSTEM_TYPE } from '@/data/systemType'
+import { SYSTEM_TYPE, SYSTEM_TYPE_BLURB } from '@/data/systemType'
 import { cn } from '@/lib/utils'
 import wave from '@/assets/system-hero-wave.png'
 
@@ -104,6 +106,86 @@ export default function SystemsOverviewHero({
 }) {
   const counts = systemTypes ?? {}
   const unit = Number(total) === 1 ? unitLabel.replace(/s$/, '') : unitLabel
+
+  /* ── TWO-STAGE TAP, 2026-10-22 ───────────────────────────────────────────
+     Owner: "one click here showing wht this type is / two clicks redirect you
+     as now". Until now a chip's only gesture was the navigation 7bf0f4f added,
+     so the cheaper question — what IS a Topology system? — had no gesture at
+     all, and these chips carry no text that answers it. The icon is the whole
+     of their meaning on screen, which is exactly the problem.
+
+     This is WaterConsumptionCardV2's `armedBucket` applied to the chips, and
+     its rules carry over one for one, because the edges are what decide
+     whether a two-stage tap feels right rather than broken:
+       • first tap on a chip           reveal what the type is; never navigate
+       • second tap on the SAME chip   navigate, exactly as 7bf0f4f does
+       • tap on a DIFFERENT chip       that is ITS first tap — MOVE the reveal
+                                       there, do not navigate
+       • tap anywhere else             dismiss
+       • Escape                        dismiss
+       • the counts change             clear it, so a reveal cannot survive
+                                       into data it was not describing
+     There is NO timer: this is "tap, then tap again", not a double-click, so a
+     slow second tap works as well as a fast one.
+
+     KEYBOARD NAVIGATES IN ONE PRESS, deliberately — the same ruling
+     WaterConsumptionCardV2 made for the same reason. A keyboard user already
+     has the explanation before they press anything, because aria-describedby
+     below puts it on every chip permanently and focus reads it out. Making
+     them press Enter twice would be two presses to do what one press already
+     did, to solve a problem keyboards do not have. `event.detail === 0` is how
+     a button tells the click Enter/Space synthesises from a real pointer tap. */
+  const [armed, setArmed] = useState(null)
+  const rowRef = useRef(null)
+  const blurbId = useId()
+
+  /* A reveal must not outlive the numbers it was drawn beside. This is the
+     hero's analogue of the consumption card clearing on a window change: the
+     counts ARE the view here, so a scope change that repaints them takes the
+     reveal with it rather than leaving a sentence pinned to a chip that now
+     reads something else. Joined into one string because `counts` is a fresh
+     object every render and a bare dep would re-fire on every one.
+
+     RESET DURING RENDER, NOT IN AN EFFECT, and the house already made this
+     call — SystemsTableCard:190 clamps its page the same way for the same
+     reason. An effect paints the stale frame first and corrects it after, so
+     the band would flash against the new numbers for a frame before going
+     away; react-hooks/set-state-in-effect refuses it outright, which is the
+     rule agreeing with the eye. React's documented shape for "reset state when
+     a prop changes" is this one: compare against what we last saw, and set
+     during render so the pass is thrown away before it is ever committed. */
+  const countsKey = `${counts.topology}|${counts.humidity}|${counts.flood}`
+  const [seenCounts, setSeenCounts] = useState(countsKey)
+  if (seenCounts !== countsKey) {
+    setSeenCounts(countsKey)
+    setArmed(null)
+  }
+
+  /* A tap outside the chips dismisses, and so does Escape. Both listeners are
+     mounted ONLY while something is armed. pointerdown in the CAPTURE phase is
+     load-bearing and not a stylistic choice: it runs before the chip's own
+     click, so a tap that lands on a different chip is not cleared out from
+     under the handler that is about to re-arm it — the exact bug the
+     consumption card's note warns about. */
+  useEffect(() => {
+    if (armed === null) return undefined
+    const dismiss = (event) => {
+      const el = event.target
+      if (el && el.nodeType && rowRef.current && rowRef.current.contains(el)) return
+      setArmed(null)
+    }
+    const onKey = (event) => {
+      if (event.key === 'Escape') setArmed(null)
+    }
+    document.addEventListener('pointerdown', dismiss, true)
+    document.addEventListener('keydown', onKey, true)
+    return () => {
+      document.removeEventListener('pointerdown', dismiss, true)
+      document.removeEventListener('keydown', onKey, true)
+    }
+  }, [armed])
+
+  const armedType = armed === null ? null : TYPES.find((t) => t.key === armed)
 
   return (
     <div
@@ -181,17 +263,30 @@ export default function SystemsOverviewHero({
           because those offsets were measured against the node's own numerals;
           a four-digit count would overlap its neighbour. */}
       <div
-        className="absolute flex gap-[11px] items-center left-[21px] top-[96px]"
+        ref={rowRef}
+        className="absolute flex gap-[11px] items-center left-[21px] top-[96px] z-[2]"
         data-node-id="199417:131528"
       >
         {TYPES.map(({ key, name, type, glyph, size }) => {
           const count = Number(counts[key]) || 0
-          /* A chip reading 0 would route to an empty table — a dead end
-             dressed as a control. It stays a picture until there is something
-             behind it, and keeps its label so assistive tech still reads the
-             count. Today that is flood and humidity, which this dataset has
-             none of; the chip wakes up on its own when it does. */
-          const live = count > 0 && typeof onSelectType === 'function'
+          /* 7bf0f4f's rule is UNCHANGED: a chip reading 0 never navigates,
+             because it would route to an empty table — a dead end dressed as a
+             control. What changed is that it is no longer INERT.
+
+             The explanation is about the TYPE, not about the data. "What is a
+             flood sensor" has the same answer whether this account owns 25 of
+             them or none, and the viewer staring at a 0 is arguably the one
+             most likely to be asking. So a zero chip is now a button that
+             explains and refuses to navigate, rather than a picture that does
+             neither. Its accessible name drops the "Show these in the Systems
+             tab." clause accordingly: a control must not name a destination it
+             will not go to.
+
+             The HANDLER gate stays at the component boundary, though. With no
+             onSelectType at all the chips are still the inert pictures the
+             frame draws and this component's prop contract promises — the host
+             gets no affordance it did not ask for. */
+          const navigates = count > 0 && typeof onSelectType === 'function'
           const inner = (
             <>
               <span
@@ -204,12 +299,60 @@ export default function SystemsOverviewHero({
               <span className={CHIP_NUM} dir="auto">{fmt(count)}</span>
             </>
           )
-          return live ? (
+          if (typeof onSelectType !== 'function') {
+            return (
+              <span
+                key={key}
+                className={CHIP}
+                role="img"
+                aria-label={`${name}: ${fmt(count)}`}
+                aria-describedby={`${blurbId}-${key}`}
+              >
+                {inner}
+              </span>
+            )
+          }
+          return (
             <button
               key={key}
               type="button"
-              onClick={() => onSelectType(type)}
-              aria-label={`${name}: ${fmt(count)}. Show these in the Systems tab.`}
+              onClick={(event) => {
+                /* `detail === 0` is Enter or Space: the click a browser
+                   synthesises for a keyboard activation carries no pointer
+                   detail. Keyboard skips the arming stage entirely — see the
+                   block at the top of this component for why. */
+                const act = () => {
+                  if (navigates) {
+                    /* Clear BEFORE handing over. The page switches tab under a
+                       hero that stays mounted, so a reveal left armed here
+                       would still be sitting there when the viewer came back —
+                       the "must not persist after the user looks away" case. */
+                    setArmed(null)
+                    onSelectType(type)
+                    return
+                  }
+                  /* Nothing to navigate to, so the second press closes what the
+                     first opened. A control whose repeat press does nothing at
+                     all reads as broken. */
+                  setArmed((cur) => (cur === key ? null : key))
+                }
+                if (event.detail === 0) {
+                  act()
+                  return
+                }
+                if (armed !== key) {
+                  setArmed(key)
+                  return
+                }
+                act()
+              }}
+              aria-label={
+                navigates
+                  ? `${name}: ${fmt(count)}. Show these in the Systems tab.`
+                  : `${name}: ${fmt(count)}`
+              }
+              aria-describedby={`${blurbId}-${key}`}
+              aria-expanded={armed === key}
               className={cn(
                 CHIP,
                 'cursor-pointer appearance-none border-0 transition-colors',
@@ -219,13 +362,59 @@ export default function SystemsOverviewHero({
             >
               {inner}
             </button>
-          ) : (
-            <span key={key} className={CHIP} role="img" aria-label={`${name}: ${fmt(count)}`}>
-              {inner}
-            </span>
           )
         })}
       </div>
+
+      {/* THE EXPLANATION, RENDERED TWICE — once for eyes, once for assistive
+          tech, and deliberately not as one shared element.
+
+          FOR ASSISTIVE TECH: a permanent sr-only sentence per chip, pointed at
+          by aria-describedby. It is present whether or not anything is armed,
+          so a screen-reader user meets the explanation by FOCUSING a chip and
+          never has to discover a two-stage gesture to reach it. That is also
+          what makes it honest for Enter to navigate on the first press: the
+          stage being skipped is one that held nothing back from them.
+
+          FOR EYES: the band below. It is aria-hidden PRECISELY BECAUSE the
+          sentence it shows is already on the chip as a description — announce
+          it again on appearance and a screen reader says everything twice.
+          aria-expanded on the chip is what tells a screen-reader user that the
+          thing sighted users can now see is open.
+
+          NOT A PORTAL, AND THAT IS NOT A PREFERENCE. The phone frame is
+          393x852 with overflow:hidden (src/components/Phone.jsx) and a Radix
+          popover portals to document.body, which escapes that frame by design —
+          the failure ValveConfirmSheet:17-25 documents and this repo has been
+          bitten by three times. This is the house `absolute` overlay instead.
+          It may hang below the hero's own 189px because the hero root sets no
+          overflow (only the wave wrapper does), and z-[2] carries it over the
+          health card the page pulls up by 37px at z-[1].
+
+          TOKENS, NOT HEX, because four themes are live: --card, --border,
+          --foreground and --muted-foreground are each redefined under `dark`,
+          `sand` and `contrast`, so the band re-grounds itself per theme rather
+          than staying a light card on a dark screen. */}
+      <div className="sr-only">
+        {TYPES.map(({ key, name, type }) => (
+          <span key={key} id={`${blurbId}-${key}`}>{`${name}. ${SYSTEM_TYPE_BLURB[type]}`}</span>
+        ))}
+      </div>
+
+      {armedType ? (
+        <div
+          aria-hidden="true"
+          data-name="System type explainer"
+          className="absolute left-[21px] right-[21px] top-[134px] z-[2] rounded-[14px] border border-border bg-card px-[14px] py-[10px] shadow-lg"
+        >
+          <p className="text-[13px] font-semibold leading-[18px] text-foreground">
+            {armedType.name}
+          </p>
+          <p className="mt-[2px] text-[12px] leading-[16px] text-muted-foreground">
+            {SYSTEM_TYPE_BLURB[armedType.type]}
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }
