@@ -11,7 +11,7 @@
  * which are new.
  */
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, fireEvent } from '@testing-library/react'
 import SystemsOverviewHero from '@/v2/components/SystemsOverviewHero'
 
 afterEach(cleanup)
@@ -136,5 +136,53 @@ describe('SystemsOverviewHero — Figma class fidelity', () => {
     const { container } = render(<SystemsOverviewHero total={244} />)
     expect(container.querySelector('[data-node-id="199414:130117"]').getAttribute('aria-hidden'))
       .toBe('true')
+  })
+})
+
+describe('SystemsOverviewHero — the chips are a way into the Systems tab', () => {
+  /* Owner, 2026-10-22: "make this clickable — redirect to systems tab filtered
+     on those systems". The hero and the table already speak one vocabulary
+     (SYSTEM_TYPE via systemTypeOf), so a chip hands over a filter value rather
+     than a parallel notion of what a type is. */
+  it('reports the type the Systems filter reads, not a label', () => {
+    const picked = []
+    const { container } = render(
+      <SystemsOverviewHero
+        total={244}
+        systemTypes={{ topology: 156, humidity: 45, flood: 55 }}
+        onSelectType={(t) => picked.push(t)}
+      />,
+    )
+    const buttons = [...container.querySelectorAll('button')]
+    expect(buttons).toHaveLength(3)
+    buttons.forEach((b) => fireEvent.click(b))
+    expect(picked).toEqual(['flow', 'humidity', 'flood'])
+  })
+
+  it('a chip reading zero is NOT a control', () => {
+    /* It would route to an empty table — a dead end dressed as a button.
+       Today that is flood and humidity, which this dataset has none of. */
+    const { container } = render(
+      <SystemsOverviewHero total={103} systemTypes={{ topology: 103 }} onSelectType={() => {}} />,
+    )
+    const buttons = [...container.querySelectorAll('button')]
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0].getAttribute('aria-label')).toMatch(/^Topology systems: 103/)
+  })
+
+  it('still names a zero chip for assistive tech', () => {
+    const { container } = render(
+      <SystemsOverviewHero total={103} systemTypes={{ topology: 103 }} onSelectType={() => {}} />,
+    )
+    const names = [...container.querySelectorAll('[role="img"]')].map((el) => el.getAttribute('aria-label'))
+    expect(names).toContain('Humidity sensors: 0')
+    expect(names).toContain('Flood sensors: 0')
+  })
+
+  it('with no handler every chip stays a picture, as the frame draws it', () => {
+    const { container } = render(
+      <SystemsOverviewHero total={244} systemTypes={{ topology: 156, humidity: 45, flood: 55 }} />,
+    )
+    expect(container.querySelectorAll('button')).toHaveLength(0)
   })
 })
