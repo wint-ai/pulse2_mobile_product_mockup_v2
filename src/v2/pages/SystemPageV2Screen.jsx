@@ -176,6 +176,8 @@ import {
   offsetForPickedMonth,
   pickerMin,
   pickerSelection,
+  previousSpanAligned,
+  spanTotal,
   stepAvailability,
   windowMonthsOf,
 } from '@/v2/lib/consumptionWindow'
@@ -184,7 +186,7 @@ import { INSIGHT_KIND, insightValueLabel } from '@/data/upstream/insightsModel'
 import { getCurrentActor } from '@/data/currentUser'
 import { getActiveIncident, getLeakState } from '@/data/incidents'
 import { getConsumption } from '@/data/consumption'
-import { getConsumptionSeries } from '@/data/consumptionSeries'
+import { daySpanLabel, getConsumptionSeries } from '@/data/consumptionSeries'
 import {
   getSystemInsights,
   getSystemTopology,
@@ -740,10 +742,34 @@ export default function SystemPageV2Screen() {
      mean, because only the screen knows which system is on the route.
      Switching granularity resets the offset: "three months back" does not
      carry over into a year view. */
-  /* PLS-WC-03 / §2: MONTHLY is the default grouping at every level, this page
-     included. It opened on Daily, which answers "what did this month look
-     like, day by day" before the user has said which month they mean. */
-  const [period, setPeriod] = useState('M')
+  /* MONTH-TO-DATE IS THE DEFAULT WINDOW ON THIS PAGE, AND THIS LINE IS THE
+     WHOLE OF THAT CHANGE. The owner, 2026-10-21, on the hero: "this dates
+     needs to be date to month / eg for today 1-21.10 / compare is to last
+     dates in previous month".
+
+     Month-to-date is not a new grouping. It is the DAILY window at offset 0:
+     the calendar month the last reading falls in, drawn at its true length
+     with the days it has not reached carrying litres === null (§5 /
+     PLS-WC-17). The elapsed span is therefore exactly the rows that carry a
+     reading, which is what the hero's figure sums and what `labelRange`
+     ("Oct 1–21") names. No parallel window type, no clipping, no second code
+     path — the machinery was already here and only the default and the
+     caption moved.
+
+     THIS OVERRIDES PLS-WC-03 / §2 FOR THIS PAGE, AND ONLY FOR THIS PAGE.
+     That rule ("Monthly is the default grouping at every level") came from an
+     earlier reading of §2; the instruction above is newer, explicit, and
+     about this hero. HomeAllAccounts still opens on Monthly, because it has
+     no hero caption and the owner said nothing about it — so the two screens
+     now open their charts on different groupings. That divergence is
+     deliberate and is flagged for the owner rather than papered over.
+
+     THE TWELVE-MONTH WINDOW IS NOT ORPHANED (v2-page-parity Rule 0): Monthly
+     is still in the grouping dropdown, still rolling, still labelled "Nov
+     2025 - Oct 2026", and the hero caption follows it there — `labelRange`
+     only exists on Daily, so Monthly's caption is unchanged. Nothing was
+     removed; a different window is simply what the page opens on. */
+  const [period, setPeriod] = useState('D')
   const [periodOffset, setPeriodOffset] = useState(0)
 
   /* §20.1 / PLS-WC-15 — the trail of periods OPENED, newest last. Each entry
@@ -810,39 +836,13 @@ export default function SystemPageV2Screen() {
     [system.id, system.title, period, periodOffset],
   )
 
-  /* The hero's headline figures. The comp prints "5,83L +120%" over a date
-     range; both come from the series the chart below already plots, so the two
-     can never disagree. Unreached buckets carry litres === null (PLS-WC-17)
-     and are excluded, exactly as deriveStats does. */
-  const heroFigures = useMemo(() => {
-    const read = (consumptionView?.series ?? []).filter(p => p.litres != null)
-    if (!read.length) return { figure: '—', unit: null, total: '—', delta: null }
-    const total = read.reduce((sum, p) => sum + p.litres, 0)
-    const fmt = n =>
-      n >= 1e6 ? `${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M` :
-      n >= 1e3 ? `${(n / 1e3).toFixed(2).replace(/\.?0+$/, '')}K` : String(Math.round(n))
-    /* The delta is first half against second, which is what a single window
-       can honestly say without a second fetch. */
-    const half = Math.floor(read.length / 2)
-    const older = read.slice(0, half).reduce((s, p) => s + p.litres, 0)
-    const newer = read.slice(half).reduce((s, p) => s + p.litres, 0)
-    const pct = older > 0 ? Math.round(((newer - older) / older) * 100) : null
-    return {
-      /* FIGURE AND UNIT ARE SEPARATE NOW. 199383:141636 draws "5,830" at
-         42.222/58.056 and 199383:141637 draws "L" beside it at 20/20 — two
-         runs at two sizes, which one string cannot be. `total` keeps the
-         joined spelling for anything that wants one line. */
-      figure: fmt(total),
-      unit: 'L',
-      total: `${fmt(total)}L`,
-      delta: pct == null ? null : `${pct > 0 ? '+' : ''}${pct}%`,
-      pct,
-      deltaLitres: Math.round(newer - older),
-    }
-  }, [consumptionView])
-
-  const heroTotal = heroFigures.figure
-  const heroDelta = heroFigures.delta
+  /* The hero's headline figures used to be computed HERE, straight off
+     `consumptionView`. They now need the window BEFORE this one to say what
+     the percentage means, and that needs `consumptionBounds` to know whether
+     a previous window really exists — so the block moved below the bounds it
+     depends on. See `heroFigures` further down.
+     Nothing about the hero's relationship to the chart changed: it still
+     reads the same `consumptionView` the chart plots. */
 
   /* PLS-WC-06 — where this system's series actually starts and ends, read back
      out of the data layer rather than from the clock. Every offset below is
@@ -899,19 +899,123 @@ export default function SystemPageV2Screen() {
      Plotted as "the previous period" that is a comparison the data cannot
      support — a reference series identical to the bars behind it. canStepPrev
      is the same test the back chevron uses, so the comparison is offered on
-     exactly the windows that have something before them. */
+     exactly the windows that have something before them.
+
+     MONTHLY *AND DAILY* SINCE 2026-10-21. PLS-WC-20 made this Monthly-only;
+     the owner then asked for the comparison on precisely the Daily window —
+     "compare is to last dates in previous month" — so Daily was added here
+     and in the card (COMPARABLE_PERIODS), which is what draws the switch.
+     Hourly and Yearly are unchanged: an hour against the same hour yesterday
+     is noise, and Yearly plots the whole span at once. The clamp test is the
+     same one for both groupings, so the oldest window withholds a comparison
+     at Daily for exactly the reason it does at Monthly. */
   const hasPreviousPeriod = useMemo(
-    () => period === 'M' && stepAvailability('M', periodOffset, consumptionBounds).canStepPrev,
+    () =>
+      (period === 'M' || period === 'D') &&
+      stepAvailability(period, periodOffset, consumptionBounds).canStepPrev,
     [period, periodOffset, consumptionBounds],
   )
 
+  /* ── THE COMPARISON, AS DATA ────────────────────────────────────────────
+     "compare is to last dates in previous month" (the owner, 2026-10-21).
+
+     The window before this one, clipped to the SAME SPAN — October has read
+     21 days, so the comparison is September 1-21 and not all thirty of it.
+     previousSpanAligned() owns that arithmetic and the short-month clamp with
+     it (31 March compares against 1-28 February, because February has no
+     29th to slice); the year boundary is the data layer's, which steps whole
+     month indices so December-from-January is not a special case.
+
+     THIS IS DELIBERATELY JUST DATA. How a comparison should be DRAWN on a
+     month-to-date window is an open question — the owner, on seeing two bar
+     series proposed: "we need to think smartly how to do that, 60 bars on
+     mobile is not a good idea." So this memo produces an index-aligned series
+     and stops. `consumptionCompare` below feeds it to the chart in the one
+     form the chart already has, and the hero reads the same rows for its
+     percentage; an overlaid line, a cumulative pace line or a weekly roll-up
+     would all be built from this same value without changing it. */
+  const consumptionCompareSpan = useMemo(() => {
+    if (!hasPreviousPeriod) return null
+    const previous = getConsumptionSeries(system.id, system.title, period, periodOffset - 1).series
+    return previousSpanAligned(consumptionView.series, previous)
+  }, [hasPreviousPeriod, consumptionView, system.id, system.title, period, periodOffset])
+
+  /* The span is computed whether or not the comparison is SHOWN, because the
+     hero's percentage reads it either way — "+100%" over a caption is a
+     comparison whether or not a line is drawn for it. This is the switch's
+     view of the same rows. */
   const consumptionCompare = useMemo(
-    () =>
-      compareConsumption && hasPreviousPeriod
-        ? getConsumptionSeries(system.id, system.title, period, periodOffset - 1).series
-        : null,
-    [compareConsumption, hasPreviousPeriod, system.id, system.title, period, periodOffset],
+    () => (compareConsumption && hasPreviousPeriod ? consumptionCompareSpan : null),
+    [compareConsumption, hasPreviousPeriod, consumptionCompareSpan],
   )
+
+  /* What the chart's legend calls the two series. Both are the elapsed spans
+     in the owner's caption form — "Oct 1–21" over the bars, "Sep 1–21" over the
+     line — so the legend states the comparison instead of calling it
+     "previous period", which stopped being true when the comparison became
+     the previous month's MATCHING DATES rather than the whole of it. Only
+     Daily has a day-span to name; at Monthly both come back null and the card
+     falls back to its generic wording. */
+  const consumptionSpanLabel = consumptionView.labelRange ?? null
+  const consumptionCompareLabel = useMemo(
+    () => daySpanLabel(consumptionCompareSpan),
+    [consumptionCompareSpan],
+  )
+
+  /* The hero's headline figures. The comp prints "5,83L +120%" over a date
+     range; the figure comes from the series the chart below already plots, so
+     the two can never disagree. Unreached buckets carry litres === null
+     (PLS-WC-17) and are excluded, exactly as deriveStats does — which is what
+     makes the figure month-to-DATE rather than month-to-end: on the 21st it
+     sums the 21 days that have a reading and ignores the ten that do not.
+     WHAT THE PERCENTAGE MEANS CHANGED ON 2026-10-21. It used to be the
+     window's first half against its second — all a single window can say
+     without a second read, and the reason the hero showed "+100%" against a
+     twelve-month range. The owner asked for a real comparison: "compare is to
+     last dates in previous month". So it is now this window's elapsed total
+     against the SAME SPAN of the window before it, and the fallback to
+     half-against-half survives only where there is no window before this one
+     (the oldest window, and Yearly, which is the whole series at once). */
+  const heroFigures = useMemo(() => {
+    const read = (consumptionView?.series ?? []).filter(p => p.litres != null)
+    if (!read.length) return { figure: '—', unit: null, total: '—', delta: null }
+    const total = read.reduce((sum, p) => sum + p.litres, 0)
+    const fmt = n =>
+      n >= 1e6 ? `${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M` :
+      n >= 1e3 ? `${(n / 1e3).toFixed(2).replace(/\.?0+$/, '')}K` : String(Math.round(n))
+
+    const against = spanTotal(consumptionCompareSpan)
+    let older
+    let newer
+    if (against != null) {
+      older = against
+      newer = total
+    } else {
+      const half = Math.floor(read.length / 2)
+      older = read.slice(0, half).reduce((s, p) => s + p.litres, 0)
+      newer = read.slice(half).reduce((s, p) => s + p.litres, 0)
+    }
+    const pct = older > 0 ? Math.round(((newer - older) / older) * 100) : null
+    return {
+      /* FIGURE AND UNIT ARE SEPARATE NOW. 199383:141636 draws "5,830" at
+         42.222/58.056 and 199383:141637 draws "L" beside it at 20/20 — two
+         runs at two sizes, which one string cannot be. `total` keeps the
+         joined spelling for anything that wants one line. */
+      figure: fmt(total),
+      unit: 'L',
+      total: `${fmt(total)}L`,
+      delta: pct == null ? null : `${pct > 0 ? '+' : ''}${pct}%`,
+      pct,
+      deltaLitres: Math.round(newer - older),
+      /* Whether the percentage is a real comparison or the half-against-half
+         fallback. Nothing reads it yet; it is here so that a caller who wants
+         to caption the percentage does not have to re-derive the answer. */
+      comparedToPrevious: against != null,
+    }
+  }, [consumptionView, consumptionCompareSpan])
+
+  const heroTotal = heroFigures.figure
+  const heroDelta = heroFigures.delta
 
   /* ── The chart's actions ────────────────────────────────────────────────
      §4 is NORMATIVE about what each one keeps and what it resets, and the
@@ -927,8 +1031,12 @@ export default function SystemPageV2Screen() {
     setPeriod(next)
     setPeriodOffset(0)
     setPeriodTrail([])
-    // PLS-WC-20: comparison is Monthly-only, so anything else clears it.
-    if (next !== 'M') setCompareConsumption(false)
+    /* PLS-WC-20 made the comparison Monthly-only and this cleared it for
+       anything else. Daily joined Monthly on 2026-10-21 (see the card's
+       COMPARABLE_PERIODS), so clearing it on a move to Daily would switch off
+       a control the card is still drawing. Hourly and Yearly still clear,
+       because the card withdraws the switch there. */
+    if (next !== 'M' && next !== 'D') setCompareConsumption(false)
   }
 
   /* §3.2 — one step moves ONE bucket and keeps everything else. The clamp is
@@ -950,7 +1058,8 @@ export default function SystemPageV2Screen() {
     setPeriodTrail((trail) => [...trail, { period, offset: periodOffset }])
     setPeriod(target.period)
     setPeriodOffset(target.offset)
-    if (target.period !== 'M') setCompareConsumption(false)
+    // Same rule as selectPeriod above: Daily keeps the comparison.
+    if (target.period !== 'M' && target.period !== 'D') setCompareConsumption(false)
   }
 
   /* §3.6 / PLS-WC-15 used to put a `returnFromDrill` here, driving the
@@ -1027,9 +1136,16 @@ export default function SystemPageV2Screen() {
       setPeriodTrail([])
     }
 
-    /* Asked of the window being OPENED, not the drilled one being left. */
+    /* Asked of the window being OPENED, not the drilled one being left.
+       Daily joined Monthly here on 2026-10-21, which is what makes the jump
+       keep its original promise on the window the page now opens on: "when
+       user clicks on see more it redirect him the consumption chart with
+       context of the date written above and with the compare to previous
+       month". The caption names Oct 1–21 and the chart lands on it with
+       Sep 1–21 drawn over it. */
     const canCompare =
-      nextPeriod === 'M' && stepAvailability('M', nextOffset, consumptionBounds).canStepPrev
+      (nextPeriod === 'M' || nextPeriod === 'D') &&
+      stepAvailability(nextPeriod, nextOffset, consumptionBounds).canStepPrev
     setCompareConsumption(canCompare)
 
     /* The third of the three, and the only one with no state behind it. It
@@ -1527,7 +1643,19 @@ export default function SystemPageV2Screen() {
               total={heroTotal}
               unit={heroFigures.unit}
               delta={heroDelta}
-              rangeLabel={consumptionView.label}
+              /* THE CAPTION IS THE WINDOW'S ELAPSED SPAN WHERE THERE IS ONE.
+                 "this dates needs to be date to month / eg for today 1-21.10"
+                 — `labelRange` is that form and only the Daily grouping
+                 carries it, so Monthly still captions "Nov 2025 - Oct 2026"
+                 and nothing about the twelve-month window changed. The
+                 fallback is what makes this one line rather than a branch.
+                 The caption and the chart still name ONE window — the hero
+                 reads `consumptionView`, the chart plots it — but they now
+                 SPELL it differently: "Oct 1–21" here, "October 2026" in the
+                 period control, which needs a month and a year to split
+                 (splitPeriodLabel) and would be broken by a bare range. Same
+                 window, two spellings for two readers. */
+              rangeLabel={consumptionView.labelRange ?? consumptionView.label}
               tone={waterAlerting ? 'alert' : 'calm'}
               /* NO `expanded`, because there is nothing to expand: the chart
                  is always mounted below and this control only takes you there.
@@ -1782,6 +1910,8 @@ export default function SystemPageV2Screen() {
       compare={compareConsumption}
       onCompareChange={setCompareConsumption}
       compareData={consumptionCompare}
+      seriesLabel={consumptionSpanLabel}
+      compareLabel={consumptionCompareLabel}
       /* §3.5 — the card reports which bucket was opened; the
       screen owns what "one step finer" means, because only
       it holds the window. */

@@ -169,10 +169,23 @@ export default function SystemHeroCard({
           it carries the meaning. It is deliberately allowed to run past this
           element's own height, which is what puts it behind the first cards
           exactly as both frames draw it. */}
+      {/* THE BLEND MODE IS THEME-CONDITIONAL. See the long note on the same
+          change in SystemsOverviewHero.jsx; the arithmetic is identical.
+          `multiply` is `backdrop x source`, and on a dark card the backdrop is
+          ~0.09, so this whole group -- the wave at opacity-50 AND the
+          mix-blend-color tint over it -- collapsed to a near-black rectangle
+          with a brown cast. Measured internal range 1.09:1 under dark against
+          2.78:1 under light.
+
+          Dropping the multiply off `light` is what restores it. The group then
+          composites normally: the card shows through the wave's 50% alpha and
+          the tint takes its hue from #ff7b7d / #6bb2fa and its luminance from
+          that result, which is the same construction `light` gets -- only the
+          ground underneath has moved. `light` is untouched. */}
       <div
         aria-hidden="true"
         className={cn(
-          'absolute mix-blend-multiply pointer-events-none rounded-[20px] top-0',
+          'absolute mix-blend-multiply [[data-theme]:not([data-theme=light])_&]:mix-blend-normal pointer-events-none rounded-[20px] top-0',
           'inset-x-0 mx-auto h-[291px] w-[369px]',
         )}
         data-node-id={alert ? '199383:141500' : '199394:79634'}
@@ -181,10 +194,19 @@ export default function SystemHeroCard({
           <div className="absolute inset-0 opacity-50 overflow-hidden rounded-[20px]">
             <img alt="" className="absolute h-full left-[-13.65%] max-w-none top-0 w-[121.84%]" src={wave} />
           </div>
+          {/* The two tints were frozen hex. Neither is a new colour: #ff7b7d is
+              --red-400 (#ff6467) and #6bb2fa is --wave-bg-from (#66B5F9), both
+              within a couple of sRGB units of the token that already names
+              them. They are NOT identical, though, so `light` keeps its literal
+              -- a token swap here would move light pixels -- and every other
+              theme takes the named token, which is the only form that can
+              follow `contrast`. */}
           <div
             className={cn(
               'absolute inset-0 mix-blend-color rounded-[20px]',
-              alert ? 'bg-[#ff7b7d]' : 'bg-[#6bb2fa]',
+              alert
+                ? 'bg-[#ff7b7d] [[data-theme]:not([data-theme=light])_&]:bg-red-400'
+                : 'bg-[#6bb2fa] [[data-theme]:not([data-theme=light])_&]:bg-[var(--wave-bg-from)]',
             )}
           />
         </div>
@@ -245,7 +267,10 @@ export default function SystemHeroCard({
         >
           {delta ? (
             <div
-              className="bg-[rgba(241,245,249,0.28)] content-stretch flex h-[34px] items-center justify-center relative rounded-[12px] shrink-0 w-[100px]"
+              /* Same veil as the hero chips in SystemsOverviewHero.jsx, and
+                 the same ruling: `light` keeps the literal byte for byte, every
+                 other theme computes the 28% from --ink-on-color. */
+              className="bg-[rgba(241,245,249,0.28)] [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)] content-stretch flex h-[34px] items-center justify-center relative rounded-[12px] shrink-0 w-[100px]"
               data-node-id="199383:141638"
             >
               <div

@@ -133,6 +133,64 @@ function hourlyFromDay(systemId, monitoring, day) {
   return series;
 }
 
+/**
+ * "Oct 1–21" — the elapsed span of a run of DAY buckets.
+ *
+ * The owner asked for month-to-date on 2026-10-21 and wrote the window as
+ * "1-21.10". That was shorthand for the WINDOW, and taking it literally
+ * produced a caption he rejected on sight: "dont like the date format it
+ * looks bad / fix". So the shape is the one above, and the reasons are
+ * recorded here because the next person will otherwise read it as taste:
+ *
+ *   · NO YEAR. The window is always a single calendar month, so the year
+ *     is never the thing in doubt. It was only in the old twelve-month
+ *     caption ("Nov 2025 - Oct 2026") because THAT window spanned two.
+ *   · AN EN DASH (U+2013), not a hyphen. It is a range, and the en dash is
+ *     what a range is set with.
+ *   · IT READS AS ENGLISH. "1-21.10" is ambiguous to anyone who takes the
+ *     ".10" for a day or a decimal; "Oct 1–21" cannot be misread.
+ *   · IT FITS. The hero caption box is ~136px and one line; measured at
+ *     393px and 360px, this form holds one line for every month, which
+ *     "Nov 2025 - Oct 2026" did not — it wrapped to three, and that wrap is
+ *     what started this change.
+ *
+ * Both readers of the span need this string — the hero caption names the
+ * current one and the chart legend names the comparison's — so it is one
+ * exported function rather than two copies that can drift apart.
+ *
+ * It reads the ROWS (PLS-WC-06), never the clock: a bucket with no reading
+ * is not part of the span, which is the whole of what makes October report
+ * 1–21 while September reports 1–30, and what makes a clamped comparison
+ * ("Feb 1–28" against "Mar 1–31") describe what it actually covers. A
+ * single-day window prints "Oct 1", never "Oct 1–1". Rows that are not day
+ * buckets have no day-span to name and get null, which is how every other
+ * grouping keeps its own label untouched.
+ *
+ * LOCALE: this builds from MONTH_SHORT, which is the pattern this module
+ * already uses for every other label it emits (monthTick, bucketMonthly).
+ * That table is ENGLISH-ONLY — and so is every other date in this app: each
+ * Intl/toLocaleString call in src pins an explicit 'en-US', 'en-GB' or
+ * 'en-CA' locale, so there is no localized date mechanism here to match.
+ * Reaching for Intl.DateTimeFormat here would add a second pattern and
+ * still render English. Making dates follow i18n is a real piece of work
+ * across the app, not a change to this function; it is flagged for the
+ * owner rather than started here.
+ */
+export function daySpanLabel(rows) {
+  const read = (rows ?? []).filter(
+    (p) => p && p.litres !== null && p.litres !== undefined && p.key?.kind === 'day',
+  );
+  if (!read.length) return null;
+  const from = read[0].key;
+  const to = read[read.length - 1].key;
+  /* A Daily window is one calendar month, so both ends share a month and the
+     name is printed once. If a window that spans months ever reaches here it
+     would be mislabelled, so it names both rather than lying. */
+  if (from.m !== to.m) return `${MONTH_SHORT[from.m]} ${from.d}–${MONTH_SHORT[to.m]} ${to.d}`;
+  if (from.d === to.d) return `${MONTH_SHORT[from.m]} ${from.d}`;
+  return `${MONTH_SHORT[from.m]} ${from.d}–${to.d}`;
+}
+
 /* ── Bucketing ─────────────────────────────────────────────────────────────*/
 
 function bucketDaily(daily, offset) {
@@ -164,7 +222,25 @@ function bucketDaily(daily, offset) {
     });
   }
 
-  return { series, label: `${MONTH_NAME[m]} ${y}`, unitLabel: 'Day' };
+  /* MONTH-TO-DATE IS THIS WINDOW, NOT A NEW ONE.
+     The owner, 2026-10-21, on the System hero: "this dates needs to be date
+     to month / eg for today 1-21.10 / compare is to last dates in previous
+     month". That window already exists — it is the Daily grouping at offset
+     0. §5 draws the month at its TRUE length and marks the days it has not
+     reached with litres === null, so the READ rows are exactly the elapsed
+     span and nothing has to be clipped or re-bucketed to get it.
+
+     `labelRange` is that span written the owner's way: day-day then month,
+     no year. It is a THIRD label, not a replacement — `label` ("October
+     2026") still feeds the period control, the tooltip heading and
+     splitPeriodLabel, all of which would be broken by a bare numeric range,
+     and only the hero caption reads this one.
+
+     daySpanLabel() above is the formatter, exported because the COMPARISON
+     span needs the same form and must not get a second implementation of
+     it: the chart's legend names the previous month's matching dates
+     ("Sep 1–21") with the rule that produced "Oct 1–21" here. */
+  return { series, label: `${MONTH_NAME[m]} ${y}`, labelRange: daySpanLabel(series), unitLabel: 'Day' };
 }
 
 /**
@@ -298,6 +374,7 @@ export function getFleetConsumptionSeries(systems, period = 'D', offset = 0) {
   const order = [];
   let label = '';
   let labelShort = '';
+  let labelRange = null;
   let unitLabel = 'Day';
 
   for (const system of systems ?? []) {
@@ -306,6 +383,11 @@ export function getFleetConsumptionSeries(systems, period = 'D', offset = 0) {
     /* Only Hourly carries a distinct short form; everywhere else the two are
        the same string, so the fallback keeps one label for the fleet too. */
     if (part.label) labelShort = part.labelShort ?? part.label;
+    /* Daily's month-to-date caption. Every system in the fleet walks the same
+       calendar month, so they all report the same span and the last one wins
+       harmlessly. Carried here only so the two series APIs keep one shape —
+       the fleet screen has no hero caption to print it. */
+    if (part.labelRange) labelRange = part.labelRange;
     unitLabel = part.unitLabel;
     for (const point of part.series) {
       if (!totals.has(point.day)) {
@@ -333,6 +415,7 @@ export function getFleetConsumptionSeries(systems, period = 'D', offset = 0) {
     series: order.map((day) => ({ day, litres: totals.get(day), key: keyOf.get(day) })),
     label,
     labelShort: labelShort || label,
+    labelRange,
     unitLabel,
   };
 }

@@ -107,6 +107,26 @@
   --input: var(--slate-200);
   --ring: var(--primary);
   --accent: oklch(0.97271 0.01276 266.701);     /* #f2f6ff — not a ramp step */
+
+  /* TWO BORDER TIERS — WCAG SC 1.4.11. One --border cannot serve both
+     duties: 1.4.11 asks 3:1 of anything that identifies a UI COMPONENT
+     or its state, and asks nothing of a decorative hairline. Carbon
+     ships both tiers and states them on `layer-01`: border-subtle
+     #525252 = 1.94:1 (decorative only) and border-strong #6f6f6f =
+     3.01:1, i.e. 1.4.11 exactly. Primer and Atlassian split the same way.
+
+     --border STAYS the subtle tier, so every existing call site keeps
+     the meaning it already has, and --border-subtle is its name for new
+     code. --border-strong is the new one, and it is where inputs,
+     focusable chrome and the chart's zero axis belong.
+
+     Neither is a new literal — both are ramp steps, so a theme moves
+     them for free. Measured over --surface-card: `light` 1.07:1 subtle,
+     4.59:1 strong. `dark` re-picks the STRONG step only, because the
+     ramp inverts there and var(--slate-500) lands on zinc-400, which
+     overshoots — see the note in the dark block. */
+  --border-subtle: var(--slate-200);
+  --border-strong: var(--slate-500);
   --accent-foreground: var(--primary);
 
   /* The house card surface. Phase 4 moved the call sites onto it; there
@@ -138,6 +158,31 @@
   --red-600: oklch(0.58304 0.23867 28.476);     /* #e7000b */
   --orange-100: oklch(0.95396 0.03825 76.199);  /* #ffedd4 */
 
+  /* FOUR MORE STOCK-TAILWIND STEPS, DECLARED FOR EXACTLY THE REASON
+     --neutral-* above and --orange-100 beside it were: `text-gray-700`,
+     `bg-red-200`, `text-red-700` / `bg-red-700` and `text-red-900` are
+     written in components, were never mapped in @theme inline, and so
+     bound to STOCK Tailwind — which no theme can move. Measured on the
+     `dark` card before these lines existed: text-gray-700 #364153 at
+     1.83:1, text-red-700 #c10007 at 2.94:1, bg-red-700 at 2.91:1.
+     Naming them is what makes them follow a theme. The values are
+     Tailwind v4's own, read out of node_modules/tailwindcss/theme.css,
+     so `light` does not move by a single bit. */
+  --gray-700: oklch(0.373 0.034 259.733);       /* #364153 — tw gray-700 */
+  --red-200: oklch(0.885 0.062 18.334);         /* #ffc9c9 — tw red-200 */
+  --red-700: oklch(0.505 0.213 27.518);         /* #c10007 — tw red-700 */
+  --red-900: oklch(0.396 0.141 25.723);         /* #82181a — tw red-900 */
+
+  /* A FIFTH, found by rendering the utilities rather than by reading
+     the component source: `text-orange-600` is the warning INK that
+     sits on bg-orange-100 in EventsTimelineCard and SystemsTableCard,
+     and it was frozen by the same mechanism as the four above. It
+     matters more than the others, because --orange-100 under it is now
+     a dark alpha surface — leaving the ink frozen would have left the
+     one chip in the app with a light-theme ink on a dark-theme ground,
+     at 4.14:1. */
+  --orange-600: oklch(0.646 0.222 41.116);      /* #f54a00 — tw orange-600 */
+
   /* Neutral ramp — a SECOND, TRUE-GREY ramp that the slate one above
      does not cover. These four are Tailwind v4's stock `neutral` steps,
      to the bit: they arrived with the shadcn components and the Figma
@@ -166,6 +211,222 @@
   --danger: oklch(0.52391 0.12865 6.406);          /* #A5455E valve errors */
   --success: oklch(0.63087 0.17002 133.628);       /* #5C9E1A */
 
+  /* INK PARTNERS FOR THE BOLD SEMANTIC FILLS. CLAUDE.md fixes the four
+     hexes above as product semantics, so a theme cannot move the
+     GROUND — but it can and must move the INK that sits on it. That is
+     shadcn's own documented pattern from its --warning worked example
+     (the surface darkens, the ink inverts), and Material 3 states it as
+     a rule: a dark scheme's `onError` is tone 20, i.e. dark ink on a
+     light red. Atlassian measures the same thing from the other end —
+     on its dark `background-danger-bold` #F87168, white is 2.78:1 and
+     black is 7.55:1.
+
+     In `light` all four keep --ink-on-color, which is what these chips
+     paint today. `dark` flips THREE of them; which three, and the
+     measurement that decides it, is in the dark block. */
+  --severity-high-foreground: var(--ink-on-color);
+  --severity-low-foreground: var(--ink-on-color);
+  --danger-foreground: var(--ink-on-color);
+  --success-foreground: var(--ink-on-color);
+
+  /* ── ALERT FAMILIES — Primer's model ───────────────────────────
+     THE DEFECT: --red-100 #ffe2e2 and --orange-100 #ffedd4 are tinted
+     SURFACES, and `dark` inherited them unchanged. Against the dark
+     card they measure 14.54:1 and 15.45:1 — brighter relative to their
+     ground than body text is, so the banner shouts louder than the page
+     it is on.
+
+     Three shipped strategies exist. Carbon abolishes the tint (error,
+     warning, success and info notification grounds are ALL #262626,
+     identical to the plain layer, and severity is carried by icon and
+     text). Atlassian uses a dark, near-chroma-free maroon (#42221F).
+     PRIMER is the one adopted here: the semantic hue at 10% alpha for
+     the surface and 40% for the border (#f851491a / #f8514966). It wins
+     because one alpha token is correct on the page, on the card AND on
+     a raised card, which is precisely this repo's problem — the same
+     chip is painted on all three.
+
+     THE BORDERS FOLLOW PRIMER IN EVERY THEME, because a 40% mix against
+     `transparent` is premultiplied and so changes only the alpha (the
+     same fact the --wash-* block below relies on). It is therefore
+     byte-identical to Tailwind's own `/40` modifier, which is what the
+     one incumbent site — /account's `border-red-400/40` — already
+     writes. `light` does not move.
+
+     THE SURFACES CANNOT follow Primer in `light`: #ffe2e2 and #ffedd4
+     are Figma's and Ruling B freezes them. They keep those literals
+     here and switch to Primer's 10% from `dark` onward. The success
+     family has no Figma incumbent, so it takes Tailwind green-100 —
+     the value its one call site (SystemTypeCard) hard-codes today as
+     bg-[#dcfce7]. */
+  --alert-surface-critical: var(--red-100);        /* #ffe2e2 — Figma */
+  --alert-border-critical: color-mix(in oklab, var(--red-400) 40%, transparent);
+  --alert-ink-critical: var(--red-600);            /* #e7000b — Figma */
+
+  --alert-surface-warning: var(--orange-100);      /* #ffedd4 — Figma */
+  --alert-border-warning: color-mix(in oklab, var(--severity-low) 40%, transparent);
+  --alert-ink-warning: oklch(0.646 0.222 41.116);  /* #f54a00 — tw orange-600,
+                                                      the incumbent ink */
+
+  /* #dcfce7 is Tailwind GREEN-100 AS THE CALL SITE SPELLS IT, and that
+     is deliberately not tw v4's own oklch(96.2% 0.044 156.743), which
+     round-trips to #dbfce7 — one level off on red. The incumbent is
+     the literal, so the literal is what gets converted, by the same
+     exact round-trip rule as every other oklch in this file. */
+  --alert-surface-success: oklch(0.96241 0.04338 156.743); /* #dcfce7 */
+  --alert-border-success: color-mix(in oklab, var(--success) 40%, transparent);
+  --alert-ink-success: var(--success);             /* #5C9E1A — Wint ok */
+
+  /* ── CATEGORICAL BLUE — A THIRD RAMP, AND WHY IT HAS TO BE ──────
+     The donut on HomeAllAccounts draws FIVE wedges of one quantity
+     (share of usage per system). --chart-1/2/3 are three blues, which
+     is two short, and --chart-4/5 are not spare slots: the block below
+     calls them "the semantic escapes for a series that must read as
+     good / critical" and aliases them to --success / --severity-high,
+     so spending them would paint a green and a pink wedge into a blue
+     donut. --wave-* is scenery, not data, and had no dark declaration
+     at all. Hence a ramp of its own.
+
+     THE :root VALUES ARE THE COMP'S FIVE ARC FILLS, byte for byte, so
+     the light donut does not move — #022170 is a shipped navy and is
+     not a value to re-derive. Under `dark` the ramp SHIFTS LIGHTER as a
+     whole rather than being re-hued, because the arcs render at
+     opacity 0.8 and the dark end is what fails: measured on the dark
+     card, #022170 is 1.14:1 solid and 1.09:1 composited. The dark ramp
+     is Tailwind blue-100..500, which clears 3:1 at every step WITH the
+     0.8 applied (9.02 / 7.83 / 6.30 / 4.49 / 3.27).
+
+     NOT FIXED, AND REPORTED RATHER THAN QUIETLY LEFT: under `light`
+     these same arcs measure 1.30 / 1.84 / 2.69 / 3.90 / 7.84:1 against
+     the card, so THREE OF FIVE already fail SC 1.4.11 today. Ruling B
+     freezes them and this file does not get to overrule it. The light
+     donut is a pre-existing accessibility defect that needs an owner's
+     ruling, not a token.
+
+     ORDER IS LIGHT -> DARK in both themes, so a consumer that maps
+     wedge N to step N keeps its ordering under every theme. */
+  --data-blue-1: oklch(0.87454 0.07194 235.505);  /* #a8deff */
+  --data-blue-2: oklch(0.74680 0.13844 246.492);  /* #5bb4ff */
+  --data-blue-3: oklch(0.62760 0.20130 256.099);  /* #1c85fe */
+  --data-blue-4: oklch(0.53414 0.25887 263.096);  /* #0a55ff */
+  --data-blue-5: oklch(0.29256 0.14024 263.085);  /* #022170 — shipped navy */
+
+  /* The donut's LEGEND is a different palette from the donut's own arcs
+     — the comp draws them that way and HomeAllAccounts keeps both as
+     drawn. Its four keys are plain Tailwind blue steps, and three of
+     them (blue-300 / blue-500 / blue-600) are already --chart-1/2/3
+     exactly, so those need nothing. The fourth is blue-800, the only
+     one that fails (1.86:1 on the dark card), and it is named here on
+     the same convention as --red-* / --orange-* / --neutral-*: a ramp
+     step, named by its step, so a theme can move it. */
+  --blue-800: oklch(0.424 0.199 265.638);       /* #193cb8 — tw blue-800 */
+
+  /* ── FLEET HEALTH BAR — A FILL IS NOT AN INK ──────────────────
+     The bar's red was `bg-red-700`, and --red-700 has to LIGHTEN under
+     dark because its other job is ink on a dark card. That is correct
+     for ink and wrong here: it dropped red-vs-green separation on the
+     bar from 5.46:1 to 2.46:1. Not a 1.4.11 failure — the two segments
+     are parted by a 1.622px gap showing the card and each clears 3:1
+     against it — but the bar's whole job is a glanceable healthy /
+     unhealthy split, and that is what was lost.
+
+     One token cannot be both, so the fill gets its own. The green needs
+     no dark value: it is a pale mint that already measures 11.8:1 on
+     the dark card, and the two stops are named here only so the bar has
+     no frozen literals left. Light is unchanged by construction —
+     --bar-fill-risk IS var(--red-700) here. Dark restores the
+     separation to 3.43:1 while keeping the fill itself at 3.45:1
+     against the card. */
+  --bar-fill-risk: var(--red-700);                /* #c10007 */
+  --bar-fill-ok-from: oklch(0.93768 0.05891 157.152); /* #cbf7db */
+  --bar-fill-ok-to: oklch(0.87329 0.14385 154.315);   /* #81f1aa */
+
+  /* CHART CHROME, SEPARATE FROM THE DATA MARKS. The grid and the zero
+     axis are not a series and must not be re-derived with one: a theme
+     that recolours the bars should leave the ruler alone. Both values
+     are the literals these two lines painted before they were
+     tokenized (#e5e5e5 grid, #d4d4d4 axis, in WaterConsumptionCardV2),
+     so `light` does not move; every other theme re-derives them off the
+     border tiers. */
+  --chart-grid: var(--neutral-200);             /* #e5e5e5 */
+  --chart-axis: oklch(0.87006 0 0);             /* #d4d4d4 — not a ramp step */
+
+  /* ── THE COMPARISON LINE IS INK, NOT A SECOND BLUE ──────────────
+     The consumption chart draws a previous-period line OVER bars filled
+     with --primary. While that line came out of the blue ramp it was
+     invisible wherever it crossed a bar: measured 1.73:1 in `light`
+     (a pre-existing failure nobody had measured) and, once --chart-2
+     became the generator's blue-500, 1.00:1 in `dark` — byte-identical
+     to the bar it was drawn on.
+
+     NO STEP OF THE RAMP CAN FIX IT, and that is a proof, not a search.
+     Against a near-white plot ground `light` needs the line at relative
+     luminance <= 0.042 to clear 3:1 on a blue bar; `dark` needs
+     >= 0.737. The two regions are disjoint, so a token with one value
+     in both modes cannot satisfy both — which is exactly what the
+     generator's "--chart-1..5 identical in both modes" asks for. The
+     ramp keeps that property, and this line steps out of the ramp.
+
+     THE SEMANTIC IS THE REAL ARGUMENT. An overlaid previous-period line
+     is a BENCHMARK, not a second series. Drawing it in the bars' own
+     hue family says "two comparable quantities"; drawing it as ink says
+     "this is the reference the bars are measured against", which is
+     what it is. It also repairs the legend, whose two glyphs were
+     otherwise the same blue under `dark` — a legend that exists to tell
+     two series apart and did so with no colour difference at all.
+
+     THE WEIGHT IS PER THEME AND IS NOT A TASTE. --foreground at full
+     strength is too assertive at 1.5px where there is room to soften,
+     and there is not always room: the line has to clear 3:1 against the
+     plot ground AND against --primary, and those two squeeze from
+     opposite sides. `light` has headroom and spends some of it. `dark`
+     has almost none — full --foreground is only 3.60:1 on the bar — so
+     it spends none. `sand` is the odd one: its --primary is stone-900,
+     a near-black BAR, so ink on ink fails at 1.13:1 and the line has to
+     move to the MIDDLE instead, away from both. Measured values are on
+     each line.
+
+     This is the one token in this file that MOVES `light`. That is a
+     deliberate, granted exception: light's line-on-bar is a 1.73:1 SC
+     1.4.11 failure today, and the pixel-identity rule was never meant
+     to protect a defect. Everything else in `light` is untouched. */
+  --chart-reference: color-mix(in oklab, var(--foreground), var(--surface-card) 12%);
+
+  /* The phone frame's status glyphs.
+
+     THIS WAS #111111 AND THAT WAS THE WRONG MODE. ThemeContext.jsx
+     carries #111 on its DARK and LIGHT entries (:54, :109) — and v2
+     renders neither. Phone.jsx wraps every v2 route in the `wint`
+     theme, whose statusBarColor is ThemeContext.jsx:171 = #0f172b,
+     which is --slate-900 exactly. Reading the first literal in the file
+     instead of the one the app actually mounts cost a 26-per-channel
+     delta across the glyph row at y50-62, and it was the only real
+     pixel difference in the whole light-parity sweep.
+
+     Naming the ramp step rather than the hex also means every theme
+     gets it for free, so there is no per-theme override below. */
+  --status-bar-ink: var(--slate-900);           /* #0f172b */
+
+  /* ── ELEVATION ──────────────────────────────────────────
+     Two steps, and the dark pair is NOT the light pair with a bigger
+     alpha. A black shadow on a black ground is not a shadow: on the
+     `dark` page, rgba(0,0,0,0.1) over #111114 lifts a card by nothing
+     at all.
+
+     Primer's answer, which the dark block follows: a dark shadow is
+     cast in #010409 — a near-black DARKER than the page (#0d1117) — at
+     40-80% alpha, with a `0 0 0 1px` spread ring doing the work the
+     blur cannot. Atlassian supplies the other half: its dark overlay
+     shadow carries a `0px 0px 0px 1px #BDBDBD1F` (~12% white) ring, and
+     its LIGHT theme has no white ring at all. So the ring is a
+     dark-theme instrument and is declared only there.
+
+     The two values here are the comp's own literals — the ones the
+     call sites wrote inline before this token existed — so `light`
+     does not move. */
+  --shadow-raised: 0px 1px 2px 0px rgba(0, 0, 0, 0.08);
+  --shadow-overlay: 0px 25px 50px -12px rgba(0, 0, 0, 0.1);
+
   /* App background — screen roots. 129.43deg in the comp. */
   /* Figma 198314:73471 "All accounts" — the screen root's wash, verbatim from
      the design context.
@@ -180,22 +441,120 @@
 
      Verified by sampling both: Figma rgb(232,239,252) top to rgb(240,243,249)
      bottom, against this at worst 6 off at the very top edge and 1-2 elsewhere. */
-  --app-bg:
-    linear-gradient(101.4227deg,
+  /* THE STOPS ARE THE TOKEN; THE ANGLE CANNOT BE. Nine components paint
+     this same wash at nine DIFFERENT angles (125.34, 131.41, 145.43,
+     168.93, 170.60, 170.67 ...) — which is why all nine hard-coded the
+     whole gradient, and why --tile-bg ended up with zero consumers: it
+     could not carry a per-site angle.
+
+     THEY DO NOT ALL SHARE ONE STOP SET, and an earlier draft of this
+     comment said they did. Binding all of them to --chip-bg-stops on
+     that assumption would have moved `light` at three sites.
+     ValveStatusCard's STRIP, AlertCard's CHIP_SHEEN and PillTabs'
+     BADGE_WASH paint the PAGE-ROOT set (29.24 / 12.35 / 17.588 /
+     76.864) and take --app-bg-stops; the rest take --chip-bg-stops.
+     Check the first stop position before you pick: 29.24% is the app
+     set, 8.3855% is the chip set.
+
+     AN ANGLE CUSTOM PROPERTY DOES NOT SOLVE THIS, and it is worth
+     writing down why, because it looks like it should. A custom
+     property's own var() references are substituted at computed-value
+     time ON THE ELEMENT THAT DECLARES IT. --chip-bg is declared here,
+     on :root, so its angle is baked in here; a descendant setting
+     --chip-bg-angle is substituting into a value that has already
+     resolved, and nothing happens. Verified in the browser, not
+     assumed.
+
+     What DOES work is exposing the stop list, because a stop list needs
+     no per-element context. A site at the default angle writes
+     var(--chip-bg); a site at any other angle writes
+
+       linear-gradient(131.41deg, var(--chip-bg-stops)),
+       linear-gradient(90deg, var(--card) 0%, var(--card) 100%)
+
+     and is themed for free. The stop VALUES and positions below, and
+     the two default angles, are copied verbatim from the declarations
+     that were here — including the non-ascending order the twenty
+     lines of comment above justify — so nothing moves. */
+  --app-bg-stops:
       rgba(233, 238, 248, 0.8) 29.24%,
       rgba(212, 226, 255, 0.8) 12.35%,
       rgba(228, 235, 250, 0.8) 17.588%,
-      rgba(233, 237, 243, 0.8) 76.864%),
-    linear-gradient(90deg, #ffffff 0%, #ffffff 100%);
+      rgba(233, 237, 243, 0.8) 76.864%;
 
-  /* Same ramp, steeper — the 2x2 issue tiles and the small status pills. */
-  --tile-bg:
-    linear-gradient(170.67deg,
+  --chip-bg-stops:
       rgba(233, 238, 248, 0.8) 8.3855%,
       rgba(227, 235, 249, 0.8) 32.2%,
       rgba(228, 235, 250, 0.8) 40.822%,
-      rgba(212, 226, 255, 0.8) 71.236%),
+      rgba(212, 226, 255, 0.8) 71.236%;
+
+  /* A THIRD SET, BECAUSE THREE SITES ARE FIVE-STOP. Both drawer plates
+     (WintSidebar, WintSidebarV2) and the EventOverlayV2 sheet carry a
+     fifth stop — rgba(233, 237, 243, 0.8) at 82.858% — on top of the
+     chip four. Dropping it is not an option and was measured: 32.6% of
+     the drawer panel and 17.3% of the sheet move by up to 17/255 under
+     `light` without it.
+
+     It exists as its own token rather than being appended at the call
+     site because appending it means a second color-mix hop, and that
+     hop is the entire source of the 1/255 dither in the wash agent's
+     light-parity proof (4.5% of the drawer region off by exactly one,
+     nothing by more). Declared here, `light` is byte-exact.
+
+     The tail colour is the app set's fourth stop, which is why the
+     themed version below reaches for --wash-4. */
+  --panel-bg-stops:
+      rgba(233, 238, 248, 0.8) 8.3855%,
+      rgba(227, 235, 249, 0.8) 32.2%,
+      rgba(228, 235, 250, 0.8) 40.822%,
+      rgba(212, 226, 255, 0.8) 71.236%,
+      rgba(233, 237, 243, 0.8) 82.858%;
+
+  /* ── SCRIM — ANCHORED TO DARKNESS, NOT TO THE RAMP ──────────────
+     THIS IS THE ONE TOKEN IN THIS FILE THAT MUST NOT FOLLOW THE RAMP.
+     The literal it replaces is slate-900 at 25%, and the obvious move —
+     color-mix(var(--slate-900) 25%, transparent) — is wrong: --slate-900
+     inverts to near-white under `dark`, so the veil meant to push the
+     page back would paint a WHITE wash over a dark app and pull it
+     forward. A scrim means "what is behind this is receding", and
+     receding is darker in every theme that has ever shipped. Material 3
+     states it outright: `scrim` is neutral 0 — black — in BOTH schemes.
+
+     So it is a literal, deliberately, like the gradients above it. The
+     light value is the call site's own fallback byte for byte.
+
+     `dark` still needs its own, because 25% of a slate over a #09090b
+     app is a visible no-op — the page behind the open drawer is simply
+     not dimmed. See the dark block. */
+  --scrim: rgba(15, 23, 42, 0.25);              /* slate-900 @ 25% */
+
+  --app-bg:
+    linear-gradient(101.4227deg, var(--app-bg-stops)),
     linear-gradient(90deg, #ffffff 0%, #ffffff 100%);
+
+  /* Same ramp, steeper — the panel and chip wash: the 2x2 issue tiles,
+     the small status pills, and the eight components that each wrote
+     this gradient out by hand (AlertCard, EventOverlay, EventOverlayV2,
+     PillTabs, SystemsHealthCard, ValveStatusCard, WintSidebar,
+     WintSidebarV2). --chip-bg is the name the components bind to.
+
+     --tile-bg IS WIRED, NOT DELETED. It had zero consumers anywhere in
+     src/ — grep found only this file and one test comment — for the
+     reason above: it could not carry a per-site angle, so every site
+     that wanted it copied it instead. It is the same wash as --chip-bg
+     at the default angle, so it is now one declaration with two names
+     rather than two declarations that have to be kept in step. */
+  /* CAREFUL — --chip-bg IS A GRADIENT, NOT A COLOUR, and Tailwind will
+     not tell you. `bg-[var(--chip-bg)]` compiles to `background-color`,
+     the declaration is invalid, and the browser drops the WHOLE thing
+     silently: no wash, no warning, no console entry. It has to be
+     `bg-[image:var(--chip-bg)]`, or plain `background: var(--chip-bg)`
+     in a style object. Same for --app-bg and --tile-bg. */
+  --chip-bg:
+    linear-gradient(170.67deg, var(--chip-bg-stops)),
+    linear-gradient(90deg, #ffffff 0%, #ffffff 100%);
+
+  --tile-bg: var(--chip-bg);
 
   --wave-bg-from: oklch(0.75046 0.12587 246.447); /* #66B5F9 */
   --wave-bg-to: oklch(0.66437 0.16644 253.637);   /* #3E95F6 */
@@ -260,11 +619,30 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
 
   --color-severity-high: var(--severity-high);
   --color-severity-low: var(--severity-low);
   --color-danger: var(--danger);
   --color-success: var(--success);
+
+  --color-severity-high-foreground: var(--severity-high-foreground);
+  --color-severity-low-foreground: var(--severity-low-foreground);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-alert-surface-critical: var(--alert-surface-critical);
+  --color-alert-border-critical: var(--alert-border-critical);
+  --color-alert-ink-critical: var(--alert-ink-critical);
+  --color-alert-surface-warning: var(--alert-surface-warning);
+  --color-alert-border-warning: var(--alert-border-warning);
+  --color-alert-ink-warning: var(--alert-ink-warning);
+  --color-alert-surface-success: var(--alert-surface-success);
+  --color-alert-border-success: var(--alert-border-success);
+  --color-alert-ink-success: var(--alert-ink-success);
+
+  --color-status-bar-ink: var(--status-bar-ink);
 
   --font-mono-label: 'Geist', ui-sans-serif, system-ui, sans-serif;
 
@@ -302,6 +680,16 @@
      bg-orange-100 and this line is what makes that correct. */
   --color-orange-100: var(--orange-100);
 
+  /* Same trick, same reason — see the --gray-700 / --red-* block in
+     :root. Without these four lines `text-gray-700`, `bg-red-200`,
+     `text-red-700`, `bg-red-700` and `text-red-900` bind to stock
+     Tailwind and no theme can move them. */
+  --color-gray-700: var(--gray-700);
+  --color-orange-600: var(--orange-600);
+  --color-red-200: var(--red-200);
+  --color-red-700: var(--red-700);
+  --color-red-900: var(--red-900);
+
   --color-neutral-200: var(--neutral-200);
   --color-neutral-500: var(--neutral-500);
   --color-neutral-900: var(--neutral-900);
@@ -315,6 +703,23 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
+  /* Chrome, not data — see the :root block. */
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
+  --color-chart-reference: var(--chart-reference);
+
+  --color-data-blue-1: var(--data-blue-1);
+  --color-data-blue-2: var(--data-blue-2);
+  --color-data-blue-3: var(--data-blue-3);
+  --color-data-blue-4: var(--data-blue-4);
+  --color-data-blue-5: var(--data-blue-5);
+  --color-blue-800: var(--blue-800);
+
+  --color-bar-fill-risk: var(--bar-fill-risk);
+  --color-bar-fill-ok-from: var(--bar-fill-ok-from);
+  --color-bar-fill-ok-to: var(--bar-fill-ok-to);
+  --color-scrim: var(--scrim);
 }
 
 .material-symbols-outlined {
@@ -428,40 +833,165 @@ button {
   --neutral-900: oklch(96.7% 0.001 286.375); /* zinc-100 */
   --neutral-950: oklch(98.5% 0 0);           /* zinc-50 */
 
-  /* shadcn Zinc, cssVars.dark — verbatim */
+  /* ── shadcn, cssVars.dark ── but from the RIGHT URL this time ─────
+     THE BUG THIS BLOCK FIXES IS A MISSING URL PARAMETER. shadcn has TWO
+     colour axes: `baseColor` (the neutrals) and a separate `theme` axis
+     (the brand hue) that sets --primary, --sidebar-primary and the
+     charts. /r/colors/zinc.json, which Phase 2 transcribed, is what you
+     get when you DECLINE a brand hue — shadcn's monochrome build. That
+     is the whole reason Wint blue vanished under `dark`: not a
+     principle, a parameter.
+
+     Wint blue #0b81f8 sits almost exactly on Tailwind blue-500, so the
+     values below are the real generator output for theme=blue, fetched
+     from and transcribed by hand out of
+
+       https://ui.shadcn.com/init?base=base&style=nova&baseColor=zinc
+         &theme=blue&chartColor=blue&iconLibrary=lucide&font=inter
+         &rtl=false&menuColor=default&menuAccent=subtle&radius=medium
+         &only=theme
+
+     NOT by running `shadcn apply`, which rewrites the whole stylesheet
+     and would have destroyed the hand-authored `light` theme, the
+     --wash-* machinery and the `contrast` instrument. The generator's
+     rule, verified across the returned set: --primary light = blue-700,
+     dark = blue-800 (darker, not lighter); --primary-foreground =
+     blue-50 in both; --sidebar-primary light = blue-600, dark =
+     blue-500; --chart-1..5 = blue-300/500/600/700/800, identical in
+     both modes.
+
+     ONE VALUE IS DELIBERATELY NOT THE GENERATOR'S, AND THIS IS WHY.
+     --primary is blue-500 here, which is the generator's dark
+     --sidebar-primary, not its dark --primary (blue-800 #193cb8).
+     shadcn's --primary is a FILL token, always paired with
+     --primary-foreground; this repo additionally uses it as INK, at 24
+     `text-primary` sites across 16 v2 components, and --ring in :root
+     aliases it too. Measured on the new card: blue-800 as ink is
+     1.86:1 — unreadable — while blue-500 is 4.37:1. As a FILL,
+     blue-500 under the --primary-foreground below measures 4.71:1,
+     which passes. blue-800 would have been correct for shadcn's
+     component contract and is wrong for this repo's, so the value moves
+     one step and stays inside the generator's own output rather than
+     being invented. The remaining five are verbatim. */
   --background: oklch(0.141 0.005 285.823);
   --card: oklch(0.21 0.006 285.885);
   --popover: oklch(0.21 0.006 285.885);
-  --primary: oklch(0.92 0.004 286.32);
+  --primary: oklch(0.623 0.214 259.815);          /* blue-500 #2b7fff — see above */
   --primary-foreground: oklch(0.21 0.006 285.885);
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
-  --accent: oklch(0.274 0.006 286.033);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
   --sidebar: oklch(0.21 0.006 285.885);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+
+  /* THE SECOND "PRIMARY" IS GONE. oklch(0.488 0.243 264.376) — blue-700
+     #1447e6 — was hardcoded in all seven shadcn registry files and so
+     survived Phase 2 untouched, giving `dark` two different brand
+     identities at once: a saturated blue in the drawer and a near-white
+     --primary everywhere else. On the dark sidebar it measured 2.59:1,
+     nearly unreadable. This is the generator's dark --sidebar-primary.
+     Its foreground moves with it: white on blue-500 is 3.60:1 and
+     fails, the dark ink below is 4.71:1 and passes — the same ink
+     inversion the severity fills make further down. */
+  --sidebar-primary: oklch(0.623 0.214 259.815);  /* blue-500 */
+  --sidebar-primary-foreground: oklch(0.21 0.006 285.885);
   --sidebar-accent: oklch(0.274 0.006 286.033);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
 
-  /* shadcn declares no --destructive-foreground; this repo does. */
-  --destructive-foreground: oklch(0.985 0 0);
+  /* ── BORDERS — the generator's own pair FAILS SC 1.4.11 ─────────
+     shadcn ships --border: oklch(1 0 0 / 10%) and --input: 15% in every
+     dark registry. Composited over the card those measure 1.38:1 and
+     1.58:1; 1.4.11 needs 3:1 of anything identifying a UI component or
+     its state. A semi-transparent white also cannot be measured without
+     knowing its ground, which is why this repo's cards, page and
+     raised cards each got a different border for free.
 
-  /* Chart 1-3 are the neutral data series and come from shadcn Zinc.
+     Both tiers therefore drop back onto the RAMP, which is what :root
+     does and what the shadcn override broke. --border-subtle comes free
+     from :root (var(--slate-200) = zinc-700 here, 1.57:1 — above the
+     1.38 it replaces and squarely in Carbon's decorative-only tier).
+     --border-strong is re-picked because the ramp INVERTS: :root's
+     var(--slate-500) lands on zinc-400 here and overshoots at 6.36:1,
+     so it steps to var(--slate-400) = zinc-500 = 3.40:1 — which is
+     also, exactly, the value shadcn itself ships as this theme's --ring.
+     --input is the strong tier because an input border IS the control. */
+  --border: var(--border-subtle);
+  --border-strong: var(--slate-400);              /* zinc-500 — 3.40:1 */
+  --input: var(--border-strong);
+  --sidebar-border: var(--border-subtle);
+
+  /* ── FOCUS ── the one place 3:1 is not negotiable ──────────────
+     A focus indicator is explicitly NOT covered by WCAG's
+     inactive-component exemption, so it must clear 3:1 whatever else
+     does. The generator's --ring (zinc-500) is used at `ring-ring/50`
+     at 39 sites in this repo, and the /50 is what kills it: halved
+     against the card it lands at ~2.1:1. The token has to be bright
+     enough to survive the halving, which zinc-500 is not.
+
+     blue-300 is. Measured at ring-ring/50: 3.29:1 over the card and
+     3.38:1 over the page ground. It is a generator value (it is this
+     theme's --chart-1) and it is the choice Material 3 makes for the
+     same reason — a dark scheme's accent is a LIGHT tone (tone 80),
+     precisely so it survives on dark surfaces. */
+  --ring: oklch(0.809 0.105 251.813);             /* blue-300 */
+  --sidebar-ring: oklch(0.809 0.105 251.813);
+
+  /* ── HOVER NEEDS ITS OWN TIER ─────────────────────────────
+     The registry makes --accent, --muted and --secondary the SAME value
+     under dark (zinc-800), so `hover:bg-accent` over a card painted by
+     one of the others is a no-op. shadcn's own site does not do this:
+     it splits --accent to a distinctly lighter step (#404040 against
+     #262626), dark-only and undocumented. This is that split, one zinc
+     step, with --muted and --secondary left where the registry puts
+     them so muted chips still read against the card.
+
+     Measured: solid `bg-accent` is 1.57:1 over the card, against the
+     1.0:1 it was. The 16 `dark:hover:bg-accent/50` sites still only get
+     1.24:1, because /50 halves whatever the token carries — that one
+     is a component fix (drop the /50; the token now carries the tier),
+     not a token fix, and no value of --accent repairs it without making
+     the solid state read as `selected`. */
+  --accent: oklch(0.37 0.013 285.805);            /* zinc-700 */
+
+  /* shadcn declares no --destructive-foreground; this repo does — and
+     under THIS theme it has to invert, for the reason the severity
+     block below states and --danger refuses: --destructive genuinely
+     LIGHTENS in dark (it is red-400 #ff6467 here, against red-500
+     #fb2c36 in light), so the near-white ink that is right on the light
+     fill measures 2.77:1 on this one and fails. Dark ink measures
+     6.89:1. This is the textbook case of the Material 3 rule — a dark
+     scheme's `onError` is a dark tone — and the one place in this file
+     where the hue really does move. */
+  --destructive-foreground: var(--background);
+
+  /* THE CHART WENT GREY FOR THE SAME REASON --primary DID — the
+     monochrome registry. --chart-2 resolved to oklch(0.552 0.016
+     285.938), which is byte-identical to this theme's old --ring and
+     sits only 0.28 L above the card; that is the comparison line drawn
+     over the bars. 1-3 are now the generator's blue ramp
+     (blue-300/500/600), which is what shadcn's own site ships.
+
+     THE GENERATOR RETURNS THE SAME FIVE IN BOTH MODES and that could
+     not be honoured: :root's chart ramp is Figma's and Ruling B freezes
+     it, so the ramp is declared here only. The two themes therefore
+     disagree on the series — the one place this file knowingly departs
+     from the generator's shape, and it departs in favour of `light`.
+
      4 and 5 stay aliased to --success / --severity-high: the comment on
      the :root chart block calls them "the semantic escapes for a series
      that must read as good / critical", and no shadcn token supplies
      that meaning. */
-  --chart-1: oklch(0.871 0.006 286.286);
-  --chart-2: oklch(0.552 0.016 285.938);
-  --chart-3: oklch(0.442 0.017 285.786);
+  --chart-1: oklch(0.809 0.105 251.813);          /* blue-300 */
+  --chart-2: oklch(0.623 0.214 259.815);          /* blue-500 */
+  --chart-3: oklch(0.546 0.245 262.881);          /* blue-600 */
+
+  /* Chrome re-derives off the border tiers; see :root. */
+  --chart-grid: var(--border-subtle);
+  --chart-axis: var(--border-strong);
+  /* No mix: this theme has no headroom to spend. Full --foreground is
+     already only 3.60:1 against a blue-500 bar, and 3:1 is the floor. */
+  --chart-reference: var(--foreground);
 
   /* Gradient wash stops — see the shared block below for the formula. */
   --wash-1: color-mix(in oklab, var(--background), var(--primary) 6.3%);
@@ -470,11 +1000,132 @@ button {
   --wash-4: color-mix(in oklab, var(--background), var(--primary) 6.5%);
   --wash-5: color-mix(in oklab, var(--background), var(--primary) 9.3%);
 
-  /* The house card surface. In `light` it is the literal #fafbfc, which
-     is exactly color-mix(in oklab, #ffffff, #F4F6F9 44.8%) — i.e. the
-     card mixed 44.8% toward the ground. The same function is applied
-     here rather than a new value being picked. */
-  --surface-card: color-mix(in oklab, var(--card), var(--background) 44.8%);
+  /* ── THE CARD MUST SIT ABOVE ITS GROUND ──────────────────────
+     IT DID NOT. The line this replaces was
+
+       color-mix(in oklab, var(--card), var(--background) 44.8%)
+
+     and it is a correct reading of `light` that is wrong as a rule. In
+     `light` it LIFTS, because --card (#ffffff) sits far above the wash
+     the page actually paints, so nudging it toward --background still
+     leaves it on top: measured ground #edf1f9, card #fafbfc, +0.0859 L,
+     1.09:1. In `dark` it SINKS, because --card (#18181b) is already
+     within a hair of the painted ground: measured ground #141416, card
+     #111114, −0.0014 L, 1.02:1 the WRONG WAY. Cards were darker than
+     the page they sat on.
+
+     The formula is therefore inverted here, not retuned: the card is
+     nudged AWAY from the ground, toward --foreground. The percentage is
+     not a taste and was not picked by eye — it is solved, exactly the
+     way the --wash-* percentages above it were solved, against this
+     repo's OWN light theme: the P that reproduces `light`'s measured
+     1.09:1 card-over-ground on this theme's ground.
+
+     THE TARGET BAND IS 1.07–1.20:1, and it is deliberately far below
+     any WCAG threshold because this is perceptual separation, not
+     contrast. Measured from shipped tokens: Atlassian surface →
+     surface-raised = 1.07:1, Carbon background → layer-01 = 1.20:1,
+     shadcn's own dark --background → --card = 1.12:1. The amateur
+     failures are either end of that band: identical reads flat, 3:1
+     reads stripey. */
+  --surface-card: color-mix(in oklab, var(--card), var(--foreground) 4%);
+
+  /* ── ALERTS — Primer's 10% surface / 40% border ────────────────
+     This is where the strategy chosen in :root actually bites: the
+     surfaces stop being Figma's near-white tints and become the
+     semantic hue at 10% over whatever they are painted on. The borders
+     need no line here — they are already the 40% mix and inherit.
+
+     The INK is re-picked per family, because the light-theme ink is a
+     dark hue and these surfaces are now dark. Each is the lightest
+     Tailwind step of its own hue that clears 4.5:1 on its own surface:
+     critical 4.98:1, warning 6.12:1, success 8.18:1. */
+  --alert-surface-critical: color-mix(in oklab, var(--red-400) 10%, transparent);
+  --alert-ink-critical: var(--red-400);           /* #ff6467 — 4.98:1 */
+  --alert-surface-warning: color-mix(in oklab, var(--severity-low) 10%, transparent);
+  --alert-ink-warning: oklch(0.75 0.183 55.934);  /* #ff8904 tw orange-400 — 6.12:1 */
+  --alert-surface-success: color-mix(in oklab, var(--success) 10%, transparent);
+  --alert-ink-success: oklch(0.792 0.209 151.711);/* #05df72 tw green-400 — 8.18:1 */
+
+  /* AND THE INHERITED TINTS NOW POINT AT THEM. --red-100 paints the
+     /account alert banner, the event-row avatar discs and the timeline
+     chips; --orange-100 the low-flow chips; --red-200 a 16px valve
+     disc. Pointing the ramp steps at the alert family fixes all of
+     those at once, without the call sites having to know. The three
+     dark reds are ink, not surface, and go the other way — --red-600 is
+     the banner text that measured 3.91:1 on its own banner. */
+  --red-100: var(--alert-surface-critical);
+  --red-200: var(--alert-surface-critical);
+  --orange-100: var(--alert-surface-warning);
+  --red-600: var(--alert-ink-critical);
+  --red-700: var(--alert-ink-critical);
+  --red-900: var(--alert-ink-critical);
+  --orange-600: var(--alert-ink-warning);
+
+  /* The categorical ramp shifts LIGHTER as a whole (tw blue-100..500);
+     see :root. Measured at the 0.8 opacity the arcs actually render
+     with: 9.02 / 7.83 / 6.30 / 4.49 / 3.27:1 against the card. */
+  --data-blue-1: oklch(0.932 0.032 255.585);      /* blue-100 */
+  --data-blue-2: oklch(0.882 0.059 254.128);      /* blue-200 */
+  --data-blue-3: oklch(0.809 0.105 251.813);      /* blue-300 */
+  --data-blue-4: oklch(0.707 0.165 254.624);      /* blue-400 */
+  --data-blue-5: oklch(0.623 0.214 259.815);      /* blue-500 */
+
+  /* 1.86:1 -> 6.23:1, and blue-400 is a step the legend's other three
+     keys (blue-300/500/600 via --chart-1/2/3) do not already occupy, so
+     the four swatches stay four colours. */
+  --blue-800: oklch(0.707 0.165 254.624);         /* blue-400 */
+
+  /* A fill, not an ink — see :root. --red-600's own dark value is the
+     alert ink, so the step is written out rather than aliased. */
+  --bar-fill-risk: oklch(0.58304 0.23867 28.476); /* #e7000b */
+
+  /* Primer's dark overlay colour — #010409, the near-black DARKER than
+     the page that the shadow pair above is also cast in — at the middle
+     of its 40-80% range. The inherited slate-900 @ 25% did the opposite
+     of its job here: under this theme --slate-900 is zinc-50, so a
+     ramp-derived scrim would have veiled the page in WHITE. This is why
+     --scrim is a literal in :root and not a color-mix of the ramp. */
+  --scrim: rgba(1, 4, 9, 0.6);
+
+  /* `text-gray-700` is description copy and inverts on the same
+     mechanical rule as --slate-700 directly above it, onto the same
+     zinc step. It measured 1.83:1 here before the token existed. */
+  --gray-700: oklch(92% 0.004 286.32);            /* zinc-200 */
+
+  /* ── BOLD SEMANTIC FILLS FLIP THEIR INK ──────────────────────
+     THE CITED RATIONALE DOES NOT APPLY HERE AND THE FIX STILL DOES.
+     Atlassian and Material 3 invert dark-scheme ink because the
+     semantic hue LIGHTENS in dark; CLAUDE.md fixes these four hexes as
+     product semantics, so they do not lighten — they are the same
+     colour in every theme. What justifies the flip is therefore the
+     direct measurement, not the inheritance: --ink-on-color (#fafbfc)
+     on these grounds measures 3.96:1 (high), 3.21:1 (low) and 3.16:1
+     (success) and fails 4.5:1, while dark ink measures 4.85:1, 5.93:1
+     and 6.03:1 and passes.
+
+     --danger IS NOT FLIPPED. It is the one of the four dark enough that
+     the light ink already wins: on #A5455E, --ink-on-color is 5.57:1
+     and dark ink is 3.42:1. Flipping all four for symmetry would have
+     made one of them worse.
+
+     `light` cannot take the same fix — Ruling B freezes it — so the
+     three failing pairs above are a REAL, UNFIXED light-theme defect
+     and are reported as one. */
+  --severity-high-foreground: var(--background);
+  --severity-low-foreground: var(--background);
+  --success-foreground: var(--background);
+
+  /* Primer's dark shadow colour is #010409 — a near-black DARKER than
+     the page — at 40-80%, plus the spread ring that does the actual
+     lifting; Atlassian's dark overlay supplies the ~12% white ring
+     (#BDBDBD1F). See the :root block for why the ring is dark-only. */
+  --shadow-raised:
+    0 0 0 1px rgba(189, 189, 189, 0.12),
+    0px 1px 3px 0px rgba(1, 4, 9, 0.5);
+  --shadow-overlay:
+    0 0 0 1px rgba(189, 189, 189, 0.12),
+    0px 24px 48px -12px rgba(1, 4, 9, 0.8);
 }
 
 /* ── sand — shadcn Stone (light) ─────────────────────────────────────
@@ -500,8 +1151,40 @@ button {
   --neutral-900: oklch(21.6% 0.006 56.043);  /* stone-900 */
   --neutral-950: oklch(14.7% 0.004 49.25);   /* stone-950 */
 
-  /* shadcn Stone, cssVars.light — verbatim */
-  --background: oklch(1 0 0);
+  /* shadcn Stone, cssVars.light — verbatim, WITH ONE EXCEPTION.
+     --background is Stone's --sidebar (stone-50), not Stone's own
+     --background (#ffffff). Stone ships --background, --card and
+     --popover all as pure white, and because --surface-card is
+     color-mix(--card, --background) that collapsed THREE tokens onto
+     one value here: `border-card` on every card was a white border on
+     a white fill, a literal no-op, and `bg-background` painted the same
+     colour as the thing standing on it.
+
+     It costs nothing visually TODAY — the --app-bg wash is what the
+     page actually paints, and it keeps cards separated at 1.13:1,
+     which is more than `light`'s 1.09:1 — so this is not a repair of
+     something visible. It is a repair of the moment something paints
+     bg-background directly and gets an invisible surface.
+
+     stone-50 is the minimum sourced step that breaks the identity: it
+     is a value Stone itself ships (as --sidebar and
+     --primary-foreground). It is not free, because --background also
+     feeds the --wash-* mix: MEASURED, the page ground moves #f2f1f1 ->
+     #eeeeed and the card #ffffff -> #fdfdfc, i.e. 4 and 2 levels on a
+     near-white field, and card-over-ground goes 1.13:1 -> 1.14:1.
+     That is below the threshold at which anyone will see it and it is
+     NOT zero, so it is written down rather than claimed away. `sand`
+     is only under the no-visible-change rule; `light`, which is under
+     the pixel-identity rule, is untouched by this.
+
+     IT HAS A SECOND COST, MEASURED AFTER THE FACT: because the wash
+     feeds --chip-bg too, the type-chip text on that wash went 4.35:1 ->
+     3.86:1 here. Both are under the 4.5:1 that 12px text wants, so this
+     makes an existing failure slightly worse rather than creating one,
+     and the same change takes `dark` from 2.77:1 to 12.02:1. Kept on
+     that balance, and written down so the next person weighs it with
+     the numbers instead of rediscovering them. */
+  --background: oklch(0.985 0.001 106.423);  /* stone-50 — NOT Stone's #ffffff */
   --foreground: oklch(0.147 0.004 49.25);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.147 0.004 49.25);
@@ -531,6 +1214,17 @@ button {
   --chart-1: oklch(0.869 0.005 56.366);
   --chart-2: oklch(0.553 0.013 58.071);
   --chart-3: oklch(0.444 0.011 73.639);
+
+  /* --chart-grid comes free off --neutral-200 (stone-200). The axis
+     does not: :root's is the literal #d4d4d4, a true grey, which is the
+     one thing a warm theme must not inherit. */
+  --chart-axis: var(--slate-300);            /* stone-300 */
+
+  /* `sand`'s --primary is stone-900 — the bars are near-BLACK here, not
+     blue — so the reference line cannot be ink: it would be ink on ink.
+     It moves to the middle, which is the only band that clears 3:1 from
+     both the near-white plot ground and the near-black bar. */
+  --chart-reference: color-mix(in oklab, var(--foreground), var(--surface-card) 55%);
 
   --wash-1: color-mix(in oklab, var(--background), var(--primary) 6.3%);
   --wash-2: color-mix(in oklab, var(--background), var(--primary) 17.5%);
@@ -583,6 +1277,63 @@ button {
 
   --surface-card: oklch(0.8 0.25 85);        /* NOT the mix: it has to shout */
   --ink-on-color: oklch(0.3 0.25 265);       /* ink moves too, or it is not an instrument */
+
+  /* EVERY TOKEN ADDED TO :root IS RESTATED HERE, and that is the whole
+     point of this theme rather than housekeeping: a token that this
+     block does not move is a token `contrast` can no longer find. The
+     instrument is only as complete as this list. */
+  --border-subtle: oklch(0.8 0.25 60);       /* = its --border */
+  --border-strong: oklch(0.45 0.3 300);
+
+  --alert-surface-critical: oklch(0.72 0.26 355);
+  --alert-border-critical: oklch(0.5 0.3 20);
+  --alert-ink-critical: oklch(0.96 0.2 100);
+  --alert-surface-warning: oklch(0.86 0.21 90);
+  --alert-border-warning: oklch(0.6 0.28 45);
+  --alert-ink-warning: oklch(0.3 0.25 280);
+  --alert-surface-success: oklch(0.82 0.26 155);
+  --alert-border-success: oklch(0.55 0.3 175);
+  --alert-ink-success: oklch(0.25 0.25 310);
+
+  --chart-grid: oklch(0.7 0.28 215);
+  /* Violently off-hue from BOTH this theme's ground (--surface-card,
+     amber) and its bars (--primary, acid yellow) — 4.43:1 and 5.52:1 —
+     so the instrument still shows a line, not just a colour change. */
+  --chart-reference: oklch(0.45 0.3 300);
+  --chart-axis: oklch(0.45 0.3 260);
+  /* Loud AND legible. The saturated green this replaces measured
+     1.59:1 against this theme's own band — worse than the #0f172b it
+     was frozen at. `contrast` proves a surface MOVES; it does not have
+     to prove it can be unreadable. */
+  --status-bar-ink: oklch(0.3 0.3 305);
+
+  --gray-700: oklch(0.6 0.28 185);
+  --red-200: oklch(0.8 0.24 330);
+  --red-700: oklch(0.55 0.3 5);
+  --orange-600: oklch(0.7 0.28 65);
+
+  --data-blue-1: oklch(0.9 0.22 190);
+  --data-blue-2: oklch(0.8 0.25 230);
+  --data-blue-3: oklch(0.7 0.28 270);
+  --data-blue-4: oklch(0.6 0.3 305);
+  --data-blue-5: oklch(0.5 0.3 340);
+  --blue-800: oklch(0.55 0.3 255);
+
+  --bar-fill-risk: oklch(0.6 0.3 15);
+  --bar-fill-ok-from: oklch(0.9 0.24 125);
+  --bar-fill-ok-to: oklch(0.75 0.28 165);
+  --scrim: oklch(0.5 0.3 320 / 0.5);
+  --red-900: oklch(0.45 0.28 355);
+
+  --severity-high-foreground: oklch(0.96 0.2 95);
+  --severity-low-foreground: oklch(0.25 0.25 290);
+  --danger-foreground: oklch(0.95 0.22 150);
+  --success-foreground: oklch(0.25 0.25 320);
+
+  /* A shadow cannot be garish, so these are instead unmistakably WRONG:
+     a magenta glow no real theme would ship. */
+  --shadow-raised: 0 0 0 2px oklch(0.7 0.3 330), 0 2px 6px 0 oklch(0.6 0.3 300);
+  --shadow-overlay: 0 0 0 3px oklch(0.85 0.25 110), 0 16px 40px -8px oklch(0.6 0.3 300);
 
   /* Neutral ramp — one hue per step, as the slate ramp above. */
   --neutral-200: oklch(0.82 0.24 95);
@@ -664,19 +1415,32 @@ button {
 .dark,
 [data-theme='sand'],
 [data-theme='contrast'] {
-  --app-bg:
-    linear-gradient(101.4227deg,
+  --app-bg-stops:
       color-mix(in oklab, var(--wash-1) 80%, transparent) 29.24%,
       color-mix(in oklab, var(--wash-2) 80%, transparent) 12.35%,
       color-mix(in oklab, var(--wash-3) 80%, transparent) 17.588%,
-      color-mix(in oklab, var(--wash-4) 80%, transparent) 76.864%),
-    linear-gradient(90deg, var(--card) 0%, var(--card) 100%);
+      color-mix(in oklab, var(--wash-4) 80%, transparent) 76.864%;
 
-  --tile-bg:
-    linear-gradient(170.67deg,
+  --chip-bg-stops:
       color-mix(in oklab, var(--wash-1) 80%, transparent) 8.3855%,
       color-mix(in oklab, var(--wash-5) 80%, transparent) 32.2%,
       color-mix(in oklab, var(--wash-3) 80%, transparent) 40.822%,
-      color-mix(in oklab, var(--wash-2) 80%, transparent) 71.236%),
+      color-mix(in oklab, var(--wash-2) 80%, transparent) 71.236%;
+
+  --panel-bg-stops:
+      color-mix(in oklab, var(--wash-1) 80%, transparent) 8.3855%,
+      color-mix(in oklab, var(--wash-5) 80%, transparent) 32.2%,
+      color-mix(in oklab, var(--wash-3) 80%, transparent) 40.822%,
+      color-mix(in oklab, var(--wash-2) 80%, transparent) 71.236%,
+      color-mix(in oklab, var(--wash-4) 80%, transparent) 82.858%;
+
+  --app-bg:
+    linear-gradient(101.4227deg, var(--app-bg-stops)),
     linear-gradient(90deg, var(--card) 0%, var(--card) 100%);
+
+  --chip-bg:
+    linear-gradient(170.67deg, var(--chip-bg-stops)),
+    linear-gradient(90deg, var(--card) 0%, var(--card) 100%);
+
+  --tile-bg: var(--chip-bg);
 }

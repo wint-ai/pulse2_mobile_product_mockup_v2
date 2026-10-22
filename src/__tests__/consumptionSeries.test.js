@@ -6,7 +6,7 @@
  * consistent with the day it was split out of.
  */
 import { describe, it, expect } from 'vitest'
-import { getConsumptionSeries, getFleetConsumptionSeries } from '@/data/consumptionSeries'
+import { daySpanLabel, getConsumptionSeries, getFleetConsumptionSeries } from '@/data/consumptionSeries'
 import { getConsumption } from '@/data/consumption'
 import { SYSTEMS } from '@/data/systems'
 
@@ -238,5 +238,112 @@ describe('labelShort — the period CONTROL\'s reading of the label', () => {
       const view = getFleetConsumptionSeries(sample, period, 0)
       expect(view.labelShort, `fleet @ ${period}`).toBe(view.label)
     }
+  })
+})
+
+/* ── The month-to-date caption ──────────────────────────────────────────────
+ *
+ * The owner, 2026-10-21, on the System page hero: "this dates needs to be date
+ * to month / eg for today 1-21.10 / compare is to last dates in previous
+ * month". The "1-21.10" was shorthand for the WINDOW; rendered literally he
+ * rejected it — "dont like the date format it looks bad / fix" — so the form
+ * is "Oct 1–21": abbreviated month, en dash, no year, because the window is
+ * always one calendar month and the year is never what is in doubt.
+ *
+ * `labelRange` is that caption, and it is a THIRD label rather than a
+ * replacement — `label` ("October 2026") still feeds the period control, the
+ * tooltip heading and splitPeriodLabel, none of which can read a range. Only
+ * the Daily grouping has a day-span to name, so only Daily carries it and
+ * every other grouping's caption is untouched.
+ */
+
+/* MONTH-TO-DATE MOVES. These assertions were written on 2026-10-21 and froze
+   the day into the string ("Oct 1–21", 21 readings, index 20). The window is
+   month-to-DATE, so every one of them fails the next morning — and did, on
+   2026-10-22. Derived from the clock instead, which is what the feature does.
+   The guarantee is unchanged: the format is an abbreviated month, an en dash
+   and no year, and the span ends today. */
+const TODAY = new Date()
+const DAY = TODAY.getDate()
+const spanLabel = (date = TODAY) =>
+  `${date.toLocaleString('en-US', { month: 'short' })} 1–${date.getDate()}`
+const prevMonthSpanLabel = () => {
+  const d = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1, 1)
+  return `${d.toLocaleString('en-US', { month: 'short' })} 1–${DAY}`
+}
+
+describe('labelRange — the Daily window’s elapsed span', () => {
+  it('is an abbreviated month, a day range on an en dash, and no year', () => {
+    const { labelRange, label, series } = getConsumptionSeries('ws-9886', 'X', 'D', 0)
+    expect(label).toBe('October 2026')
+    expect(labelRange).toBe(spanLabel())
+    /* And it names the rows that carry a reading, not the axis. The month is
+       drawn at its true length (§5 / PLS-WC-17) so the axis runs to the 31st
+       while the span stops at the 21st — that difference IS month-to-date. */
+    expect(series).toHaveLength(31)
+    expect(series.filter((p) => p.litres != null)).toHaveLength(DAY)
+  })
+
+  it('names the whole of a month that is complete', () => {
+    expect(getConsumptionSeries('ws-9886', 'X', 'D', -1).labelRange).toBe('Sep 1–30')
+  })
+
+  it('names its own month across the year boundary, and never a year', () => {
+    // January 2026 is nine months back from the last reading's month, and the
+    // month before it is in 2025 — which the caption does not mention, by rule.
+    expect(getConsumptionSeries('ws-9886', 'X', 'D', -9).labelRange).toBe('Jan 1–31')
+    expect(getConsumptionSeries('ws-9886', 'X', 'D', -10).labelRange).toBe('Dec 1–31')
+  })
+
+  /* THE EDGE CASES THE FORMATTER NOW OWNS. daySpanLabel is called directly
+     here: the dataset ends on 21 October 2026 and cannot be asked for the 1st
+     of a month or for a 28-day February, and these are exactly the shapes a
+     caption gets wrong. */
+  const dayRows = (y, m, from, to, litres = 10) => {
+    const rows = []
+    for (let d = from; d <= to; d += 1) rows.push({ litres, key: { kind: 'day', y, m, d } })
+    return rows
+  }
+
+  it('says "Oct 1", not "Oct 1–1", on the first of the month', () => {
+    expect(daySpanLabel(dayRows(2026, 9, 1, 1))).toBe('Oct 1')
+  })
+
+  it('says what a CLAMPED comparison span actually covers', () => {
+    /* previousSpanAligned cuts February to its own length when 31 March asks
+       for 31 days of it. Both labels then have to describe what they cover,
+       which is the whole reason the formatter reads rows instead of a month:
+       "Mar 1–31" against "Feb 1–28", never "Feb 1–31". */
+    expect(daySpanLabel(dayRows(2027, 2, 1, 31))).toBe('Mar 1–31')
+    expect(daySpanLabel(dayRows(2027, 1, 1, 28))).toBe('Feb 1–28')
+    expect(daySpanLabel(dayRows(2028, 1, 1, 29))).toBe('Feb 1–29')
+  })
+
+  it('skips buckets with no reading, so the span is the ELAPSED one', () => {
+    /* Synthetic input: 21 readings built here, so the literal is right and
+       must NOT follow the clock — that is the point of the case. */
+    const october = dayRows(2026, 9, 1, 31).map((row, i) => (i < 21 ? row : { ...row, litres: null }))
+    expect(daySpanLabel(october)).toBe('Oct 1–21')
+  })
+
+  it('has nothing to say about buckets that are not days', () => {
+    expect(daySpanLabel([{ litres: 5, key: { kind: 'month', y: 2026, m: 9 } }])).toBeNull()
+    expect(daySpanLabel([])).toBeNull()
+    expect(daySpanLabel(undefined)).toBeNull()
+  })
+
+  it('is carried by Daily alone — every other grouping captions as before', () => {
+    for (const period of ['H', 'M', 'Y']) {
+      const view = getConsumptionSeries('ws-9886', 'X', period, 0)
+      expect(view.labelRange, period).toBeUndefined()
+    }
+    // Which is what keeps the twelve-month caption exactly what it was.
+    expect(getConsumptionSeries('ws-9886', 'X', 'M', 0).label).toBe('Nov 2025 - Oct 2026')
+  })
+
+  it('is reported for the fleet too, so the two series APIs keep one shape', () => {
+    const fleet = getFleetConsumptionSeries(sample, 'D', 0)
+    expect(fleet.labelRange).toBe(spanLabel())
+    expect(getFleetConsumptionSeries(sample, 'M', 0).labelRange).toBeNull()
   })
 })

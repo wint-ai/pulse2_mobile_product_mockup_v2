@@ -268,7 +268,13 @@ const TIP_UNIT = String.raw`[word-break:break-word] font-normal text-[12px] trac
 
 /* ----------------------------------------------------------------- tones */
 
-/* High flow is the only tone the node ever draws. See the LOW FLOW note. */
+/* High flow is the only tone the node ever draws. See the LOW FLOW note.
+   Every ground and ink below is spelled as a stock utility NAME and must stay
+   that way: --color-red-100 / --color-red-700 / --color-orange-100 /
+   --color-orange-600 are mapped in @theme inline, which is the whole reason
+   these follow a theme. `text-red-700` in particular bound to stock
+   Tailwind's #c10007 before that mapping and measured 2.94:1 on the dark card
+   — the elapsed-time figure, the one number on the row that is urgent. */
 const TONE = {
   high: {
     label: 'High Flow',   // visible: Figma's casing
@@ -500,12 +506,20 @@ export default function TriageBand({
                 data-node-id="199375:139972"
                 aria-hidden="true"
               >
-                <svg viewBox="0 0 29.5625 29.5625" fill="none" className="absolute inset-[8.33%] block size-[83.34%]">
+                {/* One-colour generic glyph, so the stroke is carried once on
+                    the <svg> and inherited. It was two `stroke="#0B82F8"`
+                    presentation attributes — note #0B82F8 is NOT --primary
+                    #0b81f8, it is off by one in the green channel, which is
+                    how it survived every grep for the brand blue. The stroke
+                    must be a CLASS and the attributes must go: a declared
+                    presentation attribute on the child beats an inherited CSS
+                    value, and var() does not resolve in one anyway. */}
+                <svg viewBox="0 0 29.5625 29.5625" fill="none" className="absolute inset-[8.33%] block size-[83.34%] stroke-primary">
                   <path
                     d="M9.59863 13.2912L8.25468 14.1465C7.79011 14.4422 7.79011 15.1203 8.25468 15.416L9.59863 16.2713C11.0848 17.2172 12.3453 18.4777 13.2912 19.9639L14.1465 21.3078C14.4422 21.7724 15.1203 21.7724 15.416 21.3078L16.2713 19.9639C17.2172 18.4777 18.4777 17.2172 19.9639 16.2713L21.3078 15.416C21.7724 15.1203 21.7724 14.4422 21.3078 14.1465L19.9639 13.2912C18.4777 12.3453 17.2172 11.0848 16.2713 9.59863L15.416 8.25468C15.1203 7.79011 14.4422 7.79011 14.1465 8.25468L13.2912 9.59863C12.3453 11.0848 11.0848 12.3453 9.59863 13.2912Z"
-                    stroke="#0B82F8" strokeWidth="2.0625" strokeLinejoin="round"
+                    strokeWidth="2.0625" strokeLinejoin="round"
                   />
-                  <circle cx="14.7812" cy="14.7812" r="13.75" stroke="#0B82F8" strokeWidth="2.0625" strokeLinejoin="round" />
+                  <circle cx="14.7812" cy="14.7812" r="13.75" strokeWidth="2.0625" strokeLinejoin="round" />
                 </svg>
               </span>
               {/* THE 25K IS GONE. It was frozen Figma copy and this file's

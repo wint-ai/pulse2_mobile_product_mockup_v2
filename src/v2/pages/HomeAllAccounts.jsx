@@ -106,6 +106,7 @@ import {
   offsetForPickedMonth,
   pickerMin,
   pickerSelection,
+  previousSpanAligned,
   stepAvailability,
   windowMonthsOf,
 } from '@/v2/lib/consumptionWindow'
@@ -199,6 +200,26 @@ const MOCK_INSIGHTS = [
  * 12.5%" rows because it is a picture; every figure here is computed.
  *
  * Ring colours stay the comp's five keys, in its order.
+ *
+ * KNOWN FROZEN LITERALS — MEASURED, REPORTED, DELIBERATELY NOT GUESSED AT,
+ * 2026-10-21. These five keys and the five DonutPlots fills below are the one
+ * group on this page that no theme can move, and under `dark` two of them
+ * fail: the #193cb8 legend swatch measures 2.14:1 against the card and the
+ * #022170 arc 1.21:1, both under the 3:1 WCAG 1.4.11 asks of a graphical
+ * object. They are NOT left alone because they are fine; they are left alone
+ * because the token set cannot express them yet:
+ *   - the chart ramp has THREE blues (--chart-1/2/3). This needs FIVE.
+ *   - --chart-4 / --chart-5 are not spare slots. src/index.css calls them
+ *     "the semantic escapes for a series that must read as good / critical"
+ *     and aliases them to --success / --severity-high; spending them on
+ *     "Apartment 2's share of usage" would paint a green and a pink wedge
+ *     into a blue donut and burn the two tokens that carry meaning.
+ *   - --wave-mid / --wave-deep are the remaining blues and have no `dark`
+ *     declaration at all, so binding to them would not fix anything.
+ * Mapping them onto the three chart blues plus the two wave blues WOULD fix
+ * every dark reading, and would also repaint the light donut (#022170 is a
+ * navy; --wave-deep is #0F5FF5). That is a design ruling, not a tokenization
+ * mechanic. What this needs is a five-step blue data ramp of its own.
  */
 const TOP_USAGE_KEYS = ['#193cb8', '#2b7fff', '#8ec5ff', '#193cb8', '#155dfc']
 
@@ -957,14 +978,29 @@ export default function HomeAllAccounts({ expanded = false }) {
 
   /* "Compare previous period" — the window immediately before the one on
      screen. Computed only while the switch is on, since it is a second pass
-     over every system in scope. */
+     over every system in scope.
+
+     CLAMPED TO THE SAME SPAN since 2026-10-21. This screen is unchanged in
+     every other way — it still opens on Monthly (PLS-WC-03), it still has no
+     hero caption and so no month-to-date window of its own — but the card it
+     shares with the System page now offers the comparison on DAILY as well as
+     Monthly, and on a Daily window the previous month is a WHOLE month while
+     the current one may be part-way through. Handed over unclamped, the
+     comparison would draw past today: September 22-30 laid against October
+     days that have no reading yet. previousSpanAligned cuts it to the span
+     actually read, which is the same rule the System page applies and the
+     same function, so the two screens cannot drift. At Monthly it is a no-op
+     — twelve read buckets against twelve. */
   const [compareConsumption, setCompareConsumption] = useState(false)
   const consumptionCompare = useMemo(
-    () =>
-      compareConsumption
-        ? getFleetConsumptionSeries(scopedSystems, consumptionPeriod, consumptionOffset - 1).series
-        : null,
-    [compareConsumption, scopedSystems, consumptionPeriod, consumptionOffset],
+    () => {
+      if (!compareConsumption) return null
+      const previous = getFleetConsumptionSeries(
+        scopedSystems, consumptionPeriod, consumptionOffset - 1,
+      ).series
+      return previousSpanAligned(consumptionView.series, previous)
+    },
+    [compareConsumption, consumptionView, scopedSystems, consumptionPeriod, consumptionOffset],
   )
 
   /* ── The chart's actions ────────────────────────────────────────────────
@@ -981,8 +1017,13 @@ export default function HomeAllAccounts({ expanded = false }) {
   const selectConsumptionPeriod = (next) => {
     setConsumptionPeriod(next)
     setConsumptionOffset(0)
-    // PLS-WC-20: comparison is Monthly-only, so anything else clears it.
-    if (next !== 'M') setCompareConsumption(false)
+    /* PLS-WC-20 made the comparison Monthly-only and this cleared it for
+       anything else. Daily joined Monthly on 2026-10-21 (see the card's
+       COMPARABLE_PERIODS), so clearing it on a move to Daily would switch off
+       a control the card is still drawing — the user would watch his own
+       comparison vanish for no stated reason. Hourly and Yearly still clear,
+       because the card withdraws the switch there. */
+    if (next !== 'M' && next !== 'D') setCompareConsumption(false)
   }
 
   /* §3.2 — one step moves ONE bucket, and keeps everything else. The clamp is
@@ -1002,7 +1043,8 @@ export default function HomeAllAccounts({ expanded = false }) {
     if (!target) return
     setConsumptionPeriod(target.period)
     setConsumptionOffset(target.offset)
-    if (target.period !== 'M') setCompareConsumption(false)
+    // Same rule as selectConsumptionPeriod above: Daily keeps the comparison.
+    if (target.period !== 'M' && target.period !== 'D') setCompareConsumption(false)
   }
 
   /* §3.4 — Today: Hourly on the newest window, the picker closed, and the

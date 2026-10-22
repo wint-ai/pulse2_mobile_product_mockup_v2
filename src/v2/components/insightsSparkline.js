@@ -21,10 +21,27 @@ export const SPARK_H = 86
 export const SPARK_PAD_Y = 5
 export const SPARK_RADIUS = 4.31579
 export const SPARK_STROKE = 2.15789
-export const SPARK_GROUND = '#F2F6FF'
-/** Figma's own trace colours: the actual run, and the baseline it is judged on. */
-export const SPARK_ACTUAL = '#0B82F8'
-export const SPARK_BASELINE = '#90A1B9'
+/* THESE THREE ARE CSS VALUES, NOT SVG PRESENTATION-ATTRIBUTE VALUES.
+   var() substitutes at computed-value time, which a `fill="…"` / `stroke="…"`
+   attribute never reaches — so every consumer must apply them through
+   `style={{ fill }}` / `style={{ stroke }}` (or a Tailwind fill- or stroke-
+   utility), not as an attribute. InsightsCard does. Spelled as tokens because
+   as literals they were frozen: #F2F6FF measured 17.4:1 against the dark card,
+   a white slab with two traces on it. */
+/* --secondary, NOT --accent, and the difference only shows under dark.
+   Both are #f2f6ff in `light` — the exact literal this replaced, so `light`
+   does not move either way. Under dark --accent is the LIGHTER zinc-700
+   step (it has to be: it is also the hover tint), and the blue trace on it
+   measures 2.77:1 — under the 3:1 a graphical object needs. --secondary is
+   zinc-800 and takes the same trace to 3.96:1. A ground that data is drawn
+   ON wants the darker step; the hover tint wants the lighter one. */
+export const SPARK_GROUND = 'var(--secondary)'
+/** Figma's own trace colours: the actual run, and the baseline it is judged on.
+    #0B82F8 was the comp's blue — note it is NOT --primary #0b81f8, it was off
+    by one in the green channel, which is how it survived every "is this the
+    brand blue?" grep. It is --primary. #90A1B9 is --slate-400 exactly. */
+export const SPARK_ACTUAL = 'var(--primary)'
+export const SPARK_BASELINE = 'var(--slate-400)'
 
 /**
  * Accept the shapes this app actually passes around: the bare number array a

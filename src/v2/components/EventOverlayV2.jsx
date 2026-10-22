@@ -95,7 +95,7 @@ const FOREGROUND = '#0a0a0a'
 const SLATE_800 = '#1d293d'
 const SLATE_600 = '#45556c'
 const SLATE_500 = '#62748e'
-const SLATE_400 = '#90a1b9'
+const SLATE_400 = 'var(--slate-400)'  // #90a1b9 in `light`; follows the ramp
 const SLATE_200 = '#e2e8f0'
 const RED_500 = '#fb2c36'
 const RED_600 = '#e7000b'
@@ -111,11 +111,21 @@ const WINT_BLUE = 'var(--primary)'
 
 // The sheet's own ground: Figma's `backgroundImage` on all five frame roots,
 // a cool diagonal wash laid over flat white.
+//
+/* The wash, themed. The angle stays here, the colours come from the shipped
+   stop list — under `light` that token IS the rgba literal this carried, so
+   `light` is byte-identical. NOT var(--chip-bg)/var(--app-bg): those bake one
+   angle in at :root and a call-site angle override cannot reach them. See
+   WintSidebarV2.jsx for the full note. */
+const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
+
+/* --panel-bg-stops, not --chip-bg-stops: the sheet root carries a FIFTH stop
+   at 82.858% that the four-stop list does not, and dropping it moves 17.3% of
+   the sheet by up to 17/255 under `light`.
+   Flat, this froze the overlay's ground light while its ink followed the
+   theme. */
 const SHEET_BG =
-  'linear-gradient(131.41003432311655deg, rgba(233, 238, 248, 0.8) 8.3855%,' +
-  ' rgba(227, 235, 249, 0.8) 32.2%, rgba(228, 235, 250, 0.8) 40.822%,' +
-  ' rgba(212, 226, 255, 0.8) 71.236%, rgba(233, 237, 243, 0.8) 82.858%),' +
-  ' linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)'
+  `linear-gradient(131.41003432311655deg, var(--panel-bg-stops)), ${WASH_BASE}`
 
 // ── Inlined Figma assets ───────────────────────────────────────────────────
 

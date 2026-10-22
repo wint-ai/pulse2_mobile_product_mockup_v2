@@ -47,7 +47,22 @@ describe('compare previous period', () => {
     expect(within(container).getByText('Compare previous period')).toBeTruthy()
   })
 
-  for (const period of ['H', 'D', 'Y']) {
+  /* DAILY MOVED OUT OF THIS LIST ON 2026-10-21. PLS-WC-20 had the switch on
+     Monthly alone, on the argument that "on Hour and Day the windows are too
+     short to read against each other". The owner then asked for exactly that
+     comparison on exactly the Daily window — "compare is to last dates in
+     previous month" — and the argument does not survive it: the same dates of
+     consecutive months is the most legible pairing this series has. */
+  it('offers the switch on Daily, for month against previous month', () => {
+    const s = sw(card({ period: 'D' }).container)
+    expect(s, 'no compare switch on the daily view').toBeTruthy()
+    expect(s.getAttribute('aria-checked')).toBe('false')
+  })
+
+  /* Hourly and Yearly are unchanged, and for reasons that still hold: an hour
+     against the same hour yesterday is noise, and Yearly plots the whole span
+     at once so there is no previous year left over to compare with. */
+  for (const period of ['H', 'Y']) {
     it(`hides it on ${period}, where "the previous period" is not meaningful`, () => {
       const { container } = card({ period })
       expect(sw(container)).toBeNull()

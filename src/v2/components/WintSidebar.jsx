@@ -71,11 +71,18 @@ import { computeSystemHealth } from '@/utils/systemHealth'
 // all" and swapped in var(--sidebar) — which index.css resolves to opaque
 // #FFFFFF. Re-pulling the node disproves that claim; the gradient is below,
 // copied from the node's own backgroundImage.
+/* The wash, themed. The angle stays here, the colours come from the shipped
+   stop list — under `light` that token IS the rgba literal this carried, so
+   `light` is byte-identical. NOT var(--chip-bg)/var(--app-bg): those bake one
+   angle in at :root and a call-site angle override cannot reach them. See
+   WintSidebarV2.jsx for the full note. */
+const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
+
+/* --panel-bg-stops, not --chip-bg-stops: this plate carries a FIFTH stop at
+   82.858% that the four-stop list does not, and dropping it moves a third of
+   the panel under `light`. */
 const PANEL_BG =
-  'linear-gradient(125.34006894835755deg, rgba(233, 238, 248, 0.8) 8.3855%, ' +
-  'rgba(227, 235, 249, 0.8) 32.2%, rgba(228, 235, 250, 0.8) 40.822%, ' +
-  'rgba(212, 226, 255, 0.8) 71.236%, rgba(233, 237, 243, 0.8) 82.858%), ' +
-  'linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)'
+  `linear-gradient(125.34006894835755deg, var(--panel-bg-stops)), ${WASH_BASE}`
 const DIVIDER = '#E2E8F0'
 const ALERT_RED = '#E7000B'
 const BRAND = '#0B95F8'
@@ -83,14 +90,28 @@ const STAR_ON = '#F5A524'   // same amber the v1 drawer uses for a pinned row
 
 // The App.jsx helper of the same name is module-private and this file may not
 // edit App.jsx, so it is restated here rather than dropping a bare <img> into
-// the header. Same asset, same BASE_URL rule — keep them in step.
+// the header. Same assets, same BASE_URL rule — keep them in step.
+//
+// TWO assets: wint-logo.svg is navy #20294C and disappears on the themed
+// panel under `dark`, so public/wint-logo-white.svg is swapped in by CSS.
+// `dark` and `contrast` only — `sand` keeps the panel light. See
+// WintSidebarV2.jsx's WintLogo for the full note.
 function WintLogo({ width = 52 }) {
   return (
-    <img
-      src={`${import.meta.env.BASE_URL}wint-logo.svg`}
-      alt="Wint"
-      style={{ width, height: 'auto' }}
-    />
+    <>
+      <img
+        src={`${import.meta.env.BASE_URL}wint-logo.svg`}
+        alt="Wint"
+        className="[[data-theme=dark]_&]:hidden [[data-theme=contrast]_&]:hidden"
+        style={{ width, height: 'auto' }}
+      />
+      <img
+        src={`${import.meta.env.BASE_URL}wint-logo-white.svg`}
+        alt="Wint"
+        className="hidden [[data-theme=dark]_&]:block [[data-theme=contrast]_&]:block"
+        style={{ width, height: 'auto' }}
+      />
+    </>
   )
 }
 
@@ -787,7 +808,12 @@ function TreeRow({
               // slate-200 + slate-400 — collapsed ACCOUNT rows (198378:74081,
               // 74082) included, and an expanded-but-inactive location
               // (198378:74033) too.
-              isActive ? 'bg-[#F0F4FB] text-slate-600' : 'bg-slate-200 text-slate-400',
+              // The pale pill is a flat sample of the panel's wash, so it
+              // takes --chip-bg: flat #F0F4FB under a themed text-slate-600
+              // measured 1.34:1 in `dark`.
+              isActive
+                ? 'bg-[var(--chip-bg)] text-slate-600'
+                : 'bg-slate-200 text-slate-400',
             )}
           >
             {node.systems.length}

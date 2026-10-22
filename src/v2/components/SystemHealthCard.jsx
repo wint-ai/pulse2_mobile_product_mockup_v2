@@ -148,7 +148,23 @@ const FLEET_COUNT = String.raw`[word-break:break-word] font-semibold min-w-px ov
 
 /* 199360:129779 — the bar, and its two segments (199360:129780 / 129781). */
 const BAR = String.raw`content-stretch flex gap-[1.622px] h-[15px] items-start relative shrink-0 w-full`
+/* `bg-red-700` is left spelled as a stock utility ON PURPOSE. It used to bind
+   to stock Tailwind's #c10007 — which no theme can move, and which measured
+   2.94:1 against the dark card, i.e. BELOW the 3:1 WCAG 1.4.11 asks of a
+   graphical object: the health bar read as "mostly bright green with a dark
+   hole". It is now mapped in @theme inline via --color-red-700, so the class
+   name is correct and the value follows the theme. Do not rewrite it as an
+   arbitrary value; that would re-freeze it. */
 const BAR_RED = String.raw`bg-red-700 h-full min-w-px relative`
+/* KNOWN REMAINING LITERAL, 2026-10-21 — deliberately not changed, see the
+   Phase-5 report. This mint gradient is frozen (no theme moves it, including
+   ?theme=contrast) but it does NOT fail: it measures 14.7:1 against the dark
+   card and 5.0:1 against the red segment beside it, both well past 3:1. The
+   contract ships no token that fits a BOLD, two-stop data fill — the
+   --alert-surface-success trio is a container ground for text and at Primer's
+   10% alpha would make this segment ~1.1:1 against the card, i.e. invisible,
+   while --success (#5C9E1A) is a solid olive that would repaint the `light`
+   bar wholesale. It needs its own token; it does not need a guess. */
 const BAR_GREEN = String.raw`bg-gradient-to-r from-[#cbf7db] h-full min-w-px relative to-[#81f1aa]`
 const BAR_L = String.raw`rounded-bl-[9068757px] rounded-tl-[9068757px]`
 const BAR_R = String.raw`rounded-br-[9068757px] rounded-tr-[9068757px]`
@@ -172,13 +188,45 @@ const TILE_ROW = String.raw`content-stretch flex gap-[12px] items-center relativ
    Everything else about the two is identical, so the fill is the only switch
    and the tile keeps one set of geometry. */
 const TILE = String.raw`appearance-none border-0 content-stretch cursor-pointer flex flex-[1_0_0] gap-[4px] items-center justify-center min-w-px pb-[7px] pt-[3px] px-0 relative rounded-[18px] text-left`
-const TILE_HOT = String.raw`bg-gradient-to-b from-[#fff1f1] to-[#ffe3e3]`
+/* THE HOT TILE IS A SURFACE TOKEN, NOT A TINT, 2026-10-21.
+   `bg-gradient-to-b from-[#fff1f1] to-[#ffe3e3]` is a LIGHT error surface with
+   no theme behind it. Dropped onto the dark card it measured 16.3:1 against
+   that card — brighter relative to its ground than any body text on the
+   screen — while the ink that DOES theme (--foreground for the count,
+   --slate-600 for the label) went near-white on top of it: 1.09:1 and 1.26:1.
+   TILE_COLD (bg-slate-100) themes correctly, so the two states inverted
+   relative to each other: "has a problem" read brighter than "is fine".
+
+   This is the same failure Atlassian quantified when their light error
+   surface #FFECEB was dropped on their dark page (14.46:1; their real dark
+   value is 1.16:1). Of the three shipped strategies — Primer (semantic hue at
+   10% alpha for the surface, 40% for the border), Carbon (abolish the tint
+   outright: every notification ground is the plain layer colour) and
+   Atlassian (a dark, near-chroma-free maroon) — this takes PRIMER, because
+   that is the shape of the tokens this repo now ships: one --alert-surface-*
+   that works on page, card and raised card, with a matching --alert-border-*.
+
+   The border is drawn as an INSET RING, not a `border`, on purpose: the tile
+   has fixed inner geometry (a 43px value row with mb-[-8px] overhanging a
+   20px label row) and a real 1px border would eat a pixel off it and push
+   check-text-overflow. A ring is a box-shadow and costs no layout.
+
+   The ink is deliberately NOT moved onto --alert-ink-critical: neither the
+   count nor the label is red in `light`, and both already follow the theme.
+   Fixing the ground fixes the ink. */
+const TILE_HOT = String.raw`bg-alert-surface-critical inset-ring inset-ring-alert-border-critical`
 const TILE_COLD = String.raw`bg-slate-100`
 /* 199417:134216 draws the lone kind as ONE tile across the card. */
 const TILE_SOLO = String.raw`appearance-none border-0 content-stretch cursor-pointer flex gap-[4px] items-center justify-center pb-[7px] pt-[3px] px-0 relative rounded-[18px] shrink-0 text-left w-full`
 
-/* 199417:131529 — the all-clear row that stands where the tiles would be. */
-const CLEAR_ROW = String.raw`bg-[#e8f5ff] content-stretch flex h-[43px] items-center px-[11px] relative rounded-[16px] shrink-0 w-full`
+/* 199417:131529 — the all-clear row that stands where the tiles would be.
+   The ground was a frozen `bg-[#e8f5ff]`: the same class of un-themed light
+   tint as TILE_HOT, just quieter, and it would have glowed on the dark card
+   in exactly the same way the moment a fleet went all-clear. It is the pale
+   blue informational wash this repo already names --accent (#f2f6ff in
+   `light`), so it binds there. NOTE: that is a 4-unit lift off #e8f5ff in
+   `light` — the closest token, not the identical one. */
+const CLEAR_ROW = String.raw`bg-accent content-stretch flex h-[43px] items-center px-[11px] relative rounded-[16px] shrink-0 w-full`
 const CLEAR_TEXT = String.raw`[word-break:break-word] flex flex-col font-semibold justify-center leading-[0] relative shrink-0 text-slate-600 text-sm whitespace-nowrap`
 const TILE_INNER = String.raw`flex flex-row items-center self-stretch`
 const TILE_STACK = String.raw`content-stretch flex flex-col h-full items-center justify-center relative shrink-0`

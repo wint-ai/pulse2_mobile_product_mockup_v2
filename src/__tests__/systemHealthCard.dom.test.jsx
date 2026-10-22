@@ -222,10 +222,14 @@ describe('SystemHealthCard — all healthy / empty', () => {
     )
     const by = (name) => [...container.querySelectorAll('button')]
       .find((b) => b.getAttribute('aria-label') === name)
-    expect(by('Valve errors: 1').className).toContain('from-[#fff1f1]')
-    expect(by('Offline systems: 1').className).toContain('from-[#fff1f1]')
+    /* The hot tile used to be pinned to `from-[#fff1f1]`, the literal half
+       of a frozen light-red gradient. It is now the alert surface token, so
+       the assertion pins the TOKEN — which is the thing that must not be
+       lost — rather than a hex that only ever described `light`. */
+    expect(by('Valve errors: 1').className).toContain('bg-alert-surface-critical')
+    expect(by('Offline systems: 1').className).toContain('bg-alert-surface-critical')
     expect(by('Disconnected power: 0').className).toContain('bg-slate-100')
-    expect(by('Disconnected power: 0').className).not.toContain('from-[#fff1f1]')
+    expect(by('Disconnected power: 0').className).not.toContain('bg-alert-surface-critical')
   })
 
   it('renders an empty fleet without a sliver of either colour', () => {

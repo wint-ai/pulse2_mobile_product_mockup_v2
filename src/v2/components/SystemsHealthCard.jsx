@@ -186,9 +186,18 @@ export function ValveErrorGlyph({ className }) {
    the percent, the two stat tiles and all four issue tiles. The three
    per-capsule angles this file used to carry (168.67 / 169.58 / 162.23) came
    from the retired desktop nodes and are gone. */
+/* The wash, themed. The angle stays here, the colours come from the shipped
+   stop list — under `light` that token IS the rgba literal this carried, so
+   `light` is byte-identical. NOT var(--chip-bg)/var(--app-bg): those bake one
+   angle in at :root and a call-site angle override cannot reach them. See
+   WintSidebarV2.jsx for the full note. */
+const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
+
+/* Flat, this light capsule stranded the themed ink on it exactly as the
+   drawer panel did. */
 const CAPSULE_FILL = {
   backgroundImage:
-    'linear-gradient(170.59909890034055deg, rgba(233, 238, 248, 0.8) 8.3855%, rgba(227, 235, 249, 0.8) 32.2%, rgba(228, 235, 250, 0.8) 40.822%, rgba(212, 226, 255, 0.8) 71.236%), linear-gradient(90deg, rgb(255, 255, 255) 0%, rgb(255, 255, 255) 100%)',
+    `linear-gradient(170.59909890034055deg, var(--chip-bg-stops)), ${WASH_BASE}`,
 }
 
 /* ── MOCK DATA ─────────────────────────────────────────────────────────────

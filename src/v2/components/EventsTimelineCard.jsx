@@ -300,12 +300,27 @@ const CARD_CONTENT = String.raw`content-stretch flex flex-[1_1_0%] flex-col gap-
  * those rows keep the treatment they ship with today.
  */
 const BADGE_TONE = {
-  // 198352:121453 / 198601:86817. slate/100 chip with a #509fef label.
+  /* 198352:121453 / 198601:86817. slate/100 chip with what Figma spells as a
+     #509fef label on a slate/100 ground — a frozen, un-themeable blue that
+     also already failed in `light`: 2.54:1 on that chip. The chip is
+     declared `variant: 'secondary'` two lines down, so it takes shadcn's
+     own secondary PAIR rather than a hand-picked ink on a hand-picked
+     ground — that is the pair whose two halves a theme is guaranteed to
+     move together. Measured: `light` #0b81f8 on #f2f6ff 3.48:1 (up from
+     2.54), `dark` #fafafa on #27272a 15.9:1. `text-primary` alone was
+     tried first and is WRONG here: under dark --primary is blue-500
+     #2b7fff, which on the dark chip is 3.96:1 — worse than the literal it
+     replaced. The light figure is still under 4.5:1; that is the chip's
+     pre-existing design, not something this change introduced. */
   ended: {
     variant: 'secondary',
-    className: String.raw`bg-slate-100 text-[#509fef]`,
+    className: String.raw`bg-secondary text-secondary-foreground`,
   },
-  // 199383:141692 — the redesign's own chip.
+  /* 199383:141692 — the redesign's own chip. Both halves are left as stock
+     utility names deliberately: --color-red-100 and --color-red-900 are now
+     mapped in @theme inline, so `bg-red-100` / `text-red-900` follow the
+     theme instead of binding to stock Tailwind. Rewriting either as an
+     arbitrary value would re-freeze it. */
   warning: {
     variant: 'secondary',
     className: String.raw`bg-red-100 text-red-900`,
@@ -313,6 +328,14 @@ const BADGE_TONE = {
   // 198352:121557 — the badgeFirst pill, orange on orange.
   warningLead: {
     variant: 'secondary',
+    /* Both halves stay spelled as stock utility NAMES, and that is now
+       correct: --orange-600 and its --color-orange-600 mapping exist, so
+       `text-orange-600` follows the theme (dark resolves it to
+       --alert-ink-warning, orange-400). Before that mapping it bound to
+       stock Tailwind and would have been the one chip left with light-theme
+       ink on a dark-theme ground. Do not rewrite either half as an
+       arbitrary value or as the alert token: both resolve identically and
+       the plain name is what the sibling `bg-orange-100` already uses. */
     className: String.raw`bg-orange-100 text-orange-600`,
   },
   // 198352:121511 / 198511:66354.
@@ -578,7 +601,11 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
               </div>
             ) : null}
 
-            {/* Cause line — I…;199383:141703. */}
+            {/* Cause line — I…;199383:141703.
+                `text-gray-700` stays spelled as the stock utility: it is now
+                mapped through --color-gray-700 in @theme inline, so it follows
+                the theme. Before that mapping it bound to stock Tailwind's
+                #364153 and stayed near-black on a dark card (~1.8:1). */}
             {event.description ? (
               <p
                 className={String.raw`[word-break:break-word] font-sans font-normal leading-5 min-w-full relative shrink-0 text-gray-700 text-sm tracking-normal w-[min-content]`}
