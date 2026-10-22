@@ -60,8 +60,19 @@ const faultSys = SYSTEMS.find(s => s.alert && !WATER.has(s.alert.type))
 /** A system carrying an event AND a valve. */
 const valveSys = SYSTEMS.find(s => s.alert && hasValve(s))
 
-/** buildTree.js records 20 MRG systems as genuinely metering-only. */
-const noValveSys = SYSTEMS.find(s => s.alert && !hasValve(s))
+/* buildTree.js records 20 MRG systems as genuinely metering-only. The two
+   tests below need one carrying a WATER EVENT specifically, not any alert:
+   both are about what the overlay does when the thing on screen is a leak and
+   there is no valve to stop it with — the missing valve readout, and the "this
+   is a metering-only system" line in the advice, which the fault layouts do
+   not render at all.
+
+   This asked only for `s.alert`, and passed for a year on luck: the first
+   valveless alerting system in the fleet happened to be leaking. After the
+   2026-10-22 rebuild of buildTree the first one is on AC power loss, so both
+   tests started reading the power-fault layout and failed on copy that was
+   never meant to be there. The predicate now says what the tests mean. */
+const noValveSys = SYSTEMS.find(s => WATER.has(s.alert?.type) && !hasValve(s))
 
 /** Clean every store this surface reads, so no test inherits another's claim. */
 function resetStores(id) {
@@ -112,7 +123,7 @@ describe('the fixtures are real', () => {
 
   it('the dataset carries an alerting system with a valve, and one without', () => {
     expect(valveSys, 'no alerting system with a valve — the valve tests would be vacuous').toBeTruthy()
-    expect(noValveSys, 'no metering-only alerting system — the no-valve test would be vacuous').toBeTruthy()
+    expect(noValveSys, 'no metering-only system with a water event — the no-valve tests would be vacuous').toBeTruthy()
   })
 })
 

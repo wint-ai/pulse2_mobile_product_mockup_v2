@@ -64,6 +64,32 @@
  * Assets: Figma's URLs expire in ~7 days, so nothing here references one. The
  * wave is inlined as a data URI below and every glyph is a project component.
  *
+ * ── NOT MOUNTED, AND WHAT THAT CHANGED HERE (2026-10-22) ──────────────────
+ * This component is imported by HomeAllAccounts.jsx and rendered by nothing:
+ * TriageBand + SystemHealthCard replaced it on Overview (see that file's note
+ * at the cards block) and no other page references it. Its only live callers
+ * are src/__tests__. Stated because a bug report about this card is a report
+ * about a LATENT defect, and because it decides how much of the owner's
+ * 2026-10-22 health-vs-water pass landed here:
+ *
+ *   FIXED — the counter. `stats.requireAttention` was the ACTIVE WATER EVENT
+ *   count (HomeAllAccounts fed it `activeEvents.length`) rendered in an
+ *   attention capsule beside four device-fault tiles, and folded into `zero`,
+ *   so a perfectly protected fleet could not report a clear health card while
+ *   one pipe leaked. PRD 03-home-screen.md:207: "Systems Health bar unaffected
+ *   by Water Events directly — leaks aren't a 'Systems Health' gap; they live
+ *   in the Water Events strip above." That prop is GONE, not renamed and not
+ *   aliased — see the derivation below for why an alias would have been worse.
+ *
+ *   NOT CHANGED — the red. The live card (SystemHealthCard.jsx) moved its
+ *   fault treatment to the WARNING family so that red means water and amber
+ *   means device. This card keeps `text-red-500` on a non-zero figure because
+ *   that exact treatment is an owner instruction pinned by
+ *   src/__tests__/healthCapsuleStacking.dom.test.jsx ("still paints a non-zero
+ *   FIGURE red — that is the half that carries it"), and overruling an owner
+ *   on a component nobody can see is not a call to make silently. If this card
+ *   is ever remounted, that is the decision to reopen first.
+ *
  * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
  * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
  * that paints the same value, and the fallback DELETED. The fallback was a
@@ -204,7 +230,7 @@ const CAPSULE_FILL = {
    MOCK — replace with the real account roll-up. Values are the ALERT frame's
    own: 198601:62829 reads 95% / 8 of 3,431 and 4 / 2 / 1 / 1. */
 const MOCK_HEALTHY = { percent: 95, tone: 'healthy' }
-const MOCK_STATS = { requireAttention: 8, total: 3431 }
+const MOCK_STATS = { attention: 8, total: 3431 }
 const MOCK_ISSUES = { offline: 4, valve: 2, power: 1, recipients: 1 }
 
 /* NOT mock. The comp draws Topology 3 / Flood 3 / Humidity 4, but those are
@@ -492,7 +518,12 @@ function SystemTypeChip({ glyph, label, count }) {
  *                  systems in RED, so the tile is not driven by the counts,
  *                  and the two percentages (95 / 100) are not a threshold
  *                  either. Pass `tone` explicitly to reach the other two.
- * @param stats     `{ requireAttention, total }` — the two stat tiles.
+ * @param stats     `{ total, attention }` or `{ total, healthy }` — the two
+ *                  stat tiles. `attention` is systems failing at least one of
+ *                  the four PRD-09 protection checks; pass `healthy` instead
+ *                  and the subtraction happens here, which is the shape
+ *                  HomeAllAccounts already publishes. NOT `requireAttention`:
+ *                  see the derivation and the header note.
  * @param issues    `{ offline, valve, power, recipients }` — the 2x2 grid.
  * @param systemTypes `{ topology, flood, humidity }` — the "Systems types"
  *                  chips. Falls back to zeros, never to the comp's figures.
@@ -525,8 +556,29 @@ export default function SystemsHealthCard({
      gets an em dash; a real 0 is still a number and still renders 0%. */
   const hasPercent = Number.isFinite(health.percent)
   const percent = hasPercent ? health.percent : null
-  const requireAttention = stats?.requireAttention ?? 0
   const total = stats?.total ?? 0
+  /* HEALTH IS ERRORS. WATER EVENTS ARE NOT HEALTH.
+     This read `stats?.requireAttention`, and this card's only data supplier
+     set that field to `activeEvents.length` — the leak count. So the capsule
+     labelled "Require attention", sitting beside Offline / Valve / Power /
+     Recipients, was reporting a number from a different axis entirely, and
+     `zero` below ANDed it in, which is how a fleet passing all four
+     protection checks was still unable to say so.
+     THE PROP IS DELETED, NOT ALIASED. An alias (`stats.attention ??
+     stats.requireAttention`) would have kept every existing caller silently
+     feeding a leak count into a health counter under a name that now reads
+     correct — the failure mode this whole change exists to remove. Deleted,
+     a stale caller renders 0 where it used to render 48: wrong in a way
+     somebody notices on the first screenshot.
+     `healthy` is accepted as the alternative input because that is the field
+     src/utils/systemHealth.js produces and HomeAllAccounts publishes; the
+     clamp is there so a host that hands over healthy > total cannot produce a
+     negative capsule. */
+  const attention = Number.isFinite(stats?.attention)
+    ? Math.max(0, stats.attention)
+    : Number.isFinite(stats?.healthy)
+      ? Math.max(0, total - Math.min(stats.healthy, total))
+      : 0
 
   const offline = issues?.offline ?? 0
   const valve = issues?.valve ?? 0
@@ -539,8 +591,12 @@ export default function SystemsHealthCard({
 
   // The whole card's empty state: nothing needs attention anywhere. This is
   // what reveals "Show past alerts"; the per-count red is decided per tile.
+  // Every term is a DEVICE FAULT. An active water event is not one of them and
+  // is not available here — a scope whose every system passes the four checks
+  // is clear on THIS card whatever is leaking, and the Water Events surface is
+  // what says the rest. That is the separation, in one line.
   const zero =
-    requireAttention === 0 && offline === 0 && valve === 0 && power === 0 && recipients === 0
+    attention === 0 && offline === 0 && valve === 0 && power === 0 && recipients === 0
 
   const tone = health.tone ?? 'healthy'
 
@@ -597,12 +653,12 @@ export default function SystemsHealthCard({
             <TileLabel>All Systems</TileLabel>
           </div>
           <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-[6px]">
-            <Capsule hot={requireAttention !== 0}>
+            <Capsule hot={attention !== 0}>
               <span className="flex shrink-0 items-center text-slate-400">
                 <Warning size={18} />
               </span>
-              <AttentionCount zero={requireAttention === 0}>{requireAttention}</AttentionCount>
-              {requireAttention === 0 ? <ClearMark /> : null}
+              <AttentionCount zero={attention === 0}>{attention}</AttentionCount>
+              {attention === 0 ? <ClearMark /> : null}
             </Capsule>
             <TileLabel>Require attention</TileLabel>
           </div>
@@ -691,7 +747,7 @@ export default function SystemsHealthCard({
 
       {/* The one sentence this card is allowed to say about itself.
           It is gated on `zero` — the conjunction over EVERY dimension the
-          card renders (require-attention, offline, valve, power,
+          card renders (attention, offline, valve, power,
           recipients) — and on nothing narrower. That is the whole point:
           one dimension reading clear is not evidence about the others, and
           a headline built on a subset would be a true number making a false

@@ -52,7 +52,7 @@ describe('every home widget spans the stack', () => {
       'SystemsHealthCard',
       <SystemsHealthCard
         healthy={{ percent: 50 }}
-        stats={{ requireAttention: 52, total: 103 }}
+        stats={{ attention: 52, total: 103 }}
         issues={{ offline: 10, valve: 12, power: 10, recipients: 4 }}
         systemTypes={{ topology: 103, flood: 0, humidity: 0 }}
       />,
