@@ -175,14 +175,17 @@ const chartLabel = () => lastProps.monthLabel
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 /** Days in a calendar month — day 0 of the next one. */
 const daysIn = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+/** The caption a day span carries — "MMM d–d", or "MMM d" when it is one day.
+    The single-day form is the formatter's own rule, so spelling a one-day span
+    "1–1" would put this file back on a calendar: red every 1st of the month. */
+const spanCaption = (m, from, to) =>
+  (from === to ? `${MONTHS[m]} ${from}` : `${MONTHS[m]} ${from}–${to}`)
 const expectedCaption = () => {
   const read = (lastProps.data ?? []).filter((r) => r.litres != null)
   if (!read.length || read[0].key?.kind !== 'day') return chartLabel()
   const from = read[0].key
   const to = read[read.length - 1].key
-  return from.d === to.d
-    ? `${MONTHS[from.m]} ${from.d}`
-    : `${MONTHS[from.m]} ${from.d}–${to.d}`
+  return spanCaption(from.m, from.d, to.d)
 }
 
 /* The assertion the old `caption === chartLabel()` was always making. */
@@ -276,6 +279,15 @@ describe('the hero "See more" is a jump into the chart', () => {
      the date written above and with the compare to previous month". The
      caption says Oct 1–21; the chart lands on that window with September's
      matching dates over it. */
+
+  /* MONTH-TO-DATE MOVES. These assertions froze the day they were written into
+     themselves ("Oct 1–21", 21 readings, index 20) and went red the next
+     morning. The window's shape is re-derived from the rows the screen handed
+     the card; the clock is read here, once, only to anchor that window to
+     today, and is compared as a date rather than spelled into a caption. */
+  const TODAY = new Date()
+  const DAY = TODAY.getDate()
+
   it('compares month-to-date against the same dates last month', () => {
     const { container } = mount()
     namesTheChartsWindow(container)
@@ -301,8 +313,14 @@ describe('the hero "See more" is a jump into the chart', () => {
     const covered = lastProps.compareData.length
 
     expect(lastProps.data).toHaveLength(daysIn(here.y, here.m))
-    expect(read.length).toBeGreaterThan(0)
-    expect(read).toHaveLength(Math.min(read.length, lastProps.data.length))
+    /* Month-to-DATE: as many readings as today's date, the last of them being
+       today. This is the only clock read in the file, and the only thing the
+       rows cannot state about themselves; it is compared as a date, never
+       spelled. */
+    expect(read).toHaveLength(DAY)
+    expect(read[read.length - 1].key).toMatchObject({
+      y: TODAY.getFullYear(), m: TODAY.getMonth(), d: DAY,
+    })
     // The comparison runs day 1 to day N of the month BEFORE this one, N being
     // the elapsed span clamped to that month's length.
     expect(covered).toBe(Math.min(read.length, daysIn(there.y, there.m)))
@@ -315,7 +333,7 @@ describe('the hero "See more" is a jump into the chart', () => {
     /* And the legend says so in the caption's own form, which is what stops
        it reading "Previous period" over a line that is nothing of the kind. */
     expect(lastProps.seriesLabel).toBe(expectedCaption())
-    expect(lastProps.compareLabel).toBe(`${MONTHS[there.m]} 1–${covered}`)
+    expect(lastProps.compareLabel).toBe(spanCaption(there.m, 1, covered))
   })
 
   it('lands on the window the caption names, and keeps naming it', () => {
@@ -343,7 +361,7 @@ describe('the hero "See more" is a jump into the chart', () => {
     const prevDays = daysIn(prev.y, prev.m)
     expect(prev.y * 12 + prev.m).toBe(here.y * 12 + here.m - 1)
     expect(lastProps.data.filter((r) => r.litres != null)).toHaveLength(prevDays)
-    expect(captionRange(container)).toBe(`${MONTHS[prev.m]} 1–${prevDays}`)
+    expect(captionRange(container)).toBe(spanCaption(prev.m, 1, prevDays))
   })
 
   it('unwinds a drill-down back to the caption window, and never shows a return control', () => {

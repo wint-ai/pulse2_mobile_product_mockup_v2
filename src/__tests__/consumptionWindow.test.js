@@ -286,13 +286,25 @@ describe('previousSpanAligned — the comparison is the same dates, not the same
   })
 })
 
+
+/* MONTH-TO-DATE MOVES. These assertions were written on 2026-10-21 and froze
+   the day into themselves ("Oct 1–21", 21 readings, index 20); the window is
+   month-to-DATE, so they failed the next morning — and did, on 2026-10-22.
+   What they were guarding is a RULE, and the rule is re-derived from the rows
+   below. The clock is read here, once, for the single thing the rows cannot
+   say about themselves: that the elapsed span runs to today. It is compared
+   as a date and never used to spell a label. */
+const TODAY = new Date()
+const DAY = TODAY.getDate()
+
 describe('previousSpanAligned over the real series', () => {
   /* THE RULE, NOT ONE DAY OF IT. This asserted "October 1-21 against September
      1-21" with 21 written in four times, which was true on 21 October 2026 and
      red on the 22nd — month-to-date moves, and the suite had pinned a single
      day of it. The elapsed length is read off the current window now, and the
      previous month is read off the previous window, so the only thing stated
-     is the alignment rule itself. */
+     is the alignment rule itself — plus the one thing the rows cannot state,
+     that the elapsed span is as long as today's date. */
   it('compares month-to-date against the same dates of the previous month', () => {
     const october = at('D', 0).series
     const september = at('D', -1).series
@@ -304,7 +316,9 @@ describe('previousSpanAligned over the real series', () => {
     // month that may be shorter (Mar 1–31 against Feb 1–28, pinned above).
     const covered = Math.min(elapsed, september.length)
 
-    expect(elapsed).toBeGreaterThan(0)
+    // Month-to-DATE: the elapsed span runs to today, so it is today's date
+    // long. The clock is read once, above, and never spelled.
+    expect(elapsed).toBe(DAY)
     expect(span).toHaveLength(covered)
     expect(span[0].key).toMatchObject({ y: prev.y, m: prev.m, d: 1 })
     expect(span[covered - 1].key).toMatchObject({ y: prev.y, m: prev.m, d: covered })

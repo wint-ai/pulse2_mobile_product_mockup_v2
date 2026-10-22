@@ -643,11 +643,14 @@ export default function SystemHealthCard({
                    there is gone. The risk line says so, in words, on the
                    warning ground the tiles now share.
 
-                The copy is mine — 199417:131529 is the only state Figma draws
-                and there is no frame for the other two (see line 49). "may miss
-                a leak or fail to stop it" is the one phrase true of all four
-                PRD-09 checks at once: comm, power and recipients break SEEING
-                it, a valve error breaks STOPPING it. */}
+                THE ALL-CLEAR LINE IS THE OWNER'S, not mine: "All {n} systems
+                healthy", ruled in d0619c5 and restored here after this card
+                briefly replaced it. The other two tones have no ruled string —
+                199417:131529 is the only state Figma draws and there is no
+                frame for either of them (see line 49) — so that copy is mine.
+                "may miss a leak or fail to stop it" is the one phrase true of
+                all four PRD-09 checks at once: comm, power and recipients break
+                SEEING it, a valve error breaks STOPPING it. */}
             <div
               className={cn(
                 STATUS_ROW,
@@ -677,23 +680,33 @@ export default function SystemHealthCard({
               </span>
               <p className={cn('font-sans', STATUS_TEXT)} dir="auto">
                 {allClear ? (
-                  <>
-                    {/* It borrows the card's own title rather than naming the
-                        four checks — the header already says System health.
-                        The owner, on the line this replaced: "user dont knows
-                        the check". */}
-                    {`All ${fmt(fleet)} ${sys(fleet)} protected`}
-                    {leaks === 0 ? (
-                      ' · no water events'
-                    ) : (
-                      <>
-                        {' · '}
-                        <span className="text-red-700">
-                          {`${fmt(leaks)} water ${leaks === 1 ? 'event' : 'events'} active`}
-                        </span>
-                      </>
-                    )}
-                  </>
+                  leaks === 0 ? (
+                    /* THE RULED LINE, restored verbatim from d0619c5
+                       ("Quiet-state copy: say what we watch, not that
+                       everything is fine"). Four research passes stand behind
+                       it and the owner's own note is in that commit: "too much
+                       negative… I want them to act — use us to look for abnormal
+                       patterns". It borrows the card's own title rather than
+                       naming the four checks — the header already says System
+                       health; the owner, on the line that named them: "user
+                       dont knows the check". "All N systems protected · no
+                       water events" stood here briefly, written without knowing
+                       this existed. It is quoted copy, so it keeps its own
+                       singular/plural rather than borrowing `sys()`; the two
+                       spell the same word at the default unitLabel. */
+                    `All ${fmt(fleet)} ${fleet === 1 ? 'system' : 'systems'} healthy`
+                  ) : (
+                    <>
+                      {/* NOT the all-clear state and so not the ruled line: the
+                          fleet is protected AND water is moving. Figma draws no
+                          frame for this one (line 49), so the copy is mine. */}
+                      {`All ${fmt(fleet)} ${sys(fleet)} protected`}
+                      {' · '}
+                      <span className="text-red-700">
+                        {`${fmt(leaks)} water ${leaks === 1 ? 'event' : 'events'} active`}
+                      </span>
+                    </>
+                  )
                 ) : (
                   `${fmt(attention)} ${sys(attention)} may miss a leak or fail to stop it`
                 )}

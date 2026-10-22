@@ -39,6 +39,7 @@
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
+import { useId } from 'react'
 import { cn } from '@/lib/utils'
 import { DropletDown, DropletShare, Droplets } from '@/v2/icons'
 import {
@@ -129,20 +130,51 @@ function kindGlyph(row) {
 }
 
 // The comp's sparkline tile, measured off I198328:88624;101006:7299;198328:88559:
-// a 57x40 rect, rx 2, #F2F6FF, with both traces running edge to edge across it.
+// a 57x40 rect, rx 2, #F2F6FF. 57x40 is also the web's own default.
 const TILE_W = 57
 const TILE_H = 40
-const TILE_PAD_Y = 10
+/* PAD, both axes. Was TILE_PAD_Y = 10 on y and nothing on x, so our traces ran
+   edge to edge and sat in a squashed vertical band. Upstream pads 3 all round
+   (InsightMiniChart). */
+const PAD = 3
+
+/**
+ * DOWNSAMPLE TO ~12 BUCKETS — the single biggest reason these charts did not
+ * look like the web's.
+ *
+ * A background-flow insight carries 30 days of HOURLY samples: 720 points
+ * drawn across 57 pixels, i.e. about 13 points per pixel. That renders as a
+ * solid band of noise, not a curve. Upstream averages into ~12 buckets first
+ * and says why in its own comment: "Series are downsampled to ~12 buckets so
+ * dense data reads as a clean curve."
+ *
+ * Verbatim from src/components/insights/MiniChart.tsx.
+ */
+function downsample(vals, target = 12) {
+  if (!vals || vals.length <= target) return vals ?? []
+  const bucket = vals.length / target
+  return Array.from({ length: target }, (_, i) => {
+    const sliceStart = Math.floor(i * bucket)
+    const sliceEnd = Math.max(sliceStart + 1, Math.floor((i + 1) * bucket))
+    const slice = vals.slice(sliceStart, sliceEnd)
+    return slice.reduce((a, v) => a + v, 0) / slice.length
+  })
+}
+
+/** One point in the padded box. Upstream's `pt`. */
+function ptAt(v, i, len, lo, span) {
+  const x = PAD + (len > 1 ? (i / (len - 1)) * (TILE_W - PAD * 2) : (TILE_W - PAD * 2) / 2)
+  const y = PAD + (1 - (v - lo) / span) * (TILE_H - PAD * 2)
+  return { x, y }
+}
 
 /** Map one series into the tile, on a scale shared with its companion line. */
 function toPath(values, lo, hi) {
   if (!Array.isArray(values) || values.length === 0) return null
   const span = hi - lo || 1
-  const stepX = values.length > 1 ? TILE_W / (values.length - 1) : 0
   return values
     .map((v, i) => {
-      const x = values.length > 1 ? i * stepX : TILE_W / 2
-      const y = TILE_H - TILE_PAD_Y - ((v - lo) / span) * (TILE_H - TILE_PAD_Y * 2)
+      const { x, y } = ptAt(v, i, values.length, lo, span)
       return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
     })
     .join(' ')
@@ -159,19 +191,60 @@ function toPath(values, lo, hi) {
  * own row maps, so those two fall back to the placeholder shape below until
  * they pass `series`/`baseline` through.
  */
-function Sparkline({ tone, series, baseline }) {
-  const stroke = (TONE[tone] ?? TONE.good).stroke
-  const points = [...(Array.isArray(series) ? series : []), ...(Array.isArray(baseline) ? baseline : [])]
-    .filter(n => Number.isFinite(n))
+/* The web's two type-identity colours, from insightTypeMeta.ts. The CHART
+   takes the insight's TYPE colour; only the numeric value is tinted by
+   direction. We were colouring the trace red for a rise and green for a fall,
+   which the web never does — it draws one blue family for every usage change
+   and navy for background flow. */
+const SPARK_INK = {
+  'background-flow': '#193CB8', // WDS navy
+  usage: '#0B81F8',             // WDS wint blue
+}
+
+/**
+ * The insight mini-chart, matched to the web's InsightMiniChart so the two
+ * apps draw the same picture from the same numbers.
+ *
+ * TWO FLAVOURS, which upstream names and we did not have:
+ *   background — gradient-area sparkline, NO baseline. The web fills under the
+ *                trace from 22% to 0 opacity; we drew a bare stroke, which is
+ *                why ours read thin and flat beside theirs.
+ *   usage      — plain line plus the dashed expected baseline.
+ *
+ * The scale spans series AND baseline for the usage flavour only; background
+ * flow has no baseline to share a scale with.
+ */
+function Sparkline({ tone, series, baseline, kind }) {
+  const isBackground = /background\s*flow/i.test(String(kind ?? ''))
+  const stroke = isBackground ? SPARK_INK['background-flow'] : SPARK_INK.usage
+  const gid = useId()
+
+  const data = downsample(Array.isArray(series) ? series.filter(Number.isFinite) : [])
+  const guide = isBackground
+    ? null
+    : downsample(Array.isArray(baseline) ? baseline.filter(Number.isFinite) : [])
+
+  const points = [...data, ...(guide ?? [])]
   const lo = points.length ? Math.min(...points) : 0
   const hi = points.length ? Math.max(...points) : 0
-  const actual = toPath(series, lo, hi)
-  const expected = toPath(baseline, lo, hi)
+  const actual = data.length > 1 ? toPath(data, lo, hi) : null
+  const expected = guide && guide.length > 1 ? toPath(guide, lo, hi) : null
+
   // States nothing it has not been told: with no series to plot it only leans
   // the way the row's own tone already reads. Not a stand-in for real numbers.
   const placeholder = tone === 'bad'
-    ? 'M 2 30 L 11 27 L 20 28 L 29 20 L 38 21 L 47 15 L 55 12'
-    : 'M 2 12 L 11 17 L 20 15 L 29 22 L 38 20 L 47 26 L 55 29'
+    ? 'M 3 30 L 11 27 L 20 28 L 29 20 L 38 21 L 47 15 L 54 12'
+    : 'M 3 12 L 11 17 L 20 15 L 29 22 L 38 20 L 47 26 L 54 29'
+
+  /* The area closes down to the tile's floor under the trace — upstream's
+     `${line} L{last.x} {height} L{first.x} {height} Z`. */
+  let area = null
+  if (isBackground && actual && data.length > 1) {
+    const span = hi - lo || 1
+    const first = ptAt(data[0], 0, data.length, lo, span)
+    const last = ptAt(data[data.length - 1], data.length - 1, data.length, lo, span)
+    area = `${actual} L ${last.x.toFixed(2)} ${TILE_H} L ${first.x.toFixed(2)} ${TILE_H} Z`
+  }
 
   return (
     <svg
@@ -181,22 +254,36 @@ function Sparkline({ tone, series, baseline }) {
       className="shrink-0"
       aria-hidden="true"
     >
-      {/* Same rule as the big trace: var() tokens have to be applied as CSS
-          properties, because an SVG presentation attribute never resolves
-          them. SPARK_GROUND / SPARK_BASELINE carry the shared values. */}
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={stroke} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* var() tokens have to be applied as CSS PROPERTIES: an SVG
+          presentation attribute never resolves them. SPARK_GROUND /
+          SPARK_BASELINE carry the shared values. The gradient stops take
+          `stroke` directly because the type colours are brand identity from
+          the web's insightTypeMeta, the same in both themes. */}
       <rect width={TILE_W} height={TILE_H} rx="2" style={{ fill: SPARK_GROUND }} />
-      {expected && (
+      {area ? <path d={area} fill={`url(#${gid})`} /> : null}
+      {expected ? (
         <path
           d={expected}
           style={{ stroke: SPARK_BASELINE }}
           strokeWidth="1"
-          strokeDasharray="2.8 2.8"
+          strokeDasharray="3 3"
           fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
         />
-      )}
-      <path d={actual ?? placeholder} style={{ stroke }} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      ) : null}
+      <path
+        d={actual ?? placeholder}
+        style={{ stroke }}
+        strokeWidth="1.5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }
@@ -726,7 +813,7 @@ export default function InsightsCard({
                 {/* The tile is the svg: the comp's 57x40 #F2F6FF rect is the
                     sparkline's own background, with the traces running to its
                     edges rather than a tinted box padding a smaller drawing. */}
-                <Sparkline tone={row.deltaTone} series={row.series} baseline={row.baseline} />
+                <Sparkline tone={row.deltaTone} series={row.series} baseline={row.baseline} kind={row.kind} />
 
                 {/* Badge over value, centred in a 55px column, 8px apart
                     (…;199323:12300). */}

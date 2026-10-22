@@ -140,6 +140,7 @@
 import { ArrowRight } from 'lucide-react'
 import { Waves } from '@/v2/icons'
 import { cn } from '@/lib/utils'
+import wave from '@/assets/system-hero-wave.png'
 
 /* ----------------------------------------------------------------- type */
 
@@ -235,14 +236,35 @@ const KIND = String.raw`[word-break:break-word] font-normal min-w-px overflow-hi
 /* 199371:137293 — h-[178px] kept so the card keeps its height without the
    illustration; see the DROPPED note. */
 const EMPTY_BODY = String.raw`content-stretch flex flex-col gap-[13px] h-[178px] items-center justify-center px-4 relative shrink-0 w-full`
-const EMPTY_TEXT = String.raw`content-stretch flex flex-col gap-[6px] items-center relative shrink-0 w-full`
-/* Figma h-[98px] on this row budgets for the 89px screenshot beside the copy;
-   with no screenshot it would be 50px of hole, so the row sizes to its copy
-   and centres it. */
-const EMPTY_HERO = String.raw`content-stretch flex gap-[14px] items-center justify-center relative shrink-0 w-full`
-const EMPTY_COPY = String.raw`[word-break:break-word] content-stretch flex flex-col gap-[9px] items-center justify-center relative shrink-0 text-center whitespace-nowrap`
-const EMPTY_TITLE = String.raw`font-semibold relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] leading-[18px]`
-const EMPTY_SUB = String.raw`font-normal relative shrink-0 text-muted-foreground text-sm leading-5`
+const EMPTY_TEXT = String.raw`content-stretch flex flex-col gap-[6px] h-[169px] items-center relative shrink-0 w-full`
+/* 199466:18069. The h-[98px] on this row budgets for the 89px illustration
+   beside the copy. It used to size to its copy and centre it, with a note
+   saying "with no screenshot it would be 50px of hole" — the screenshot is
+   implemented now (199466:18070), so the row is the node's height again and
+   the copy sits BESIDE the art rather than under nothing. */
+const EMPTY_HERO = String.raw`content-stretch flex gap-[14px] h-[98px] items-center relative shrink-0 w-full`
+/* NOWRAP MOVES TO THE TITLE ALONE. The node sets whitespace-nowrap on this
+   whole block because its own second line is "Everything looks good!", which
+   fits beside the 90px art. Ours says what the card is watching and is twice
+   that long, so inherited nowrap clipped it mid-word at the card's edge —
+   the same trap the WIDTHS note at the top of this file describes, where a
+   375pt artboard freezes something real content then breaks.
+   The title keeps nowrap (it is the node's own 189px and fits); the sentence
+   below it wraps. `min-w-0` lets the column shrink instead of pushing the
+   card wide. */
+const EMPTY_COPY = String.raw`[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col gap-[9px] items-start justify-center min-w-0 relative`
+
+/* 199466:18070 — the wave, cropped to a 90x89.308 rounded tile and washed
+   #daecff through mix-blend-multiply. Same raster as the consumption hero
+   (Figma's 9c2cf.png), so no new asset: this is the product's own wave at
+   thumbnail size, not a stock illustration. */
+const EMPTY_ART = String.raw`h-[89.308px] mix-blend-multiply relative rounded-[14.608px] shrink-0 w-[90px]`
+/* 199466:18074 "Huge Icons / ai-magic", 57px, absolutely placed ON the tile.
+   Two white four-point stars; the node flips them with -rotate-180 and
+   -scale-x-100, which together are a vertical mirror. */
+const EMPTY_SPARK = String.raw`absolute left-[17px] rounded-[237.5px] size-[57px] top-[20.5px] pointer-events-none`
+const EMPTY_TITLE = String.raw`font-semibold relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] whitespace-nowrap leading-[18px]`
+const EMPTY_SUB = String.raw`font-normal relative text-muted-foreground text-sm text-pretty leading-5`
 
 /* 199375:139983 / 139984 — the tip. */
 const TIP = String.raw`bg-[#daecff] content-stretch flex gap-[10px] h-[65px] items-center px-[7px] relative rounded-[14px] shrink-0 w-full`
@@ -526,8 +548,28 @@ export default function TriageBand({
       ) : (
         <div className={EMPTY_BODY} data-name="Body wrapper" data-node-id="199371:137293">
           <div className={EMPTY_TEXT} data-name="Text" data-node-id="199375:138169">
-            <div className={EMPTY_HERO} data-node-id="199375:138170">
-              <div className={EMPTY_COPY} data-node-id="199375:140910">
+            <div className={EMPTY_HERO} data-node-id="199466:18069">
+              <div className={EMPTY_ART} data-node-id="199466:18070" aria-hidden="true">
+                <div className="absolute inset-0 pointer-events-none rounded-[14.608px]">
+                  <div className="absolute inset-0 opacity-90 overflow-hidden rounded-[14.608px]">
+                    <img
+                      alt=""
+                      src={wave}
+                      className="absolute h-[108.78%] left-[-33.52%] max-w-none top-[-4.54%] w-[166.97%]"
+                    />
+                  </div>
+                  <div className="absolute bg-[#daecff] inset-0 mix-blend-multiply rounded-[14.608px]" />
+                </div>
+                <span className={EMPTY_SPARK} data-node-id="199466:18074" data-name="Huge Icons / ai-magic">
+                  <span className="absolute inset-[12.5%] block -rotate-180 -scale-x-100">
+                    <svg viewBox="0 0 42.75 42.75" fill="none" className="block size-full">
+                      <path d="M16.625 33.25L15.3999 29.9391C13.7934 25.5977 12.9901 23.4269 11.4066 21.8434C9.82308 20.2599 7.65234 19.4566 3.31088 17.8501L0 16.625L3.31088 15.3999C7.65235 13.7934 9.82308 12.9901 11.4066 11.4066C12.9901 9.82308 13.7934 7.65234 15.3999 3.31088L16.625 0L17.8501 3.31088C19.4566 7.65234 20.2599 9.82308 21.8434 11.4066C23.4269 12.9901 25.5977 13.7934 29.9391 15.3999L33.25 16.625L29.9391 17.8501C25.5977 19.4566 23.4269 20.2599 21.8434 21.8434C20.2599 23.4269 19.4566 25.5977 17.8501 29.9391L16.625 33.25Z" fill="white" />
+                      <path d="M35.625 42.75L35.0999 41.3311C34.4114 39.4704 34.0672 38.5401 33.3885 37.8615C32.7099 37.1828 31.7796 36.8386 29.9189 36.1501L28.5 35.625L29.9189 35.0999C31.7796 34.4115 32.7099 34.0672 33.3885 33.3885C34.0672 32.7099 34.4114 31.7796 35.0999 29.919L35.625 28.5L36.1501 29.919C36.8386 31.7796 37.1828 32.7099 37.8615 33.3885C38.5401 34.0672 39.4704 34.4115 41.3311 35.0999L42.75 35.625L41.3311 36.1501C39.4704 36.8386 38.5401 37.1828 37.8615 37.8615C37.1828 38.5401 36.8386 39.4704 36.1501 41.3311L35.625 42.75Z" fill="white" />
+                    </svg>
+                  </span>
+                </span>
+              </div>
+              <div className={EMPTY_COPY} data-node-id="199466:18071">
                 <p className={cn('font-sans', EMPTY_TITLE)} dir="auto" data-node-id="199375:138171">
                   No active water events
                 </p>

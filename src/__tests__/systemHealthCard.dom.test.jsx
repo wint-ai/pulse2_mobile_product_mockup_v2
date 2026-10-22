@@ -191,14 +191,14 @@ describe('SystemHealthCard — all healthy / empty', () => {
        words instead of drawing three noughts. It now also counts, and borrows
        the card's own title rather than naming the four PRD-09 checks.
 
-       2026-10-22 it also names the OTHER axis. "All 48 systems healthy" is a
-       true health statement that reads, on a home screen, as "nothing is
-       happening" — and a fleet can be 100% protected while two pipes are open.
-       The sentence is gated on both now, which is also what gates the success
-       green. The water figure is the only one on this card and it touches no
-       counter; see the component's note on the prop. */
-    expect(screen.getByText(/All 48 systems protected/)).toBeTruthy()
-    expect(screen.getByText(/no water events/)).toBeTruthy()
+       2026-10-22, REVERSED. "All 48 systems protected · no water events" was
+       written here without knowing the owner had already ruled this line in
+       d0619c5 ("Quiet-state copy: say what we watch, not that everything is
+       fine" — "too much negative… I want them to act"). The ruled string wins,
+       so the quiet state names health only and says nothing about water. The
+       water count still gates the TONE, and the sentence that names it belongs
+       to the `water` tone alone now — see the two-axes block below. */
+    expect(screen.getByText('All 48 systems healthy')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Valve errors:/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Offline systems:/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Disconnected power:/ })).toBeNull()
@@ -337,7 +337,9 @@ describe('SystemHealthCard — health and water events are separate axes', () =>
     const { container } = render(<SystemHealthCard total={10} healthy={10} waterEvents={0} />)
     expect(row(container).getAttribute('data-status')).toBe('clear')
     expect(row(container).className).toContain('bg-alert-surface-success')
-    expect(textOf(container)).toContain('All 10 systems protected · no water events')
+    // The owner's ruled line (d0619c5). It names health only; the water axis
+    // is carried by the TONE here, and in words only in the `water` tone.
+    expect(textOf(container)).toContain('All 10 systems healthy')
   })
 
   it('healthy and leaking: still 100% protected, and NOT painted all-clear', () => {
@@ -407,6 +409,12 @@ describe('SystemHealthCard — health and water events are separate axes', () =>
     )
     expect(row(container).getAttribute('data-status')).toBe('risk')
     expect(textOf(container)).not.toContain('protected')
+    /* 2026-10-22: the clear tone stopped saying "protected" and now says the
+       owner's ruled line, so the assertion above would pass with the bug live.
+       It is KEPT — it still catches a regression into the `water` tone — and
+       the ruled string is pinned absent beside it, which is what actually
+       fails if the row is ever re-gated on `hotKinds.length === 0`. */
+    expect(textOf(container)).not.toContain('All 10 systems healthy')
     expect(textOf(container)).toContain('1 system may miss a leak or fail to stop it')
     expect(container.querySelector('[data-node-id="199360:129783"]').textContent)
       .toBe('1 / 10 need attention')

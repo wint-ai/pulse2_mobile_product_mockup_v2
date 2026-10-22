@@ -1154,6 +1154,19 @@ export default function HomeAllAccounts({ expanded = false }) {
       <SystemsOverviewHero
         total={live?.stats?.total ?? 0}
         systemTypes={live?.systemTypes}
+        /* A chip is a shortcut into the Systems tab, filtered to that type.
+           The hero and the table already speak the same vocabulary —
+           SYSTEM_TYPE.FLOW / FLOOD / HUMIDITY is what the `type` filter
+           category reads through systemTypeOf — so this sets the selection
+           the filter sheet would have set, rather than inventing a parallel
+           path. Replaces the whole selection on purpose: the chip states one
+           complete intent ("show me the flood sensors"), and merging it into
+           whatever was already applied could land on an empty table for
+           reasons the user cannot see. */
+        onSelectType={type => {
+          setSystemFilters({ type: [type] })
+          setTab('systems')
+        }}
       />
 
       <SystemHealthCard

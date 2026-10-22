@@ -268,7 +268,8 @@ describe('labelShort — the period CONTROL\'s reading of the label', () => {
    So the window is re-derived from the rows the production code returned, and
    the expectations are built from that: the span opens on the 1st, runs to the
    last day that carries a reading, and is spelled "MMM d–d". Nothing below
-   reads the clock, and bumping 21 to 22 would only have moved the trap. */
+   reads the clock to SPELL anything, and bumping 21 to 22 would only have
+   moved the trap. */
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const MONTHS_FULL = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -276,11 +277,24 @@ const MONTHS_FULL = [
 ]
 /** Days in a calendar month — day 0 of the next one. */
 const daysIn = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+/** The caption a day span carries — "MMM d–d", or "MMM d" when it is one day.
+    The single-day form is the formatter's own documented rule (pinned below as
+    'says "Oct 1", not "Oct 1–1"'), so spelling it "1–1" here would put the
+    suite back on a calendar: red every 1st of the month. */
+const spanCaption = (m, from, to) =>
+  (from === to ? `${MONTHS[m]} ${from}` : `${MONTHS[m]} ${from}–${to}`)
 /** The elapsed span of a Daily view: the buckets that actually carry a reading. */
 const spanOf = (view) => {
   const read = view.series.filter((p) => p.litres != null)
   return { read, from: read[0].key, to: read[read.length - 1].key }
 }
+/* The one fact the rows cannot state about themselves: that the elapsed span
+   ends TODAY. Read from the clock, so it re-derives on every run and cannot
+   freeze the way the literal it replaces did — and it is only ever compared
+   as a date, never used to spell a caption (on the 1st of a month the caption
+   reads "Oct 1", not "Oct 1–1"). */
+const TODAY = new Date()
+const DAY = TODAY.getDate()
 
 describe('labelRange — the Daily window’s elapsed span', () => {
   it('is an abbreviated month, a day range on an en dash, and no year', () => {
@@ -291,11 +305,15 @@ describe('labelRange — the Daily window’s elapsed span', () => {
     // and every day between them has one.
     expect(from.d).toBe(1)
     expect(read).toHaveLength(to.d)
-    expect(view.labelRange).toBe(`${MONTHS[to.m]} 1–${to.d}`)
+    expect(view.labelRange).toBe(spanCaption(to.m, from.d, to.d))
     // The FORM the owner asked for, stated as a form: abbreviated month, en
     // dash, no year. A four-digit year anywhere in it is the rejected one.
-    expect(view.labelRange).toMatch(/^[A-Z][a-z]{2} 1–\d{1,2}$/)
+    expect(view.labelRange).toMatch(/^[A-Z][a-z]{2} 1(–\d{1,2})?$/)
     expect(view.label).toBe(`${MONTHS_FULL[to.m]} ${to.y}`)
+    // AND THE WINDOW IS THIS ONE. The rows prove the shape; only the clock can
+    // prove the span runs to TODAY, which a window stopping three days short
+    // would also satisfy. Read once, compared as a date, never spelled.
+    expect(to).toMatchObject({ y: TODAY.getFullYear(), m: TODAY.getMonth(), d: DAY })
 
     /* And it names the rows that carry a reading, not the axis. The month is
        drawn at its true length (§5 / PLS-WC-17) so the axis runs to the last
@@ -314,7 +332,7 @@ describe('labelRange — the Daily window’s elapsed span', () => {
     expect(from.d).toBe(1)
     expect(to.d).toBe(daysIn(to.y, to.m))
     expect(read).toHaveLength(view.series.length)
-    expect(view.labelRange).toBe(`${MONTHS[to.m]} 1–${to.d}`)
+    expect(view.labelRange).toBe(spanCaption(to.m, from.d, to.d))
   })
 
   it('names its own month across the year boundary, and never a year', () => {
@@ -363,6 +381,8 @@ describe('labelRange — the Daily window’s elapsed span', () => {
   })
 
   it('skips buckets with no reading, so the span is the ELAPSED one', () => {
+    /* Synthetic input: 21 readings built here, so the literal is right and
+       must NOT follow the clock — that is the point of the case. */
     const october = dayRows(2026, 9, 1, 31).map((row, i) => (i < 21 ? row : { ...row, litres: null }))
     expect(daySpanLabel(october)).toBe('Oct 1–21')
   })
@@ -397,7 +417,7 @@ describe('labelRange — the Daily window’s elapsed span', () => {
        see the note above the describe. */
     const fleet = getFleetConsumptionSeries(sample, 'D', 0)
     expect(fleet.labelRange).toBe(getConsumptionSeries('ws-9886', 'X', 'D', 0).labelRange)
-    expect(fleet.labelRange).toMatch(/^[A-Z][a-z]{2} 1–\d{1,2}$/)
+    expect(fleet.labelRange).toMatch(/^[A-Z][a-z]{2} 1(–\d{1,2})?$/)
     expect(getFleetConsumptionSeries(sample, 'M', 0).labelRange).toBeNull()
   })
 })

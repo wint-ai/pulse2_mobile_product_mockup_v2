@@ -46,6 +46,7 @@
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { BrandDrops, FloodLine, PhotoSensor3 } from '@/v2/icons'
+import { SYSTEM_TYPE } from '@/data/systemType'
 import { cn } from '@/lib/utils'
 import wave from '@/assets/system-hero-wave.png'
 
@@ -86,9 +87,9 @@ const fmt = (n) => Number(n ?? 0).toLocaleString('en-US')
    component once shipped and crashed at runtime. Elements keep each icon a
    plain, visible reference. */
 const TYPES = [
-  { key: 'topology', name: 'Topology systems', size: 19.168, glyph: <PhotoSensor3 size="100%" className="absolute inset-0 block" /> },
-  { key: 'humidity', name: 'Humidity sensors', size: 18.21, glyph: <BrandDrops size="100%" className="absolute inset-0 block" /> },
-  { key: 'flood', name: 'Flood sensors', size: 18.21, glyph: <FloodLine size="100%" className="absolute inset-0 block" /> },
+  { key: 'topology', name: 'Topology systems', type: SYSTEM_TYPE.FLOW, size: 19.168, glyph: <PhotoSensor3 size="100%" className="absolute inset-0 block" /> },
+  { key: 'humidity', name: 'Humidity sensors', type: SYSTEM_TYPE.HUMIDITY, size: 18.21, glyph: <BrandDrops size="100%" className="absolute inset-0 block" /> },
+  { key: 'flood', name: 'Flood sensors', type: SYSTEM_TYPE.FLOOD, size: 18.21, glyph: <FloodLine size="100%" className="absolute inset-0 block" /> },
 ]
 
 export default function SystemsOverviewHero({
@@ -96,6 +97,9 @@ export default function SystemsOverviewHero({
   unitLabel = 'systems',
   /** { topology, humidity, flood } — the counts the page already derives. */
   systemTypes,
+  /** Called with a SYSTEM_TYPE when a chip is tapped. Omit and the chips stay
+      inert, which is what the frame draws. */
+  onSelectType,
   className,
 }) {
   const counts = systemTypes ?? {}
@@ -180,18 +184,47 @@ export default function SystemsOverviewHero({
         className="absolute flex gap-[11px] items-center left-[21px] top-[96px]"
         data-node-id="199417:131528"
       >
-        {TYPES.map(({ key, name, glyph, size }) => (
-          <span key={key} className={CHIP} role="img" aria-label={`${name}: ${fmt(counts[key])}`}>
-            <span
-              aria-hidden="true"
-              className="relative shrink-0 text-ink-on-color"
-              style={{ width: size, height: size }}
+        {TYPES.map(({ key, name, type, glyph, size }) => {
+          const count = Number(counts[key]) || 0
+          /* A chip reading 0 would route to an empty table — a dead end
+             dressed as a control. It stays a picture until there is something
+             behind it, and keeps its label so assistive tech still reads the
+             count. Today that is flood and humidity, which this dataset has
+             none of; the chip wakes up on its own when it does. */
+          const live = count > 0 && typeof onSelectType === 'function'
+          const inner = (
+            <>
+              <span
+                aria-hidden="true"
+                className="relative shrink-0 text-ink-on-color"
+                style={{ width: size, height: size }}
+              >
+                {glyph}
+              </span>
+              <span className={CHIP_NUM} dir="auto">{fmt(count)}</span>
+            </>
+          )
+          return live ? (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelectType(type)}
+              aria-label={`${name}: ${fmt(count)}. Show these in the Systems tab.`}
+              className={cn(
+                CHIP,
+                'cursor-pointer appearance-none border-0 transition-colors',
+                'hover:bg-[rgba(241,245,249,0.42)] active:opacity-80',
+                'outline-none focus-visible:ring-[3px] focus-visible:ring-white/70',
+              )}
             >
-              {glyph}
+              {inner}
+            </button>
+          ) : (
+            <span key={key} className={CHIP} role="img" aria-label={`${name}: ${fmt(count)}`}>
+              {inner}
             </span>
-            <span className={CHIP_NUM} dir="auto">{fmt(counts[key])}</span>
-          </span>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
