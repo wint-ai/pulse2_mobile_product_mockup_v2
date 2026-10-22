@@ -184,13 +184,7 @@ describe('SystemHealthCard — all healthy / empty', () => {
      its state) and the assertion follows the node. */
   it('says it in words at zero rather than drawing three noughts', () => {
     render(<SystemHealthCard total={48} healthy={48} />)
-    /* The wording changed on 2026-10-21 — "All of your systems are running!"
-       claimed the whole fleet from a card gated on three tiles, and the owner
-       on the replacement: "user dont knows the check". The GUARANTEE is the
-       same one this test was written for: at zero the card says its state in
-       words instead of drawing three noughts. It now also counts, and borrows
-       the card's own title rather than naming the four PRD-09 checks. */
-    expect(screen.getByText('All 48 systems healthy')).toBeTruthy()
+    expect(screen.getByText('All of your systems are running!')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Valve errors:/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Offline systems:/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Disconnected power:/ })).toBeNull()

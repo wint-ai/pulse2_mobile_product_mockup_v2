@@ -715,10 +715,7 @@ export default function InsightsCard({
             "noInsightsForSystem"). */}
         {list.length === 0 ? (
           <p className="w-full py-6 text-center text-slate-500 text-[14px] leading-5">
-            No unusual patterns here yet
-            <span className="mt-1 block text-slate-400 text-[13px] leading-[18px]">
-              We check every reading for background flow and usage shifts
-            </span>
+            No insights for this system
           </p>
         ) : null}
         {list.map((row, i) => {

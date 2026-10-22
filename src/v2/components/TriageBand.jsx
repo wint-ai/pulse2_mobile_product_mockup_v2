@@ -264,7 +264,7 @@ const EMPTY_ART = String.raw`h-[89.308px] mix-blend-multiply relative rounded-[1
    -scale-x-100, which together are a vertical mirror. */
 const EMPTY_SPARK = String.raw`absolute left-[17px] rounded-[237.5px] size-[57px] top-[20.5px] pointer-events-none`
 const EMPTY_TITLE = String.raw`font-semibold relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] whitespace-nowrap leading-[18px]`
-const EMPTY_SUB = String.raw`font-normal relative text-muted-foreground text-sm text-pretty leading-5`
+const EMPTY_SUB = String.raw`flex flex-col font-normal justify-center leading-[0] relative shrink-0 text-muted-foreground text-sm`
 
 /* 199375:139983 / 139984 — the tip. */
 const TIP = String.raw`bg-[#daecff] content-stretch flex gap-[10px] h-[65px] items-center px-[7px] relative rounded-[14px] shrink-0 w-full`
@@ -399,8 +399,6 @@ function EventRow({ event, onSelect }) {
  * @param {string}   className     appended to the card root
  */
 export default function TriageBand({
-  /** Systems in this scope — the quiet state says how many it is watching. */
-  systemCount = 0,
   events = [],
   onSelectEvent,
   onViewAll,
@@ -522,22 +520,9 @@ export default function TriageBand({
                 <p className={cn('font-sans', EMPTY_TITLE)} dir="auto" data-node-id="199375:138171">
                   No active water events
                 </p>
-                {/* NOT "Everything looks good!". That line claimed the whole
-                    building from a card that measures ONE dimension, and PRD
-                    04a removed exactly it on 2026-06-13 for exactly that
-                    reason: the two-line treatment "implied a global all-clear
-                    that contradicted '1 issue' on the Health widget below".
-                    At 210 Harborview — one Offline system — it printed over a
-                    red fault tile.
-                    What stands here instead says what this card actually
-                    watches, and how much of it. `systemCount` is the scope's
-                    own number; with none passed the sentence drops rather
-                    than reading "0 systems". */}
-                {systemCount > 0 ? (
-                  <p className={cn('font-sans', EMPTY_SUB)} data-node-id="199375:138172">
-                    {`We're watching ${systemCount} ${systemCount === 1 ? 'system' : 'systems'} for the leaks nobody hears`}
-                  </p>
-                ) : null}
+                <div className={cn('font-sans', EMPTY_SUB)} data-node-id="199466:18073">
+                  <p className="leading-5">Everything looks good!</p>
+                </div>
               </div>
             </div>
 
@@ -564,26 +549,13 @@ export default function TriageBand({
                   <circle cx="14.7812" cy="14.7812" r="13.75" strokeWidth="2.0625" strokeLinejoin="round" />
                 </svg>
               </span>
-              {/* THE 25K IS GONE. It was frozen Figma copy and this file's
-                  own note admitted "25K is not derived from anything" — a
-                  number presented as measured that was never computed, in a
-                  product whose credibility is that its numbers are real.
-
-                  What replaces it is the same idea, true: a background flow
-                  at the bottom of the band this product reports (4 L/h) runs
-                  to 35,040 litres a year, and the EPA puts an entire US
-                  family's annual leak waste at 9,400 gal — 35,579 litres. Our
-                  quietest alert is a whole household's yearly waste, and the
-                  comparator belongs to a regulator rather than to us.
-
-                  It is written as a PROJECTION ("a year"), never as a loss
-                  already taken: the dataset's history is 34 days deep and
-                  nothing in it has run longer than 12 hours. */}
-              <div className={cn('font-sans', TIP_TEXT)} data-node-id="199375:139984">
+              {/* Frozen Figma copy — 199466:18077 sets the "L" as a 12px Geist
+                  run inside a 14px sentence. */}
+              <div className={cn('font-sans', TIP_TEXT)} data-node-id="199466:18077">
                 <p className={TIP_P}>
-                  <span className={TIP_RUN}>{`A 4 L/h trickle nobody hears is 35,000`}</span>
+                  <span className={TIP_RUN}>Leak prevention for your system can prevent up to 25K</span>
                   <span className={cn('font-sans', TIP_UNIT)}>L</span>
-                  <span className={TIP_RUN}>{` a year — a household's entire leak waste`}</span>
+                  <span className={TIP_RUN}>{` loss`}</span>
                 </p>
               </div>
             </div>

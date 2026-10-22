@@ -531,15 +531,8 @@ export default function SystemHealthCard({
                     <PinLocation03 size="100%" className="absolute inset-0 block" />
                   </span>
                   <span className={cn('font-sans', CLEAR_TEXT)}>
-                    {/* "All of your systems are running!" claimed the whole
-                        fleet from a card gated on three tiles, so it could
-                        print directly under "12 / 48 need attention".
-                        This counts, and it borrows the card's own title: the
-                        header already says System health, so "healthy" carries
-                        the four PRD-09 checks without naming them. The owner,
-                        on the old line: "user dont knows the check". */}
                     <span className={BAR_LABEL_RUN} dir="auto">
-                      {`All ${fmt(fleet)} ${fleet === 1 ? 'system' : 'systems'} healthy`}
+                      All of your systems are running!
                     </span>
                   </span>
                 </span>
