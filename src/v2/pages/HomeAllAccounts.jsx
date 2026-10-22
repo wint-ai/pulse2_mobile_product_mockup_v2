@@ -1179,17 +1179,29 @@ export default function HomeAllAccounts({ expanded = false }) {
         valveErrors={live?.issues?.valve ?? 0}
         offline={live?.issues?.offline ?? 0}
         noPower={live?.issues?.power ?? 0}
-        /* NOT a health input — see the card's own note on this prop. It
-           reaches one sentence: the all-clear line, which is the only thing on
-           that card claiming anything about the whole scope. A scope that is
-           100% protected AND leaking must not be painted success green, and a
-           scope that is 100% protected and dry is the one state on this screen
-           that deserves to read as finished. */
-        waterEvents={live?.stats?.waterEvents ?? 0}
-        onShowAll={() => setTab('systems')}
+        /* PRD 09's FOURTH protection check, and the one with no tile. It is
+           already inside `healthy` above — and therefore inside the card's
+           `attention` — so for a long time this screen could show three empty
+           tiles and the all-clear line above "1 / 10 need attention", which is
+           what /location/Building B does. The card draws Figma's own answer to
+           that now (199338:52997, "N other issues · N no recipients"), and
+           this is the number it draws.
+           `waterEvents` STOOD HERE until 2026-10-22. It fed a three-tone
+           status sentence on that card which no Figma frame draws and which
+           the owner asked to be rid of; the prop went with the row. The
+           health/water separation is still measured, and still pinned, where
+           the numbers are: `stats.healthy` vs `stats.waterEvents` above. */
+        noRecipients={live?.issues?.recipients ?? 0}
+        /* Owner, 2026-10-22: "view all opens the wrong area / currently
+           systems tab / and it shall be open Active alerts overlay with all
+           filter". `setTab('systems')` was the odd one out — onShowPast and
+           onSelectIssue beside it already go through openOverlay, and that
+           helper's defaults (filter 'all', tab 'active') are exactly what was
+           asked for, so it takes no arguments. */
+        onShowAll={() => openOverlay('alerts')}
         /* The card's header button already relabels itself "Show past alerts"
            in the all-clear state (199417:131563) and had no handler to match —
-           it called onShowAll, which opens the Systems tab. Unreachable until
+           it called onShowAll, which then opened the Systems tab. Unreachable until
            the all-clear state itself became reachable, so the mismatch had
            never been seen. */
         onShowPast={() => openOverlay('alerts', { tab: 'history' })}
