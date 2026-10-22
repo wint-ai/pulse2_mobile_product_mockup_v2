@@ -287,34 +287,58 @@ describe('previousSpanAligned — the comparison is the same dates, not the same
 })
 
 describe('previousSpanAligned over the real series', () => {
-  it('compares October 1-21 against September 1-21', () => {
+  /* THE RULE, NOT ONE DAY OF IT. This asserted "October 1-21 against September
+     1-21" with 21 written in four times, which was true on 21 October 2026 and
+     red on the 22nd — month-to-date moves, and the suite had pinned a single
+     day of it. The elapsed length is read off the current window now, and the
+     previous month is read off the previous window, so the only thing stated
+     is the alignment rule itself. */
+  it('compares month-to-date against the same dates of the previous month', () => {
     const october = at('D', 0).series
     const september = at('D', -1).series
     const span = previousSpanAligned(october, september)
 
-    expect(october.filter((r) => r.litres != null)).toHaveLength(21)
-    expect(span).toHaveLength(21)
-    expect(span[0].key).toMatchObject({ y: 2026, m: 8, d: 1 })
-    expect(span[20].key).toMatchObject({ y: 2026, m: 8, d: 21 })
+    const elapsed = october.filter((r) => r.litres != null).length
+    const prev = september[0].key
+    // The comparison is as long as the elapsed span, clamped to a previous
+    // month that may be shorter (Mar 1–31 against Feb 1–28, pinned above).
+    const covered = Math.min(elapsed, september.length)
+
+    expect(elapsed).toBeGreaterThan(0)
+    expect(span).toHaveLength(covered)
+    expect(span[0].key).toMatchObject({ y: prev.y, m: prev.m, d: 1 })
+    expect(span[covered - 1].key).toMatchObject({ y: prev.y, m: prev.m, d: covered })
+    // And it really is the month before, not the one being plotted.
+    expect(prev.y * 12 + prev.m).toBe(october[0].key.y * 12 + october[0].key.m - 1)
   })
 
   /* JANUARY IS NOT A SPECIAL CASE, and this is where that is proved end to
      end. The previous window is reached by asking the data layer for
      `offset - 1`, and bucketDaily steps a whole-month index (y * 12 + m)
      rather than a Date month, so January's predecessor is December of the
-     PREVIOUS YEAR and nothing here had to know that. January 2026 is nine
-     months back from the last reading's month, October 2026. */
-  it('crosses the year boundary — January compares against the previous December', () => {
-    const january = at('D', -9).series
-    const december = at('D', -10).series
+     PREVIOUS YEAR and nothing here had to know that.
 
-    expect(january[0].key).toMatchObject({ y: 2026, m: 0, d: 1 })
-    expect(december[0].key).toMatchObject({ y: 2025, m: 11, d: 1 })
+     The offset that lands on January is derived, not written down: `-m` months
+     back from the current window, or a full year back when today is already in
+     January. It read `at('D', -9)` with y:2026 / y:2025 beside it, which was
+     only true while today was in October 2026 — the same freeze that took out
+     the five month-to-date assertions on 2026-10-22. (getSystemConsumption
+     regenerates 730 days, so thirteen months back is always in range.) */
+  it('crosses the year boundary — January compares against the previous December', () => {
+    const here = at('D', 0).series[0].key
+    const toJan = here.m === 0 ? -12 : -here.m
+
+    const january = at('D', toJan).series
+    const december = at('D', toJan - 1).series
+
+    expect(january[0].key).toMatchObject({ m: 0, d: 1 })
+    expect(december[0].key).toMatchObject({ m: 11, d: 1 })
+    expect(december[0].key.y).toBe(january[0].key.y - 1)
 
     const span = previousSpanAligned(january, december)
     // A complete January: 31 read days against December's 31.
     expect(span).toHaveLength(31)
-    expect(span[30].key).toMatchObject({ y: 2025, m: 11, d: 31 })
+    expect(span[30].key).toMatchObject({ y: december[0].key.y, m: 11, d: 31 })
   })
 })
 

@@ -173,6 +173,8 @@ const chartLabel = () => lastProps.monthLabel
    the production rule, so that a change to either side fails here instead of
    quietly agreeing with itself. */
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** Days in a calendar month — day 0 of the next one. */
+const daysIn = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
 const expectedCaption = () => {
   const read = (lastProps.data ?? []).filter((r) => r.litres != null)
   if (!read.length || read[0].key?.kind !== 'day') return chartLabel()
@@ -276,7 +278,7 @@ describe('the hero "See more" is a jump into the chart', () => {
      matching dates over it. */
   it('compares month-to-date against the same dates last month', () => {
     const { container } = mount()
-    expect(captionRange(container)).toBe('Oct 1–21')
+    namesTheChartsWindow(container)
 
     fireEvent.click(seeMore(container))
 
@@ -284,21 +286,36 @@ describe('the hero "See more" is a jump into the chart', () => {
     expect(compareSwitch(container).getAttribute('aria-checked')).toBe('true')
 
     /* THE COMPARISON IS SHORTER THAN THE AXIS, and that is the point. The
-       month is drawn at its true length (§5), so `data` is all 31 days of
-       October with 21 readings in it; the comparison is September 1-21 and
-       NOT all thirty of September, because comparing three weeks against a
-       month would only be a statement about September being longer. */
+       month is drawn at its true length (§5), so `data` is every day of it
+       with only the elapsed ones carrying a reading; the comparison is the
+       previous month's MATCHING dates and not the whole of it, because
+       comparing three weeks against a month would only be a statement about
+       the month being longer.
+
+       Written as the rule rather than as one day's numbers: this read "all 31
+       days of October with 21 readings in it" until the calendar rolled past
+       21 October 2026 and turned a correct label into a failing test. */
     const read = lastProps.data.filter((r) => r.litres != null)
-    expect(lastProps.data).toHaveLength(31)
-    expect(read).toHaveLength(21)
-    expect(lastProps.compareData).toHaveLength(21)
-    expect(lastProps.compareData[0].key).toMatchObject({ y: 2026, m: 8, d: 1 })
-    expect(lastProps.compareData[20].key).toMatchObject({ y: 2026, m: 8, d: 21 })
+    const here = lastProps.data[0].key
+    const there = lastProps.compareData[0].key
+    const covered = lastProps.compareData.length
+
+    expect(lastProps.data).toHaveLength(daysIn(here.y, here.m))
+    expect(read.length).toBeGreaterThan(0)
+    expect(read).toHaveLength(Math.min(read.length, lastProps.data.length))
+    // The comparison runs day 1 to day N of the month BEFORE this one, N being
+    // the elapsed span clamped to that month's length.
+    expect(covered).toBe(Math.min(read.length, daysIn(there.y, there.m)))
+    expect(there).toMatchObject({ d: 1 })
+    expect(there.y * 12 + there.m).toBe(here.y * 12 + here.m - 1)
+    expect(lastProps.compareData[covered - 1].key).toMatchObject({
+      y: there.y, m: there.m, d: covered,
+    })
 
     /* And the legend says so in the caption's own form, which is what stops
        it reading "Previous period" over a line that is nothing of the kind. */
-    expect(lastProps.seriesLabel).toBe('Oct 1–21')
-    expect(lastProps.compareLabel).toBe('Sep 1–21')
+    expect(lastProps.seriesLabel).toBe(expectedCaption())
+    expect(lastProps.compareLabel).toBe(`${MONTHS[there.m]} 1–${covered}`)
   })
 
   it('lands on the window the caption names, and keeps naming it', () => {
@@ -309,16 +326,24 @@ describe('the hero "See more" is a jump into the chart', () => {
     // The month-to-date window is where the page already was, so the jump
     // lands on it rather than moving to it.
     expect(lastProps.period).toBe('D')
-    expect(captionRange(container)).toBe('Oct 1–21')
+    const here = lastProps.data[0].key
+    expect(captionRange(container)).toBe(expectedCaption())
 
     /* One step back moves BOTH, because there is only one window — and it
        moves the caption off month-to-date onto a COMPLETE month, which is
-       the span rule stating itself: September reports Sep 1–30 because all
-       thirty of its days carry a reading, while October reports Oct 1–21
-       because only twenty-one of its do. */
+       the span rule stating itself: the previous month runs to its last day
+       because all of them carry a reading, while this one stops at today.
+
+       Spelled from the rows rather than as "Sep 1–30", which was only true
+       while today was in October. */
     fireEvent.click(within(container).getByRole('button', { name: 'Previous period' }))
     namesTheChartsWindow(container)
-    expect(captionRange(container)).toBe('Sep 1–30')
+
+    const prev = lastProps.data[0].key
+    const prevDays = daysIn(prev.y, prev.m)
+    expect(prev.y * 12 + prev.m).toBe(here.y * 12 + here.m - 1)
+    expect(lastProps.data.filter((r) => r.litres != null)).toHaveLength(prevDays)
+    expect(captionRange(container)).toBe(`${MONTHS[prev.m]} 1–${prevDays}`)
   })
 
   it('unwinds a drill-down back to the caption window, and never shows a return control', () => {

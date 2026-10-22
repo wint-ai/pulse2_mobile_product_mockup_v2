@@ -256,27 +256,86 @@ describe('labelShort — the period CONTROL\'s reading of the label', () => {
  * the Daily grouping has a day-span to name, so only Daily carries it and
  * every other grouping's caption is untouched.
  */
+/* THESE ASSERT THE RULE, NOT TODAY'S OUTPUT.
+   They used to read `expect(labelRange).toBe('Oct 1–21')`, which was true on
+   21 October 2026 and false on the 22nd and every day after it: month-to-date
+   is a MOVING value and the suite had frozen one day of it. Three assertions
+   here and two more in systemHeroSeeMore.dom.test.jsx went red on the calendar
+   rolling over, with nothing wrong in the code they were guarding — and the
+   neighbours below ("Sep 1–30", "Jan 1–31") were the same bug one month from
+   firing, since both are reached by an offset from the CURRENT month.
+
+   So the window is re-derived from the rows the production code returned, and
+   the expectations are built from that: the span opens on the 1st, runs to the
+   last day that carries a reading, and is spelled "MMM d–d". Nothing below
+   reads the clock, and bumping 21 to 22 would only have moved the trap. */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTHS_FULL = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+/** Days in a calendar month — day 0 of the next one. */
+const daysIn = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+/** The elapsed span of a Daily view: the buckets that actually carry a reading. */
+const spanOf = (view) => {
+  const read = view.series.filter((p) => p.litres != null)
+  return { read, from: read[0].key, to: read[read.length - 1].key }
+}
+
 describe('labelRange — the Daily window’s elapsed span', () => {
   it('is an abbreviated month, a day range on an en dash, and no year', () => {
-    const { labelRange, label, series } = getConsumptionSeries('ws-9886', 'X', 'D', 0)
-    expect(label).toBe('October 2026')
-    expect(labelRange).toBe('Oct 1–21')
+    const view = getConsumptionSeries('ws-9886', 'X', 'D', 0)
+    const { read, from, to } = spanOf(view)
+
+    // Month-to-date: opens on the 1st, runs to the last day with a reading,
+    // and every day between them has one.
+    expect(from.d).toBe(1)
+    expect(read).toHaveLength(to.d)
+    expect(view.labelRange).toBe(`${MONTHS[to.m]} 1–${to.d}`)
+    // The FORM the owner asked for, stated as a form: abbreviated month, en
+    // dash, no year. A four-digit year anywhere in it is the rejected one.
+    expect(view.labelRange).toMatch(/^[A-Z][a-z]{2} 1–\d{1,2}$/)
+    expect(view.label).toBe(`${MONTHS_FULL[to.m]} ${to.y}`)
+
     /* And it names the rows that carry a reading, not the axis. The month is
-       drawn at its true length (§5 / PLS-WC-17) so the axis runs to the 31st
-       while the span stops at the 21st — that difference IS month-to-date. */
-    expect(series).toHaveLength(31)
-    expect(series.filter((p) => p.litres != null)).toHaveLength(21)
+       drawn at its true length (§5 / PLS-WC-17) so the axis runs to the last
+       day of the month while the span stops at today — that difference IS
+       month-to-date, and it is what the two lengths below pin. */
+    expect(view.series).toHaveLength(daysIn(to.y, to.m))
+    expect(read.length).toBeLessThanOrEqual(view.series.length)
   })
 
   it('names the whole of a month that is complete', () => {
-    expect(getConsumptionSeries('ws-9886', 'X', 'D', -1).labelRange).toBe('Sep 1–30')
+    // One step back is always a month that has finished, so its span runs to
+    // the last day of it rather than stopping partway.
+    const view = getConsumptionSeries('ws-9886', 'X', 'D', -1)
+    const { read, from, to } = spanOf(view)
+
+    expect(from.d).toBe(1)
+    expect(to.d).toBe(daysIn(to.y, to.m))
+    expect(read).toHaveLength(view.series.length)
+    expect(view.labelRange).toBe(`${MONTHS[to.m]} 1–${to.d}`)
   })
 
   it('names its own month across the year boundary, and never a year', () => {
-    // January 2026 is nine months back from the last reading's month, and the
-    // month before it is in 2025 — which the caption does not mention, by rule.
-    expect(getConsumptionSeries('ws-9886', 'X', 'D', -9).labelRange).toBe('Jan 1–31')
-    expect(getConsumptionSeries('ws-9886', 'X', 'D', -10).labelRange).toBe('Dec 1–31')
+    /* January, wherever it currently sits: `-m` months back from this window,
+       or a full year back when we are already in January. The month before it
+       is in the PREVIOUS year — which the caption does not mention, by rule.
+       (getSystemConsumption regenerates 730 days, so thirteen months back is
+       always in range.) */
+    const here = getConsumptionSeries('ws-9886', 'X', 'D', 0).series[0].key
+    const toJan = here.m === 0 ? -12 : -here.m
+
+    const jan = getConsumptionSeries('ws-9886', 'X', 'D', toJan)
+    const dec = getConsumptionSeries('ws-9886', 'X', 'D', toJan - 1)
+
+    expect(jan.series[0].key.m).toBe(0)
+    expect(dec.series[0].key.m).toBe(11)
+    expect(dec.series[0].key.y).toBe(jan.series[0].key.y - 1)
+
+    expect(jan.labelRange).toBe('Jan 1–31')
+    expect(dec.labelRange).toBe('Dec 1–31')
+    for (const range of [jan.labelRange, dec.labelRange]) expect(range).not.toMatch(/\d{4}/)
   })
 
   /* THE EDGE CASES THE FORMATTER NOW OWNS. daySpanLabel is called directly
@@ -319,13 +378,26 @@ describe('labelRange — the Daily window’s elapsed span', () => {
       const view = getConsumptionSeries('ws-9886', 'X', period, 0)
       expect(view.labelRange, period).toBeUndefined()
     }
-    // Which is what keeps the twelve-month caption exactly what it was.
-    expect(getConsumptionSeries('ws-9886', 'X', 'M', 0).label).toBe('Nov 2025 - Oct 2026')
+    /* Which is what keeps the twelve-month caption exactly what it was: the
+       twelve months ending at the current one, spelled from the rows. The
+       literal 'Nov 2025 - Oct 2026' that stood here was the same frozen-clock
+       trap as the day spans above, one month from firing. */
+    const monthly = getConsumptionSeries('ws-9886', 'X', 'M', 0)
+    const first = monthly.series[0].key
+    const last = monthly.series[monthly.series.length - 1].key
+    expect(monthly.series).toHaveLength(12)
+    expect(last.y * 12 + last.m).toBe(first.y * 12 + first.m + 11)
+    expect(monthly.label).toBe(`${MONTHS[first.m]} ${first.y} - ${MONTHS[last.m]} ${last.y}`)
   })
 
   it('is reported for the fleet too, so the two series APIs keep one shape', () => {
+    /* "One shape" is the assertion, so it is made against the other API rather
+       than against a date string: both name the same month-to-date window, in
+       the same form. The literal it used to compare to went stale overnight —
+       see the note above the describe. */
     const fleet = getFleetConsumptionSeries(sample, 'D', 0)
-    expect(fleet.labelRange).toBe('Oct 1–21')
+    expect(fleet.labelRange).toBe(getConsumptionSeries('ws-9886', 'X', 'D', 0).labelRange)
+    expect(fleet.labelRange).toMatch(/^[A-Z][a-z]{2} 1–\d{1,2}$/)
     expect(getFleetConsumptionSeries(sample, 'M', 0).labelRange).toBeNull()
   })
 })

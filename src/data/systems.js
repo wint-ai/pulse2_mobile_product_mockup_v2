@@ -40,15 +40,6 @@ const CONTACT_POOL = [
   { name: 'Peter Vance', email: 'p.vance@meridianrealty.com' },
 ];
 
-/**
- * Systems with nobody to notify — drives the "no recipients" health dimension
- * on Home. Deterministic ~6% slice rather than a hand-kept id list, so it
- * survives a dataset refresh.
- */
-function hasNoRecipients(id) {
-  return stableHash(`recipients:${id}`) % 17 === 0;
-}
-
 function addressFor(s) {
   if (s.locationAddress) return s.locationAddress;
   // No street address upstream for the Office sites — synthesize from the
@@ -71,17 +62,20 @@ SYSTEMS.forEach(s => {
 
   s.address = addressFor(s);
 
-  if (hasNoRecipients(s.id)) {
-    s.notificationRecipients = 0;
-    s.contacts = [];
-  } else {
-    const count = (h % 3) + 1;
-    const start = h % CONTACT_POOL.length;
-    s.contacts = [];
-    for (let i = 0; i < count; i++) {
-      s.contacts.push(CONTACT_POOL[(start + i) % CONTACT_POOL.length]);
-    }
-    s.notificationRecipients = s.contacts.length;
+  /* WHO to notify is enrichment; HOW MANY is not — it is the fourth PRD 09
+     protection check, so buildTree decides it alongside comm / valve / power
+     under the per-site budget that keeps at least half the sites super healthy
+     (see "CLEAN SITES FIRST" there). This used to draw its own
+     `stableHash('recipients:'+id) % 17`, an independent ~6% slice that could
+     land a zero inside a site the fleet plan had reserved as clean — and did:
+     Buildings C/D/E are declared all-clear and still had apartments failing on
+     recipients. The names are still drawn here; only the COUNT is taken from
+     upstream, and the two now agree by construction. */
+  const count = s.notificationRecipients ?? 0;
+  const start = h % CONTACT_POOL.length;
+  s.contacts = [];
+  for (let i = 0; i < count; i++) {
+    s.contacts.push(CONTACT_POOL[(start + i) % CONTACT_POOL.length]);
   }
 });
 
