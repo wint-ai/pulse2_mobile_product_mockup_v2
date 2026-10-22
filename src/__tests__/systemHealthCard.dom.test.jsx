@@ -190,23 +190,21 @@ describe('SystemHealthCard — all healthy / empty', () => {
      its state) and the assertion follows the node. */
   it('says it in words at zero rather than drawing three noughts', () => {
     render(<SystemHealthCard total={48} healthy={48} />)
-    /* The wording changed on 2026-10-21 — "All of your systems are running!"
-       claimed the whole fleet from a card gated on three tiles, and the owner
-       on the replacement: "user dont knows the check". The GUARANTEE is the
-       same one this test was written for: at zero the card says its state in
-       words instead of drawing three noughts. It now also counts, and borrows
-       the card's own title rather than naming the four PRD-09 checks.
+    /* BACK TO THE FRAME'S OWN STRING, 2026-10-22. Two replacements stood
+       here in one day — "All 48 systems protected · no water events", then
+       d0619c5's "All 48 systems healthy" — and this file argued for the
+       second on the grounds that the owner had ruled it. He ruled it OUT:
+       "i want you to revert all new text work we made it looks and sound
+       bad", then "make it like in figma". origin/dev's 573b57c reverted the
+       lot against a fresh get_design_context on 199417:131529, which draws
+       this sentence verbatim, and that is what is pinned.
 
-       2026-10-22, REVERSED. "All 48 systems protected · no water events" was
-       written here without knowing the owner had already ruled this line in
-       d0619c5 ("Quiet-state copy: say what we watch, not that everything is
-       fine" — "too much negative… I want them to act"). The ruled string wins,
-       so the quiet state names health only and says nothing about water.
-       LATER THE SAME DAY the three-tone row that briefly carried it was
-       deleted with the rest of the invented copy; the ruled line survived and
-       is back on 199417:131529's own chassis. The block at the foot of this
-       file pins the row itself. */
-    expect(screen.getByText('All 48 systems healthy')).toBeTruthy()
+       The GUARANTEE is untouched and is why the test exists: at zero the
+       card says its state in words rather than drawing three noughts. The
+       block at the foot of this file pins the row itself, by existence
+       rather than by copy, so this is the only place a copy change can
+       break — which is the point of putting it in exactly one place. */
+    expect(screen.getByText('All of your systems are running!')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Valve errors:/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Offline systems:/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Disconnected power:/ })).toBeNull()
@@ -341,7 +339,19 @@ describe('SystemHealthCard — Figma class fidelity', () => {
    `bg-alert-surface-success` / `bg-alert-surface-warning` as its grounds.
    None of that is in any frame. The owner, on a screenshot of `/`: "why i
    still see this wierd boxes and not as in figma". The row is gone, so tests
-   that pinned it would have pinned it back.
+   that pinned its tones and its copy would have pinned it back.
+
+   MERGE, 2026-10-22. origin/dev deleted the same three-tone row and rewrote
+   these same four tests rather than dropping them, each one re-aimed at the
+   ABSENCE of the row instead of at a sentence. Those rewrites are taken in
+   below, at this side's names, with ONE of the four changed on its facts:
+   origin/dev kept a `leaks === 0` term in the component's gate, so its
+   "healthy and leaking" case expected NO row. This side removed the
+   `waterEvents` prop outright — a water count is not a health input and the
+   card no longer accepts one — so a healthy, leaking scope draws the row
+   like any other healthy scope. The test is kept and re-aimed at what it was
+   really for: a leak must not move a health figure. See the first test in
+   this block for the strongest form of that.
 
    WHAT THEY GUARDED IS NOT LOST. Their real subject was that a water event
    must never be read as a health figure, and that lives in
@@ -385,18 +395,64 @@ describe('SystemHealthCard — the all-clear row and the other-issues row', () =
     expect(container.querySelector('[data-status="water"]')).toBeNull()
   })
 
-  it('all clear: the owner\'s ruled line, on 199417:131529\'s own ground', () => {
+  it('all clear: the frame\'s sentence, on 199417:131529\'s own ground', () => {
     const { container } = render(<SystemHealthCard total={10} healthy={10} />)
     const row = clearRow(container)
     expect(row).toBeTruthy()
     expect(row.getAttribute('data-node-id')).toBe('199417:131574')
-    // The informational wash, not a success green. See CLEAR_ROW.
+    /* The informational wash, not a success green. See CLEAR_ROW — the
+       node's ground is a frozen #e8f5ff. origin/dev's revert kept the
+       rework's `bg-alert-surface-success` under the reverted sentence; the
+       green was minted for the tone split that the same commit deleted and
+       is in no frame, so the ground stays this side's. Pinned both ways so
+       that is not undone by accident. */
     expect(row.className).toContain('bg-accent')
     expect(row.className).not.toContain('bg-alert-surface-success')
-    // d0619c5. The string is quoted copy and is pinned verbatim.
-    expect(textOf(container)).toContain('All 10 systems healthy')
+    // The frame's sentence (573b57c), pinned verbatim. This and the quiet-
+    // state test above are the only two copy pins on this row.
+    expect(textOf(container)).toContain('All of your systems are running!')
     // ... and nothing is left over, so no second row.
     expect(otherRow(container)).toBeNull()
+  })
+
+  /* ORIGIN/DEV'S FOUR TONE TESTS, re-aimed. Each asserted a sentence before
+     2026-10-22 and asserts the row's presence or absence now, which is the
+     same guarantee with nothing left for a copy regression to hide behind. */
+
+  it('healthy and leaking: the row still draws, and the leak moves no health figure', () => {
+    /* origin/dev expected NO row here, because its gate kept a `leaks === 0`
+       term. This card takes no water count at all, so the row draws — the
+       claim it makes is about systems running, not about nothing leaking,
+       and TriageBand on the same screen is what reports the leak. What the
+       test was written for is below it and is unchanged. */
+    const { container } = render(<SystemHealthCard total={10} healthy={10} waterEvents={2} />)
+    expect(clearRow(container)).toBeTruthy()
+    expect(textOf(container)).not.toMatch(/water|leak/i)
+
+    const bar = container.querySelector('[data-node-id="199360:129783"]')
+    expect(bar.textContent).toBe('0 / 10 need attention')
+    expect(container.querySelector('[data-segment="attention"]')).toBeNull()
+  })
+
+  it('unhealthy and dry: the dangerous one, and it is not painted all-clear', () => {
+    /* An offline system reports ZERO water events. On a screen of leak counts
+       that reads like the good row; it is the worst one, because the ability
+       to see a leak there is gone. The bar goes red and the tiles name the
+       kind — the card does not ALSO claim everything is running. */
+    const { container } = render(<SystemHealthCard total={10} healthy={7} offline={3} />)
+    expect(clearRow(container)).toBeNull()
+    expect(container.querySelector('[data-node-id="199360:129783"]').textContent)
+      .toBe('3 / 10 need attention')
+    expect(container.querySelector('[data-segment="attention"]')).toBeTruthy()
+  })
+
+  it('unhealthy and leaking: still no row, and the tiles still count faults only', () => {
+    const { container } = render(
+      <SystemHealthCard total={10} healthy={6} offline={3} valveErrors={1} waterEvents={2} />,
+    )
+    expect(clearRow(container)).toBeNull()
+    expect(container.querySelector('[data-node-id="199360:129783"]').textContent)
+      .toBe('4 / 10 need attention')
   })
 
   it('needs attention on a check that has no tile, and does not call that clear', () => {
@@ -405,7 +461,7 @@ describe('SystemHealthCard — the all-clear row and the other-issues row', () =
        valve, offline, power — while `attention` is fleet - healthy over FOUR
        checks, the fourth being "has at least one alert recipient", which this
        card has no tile for. A scope whose only fault is a missing recipient
-       therefore printed "All 10 systems healthy" directly under a bar reading
+       therefore printed the all-clear line directly under a bar reading
        "1 / 10 need attention". REPRODUCIBLE ON /location/Building B, not on
        Building A as this comment claimed until 2026-10-22: Building A is 10
        of 10 healthy and draws the all-clear row correctly. Building B is 10
@@ -418,8 +474,14 @@ describe('SystemHealthCard — the all-clear row and the other-issues row', () =
        rather than on a sentence, so it cannot be made vacuous by a copy
        change. Proved by reverting the component's gate to
        `hotKinds.length === 0` and re-running: this test fails on the first
-       two expectations (clearRow is an element, and the ruled line is
-       present). Restored, and it passes. */
+       two expectations (clearRow is an element, and the all-clear line is
+       present). Restored, and it passes.
+
+       THE STRING BELOW MOVED IN THE 2026-10-22 MERGE and the assertion did
+       not: it is `toBeNull` on the ROW that fails if the gate regresses, and
+       the copy pin beside it is a second belt. That ordering is deliberate
+       and is the whole lesson of this episode — do not re-pin this test to
+       a sentence. */
     const { container } = render(
       <SystemHealthCard
         total={10}
@@ -431,7 +493,7 @@ describe('SystemHealthCard — the all-clear row and the other-issues row', () =
       />,
     )
     expect(clearRow(container)).toBeNull()
-    expect(textOf(container)).not.toContain('All 10 systems healthy')
+    expect(textOf(container)).not.toContain('All of your systems are running!')
 
     /* NOT CLAIMING ALL-CLEAR IS ONLY HALF OF IT. The fault also has to be
        VISIBLE, and with no tile for it the card would otherwise draw a bar

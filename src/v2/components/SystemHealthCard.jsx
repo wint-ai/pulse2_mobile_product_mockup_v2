@@ -307,15 +307,27 @@ const TILE_SOLO = String.raw`appearance-none border-0 content-stretch cursor-poi
    It keeps `bg-accent`: the node's ground is a frozen `bg-[#e8f5ff]`, the pale
    blue informational wash this repo already names --accent (#f2f6ff at
    `light`). That is a 4-unit lift off the literal — the closest token, not the
-   identical one — and the dark-mode pass took it deliberately. */
+   identical one — and the dark-mode pass took it deliberately.
+
+   MERGE NOTE, 2026-10-22. origin/dev reverted the same invented copy on its
+   own branch and arrived at the same one-row card, but kept the rework's
+   chassis under it: `STATUS_ROW` + `STATUS_CLEAR`, i.e.
+   `bg-alert-surface-success` with a `CircleCheck` glyph. That green is in no
+   frame — it was minted for the amber/green/blue tone split the very same
+   commit deleted — so taking it would have carried half the rework through a
+   revert. This side is kept instead: the node's own `#e8f5ff` ground and the
+   `PinLocation03` glyph the card drew before the rework (2141d10 and every
+   commit before it). The SENTENCE is origin/dev's; only the box is ours. */
 const CLEAR_ROW = String.raw`bg-accent content-stretch flex items-center min-h-[43px] px-[11px] py-[7px] relative rounded-[16px] shrink-0 w-full`
 /* Figma writes this node `shrink-0` + `whitespace-nowrap` inside a fixed
    h-[43px], which is the fixed-artboard habit scripts/check-text-overflow.mjs
    exists to catch — the sentence carries a live fleet count. It flexes and
    may wrap, and the row above grew a min-height instead of a height so it
-   follows. Nothing moves at any real fleet size: the string is ~21 characters
-   at 14px inside a 281px box, so the wrap never fires and this renders pixel
-   for pixel as the fixed form did. Line-height AFTER the size atom — see
+   follows. The string is a fixed 32 characters now that it carries no count
+   ("All of your systems are running!"), which at 14px semibold is ~230px
+   inside a 281px box, so the wrap never fires and this renders pixel for
+   pixel as the fixed form did. scripts/check-text-overflow.mjs is what
+   actually holds that. Line-height AFTER the size atom — see
    ORDER MATTERS above. */
 const CLEAR_TEXT = String.raw`[word-break:break-word] flex-[1_0_0] font-semibold min-w-px relative text-slate-600 text-sm leading-[20px]`
 
@@ -605,7 +617,7 @@ export default function SystemHealthCard({
      fleet - healthy over FOUR checks, the fourth being "has at least one
      alert recipient", which has no tile. A scope whose only fault was a
      missing recipient had three empty tiles, so the row drew, and printed
-     "All 10 systems healthy" directly above a bar reading
+     the all-clear line directly above a bar reading
      "1 / 10 need attention". CITED AS /location/Building A here and in the
      test since 2026-10-22, and that cite was WRONG against this dataset:
      Building A is 10 of 10 healthy and shows the all-clear row legitimately.
@@ -771,22 +783,33 @@ export default function SystemHealthCard({
                 the declaration. src/__tests__/systemHealthCard.dom.test.jsx
                 pins the recipients-only case against exactly this.
 
-                THE LINE IS THE OWNER'S: "All {n} systems healthy", ruled in
-                d0619c5 ("Quiet-state copy: say what we watch, not that
-                everything is fine"). Four research passes stand behind it and
-                his own note is in that commit: "too much negative… I want them
-                to act". It borrows the card's own title rather than naming the
-                four PRD-09 checks — the header already says System health;
-                the owner, on the line that named them: "user dont knows the
-                check". It is quoted copy, so it spells its own singular and
-                plural rather than deriving them from `unitLabel`. */}
+                THE LINE IS THE FRAME'S: "All of your systems are running!",
+                the sentence 199417:131529 draws, restored verbatim.
+
+                "All {n} systems healthy" replaced it in d0619c5 ("Quiet-state
+                copy: say what we watch, not that everything is fine"), and
+                this file argued for that string on the grounds that the owner
+                had ruled it. He had not — he ruled it OUT, on 2026-10-22: "i
+                want you to revert all new text work we made it looks and
+                sound bad", then "make it like in figma". d0619c5's line was
+                invented copy like the rest of the rework and goes with it.
+                origin/dev's 573b57c restored the frame's sentence against a
+                fresh get_design_context on 199417:131529, and this merge
+                takes that revert verbatim.
+
+                THE REVERT IS THE SENTENCE AND NOTHING ELSE. The gate is
+                `allClear`, not the `hotKinds.length === 0` this row carried
+                before the rework — that was a real defect (see the note at
+                the declaration) and it stays fixed. The chassis and the glyph
+                are the pre-rework ones, not origin/dev's success-green
+                `STATUS_ROW`; see the merge note at CLEAR_ROW. */}
             {allClear ? (
               <div className={CLEAR_ROW} data-node-id="199417:131574" data-status="clear">
                 <span className={cn('relative shrink-0 size-[27px]', GLYPH_INK)} aria-hidden="true">
                   <PinLocation03 size="100%" className="absolute inset-0 block" />
                 </span>
                 <p className={cn('font-sans', CLEAR_TEXT)} dir="auto">
-                  {`All ${fmt(fleet)} ${fleet === 1 ? 'system' : 'systems'} healthy`}
+                  All of your systems are running!
                 </p>
               </div>
             ) : null}
