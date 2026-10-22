@@ -222,6 +222,48 @@ const BAR_L = String.raw`rounded-bl-[9068757px] rounded-tl-[9068757px]`
 const BAR_R = String.raw`rounded-br-[9068757px] rounded-tr-[9068757px]`
 const BAR_FULL = String.raw`rounded-[9068757px]`
 
+/* THE SEGMENTS ARE CONTROLS, 2026-10-22. Owner, on a screenshot of the bar
+   reading "3 / 48 need attention": "make these bars clcikable to systems
+   table filtered". Red opens the Systems tab filtered to the half that needs
+   attention, green to the half that does not.
+
+   NOTHING ABOUT THE DRAWN GEOMETRY MOVES. The flex-grow / flexBasis:0 pair is
+   the measurement the header works back from Figma's frozen `w-[18px]`, and
+   the BAR_L / BAR_R / BAR_FULL radii are the node's; a segment that becomes a
+   <button> keeps every one of them and adds only a reset, state styling and a
+   pseudo-element that paints nothing.
+
+   THE TAP TARGET, AND WHY IT IS THE SIZE IT IS. The bar is drawn 15px tall,
+   which is not a target. `after:` grows the hit box without moving a pixel —
+   the same trick SHOW_ALL makes — but the room is measured, not assumed:
+
+     y 12..40   the 28px heading row (card pt-[12px])
+     y  2..50   the "Show all" button's OWN after: box (h-36 centred in that
+                row -> 8..44, inset-y-[-6px])
+     y 55..70   the bar (card gap-[15px])
+     y 70..99.25 the bar's label, `leading-[29.25px]` — PLAIN_COL has no gap,
+                so the label line box starts the instant the bar ends
+
+   So there are exactly 5px of free space above the bar before the "Show all"
+   tap box, and 0px below before the label's line box — of which the top ~5.6px
+   is half-leading and carries no glyph. 5px each way is therefore the largest
+   extension that can neither steal a press from another control nor sit on
+   top of type: 25px tall, past WCAG 2.5.8's 24px minimum.
+
+   WIDTH is the fleet proportion and cannot be padded between the segments —
+   two hit boxes that overlap would send a press to the WRONG filter, which is
+   worse than a small target. They grow OUTWARD instead, into the 20px the
+   card body already reserves (BODY is px-[20px]): the left-hand segment 20px
+   left, the right-hand one 20px right, the lone full-width segment both. That
+   puts a floor of 20px under a segment Figma draws at 18px, with no chance of
+   a press landing on the other half of the fleet. */
+const BAR_SEG_BTN = String.raw`appearance-none border-0 cursor-pointer outline-none p-0 transition-[filter,box-shadow] hover:brightness-[0.97] active:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50 after:absolute after:content-[''] after:top-[-5px] after:bottom-[-5px]`
+/* Which way the hit box overhangs — see above. Mirrors the radius atoms: a
+   segment that carries BAR_L is the left edge, BAR_R the right, BAR_FULL both. */
+const BAR_SEG_HIT_L = String.raw`after:left-[-20px] after:right-0`
+const BAR_SEG_HIT_R = String.raw`after:left-0 after:right-[-20px]`
+const BAR_SEG_HIT_BOTH = String.raw`after:left-[-20px] after:right-[-20px]`
+
 /* 199360:129782 / 199360:129783 — the bar's label. */
 const BAR_LABEL_ROW = String.raw`content-stretch flex items-center justify-between relative shrink-0 w-full`
 const BAR_LABEL = String.raw`[word-break:break-word] font-semibold min-w-px overflow-hidden relative text-red-400 text-lg text-ellipsis tracking-[-0.45px] whitespace-nowrap leading-[0]`
@@ -523,6 +565,42 @@ function IssueGlyph({ issue }) {
 }
 
 /**
+ * One half of the progress bar.
+ *
+ * WITHOUT `onSelect` IT IS THE PLAIN DIV IT HAS ALWAYS BEEN — no button
+ * semantics, no pointer cursor, no focus ring, nothing that promises an
+ * affordance the host has not wired. That is the rule this repo keeps
+ * everywhere (SystemsHealthCard's IssueTile, EventOverlayV2's rows), and it
+ * matters more here than anywhere: the bar is a PROPORTION MARK first, and a
+ * host that only wants to draw 3-of-48 must not ship a dead control.
+ *
+ * With it the segment becomes a real <button>, so Enter and Space work and
+ * focus is visible, for free and correctly — not a div wearing role="button"
+ * with hand-rolled key handling.
+ *
+ * `className` carries the fill and the radius atoms UNCHANGED and `grow` is
+ * the measured proportion; the interactive branch touches neither.
+ */
+function BarSegment({ className, hit, grow, nodeId, segment, name, onSelect }) {
+  const shared = {
+    style: { flexGrow: grow, flexShrink: 0, flexBasis: 0 },
+    'data-name': 'Text',
+    'data-node-id': nodeId,
+    'data-segment': segment,
+  }
+  if (!onSelect) return <div className={className} {...shared} />
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-label={name}
+      className={cn(className, BAR_SEG_BTN, hit)}
+      {...shared}
+    />
+  )
+}
+
+/**
  * @param {number}   total         fleet size — the "N systems" row AND the
  *                                 denominator of the progress label. See the
  *                                 244-vs-48 note above: the node carries two
@@ -583,6 +661,26 @@ function IssueGlyph({ issue }) {
  *                                 (I199338:52768;6724:8007) and is not touched.
  * @param {Function} onSelectIssue called with 'valveErrors' | 'offline' |
  *                                 'noPower' when a counter tile is pressed
+ * @param {Function} onSelectHealth called with 'attention' or 'ok' when a
+ *                                 PROGRESS-BAR SEGMENT is pressed. Owner,
+ *                                 2026-10-22: "make these bars clcikable to
+ *                                 systems table filtered".
+ *                                 THE TWO VALUES ARE NOT THIS CARD'S
+ *                                 INVENTION. They are exactly what
+ *                                 src/data/systemFilters.js's `attention`
+ *                                 category emits — `valueOf: s =>
+ *                                 computeSystemHealth(s).allOk ? 'ok' :
+ *                                 'attention'` — which is the SAME predicate
+ *                                 the host counts `healthy` with. So the card
+ *                                 raises a filter VALUE and the page builds
+ *                                 the selection, and the table it opens can
+ *                                 never disagree with the bar that launched
+ *                                 it. Same shape as onSelectIssue: the card
+ *                                 names what was pressed, the page owns the
+ *                                 destination.
+ *                                 Omit it and both segments stay plain divs
+ *                                 and the bar keeps role="img" — see
+ *                                 BarSegment, and `barInteractive` below.
  * @param {string}   className     appended to the card root
  */
 export default function SystemHealthCard({
@@ -596,6 +694,7 @@ export default function SystemHealthCard({
   onShowAll,
   onShowPast,
   onSelectIssue,
+  onSelectHealth,
   className,
 }) {
   const fleet = clampInt(total)
@@ -644,6 +743,24 @@ export default function SystemHealthCard({
   const showGreen = well > 0 || !showRed
 
   const unit = fleet === 1 ? unitLabel.replace(/s$/, '') : unitLabel
+
+  /* THE BAR IS A GROUP OF CONTROLS, OR IT IS A PICTURE — never both.
+     role="img" is a LEAF: everything inside it is presentational, so two
+     <button>s under one would be invisible to a screen reader however correct
+     their markup. When the host wires the segments the wrapper becomes a
+     labelled `group` and the summary survives as the group's own name; with
+     no handler nothing changes and it is the picture it has always been.
+
+     A SEGMENT AT ZERO IS NEVER A CONTROL. The red one is not DRAWN at zero
+     (`showRed`), so there is nothing to make interactive. The green one is
+     drawn at zero in exactly one case — an empty fleet, where `!showRed`
+     hands it the full track — and a control there would promise a table of 0
+     healthy systems, so it is gated on `well > 0` rather than on being drawn.
+     The all-clear fleet (well === fleet > 0) still gets its control: "show me
+     the systems that are fine" is a real thing to ask. */
+  const barInteractive = typeof onSelectHealth === 'function'
+  const redIsControl = barInteractive && showRed
+  const greenIsControl = barInteractive && showGreen && well > 0
 
   return (
     <div className={cn(CARD, className)} data-name="IOT overview" data-node-id="199323:12124">
@@ -698,25 +815,46 @@ export default function SystemHealthCard({
                     className={BAR}
                     data-name="Progress Bar"
                     data-node-id="199360:129779"
-                    role="img"
+                    role={barInteractive ? 'group' : 'img'}
                     aria-label={`${fmt(well)} of ${fmt(fleet)} ${unit} healthy`}
                   >
                     {showRed ? (
-                      <div
+                      <BarSegment
                         className={cn(BAR_RED, showGreen ? BAR_L : BAR_FULL)}
-                        style={{ flexGrow: attention, flexShrink: 0, flexBasis: 0 }}
-                        data-name="Text"
-                        data-node-id="199360:129780"
-                        data-segment="attention"
+                        hit={showGreen ? BAR_SEG_HIT_L : BAR_SEG_HIT_BOTH}
+                        grow={attention}
+                        nodeId="199360:129780"
+                        segment="attention"
+                        /* THE NAME SAYS THE COUNT AND THE DESTINATION, and the
+                           leading phrase is VERBATIM the label the filter
+                           sheet shows on arrival - systemFilters.js
+                           labelOf('attention') === 'Requires attention'. A
+                           control that announces one wording and lands on
+                           another is how a shortcut stops being trusted; the
+                           pairing is pinned in systemHealthCard.dom.test.jsx
+                           against the filter module itself, so it cannot
+                           drift.
+                           "Show these systems" is also how this app's other
+                           health capsule names the same destination
+                           (SystemsHealthCard's IssueTile), and it deliberately
+                           does NOT say "alerts": the header button and the
+                           three counter tiles on this same card open the
+                           alerts overlay instead, and two destinations on one
+                           card have to be tellable apart by ear. */
+                        name={`Requires attention: ${fmt(attention)} of ${fmt(fleet)} ${unit}. Show these systems.`}
+                        onSelect={redIsControl ? () => onSelectHealth('attention') : undefined}
                       />
                     ) : null}
                     {showGreen ? (
-                      <div
+                      <BarSegment
                         className={cn(BAR_GREEN, showRed ? BAR_R : BAR_FULL)}
-                        style={{ flexGrow: well || 1, flexShrink: 0, flexBasis: 0 }}
-                        data-name="Text"
-                        data-node-id="199360:129781"
-                        data-segment="healthy"
+                        hit={showRed ? BAR_SEG_HIT_R : BAR_SEG_HIT_BOTH}
+                        grow={well || 1}
+                        nodeId="199360:129781"
+                        segment="healthy"
+                        /* labelOf('ok') === 'All systems good'. */
+                        name={`All systems good: ${fmt(well)} of ${fmt(fleet)} ${unit}. Show these systems.`}
+                        onSelect={greenIsControl ? () => onSelectHealth('ok') : undefined}
                       />
                     ) : null}
                   </div>

@@ -1208,6 +1208,28 @@ export default function HomeAllAccounts({ expanded = false }) {
         onSelectIssue={kind => openOverlay('alerts', {
           filter: ISSUE_FILTER[kind === 'valveErrors' ? 'valve' : kind === 'noPower' ? 'power' : kind] ?? 'all',
         })}
+        /* Owner, 2026-10-22, on a screenshot of the bar: "make these bars
+           clcikable to systems table filtered". Each segment is a shortcut
+           into the Systems tab, filtered to the half of the fleet it draws.
+
+           NO NEW PREDICATE. The card hands back 'attention' / 'ok', which are
+           the values src/data/systemFilters.js's `attention` category already
+           produces, and that category's valueOf is
+           `computeSystemHealth(s).allOk` — the same call `stats.healthy`
+           above is counted with, over the same `scopedSystems` the table
+           below is handed. The table therefore cannot disagree with the bar
+           that opened it; this sets the selection the filter sheet would have
+           set rather than inventing a parallel path.
+
+           Replaces the whole selection on purpose, for the reason the hero's
+           type chips give above: a segment states one complete intent ("show
+           me the ones that need attention"), and merging it into whatever was
+           already applied could land on an empty table for reasons the user
+           cannot see. */
+        onSelectHealth={value => {
+          setSystemFilters({ attention: [value] })
+          setTab('systems')
+        }}
       />
 
       <TriageBand

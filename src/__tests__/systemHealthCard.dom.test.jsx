@@ -19,6 +19,10 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SystemHealthCard from '@/v2/components/SystemHealthCard'
+/* Imported so the segments' accessible names are pinned against the FILTER
+   MODULE rather than against a copy of its strings. If anyone renames an
+   option in the sheet, the bar's promise about where it lands breaks here. */
+import { FILTER_CATEGORY_BY_ID } from '@/data/systemFilters'
 
 afterEach(cleanup)
 
@@ -262,6 +266,251 @@ describe('SystemHealthCard — all healthy / empty', () => {
     const { red, green } = segments(container)
     expect(red).toBeNull()
     expect(green.style.flexGrow).toBe('1')
+  })
+})
+
+/* THE SEGMENTS ARE CONTROLS, 2026-10-22. Owner, on a screenshot of the bar:
+   "make these bars clcikable to systems table filtered".
+
+   What is worth asserting here, and why:
+     - that each segment raises the filter VALUE 'attention' / 'ok' rather
+       than a word of its own, because those two are what
+       src/data/systemFilters.js's `attention` category produces off
+       `computeSystemHealth(s).allOk` -- the same predicate the host counts
+       `healthy` with. A card that invented its own vocabulary is how the
+       table and the bar that opened it start disagreeing;
+     - that the accessible NAMES carry the filter module's own labels, for
+       the same reason, and say where the press goes -- this card already has
+       three other controls that open the alerts overlay instead;
+     - the KEYBOARD, because a bar made of divs with onClick is the usual way
+       this gets shipped and it is unreachable;
+     - the NO-HANDLER case, which is the repo's standing rule: a card never
+       promises an affordance its host has not wired. It is also what keeps
+       the whole block above this one honest -- every test up there renders
+       the card unwired, so if the plain branch ever stopped being a plain
+       div they would all be asserting the wrong element;
+     - that role="img" gives way to a group. role="img" is a LEAF and would
+       hide both buttons from a screen reader however correct their markup.
+   The GEOMETRY is pinned in the progress-bar block above and again here: the
+   interactive branch must not move the flex-grow measurement or the radii. */
+describe('SystemHealthCard — the progress bar as a pair of controls', () => {
+  const ATTENTION_LABEL = FILTER_CATEGORY_BY_ID.attention.labelOf('attention')
+  const OK_LABEL = FILTER_CATEGORY_BY_ID.attention.labelOf('ok')
+
+  it('opens the systems list filtered to the half it draws', async () => {
+    const onSelectHealth = vi.fn()
+    render(<SystemHealthCard {...ALERTING} onSelectHealth={onSelectHealth} />)
+
+    const red = screen.getByRole('button', {
+      name: 'Requires attention: 3 of 48 systems. Show these systems.',
+    })
+    const green = screen.getByRole('button', {
+      name: 'All systems good: 45 of 48 systems. Show these systems.',
+    })
+
+    await userEvent.click(red)
+    expect(onSelectHealth).toHaveBeenLastCalledWith('attention')
+    await userEvent.click(green)
+    expect(onSelectHealth).toHaveBeenLastCalledWith('ok')
+    expect(onSelectHealth).toHaveBeenCalledTimes(2)
+  })
+
+  /* The two values are not free text: they are the `attention` category's own
+     valueOf output, so `{ attention: ['attention'] }` is a selection the
+     filter sheet could have produced by hand. */
+  it('raises values the filter module can actually apply', async () => {
+    const onSelectHealth = vi.fn()
+    const { container } = render(
+      <SystemHealthCard {...ALERTING} onSelectHealth={onSelectHealth} />,
+    )
+    await userEvent.click(container.querySelector('[data-segment="attention"]'))
+    await userEvent.click(container.querySelector('[data-segment="healthy"]'))
+
+    const raised = onSelectHealth.mock.calls.map(([v]) => v)
+    const category = FILTER_CATEGORY_BY_ID.attention
+    expect(raised).toEqual(['attention', 'ok'])
+    // Every raised value is one this category knows how to label and match.
+    for (const v of raised) expect(typeof category.labelOf(v)).toBe('string')
+  })
+
+  it('names each segment with its count and the label it will land on', () => {
+    const { container } = render(
+      <SystemHealthCard {...ALERTING} onSelectHealth={() => {}} />,
+    )
+    const { red, green } = segments(container)
+    // 'Requires attention' / 'All systems good' -- the sheet's own wording.
+    expect(red.getAttribute('aria-label')).toBe(
+      `${ATTENTION_LABEL}: 3 of 48 systems. Show these systems.`,
+    )
+    expect(green.getAttribute('aria-label')).toBe(
+      `${OK_LABEL}: 45 of 48 systems. Show these systems.`,
+    )
+    /* The other three controls on this card go to the ALERTS overlay. The two
+       destinations have to be tellable apart by ear. */
+    expect(red.getAttribute('aria-label')).not.toMatch(/alert/i)
+    expect(green.getAttribute('aria-label')).not.toMatch(/alert/i)
+  })
+
+  it('is reachable and operable from the keyboard', async () => {
+    const onSelectHealth = vi.fn()
+    const { container } = render(
+      <SystemHealthCard {...ALERTING} onSelectHealth={onSelectHealth} />,
+    )
+    const { red, green } = segments(container)
+
+    // Real <button>s, so tab order and Enter/Space come for free -- which is
+    // the whole reason these are not divs carrying onClick.
+    expect(red.tagName).toBe('BUTTON')
+    expect(green.tagName).toBe('BUTTON')
+
+    await userEvent.tab() // the header's "Show all"
+    await userEvent.tab()
+    expect(document.activeElement).toBe(red)
+    await userEvent.keyboard('{Enter}')
+    expect(onSelectHealth).toHaveBeenLastCalledWith('attention')
+
+    await userEvent.tab()
+    expect(document.activeElement).toBe(green)
+    await userEvent.keyboard(' ')
+    expect(onSelectHealth).toHaveBeenLastCalledWith('ok')
+  })
+
+  it('shows focus with a token, not a hex, so all four themes move', () => {
+    const { container } = render(
+      <SystemHealthCard {...ALERTING} onSelectHealth={() => {}} />,
+    )
+    const { red, green } = segments(container)
+    for (const seg of [red, green]) {
+      expect(seg.className).toContain('focus-visible:ring-ring/50')
+      expect(seg.className).toContain('hover:brightness-[0.97]')
+      expect(seg.className).toContain('active:brightness-95')
+      expect(seg.className).not.toMatch(/#[0-9a-f]{3,8}\b/i)
+    }
+  })
+
+  /* The 15px bar is not a tap target. `after:` grows the hit box without
+     moving a drawn pixel: 5px above and below (all the room there is before
+     the "Show all" button's own tap box and the label's line box), and 20px
+     OUTWARD into the card's px-[20px] gutter -- never inward, because two hit
+     boxes that overlap would send a press to the wrong half of the fleet. */
+  it('grows the hit box outward only, never between the two segments', () => {
+    const { container } = render(
+      <SystemHealthCard {...ALERTING} onSelectHealth={() => {}} />,
+    )
+    const { red, green } = segments(container)
+    for (const seg of [red, green]) {
+      expect(seg.className).toContain('after:top-[-5px]')
+      expect(seg.className).toContain('after:bottom-[-5px]')
+    }
+    expect(red.className).toContain('after:left-[-20px]')
+    expect(red.className).toContain('after:right-0')
+    expect(green.className).toContain('after:left-0')
+    expect(green.className).toContain('after:right-[-20px]')
+  })
+
+  it('leaves the lone full-width segment overhanging both sides', () => {
+    const { container } = render(
+      <SystemHealthCard total={48} healthy={48} onSelectHealth={() => {}} />,
+    )
+    const { green } = segments(container)
+    expect(green.className).toContain('after:left-[-20px]')
+    expect(green.className).toContain('after:right-[-20px]')
+  })
+
+  it('keeps the measured proportion and the radii when it becomes a control', () => {
+    const { container } = render(
+      <SystemHealthCard {...ALERTING} onSelectHealth={() => {}} />,
+    )
+    const { red, green } = segments(container)
+    // Figma's frozen w-[18px] is 3/48 of the track -- see the component header.
+    expect(red.style.flexGrow).toBe('3')
+    expect(green.style.flexGrow).toBe('45')
+    expect(red.style.flexBasis).toBe('0px')
+    expect(green.style.flexBasis).toBe('0px')
+    expect(red.className).toContain('rounded-tl-[9068757px]')
+    expect(green.className).toContain('rounded-br-[9068757px]')
+    expect(red.className).toContain('bg-bar-fill-risk')
+    expect(green.className).toContain('from-bar-fill-ok-from')
+  })
+
+  /* THE WRAPPER CANNOT STAY role="img". It is a leaf role: both buttons under
+     it would be presentational and unreachable. */
+  it('turns the picture into a labelled group once it holds controls', () => {
+    const { container } = render(
+      <SystemHealthCard {...ALERTING} onSelectHealth={() => {}} />,
+    )
+    const bar = container.querySelector('[data-node-id="199360:129779"]')
+    expect(bar.getAttribute('role')).toBe('group')
+    expect(bar.getAttribute('aria-label')).toBe('45 of 48 systems healthy')
+  })
+
+  it('stays a plain picture when the host has not wired it', () => {
+    const { container } = render(<SystemHealthCard {...ALERTING} />)
+    const { red, green } = segments(container)
+    expect(red.tagName).toBe('DIV')
+    expect(green.tagName).toBe('DIV')
+    expect(red.getAttribute('aria-label')).toBeNull()
+    expect(green.getAttribute('aria-label')).toBeNull()
+    expect(red.className).not.toContain('cursor-pointer')
+    expect(red.className).not.toContain('after:')
+
+    const bar = container.querySelector('[data-node-id="199360:129779"]')
+    expect(bar.getAttribute('role')).toBe('img')
+    expect(bar.getAttribute('aria-label')).toBe('45 of 48 systems healthy')
+    expect(bar.querySelector('button')).toBeNull()
+  })
+
+  /* A ZERO SEGMENT MUST NOT BE A CONTROL. Red at zero is not drawn at all, so
+     there is nothing to press. Green at zero is drawn in exactly one case --
+     an empty fleet -- and a control there would promise a table of nothing. */
+  it('never offers a red control when nothing needs attention', () => {
+    const onSelectHealth = vi.fn()
+    const { container } = render(
+      <SystemHealthCard total={48} healthy={48} onSelectHealth={onSelectHealth} />,
+    )
+    const { red, green } = segments(container)
+    expect(red).toBeNull()
+    // Green still navigates: "show me the ones that are fine" is a real ask.
+    expect(green.tagName).toBe('BUTTON')
+    expect(green.getAttribute('aria-label')).toBe(
+      `${OK_LABEL}: 48 of 48 systems. Show these systems.`,
+    )
+    expect(screen.queryByRole('button', { name: /Requires attention/ })).toBeNull()
+  })
+
+  it("does not make an empty fleet's placeholder green pressable", () => {
+    const { container } = render(<SystemHealthCard onSelectHealth={() => {}} />)
+    const { red, green } = segments(container)
+    expect(red).toBeNull()
+    // Drawn (flexGrow 1, so the track is not bare) but not a promise.
+    expect(green.tagName).toBe('DIV')
+    expect(green.style.flexGrow).toBe('1')
+    expect(container.querySelector('[data-node-id="199360:129779"] button')).toBeNull()
+  })
+
+  it('makes the red segment full-width and pressable when nothing is well', () => {
+    const onSelectHealth = vi.fn()
+    const { container } = render(
+      <SystemHealthCard total={6} healthy={0} onSelectHealth={onSelectHealth} />,
+    )
+    const { red, green } = segments(container)
+    expect(green).toBeNull()
+    expect(red.tagName).toBe('BUTTON')
+    expect(red.className).toContain('rounded-[9068757px]')
+    expect(red.className).toContain('after:left-[-20px]')
+    expect(red.className).toContain('after:right-[-20px]')
+    expect(red.getAttribute('aria-label')).toBe(
+      `${ATTENTION_LABEL}: 6 of 6 systems. Show these systems.`,
+    )
+  })
+
+  it('follows the singular when the fleet is one', () => {
+    const { container } = render(
+      <SystemHealthCard total={1} healthy={1} onSelectHealth={() => {}} />,
+    )
+    expect(segments(container).green.getAttribute('aria-label')).toBe(
+      `${OK_LABEL}: 1 of 1 system. Show these systems.`,
+    )
   })
 })
 
