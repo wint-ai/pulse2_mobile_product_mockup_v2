@@ -349,7 +349,11 @@ export default function SystemTypeCard({
   const POWER = { ac: 'AC', 'ac-lost': 'AC lost', battery: 'Battery' }
   const VALVE = { open: 'Open', closed: 'Closed', error: 'Error' }
   const statusRows = [
-    { key: 'unit', label: 'IOT Unit', glyph: 'device', value: null },
+    /* "Edge device", not Figma's "IOT Unit" — owner, 2026-10-22: "Iot unit
+       replace everywhere with edge device". It is the only row here whose
+       label is NOT the frame's, so it is called out rather than left to look
+       like a transcription slip. */
+    { key: 'unit', label: 'Edge device', glyph: 'device', value: null },
     { key: 'power', label: 'Power', glyph: 'dot', ok: st.power === 'ac', value: POWER[st.power] ?? 'Unknown', icon: 'plug' },
     { key: 'comm', label: 'Connectivity', glyph: 'dot', ok: online, value: online ? 'Connected' : 'Disconnected', icon: 'wifi' },
     { key: 'valve', label: 'Valve', glyph: 'valve', rule: true, value: VALVE[st.valve] ?? 'Unknown', icon: 'valve' },
