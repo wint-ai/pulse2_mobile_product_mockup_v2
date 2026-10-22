@@ -288,6 +288,57 @@ const TONE = {
     badge: String.raw`bg-orange-100`,
     ink: String.raw`text-orange-600`,
   },
+  /* NOT a third severity. Nothing in the design has this tone, and nothing
+     should ever reach it: this band draws WATER EVENTS, and a water event is
+     leak-high or leak-low. It exists so that a row which is neither is drawn
+     as what it is instead of being painted as a leak — see toneFor below.
+     Deliberately flat grey and never red or orange, so it cannot be mistaken
+     for a severity at a glance. */
+  unknown: {
+    label: 'Unknown',
+    name: 'Unknown event type',
+    badge: String.raw`bg-slate-200`,
+    ink: String.raw`text-slate-700`,
+  },
+}
+
+/* The ONLY types this band draws. A water event is a leak — high flow or low
+   flow — and that is the whole list. */
+const TONE_BY_TYPE = {
+  'leak-high': TONE.high,
+  'leak-low': TONE.low,
+}
+
+/**
+ * Tone for an event type.
+ *
+ * `event.type === 'leak-high' ? TONE.high : TONE.low` STOOD IN EventRow until
+ * 2026-10-22, which silently drew EVERYTHING that was not high flow as "Low
+ * Flow". Paired with a caller that handed this band any alerting system, an
+ * Offline system and a system with no external power appeared on 220
+ * Harborview Ave as two Low Flow water events on a scope that had none. The
+ * caller is fixed too (HomeAllAccounts), but a fallthrough that disguises its
+ * input is wrong on its own terms and would hide the next such caller just as
+ * well, so the two are independent now: whatever reaches this band, the row
+ * says what it actually is.
+ *
+ * An unrecognised type keeps its row — it is real state and dropping it would
+ * lose it silently, which is the same failure in the other direction — but it
+ * is labelled with the type it came in as, in a tone that is plainly not a
+ * severity, and it says so in the console in dev.
+ */
+function toneFor(type) {
+  const known = TONE_BY_TYPE[type]
+  if (known) return known
+
+  const raw = String(type || 'unknown')
+  if (import.meta.env?.DEV) {
+    console.warn(
+      `TriageBand: "${raw}" is not a water event type. This band draws leak-high ` +
+      `and leak-low only; a device fault belongs in Systems Health, not here.`,
+    )
+  }
+  return { ...TONE.unknown, label: raw, name: `Unrecognised event type: ${raw}` }
 }
 
 /* ----------------------------------------------------------------- model */
@@ -307,7 +358,7 @@ function minutesOf(duration) {
 /* ------------------------------------------------------------------- row */
 
 function EventRow({ event, onSelect }) {
-  const tone = event.type === 'leak-high' ? TONE.high : TONE.low
+  const tone = toneFor(event.type)
 
   /* Figma prints BOTH levels — "San Fransisco · 1775 Washington St, Hanover
      MA 2339" — and the live mapping supplies both. Either can be blank on

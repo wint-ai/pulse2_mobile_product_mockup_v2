@@ -11,6 +11,15 @@
 //
 // No text query can catch this: getByText('52') passed throughout. So this
 // test pins the stacking contract instead.
+//
+// 2026-10-22: every `stats={{ requireAttention: n }}` below is now
+// `stats={{ attention: n }}`. The VALUES and every assertion are unchanged —
+// what changed is what the number means. `requireAttention` was fed the ACTIVE
+// WATER EVENT count by this card's only data supplier, which put a leak figure
+// in a device-health capsule; the prop is gone rather than aliased, so these
+// call sites had to move with it or they would have silently started rendering
+// 0 and this file would have passed while asserting nothing. See the card's
+// header note and HomeAllAccounts' `stats` block.
 
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup, within } from '@testing-library/react'
@@ -23,7 +32,7 @@ describe('health capsule stacking', () => {
     const { container } = render(
       <SystemsHealthCard
         healthy={{ percent: 50 }}
-        stats={{ requireAttention: 52, total: 103 }}
+        stats={{ attention: 52, total: 103 }}
         issues={{ offline: 10, valve: 12, power: 10, recipients: 4 }}
         systemTypes={{ topology: 103, flood: 0, humidity: 0 }}
       />,
@@ -58,7 +67,7 @@ describe('health capsule stacking', () => {
     const { container } = render(
       <SystemsHealthCard
         healthy={{ percent: 13 }}
-        stats={{ requireAttention: 46, total: 53 }}
+        stats={{ attention: 46, total: 53 }}
         issues={{ offline: 10, valve: 12, power: 10, recipients: 2 }}
         systemTypes={{ topology: 53, flood: 0, humidity: 0 }}
       />,
@@ -102,7 +111,7 @@ describe('health capsule stacking', () => {
     const { container } = render(
       <SystemsHealthCard
         healthy={{ percent: 100 }}
-        stats={{ requireAttention: 0, total: 3431 }}
+        stats={{ attention: 0, total: 3431 }}
         issues={{ offline: 0, valve: 0, power: 0, recipients: 0 }}
         systemTypes={{ topology: 0, flood: 0, humidity: 0 }}
       />,
@@ -120,7 +129,7 @@ describe('the four issue tiles', () => {
     const { container } = render(
       <SystemsHealthCard
         healthy={{ percent: 13 }}
-        stats={{ requireAttention: 46, total: 53 }}
+        stats={{ attention: 46, total: 53 }}
         issues={{ offline: 10, valve: 12, power: 10, recipients: 2 }}
         systemTypes={{ topology: 53, flood: 0, humidity: 0 }}
         /* Without a handler the tiles render as plain divs; the card only
@@ -148,7 +157,7 @@ describe('the four issue tiles', () => {
     const { container } = render(
       <SystemsHealthCard
         healthy={{ percent: 13 }}
-        stats={{ requireAttention: 46, total: 53 }}
+        stats={{ attention: 46, total: 53 }}
         issues={{ offline: 10, valve: 0, power: 1, recipients: 1 }}
         systemTypes={{ topology: 53, flood: 0, humidity: 0 }}
         onSelectIssue={() => {}}

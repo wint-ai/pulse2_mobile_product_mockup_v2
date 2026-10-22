@@ -152,7 +152,7 @@ const MOCK_WATER_EVENTS = [
    fallback only — `live` resolves whenever SYSTEMS is non-empty, and rendering
    these instead of the fleet is the Floor-26 bug the screen comment warns of. */
 const MOCK_HEALTH = { percent: 96, tone: 'healthy' }
-const MOCK_HEALTH_STATS = { requireAttention: 8, total: 3431 }
+const MOCK_HEALTH_STATS = { attention: 8, total: 3431 }
 const MOCK_HEALTH_ISSUES = { offline: 4, valve: 2, power: 1, recipients: 1 }
 
 /* I198601:62957;198601:62347 — the three "Systems types" chips (Topology 3,
@@ -563,7 +563,11 @@ export default function HomeAllAccounts({ expanded = false }) {
                `null` is the card's "no figure" signal and renders an em
                dash; every count below is a true zero and stays a zero. */
             health: { percent: null, tone: 'healthy' },
-            stats: { requireAttention: 0, total: 0 },
+            /* Same shape as the populated branch below, field for field. It
+               used to publish `requireAttention` here and `healthy` /
+               `waterEvents` there, so the two branches did not agree on what
+               a scope even reports. */
+            stats: { total: 0, healthy: 0, waterEvents: 0 },
             issues: { offline: 0, valve: 0, power: 0, recipients: 0 },
             systemTypes: { topology: 0, flood: 0, humidity: 0 },
             insights: [],
@@ -574,7 +578,27 @@ export default function HomeAllAccounts({ expanded = false }) {
     const widgets = computeWidgets(systems) ?? {}
     const kpis = computeKPIs(systems) ?? {}
 
-    const activeEvents = systems.filter(s => s.alert)
+    /* WATER EVENTS ONLY — the strip above the fold says "Water events" and
+       must count water events.
+       `systems.filter(s => s.alert)` STOOD HERE until 2026-10-22 and took ANY
+       alert, `offline` / `valve-error` / `power-lost` included, so device
+       faults were counted here and listed as leaks. At 220 Harborview that
+       printed "Water events 2" over a scope with none, and the two rows under
+       it were an Offline system and a system with no external power, both
+       drawn as "Low Flow". Fleet-wide the pill read 23 where 19 systems are
+       leaking; Office read 19 where 15 are. The gap was exactly the non-leak
+       alerts. It stayed invisible because nearly every faulted system also
+       carried a leak that masked it, until a dataset change produced faults
+       standing on their own.
+       This is the same conflation as the `healthy` count below, running the
+       other way: that one let water events damage a health number, this one
+       let device faults inflate a water-event one.
+       src/utils/systemHealth.js owns the predicate — `isLeak`, a leak-high or
+       leak-low alert that has not been ignored — and its header says it is
+       the single definition deliberately, so this reads it rather than
+       spelling a second copy that can drift away from the drawer and the
+       system page. */
+    const activeWaterEvents = systems.filter(s => computeSystemHealth(s).isLeak)
 
     /* Systems Health is the FOUR PROTECTION CHECKS, not leaks.
        docs/PRD/09-system-health-widget.md defines a healthy system as one
@@ -606,7 +630,7 @@ export default function HomeAllAccounts({ expanded = false }) {
          It used to receive raw system records, so `e.type` was undefined on
          every row: the card's High and Low filter chips counted 0 while All
          counted every alert. The alert type lives at s.alert.type. */
-      waterEvents: activeEvents.map(s => ({
+      waterEvents: activeWaterEvents.map(s => ({
         id: s.id,
         systemName: s.name,
         /* Figma's two slots are CITY then STREET (199359:129095 draws
@@ -657,9 +681,17 @@ export default function HomeAllAccounts({ expanded = false }) {
         /** Systems with no device fault — the health number. */
         healthy,
         /** Systems with an ACTIVE WATER EVENT. Not a health measure. */
-        waterEvents: activeEvents.length,
-        /** @deprecated reads as health and is not. Use `waterEvents`. */
-        requireAttention: activeEvents.length,
+        waterEvents: activeWaterEvents.length,
+        /* `requireAttention: activeEvents.length` STOOD HERE until 2026-10-22,
+           marked @deprecated. A deprecation note is not a fix: the field was
+           still the leak count, still named as if it were a health number, and
+           SystemsHealthCard still read exactly that name into the attention
+           capsule beside its four fault tiles. Deleted rather than renamed,
+           and the prop is gone from that card too, so a caller reaching for it
+           now gets `undefined` and renders a visible 0 — wrong in a way that
+           shows — instead of a plausible wrong number. The two real figures are
+           `healthy` and `waterEvents` above; a consumer that wants "how many
+           need attention" subtracts `healthy` from `total`. */
       },
       /* The four issue pills of 198601:62957 — Offline systems / Valve errors /
          Disconnected power / Missing recipients.
@@ -1077,7 +1109,18 @@ export default function HomeAllAccounts({ expanded = false }) {
           It REPLACES two cards on Overview: ActiveWaterEventsCard (198314:73493
           / 198328:89083) and SystemsHealthCard (198601:62957). The count, the
           rows and the full list all live here or in EventOverlayV2 now; both
-          components are untouched and still mounted elsewhere.
+          components are untouched.
+
+          "and still mounted elsewhere" STOOD HERE and was not true, 2026-10-22.
+          Neither ActiveWaterEventsCard (imported above, line ~70) nor
+          SystemsHealthCard (line ~80) is rendered anywhere in the app — this
+          file imports both and uses neither, and no other page or component
+          references them. They are reachable only from src/__tests__. That is
+          worth knowing before trusting a bug report about either one: a defect
+          in SystemsHealthCard is latent, not live. The imports are left in
+          place rather than deleted because removing them is a decision about
+          whether those two cards have a future, which is the owner's to make,
+          not a tidy-up.
 
           One affordance did NOT come across on its own and was carried over by
           hand: the removed card's "Show past events", the only one-tap route to
@@ -1123,7 +1166,20 @@ export default function HomeAllAccounts({ expanded = false }) {
         valveErrors={live?.issues?.valve ?? 0}
         offline={live?.issues?.offline ?? 0}
         noPower={live?.issues?.power ?? 0}
+        /* NOT a health input — see the card's own note on this prop. It
+           reaches one sentence: the all-clear line, which is the only thing on
+           that card claiming anything about the whole scope. A scope that is
+           100% protected AND leaking must not be painted success green, and a
+           scope that is 100% protected and dry is the one state on this screen
+           that deserves to read as finished. */
+        waterEvents={live?.stats?.waterEvents ?? 0}
         onShowAll={() => setTab('systems')}
+        /* The card's header button already relabels itself "Show past alerts"
+           in the all-clear state (199417:131563) and had no handler to match —
+           it called onShowAll, which opens the Systems tab. Unreachable until
+           the all-clear state itself became reachable, so the mismatch had
+           never been seen. */
+        onShowPast={() => openOverlay('alerts', { tab: 'history' })}
         onSelectIssue={kind => openOverlay('alerts', {
           filter: ISSUE_FILTER[kind === 'valveErrors' ? 'valve' : kind === 'noPower' ? 'power' : kind] ?? 'all',
         })}

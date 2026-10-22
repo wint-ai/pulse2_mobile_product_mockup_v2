@@ -9,7 +9,7 @@
  * another stat card: it names the worst systems, it says WHERE they are, and
  * it ranks by severity then duration.
  */
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import TriageBand from '@/v2/components/TriageBand'
 
@@ -86,5 +86,50 @@ describe('everything is a way in', () => {
     mount({ onViewAll: () => { opened = true } })
     fireEvent.click(screen.getByRole('button', { name: /View all 4 water events/ }))
     expect(opened).toBe(true)
+  })
+})
+
+describe('severity is what the event IS, never a default', () => {
+  /* `event.type === 'leak-high' ? TONE.high : TONE.low` stood in EventRow
+     until 2026-10-22: ANY type that was not high flow was drawn as "Low
+     Flow". Paired with a caller that handed the band every alerting system,
+     220 Harborview Ave showed an Offline system and a system with no
+     external power as two Low Flow water events on a scope with no water
+     events at all. HomeAllAccounts no longer sends faults here, but this
+     band must not disguise one if anything ever does again — the two halves
+     are independent on purpose. */
+
+  it('labels each leak with its own severity', () => {
+    mount()
+    expect(screen.getAllByText('High Flow').length).toBe(2)
+    expect(screen.getAllByText('Low Flow').length).toBe(2)
+  })
+
+  it('does not draw a non-leak type as Low Flow', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { container } = render(
+      <TriageBand
+        events={[
+          { id: 'off', systemName: 'Offline unit', location: 'L', type: 'offline',     duration: '3h 00m' },
+          { id: 'pwr', systemName: 'No power',     location: 'L', type: 'power-lost',  duration: '2h 00m' },
+          { id: 'vlv', systemName: 'Bad valve',    location: 'L', type: 'valve-error', duration: '1h 00m' },
+        ]}
+      />,
+    )
+    expect(screen.queryByText('Low Flow'), 'a device fault was painted as a leak').toBeNull()
+    expect(screen.queryByText('High Flow')).toBeNull()
+
+    // The row is NOT dropped — that would lose real state silently, which is
+    // the same failure in the other direction. It says what it actually is.
+    const labels = [...container.querySelectorAll('button')]
+      .map(b => b.getAttribute('aria-label') || '')
+      .filter(l => /running /.test(l))
+    expect(labels.length).toBe(3)
+    expect(labels.join(' | ')).toContain('Unrecognised event type: offline')
+    expect(screen.getByText('offline')).toBeInTheDocument()
+
+    // And it is loud about it rather than silently wrong.
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
   })
 })

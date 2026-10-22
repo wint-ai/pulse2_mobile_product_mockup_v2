@@ -16,7 +16,7 @@
 //     has to stop being red (this design system's zero-is-not-red rule).
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SystemHealthCard from '@/v2/components/SystemHealthCard'
 
@@ -189,8 +189,16 @@ describe('SystemHealthCard — all healthy / empty', () => {
        on the replacement: "user dont knows the check". The GUARANTEE is the
        same one this test was written for: at zero the card says its state in
        words instead of drawing three noughts. It now also counts, and borrows
-       the card's own title rather than naming the four PRD-09 checks. */
-    expect(screen.getByText('All 48 systems healthy')).toBeTruthy()
+       the card's own title rather than naming the four PRD-09 checks.
+
+       2026-10-22 it also names the OTHER axis. "All 48 systems healthy" is a
+       true health statement that reads, on a home screen, as "nothing is
+       happening" — and a fleet can be 100% protected while two pipes are open.
+       The sentence is gated on both now, which is also what gates the success
+       green. The water figure is the only one on this card and it touches no
+       counter; see the component's note on the prop. */
+    expect(screen.getByText(/All 48 systems protected/)).toBeTruthy()
+    expect(screen.getByText(/no water events/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Valve errors:/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Offline systems:/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /Disconnected power:/ })).toBeNull()
@@ -225,11 +233,18 @@ describe('SystemHealthCard — all healthy / empty', () => {
     /* The hot tile used to be pinned to `from-[#fff1f1]`, the literal half
        of a frozen light-red gradient. It is now the alert surface token, so
        the assertion pins the TOKEN — which is the thing that must not be
-       lost — rather than a hex that only ever described `light`. */
-    expect(by('Valve errors: 1').className).toContain('bg-alert-surface-critical')
-    expect(by('Offline systems: 1').className).toContain('bg-alert-surface-critical')
+       lost — rather than a hex that only ever described `light`.
+
+       WARNING, NOT CRITICAL, since 2026-10-22. Both cards on this screen used
+       to paint their alarm in --alert-surface-critical, so red said "water is
+       escaping" on TriageBand and "a device is broken" here. Critical is
+       reserved for water now. The `not.toContain` is the half that matters:
+       it fails if anyone puts the fault tiles back on the water colour. */
+    expect(by('Valve errors: 1').className).toContain('bg-alert-surface-warning')
+    expect(by('Offline systems: 1').className).toContain('bg-alert-surface-warning')
+    expect(by('Valve errors: 1').className).not.toContain('bg-alert-surface-critical')
     expect(by('Disconnected power: 0').className).toContain('bg-slate-100')
-    expect(by('Disconnected power: 0').className).not.toContain('bg-alert-surface-critical')
+    expect(by('Disconnected power: 0').className).not.toContain('bg-alert-surface-warning')
   })
 
   it('renders an empty fleet without a sliver of either colour', () => {
@@ -266,7 +281,16 @@ describe('SystemHealthCard — Figma class fidelity', () => {
     expect(bar.className).toContain('gap-[1.622px]')
     expect(bar.className).toContain('h-[15px]')
 
-    expect(segments(container).red.className).toContain('bg-red-700')
+    /* `bg-red-700` until 2026-10-22. --red-700 doubles as ink on a dark card
+       and therefore has to lighten under `dark`, which dropped this bar's
+       red-vs-green separation to 2.46:1 — the one thing a proportion bar is
+       for. src/index.css had already minted --bar-fill-risk / --bar-fill-ok-*
+       for exactly these call sites and nothing in src/ had ever consumed them.
+       `light` is unchanged by construction (--bar-fill-risk IS var(--red-700)
+       at :root), so this is a rename at this theme and a fix at the others. */
+    expect(segments(container).red.className).toContain('bg-bar-fill-risk')
+    expect(segments(container).green.className).toContain('from-bar-fill-ok-from')
+    expect(segments(container).green.className).toContain('to-bar-fill-ok-to')
 
     const card = container.firstElementChild
     expect(card.className).toContain('gap-[15px]')
@@ -284,5 +308,118 @@ describe('SystemHealthCard — Figma class fidelity', () => {
        — the fifth was the fleet row's sensor, which went to the hero with the
        count. The hero's own test makes the same assertion over there. */
     expect(container.querySelectorAll('svg').length).toBeGreaterThanOrEqual(4)
+  })
+})
+
+/* ───────────────────────────────────────────────────────────────────────────
+   HEALTH AND WATER ARE TWO AXES, AND ALL FOUR CORNERS ARE REAL.
+
+   Owner, 2026-10-22: "we don't have the separation between system health,
+   which is the errors, and water events. Systems can be 100% healthy, but with
+   water events, it's not counting on the same counter."
+
+   src/__tests__/healthIsNotWaterEvents.dom.test.jsx pins the DATA half of that
+   — that the two counts differ, and that a leak alone never makes a system
+   unhealthy. It stops at the seam. These pin what the live card SAYS, because
+   the card is where a reader meets the distinction, and because three of the
+   four corners below had never been rendered: `attention` could not reach 0
+   against the old dataset, so the all-clear branch was unreachable and nothing
+   had ever checked what it claims.
+
+   The bar, `healthy` and every tile are health-only in all four. The ONLY
+   figure that crosses is the water count in the all-clear sentence, and only
+   to stop that sentence being a true number making a false claim. */
+describe('SystemHealthCard — health and water events are separate axes', () => {
+  const textOf = (c) => (c.textContent || '').replace(/\s+/g, ' ')
+  const row = (c) => c.querySelector('[data-status]')
+
+  it('healthy and dry: says so on both axes, in the success ground', () => {
+    const { container } = render(<SystemHealthCard total={10} healthy={10} waterEvents={0} />)
+    expect(row(container).getAttribute('data-status')).toBe('clear')
+    expect(row(container).className).toContain('bg-alert-surface-success')
+    expect(textOf(container)).toContain('All 10 systems protected · no water events')
+  })
+
+  it('healthy and leaking: still 100% protected, and NOT painted all-clear', () => {
+    /* The owner's exact sentence. The protection claim is true and is kept;
+       what it must not do is wear the colour that means "nothing to do". */
+    const { container } = render(<SystemHealthCard total={10} healthy={10} waterEvents={2} />)
+    expect(row(container).getAttribute('data-status')).toBe('water')
+    expect(row(container).className).not.toContain('bg-alert-surface-success')
+    expect(textOf(container)).toContain('All 10 systems protected · 2 water events active')
+
+    // And the health readout is untouched by the leak: 0 need attention.
+    const bar = container.querySelector('[data-node-id="199360:129783"]')
+    expect(bar.textContent).toBe('0 / 10 need attention')
+    expect(container.querySelector('[data-segment="attention"]')).toBeNull()
+  })
+
+  it('unhealthy and dry: the dangerous one, and it is not quiet', () => {
+    /* An offline system reports ZERO water events. On a screen of leak counts
+       that reads like the good row; it is the worst one, because the ability
+       to see a leak there is gone. The card says that in words. */
+    const { container } = render(
+      <SystemHealthCard total={10} healthy={7} offline={3} waterEvents={0} />,
+    )
+    expect(row(container).getAttribute('data-status')).toBe('risk')
+    expect(row(container).className).toContain('bg-alert-surface-warning')
+    expect(textOf(container)).toContain('3 systems may miss a leak or fail to stop it')
+    expect(textOf(container)).not.toContain('protected')
+  })
+
+  it('unhealthy and leaking: the risk line wins the row, the tiles still count', () => {
+    const { container } = render(
+      <SystemHealthCard total={10} healthy={6} offline={3} valveErrors={1} waterEvents={2} />,
+    )
+    expect(row(container).getAttribute('data-status')).toBe('risk')
+    expect(textOf(container)).toContain('4 systems may miss a leak or fail to stop it')
+    expect(container.querySelector('[data-node-id="199360:129783"]').textContent)
+      .toBe('4 / 10 need attention')
+  })
+
+  it('a water event NEVER moves a health number', () => {
+    /* The whole defect in one assertion: render the same fleet with and
+       without leaks and diff every health figure the card draws. */
+    const dry = render(<SystemHealthCard total={10} healthy={8} offline={2} waterEvents={0} />)
+    const barDry = dry.container.querySelector('[data-node-id="199360:129783"]').textContent
+    const tileDry = dry.container.querySelector('[data-segment="attention"]').style.flexGrow
+    cleanup()
+
+    const wet = render(<SystemHealthCard total={10} healthy={8} offline={2} waterEvents={7} />)
+    const barWet = wet.container.querySelector('[data-node-id="199360:129783"]').textContent
+    const tileWet = wet.container.querySelector('[data-segment="attention"]').style.flexGrow
+
+    expect(barWet).toBe(barDry)
+    expect(tileWet).toBe(tileDry)
+    expect(barWet).toBe('2 / 10 need attention')
+  })
+
+  it('needs attention on a check that has no tile, and does not call that clear', () => {
+    /* THE LIVE BUG THIS BLOCK WAS WRITTEN FOR. The all-clear row was gated on
+       `hotKinds.length === 0` — valve, offline, power — while `attention` is
+       fleet - healthy over FOUR checks, the fourth being "has at least one
+       alert recipient", which this card has no tile for. A scope whose only
+       fault is a missing recipient therefore printed "All 10 systems healthy"
+       directly under a bar reading "1 / 10 need attention".
+       Reproducible on /location/Building A against today's dataset. */
+    const { container } = render(
+      <SystemHealthCard total={10} healthy={9} valveErrors={0} offline={0} noPower={0} />,
+    )
+    expect(row(container).getAttribute('data-status')).toBe('risk')
+    expect(textOf(container)).not.toContain('protected')
+    expect(textOf(container)).toContain('1 system may miss a leak or fail to stop it')
+    expect(container.querySelector('[data-node-id="199360:129783"]').textContent)
+      .toBe('1 / 10 need attention')
+  })
+
+  it('the all-clear header control goes to the history it names', () => {
+    /* The label switched to "Show past alerts" at 199417:131563 and kept
+       calling onShowAll, which on HomeAllAccounts opens the Systems tab. */
+    const onShowAll = vi.fn()
+    const onShowPast = vi.fn()
+    render(<SystemHealthCard total={10} healthy={10} onShowAll={onShowAll} onShowPast={onShowPast} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Show past alerts' }))
+    expect(onShowPast).toHaveBeenCalledTimes(1)
+    expect(onShowAll).not.toHaveBeenCalled()
   })
 })

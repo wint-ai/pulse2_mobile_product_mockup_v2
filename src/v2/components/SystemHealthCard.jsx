@@ -48,6 +48,26 @@
  * non-zero") — not a new invention. The frames only ever draw the non-zero
  * case, so there is no all-healthy emit to copy.
  *
+ * HEALTH IS NOT WATER EVENTS, 2026-10-22. Owner: "we don't have the
+ * separation between system health, which is the errors, and water events.
+ * Systems can be 100% healthy, but with water events, it's not counting on
+ * the same counter." Three changes carry that here, and each has its note at
+ * the line it changes:
+ *   · THE HUE SPLIT. The fault tiles were --alert-surface-critical, the same
+ *     family TriageBand paints a live leak in. They are the WARNING family
+ *     now: red means water is escaping, amber means a device cannot protect
+ *     you. See TILE_HOT.
+ *   · THE BAR keeps a red FILL and that is deliberate, not an oversight — it
+ *     is a proportion mark, not a status chip, and the warning family cannot
+ *     separate from the mint beside it. It now consumes --bar-fill-*, which
+ *     src/index.css minted for these three call sites and nothing had ever
+ *     used. See BAR_RED / BAR_GREEN.
+ *   · THE STATUS ROW replaces the all-clear row and now renders in every
+ *     state, in one of three tones. It is also where the one water-event
+ *     figure on this card lives, and why. See the block at the branch.
+ * The progress bar, `healthy`, `attention` and every tile stay what PRD
+ * 09 says they are: the four protection checks, and nothing about leaks.
+ *
  * ASSETS. Figma asset URLs expire in ~7 days and NONE is referenced at
  * runtime. The emit draws all five glyphs as <img>, so the export carries no
  * colour information for any of them; each is inlined as a local component
@@ -104,8 +124,8 @@
  * pasted back in from Figma — but no live class string in this file carries
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
-import { ArrowRight, PowerOff } from 'lucide-react'
-import { PhotoSensor3, PinLocation03, WifiDisconnected02 } from '@/v2/icons'
+import { ArrowRight, CircleCheck, PowerOff } from 'lucide-react'
+import { PhotoSensor3, PinLocation03, Warning, WifiDisconnected02 } from '@/v2/icons'
 import ValveStatus from '@/v2/components/ValveStatus'
 import { cn } from '@/lib/utils'
 
@@ -148,24 +168,31 @@ const FLEET_COUNT = String.raw`[word-break:break-word] font-semibold min-w-px ov
 
 /* 199360:129779 — the bar, and its two segments (199360:129780 / 129781). */
 const BAR = String.raw`content-stretch flex gap-[1.622px] h-[15px] items-start relative shrink-0 w-full`
-/* `bg-red-700` is left spelled as a stock utility ON PURPOSE. It used to bind
-   to stock Tailwind's #c10007 — which no theme can move, and which measured
-   2.94:1 against the dark card, i.e. BELOW the 3:1 WCAG 1.4.11 asks of a
-   graphical object: the health bar read as "mostly bright green with a dark
-   hole". It is now mapped in @theme inline via --color-red-700, so the class
-   name is correct and the value follows the theme. Do not rewrite it as an
-   arbitrary value; that would re-freeze it. */
-const BAR_RED = String.raw`bg-red-700 h-full min-w-px relative`
-/* KNOWN REMAINING LITERAL, 2026-10-21 — deliberately not changed, see the
-   Phase-5 report. This mint gradient is frozen (no theme moves it, including
-   ?theme=contrast) but it does NOT fail: it measures 14.7:1 against the dark
-   card and 5.0:1 against the red segment beside it, both well past 3:1. The
-   contract ships no token that fits a BOLD, two-stop data fill — the
-   --alert-surface-success trio is a container ground for text and at Primer's
-   10% alpha would make this segment ~1.1:1 against the card, i.e. invisible,
-   while --success (#5C9E1A) is a solid olive that would repaint the `light`
-   bar wholesale. It needs its own token; it does not need a guess. */
-const BAR_GREEN = String.raw`bg-gradient-to-r from-[#cbf7db] h-full min-w-px relative to-[#81f1aa]`
+/* A FILL IS NOT AN INK, and this is the fill. 2026-10-22.
+   This was `bg-red-700`, which is also the ink on a dark card and therefore
+   has to LIGHTEN under `dark` — correct for ink, wrong for a bar, and it
+   dropped the red-vs-green separation this bar exists to show from 5.46:1 to
+   2.46:1. src/index.css already diagnosed that and minted --bar-fill-risk /
+   --bar-fill-ok-from / --bar-fill-ok-to for exactly these three call sites
+   (index.css "FLEET HEALTH BAR — A FILL IS NOT AN INK"), mapped them in
+   @theme inline and gave them `dark` and `contrast` values — and then nothing
+   in src/ ever consumed them. They are consumed here now. `light` does not
+   move by construction (--bar-fill-risk IS var(--red-700) at :root); `dark`
+   gets the 3.43:1 the token block was written to restore.
+   These are also the one colour on this card that stays in the red family
+   after the hue split above, and deliberately: the bar is a PROPORTION mark,
+   not a status chip. Its job is healthy-vs-not separation between its own two
+   segments, and the warning family cannot do that job — amber over the mint
+   measures 2.4:1 in `light` and 1.3:1 in `dark`, which is the exact failure
+   the token block was minted to fix. */
+const BAR_RED = String.raw`bg-bar-fill-risk h-full min-w-px relative`
+/* The literal this used to carry is gone. The note that stood here said "it
+   needs its own token" — and it HAD one the whole time: index.css defines
+   --bar-fill-ok-from / --bar-fill-ok-to as this exact pair of stops, for this
+   exact gradient, with a `contrast` override, and nothing had ever consumed
+   them. `light` and `dark` are byte-identical to the literals; ?theme=contrast
+   now actually moves the bar, which is the whole point of that theme. */
+const BAR_GREEN = String.raw`bg-gradient-to-r from-bar-fill-ok-from h-full min-w-px relative to-bar-fill-ok-to`
 const BAR_L = String.raw`rounded-bl-[9068757px] rounded-tl-[9068757px]`
 const BAR_R = String.raw`rounded-br-[9068757px] rounded-tr-[9068757px]`
 const BAR_FULL = String.raw`rounded-[9068757px]`
@@ -214,7 +241,23 @@ const TILE = String.raw`appearance-none border-0 content-stretch cursor-pointer 
    The ink is deliberately NOT moved onto --alert-ink-critical: neither the
    count nor the label is red in `light`, and both already follow the theme.
    Fixing the ground fixes the ink. */
-const TILE_HOT = String.raw`bg-alert-surface-critical inset-ring inset-ring-alert-border-critical`
+/* RED IS WATER. AMBER IS THE DEVICE. 2026-10-22.
+   Owner: "we don't have the separation between system health, which is the
+   errors, and water events." Part of that was arithmetic (see HomeAllAccounts'
+   `stats` note) and part of it was that BOTH cards on this screen painted
+   their alarm in --alert-surface-critical. Red meant "water is escaping" on
+   TriageBand and "a device is broken" here, two sentences in one colour.
+   The fault tiles move to the WARNING family. Nothing else about the tile
+   changes: the ink is still --foreground / --slate-600 (see the note above —
+   neither is red in `light` and both already theme), so this is a ground swap
+   with no contrast consequence in any of the four themes.
+   KNOWN OVERLAP, stated rather than hidden: a Low Flow row in the Water events
+   card is also orange (--severity-low #F05C25 / --orange-600 #f54a00). The two
+   never share a card, and both surfaces print their meaning in words beside
+   the colour — "Low Flow" there, "Valve errors" / "Offline" / "No power" here
+   — so hue is never the only carrier in either place. The alternative was
+   inventing a fourth family, which the token contract forbids. */
+const TILE_HOT = String.raw`bg-alert-surface-warning inset-ring inset-ring-alert-border-warning`
 const TILE_COLD = String.raw`bg-slate-100`
 /* 199417:134216 draws the lone kind as ONE tile across the card. */
 const TILE_SOLO = String.raw`appearance-none border-0 content-stretch cursor-pointer flex gap-[4px] items-center justify-center pb-[7px] pt-[3px] px-0 relative rounded-[18px] shrink-0 text-left w-full`
@@ -226,8 +269,21 @@ const TILE_SOLO = String.raw`appearance-none border-0 content-stretch cursor-poi
    blue informational wash this repo already names --accent (#f2f6ff in
    `light`), so it binds there. NOTE: that is a 4-unit lift off #e8f5ff in
    `light` — the closest token, not the identical one. */
-const CLEAR_ROW = String.raw`bg-accent content-stretch flex h-[43px] items-center px-[11px] relative rounded-[16px] shrink-0 w-full`
-const CLEAR_TEXT = String.raw`[word-break:break-word] flex flex-col font-semibold justify-center leading-[0] relative shrink-0 text-slate-600 text-sm whitespace-nowrap`
+const STATUS_ROW = String.raw`content-stretch flex gap-[4px] items-center min-h-[43px] px-[11px] py-[7px] relative rounded-[16px] shrink-0 w-full`
+/* Three tones, one chassis. See the STATUS ROW note at the branch below.
+   `success` and `warning` take the Primer pair (10% ground / 40% border) the
+   repo already ships; the middle one keeps 199417:131529's own informational
+   wash, because "protected, and something IS leaking" is not an all-clear and
+   must not be painted as one. */
+const STATUS_CLEAR = String.raw`bg-alert-surface-success inset-ring inset-ring-alert-border-success`
+const STATUS_WATER = String.raw`bg-accent`
+const STATUS_RISK = String.raw`bg-alert-surface-warning inset-ring inset-ring-alert-border-warning`
+/* Figma writes this node `shrink-0` + `whitespace-nowrap` inside a 43px box,
+   which is the fixed-artboard habit scripts/check-text-overflow.mjs exists to
+   catch: every sentence below carries a live count and the risk line is the
+   longest string on the card. It flexes and wraps, and the row grew a
+   min-height instead of a height so it follows. */
+const STATUS_TEXT = String.raw`[word-break:break-word] flex-[1_0_0] font-semibold min-w-px relative text-slate-700 text-sm leading-[18px]`
 const TILE_INNER = String.raw`flex flex-row items-center self-stretch`
 const TILE_STACK = String.raw`content-stretch flex flex-col h-full items-center justify-center relative shrink-0`
 const TILE_VALUE_ROW = String.raw`content-stretch flex h-[43px] items-center justify-center mb-[-8px] relative rounded-[16px] shrink-0 w-[89px]`
@@ -370,6 +426,29 @@ function IssueGlyph({ issue }) {
  * @param {number}   valveErrors   the "Valve errors" tile
  * @param {number}   offline       the "Offline" tile
  * @param {number}   noPower       the "No power" tile
+ * @param {number}   waterEvents   ACTIVE WATER EVENTS IN SCOPE. It is NOT a
+ *                                 health input and is deliberately absent from
+ *                                 `healthy`, from `attention`, from the
+ *                                 progress bar and from every tile — PRD
+ *                                 03-home-screen.md:207, "leaks aren't a
+ *                                 'Systems Health' gap". It reaches exactly
+ *                                 one place: the all-clear sentence, which is
+ *                                 the one line on this card that makes a claim
+ *                                 about the WHOLE scope rather than about a
+ *                                 counter. A card that said "all 10 systems
+ *                                 protected" in success green over a scope
+ *                                 with two live leaks would be a true number
+ *                                 making a false claim, so the green state is
+ *                                 gated on both dimensions and the amber/blue
+ *                                 one names the other. See the STATUS ROW note.
+ * @param {Function} onShowPast    the all-clear header control. The button's
+ *                                 label already switched to "Show past alerts"
+ *                                 at 199417:131563 but kept calling onShowAll,
+ *                                 which on HomeAllAccounts opens the SYSTEMS
+ *                                 tab — a label and an action that disagree.
+ *                                 Unreachable until now (see `allClear`), so
+ *                                 it had never been seen. Falls back to
+ *                                 onShowAll when unwired.
  * @param {string}   unitLabel     the word after the fleet count; Figma says
  *                                 "systems", and the singular is derived
  * @param {Function} onShowAll     the "Show all" control
@@ -383,8 +462,10 @@ export default function SystemHealthCard({
   valveErrors = 0,
   offline = 0,
   noPower = 0,
+  waterEvents = 0,
   unitLabel = 'systems',
   onShowAll,
+  onShowPast,
   onSelectIssue,
   className,
 }) {
@@ -402,6 +483,8 @@ export default function SystemHealthCard({
      variant below, and it is also what tints each tile. */
   const hotKinds = ISSUE_ORDER.filter((k) => counts[k] > 0)
   const allClear = hotKinds.length === 0 && attention === 0
+  const leaks = clampInt(waterEvents)
+  const sys = (k) => (k === 1 ? unitLabel.replace(/s$/, '') : unitLabel)
 
   /* Both segments drop out at zero so a 1px sliver never implies a system that
      is not there; with the fleet empty the track reads as all-well. */
@@ -420,7 +503,7 @@ export default function SystemHealthCard({
           </p>
           <button
             type="button"
-            onClick={onShowAll}
+            onClick={allClear ? (onShowPast ?? onShowAll) : onShowAll}
             aria-label={allClear ? 'Show past alerts' : `Show all ${unitLabel}`}
             className={SHOW_ALL}
             data-name="Button"
@@ -524,40 +607,118 @@ export default function SystemHealthCard({
                 latest of the pair; it is also the one that does not spend two
                 thirds of the row on zeros. Say the word and it is a one-line
                 swap back. */}
-            {hotKinds.length === 0 ? (
-              <div className={CLEAR_ROW} data-node-id="199417:131574">
-                <span className="content-stretch flex gap-[4px] items-center relative shrink-0">
-                  <span className={cn('relative shrink-0 size-[27px]', GLYPH_INK)} aria-hidden="true">
+            {/* ─────────────────────────────────── THE STATUS ROW
+                199417:131529 draws ONE row here and draws it only when nothing
+                is wrong. Three things were wrong with that, and all three are
+                fixed in this block.
+
+                1. IT WAS GATED ON THE TILES, NOT ON HEALTH. The condition was
+                   `hotKinds.length === 0`, i.e. valve + offline + power. But
+                   `attention` is fleet - healthy, and src/utils/systemHealth.js
+                   counts a FOURTH check this card has no tile for: at least one
+                   alert recipient. A scope whose only fault is a missing
+                   recipient has three empty tiles and a non-zero attention —
+                   so the card printed "All 10 systems healthy" directly under a
+                   bar reading "1 / 10 need attention". That is live today on
+                   /location/Building A. It is gated on `allClear` now, which is
+                   the conjunction of both.
+
+                2. WATER EVENTS WERE NOT IN THE SENTENCE. A fleet can be 100%
+                   protected and leaking — that is the whole point of the
+                   separation this change exists to make, and it is the case the
+                   owner described. The old line said "All 10 systems healthy"
+                   over two active leaks: a true statement that reads as
+                   "nothing is happening". Green is gated on BOTH dimensions
+                   now; with a leak the row keeps 131529's own informational
+                   wash and names the leak instead. That is the ONLY place a
+                   water count reaches this card — not the bar, not a tile, not
+                   `attention` — because it is the only line here that makes a
+                   claim about the whole scope rather than about one counter.
+
+                3. "UNPROTECTED" LOOKED LIKE NOTHING. With a fault this slot was
+                   simply empty — the card said what KIND of fault in the tiles
+                   and never what a fault COSTS. An offline system reports zero
+                   water events, which on a screen full of leak counts reads as
+                   the good row. It is the worst one: the ability to see a leak
+                   there is gone. The risk line says so, in words, on the
+                   warning ground the tiles now share.
+
+                The copy is mine — 199417:131529 is the only state Figma draws
+                and there is no frame for the other two (see line 49). "may miss
+                a leak or fail to stop it" is the one phrase true of all four
+                PRD-09 checks at once: comm, power and recipients break SEEING
+                it, a valve error breaks STOPPING it. */}
+            <div
+              className={cn(
+                STATUS_ROW,
+                allClear ? (leaks === 0 ? STATUS_CLEAR : STATUS_WATER) : STATUS_RISK,
+              )}
+              data-node-id="199417:131574"
+              data-status={allClear ? (leaks === 0 ? 'clear' : 'water') : 'risk'}
+            >
+              <span
+                className={cn(
+                  'relative shrink-0 flex size-[27px] items-center justify-center',
+                  allClear
+                    ? leaks === 0 ? 'text-alert-ink-success' : GLYPH_INK
+                    : 'text-alert-ink-warning',
+                )}
+                aria-hidden="true"
+              >
+                {allClear ? (
+                  leaks === 0 ? (
+                    <CircleCheck size={22} strokeWidth={2} className="block" />
+                  ) : (
                     <PinLocation03 size="100%" className="absolute inset-0 block" />
-                  </span>
-                  <span className={cn('font-sans', CLEAR_TEXT)}>
-                    {/* "All of your systems are running!" claimed the whole
-                        fleet from a card gated on three tiles, so it could
-                        print directly under "12 / 48 need attention".
-                        This counts, and it borrows the card's own title: the
-                        header already says System health, so "healthy" carries
-                        the four PRD-09 checks without naming them. The owner,
-                        on the old line: "user dont knows the check". */}
-                    <span className={BAR_LABEL_RUN} dir="auto">
-                      {`All ${fmt(fleet)} ${fleet === 1 ? 'system' : 'systems'} healthy`}
-                    </span>
-                  </span>
-                </span>
-              </div>
-            ) : hotKinds.length === 1 ? (
+                  )
+                ) : (
+                  <Warning size={22} className="block" />
+                )}
+              </span>
+              <p className={cn('font-sans', STATUS_TEXT)} dir="auto">
+                {allClear ? (
+                  <>
+                    {/* It borrows the card's own title rather than naming the
+                        four checks — the header already says System health.
+                        The owner, on the line this replaced: "user dont knows
+                        the check". */}
+                    {`All ${fmt(fleet)} ${sys(fleet)} protected`}
+                    {leaks === 0 ? (
+                      ' · no water events'
+                    ) : (
+                      <>
+                        {' · '}
+                        <span className="text-red-700">
+                          {`${fmt(leaks)} water ${leaks === 1 ? 'event' : 'events'} active`}
+                        </span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  `${fmt(attention)} ${sys(attention)} may miss a leak or fail to stop it`
+                )}
+              </p>
+            </div>
+
+            {/* The tiles say WHICH kind. They are the design's three variants
+                minus the all-clear one, which the row above now owns outright:
+                a scope can need attention with every tile at zero (point 1
+                above) and three zeros would be the quiet screen all over
+                again. */}
+            {hotKinds.length === 1 ? (
               <IssueTile
                 solo
                 issue={hotKinds[0]}
                 count={counts[hotKinds[0]]}
                 onSelect={onSelectIssue}
               />
-            ) : (
+            ) : hotKinds.length > 1 ? (
               <div className={TILE_ROW} data-node-id="199323:13029">
                 {ISSUE_ORDER.map((key) => (
                   <IssueTile key={key} issue={key} count={counts[key]} onSelect={onSelectIssue} />
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

@@ -16,6 +16,16 @@
 //  3. An empty scope reported 100%. 100% of nothing is a perfect score.
 //  4. Nothing ever told a reader that a zero had been CHECKED rather than
 //     merely left empty, and no line ever stated the all-clear.
+//
+// 2026-10-22 — THE PROP THESE PASS WAS RENAMED, AND THE RENAME IS THE POINT.
+// `stats.requireAttention` was fed `activeEvents.length` (the ACTIVE WATER
+// EVENT count) by HomeAllAccounts and rendered in an attention capsule beside
+// four device-fault tiles, so the fifth "dimension" this file conjoins was
+// never a health dimension at all. It is `stats.attention` now — systems
+// failing at least one PRD-09 protection check — and the old name is deleted
+// rather than aliased, so a caller that misses the change renders a visible 0
+// instead of a plausible wrong number. Values and assertions below are
+// untouched; only the field name and the dimension's label moved.
 
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
@@ -25,7 +35,7 @@ import { computeSystemHealth } from '@/utils/systemHealth'
 
 afterEach(cleanup)
 
-const ALL_CLEAR = { requireAttention: 0, total: 10 }
+const ALL_CLEAR = { attention: 0, total: 10 }
 const NO_ISSUES = { offline: 0, valve: 0, power: 0, recipients: 0 }
 
 const textOf = (container) => (container.textContent || '').replace(/\s+/g, ' ')
@@ -48,14 +58,31 @@ describe('Systems Health — the percentage measures protection, not leaks', () 
     // Both numbers are snapshots of the dataset, not rules. Leak-free moved
     // 46 -> 48 on 2026-10-21 when Building C joined D and E as an all-clear
     // location (owner: "i want at least 3 location fully healthy"), which
-    // took two leaks out of a 103-system fleet. Protection is unchanged at 66
-    // because C's apartments were failing on the leak check alone.
+    // took two leaks out of a 103-system fleet.
+    //
+    // 2026-10-22 they moved again, and much further: 66 -> 88 protected and
+    // 48 -> 78 leak-free, when the upstream builder was rewritten so that at
+    // most half the systems and half the sites are unhealthy and at least half
+    // the sites are clean on BOTH axes. The fleet is still 103.
+    //
+    // (Two intermediate values, 84 and 75, were pinned here earlier the same
+    // day, between the rewrite and the site-archetype pass that followed it —
+    // the one that gave the fleet a `watchful` site, healthy on all four
+    // checks and carrying water events, which is the owner's own example and
+    // had no site to live on before. Taking two sites out of the troubled set
+    // raised both numbers again.)
+    //
+    // Re-pinned rather than loosened: a snapshot that drifts silently is how a
+    // dataset regression gets through, and these two numbers are cheap to
+    // update. They are DATASET SNAPSHOTS, not clock-dependent — unlike the
+    // month-to-date captions in consumptionSeries.test.js, which were frozen
+    // the same way and had to be rewritten as rules instead.
     //
     // What this test is actually for is the `not.toBe` above — that the two
     // counts DIFFER, so the percentage cannot be measuring leaks. That
     // guarantee is untouched; only the dataset moved underneath it.
-    expect(percent).toBe(66)
-    expect(Math.round((leakFreeCount / SYSTEMS.length) * 100)).toBe(48)
+    expect(percent).toBe(88)
+    expect(Math.round((leakFreeCount / SYSTEMS.length) * 100)).toBe(78)
   })
 
   it('never reaches 100% while a single system fails a check (PRD 09:62)', () => {
@@ -73,7 +100,7 @@ describe('Systems Health — an absent percentage is not a zero', () => {
     const { container } = render(
       <SystemsHealthCard
         healthy={{ percent: null }}
-        stats={{ requireAttention: 0, total: 0 }}
+        stats={{ attention: 0, total: 0 }}
         issues={NO_ISSUES}
       />,
     )
@@ -87,7 +114,7 @@ describe('Systems Health — an absent percentage is not a zero', () => {
     const { container } = render(
       <SystemsHealthCard
         healthy={{ percent: 0 }}
-        stats={{ requireAttention: 5, total: 5 }}
+        stats={{ attention: 5, total: 5 }}
         issues={{ offline: 5, valve: 0, power: 0, recipients: 0 }}
       />,
     )
@@ -97,7 +124,7 @@ describe('Systems Health — an absent percentage is not a zero', () => {
 
 describe('Systems Health — the all-clear line is a conjunction or it is nothing', () => {
   const dimensions = [
-    ['requireAttention', { stats: { requireAttention: 1, total: 10 }, issues: NO_ISSUES }],
+    ['attention', { stats: { attention: 1, total: 10 }, issues: NO_ISSUES }],
     ['offline', { stats: ALL_CLEAR, issues: { ...NO_ISSUES, offline: 1 } }],
     ['valve', { stats: ALL_CLEAR, issues: { ...NO_ISSUES, valve: 1 } }],
     ['power', { stats: ALL_CLEAR, issues: { ...NO_ISSUES, power: 1 } }],
@@ -137,7 +164,7 @@ describe('Systems Health — a checked zero looks different from an empty field'
     const { container } = render(
       <SystemsHealthCard
         healthy={{ percent: 90 }}
-        stats={{ requireAttention: 0, total: 10 }}
+        stats={{ attention: 0, total: 10 }}
         issues={{ offline: 0, valve: 3, power: 0, recipients: 0 }}
       />,
     )
