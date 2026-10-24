@@ -1,0 +1,25 @@
+# The repo checks out CRLF on Windows (core.autocrlf=true) while the index
+# holds LF: `git ls-files --eol` reported 315 of 320 text files as i/lf w/crlf.
+# That split silently breaks scripted edits — a codemod matching a multi-line
+# anchor with \n matches nothing, changes no files, and reports success.
+#
+# Pinning eol=lf makes the working tree agree with the index. The index is
+# already LF, so this commit changes no file content; it only stops the next
+# developer's autocrlf setting from deciding the answer.
+* text=auto eol=lf
+
+*.jsx  text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.css  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.html text eol=lf
+
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.svg  text eol=lf
+*.ico  binary
+*.woff binary
+*.woff2 binary
