@@ -79,6 +79,7 @@
  */
 import { useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronLeft } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useUserContext } from '@/context/UserContext'
 import avatarUrl from '@/assets/avatar.jpg'
@@ -132,19 +133,29 @@ export default function MobileHeaderBar({
           className="content-stretch flex flex-[1_0_0] items-center min-w-px relative"
           data-node-id="199383:141504"
         >
+          {/* The node draws a 30px disc and ui/button's icon sizes are
+              24 / 32 / 36 / 40, so the size is overridden rather than picked.
+              Everything the hand-rolled version spelled out — outline-none,
+              the 3px focus ring, ring-ring/50 — now comes from the base,
+              which is the point: the ring becomes the design system's to
+              change, not this file's. `flex` and `hover:bg-card` are last so
+              they beat the base's inline-flex and ghost's hover:bg-accent;
+              the geometry is otherwise the node's, unchanged. */}
           {onBack ? (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={onBack}
               aria-label={backLabel}
-              className="bg-surface-card border border-solid border-card content-stretch flex items-center justify-center pr-[2px] relative rounded-[120.833px] shrink-0 size-[30px] cursor-pointer outline-none transition-colors hover:bg-card focus-visible:ring-[3px] focus-visible:ring-ring/50 active:opacity-60"
+              className="bg-surface-card border border-solid border-card flex items-center justify-center pr-[2px] relative rounded-[120.833px] size-[30px] cursor-pointer hover:bg-card active:opacity-60"
               data-node-id="199383:141505"
             >
               {/* The node's glyph is a Tabler raster on an expiring asset URL;
                   lucide's chevron-left is the same mark at the node's 24px,
                   and is the substitution EventOverlayV2 already makes. */}
               <ChevronLeft className="size-[24px] text-neutral-950" aria-hidden="true" />
-            </button>
+            </Button>
           ) : null}
 
           {/* 199383:141507 — the scope slot. The WHOLE slot is the drawer
@@ -185,8 +196,10 @@ export default function MobileHeaderBar({
 
         {/* 199383:141510 "Avatar" — hard right, pushed out by justify-between
             on the content row. Opens More, on the profile view. */}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           /* To More itself, NOT to the "Personal information" sub-page behind
              it. Owner: "why do we need two user profiles pages". More already
              opens on the profile summary — name, email, role — so deep-linking
@@ -195,8 +208,11 @@ export default function MobileHeaderBar({
           onClick={() => navigate('/account')}
           aria-label={persona?.name ? `${persona.name} — profile and More` : 'Profile and More'}
           className={cn(
-            'content-stretch flex items-center justify-center overflow-clip relative shrink-0 size-[28px] cursor-pointer outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:opacity-60',
-            String.raw`rounded-full bg-primary text-primary-foreground`,
+            'flex items-center justify-center overflow-clip relative size-[28px] cursor-pointer active:opacity-60',
+            /* ghost's hover:bg-accent would wash the brand disc, and the node
+               draws no hover at all — pinning it back to bg-primary keeps the
+               avatar inert, as drawn. */
+            String.raw`rounded-full bg-primary text-primary-foreground hover:bg-primary`,
           )}
           data-node-id="199383:141510"
           data-name="Avatar"
@@ -214,7 +230,7 @@ export default function MobileHeaderBar({
               String.raw`rounded-full`,
             )}
           />
-        </button>
+        </Button>
       </div>
     </div>
   )
