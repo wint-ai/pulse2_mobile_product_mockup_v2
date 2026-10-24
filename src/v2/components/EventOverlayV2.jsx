@@ -91,22 +91,24 @@ import ValveStatus from './ValveStatus'
 // --foreground #0a0a0a (confirmed by get_variable_defs and by its b5b2b.svg
 // export, `fill="#0A0A0A"`) — the same token the row's system name uses. It is
 // NOT slate-900; an earlier pass painted it #0f172b.
-const FOREGROUND = '#0a0a0a'
-const SLATE_800 = '#1d293d'
-const SLATE_600 = '#45556c'
-const SLATE_500 = '#62748e'
+const FOREGROUND = 'var(--neutral-950)'
+const SLATE_800 = 'var(--slate-800)'
+const SLATE_600 = 'var(--slate-600)'
+const SLATE_500 = 'var(--slate-500)'
 const SLATE_400 = 'var(--slate-400)'  // #90a1b9 in `light`; follows the ramp
-const SLATE_200 = '#e2e8f0'
-const RED_500 = '#fb2c36'
-const RED_600 = '#e7000b'
-const RED_900 = '#82181a'
+const SLATE_200 = 'var(--slate-200)'
+const RED_500 = 'var(--red-500)'
+const RED_600 = 'var(--red-600)'
+const RED_900 = 'var(--red-900)'
+/* These three stay raw: no token carries their value. --orange-600 is
+   #f54a00, one unit off ORANGE_600 below, so binding to it would repaint. */
 const ORANGE_500 = '#ff6900'
 const ORANGE_600 = '#f54900'
 /* Figma 199375:138276 — the Active toggle's ground is #c7e3ff in the current
    design. It was #dbeafe, taken from the 2026-09 frames this file was first
    reconciled against; that value appears nowhere in the new node. */
 const BLUE_100 = '#c7e3ff'
-const SLATE_100 = '#f1f5f9'
+const SLATE_100 = 'var(--slate-100)'
 const WINT_BLUE = 'var(--primary)'
 
 // The sheet's own ground: Figma's `backgroundImage` on all five frame roots,
@@ -298,8 +300,8 @@ const TYPES = {
     // 13-unit WavesHigh, so the 1.08063 stroke renders at full weight in both.
     RowIcon: Waves,
     ChipIcon: WavesHigh,
-    badge: '#ffe2e2',
-    chipTint: '#ffe2e2',
+    badge: 'var(--alert-surface-critical)',
+    chipTint: 'var(--alert-surface-critical)',
     glyph: RED_500,
     text: RED_600,
   },
@@ -308,8 +310,8 @@ const TYPES = {
     label: 'Low Flow',
     RowIcon: WavesLow,
     ChipIcon: WavesLow,
-    badge: '#ffedd4',
-    chipTint: '#ffedd4',
+    badge: 'var(--alert-surface-warning)',
+    chipTint: 'var(--alert-surface-warning)',
     // Figma nudges the two-trace glyph down 4px inside the chip circle so it
     // reads as centred; the traces sit low in their own box.
     chipNudge: true,
@@ -321,8 +323,8 @@ const TYPES = {
     label: 'AC Unplugged',
     RowIcon: ElectricPlugs,
     ChipIcon: PlugSocket,
-    badge: '#ffe2e2',
-    chipTint: '#ffe2e2',
+    badge: 'var(--alert-surface-critical)',
+    chipTint: 'var(--alert-surface-critical)',
     glyph: RED_900,
     text: RED_900,
   },
@@ -335,8 +337,8 @@ const TYPES = {
     label: 'Offline',
     RowIcon: WifiDisconnected02,
     ChipIcon: WifiDisconnected02,
-    badge: '#ffe2e2',
-    chipTint: '#ffe2e2',
+    badge: 'var(--alert-surface-critical)',
+    chipTint: 'var(--alert-surface-critical)',
     glyph: RED_900,
     text: RED_900,
   },
@@ -345,8 +347,8 @@ const TYPES = {
     label: 'No recipients',
     RowIcon: MessageBlocked,
     ChipIcon: MessageBlocked,
-    badge: '#ffe2e2',
-    chipTint: '#ffe2e2',
+    badge: 'var(--alert-surface-critical)',
+    chipTint: 'var(--alert-surface-critical)',
     glyph: RED_900,
     text: RED_900,
   },
@@ -358,7 +360,7 @@ const TYPES = {
     RowIcon: null,
     ChipIcon: null,
     valve: true,
-    badge: '#ffe2e2',
+    badge: 'var(--alert-surface-critical)',
     chipTint: '#fcd7db',
     glyph: RED_500,
     text: RED_900,
@@ -1034,7 +1036,7 @@ function EventRow({ ev, isLocation, rule, first, onSelect }) {
   const t = TYPES[ev.type] ?? {
     label: ev.type,
     RowIcon: ElectricPlugs,
-    badge: '#ffe2e2',
+    badge: 'var(--alert-surface-critical)',
     glyph: RED_900,
     text: RED_900,
   }

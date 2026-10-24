@@ -133,10 +133,10 @@ import ChevronRight16 from '@/v2/icons/ChevronRight16'
 // ── Palette, as the Figma variables on these two nodes resolve ─────────────
 const BLUE = 'var(--primary)' // wint-blue-accent
 const BLUE_50 = '#eff6ff' // colors/blue/50
-const SLATE_100 = '#f1f5f9' // colors/slate/100
-const SLATE_600 = '#45556c' // colors/slate/600 — the nav glyph stroke
-const FOREGROUND = '#0a0a0a' // design --foreground (NOT the project's #0f172b)
-const WHITE = '#ffffff' // --popover, and the end-month label
+const SLATE_100 = 'var(--slate-100)'
+const SLATE_600 = 'var(--slate-600)' // the nav glyph colour
+const FOREGROUND = 'var(--neutral-950)' // #0a0a0a — NOT --slate-900 #0f172b
+const WHITE = 'var(--popover)' // #ffffff, and the end-month label
 
 function clampToDate(month, year) {
   const now = new Date()

@@ -585,7 +585,7 @@ function EventFlowChart({ points, peak }) {
           needs an explicit height, never a fixed width. */}
       <ChartContainer
         config={FLOW_CHART_CONFIG}
-        className="aspect-auto h-[150px] w-full [&_.recharts-cartesian-axis-tick_text]:fill-[#737373]"
+        className="aspect-auto h-[150px] w-full [&_.recharts-cartesian-axis-tick_text]:fill-[var(--neutral-500)]"
       >
         <LineChart data={points} margin={{ top: 4, right: 6, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="#e5e5e5" />
