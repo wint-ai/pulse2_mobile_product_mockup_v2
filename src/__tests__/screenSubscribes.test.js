@@ -17,7 +17,6 @@ const SCREENS_THAT_MUST_SUBSCRIBE = [
   'src/screens/home/HomeManager.jsx',
   'src/screens/home/HomeClear.jsx',
   'src/screens/home/HomeMultiAccount.jsx',
-  'src/screens/home/HomeTenant.jsx',
   'src/screens/home/TenantPropertiesList.jsx',
   // System detail surfaces
   'src/screens/systems/SystemDetail.jsx',

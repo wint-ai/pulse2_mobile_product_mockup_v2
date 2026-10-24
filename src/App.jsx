@@ -1,8 +1,7 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Phone from './components/Phone';
-import SwipeableView from './components/SwipeableView';
 import { UserProvider, useUserContext } from './context/UserContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { PERSONAS } from './data/personas';
@@ -16,9 +15,6 @@ import HomeUnified from './screens/home/HomeUnified';
 import HomeClear from './screens/home/HomeClear';
 import HomeMultiAccount from './screens/home/HomeMultiAccount';
 import EventsScreen from './screens/events/EventsScreen';
-import SystemsTab from './screens/systems/SystemsTab';
-import SystemsTab2 from './screens/systems/SystemsTab2';
-import SystemsTab3 from './screens/systems/SystemsTab3';
 import L4Screen from './screens/systems/L4Screen';
 import SystemDetail from './screens/systems/SystemDetail';
 import SystemPageV2 from './v2/pages/SystemPage';
@@ -33,7 +29,6 @@ import AccountScreenV2 from './v2/pages/AccountScreenV2';
 import KPIDetailScreen from './screens/kpi/KPIDetailScreen';
 import TenantPropertiesList from './screens/home/TenantPropertiesList';
 
-const TAB_ORDER = ['/', '/systems', '/alerts', '/account'];
 
 /* Tenant home routing:
  *   • 1 apartment   → redirect straight to the apartment's detail page

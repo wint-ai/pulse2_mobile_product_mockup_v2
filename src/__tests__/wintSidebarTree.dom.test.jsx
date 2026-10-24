@@ -14,23 +14,22 @@
  * These assert on rendered rows rather than internals, so they keep holding if
  * the tree assembly is rewritten.
  *
- * Run against BOTH sidebars. WintSidebarV2 was built from WintSidebar before
- * these fixes landed and silently inherited every one of them — the two files
- * are line-for-line identical on handlers and still rendered completely
- * differently, because the divergence is in tree assembly, not in the
- * interactive surface. Whichever one is mounted, it is covered here.
+ * This ran against BOTH sidebars until 2026-10-24. WintSidebarV2 was built
+ * from WintSidebar, inherited every one of these fixes, and the two were
+ * line-for-line identical on handlers — so the second copy proved nothing the
+ * first did not. WintSidebar had no importer outside this file and was deleted
+ * with the rest of the dead tree; the loop below is kept rather than inlined
+ * so a second sidebar can be added back to it without restructuring.
  */
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import WintSidebar from '@/v2/components/WintSidebar'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import { SYSTEMS } from '@/data/systems'
 import { getRootAccounts, getChildAccounts, getAccountById } from '@/data/accounts'
 import { getHierarchyForAccount } from '@/data/hierarchy'
 
 const SIDEBARS = [
-  ['WintSidebar', WintSidebar],
   ['WintSidebarV2', WintSidebarV2],
 ]
 
