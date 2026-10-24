@@ -107,8 +107,10 @@ function AppRoutes() {
         <Route path="/leak/:systemId" element={<LeakDetail />} />
 
         {/* Account */}
-        {/* More / Account. Repointed to the v2 port 2026-10-17 — the v1 screen
-            stays on disk at src/screens/AccountScreen.jsx, unmodified. */}
+        {/* More / Account. Repointed to the v2 port 2026-10-17. The v1 screen
+            stayed on disk unused until 2026-10-24, when it was deleted with
+            the rest of the dead tree; AccountScreenV2 folds the profile in as
+            a sub-view, so there is no second user-profile page any more. */}
         <Route path="/account" element={<AccountScreenV2 />} />
 
         {/* Default — go to home */}
