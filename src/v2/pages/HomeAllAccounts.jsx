@@ -1335,7 +1335,22 @@ export default function HomeAllAccounts({ expanded = false }) {
         data-node-id="199323:12113"
         data-name="Accont / location"
       >
-        {/* 199360:129728 — the chrome group: header bar, then tabs, 25px apart.
+        {/* 199532:82461 "Header mobile" — the chrome group: header bar, then
+            tabs, 10px apart.
+
+            THE GAP WAS 25px UNTIL 2026-10-25. Owner: "update spacing on header
+            area, now it's more compact in figma". The old node this was built
+            from, 199360:129728 / 199417:131531, NO LONGER EXISTS — a metadata
+            fetch for it returns not-found against a full 200-call budget, so
+            that is a real deletion and not a rate-limit refusal dressed up as
+            one. The header group has been promoted to a component instance
+            (199511:78247) and the column it sits in now emits gap-[10px].
+
+            Everything else in the bar re-measured identical: h-[59px], py-6,
+            the 6px column gap and the content row's gap-y-[10px] are all
+            unchanged, and the node's w-[370px] is what this page's px-4
+            already produces inside the 402px frame. The 25 -> 10 is the whole
+            of the change.
             In Figma this is just a frame; here it is the shell contract's fixed
             chrome, so it is shrink-0 and sits OUTSIDE the one scroller below.
             The tabs living here rather than inside the scrolling body is the
@@ -1343,8 +1358,8 @@ export default function HomeAllAccounts({ expanded = false }) {
             thing inside the scroller, under a title row the node no longer has,
             and they scrolled away with the cards. */}
         <div
-          className="content-stretch flex flex-col gap-[25px] items-start relative shrink-0 w-full"
-          data-node-id="199360:129728"
+          className="content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full"
+          data-node-id="199532:82461"
         >
           {/* Mobile Header Bar - 199360:129729 / 199371:137022, now shared
               with the System page: 199383:141502 draws the identical bar, and
