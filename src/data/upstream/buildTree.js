@@ -32,6 +32,12 @@ import {
   ALL_CLEAR_LOCATION_IDS,
 } from './parity';
 
+/* The share of a location's systems that may carry an active water event at
+   once. Owner-set, 2026-10-24. Exported so the invariant test asserts against
+   the same number the generator uses, rather than a second copy of 0.2 that
+   can drift away from it. */
+export const WATER_EVENT_SITE_CAP = 0.2;
+
 export const SNAPSHOT_META = snapshot._meta;
 export const ROOT_ACCOUNT_ID = snapshot.rootAccountId;
 
@@ -437,11 +443,29 @@ for (const siteId of siteOrder) {
      2026-10-21 — so a system with an active event and no fault reads 100%
      healthy, and healthIsNotWaterEvents.dom.test.jsx asserts the dataset still
      contains that case. Confining events to the faulted set would delete it.
-     The budget is ceil(n/2) rather than floor so a 2-system problem site still
-     gets one; events are not a health dimension, so the 50% ceiling does not
-     bind them. */
+
+     THE CAP IS 20% OF THE SITE, floor. Owner, 2026-10-24: "not more than 20%
+     of systems with active water events", in any location. It replaces a
+     ceil(n/2) budget whose comment argued the 50% ceiling should not bind
+     events at all — that argument is simply overruled.
+
+     FLOOR, not round, and the choice is forced rather than preferred:
+     round(4 * 0.2) is 1, which puts a 4-system site at 25% and breaks the
+     rule in the owner's own words. Floor is the only reading that cannot
+     exceed 20%. On today's dataset the two spellings differ nowhere — the
+     only sites where they would are 45 Cedarline, 510 Lakeview and the
+     unassigned group, and all three carry zero events.
+
+     What this costs, said plainly: a site under 5 systems now gets NO water
+     event, because floor(4 * 0.2) is 0. 30 Dogwood Dr (2 systems) can no
+     longer show one. The old ceil existed precisely so a small problem site
+     still got one, and that is the intent being given up here. The ten-unit
+     residential buildings are untouched — floor(10 * 0.2) is 2, which is
+     exactly the Apartment 2 / Apartment 5 parity pair the branch below
+     preserves. */
   // `faulted` is the quadrant with issues and NO water event, so it spends none.
-  const eventBudget = SITE_ROLES.get(siteId) === 'faulted' ? 0 : Math.ceil(ids.length / 2);
+  const eventBudget =
+    SITE_ROLES.get(siteId) === 'faulted' ? 0 : Math.floor(ids.length * WATER_EVENT_SITE_CAP);
   /* ONE event goes on top of an already-faulted system; the rest go to clear
      ones. Both halves of that are load-bearing.
 

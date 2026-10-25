@@ -57,8 +57,16 @@ const leakSys = SYSTEMS.find(
 /** A non-leak fault — offline / valve-error / power-lost. */
 const faultSys = SYSTEMS.find(s => s.alert && !WATER.has(s.alert.type))
 
-/** A system carrying an event AND a valve. */
-const valveSys = SYSTEMS.find(s => s.alert && hasValve(s))
+/** A system carrying a WATER EVENT and a valve.
+    `s.alert` alone was too loose: a device fault surfaces through the same
+    field, so this resolved to whichever alerting system came first and only
+    happened to be a leak while the dataset was dense enough. The 2026-10-25
+    20%-per-location cap took the fleet from 23 active events to 9, the first
+    hit became an AC Power Lost, and all nine tests below went looking for a
+    valve control on a fault overlay. The fixture was always meant to be a
+    leak — the block directly beneath says so about its own two cases — so
+    this is the predicate being corrected, not relaxed. */
+const valveSys = SYSTEMS.find(s => WATER.has(s.alert?.type) && hasValve(s))
 
 /* buildTree.js records 20 MRG systems as genuinely metering-only. The two
    tests below need one carrying a WATER EVENT specifically, not any alert:
@@ -405,12 +413,20 @@ describe('the collapsible sections', () => {
     expect(text).toMatch(/Ongoing|Warning|Shut ?off/i)
     // Flow direction — the event's own title carries it.
     expect(text).toMatch(/High Flow|Low Flow/i)
-    /* Auto-shutoff — the valve handling panel states the policy in a
-       sentence. Matched on the panel's own label rather than on the words
-       "shut off", because the DISABLED branch does not use them: it reads
-       "Valve handling: Manual only — Nothing will close the valve for you."
-       Asserting the words would have passed only on the enabled fixture. */
-    expect(text).toMatch(/Valve handling/i)
+    /* Auto-shutoff — the policy is stated in a sentence, and the component
+       has THREE wordings for it, one per branch:
+         valve + auto-shutoff   "Valve handling: ..."
+         valve, shutoff off     "Valve handling: Manual only - ..."
+         metering-only          "...metering-only, so the water cannot be
+                                 shut off from the app." (EventFocusOverlay:503)
+       Matching the words "shut off" passed only on the first. Matching
+       "Valve handling" passed on the first two, which held while leakSys
+       happened to resolve to a valved system — until the 2026-10-25 water-event
+       cap thinned the fleet and the first leak with recipients became one of
+       the 20 metering-only systems. The guarantee is that the fact SURVIVES
+       the fact strip's removal, not which sentence carries it, so all three
+       count. */
+    expect(text).toMatch(/Valve handling|cannot be shut off/i)
 
     // And it still is not an accordion.
     expect(screen.queryByRole('button', { name: /^Event details$/ })).toBeNull()

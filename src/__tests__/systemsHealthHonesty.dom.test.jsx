@@ -78,11 +78,17 @@ describe('Systems Health — the percentage measures protection, not leaks', () 
     // month-to-date captions in consumptionSeries.test.js, which were frozen
     // the same way and had to be rewritten as rules instead.
     //
+    // 2026-10-25: leak-free 78 -> 87. The owner capped water events at 20% of
+    // any one location, which took the fleet from 23 active events to 9. Only
+    // the leak axis moved; protected stayed at 88, which is the point — the
+    // cap is a water-event rule and health is not water events, so a change
+    // that moved BOTH numbers would have been the bug.
+    //
     // What this test is actually for is the `not.toBe` above — that the two
     // counts DIFFER, so the percentage cannot be measuring leaks. That
     // guarantee is untouched; only the dataset moved underneath it.
     expect(percent).toBe(88)
-    expect(Math.round((leakFreeCount / SYSTEMS.length) * 100)).toBe(78)
+    expect(Math.round((leakFreeCount / SYSTEMS.length) * 100)).toBe(87)
   })
 
   it('never reaches 100% while a single system fails a check (PRD 09:62)', () => {
