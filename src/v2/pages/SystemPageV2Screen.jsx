@@ -1842,6 +1842,20 @@ export default function SystemPageV2Screen() {
                           className="shrink-0"
                           tone={alerting ? 'alert' : 'calm'}
                           state={valveState}
+                          /* 2026-10-25: the panel's badge carries the SETTING
+                             ("On" / "Disabled", 199683:24849 / 199394:78935),
+                             and the body under it only draws on Disabled. This
+                             page passed no `handling` at all and rode the
+                             default, which was fine while the default was a
+                             sentence — with a badge it would have printed "On"
+                             for every system including the ones that have
+                             auto-close switched off. getActivePolicy is the
+                             same source EventFocusOverlay reads. */
+                          handling={
+                            getActivePolicy(system.id)?.autoShutoff === 'Enabled'
+                              ? 'On'
+                              : 'Disabled'
+                          }
                           /* Asks; does not act. commitValveIntent does. */
                           /* The card speaks state ('open'|'closed'); the sheet
                              speaks intent ('open'|'close'). Translate here. */

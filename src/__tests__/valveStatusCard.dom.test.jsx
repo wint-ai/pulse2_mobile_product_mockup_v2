@@ -55,7 +55,7 @@ describe('ValveStatusCard — the row the owner flagged', () => {
     render(<ValveStatusCard tone="alert" />)
     const card = node('199383:141553')
     const row = node('199383:141554')
-    const strip = node('199383:141567')
+    const strip = node('199683:24810')
     expect(card.contains(row)).toBe(true)
     expect(card.contains(strip)).toBe(true)
     // The Button is IN the row, beside the state — not below it, not in the strip.
@@ -73,7 +73,12 @@ describe('ValveStatusCard — one control, and it only asks', () => {
     // Everything else the design draws is still there.
     expect(screen.getByText('Valve status')).toBeTruthy()
     expect(screen.getByText('Open')).toBeTruthy()
-    expect(screen.getByText(/Valve handling: Auto shut-off/)).toBeTruthy()
+    /* 2026-10-25: the panel names the SETTING in a badge instead of the
+       behaviour in a sentence — 199683:24849 draws "Auto-close Valve" + "On".
+       The default state is On, which the node gives no body at all, so the
+       label and the badge are what there is to assert. */
+    expect(screen.getByText('Auto-close Valve')).toBeTruthy()
+    expect(screen.getByText('On')).toBeTruthy()
   })
 
   it('reports the next state and mutates nothing of its own', () => {
@@ -95,9 +100,9 @@ describe('ValveStatusCard — one control, and it only asks', () => {
 describe('ValveStatusCard — the handling panel', () => {
   it('only draws the panel on the alert tone', () => {
     const { rerender } = render(<ValveStatusCard tone="calm" />)
-    expect(node('199383:141567')).toBeNull()
+    expect(node('199683:24810')).toBeNull()
     rerender(<ValveStatusCard tone="alert" />)
-    expect(node('199383:141567')).toBeTruthy()
+    expect(node('199683:24810')).toBeTruthy()
   })
 
   /* The panel used to contradict itself on the overlay: the headline was
@@ -109,12 +114,17 @@ describe('ValveStatusCard — the handling panel', () => {
     render(
       <ValveStatusCard
         tone="alert"
-        handling="Manual only"
+        handling="Disabled"
         handlingDescription="Nothing will close the valve for you."
       />,
     )
-    const strip = node('199383:141567')
-    expect(strip.textContent).toContain('Valve handling: Manual only')
+    const strip = node('199683:24810')
+    expect(strip.textContent).toContain('Auto-close Valve')
+    expect(strip.textContent).toContain('Disabled')
+    /* Only the Disabled state draws a body, and both halves come off the one
+       branch — the bug this case was written for was a badge saying one thing
+       over a sentence saying the other. */
+    expect(strip.textContent).toContain('Attention')
     expect(strip.textContent).toContain('Nothing will close the valve for you.')
     expect(strip.textContent).not.toMatch(/automatically shut off/)
   })

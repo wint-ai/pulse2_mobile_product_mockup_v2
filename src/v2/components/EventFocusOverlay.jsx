@@ -1347,12 +1347,18 @@ export default function EventFocusOverlay({
               interactive={false}
               state={valveState}
               tone={isWater ? 'alert' : 'calm'}
-              handling={autoShutoffOn ? 'Auto shut-off' : 'Manual only'}
-              handlingDescription={
-                autoShutoffOn
-                  ? 'In case a Leak is detected — the valve will automatically shut off'
-                  : 'Nothing will close the valve for you. If this needs stopping, close it from the button below.'
-              }
+              /* The panel's badge now carries the SETTING, not the behaviour:
+                 199683:24849 draws "On" and 199394:78935 "Disabled", which are
+                 the two states buildPolicy() already returns. The old pair
+                 ("Auto shut-off" / "Manual only") described what happens; the
+                 redraw names the switch and lets the body underneath say what
+                 it costs. */
+              handling={autoShutoffOn ? 'On' : 'Disabled'}
+              /* Only the DISABLED state draws a sentence, so this is the
+                 disabled one — the node's own words, which are blunter than
+                 the line they replace about where the button is. The valve
+                 control is still the footer's, unchanged. */
+              handlingDescription="In case a Leak is detected — the valve will not automatically shut off and water loss is at risk"
             />
           </section>
         ) : null}
