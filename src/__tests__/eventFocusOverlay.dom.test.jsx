@@ -246,25 +246,35 @@ describe('the valve', () => {
     expect(within(readout).getByText('Open')).toBeInTheDocument()
   })
 
-  /* Owner, 2026-10-17: "now we have 2 valve CTA." ValveStatusCard's switch was
-     a second shutoff control beside the footer primary. One control only. */
-  it('has exactly ONE valve control, and it is the footer primary', () => {
+  /* Owner, 2026-10-17: "now we have 2 valve CTA." ONE control is still the
+     rule; 2026-10-25 changed which of the two survives. 199683:24849 and
+     199394:78935 both draw "Close valve now" inside the Valve status panel
+     and give the footer no valve action, so the card is interactive again and
+     the footer primary is the one that went. The count below is what actually
+     matters and it is unchanged. */
+  it('has exactly ONE valve control, and it is in the Valve status panel', () => {
     renderOverlay({ system: valveSys, valve: { state: 'open', onIntent: () => {} } })
     // No switch anywhere: the status is a readout.
     expect(screen.queryByRole('switch')).toBeNull()
-    expect(screen.getAllByRole('button', { name: /valve$/i })).toHaveLength(1)
+    const controls = screen.getAllByRole('button', { name: /valve now$/i })
+    expect(controls).toHaveLength(1)
+    // And it lives in the panel, not the footer.
+    const panel = screen.getByRole('region', { name: 'Valve status' })
+    expect(panel).toContainElement(controls[0])
   })
 
-  it('makes the valve the solid primary, with On it demoted beside Ignore', () => {
+  /* With the valve control out of the footer, the solid slot is On it's
+     again — it was only ever demoted because the valve sat above it. The
+     owner's standing requirement, twice on 2026-10-25 ("we need to keep the
+     ignore and on it"): both survive the redraw, whatever the frames draw. */
+  it('keeps On it and Ignore in the footer, with On it back as the primary', () => {
     renderOverlay({ system: valveSys, onIgnore: () => {} })
-    const close = screen.getByRole('button', { name: /^close valve$/i })
-    expect(close).toBeInTheDocument()
-    // The solid shadcn default; On it is now the secondary.
-    expect(close).toHaveAttribute('data-variant', 'default')
+    expect(screen.getByRole('button', { name: /^close valve now$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^on it$/i })).toHaveAttribute(
       'data-variant',
-      'secondary',
+      'default',
     )
+    expect(screen.getByRole('button', { name: /^ignore$/i })).toBeInTheDocument()
   })
 
   it('commits nothing on the tap — ValveConfirmSheet gates it, with v1’s copy', () => {
@@ -274,7 +284,7 @@ describe('the valve', () => {
       valve: { state: 'open', onIntent: a => intents.push(a) },
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /^close valve$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^close valve now$/i }))
 
     // v1's exact confirmation copy, from the shared component.
     expect(screen.getByText('Close the valve?')).toBeInTheDocument()
@@ -290,7 +300,7 @@ describe('the valve', () => {
   it('cancels cleanly, committing nothing', () => {
     const intents = []
     renderOverlay({ system: valveSys, valve: { state: 'open', onIntent: a => intents.push(a) } })
-    fireEvent.click(screen.getByRole('button', { name: /^close valve$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^close valve now$/i }))
     expect(screen.getByText('Close the valve?')).toBeInTheDocument()
     // ValveConfirmSheet labels its scrim "Cancel" too, so take the button.
     const cancels = screen.getAllByRole('button', { name: /^cancel$/i })
@@ -303,25 +313,25 @@ describe('the valve', () => {
     renderOverlay({ system: valveSys, valve: { state: 'closed', onIntent: () => {} } })
     const readout = screen.getByRole('region', { name: 'Valve status' })
     expect(within(readout).getByText('Closed')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^open valve$/i })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^close valve$/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /^open valve now$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^close valve now$/i })).toBeNull()
   })
 
   it('never contradicts the page: valve.state wins over a local confirmation', () => {
     renderOverlay({ system: valveSys, valve: { state: 'open', onIntent: () => {} } })
-    fireEvent.click(screen.getByRole('button', { name: /^close valve$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^close valve now$/i }))
     fireEvent.click(screen.getByRole('button', { name: /yes, close valve/i }))
     // The page said "open" and has not changed its mind, so this surface still
     // says "open" — it does not flip behind the page's back.
     const readout = screen.getByRole('region', { name: 'Valve status' })
     expect(within(readout).getByText('Open')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^close valve$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^close valve now$/i })).toBeInTheDocument()
   })
 
   it('draws NO valve readout and NO valve action when the system has no valve', () => {
     renderOverlay({ system: noValveSys, valve: { state: 'open', onIntent: () => {} } })
     expect(screen.queryByRole('region', { name: 'Valve status' })).toBeNull()
-    expect(screen.queryByRole('button', { name: /valve$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /valve now$/i })).toBeNull()
     // …and the claim takes the solid slot back.
     expect(screen.getByRole('button', { name: /^on it$/i })).toHaveAttribute(
       'data-variant',
@@ -336,7 +346,7 @@ describe('the valve', () => {
       onClose: () => { closed += 1 },
       valve: { state: 'open', onIntent: () => {} },
     })
-    fireEvent.click(screen.getByRole('button', { name: /^close valve$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^close valve now$/i }))
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByText('Close the valve?')).toBeNull()
     expect(closed).toBe(0)
@@ -564,7 +574,7 @@ describe('the ignored state', () => {
     })
 
     expect(screen.getByRole('region', { name: 'Valve status' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /^close valve$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^close valve now$/i }))
     fireEvent.click(screen.getByRole('button', { name: /yes, close valve/i }))
     expect(intents).toEqual(['close'])
   })

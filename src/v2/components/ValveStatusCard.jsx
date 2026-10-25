@@ -131,7 +131,10 @@ const VALUE_ROW = String.raw`content-stretch flex gap-[9.75px] items-center rela
 const GLYPH_BOX = String.raw`h-[15.75px] relative shrink-0 w-[16.497px]`
 
 // 199383:141565
-const VALUE = String.raw`[word-break:break-word] flex flex-col font-sans font-medium justify-center leading-[0] relative shrink-0 text-[19.501px] text-slate-600 whitespace-nowrap`
+/* 199683:24796 — 24px/24 medium on slate-800 at -0.6 tracking. It was
+   19.501px/slate-600 from 199383:141557; the redraw makes the state the
+   loudest thing in the row, which is the point of the row. */
+const VALUE = String.raw`[word-break:break-word] font-sans font-medium relative shrink-0 text-2xl leading-6 tracking-[-0.6px] text-slate-800 whitespace-nowrap`
 
 /* 199383:141566 "Button", verbatim apart from being a real <button> instead of
    Figma's <div> (the node already carries `cursor-pointer`, so it is meant to
@@ -145,10 +148,14 @@ const VALUE = String.raw`[word-break:break-word] flex flex-col font-sans font-me
    space runs out, and `min-w-px` would let the pill crush its own label rather
    than let the title box give way; `min-w-fit` reverses that. At and above the
    node's own frame width the two are indistinguishable. */
-const BTN = String.raw`bg-accent border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex flex-[1_0_0] gap-1 items-center justify-center min-w-fit px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+/* 199683:24797 — the CTA, redrawn 2026-10-25. Three changes off the old
+   199383:141566: the fill is slate-100 rather than --accent, the box is the
+   node's own w-[161px] instead of flex-[1_0_0], and the label steps up to
+   16px/24. The fixed width is why STACK below may shrink — see its note. */
+const BTN = String.raw`bg-slate-100 border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex gap-1 items-center justify-center shrink-0 w-[161px] px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 
 // I199383:141566;100985:11132
-const BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
+const BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold relative shrink-0 text-slate-900 text-base leading-6 whitespace-nowrap`
 
 /* 199383:141567 — the handling strip. The old red/50 fill is gone; the node
    paints the page's own two-layer gradient, carried as an inline style because
@@ -267,7 +274,10 @@ export default function ValveStatusCard({
   // still overridable, which is what keeps every drawn string a prop.
   const value = stateLabel ?? (isOpen ? 'Open' : 'Closed')
   // See WORDING above — "Open valve" is derived, not drawn.
-  const action = isOpen ? 'Close valve' : 'Open valve'
+  /* 199683:24797 draws "Close valve now". The open wording has no frame, so
+     it is derived and still overridable, which is this file's rule for every
+     drawn string. */
+  const action = isOpen ? 'Close valve now' : 'Open valve now'
 
   return (
     <div className={cn(CARD, className)} data-node-id={NODE.card} data-name="IOT overview" {...props}>

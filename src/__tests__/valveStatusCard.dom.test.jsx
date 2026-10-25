@@ -38,17 +38,19 @@ describe('ValveStatusCard — the row the owner flagged', () => {
     expect(box.className).not.toContain('shrink-0')
   })
 
-  /* `flex-[1_0_0]` is grow 1 / shrink 0 / basis 0, so the Button only ever
-     takes free space — 103.5px at 393, 94.3 at 375 and at 360, where
-     `min-w-fit` stops it rather than letting the pill crush "Close valve"
-     (72.3px of text plus two 10px pads). `min-w-px`, the node's own atom,
-     would have let it. */
-  it('floors the button at its own label so the pill never crushes it', () => {
+  /* The button used to grow into free space (`flex-[1_0_0]` + `min-w-fit`,
+     floored at its own label so the state pill could not crush it). The
+     2026-10-25 redraw gives it the node's own fixed w-[161px] instead, which
+     settles the same contest outright: a fixed, non-shrinking box cannot be
+     crushed, and the STACK beside it is the thing that gives way — which is
+     why STACK is `shrink min-w-0` and not `shrink-0`, asserted above.
+     161px holds "Close valve now" at 16px semibold with room to spare. */
+  it('gives the button the node fixed width, so the pill cannot crush it', () => {
     render(<ValveStatusCard />)
-    const btn = screen.getByRole('button', { name: 'Close valve' })
-    expect(btn.className).toContain('flex-[1_0_0]')
-    expect(btn.className).toContain('min-w-fit')
-    expect(btn.className).not.toContain('min-w-px')
+    const btn = screen.getByRole('button', { name: 'Close valve now' })
+    expect(btn.className).toContain('w-[161px]')
+    expect(btn.className).toContain('shrink-0')
+    expect(btn.className).not.toContain('flex-[1_0_0]')
   })
 
   it('keeps the whole row inside one card with the handling panel below it', () => {
@@ -59,8 +61,8 @@ describe('ValveStatusCard — the row the owner flagged', () => {
     expect(card.contains(row)).toBe(true)
     expect(card.contains(strip)).toBe(true)
     // The Button is IN the row, beside the state — not below it, not in the strip.
-    expect(row.contains(screen.getByRole('button', { name: 'Close valve' }))).toBe(true)
-    expect(strip.contains(screen.getByRole('button', { name: 'Close valve' }))).toBe(false)
+    expect(row.contains(screen.getByRole('button', { name: 'Close valve now' }))).toBe(true)
+    expect(strip.contains(screen.getByRole('button', { name: 'Close valve now' }))).toBe(false)
   })
 })
 
@@ -84,14 +86,14 @@ describe('ValveStatusCard — one control, and it only asks', () => {
   it('reports the next state and mutates nothing of its own', () => {
     const seen = []
     const { rerender } = render(<ValveStatusCard state="open" onToggle={s => seen.push(s)} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Close valve' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close valve now' }))
     expect(seen).toEqual(['closed'])
     // The card did NOT move to 'closed' by itself — the page owns that.
-    expect(screen.getByRole('button', { name: 'Close valve' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Close valve now' })).toBeTruthy()
     expect(screen.getByText('Open')).toBeTruthy()
 
     rerender(<ValveStatusCard state="closed" onToggle={s => seen.push(s)} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Open valve' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open valve now' }))
     expect(seen).toEqual(['closed', 'open'])
     expect(screen.getByText('Closed')).toBeTruthy()
   })
