@@ -38,31 +38,29 @@ describe('ValveStatusCard — the row the owner flagged', () => {
     expect(box.className).not.toContain('shrink-0')
   })
 
-  /* The button used to grow into free space (`flex-[1_0_0]` + `min-w-fit`,
-     floored at its own label so the state pill could not crush it). The
-     2026-10-25 redraw gives it the node's own fixed w-[161px] instead, which
-     settles the same contest outright: a fixed, non-shrinking box cannot be
-     crushed, and the STACK beside it is the thing that gives way — which is
-     why STACK is `shrink min-w-0` and not `shrink-0`, asserted above.
-     161px holds "Close valve now" at 16px semibold with room to spare. */
-  it('gives the button the node fixed width, so the pill cannot crush it', () => {
+  /* `flex-[1_0_0]` is grow 1 / shrink 0 / basis 0, so the Button only ever
+     takes free space — 103.5px at 393, 94.3 at 375 and at 360, where
+     `min-w-fit` stops it rather than letting the pill crush "Close valve"
+     (72.3px of text plus two 10px pads). `min-w-px`, the node's own atom,
+     would have let it. */
+  it('floors the button at its own label so the pill never crushes it', () => {
     render(<ValveStatusCard />)
-    const btn = screen.getByRole('button', { name: 'Close valve now' })
-    expect(btn.className).toContain('w-[161px]')
-    expect(btn.className).toContain('shrink-0')
-    expect(btn.className).not.toContain('flex-[1_0_0]')
+    const btn = screen.getByRole('button', { name: 'Close valve' })
+    expect(btn.className).toContain('flex-[1_0_0]')
+    expect(btn.className).toContain('min-w-fit')
+    expect(btn.className).not.toContain('min-w-px')
   })
 
   it('keeps the whole row inside one card with the handling panel below it', () => {
     render(<ValveStatusCard tone="alert" />)
     const card = node('199383:141553')
     const row = node('199383:141554')
-    const strip = node('199683:24810')
+    const strip = node('199383:141567')
     expect(card.contains(row)).toBe(true)
     expect(card.contains(strip)).toBe(true)
     // The Button is IN the row, beside the state — not below it, not in the strip.
-    expect(row.contains(screen.getByRole('button', { name: 'Close valve now' }))).toBe(true)
-    expect(strip.contains(screen.getByRole('button', { name: 'Close valve now' }))).toBe(false)
+    expect(row.contains(screen.getByRole('button', { name: 'Close valve' }))).toBe(true)
+    expect(strip.contains(screen.getByRole('button', { name: 'Close valve' }))).toBe(false)
   })
 })
 
@@ -75,25 +73,20 @@ describe('ValveStatusCard — one control, and it only asks', () => {
     // Everything else the design draws is still there.
     expect(screen.getByText('Valve status')).toBeTruthy()
     expect(screen.getByText('Open')).toBeTruthy()
-    /* 2026-10-25: the panel names the SETTING in a badge instead of the
-       behaviour in a sentence — 199683:24849 draws "Auto-close Valve" + "On".
-       The default state is On, which the node gives no body at all, so the
-       label and the badge are what there is to assert. */
-    expect(screen.getByText('Auto-close Valve')).toBeTruthy()
-    expect(screen.getByText('On')).toBeTruthy()
+    expect(screen.getByText(/Valve handling: Auto shut-off/)).toBeTruthy()
   })
 
   it('reports the next state and mutates nothing of its own', () => {
     const seen = []
     const { rerender } = render(<ValveStatusCard state="open" onToggle={s => seen.push(s)} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Close valve now' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close valve' }))
     expect(seen).toEqual(['closed'])
     // The card did NOT move to 'closed' by itself — the page owns that.
-    expect(screen.getByRole('button', { name: 'Close valve now' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Close valve' })).toBeTruthy()
     expect(screen.getByText('Open')).toBeTruthy()
 
     rerender(<ValveStatusCard state="closed" onToggle={s => seen.push(s)} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Open valve now' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open valve' }))
     expect(seen).toEqual(['closed', 'open'])
     expect(screen.getByText('Closed')).toBeTruthy()
   })
@@ -102,9 +95,9 @@ describe('ValveStatusCard — one control, and it only asks', () => {
 describe('ValveStatusCard — the handling panel', () => {
   it('only draws the panel on the alert tone', () => {
     const { rerender } = render(<ValveStatusCard tone="calm" />)
-    expect(node('199683:24810')).toBeNull()
+    expect(node('199383:141567')).toBeNull()
     rerender(<ValveStatusCard tone="alert" />)
-    expect(node('199683:24810')).toBeTruthy()
+    expect(node('199383:141567')).toBeTruthy()
   })
 
   /* The panel used to contradict itself on the overlay: the headline was
@@ -116,17 +109,12 @@ describe('ValveStatusCard — the handling panel', () => {
     render(
       <ValveStatusCard
         tone="alert"
-        handling="Disabled"
+        handling="Manual only"
         handlingDescription="Nothing will close the valve for you."
       />,
     )
-    const strip = node('199683:24810')
-    expect(strip.textContent).toContain('Auto-close Valve')
-    expect(strip.textContent).toContain('Disabled')
-    /* Only the Disabled state draws a body, and both halves come off the one
-       branch — the bug this case was written for was a badge saying one thing
-       over a sentence saying the other. */
-    expect(strip.textContent).toContain('Attention')
+    const strip = node('199383:141567')
+    expect(strip.textContent).toContain('Valve handling: Manual only')
     expect(strip.textContent).toContain('Nothing will close the valve for you.')
     expect(strip.textContent).not.toMatch(/automatically shut off/)
   })

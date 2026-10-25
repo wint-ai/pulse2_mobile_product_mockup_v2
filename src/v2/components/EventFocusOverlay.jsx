@@ -1058,8 +1058,9 @@ export default function EventFocusOverlay({
   const valveState = valve?.state ?? confirmedValve ?? derivedValveState
   /* The card speaks state ('open'|'closed'); the sheet speaks intent
      ('open'|'close'). The translation is the one the page makes at
-     SystemPageV2Screen.jsx:1105, and it now happens at the ValveStatusCard
-     mount below, since that is where the control lives. */
+     SystemPageV2Screen.jsx:1105. */
+  const valveAction = valveState === 'closed' ? 'open' : 'close'
+  const valveActionLabel = valveState === 'closed' ? 'Open valve' : 'Close valve'
 
   /* The ONLY place a valve change is committed from, and only ever after the
      sheet's confirm. The page is told; this overlay remembers it solely so a
@@ -1138,12 +1139,9 @@ export default function EventFocusOverlay({
      down NO. The muted body and the "Ignored by {name}" pill are unchanged. */
   const showClaimActions = isWater && !ignored
   const showIgnore = isWater && !ignored && Boolean(onIgnore)
+  const showValveAction = isWater && hasValve
   const showFooter =
-    /* A water event with a valve used to force a footer open, because the
-       valve primary lived in it. That primary moved into the Valve status
-       panel on 2026-10-25, so the footer opens only when it actually holds
-       something — On it / Stand down / Ignore. */
-    (showClaimActions && (!investigating || isOwner)) || showIgnore
+    showValveAction || (showClaimActions && (!investigating || isOwner)) || showIgnore
 
   return (
     <div
@@ -1345,32 +1343,16 @@ export default function EventFocusOverlay({
                 copy — it is this file's own `advice()` valve line for
                 autoShutoff !== 'Enabled', so the panel and "What now" say the
                 same thing in the same words. */}
-            {/* INTERACTIVE AGAIN, 2026-10-25. It was mounted read-only on
-                2026-10-17 — owner: "now we have 2 valve CTA" — because the
-                card's button duplicated the footer's primary. 199683:24849
-                settles which of the two survives: it draws "Close valve now"
-                INSIDE this panel and gives the footer no valve action at all.
-                So the duplicate is gone the other way round, and there is
-                still exactly one valve control on this surface.
-                It asks; it does not act. setPendingValve opens
-                ValveConfirmSheet, which is the same gate the footer used. */}
             <ValveStatusCard
-              interactive
-              onToggle={(next) => setPendingValve(next === 'closed' ? 'close' : 'open')}
+              interactive={false}
               state={valveState}
               tone={isWater ? 'alert' : 'calm'}
-              /* The panel's badge now carries the SETTING, not the behaviour:
-                 199683:24849 draws "On" and 199394:78935 "Disabled", which are
-                 the two states buildPolicy() already returns. The old pair
-                 ("Auto shut-off" / "Manual only") described what happens; the
-                 redraw names the switch and lets the body underneath say what
-                 it costs. */
-              handling={autoShutoffOn ? 'On' : 'Disabled'}
-              /* Only the DISABLED state draws a sentence, so this is the
-                 disabled one — the node's own words, which are blunter than
-                 the line they replace about where the button is. The valve
-                 control is still the footer's, unchanged. */
-              handlingDescription="In case a Leak is detected — the valve will not automatically shut off and water loss is at risk"
+              handling={autoShutoffOn ? 'Auto shut-off' : 'Manual only'}
+              handlingDescription={
+                autoShutoffOn
+                  ? 'In case a Leak is detected — the valve will automatically shut off'
+                  : 'Nothing will close the valve for you. If this needs stopping, close it from the button below.'
+              }
             />
           </section>
         ) : null}
@@ -1557,15 +1539,22 @@ export default function EventFocusOverlay({
           exactly as it did before. */}
       {showFooter ? (
         <footer className="shrink-0 border-t border-solid border-slate-200 bg-surface-card px-[12px] pb-[12px] pt-[9px]">
-          {/* THE VALVE PRIMARY MOVED UP into the Valve status panel, where
-              199683:24849 and 199394:78935 both draw it, and neither frame
-              puts one here. ON IT AND IGNORE STAY — owner, twice on
-              2026-10-25: "we need to keep the ignore and on it". They are
-              absent from both frames, but the frames are a valve redraw, not
-              a footer spec, and wired functionality is not dropped on the
-              strength of a drawing that does not show it.
-              The confirm gate is unchanged: the panel's button calls the same
-              setPendingValve -> ValveConfirmSheet the primary here called. */}
+          {showValveAction ? (
+            <>
+              <Button
+                type="button"
+                onClick={() => setPendingValve(valveAction)}
+                className="h-[44px] w-full text-[15px] font-semibold"
+              >
+                {valveActionLabel}
+              </Button>
+              <p className="mt-[4px] mb-[6px] text-center text-[11.5px] text-slate-500">
+                {valveAction === 'close'
+                  ? 'Stops the water · asks you to confirm'
+                  : 'Lets water flow again · asks you to confirm'}
+              </p>
+            </>
+          ) : null}
 
           {/* The secondary row. One line, each control taking an equal share,
               so two or three of them read as peers rather than as a stack of
@@ -1583,14 +1572,16 @@ export default function EventFocusOverlay({
             {showClaimActions && !investigating ? (
               <Button
                 type="button"
-                /* The solid slot is On it's again. It was demoted to
-                   secondary only because the valve primary sat above it. */
-                variant="default"
+                variant={showValveAction ? 'secondary' : 'default'}
                 onClick={() => {
                   setNow(Date.now())
                   claim()
                 }}
-                className="h-[44px] flex-1 text-[15px] font-semibold"
+                className={
+                  showValveAction
+                    ? 'h-[44px] flex-1 bg-slate-100 text-[15px] font-semibold text-slate-700 hover:bg-slate-200'
+                    : 'h-[44px] flex-1 text-[15px] font-semibold'
+                }
               >
                 On it
               </Button>
@@ -1624,7 +1615,7 @@ export default function EventFocusOverlay({
               of the footer's height on a sheet capped at 85%. The primary's
               caption wins when there is one, because it is the control that
               does something irreversible to the building's water. */}
-          {showIgnore ? (
+          {showValveAction ? null : showIgnore ? (
             <p className="mt-[5px] text-center text-[11.5px] text-slate-500">
               Ignore · treat as expected, valve stays open, cannot be undone
             </p>

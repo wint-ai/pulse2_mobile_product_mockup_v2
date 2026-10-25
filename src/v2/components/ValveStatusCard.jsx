@@ -131,10 +131,7 @@ const VALUE_ROW = String.raw`content-stretch flex gap-[9.75px] items-center rela
 const GLYPH_BOX = String.raw`h-[15.75px] relative shrink-0 w-[16.497px]`
 
 // 199383:141565
-/* 199683:24796 — 24px/24 medium on slate-800 at -0.6 tracking. It was
-   19.501px/slate-600 from 199383:141557; the redraw makes the state the
-   loudest thing in the row, which is the point of the row. */
-const VALUE = String.raw`[word-break:break-word] font-sans font-medium relative shrink-0 text-2xl leading-6 tracking-[-0.6px] text-slate-800 whitespace-nowrap`
+const VALUE = String.raw`[word-break:break-word] flex flex-col font-sans font-medium justify-center leading-[0] relative shrink-0 text-[19.501px] text-slate-600 whitespace-nowrap`
 
 /* 199383:141566 "Button", verbatim apart from being a real <button> instead of
    Figma's <div> (the node already carries `cursor-pointer`, so it is meant to
@@ -148,39 +145,15 @@ const VALUE = String.raw`[word-break:break-word] font-sans font-medium relative 
    space runs out, and `min-w-px` would let the pill crush its own label rather
    than let the title box give way; `min-w-fit` reverses that. At and above the
    node's own frame width the two are indistinguishable. */
-/* 199683:24797 — the CTA, redrawn 2026-10-25. Three changes off the old
-   199383:141566: the fill is slate-100 rather than --accent, the box is the
-   node's own w-[161px] instead of flex-[1_0_0], and the label steps up to
-   16px/24. The fixed width is why STACK below may shrink — see its note. */
-const BTN = String.raw`bg-slate-100 border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex gap-1 items-center justify-center shrink-0 w-[161px] px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const BTN = String.raw`bg-accent border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex flex-[1_0_0] gap-1 items-center justify-center min-w-fit px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 
 // I199383:141566;100985:11132
-const BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold relative shrink-0 text-slate-900 text-base leading-6 whitespace-nowrap`
+const BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
 
 /* 199383:141567 — the handling strip. The old red/50 fill is gone; the node
    paints the page's own two-layer gradient, carried as an inline style because
    Figma emits it as one (an arbitrary Tailwind value cannot hold the commas). */
-/* 199683:24810 — the AUTO-CLOSE panel, redrawn 2026-10-25. It replaced a
-   fixed h-[80px] "Valve handling: X" strip on the page's own gradient; the
-   new node is a flat slate-100 tile that sizes to its content, because its
-   two states are different heights (a countdown is one line, the warning is
-   three). The gradient and the fixed height go with the old node. */
-const STRIP = String.raw`bg-slate-100 content-stretch flex flex-col gap-[16px] items-start justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full max-w-full`
-/* 199683:24812 — label and badge, pushed apart. */
-const STRIP_ROW = String.raw`content-stretch flex items-center justify-between relative shrink-0 w-full`
-const STRIP_LABEL = String.raw`[word-break:break-word] font-sans font-medium relative shrink-0 text-slate-600 text-sm leading-5 whitespace-nowrap`
-/* I199683:24816 — the state badge. The node's px/py/gap/radius are the
-   design-system's badge tokens at their emitted values (6.6 / 2.2 / 4.4 /
-   28.6), kept rather than rounded so the pill matches the other badges the
-   frame draws beside it. */
-const STRIP_BADGE = String.raw`bg-surface-card content-stretch flex gap-[4.4px] h-[22px] items-center justify-center overflow-clip px-[6.6px] py-[2.2px] relative rounded-[28.6px] shrink-0`
-const STRIP_BADGE_TEXT = String.raw`[word-break:break-word] font-sans font-medium leading-[17.6px] overflow-hidden relative shrink-0 text-[13.2px] text-slate-700 text-ellipsis whitespace-nowrap`
-const STRIP_BODY = String.raw`content-stretch flex flex-col gap-[8px] items-start justify-center relative shrink-0 w-full`
-/* 199683:24831 — the countdown. 24px/24 medium on slate-800, the digits and
-   the colon as separate runs exactly as the node splits them. */
-/* The node prints two digits a side; a 7 would otherwise read as 0:7. */
-const pad2 = (n) => String(n).padStart(2, '0')
-const STRIP_CLOCK = String.raw`content-stretch flex font-sans font-medium gap-[3px] items-center leading-6 relative shrink-0 text-slate-800 text-2xl`
+const STRIP = String.raw`content-stretch flex flex-col gap-[8px] h-[80px] items-start justify-center px-[13px] relative rounded-[11px] shrink-0 w-full max-w-full`
 /* The wash, themed. The angle stays here, the colours come from the shipped
    stop list — under `light` that token IS the rgba literal this carried, so
    `light` is byte-identical. NOT var(--chip-bg)/var(--app-bg): those bake one
@@ -240,44 +213,20 @@ export default function ValveStatusCard({
   interactive = true,
   label = 'Valve status',
   stateLabel,
-  /* 199683:24813 — the panel's own label. "Valve handling:" was the old
-     node's; the redraw names the setting instead of the behaviour. */
-  handlingLabel = 'Auto-close Valve',
-  /* The badge. The frames draw exactly two words for it, and they are the
-     states buildPolicy() already returns through policy.autoShutoff:
-     199683:24849 "On" / 199394:78935 "Disabled". */
-  handling = 'On',
-  handlingDescription = 'In case a Leak is detected — the valve will not automatically shut off and water loss is at risk',
-  /* WHEN auto-close fires, as the countdown in 199683:24849 ("Will activate
-     in 00 : 00"). NOT DEFAULTED, and that is deliberate: nothing in this
-     app's data layer carries an auto-close delay — systemDetails.js records
-     autoShutoff as Enabled/Disabled/N/A and no timing at all. The node's
-     00:00 is a Figma placeholder, and a zeroed clock rendered as if measured
-     is the "25K L" defect again. Pass {minutes, seconds} when the data
-     exists; until then the On state shows the badge and no clock. */
-  activatesIn = null,
-  /* 199683:24824 / 199683:24834 — both frozen Figma strings, kept as props so
-     every drawn word on this card is one, which is this file's own rule. */
-  attentionLabel = 'Attention',
-  activatesInLabel = 'Will activate in',
+  handlingLabel = 'Valve handling:',
+  handling = 'Auto shut-off',
+  handlingDescription = 'In case a Leak is detected — the valve will automatically shut off',
   tone = 'calm',
   className,
   ...props
 }) {
   const t = tone === 'alert' ? 'alert' : 'calm'
-  /* One branch for the whole panel. 'Disabled' is what buildPolicy() returns
-     and what 199394:78935 draws; anything else is treated as on, so an
-     unconfigured card renders the 199683:24849 state the frame ships. */
-  const autoCloseOff = String(handling).toLowerCase() === 'disabled'
   const isOpen = state === 'open'
   // Figma draws "Open"; the closed wording has no frame, so it is derived and
   // still overridable, which is what keeps every drawn string a prop.
   const value = stateLabel ?? (isOpen ? 'Open' : 'Closed')
   // See WORDING above — "Open valve" is derived, not drawn.
-  /* 199683:24797 draws "Close valve now". The open wording has no frame, so
-     it is derived and still overridable, which is this file's rule for every
-     drawn string. */
-  const action = isOpen ? 'Close valve now' : 'Open valve now'
+  const action = isOpen ? 'Close valve' : 'Open valve'
 
   return (
     <div className={cn(CARD, className)} data-node-id={NODE.card} data-name="IOT overview" {...props}>
@@ -329,76 +278,33 @@ export default function ValveStatusCard({
       </div>
 
       {t === 'alert' ? (
-        /* 199683:24810. `disabled` drives BOTH halves off one branch — the
-           badge and the body under it. The old strip switched its headline on
-           the policy and left the sentence at a default, so a system with
-           auto-close off read "Auto shut-off" over the auto-shut-off
-           sentence; the panel contradicted its own first line. */
-        <div className={STRIP} data-node-id="199683:24810">
-          <div className={STRIP_ROW} data-node-id="199683:24812" data-name="Row">
-            <p className={cn('font-sans', STRIP_LABEL)} data-node-id="199683:24813">
-              {handlingLabel}
-            </p>
-            <div className={STRIP_BADGE} data-node-id="199683:24816" data-name="Badge">
-              <p className={cn('font-sans', STRIP_BADGE_TEXT)}>{handling}</p>
+        <div className={STRIP} style={STRIP_GRADIENT} data-node-id={NODE.strip}>
+          <div
+            className="content-stretch flex gap-[8px] items-start relative shrink-0 w-full"
+            data-node-id="199383:141568"
+          >
+            <div
+              className={String.raw`bg-red-200 content-stretch flex items-center justify-center relative rounded-[20px] shrink-0 size-[16px]`}
+              data-node-id="199383:141569"
+              data-name="rightIcon"
+            >
+              <div
+                className="relative shrink-0 size-[12px] text-red-500"
+                data-node-id="199383:141570"
+                data-name="Phosphor Icons / warning"
+              >
+                <WarningGlyph />
+              </div>
             </div>
+            <p
+              className={String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`}
+              data-node-id="199383:141571"
+            >{`${handlingLabel} ${handling} `}</p>
           </div>
-
-          <div className={STRIP_BODY} data-node-id="199683:24820">
-            {autoCloseOff ? (
-              <>
-                {/* 199683:24821 — the warning. Only this state draws it; the
-                    node gives the On state no icon at all. */}
-                <div
-                  className="content-stretch flex gap-[6px] items-center relative shrink-0 w-full"
-                  data-node-id="199683:24821"
-                >
-                  <div
-                    className={String.raw`bg-red-200 content-stretch flex items-center justify-center relative rounded-[20px] shrink-0 size-[16px]`}
-                    data-node-id="199683:24822"
-                    data-name="rightIcon"
-                  >
-                    <div
-                      className="relative shrink-0 size-[12px] text-red-500"
-                      data-node-id="199683:24823"
-                      data-name="Phosphor Icons / warning"
-                    >
-                      <WarningGlyph />
-                    </div>
-                  </div>
-                  <p
-                    className={String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-slate-900 text-sm whitespace-nowrap`}
-                    data-node-id="199683:24824"
-                  >
-                    {attentionLabel}
-                  </p>
-                </div>
-                <p
-                  className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-gray-700 text-sm tracking-normal w-full`}
-                  data-node-id="199683:24825"
-                >
-                  {handlingDescription}
-                </p>
-              </>
-            ) : activatesIn ? (
-              <>
-                {/* 199683:24831 — digits and colon as three runs, which is how
-                    the node splits them and what lets the colon keep its own
-                    3px gaps while the digits stay tabular. */}
-                <div className={cn('font-sans', STRIP_CLOCK)} data-node-id="199683:24830">
-                  <p className="relative shrink-0" dir="auto">{pad2(activatesIn.minutes)}</p>
-                  <p className="relative shrink-0" dir="auto">:</p>
-                  <p className="relative shrink-0" dir="auto">{pad2(activatesIn.seconds)}</p>
-                </div>
-                <p
-                  className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-slate-600 text-sm w-full`}
-                  data-node-id="199683:24834"
-                >
-                  {activatesInLabel}
-                </p>
-              </>
-            ) : null}
-          </div>
+          <p
+            className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-gray-700 text-sm tracking-normal w-full`}
+            data-node-id="199383:141572"
+          >{`${handlingDescription} `}</p>
         </div>
       ) : null}
     </div>
