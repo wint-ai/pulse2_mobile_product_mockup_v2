@@ -351,6 +351,8 @@
   },
   "login": {
     "sign_in_as": "כניסה בתור",
+    "choose_profile": "בחרו פרופיל",
+    "choose_profile_sub": "מצב הדגמה · הקישו על פרופיל להמשך",
     "demo_subline": "מצב הדגמה · בחרו פרופיל להמשך",
     "customer_users": "משתמשי לקוחות",
     "wint_staff": "צוות Wint",
