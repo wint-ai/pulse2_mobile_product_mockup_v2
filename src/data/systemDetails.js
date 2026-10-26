@@ -67,12 +67,38 @@ const NO_VALVE_SYSTEMS = new Set(
   SYSTEMS.filter(s => s.valve === null).map(s => s.id),
 );
 
-function buildPolicy(kind, hasValve) {
+/* AUTO-CLOSE IS A PER-SYSTEM SETTING, not a time of day.
+ *
+ * It used to fall out of `kind`: Working hours -> Disabled, Weekend ->
+ * Enabled. So between 08:00 and 18:00 EVERY system in the fleet read
+ * Disabled, and outside those hours every system read Enabled — you could
+ * never see the two states beside each other, and the auto-close countdown
+ * (199683:24830, "Will activate in") was literally unreachable for ten hours
+ * a day on all 103 systems. Owner, looking at a Disabled card: "its not
+ * there."
+ *
+ * It is also wrong on its own terms. Whether a valve may close itself is a
+ * commissioning decision made per system — a fire riser is configured not to,
+ * a tenant kitchen feed is configured to — and it does not flip at 6pm.
+ *
+ * Seeded off the system id the same way the rest of the mock data is, so
+ * roughly half the fleet carries it either way, at any hour, reproducibly.
+ * The POLICY NAME and its schedule stay on the clock, because those really
+ * are about working hours. */
+function autoShutoffFor(systemId) {
+  const id = String(systemId ?? '');
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h % 2 === 0;
+}
+
+function buildPolicy(kind, hasValve, systemId) {
+  const auto = hasValve && autoShutoffFor(systemId);
   if (kind === 'working') {
     return {
       name: 'Working hours',
       schedule: '8:00 AM – 5:00 PM',
-      autoShutoff: hasValve ? 'Disabled' : 'N/A',
+      autoShutoff: hasValve ? (auto ? 'Enabled' : 'Disabled') : 'N/A',
       alert: 'Active',
       defaultValveState: hasValve ? 'Open' : 'N/A',
       detection: 'Adaptive',
@@ -84,7 +110,7 @@ function buildPolicy(kind, hasValve) {
   return {
     name: 'Weekend',
     schedule: '5:00 PM – Mon 8:00 AM',
-    autoShutoff: hasValve ? 'Enabled' : 'N/A',
+    autoShutoff: hasValve ? (auto ? 'Enabled' : 'Disabled') : 'N/A',
     alert: 'Active',
     defaultValveState: hasValve ? 'Closed' : 'N/A',
     detection: 'Adaptive',
@@ -107,7 +133,7 @@ function getPolicyForSystem(systemId) {
   }
 
   const hasValve = !NO_VALVE_SYSTEMS.has(systemId);
-  const policy = buildPolicy(isWorkingHours ? 'working' : 'weekend', hasValve);
+  const policy = buildPolicy(isWorkingHours ? 'working' : 'weekend', hasValve, systemId);
   return { ...policy, activeUntil: activeUntil.toISOString() };
 }
 
@@ -116,7 +142,7 @@ function getNextPolicyForSystem(systemId) {
   const isWorkingHours = hour >= 8 && hour < 18;
   const hasValve = !NO_VALVE_SYSTEMS.has(systemId);
   // Next is the opposite of current.
-  return buildPolicy(isWorkingHours ? 'weekend' : 'working', hasValve);
+  return buildPolicy(isWorkingHours ? 'weekend' : 'working', hasValve, systemId);
 }
 
 // ── Exports ─────────────────────────────────────────────────────────────────
