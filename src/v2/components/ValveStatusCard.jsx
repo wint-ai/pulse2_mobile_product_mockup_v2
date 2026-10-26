@@ -216,15 +216,23 @@ function LiveCountdown({ minutes, seconds, label }) {
   const sec = left % 60
 
   return (
-    <div className="flex w-full flex-col gap-[2px]" data-node-id="199683:24830">
+    /* ONE ROW. Owner: "make it max 2 lines" — the panel ran to three, the
+       badge row plus a label line plus the figure. Label and figure share a
+       baseline now, so the whole thing is the badge row and this.
+       The label may shrink and truncate; the figure never does, because a
+       clipped countdown is worse than a clipped sentence. */
+    <div
+      className="flex w-full items-baseline gap-[6px]"
+      data-node-id="199683:24830"
+    >
       <p
-        className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-slate-600 text-sm`}
+        className={String.raw`[word-break:break-word] font-sans font-normal leading-5 min-w-0 truncate relative text-slate-600 text-sm`}
         data-node-id="199683:24834"
       >
         {label}
       </p>
       <p
-        className={cn('font-sans', STRIP_CLOCK)}
+        className={cn('font-sans', STRIP_CLOCK, 'shrink-0')}
         dir="auto"
         aria-live="off"
         data-countdown={left}
@@ -233,10 +241,19 @@ function LiveCountdown({ minutes, seconds, label }) {
           'closing now'
         ) : (
           <>
-            {m}
-            <span className="text-[16px]">m</span>
-            {' '}
-            {pad2(sec)}
+            {/* "0m 52s" wastes the width this row has to save, and reads as
+                precision nobody asked for. Under a minute it is just the
+                seconds. */}
+            {m > 0 ? (
+              <>
+                {m}
+                <span className="text-[16px]">m</span>
+                {' '}
+                {pad2(sec)}
+              </>
+            ) : (
+              sec
+            )}
             <span className="text-[16px]">s</span>
           </>
         )}
