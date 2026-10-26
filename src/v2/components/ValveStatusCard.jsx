@@ -155,7 +155,7 @@ const BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold lead
    this card is also SystemPageV2Screen:1840 and an earlier pass changed both
    — owner: "the card in other pages needs to remain as it was". Every mount
    that passes nothing keeps 199383:141553 byte for byte. */
-const BTN_REDRAW = String.raw`bg-slate-100 border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex gap-1 items-center justify-center shrink-0 w-[161px] px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const BTN_REDRAW = String.raw`border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex gap-1 items-center justify-center shrink-0 w-[161px] px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 const BTN_TEXT_REDRAW = String.raw`[word-break:break-word] font-sans font-semibold relative shrink-0 text-slate-900 text-base leading-6 whitespace-nowrap`
 /* 24px/24 medium slate-800 at -0.6, which makes the state the loudest thing
    in the row. The original is 19.501px slate-600. */
@@ -164,13 +164,13 @@ const VALUE_REDRAW = String.raw`[word-break:break-word] font-sans font-medium re
    the page gradient; this one is a flat slate-100 tile that SIZES TO ITS
    CONTENT, because its two states are different heights (one line of clock
    against three lines of warning). */
-const STRIP_REDRAW = String.raw`bg-slate-100 content-stretch flex flex-col gap-[16px] items-start justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full max-w-full`
+const STRIP_REDRAW = String.raw`bg-slate-100 content-stretch flex flex-col gap-[8px] items-start justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full max-w-full`
 const STRIP_ROW = String.raw`content-stretch flex items-center justify-between relative shrink-0 w-full`
 const STRIP_LABEL = String.raw`[word-break:break-word] font-sans font-medium relative shrink-0 text-slate-600 text-sm leading-5 whitespace-nowrap`
 /* The node's badge tokens at their emitted values (6.6 / 2.2 / 4.4 / 28.6),
    kept rather than rounded so the pill matches its neighbours in the frame. */
 const STRIP_BADGE = String.raw`bg-surface-card content-stretch flex gap-[4.4px] h-[22px] items-center justify-center overflow-clip px-[6.6px] py-[2.2px] relative rounded-[28.6px] shrink-0`
-const STRIP_BADGE_TEXT = String.raw`[word-break:break-word] font-sans font-medium leading-[17.6px] overflow-hidden relative shrink-0 text-[13.2px] text-slate-700 text-ellipsis whitespace-nowrap`
+const STRIP_BADGE_TEXT = String.raw`[word-break:break-word] font-sans font-medium leading-[19.36px] overflow-hidden relative shrink-0 text-[14.52px] text-slate-600 text-ellipsis whitespace-nowrap`
 const STRIP_BODY = String.raw`content-stretch flex flex-col gap-[8px] items-start justify-center relative shrink-0 w-full`
 /* 199683:24831 — digits and colon as three runs, which is how the node splits
    them and what lets the colon keep its own 3px gaps. */
@@ -275,6 +275,12 @@ export default function ValveStatusCard({
   ...props
 }) {
   const t = tone === 'alert' ? 'alert' : 'calm'
+  /* 199683:25397 gives the redrawn card its own chassis: p-18 / gap-18 /
+     rounded-18, where 199383:141553 is px-16 py-12 gap-16 rounded-22. Only
+     the redraw takes it; every other mount keeps the card it has. */
+  const chassis = redraw
+    ? String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[18px] items-start p-[18px] relative rounded-[18px] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
+    : CARD
   const isOpen = state === 'open'
   // Figma draws "Open"; the closed wording has no frame, so it is derived and
   // still overridable, which is what keeps every drawn string a prop.
@@ -291,7 +297,7 @@ export default function ValveStatusCard({
   const autoCloseOff = String(autoCloseState).toLowerCase() === 'disabled'
 
   return (
-    <div className={cn(CARD, className)} data-node-id={NODE.card} data-name="IOT overview" {...props}>
+    <div className={cn(chassis, className)} data-node-id={NODE.card} data-name="IOT overview" {...props}>
       <div className={ROW} data-node-id={NODE.row}>
         <div className={STACK} data-node-id={NODE.stack}>
           <div className={TITLE_BOX} data-node-id={NODE.titleBox}>

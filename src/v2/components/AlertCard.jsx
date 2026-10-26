@@ -343,8 +343,12 @@ const MOCK_EVENT = {
      off is missing in UI event card". Null on an event that never closed a
      valve, which is most of them, and the tile is then not drawn — a dash in
      a figure slot reads as a measurement of nothing. */
-  shutoffLabel: 'Time to shut off',
+  /* The response family, as durations between the event's own milestones.
+     Null when the milestone has not happened, which is what keeps the strip
+     honest on an event still running. */
+  detectIn: null,
   shutoffIn: null,
+  detectShare: 50,
   eventIdLabel: 'Event ID',
   eventId: 'Ik-6598',
   page: 1,
@@ -652,20 +656,64 @@ export default function AlertCard({
               </div>
               <p className={FIG_LABEL}>{data.durationLabel}</p>
             </div>
-            {/* THE THIRD TILE, and only when there is one to draw. The frame
-                draws two because its example never closed a valve; an event
-                that DID is the one the product is actually judged on, so the
-                number goes beside the other two rather than into a section
-                nobody opens. */}
-            {data.shutoffIn ? (
-              <div className={FIG_TILE} style={FIG_TILE_WASH} data-name="Time to shut off">
-                <div className="content-stretch flex items-center relative shrink-0">
-                  <p className={FIG_VALUE}>{data.shutoffIn}</p>
-                </div>
-                <p className={FIG_LABEL}>{data.shutoffLabel}</p>
-              </div>
-            ) : null}
+
           </div>
+
+          {/* ── The response strip ──────────────────────────────────────
+              A third tile reading "2m / Time to shut off" was here, and a
+              bare figure is the weakest way to say this. Owner: "research how
+              to make the time elapsed component better, that looks cool."
+
+              What the research settles: these are not one number but a FAMILY
+              of milestone-anchored durations — incident tooling calls them
+              time-to-detect and time-to-mitigate (Grafana IRM computes MTTD as
+              declared-minus-start; FireHydrant treats detect / acknowledge /
+              mitigate / resolve as one family). Two of them is a sequence, and
+              a sequence wants a shape, not a digit.
+
+              So: one strip, segments in proportion to their real durations,
+              each labelled. It answers "how fast did we catch it" and "how
+              fast did we stop it" in a glance and in the right order. The
+              countdown literature's one firm rule is applied too — the
+              direction is NAMED ("to detect", "to shut off") rather than left
+              for the reader to infer from a bare clock.
+
+              An event still running gets a hatched, open-ended second segment
+              instead of a fake duration: it has no end yet, and drawing one
+              would be the only lie on this card. */}
+          {data.detectIn || data.shutoffIn ? (
+            <div className="flex w-full flex-col gap-[4px]" data-name="Response">
+              <div className="flex h-[6px] w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full shrink-0 bg-severity-high"
+                  style={{ width: `${data.detectShare ?? 50}%` }}
+                />
+                <div
+                  className={
+                    data.shutoffIn
+                      ? 'h-full flex-1 bg-success'
+                      : 'h-full flex-1 bg-[repeating-linear-gradient(135deg,var(--slate-300)_0_4px,transparent_4px_8px)]'
+                  }
+                />
+              </div>
+              <div className="flex items-baseline justify-between">
+                <p className="text-[11.5px] text-slate-500">
+                  <span className="font-semibold text-severity-high">{data.detectIn}</span>
+                  {' to detect'}
+                </p>
+                <p className="text-[11.5px] text-slate-500">
+                  {data.shutoffIn ? (
+                    <>
+                      <span className="font-semibold text-success">{data.shutoffIn}</span>
+                      {' to shut off'}
+                    </>
+                  ) : (
+                    'still running'
+                  )}
+                </p>
+              </div>
+            </div>
+          ) : null}
 
           <div className={OVERLAY_META_ROW} data-node-id="199683:24887">
             <div

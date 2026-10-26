@@ -248,7 +248,7 @@ import {
   WifiOff,
   X,
 } from 'lucide-react'
-import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Line, LineChart, ReferenceDot, XAxis, YAxis } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
@@ -582,7 +582,22 @@ const FLOW_CHART_CONFIG = {
  *
  * An empty window draws the empty state, never a flat line at zero.
  */
+/* What each milestone MEANS, which is the "more info" the owner asked the
+   dots to reveal. One sentence each, and each one says what happened and why
+   it matters — not what the label already says. */
+const MARK_DETAIL = {
+  started: 'Flow stepped up and stayed up. Normal use falls back between draws; this did not.',
+  detected: 'Flow had held above the system’s normal band long enough to rule out ordinary use.',
+  shutoff: 'The valve closed and flow fell to the standing background rate.',
+}
+
 function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
+  /* Which milestone's detail is open. Null until one is tapped: the chart
+     reads on its own and the detail is the second look. */
+  const [pickedMark, setPickedMark] = useState(null)
+  const onPickMark = key => setPickedMark(k => (k === key ? null : key))
+  const picked = marks.find(m => m.key === pickedMark)
+  const pickedAt = picked ? points.find(p => p.minute === picked.minute) : null
   if (!points.length) {
     return (
       <p className="text-[13px] text-slate-500">
@@ -632,32 +647,47 @@ function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
             {...(ticks.length ? { ticks } : { interval: 5 })}
             tick={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}
           />
-          {/* THE MILESTONES. Owner: "add a few milestones on the chart when
-              it started, detected and valve shut off, so a user looks at that
-              and clearly understands what happened during the leak." Drawn as
-              vertical rules rather than dots so they read against the line
-              whatever height it is at, and labelled at an angle because three
-              horizontal labels collide on a 393px frame. Each takes the
-              colour of what it means: onset and detection are the problem,
-              the shut-off is the resolution. */}
-          {marks.map(mk => (
-            <ReferenceLine
-              key={mk.key}
-              x={points.find(p => p.minute === mk.minute)?.label}
-              stroke={
-                mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)'
-              }
-              strokeDasharray="3 3"
-              strokeWidth={1.25}
-              label={{
-                value: mk.label,
-                position: 'insideTopLeft',
-                fontSize: 10,
-                fontFamily: 'var(--font-sans)',
-                fill: mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)',
-              }}
-            />
-          ))}
+          {/* THE MILESTONES, as numbered dots ON the line.
+
+              They were dashed vertical rules with a label each. Owner: "hate
+              the dotted lines — replace with a small annotation on the chart,
+              clicking see more info on this milestone." They were also
+              unreadable in practice: three labels on a 393px frame collided
+              into "Leak startedDetected" within 3 minutes of each other,
+              because the milestones cluster at the start by their nature.
+
+              A dot carries the mark, a numeral carries the order, and the
+              detail moves to a line under the chart that only the tapped one
+              fills. Tap target is the 9px dot plus recharts' own hit area;
+              the list under it is the keyboard path, so the information is
+              not behind a pointer-only gesture. */}
+          {marks.map((mk, i) => {
+            const at = points.find(p => p.minute === mk.minute)
+            if (!at) return null
+            const tone = mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)'
+            return (
+              <ReferenceDot
+                key={mk.key}
+                x={at.label}
+                y={at.lph}
+                r={9}
+                fill={tone}
+                stroke="var(--card)"
+                strokeWidth={2}
+                isFront
+                onClick={() => onPickMark?.(mk.key)}
+                style={{ cursor: 'pointer' }}
+                label={{
+                  value: String(i + 1),
+                  fill: 'var(--ink-on-color)',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-sans)',
+                  position: 'center',
+                }}
+              />
+            )
+          })}
           <ChartTooltip content={<ChartTooltipContent />} />
           {/* `monotone` smooths a 24-point day nicely and turns 55 minute
               samples into a fat ribbon. `linear` at 1.5px keeps the step at
@@ -674,10 +704,60 @@ function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
           />
         </LineChart>
       </ChartContainer>
+
+      {/* THE ANNOTATION. One row per milestone, numbered to match its dot, so
+          the chart is readable without tapping anything and the detail is
+          there when it is wanted. These are BUTTONS, not captions: the dots
+          are a pointer-only target, and this is the same information reachable
+          by keyboard. Tapping the open one closes it. */}
+      {marks.length ? (
+        <div className="flex flex-col gap-[4px]">
+          <div className="flex flex-wrap items-center gap-[6px]">
+            {marks.map((mk, i) => {
+              const on = pickedMark === mk.key
+              const tone = mk.key === 'shutoff'
+                ? 'bg-success text-ink-on-color'
+                : 'bg-severity-high text-ink-on-color'
+              return (
+                <button
+                  key={mk.key}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => onPickMark(mk.key)}
+                  className={`flex cursor-pointer items-center gap-[5px] rounded-full border border-solid px-[7px] py-[3px] text-[11.5px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+                    on ? 'border-slate-300 bg-slate-100' : 'border-transparent hover:bg-slate-50'
+                  }`}
+                >
+                  <span className={`flex size-[14px] shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${tone}`}>
+                    {i + 1}
+                  </span>
+                  <span className="font-medium text-slate-700">{mk.label}</span>
+                  <span className="text-slate-500">
+                    {points.find(p => p.minute === mk.minute)?.label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          {picked ? (
+            <p className="rounded-[8px] bg-slate-50 px-[8px] py-[6px] text-[11.5px] leading-[1.45] text-slate-600">
+              <span className="font-semibold text-slate-800">
+                {picked.label}
+                {pickedAt ? ` · ${pickedAt.label}` : ''}
+                {pickedAt ? ` · ${pickedAt.lph.toLocaleString()} L/h` : ''}
+              </span>
+              {MARK_DETAIL[picked.key] ? ` — ${MARK_DETAIL[picked.key]}` : ''}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <p className="text-[11.5px] text-slate-500 leading-[1.4]">
         {/* Say what the line is. It is the system's measured hourly use for
             today read as flow rate, not a separate trace of this incident. */}
-        This system&rsquo;s measured use today, hour by hour, read as flow rate.
+        {marks.length
+          ? 'Flow rate through the event, one reading a minute.'
+          : 'This system’s measured use today, hour by hour, read as flow rate.'}
       </p>
     </div>
   )
@@ -1421,7 +1501,18 @@ export default function EventFocusOverlay({
                ReferenceError this repo's lint cannot see (no react plugin —
                scripts/check-jsx-refs.mjs:1-11 documents the same blind spot
                for components). */
-            event={{ ...alertRow, shutoffIn: timeToShutoff }}
+            event={{
+              ...alertRow,
+              /* The response family the card draws as a strip. `detectShare`
+                 is the detect leg as a percentage of the whole response, so
+                 the two segments are in proportion rather than fixed halves. */
+              detectIn: elapsedLabel(detectLagMin),
+              shutoffIn: timeToShutoff,
+              detectShare:
+                shutoffAfterDetectMin != null
+                  ? Math.round((detectLagMin / (detectLagMin + shutoffAfterDetectMin)) * 100)
+                  : 60,
+            }}
             actions={false}
             className="w-full! shrink-0"
           />
