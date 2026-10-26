@@ -259,6 +259,12 @@ export default function ValveStatusCard({
      the 25K-litre defect again. Pass {minutes, seconds} when the data exists;
      until then the On state is the label and the badge. */
   activatesIn = null,
+  /* The Disabled state's warning — the red dot, "Attention" and the sentence
+     under it. HIDDEN BY DEFAULT since 2026-10-26, owner: "hide this for now".
+     Kept behind a prop rather than deleted: the copy is the node's own
+     (199683:24824 / :24825) and the branch it hangs off is still what the
+     badge switches on, so turning it back on is one prop and no rebuild. */
+  showAttention = false,
   label = 'Valve status',
   stateLabel,
   handlingLabel = 'Valve handling:',
@@ -358,7 +364,7 @@ export default function ValveStatusCard({
           </div>
 
           <div className={STRIP_BODY} data-node-id="199683:24820">
-            {autoCloseOff ? (
+            {autoCloseOff && showAttention ? (
               <>
                 <div
                   className="content-stretch flex gap-[6px] items-center relative shrink-0 w-full"

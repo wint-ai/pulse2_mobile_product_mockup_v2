@@ -255,7 +255,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { Separator } from '@/components/ui/separator'
 import AlertCard from '@/v2/components/AlertCard'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
-import { Waves } from '@/v2/icons'
+import { PhotoSensor3, Waves } from '@/v2/icons'
 import wave from '@/assets/system-hero-wave.png'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
@@ -380,12 +380,21 @@ function alertRowFor(alert, systemId) {
   return {
     page: 1,
     pageCount: 1,
-    title: alert.label,
+    /* 199683:24875 is a ONE-LINE 170px box reading "High flow event". Our
+       label is "High Flow Water Event", which wraps to two lines there and
+       pushes the whole card 25px taller. The frame's own shorter form is
+       used for THIS surface; alert.label is untouched everywhere else. */
+    title: leak
+      ? `${alert.type === 'leak-high' ? 'High' : 'Low'} flow event`
+      : alert.label,
+    fullTitle: alert.label,
     status: leak ? (getLeakState(getActiveIncident(systemId)) ?? 'Ongoing') : 'Ongoing',
     ignored: isIgnored(systemId),
     leak,
     value: rate ?? alert.volume ?? '',
-    unit: rate ? 'L/H flow rate' : '',
+    /* Just the unit. The tile below it is captioned "Flow Rate", so
+       "L/H flow rate" said it twice and overflowed the 161px tile. */
+    unit: rate ? 'L/H' : '',
     detectedLabel: 'Detected',
     detectedAt: alert.startedAt,
     duration: alert.age,
@@ -1475,19 +1484,42 @@ export default function EventFocusOverlay({
           <p className="text-[13px] font-semibold text-slate-900" data-node-id="199683:24910">
             System details
           </p>
-          <div className="mt-[6px] flex flex-col gap-[4px]">
-            <p className="text-[15px] font-medium text-foreground" data-node-id="199683:24914">
-              {sys.name}
-            </p>
-            {sys.l4Name ? (
-              <p className="text-[13px] text-slate-600" data-node-id="199683:24916">
-                {sys.l4Name}
+          <div className="mt-[6px] flex flex-col gap-[8px]">
+            {/* 199683:24912 — a 26px sensor glyph, then the name 33px tall at
+                x=33, i.e. a 7px gap. PhotoSensor3 is the same Tabler mark the
+                node names. */}
+            <div className="flex items-center gap-[7px]" data-node-id="199683:24912">
+              <PhotoSensor3 size={26} className="shrink-0 text-slate-500" />
+              <p className="min-w-0 truncate text-[17px] font-medium text-foreground" data-node-id="199683:24914">
+                {sys.name}
               </p>
-            ) : null}
-            {sys.locationAddress ? (
-              <p className="text-[13px] text-slate-500" data-node-id="199683:24918">
-                {sys.locationAddress}
-              </p>
+            </div>
+            {/* 199683:24915 — location and address on ONE row, separated by
+                the node's own 14px hairline (199683:24917). The dataset has
+                no city field, so the first slot takes the location name,
+                which is what it would otherwise be captioned with; where
+                there is no street address the rule collapses to one value and
+                the divider is not drawn. */}
+            {sys.l4Name || sys.locationAddress ? (
+              <div className="flex min-w-0 items-center gap-[6px]" data-node-id="199683:24915">
+                {sys.l4Name ? (
+                  <p className="shrink-0 text-[13px] leading-[17px] text-slate-600" data-node-id="199683:24916">
+                    {sys.l4Name}
+                  </p>
+                ) : null}
+                {sys.l4Name && sys.locationAddress ? (
+                  <span
+                    aria-hidden="true"
+                    className="h-[14px] w-px shrink-0 bg-slate-300"
+                    data-node-id="199683:24917"
+                  />
+                ) : null}
+                {sys.locationAddress ? (
+                  <p className="min-w-0 truncate text-[13px] leading-[17px] text-slate-500" data-node-id="199683:24918">
+                    {sys.locationAddress}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </div>
           <button

@@ -54,6 +54,7 @@
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Copy } from 'lucide-react'
 import { Waves, WifiDisconnected02 } from '@/v2/icons'
 
 /* ── Inlined Figma assets ─────────────────────────────────────────────────── */
@@ -668,6 +669,26 @@ export default function AlertCard({
                 <div className={OVERLAY_ID_PILL} data-node-id="199683:24894">
                   <p className={OVERLAY_META_VALUE}>{data.eventId}</p>
                 </div>
+                {/* 199683:24896 — "Huge Icons / copy-01", 16px. An id exists
+                    to be quoted to somebody, so it copies. navigator.clipboard
+                    rejects in some embedded views and the catch is the whole
+                    handling: there is nothing useful to say, and an
+                    unhandled rejection in a click handler is worse. */}
+                <button
+                  type="button"
+                  aria-label={`Copy event ID ${data.eventId}`}
+                  onClick={() => {
+                    try {
+                      navigator.clipboard?.writeText?.(String(data.eventId))?.catch?.(() => {})
+                    } catch {
+                      /* no clipboard here; the id is on screen to read */
+                    }
+                  }}
+                  className="flex size-[16px] shrink-0 cursor-pointer items-center justify-center rounded-[4px] text-slate-500 outline-none hover:text-slate-700 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  data-node-id="199683:24896"
+                >
+                  <Copy size={14} />
+                </button>
               </div>
             ) : null}
           </div>
