@@ -111,6 +111,49 @@ describe('auto-shutoff DISABLED (199703:41537)', () => {
     ).toBeTruthy()
   })
 
+  it('starts COLLAPSED, with the warning itself still visible', () => {
+    /* Owner: "the attention takes too much space maybe collapsed it?"
+
+       The thing being collapsed is the SENTENCE. The red panel, the icon and
+       the word "Attention" stay on screen in both states, because a safety
+       notice you have to discover is not a safety notice. This asserts both
+       halves of that: the heading is visible AND the body is hidden. */
+    const { container } = mount(disabled)
+    expect(attention(container).dataset.collapsed).toBe('true')
+    expect(screen.getByText('Attention')).toBeTruthy()
+    const body = screen.getByText(
+      'The valve will not automatically shut off and water loss is at risk',
+    )
+    expect(body.hidden, 'the sentence is showing while collapsed').toBe(true)
+  })
+
+  it('expands and collapses again from a real button', () => {
+    const { container } = mount(disabled)
+    const toggle = screen.getByRole('button', { name: /Attention/ })
+    expect(toggle.tagName).toBe('BUTTON')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(attention(container).dataset.collapsed).toBe('false')
+    expect(
+      screen.getByText('The valve will not automatically shut off and water loss is at risk').hidden,
+    ).toBe(false)
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('keeps the sentence in the DOM while collapsed', () => {
+    /* `hidden`, not unmounted. aria-controls must point at an element that
+       exists, and a warning that leaves the DOM drops out of find-in-page. */
+    const { container } = mount(disabled)
+    const toggle = screen.getByRole('button', { name: /Attention/ })
+    const panelId = toggle.getAttribute('aria-controls')
+    expect(panelId).toBeTruthy()
+    expect(container.querySelector(`#${CSS.escape(panelId)}`)).toBeTruthy()
+  })
+
   it('still hides the Attention block on request', () => {
     // The prop survived the reversal, so hiding it again is one word.
     const { container } = mount({ ...disabled, showAttention: false })
@@ -128,6 +171,19 @@ describe('the action', () => {
     const btn = screen.getByRole('button', { name: /Close valve now/ })
     fireEvent.click(btn)
     expect(onToggle).toHaveBeenCalledWith('closed')
+  })
+
+  it('is a PILL at the resolved radius, not the emitted fallback', () => {
+    /* `get_design_context` printed
+         rounded-[var(--component/button/size-xs/radius,8px)]
+       and that 8 is stale: get_variable_defs resolves the token to 26. Taken
+       literally it drew a nearly square-cornered button and the owner caught
+       it on sight - "this is not as in figma / the button". Pinned because
+       the next person to paste from Figma will see the same 8. */
+    const { container } = mount()
+    const cls = within(container).getByRole('button', { name: /Close valve now/ }).className
+    expect(cls).toContain('rounded-[26px]')
+    expect(cls, 'the stale 8px fallback is back').not.toContain('rounded-[8px]')
   })
 
   it('is omitted entirely as a readout, not disabled', () => {

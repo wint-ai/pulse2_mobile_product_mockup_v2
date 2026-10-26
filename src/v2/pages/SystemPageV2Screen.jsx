@@ -110,8 +110,6 @@
  *
  * IN THE PAGE BUT IN NEITHER NODE (kept, per the never-drop rule; flagged for
  * the owner rather than deleted):
- *   SystemTopologyCard  the only way to close an INDIVIDUAL valve. Stays as
- *                       the disclosure behind System type's footer control.
  *   InsightsCard        no node on either frame. Ordered last of the mapped
  *                       cards so it cannot displace one the nodes do draw.
  *   InfoAccordion       the real General Info content; see the tab note below.
@@ -142,7 +140,6 @@ import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
-import SystemTopologyCard from '@/v2/components/SystemTopologyCard'
 import SystemTypeCard from '@/v2/components/SystemTypeCard'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
 import ActivePolicyCard from '@/v2/components/ActivePolicyCard'
@@ -1209,6 +1206,13 @@ export default function SystemPageV2Screen() {
   const commitValveIntent = () => {
     if (!valveIntent) return
     const { action, device } = valveIntent
+    /* `close-all` and the per-device shape have NO PRODUCER on this page any
+       more: SystemTopologyCard was the only control that emitted them, and it
+       was removed on 2026-10-26 at the owner's word. The branches are kept
+       rather than pruned because ValveConfirmSheet still implements both
+       actions and is shared, so the intent shape is a contract this page does
+       not own. Reinstating a per-device control is a callback, not a rebuild.
+       If that never happens, these two branches are the next thing to delete. */
     if (action === 'close-all') {
       setClosedValves(Object.fromEntries((system.devices ?? []).map(d => [d.id, true])))
     } else if (device) {
@@ -1839,9 +1843,9 @@ export default function SystemPageV2Screen() {
                   {cardOrder.map(key => {
                     if (key === 'type') {
                       return loopDevices.length ? (
-                        <Fragment key={key}>
-                          {/* System type 199296:50210 / 199296:50475 */}
+                          /* System type 199296:50210 / 199296:50475 */
                           <SystemTypeCard
+                            key={key}
                             className="shrink-0"
                             tone={alerting ? 'alert' : 'calm'}
                             title={system.topology?.pipeTopology ?? 'Water line'}
@@ -1861,24 +1865,6 @@ export default function SystemPageV2Screen() {
                             expanded={loopExpanded}
                             onToggle={next => setLoopExpanded(next)}
                           />
-                          {/* The disclosure the card's footer control opens.
-                              This is the existing topology card — it is how
-                              individual valves get closed, so it is kept and
-                              simply moved behind the new control rather than
-                              dropped for the redesign. */}
-                          {loopExpanded ? (
-                            <SystemTopologyCard
-                              className="shrink-0"
-                              expanded
-                              onToggle={() => setLoopExpanded(false)}
-                              title={system.topology?.pipeTopology ?? 'Open loop'}
-                              topology={system.topology?.config?.schematic ?? 'water-line'}
-                              devices={loopDevices}
-                              onCloseValve={d => setValveIntent({ action: 'close', device: d })}
-                              onCloseAll={() => setValveIntent({ action: 'close-all' })}
-                            />
-                          ) : null}
-                        </Fragment>
                       ) : null
                     }
 

@@ -76,7 +76,8 @@
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LocationDot } from '@/v2/icons'
 import ValveStatus from '@/v2/components/ValveStatus'
@@ -123,15 +124,24 @@ const V2_BADGE_TEXT = String.raw`[word-break:break-word] font-sans font-medium l
 /* 199703:42035. The node fixes h-[80px] and w-[334px]; 334 is just a 370 card
    minus its 18px padding, so it is w-full here, and the height is a MINIMUM
    because the body is real copy that may run past the node's two lines. */
-const V2_ATTN = String.raw`bg-red-50 content-stretch flex flex-col gap-[16px] items-start justify-center min-h-[80px] px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full`
+const V2_ATTN = String.raw`bg-red-50 content-stretch flex flex-col gap-[16px] items-start justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full`
 const V2_ATTN_INNER = String.raw`content-stretch flex flex-col gap-[4px] items-start justify-center relative shrink-0 w-full`
 const V2_ATTN_ROW = String.raw`content-stretch flex gap-[6px] items-center relative shrink-0 w-full`
 const V2_ATTN_ICON = String.raw`bg-red-200 content-stretch flex items-center justify-center relative rounded-[20px] shrink-0 size-[16px]`
 const V2_ATTN_LABEL = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-slate-900 text-sm whitespace-nowrap`
 const V2_ATTN_BODY = String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-gray-700 text-sm tracking-normal w-full`
-/* rounded-[8px], not the 26px pill the inline button uses — the node spells
-   it `component/button/size-xs/radius` at 8. Full width, below the row. */
-const V2_BTN = String.raw`border border-slate-900 border-solid content-stretch cursor-pointer flex gap-1 items-center justify-center px-2 py-[12px] relative rounded-[8px] shrink-0 w-full outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+/* A PILL, full width, below the row.
+   RADIUS 26 AND PX 10, RESOLVED — not the 8 and 8 the emitted code shows.
+   `get_design_context` prints a token's FALLBACK, and these two are stale in
+   the file: `rounded-[var(--component/button/size-xs/radius,8px)]` and
+   `px-[var(--component/button/size-xs/px,8px)]`. Taken literally they drew a
+   nearly square-cornered button, and the owner caught it on sight: "this is
+   not as in figma / the button". get_variable_defs on 199703:38734 resolves
+   `component/button/size-xs/radius` to 26 and `component/button/size-xs/px`
+   to 10, which is also the pill the inline button has always used.
+   THE LESSON, since this file now carries several of them: a `var(--x, N)`
+   fallback is a guess about N, not a reading of it. */
+const V2_BTN = String.raw`border border-slate-900 border-solid content-stretch cursor-pointer flex gap-1 items-center justify-center px-2.5 py-[12px] relative rounded-[26px] shrink-0 w-full outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 const V2_BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-6 relative shrink-0 text-slate-900 text-base whitespace-nowrap`
 
 /* sysA's ids. sysB draws the same card as
@@ -515,6 +525,11 @@ export default function ValveStatusCard({
      once, and a system with auto-close off read "Auto shut-off" above the
      auto-shut-off sentence — the panel contradicting its own first line. */
   const autoCloseOff = String(autoCloseState).toLowerCase() === 'disabled'
+  /* The Attention disclosure — see the block it drives. Collapsed on mount,
+     which is the state the owner asked for; the heading stays visible either
+     way, so nothing is hidden that carries the warning itself. */
+  const [attentionOpen, setAttentionOpen] = useState(false)
+  const attentionBodyId = `${useId()}-attention`
 
   /* ── THE 2026-10-26 CARD — 199703:38726 / 199703:41537 ──────────────────
      A SEPARATE RETURN, not more branches below. The element ORDER changed
@@ -601,9 +616,33 @@ export default function ValveStatusCard({
                 auto-shutoff is off, which is the only state the frame draws
                 it in: on an armed valve there is nothing to warn about. */}
             {autoCloseOff && showAttention ? (
-              <div className={V2_ATTN} data-node-id="199703:42035">
+              /* ── COLLAPSED BY DEFAULT ──────────────────────────────────
+                 Owner, 2026-10-26: "the attention takes too much space maybe
+                 collapsed it?" The node draws an 80px block for one sentence,
+                 on a card that already carries a row and a button.
+
+                 WHAT COLLAPSES IS THE SENTENCE, NOT THE WARNING. The red
+                 panel, the icon and the word "Attention" stay on screen at
+                 all times — that is the signal, and a safety notice you have
+                 to discover is not a safety notice. Only the explanation
+                 folds away, which is the part you read once. That keeps the
+                 glance intact and gives back ~40px.
+
+                 A real <button> with aria-expanded / aria-controls, and the
+                 panel stays MOUNTED behind the `hidden` attribute rather than
+                 unmounted: aria-controls must point at an element that
+                 exists, and a collapsed warning that leaves the DOM drops out
+                 of find-in-page too. */
+              <div className={V2_ATTN} data-node-id="199703:42035" data-collapsed={attentionOpen ? 'false' : 'true'}>
                 <div className={V2_ATTN_INNER} data-node-id="199703:42045">
-                  <div className={V2_ATTN_ROW} data-node-id="199703:42046">
+                  <button
+                    type="button"
+                    onClick={() => setAttentionOpen((v) => !v)}
+                    aria-expanded={attentionOpen}
+                    aria-controls={attentionBodyId}
+                    className={cn(V2_ATTN_ROW, 'cursor-pointer rounded-[6px] text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50')}
+                    data-node-id="199703:42046"
+                  >
                     <div className={V2_ATTN_ICON} data-node-id="199703:42047" data-name="rightIcon">
                       <div
                         className="relative shrink-0 size-[12px] text-red-500"
@@ -616,8 +655,21 @@ export default function ValveStatusCard({
                     <p className={V2_ATTN_LABEL} data-node-id="199703:42049">
                       {attentionLabel}
                     </p>
-                  </div>
-                  <p className={V2_ATTN_BODY} data-node-id="199703:42050">
+                    <ChevronDown
+                      size={16}
+                      aria-hidden="true"
+                      className={cn(
+                        'ml-auto shrink-0 text-slate-500 transition-transform duration-200',
+                        attentionOpen ? 'rotate-180' : null,
+                      )}
+                    />
+                  </button>
+                  <p
+                    id={attentionBodyId}
+                    hidden={!attentionOpen}
+                    className={V2_ATTN_BODY}
+                    data-node-id="199703:42050"
+                  >
                     {attentionBody}
                   </p>
                 </div>
