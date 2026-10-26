@@ -1,0 +1,161 @@
+// @vitest-environment happy-dom
+/**
+ * THE VALVE STATUS CARD'S `redraw` VARIANT, against Figma 199703:38726
+ * (auto-shutoff armed) and 199703:41537 (auto-shutoff disabled).
+ *
+ * This variant had NO tests of its own, which is how a full structural
+ * rewrite of it passed a 1089-case suite untouched. The two frames moved the
+ * element ORDER, not just the classes:
+ *
+ *   before   [ state | button ]            after   [ state | auto-shutoff ]
+ *            [ auto-shutoff strip ]                [ attention, if disabled ]
+ *                                                  [ button, full width ]
+ *
+ * so "it still renders" is not the property worth holding. What matters is
+ * which of the two states is drawn, that the two never appear at once, and
+ * that `redraw` does not leak into the System page's mount.
+ *
+ * THE LAST ONE IS THE POINT. The owner has twice corrected a change that
+ * altered a shared card's other surfaces — "the card in other pages needs to
+ * remain as it was" — so the default render is asserted to be untouched here
+ * rather than left to review.
+ */
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import { render, screen, cleanup, within, fireEvent } from '@testing-library/react'
+import ValveStatusCard from '@/v2/components/ValveStatusCard'
+
+afterEach(cleanup)
+
+const mount = (props = {}) =>
+  render(<ValveStatusCard redraw interactive state="open" tone="alert" {...props} />)
+
+const clock = (c) => c.querySelector('[data-countdown]')
+const attention = (c) => c.querySelector('[data-node-id="199703:42035"]')
+
+describe('auto-shutoff ARMED (199703:38726)', () => {
+  it('counts down under an "in" label', () => {
+    /* The label carries the preposition ONLY over a clock. That is the whole
+       fix for the owner's earlier objection — "i don't like the will activate
+       in 10:00 time elapsed this is not clear text" — because "in" on its own
+       line above the figure is what stops 02:45 reading as a wall clock. */
+    const { container } = mount({ autoCloseState: 'On', activatesIn: { minutes: 2, seconds: 45 } })
+    expect(screen.getByText('Auto-shutoff in')).toBeTruthy()
+    expect(clock(container)).toBeTruthy()
+    expect(clock(container).textContent.replace(/\s+/g, '')).toBe('02:45')
+  })
+
+  it('pads both halves to two digits', () => {
+    // 199703:39364 / :39366 draw "00" and "00", never "0".
+    const { container } = mount({ autoCloseState: 'On', activatesIn: { minutes: 1, seconds: 5 } })
+    expect(clock(container).textContent.replace(/\s+/g, '')).toBe('01:05')
+  })
+
+  it('draws NO badge while the clock is running', () => {
+    /* The node draws one or the other. A badge reading "On" beside a running
+       countdown says the same thing twice. */
+    const { container } = mount({ autoCloseState: 'On', activatesIn: { minutes: 2, seconds: 0 } })
+    expect(within(container).queryByText('On')).toBeNull()
+  })
+
+  it('draws no Attention block — there is nothing to warn about', () => {
+    const { container } = mount({ autoCloseState: 'On', activatesIn: { minutes: 2, seconds: 0 } })
+    expect(attention(container)).toBeNull()
+  })
+
+  it('falls back to the badge when armed but with no timing to show', () => {
+    /* `activatesIn` is null wherever the data carries no auto-close delay.
+       The card then states the SETTING rather than inventing a clock — the
+       node's own 00:00 is a placeholder and a zeroed countdown drawn as if
+       measured is the invented-number defect. */
+    const { container } = mount({ autoCloseState: 'On', activatesIn: null })
+    expect(clock(container)).toBeNull()
+    expect(screen.getByText('On')).toBeTruthy()
+    expect(screen.getByText('Auto-shutoff')).toBeTruthy()
+    expect(screen.queryByText('Auto-shutoff in'), 'a dangling preposition').toBeNull()
+  })
+})
+
+describe('auto-shutoff DISABLED (199703:41537)', () => {
+  const disabled = { autoCloseState: 'Disabled', activatesIn: null }
+
+  it('labels the panel without the preposition', () => {
+    mount(disabled)
+    expect(screen.getByText('Auto-shutoff')).toBeTruthy()
+    expect(screen.queryByText('Auto-shutoff in')).toBeNull()
+  })
+
+  it('shows the state badge, not a clock', () => {
+    const { container } = mount(disabled)
+    expect(screen.getByText('Disabled')).toBeTruthy()
+    expect(clock(container)).toBeNull()
+  })
+
+  it('never draws a countdown even if one is passed', () => {
+    /* A disabled valve has nothing to count down to. Passing both is a caller
+       bug, and the card must not render a countdown to an event that will not
+       happen — that is a lie about safety, not a layout slip. */
+    const { container } = mount({ autoCloseState: 'Disabled', activatesIn: { minutes: 5, seconds: 0 } })
+    expect(clock(container)).toBeNull()
+    expect(screen.getByText('Disabled')).toBeTruthy()
+  })
+
+  it('draws the Attention block with the node’s own sentence', () => {
+    /* Back on after being hidden: the owner said "hide this dfor now" earlier
+       on 2026-10-26, then sent 199703:41537 with "update to latest", and that
+       node draws it as a first-class part of this state. */
+    const { container } = mount(disabled)
+    expect(attention(container)).toBeTruthy()
+    expect(screen.getByText('Attention')).toBeTruthy()
+    expect(
+      screen.getByText('The valve will not automatically shut off and water loss is at risk'),
+    ).toBeTruthy()
+  })
+
+  it('still hides the Attention block on request', () => {
+    // The prop survived the reversal, so hiding it again is one word.
+    const { container } = mount({ ...disabled, showAttention: false })
+    expect(attention(container)).toBeNull()
+    expect(screen.queryByText('Attention')).toBeNull()
+  })
+})
+
+describe('the action', () => {
+  it('is a full-width button that asks rather than acts', () => {
+    /* The card ASKS; the caller turns this into a confirm sheet. It must not
+       toggle anything itself. */
+    const onToggle = vi.fn()
+    mount({ onToggle, state: 'open' })
+    const btn = screen.getByRole('button', { name: /Close valve now/ })
+    fireEvent.click(btn)
+    expect(onToggle).toHaveBeenCalledWith('closed')
+  })
+
+  it('is omitted entirely as a readout, not disabled', () => {
+    /* A greyed button still reads as "you may do this here". */
+    const { container } = mount({ interactive: false })
+    expect(within(container).queryByRole('button')).toBeNull()
+  })
+
+  it('offers to open a closed valve', () => {
+    mount({ state: 'closed' })
+    expect(screen.getByRole('button', { name: /Open valve now/ })).toBeTruthy()
+    expect(screen.getByText('Closed')).toBeTruthy()
+  })
+})
+
+describe('the redraw does not leak into the other mounts', () => {
+  it('the default card keeps its own button wording and shape', () => {
+    /* Owner, twice: "the card in other pages needs to remain as it was." The
+       System page passes no `redraw`, so it must draw the compact inline card
+       — "Close valve", not "Close valve now". */
+    render(<ValveStatusCard interactive state="open" tone="alert" />)
+    expect(screen.getByRole('button', { name: /^Close valve$/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Close valve now/ })).toBeNull()
+  })
+
+  it('the default card draws none of the redraw’s nodes', () => {
+    const { container } = render(<ValveStatusCard interactive state="open" tone="alert" />)
+    expect(container.querySelector('[data-node-id="199703:38731"]'), 'the new row').toBeNull()
+    expect(attention(container), 'the new attention block').toBeNull()
+  })
+})

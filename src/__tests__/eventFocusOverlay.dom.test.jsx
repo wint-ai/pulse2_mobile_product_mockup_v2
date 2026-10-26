@@ -436,9 +436,19 @@ describe('the collapsible sections', () => {
     const { container } = renderOverlay()
     const text = container.textContent
 
-    // The strip itself is gone — no labelled State / Flow level / Auto-shutoff.
+    /* The strip itself is gone. "Flow level" is the marker: it is the one
+       label the strip had that nothing else on this surface draws.
+
+       "Auto-shutoff" USED TO BE ASSERTED HERE TOO and no longer can be. The
+       2026-10-26 valve card (199703:41537) legitimately labels its own panel
+       "Auto-shutoff", so the words are on screen for a reason that has
+       nothing to do with the strip. The assertion did not fail when that
+       landed — but only because the ARMED card spells it "Auto-shutoff in",
+       which `queryByText` does not match exactly. On a system with
+       auto-shutoff disabled it would have failed, and the pass was luck
+       rather than a property. Removed rather than narrowed: one unambiguous
+       marker beats two where the second has to be qualified. */
     expect(screen.queryByText('Flow level')).toBeNull()
-    expect(screen.queryByText('Auto-shutoff')).toBeNull()
 
     // State — the alert card's status pill still carries it.
     expect(text).toMatch(/Ongoing|Warning|Shut ?off/i)

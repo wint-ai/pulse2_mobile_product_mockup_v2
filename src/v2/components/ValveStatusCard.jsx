@@ -78,7 +78,61 @@
 
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { LocationDot } from '@/v2/icons'
 import ValveStatus from '@/v2/components/ValveStatus'
+
+/* ── THE 2026-10-26 REDRAW — 199703:38726 / 199703:41537 ──────────────────
+   Two states of one card, and the pair is what makes the layout make sense:
+
+     199703:38726  auto-shutoff ARMED    "Auto-shutoff in" over a 00 : 00 clock
+     199703:41537  auto-shutoff DISABLED "Auto-shutoff" over a Disabled badge,
+                                         plus a red Attention block
+
+   WHAT MOVED. The auto-shutoff readout used to be a full-width strip UNDER
+   the valve state, and the action button sat inline beside the state. Both
+   nodes put the state and the auto-shutoff panel SIDE BY SIDE in one
+   slate-100 row, and drop the button to its own full-width row underneath.
+   That is why this is a separate render rather than more branches inside the
+   old one — the element ORDER differs, not just the classes.
+
+   SCOPE: `redraw` only, which today is EventFocusOverlay alone. The System
+   page draws the compact inline card (199703:31517 in the page frame: a
+   117px box with a 161px button beside the state) and is untouched, which is
+   the owner's standing rule that a card's other mounts stay as they are. */
+const V2_CARD = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[18px] items-start justify-center p-[18px] relative rounded-[18px] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
+const V2_COL = String.raw`content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full`
+const V2_HEAD = String.raw`content-stretch flex flex-col gap-[11px] items-start relative shrink-0 w-full`
+const V2_TITLE = String.raw`[word-break:break-word] font-sans font-medium leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
+const V2_ROW = String.raw`bg-slate-100 content-stretch flex gap-[8px] items-center justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full`
+/* 117px and 38px are the node's. `shrink-0` is NOT on it: the panel beside it
+   is flex-1 with min-w-px, so at 393px the state box keeps its width and the
+   panel takes the remainder, which is the behaviour the fixed width is for. */
+const V2_STATE = String.raw`content-stretch flex gap-[6px] h-[38px] items-center relative rounded-[24px] shrink-0 w-[117px]`
+const V2_GLYPH = String.raw`content-stretch flex flex-col items-center justify-center relative shrink-0 size-[30px]`
+const V2_GLYPH_BOX = String.raw`h-[20.84px] relative shrink-0 w-[21.831px]`
+const V2_VALUE = String.raw`[word-break:break-word] font-sans font-medium leading-6 relative shrink-0 text-2xl text-slate-800 tracking-[-0.6px] whitespace-nowrap`
+const V2_PANEL = String.raw`bg-slate-100 content-stretch flex flex-[1_0_0] flex-col gap-[8px] items-end justify-center min-w-px px-[13px] py-[9px] relative rounded-[11px]`
+const V2_PANEL_ROW = String.raw`content-stretch flex gap-[5px] items-center justify-end relative shrink-0 w-full`
+const V2_PANEL_LABEL = String.raw`[word-break:break-word] font-sans font-medium leading-5 min-w-0 truncate relative text-slate-600 text-sm`
+/* 199703:39363 — "00", ":", "00" as three runs at gap-3, not one string. The
+   colon is its own run in the node and is kept that way so the two figures
+   can be addressed (and announced) separately. */
+const V2_CLOCK = String.raw`[word-break:break-word] content-stretch flex font-sans font-medium gap-[3px] items-center leading-6 relative shrink-0 text-2xl text-slate-800 tracking-[-0.6px] whitespace-nowrap`
+const V2_BADGE = String.raw`bg-surface-card content-stretch flex gap-[4.4px] h-[22px] items-center justify-center overflow-clip px-[6.6px] py-[2.2px] relative rounded-[28.6px] shrink-0`
+const V2_BADGE_TEXT = String.raw`[word-break:break-word] font-sans font-medium leading-[17.6px] overflow-hidden relative shrink-0 text-[13.2px] text-slate-700 text-ellipsis whitespace-nowrap`
+/* 199703:42035. The node fixes h-[80px] and w-[334px]; 334 is just a 370 card
+   minus its 18px padding, so it is w-full here, and the height is a MINIMUM
+   because the body is real copy that may run past the node's two lines. */
+const V2_ATTN = String.raw`bg-red-50 content-stretch flex flex-col gap-[16px] items-start justify-center min-h-[80px] px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full`
+const V2_ATTN_INNER = String.raw`content-stretch flex flex-col gap-[4px] items-start justify-center relative shrink-0 w-full`
+const V2_ATTN_ROW = String.raw`content-stretch flex gap-[6px] items-center relative shrink-0 w-full`
+const V2_ATTN_ICON = String.raw`bg-red-200 content-stretch flex items-center justify-center relative rounded-[20px] shrink-0 size-[16px]`
+const V2_ATTN_LABEL = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-slate-900 text-sm whitespace-nowrap`
+const V2_ATTN_BODY = String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-gray-700 text-sm tracking-normal w-full`
+/* rounded-[8px], not the 26px pill the inline button uses — the node spells
+   it `component/button/size-xs/radius` at 8. Full width, below the row. */
+const V2_BTN = String.raw`border border-slate-900 border-solid content-stretch cursor-pointer flex gap-1 items-center justify-center px-2 py-[12px] relative rounded-[8px] shrink-0 w-full outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const V2_BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-6 relative shrink-0 text-slate-900 text-base whitespace-nowrap`
 
 /* sysA's ids. sysB draws the same card as
    141553->143046, 141554->143047, 141555->143048, 141556->143049,
@@ -194,14 +248,19 @@ const STRIP_CLOCK = String.raw`content-stretch flex font-sans font-medium gap-[3
  * At zero it stops and says so. It does not run negative, and it does not
  * claim the valve has closed — this card does not know that; the valve state
  * above it does. */
-function LiveCountdown({ minutes, seconds, label }) {
-  const total = Math.max(0, Math.round((minutes || 0) * 60 + (seconds || 0)))
+/**
+ * Seconds remaining, ticking once a second.
+ *
+ * Extracted so the two countdown PRESENTATIONS — the one-line "Valve will be
+ * closed in: 2m 45s" and the node's large "02 : 45" clock — cannot drift
+ * apart in their arithmetic. They differ only in markup.
+ *
+ * No setState at the top of the effect: that is a cascading render and this
+ * repo's eslint rejects it. Both callers KEY the component on `total`, so a
+ * new figure remounts it and useState picks the new starting value up free.
+ */
+function useSecondsLeft(total) {
   const [left, setLeft] = useState(total)
-
-  /* No setState at the top of this effect: that is a cascading render and
-     the repo's eslint rejects it. The component is KEYED on `total` at its
-     call site, so a new figure remounts it and useState picks the new
-     starting value up for free. */
   useEffect(() => {
     if (total <= 0) return undefined
     const started = Date.now()
@@ -211,6 +270,51 @@ function LiveCountdown({ minutes, seconds, label }) {
     }, 1000)
     return () => clearInterval(id)
   }, [total])
+  return left
+}
+
+const toTotal = (minutes, seconds) =>
+  Math.max(0, Math.round((minutes || 0) * 60 + (seconds || 0)))
+
+/**
+ * 199703:39363 — the large MM : SS clock, under its own label.
+ *
+ * WHY THE COLON FORMAT IS BACK. The owner rejected it once, in words: "i
+ * don't like the will activate in 10:00 time elapsed this is not clear text"
+ * — and they were right about THAT layout, where "Will activate in 10:00" sat
+ * inline and parsed as a wall clock as readily as a duration. The new node
+ * fixes the ambiguity a different way: the label is "Auto-shutoff in" on its
+ * own line ABOVE the figure, so "in" governs the number and nothing else can
+ * be read into it. Transcribed rather than argued with, because the frame
+ * answers the objection rather than ignoring it.
+ *
+ * `aria-live="off"`: a value that changes every second would otherwise be
+ * announced every second. The label names what it is; the figure is glanced
+ * at, not listened to.
+ */
+function ClockCountdown({ minutes, seconds }) {
+  const total = toTotal(minutes, seconds)
+  const left = useSecondsLeft(total)
+  const m = Math.floor(left / 60)
+  const sec = left % 60
+  return (
+    <div className={V2_CLOCK} data-node-id="199703:39363" data-countdown={left}>
+      <p className="relative shrink-0" dir="auto" data-node-id="199703:39364">
+        {pad2(m)}
+      </p>
+      <p className="relative shrink-0" aria-hidden="true" data-node-id="199703:39365">
+        :
+      </p>
+      <p className="relative shrink-0" dir="auto" data-node-id="199703:39366">
+        {pad2(sec)}
+      </p>
+    </div>
+  )
+}
+
+function LiveCountdown({ minutes, seconds, label }) {
+  const total = toTotal(minutes, seconds)
+  const left = useSecondsLeft(total)
 
   const m = Math.floor(left / 60)
   const sec = left % 60
@@ -332,12 +436,24 @@ export default function ValveStatusCard({
   /* `redraw` only. 199683:24813 names the SETTING where the original named
      the behaviour, and the badge carries its state — "On" (199683:24849) or
      "Disabled" (199394:78935), which are what policy.autoShutoff returns. */
-  autoCloseLabel = 'Auto-close Valve',
+  /* 199703:41549 — the label over the state BADGE. It read "Auto-close
+     Valve" from the superseded 199683:24813; both 2026-10-26 nodes spell it
+     "Auto-shutoff", which is also the wording ActivePolicyCard's own
+     "Auto Shutoff Valve" row uses, so the app stops calling one setting two
+     things. */
+  autoCloseLabel = 'Auto-shutoff',
+  /* 199703:39354 — the label over the CLOCK. A separate string because the
+     node is: "in" governs a countdown and would dangle above a badge. */
+  autoCloseInLabel = 'Auto-shutoff in',
   autoCloseState = 'On',
   /* 199683:24824 / :24825 / :24834 — frozen Figma strings, props so every
      drawn word on this card is one, which is this file's rule. */
   attentionLabel = 'Attention',
-  attentionBody = 'In case a Leak is detected — the valve will not automatically shut off and water loss is at risk',
+  /* 199703:42050, verbatim. It was the longer "In case a Leak is detected —
+     the valve will not automatically shut off and water loss is at risk"
+     from the superseded 199683:24825; the new node drops the conditional
+     clause and the sentence fits the node's two lines without it. */
+  attentionBody = 'The valve will not automatically shut off and water loss is at risk',
   /* "Will activate in" beside a 00 : 00 clock — owner, 2026-10-26: "i don't
      like the will activate in 10:00 time elapsed, this is not clear text."
      Two faults, and the format is the worse one:
@@ -358,12 +474,17 @@ export default function ValveStatusCard({
      the 25K-litre defect again. Pass {minutes, seconds} when the data exists;
      until then the On state is the label and the badge. */
   activatesIn = null,
-  /* The Disabled state's warning — the red dot, "Attention" and the sentence
-     under it. HIDDEN BY DEFAULT since 2026-10-26, owner: "hide this for now".
-     Kept behind a prop rather than deleted: the copy is the node's own
-     (199683:24824 / :24825) and the branch it hangs off is still what the
-     badge switches on, so turning it back on is one prop and no rebuild. */
-  showAttention = false,
+  /* The Disabled state's warning — the red block with "Attention" and the
+     sentence under it.
+
+     IT IS BACK ON, AND THIS IS A REVERSAL worth seeing. The owner hid it on
+     2026-10-26 ("hide this dfor now"), so the default was false and it was
+     kept behind this prop rather than deleted. Later the same day they sent
+     199703:41537 and said "update to latest" — and that node draws the block
+     as a first-class part of the Disabled state, in its own red-50 panel
+     rather than tucked inside the strip. The later instruction wins, and the
+     prop stays, so hiding it again is one word at the call site. */
+  showAttention = true,
   label = 'Valve status',
   stateLabel,
   handlingLabel = 'Valve handling:',
@@ -394,6 +515,135 @@ export default function ValveStatusCard({
      once, and a system with auto-close off read "Auto shut-off" above the
      auto-shut-off sentence — the panel contradicting its own first line. */
   const autoCloseOff = String(autoCloseState).toLowerCase() === 'disabled'
+
+  /* ── THE 2026-10-26 CARD — 199703:38726 / 199703:41537 ──────────────────
+     A SEPARATE RETURN, not more branches below. The element ORDER changed
+     (state and auto-shutoff are now one row, the button dropped to its own
+     full-width row), and expressing that as ternaries inside the old tree
+     would have meant every node id and class string on the System page's
+     card becoming conditional on a prop it never passes. This way the old
+     render below is byte-identical for every mount that does not opt in.
+
+     The label follows the STATE, because the two nodes spell it differently
+     and the difference is meaningful: 199703:39354 says "Auto-shutoff in"
+     over a running clock, 199703:41549 says "Auto-shutoff" over a Disabled
+     badge. "in" belongs to a countdown and would be a dangling preposition
+     above a badge. */
+  if (redraw) {
+    const showClock = !autoCloseOff && activatesIn != null
+    const panelLabel = showClock ? autoCloseInLabel : autoCloseLabel
+    return (
+      <div className={cn(V2_CARD, className)} data-node-id="199703:38726" data-name="Topology" {...props}>
+        <div className={V2_COL} data-node-id="199703:38728">
+          <div className={V2_HEAD} data-node-id="199703:38729">
+            <p className={V2_TITLE} dir="auto" data-node-id="199703:38730">
+              {label}
+            </p>
+
+            <div className={V2_ROW} data-node-id="199703:38731">
+              {/* The valve's own state. */}
+              <div className={V2_STATE} data-node-id="199703:39376">
+                <div className={V2_GLYPH} data-node-id="199703:38732" data-name="Valve status">
+                  {/* Figma wraps the export in an `inset-[-3.98%…]` bleed box
+                      that exists only because the export bakes the stroke
+                      outside the artwork's bounds. Our vector draws inside
+                      its viewBox, so it fills the Group box directly; the box
+                      itself is the node's, to the thousandth. */}
+                  <div className={V2_GLYPH_BOX} data-name="Group">
+                    <ValveStatus
+                      state={isOpen ? 'open' : 'closed'}
+                      className="absolute inset-0 block size-full"
+                      preserveAspectRatio="none"
+                    />
+                  </div>
+                </div>
+                <p className={V2_VALUE} dir="auto" data-node-id="199703:38733">
+                  {value}
+                </p>
+              </div>
+
+              {/* The auto-shutoff panel — a clock when it is armed and there
+                  is something to count down to, the state badge otherwise.
+                  NOT both: the node draws one or the other, and a badge
+                  reading "On" beside a running clock says the same thing
+                  twice. */}
+              <div className={V2_PANEL} data-node-id="199703:39351">
+                <div className={V2_PANEL_ROW} data-node-id="199703:39353" data-name="Row">
+                  <p className={V2_PANEL_LABEL} dir="auto" data-node-id="199703:39354">
+                    {panelLabel}
+                  </p>
+                </div>
+                <div className="content-stretch flex items-end relative shrink-0" data-node-id="199703:39362">
+                  {showClock ? (
+                    <ClockCountdown
+                      key={`${activatesIn.minutes}:${activatesIn.seconds}`}
+                      minutes={activatesIn.minutes}
+                      seconds={activatesIn.seconds}
+                    />
+                  ) : (
+                    <div className={V2_BADGE} data-node-id="199703:42066" data-name="Badge">
+                      {/* The node's leftIcon is a Location Dot, which this
+                          project already owns at the same three radii — so
+                          it is reused and only tinted, red when auto-shutoff
+                          will NOT fire and green when it will. */}
+                      <LocationDot
+                        size={14.52}
+                        className={cn('shrink-0', autoCloseOff ? 'text-red-500' : 'text-green-700')}
+                      />
+                      <p className={V2_BADGE_TEXT}>{autoCloseState}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 199703:42035 — the Disabled state's warning. Drawn only when
+                auto-shutoff is off, which is the only state the frame draws
+                it in: on an armed valve there is nothing to warn about. */}
+            {autoCloseOff && showAttention ? (
+              <div className={V2_ATTN} data-node-id="199703:42035">
+                <div className={V2_ATTN_INNER} data-node-id="199703:42045">
+                  <div className={V2_ATTN_ROW} data-node-id="199703:42046">
+                    <div className={V2_ATTN_ICON} data-node-id="199703:42047" data-name="rightIcon">
+                      <div
+                        className="relative shrink-0 size-[12px] text-red-500"
+                        data-node-id="199703:42048"
+                        data-name="Phosphor Icons / warning"
+                      >
+                        <WarningGlyph />
+                      </div>
+                    </div>
+                    <p className={V2_ATTN_LABEL} data-node-id="199703:42049">
+                      {attentionLabel}
+                    </p>
+                  </div>
+                  <p className={V2_ATTN_BODY} data-node-id="199703:42050">
+                    {attentionBody}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {/* 199703:38734 — full width, under the row. As a READOUT the action
+              is omitted entirely rather than disabled: a greyed button still
+              reads as "you may do this here", and the point is that the
+              control lives elsewhere on that surface. */}
+          {interactive ? (
+            <button
+              type="button"
+              onClick={() => onToggle?.(isOpen ? 'closed' : 'open')}
+              className={V2_BTN}
+              data-node-id="199703:38734"
+              data-name="Button"
+            >
+              <p className={V2_BTN_TEXT}>{action}</p>
+            </button>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={cn(chassis, className)} data-node-id={NODE.card} data-name="IOT overview" {...props}>
