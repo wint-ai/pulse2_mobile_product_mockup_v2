@@ -1,9 +1,39 @@
+/**
+ * Switch profile — /select.
+ *
+ * THIS SCREEN IS LIVE, not dead code. It is reached from two places inside
+ * the app: WintSidebarV2.jsx's profile row (`go('/select')`) and
+ * AccountScreenV2.jsx's "Switch profile" button (`navigate('/select')`), and
+ * routeSmoke.dom.test.jsx mounts it as one of its route cases. It sits inside
+ * LoginGate, so it is only reachable once a persona has already been picked —
+ * which is exactly what it is for.
+ *
+ * It was a near-duplicate of the sign-in picker in App.jsx with its own copy,
+ * its own card markup and its own hardcoded palette. Rebuilt 2026-10-26
+ * alongside the sign-in screen:
+ *   • the card is now the shared <PersonaPickerList> (src/components/
+ *     PersonaPicker.jsx), so the two pickers cannot drift again;
+ *   • the same three roles, no human names, from LISTED_PERSONAS;
+ *   • tokens only — the old `#F7F7F8` ground, the `#1E3A5F → #04ADEF` hero
+ *     and the `#F5F3FF`/`#7C3AED` Wint chip were frozen under every theme;
+ *   • the copy is translated. It was hardcoded English on a screen that
+ *     ships Hebrew with RTL, which was a real gap: `login.choose_profile`
+ *     and `login.choose_profile_sub` are new keys in en.json AND he.json.
+ *
+ * It deliberately does NOT reuse `login.sign_in_as`. That string is
+ * routeSmoke's GATE_MARKER (routeSmoke.dom.test.jsx:74) — if it appeared on
+ * /select, the smoke case for this very route would read it as "the login
+ * gate is showing" and fail.
+ */
+
 import { useNavigate } from 'react-router-dom';
-import { PERSONAS } from '../data/personas';
+import { useTranslation } from 'react-i18next';
+import { PersonaPickerList } from '../components/PersonaPicker';
 import { useUserContext } from '../context/UserContext';
 
 export default function PersonaSelect() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { setPersona } = useUserContext();
 
   function selectPersona(persona) {
@@ -12,127 +42,47 @@ export default function PersonaSelect() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: '#F7F7F8' }}>
+    <div className="flex min-h-0 flex-1 flex-col font-sans">
 
-      {/* Header */}
-      <div style={{
-        background: 'linear-gradient(160deg, #1E3A5F 0%, #04ADEF 100%)',
-        padding: '36px 24px 28px',
-        flexShrink: 0,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: 'rgba(255,255,255,.15)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18,
-          }}>💧</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', letterSpacing: '-0.5px' }}>Pulse2</div>
+      {/* Header band. `bg-primary` rather than the old navy→cyan literal, so
+          it follows the theme; the white wordmark is the shipped cut and is
+          legible on --primary in all four. */}
+      <div className="shrink-0 bg-primary px-6 pt-9 pb-7 text-primary-foreground">
+        <img
+          src={`${import.meta.env.BASE_URL}wint-logo-white.svg`}
+          alt="WINT"
+          className="mb-[14px] h-auto w-[86px]"
+        />
+        <div className="font-bold tracking-[-0.3px] text-[16px] leading-[22px]">
+          {t('login.choose_profile')}
         </div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', letterSpacing: '-0.3px', marginBottom: 4 }}>
-          Choose your profile
-        </div>
-        <div style={{ fontSize: 14, color: 'rgba(255,255,255,.65)', fontWeight: 400 }}>
-          Demo mode · Tap a profile to continue
+        <div className="mt-1 text-primary-foreground/70 text-[14px] leading-[19px]">
+          {t('login.choose_profile_sub')}
         </div>
       </div>
 
-      {/* Persona list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 24px' }}>
+      {/* Profiles */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-[18px] pt-4 pb-6">
 
-        {/* Switch-profile hint — reminds reviewers that they can swap between
-            these personas at any time by tapping the More tab at the bottom
-            of the app. Sits above the customer-users section so it's the
-            first thing the reader sees. */}
-        <div style={{
-          background: 'rgba(4,173,239,0.08)',
-          border: '1px solid rgba(4,173,239,0.25)',
-          borderRadius: 12,
-          padding: '10px 12px',
-          marginBottom: 16,
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 10,
-        }}>
+        {/* Switch-profile hint — carried over from the previous version; it is
+            what tells a reviewer this screen exists at all. */}
+        <div className="mb-4 flex items-start gap-[10px] rounded-[12px] border border-solid border-primary/25 bg-secondary px-3 py-[10px]">
           <span
-            className="material-symbols-outlined"
-            style={{ fontSize: 18, color: '#036AB5', marginTop: 1, fontVariationSettings: "'FILL' 1", flexShrink: 0 }}
-          >info</span>
-          <div style={{ fontSize: 13, color: '#14151A', lineHeight: 1.45 }}>
-            Press <span style={{ fontWeight: 700 }}>More</span> in the bottom tab bar at any time to switch to a different profile.
-          </div>
+            className="mt-px size-[18px] shrink-0 rounded-full bg-primary text-center font-bold text-primary-foreground text-[13px] leading-[18px]"
+            aria-hidden="true"
+          >i</span>
+          <div
+            className="min-w-0 flex-1 text-slate-900 text-[13px] leading-[1.45]"
+            dangerouslySetInnerHTML={{ __html: t('login.switch_profile_hint') }}
+          />
         </div>
 
-        {/* Section: Customer users */}
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#717684', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8, paddingLeft: 2 }}>
-          Customer users
-        </div>
-        {PERSONAS.filter(p => !p.isWint).map(p => (
-          <PersonaCard key={p.id} persona={p} onSelect={selectPersona} />
-        ))}
+        <PersonaPickerList onSelect={selectPersona} />
 
-        {/* Section: Wint users */}
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#717684', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8, marginTop: 18, paddingLeft: 2 }}>
-          Wint staff
-        </div>
-        {PERSONAS.filter(p => p.isWint).map(p => (
-          <PersonaCard key={p.id} persona={p} onSelect={selectPersona} />
-        ))}
-
-        <div style={{ fontSize: 13, color: '#717684', textAlign: 'center', marginTop: 24, lineHeight: 1.5 }}>
-          Pulse2 by Wint Water Intelligence · Demo prototype
+        <div className="mt-6 text-center text-slate-400 text-[13px] leading-[1.5]">
+          {t('login.footer')}
         </div>
       </div>
-    </div>
-  );
-}
-
-function PersonaCard({ persona: p, onSelect }) {
-  return (
-    <div
-      onClick={() => onSelect(p)}
-      style={{
-        background: '#fff',
-        borderRadius: 14,
-        marginBottom: 9,
-        cursor: 'pointer',
-        border: '0.5px solid #DEE0E3',
-        borderLeft: `4px solid ${p.color}`,
-        padding: '13px 14px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-      }}
-    >
-      {/* Icon */}
-      <div style={{
-        width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-        background: p.bg,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 20,
-      }}>
-        {p.icon}
-      </div>
-
-      {/* Text */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#14151A', letterSpacing: '-0.2px' }}>
-            {p.name}
-          </span>
-          {p.isWint && (
-            <span style={{
-              fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 5,
-              background: '#F5F3FF', color: '#7C3AED', letterSpacing: '.3px', textTransform: 'uppercase',
-            }}>Wint</span>
-          )}
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: p.color, marginBottom: 2 }}>{p.role}</div>
-        <div style={{ fontSize: 13, color: '#717684' }}>{p.sub}</div>
-        <div style={{ fontSize: 13, color: '#717684', marginTop: 3, lineHeight: 1.4 }}>{p.description}</div>
-      </div>
-
-      <span style={{ fontSize: 16, color: '#D1D5DB', flexShrink: 0 }}>›</span>
     </div>
   );
 }

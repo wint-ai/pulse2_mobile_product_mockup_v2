@@ -351,6 +351,8 @@
   },
   "login": {
     "sign_in_as": "Sign in as",
+    "choose_profile": "Choose your profile",
+    "choose_profile_sub": "Demo mode · Tap a profile to continue",
     "demo_subline": "Demo mode · pick a profile to continue",
     "customer_users": "Customer users",
     "wint_staff": "Wint staff",

@@ -17,6 +17,28 @@
 // The previous Suffolk / Heathrow / CBRE / Tidhar personas were dropped with
 // their fixtures. git history has them.
 
+// ── WHAT THE PICKERS SHOW vs WHAT EXISTS ──────────────────────────────────
+// 2026-10-26, owner's ask: the sign-in screen shows exactly three roles —
+// Facility Manager, Account Manager, Tenant — and no human names.
+//
+// That is a change to the *picker*, not to the model. `listed` is the only
+// thing it touches: an unlisted persona keeps its id, its scope, its
+// systemFilter and its fixtures, and stays reachable three ways —
+//   • localStorage `pulse2-persona-id` (how every DOM test selects one, and
+//     how browser verification pins `wint-admin`),
+//   • the Push Simulator's persona dropdown (ControlPanel.jsx), which still
+//     iterates the full PERSONAS list on purpose,
+//   • getPersonaById(), which is unchanged.
+// Nothing was deleted. v2-page-parity Rule 0 covers the scopes behind these
+// personas; the owner authorised shortening the list, not dropping them.
+//
+// `location-manager` is the one the owner's "Facility manager" maps onto: a
+// facility is a single site, and 100 Meridian Plaza is the one commercial
+// site in the dataset with a heterogeneous system mix (basement/main supply,
+// roof tank feed, two domestic-hot-water loops), a closed valve, an AC Power
+// Lost alert and a Low Flow water event. Its `role` is relabelled; its id,
+// scope and filter are untouched.
+
 import { ROOT_ACCOUNT_ID } from './upstream/buildTree';
 
 // Real upstream ids, so a persona's scope resolves to the same records the web
@@ -42,6 +64,8 @@ export const DEFAULT_PERSONA = {
   // is this repo's pale informational wash and themes with the drawer. It is
   // #f2f6ff in `light`, 3 units off the lavender it replaces.
   bg: 'var(--accent)',
+  // Unlisted: Wint staff is not one of the three roles the picker shows.
+  listed: false,
   isWint: true,
   homePath: '/',
   tabMode: 'manager',
@@ -63,6 +87,7 @@ export const PERSONAS = [
     icon: '🏠',
     color: '#A1D246',
     bg: '#F0FDF4',
+    listed: true,
     isWint: false,
     homePath: '/tenant',
     tabMode: 'tenant',
@@ -79,6 +104,7 @@ export const PERSONAS = [
     icon: '🏠',
     color: '#A1D246',
     bg: '#F0FDF4',
+    listed: false,
     isWint: false,
     homePath: '/tenant',
     tabMode: 'tenant',
@@ -98,6 +124,7 @@ export const PERSONAS = [
     icon: '🏢',
     color: '#8B5CF6',
     bg: 'var(--accent)',   // see DEFAULT_PERSONA: `bg` is a surface, not an identity mark
+    listed: false,
     isWint: false,
     homePath: '/',
     tabMode: 'manager',
@@ -106,7 +133,10 @@ export const PERSONAS = [
   {
     id: 'location-manager',
     name: 'Dana Whitfield',
-    role: 'Location Manager',
+    // Relabelled from 'Location Manager' 2026-10-26 — see the header note.
+    // The id stays `location-manager`: it is the key the tests, the simulator
+    // and localStorage address, and renaming it would be a real removal.
+    role: 'Facility Manager',
     sub: '100 Meridian Plaza',
     description: 'Manages a single commercial site. Mix of supply lines, cooling tower makeup and hot water systems.',
     email: 'd.whitfield@meridianrealty.com',
@@ -114,6 +144,7 @@ export const PERSONAS = [
     icon: '🏢',
     color: '#04ADEF',
     bg: '#EFF6FF',
+    listed: true,
     isWint: false,
     homePath: '/',
     tabMode: 'manager',
@@ -130,6 +161,7 @@ export const PERSONAS = [
     icon: '🏢',
     color: '#04ADEF',
     bg: '#EFF6FF',
+    listed: false,
     isWint: false,
     homePath: '/',
     tabMode: 'manager',
@@ -146,6 +178,7 @@ export const PERSONAS = [
     icon: '🌐',
     color: '#0D9488',
     bg: '#F0FDFA',
+    listed: true,
     isWint: false,
     homePath: '/',
     tabMode: 'manager',
@@ -156,6 +189,23 @@ export const PERSONAS = [
 
   DEFAULT_PERSONA,
 ];
+
+/**
+ * The personas the two demo pickers draw — the sign-in screen (App.jsx) and
+ * the switch-profile screen (screens/PersonaSelect.jsx). Derived from
+ * PERSONAS so the two can never drift, and so a persona is shown or hidden in
+ * exactly one place.
+ *
+ * The order is the owner's, not the array's: widest scope first (a facility,
+ * then an account, then one apartment), which is also the order he wrote them
+ * in. PERSONAS itself is grouped tenants-then-managers and must not be
+ * reordered — getPersonaById and the simulator's dropdown both read it.
+ */
+const PICKER_ORDER = ['location-manager', 'account-manager-subaccount', 'tenant-1apt'];
+
+export const LISTED_PERSONAS = PERSONAS
+  .filter(p => p.listed)
+  .sort((a, b) => PICKER_ORDER.indexOf(a.id) - PICKER_ORDER.indexOf(b.id));
 
 export { ROOT_ACCOUNT_ID };
 

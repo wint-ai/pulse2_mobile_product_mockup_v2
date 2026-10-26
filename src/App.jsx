@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { ChevronRight, Info, Link2, QrCode, X } from 'lucide-react';
 import Phone from './components/Phone';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { PersonaPickerList } from './components/PersonaPicker';
 import { UserProvider, useUserContext } from './context/UserContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { PERSONAS } from './data/personas';
 
 import PersonaSelect from './screens/PersonaSelect';
 import ControlPanel from './screens/ControlPanel';
@@ -290,127 +293,119 @@ function LoginGate({ children }) {
 
   if (authed) return children;
 
-  // Login screen — persona picker
+  /* The sign-in screen — the persona picker.
+   *
+   * REBUILT 2026-10-26 onto the v2 token layer. Two things were wrong with
+   * the version this replaces, beyond its age:
+   *
+   *  1. It painted itself `background:'#fff'` and drew its chips from frozen
+   *     `#F5F3FF` / `#7C3AED`, so it was the one screen in the app that could
+   *     not follow a theme — and it is the FIRST screen a reviewer sees.
+   *     There is no background declared here now: Phone.jsx paints --app-bg
+   *     behind it, and index.html stamps data-theme on <html> before first
+   *     paint, so the tokens below resolve even though this renders ahead of
+   *     the app gate. `?theme=contrast` is the check — nothing on this screen
+   *     may sit still under it.
+   *  2. It split PERSONAS on `isWint` into "Customer users" / "WINT STAFF"
+   *     sections. The owner's ask (2026-10-26) is three roles and no human
+   *     names, so there is one flat list and the section headers are gone.
+   *     `login.customer_users` / `login.wint_staff` are left in en.json and
+   *     he.json rather than deleted — they cost nothing, the two files stay
+   *     line-aligned, and the split is a decision that could come back.
+   *
+   * The sheet below is deliberately NOT a Radix <Sheet>: Radix portals to
+   * document.body and escapes Phone.jsx's 393x852 overflow-hidden frame —
+   * the failure src/v2/components/ValveConfirmSheet.jsx:17-25 documents.
+   * This one is position:absolute inside the frame and stays put.
+   */
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0,
-      background: '#fff',
-      fontFamily: 'Inter, -apple-system, sans-serif',
-      maxWidth: 500, width: '100%', margin: '0 auto',
-      position: 'relative',
-    }}>
-      {/* Push-simulator paired chip - shown at top when ?p= was in URL or
-          user manually entered a code via the Connect sheet. */}
+    <div className="relative mx-auto flex min-h-0 w-full max-w-[500px] flex-1 flex-col font-sans">
+      {/* Push-simulator paired chip — shown at top when ?p= was in the URL or
+          the user entered a code via the Connect sheet. */}
       {pairCode && (
-        <div style={{
-          background: 'linear-gradient(90deg, #5C9E1A 0%, #2F6112 100%)',
-          color: '#fff',
-          padding: '8px 12px',
-          fontSize: 12,
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-        }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 16, fontVariationSettings: "'FILL' 1" }}>link</span>
-          <div style={{ flex: 1, lineHeight: 1.3 }}>
+        <div className="flex items-center gap-2 bg-success px-3 py-2 text-success-foreground">
+          <Link2 className="size-4 shrink-0" aria-hidden="true" />
+          <div className="min-w-0 flex-1 font-semibold text-[12px] leading-[1.3]">
             {t('login.paired_with_pusher')}
-            <div style={{ fontSize: 10, opacity: 0.85, marginTop: 1, fontWeight: 500 }}>
-              {t('login.code_label')} <code style={{ background: 'rgba(255,255,255,0.18)', padding: '0 4px', borderRadius: 3 }}>{pairCode}</code> · {t('login.paired_desc')}
+            <div className="mt-px font-medium text-[10px] opacity-85">
+              {t('login.code_label')}{' '}
+              <code className="rounded-[3px] bg-success-foreground/20 px-1">{pairCode}</code>
+              {' · '}
+              {t('login.paired_desc')}
             </div>
           </div>
-          <span
+          <button
+            type="button"
             onClick={dismissPair}
-            style={{ fontSize: 16, opacity: 0.8, cursor: 'pointer', padding: '0 4px' }}
-          >✕</span>
+            aria-label={t('common.cancel')}
+            className="shrink-0 cursor-pointer p-1 opacity-80 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
         </div>
       )}
 
-      {/* WINT logo + blue line */}
-      <div style={{ textAlign: 'center', padding: '24px 0 0', display: 'flex', justifyContent: 'center' }}>
-        <WintLogo width={110} />
+      {/* WINT wordmark + brand rule */}
+      <div className="flex justify-center pt-6">
+        <LoginWintLogo />
       </div>
-      <div style={{ height: 3, background: 'linear-gradient(90deg, #0B95F8, #4CC9F0)', margin: '14px 28px 0', borderRadius: 2 }} />
+      <div className="mx-7 mt-[14px] h-[3px] rounded-[2px] bg-gradient-to-r from-primary to-primary/40" />
 
-      {/* Picker header */}
-      <div style={{ padding: '20px 24px 4px' }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#14151A', letterSpacing: '-0.3px' }}>{t('login.sign_in_as')}</div>
-        <div style={{ fontSize: 13, color: '#717684', marginTop: 2 }}>{t('login.demo_subline')}</div>
+      {/* Picker header. 'Sign in as' is load-bearing beyond the design:
+          routeSmoke.dom.test.jsx:74 uses it as a GATE_MARKER to prove the test
+          seeding still works, so the copy stays exactly as it is. */}
+      <div className="px-6 pt-5 pb-1">
+        <div className="font-bold tracking-[-0.3px] text-slate-900 text-[18px] leading-[24px]">
+          {t('login.sign_in_as')}
+        </div>
+        <div className="mt-[2px] text-slate-500 text-[13px] leading-[18px]">
+          {t('login.demo_subline')}
+        </div>
       </div>
 
-      {/* Customer personas */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 18px 24px' }}>
+      <div className="min-h-0 flex-1 overflow-y-auto px-[18px] pt-3 pb-6">
 
-        {/* Connect to push simulator — discreet link at TOP of the persona list
-            for the case where the user opened the app from a PWA icon without
-            the ?p= URL param. Hidden when already paired. */}
+        {/* Connect to push simulator — discreet link above the profiles, for
+            the case where the app was opened from a PWA icon without the ?p=
+            URL param. Hidden once paired. */}
         {!pairCode && (
-          <div
+          <button
+            type="button"
             onClick={() => setShowConnectSheet(true)}
-            style={{
-              padding: '10px 12px',
-              border: '1px dashed #BCC3CE',
-              borderRadius: 10,
-              display: 'flex', alignItems: 'center', gap: 10,
-              background: 'rgba(245,246,248,0.5)',
-              cursor: 'pointer',
-              margin: '6px 0 12px',
-            }}
+            className="mt-[6px] mb-3 flex w-full cursor-pointer items-center gap-[10px] rounded-[12px] border border-dashed border-border-strong bg-muted/60 px-3 py-[10px] text-start outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#717684', fontVariationSettings: "'FILL' 1" }}>qr_code_scanner</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#14151A' }}>{t('login.connect_pusher')}</div>
-              <div style={{ fontSize: 11, color: '#717684', marginTop: 1 }}>{t('login.connect_pusher_desc')}</div>
-            </div>
-            <span style={{ fontSize: 16, color: '#D1D5DB' }}>›</span>
-          </div>
+            <QrCode className="size-[18px] shrink-0 text-slate-500" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-bold text-slate-900 text-[12.5px] leading-[17px]">
+                {t('login.connect_pusher')}
+              </span>
+              <span className="mt-px block truncate text-slate-500 text-[11px] leading-[15px]">
+                {t('login.connect_pusher_desc')}
+              </span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-slate-400 rtl:rotate-180" aria-hidden="true" />
+          </button>
         )}
 
-        {/* Switch-profile hint — reminds reviewers that they can swap between
-            these personas at any time by tapping the More tab at the bottom
-            of the app. Sits above the customer-users section so it's the
-            first thing the reader sees on the login screen. */}
-        <div style={{
-          background: 'rgba(4,173,239,0.08)',
-          border: '1px solid rgba(4,173,239,0.25)',
-          borderRadius: 12,
-          padding: '10px 12px',
-          margin: '6px 0 14px',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: 10,
-        }}>
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: 18, color: '#036AB5', marginTop: 1, fontVariationSettings: "'FILL' 1", flexShrink: 0 }}
-          >info</span>
+        {/* Switch-profile hint — reminds reviewers they can swap profiles at
+            any time from the More tab. */}
+        <div className="mt-[6px] mb-[14px] flex items-start gap-[10px] rounded-[12px] border border-solid border-primary/25 bg-secondary px-3 py-[10px]">
+          <Info className="mt-px size-[18px] shrink-0 text-primary" aria-hidden="true" />
           <div
-            style={{ fontSize: 13, color: '#14151A', lineHeight: 1.45 }}
+            className="min-w-0 flex-1 text-slate-900 text-[13px] leading-[1.45]"
             dangerouslySetInnerHTML={{ __html: t('login.switch_profile_hint') }}
           />
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#9DA3AE', textTransform: 'uppercase', letterSpacing: '.5px', margin: '6px 4px 8px' }}>
-          {t('login.customer_users')}
-        </div>
-        {PERSONAS.filter(p => !p.isWint).map(p => (
-          <LoginPersonaCard key={p.id} persona={p} onSelect={handlePickPersona} />
-        ))}
+        <PersonaPickerList onSelect={handlePickPersona} />
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#9DA3AE', textTransform: 'uppercase', letterSpacing: '.5px', margin: '18px 4px 8px' }}>
-          {t('login.wint_staff')}
-        </div>
-        {PERSONAS.filter(p => p.isWint).map(p => (
-          <LoginPersonaCard key={p.id} persona={p} onSelect={handlePickPersona} />
-        ))}
-
-        <div style={{ fontSize: 12, color: '#9DA3AE', textAlign: 'center', marginTop: 20, lineHeight: 1.5 }}>
+        <div className="mt-5 text-center text-slate-400 text-[12px] leading-[1.5]">
           {t('login.footer')}
         </div>
       </div>
 
       {/* Connect-to-pusher bottom sheet — manual pair fallback when the user
-          didn't arrive via ?p= URL. Backdrop tap or Cancel closes. */}
+          didn't arrive via ?p=. Backdrop tap or Cancel closes. */}
       {showConnectSheet && (
         <PairConnectSheet
           onSubmit={submitPairCode}
@@ -421,129 +416,104 @@ function LoginGate({ children }) {
   );
 }
 
-// Bottom sheet — Connect to push simulator. Backdrop blur + sheet at bottom.
-// Submit accepts a 5-6 char code typed by the user (matching the laptop QR).
+/**
+ * The wordmark on the sign-in screen, themed.
+ *
+ * public/wint-logo.svg is a navy #20294C mark; on `dark` and on `contrast` it
+ * measures ~1.3:1 against the ground behind it. public/wint-logo-white.svg is
+ * the shipped white cut. The swap is CSS on [data-theme] rather than on
+ * state, so it happens at paint time and needs no re-render — the same
+ * mechanism WintSidebarV2.jsx uses, restated here because this screen renders
+ * long before the sidebar exists. `sand` is a light theme and keeps the navy
+ * mark.
+ *
+ * currentColor is not an option: an external SVG loaded through <img> has no
+ * CSS context into the file. The plain WintLogo above is deliberately left
+ * alone — PasswordGate still paints a literal white panel, so a white mark
+ * there would vanish.
+ */
+function LoginWintLogo() {
+  return (
+    <>
+      <img
+        src={`${import.meta.env.BASE_URL}wint-logo.svg`}
+        alt="WINT"
+        className="h-auto w-[110px] [[data-theme=contrast]_&]:hidden [[data-theme=dark]_&]:hidden"
+      />
+      <img
+        src={`${import.meta.env.BASE_URL}wint-logo-white.svg`}
+        alt="WINT"
+        className="hidden h-auto w-[110px] [[data-theme=contrast]_&]:block [[data-theme=dark]_&]:block"
+      />
+    </>
+  );
+}
+
+/* Bottom sheet — Connect to push simulator. Backdrop + sheet at the bottom.
+   Submit accepts the 5-6 char code shown beside the laptop's QR.
+
+   NOT a Radix <Sheet>, on purpose — see the note on the screen above: a Radix
+   portal escapes Phone.jsx's 393x852 overflow-hidden frame. This is a plain
+   absolutely-positioned layer inside it. */
 function PairConnectSheet({ onSubmit, onCancel }) {
   const { t } = useTranslation();
   const [code, setCode] = useState('');
   return (
     <div
       onClick={onCancel}
-      style={{
-        position: 'absolute', inset: 0,
-        background: 'rgba(20,21,26,0.4)',
-        backdropFilter: 'blur(2px)',
-        zIndex: 100,
-        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-      }}
+      className="absolute inset-0 z-[100] flex flex-col justify-end bg-scrim backdrop-blur-[2px]"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          background: '#fff',
-          borderTopLeftRadius: 22, borderTopRightRadius: 22,
-          padding: '12px 0 24px',
-          boxShadow: '0 -6px 24px rgba(0,0,0,0.16)',
-        }}
+        className="rounded-t-[22px] bg-card pt-3 pb-6 shadow-[0_-6px_24px_rgba(0,0,0,0.16)]"
       >
-        <div style={{ width: 36, height: 4, background: '#DEE0E3', borderRadius: 2, margin: '0 auto 14px' }}></div>
-        <div style={{ padding: '0 20px' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#14151A' }}>{t('login.connect_pusher')}</div>
-          <div style={{ fontSize: 12.5, color: '#717684', marginTop: 4, lineHeight: 1.45 }}>
+        <div className="mx-auto mb-[14px] h-1 w-9 rounded-[2px] bg-border-subtle" />
+        <div className="px-5">
+          <div className="font-bold text-slate-900 text-[16px] leading-[22px]">
+            {t('login.connect_pusher')}
+          </div>
+          <div className="mt-1 text-slate-500 text-[12.5px] leading-[1.45]">
             {t('login.connect_pusher_long_desc')}
           </div>
         </div>
-        <div style={{ margin: '16px 20px 0' }}>
-          <div style={{ fontSize: 11, color: '#717684', fontWeight: 600, marginBottom: 6 }}>{t('login.enter_code')}</div>
-          <input
+        <div className="mx-5 mt-4">
+          <div className="mb-[6px] font-semibold text-slate-500 text-[11px] leading-[15px]">
+            {t('login.enter_code')}
+          </div>
+          <Input
             autoFocus
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             onKeyDown={(e) => { if (e.key === 'Enter') onSubmit(code); }}
             placeholder="7K-3Q9"
             maxLength={8}
-            style={{
-              width: '100%', padding: '12px 14px',
-              border: '1.5px solid #DEE0E3', borderRadius: 10,
-              fontSize: 18, fontWeight: 700,
-              letterSpacing: 4, textAlign: 'center',
-              fontFamily: 'SF Mono, Menlo, monospace',
-              color: '#14151A', outline: 'none',
-              boxSizing: 'border-box',
-            }}
+            className="h-auto rounded-[10px] border-[1.5px] border-border-strong px-[14px] py-3 text-center font-mono-label font-bold text-slate-900 text-[18px] tracking-[4px] md:text-[18px]"
           />
         </div>
-        <div style={{ margin: '16px 20px 0', display: 'flex', gap: 10 }}>
-          <button
+        <div className="mx-5 mt-4 flex gap-[10px]">
+          <Button
+            variant="outline"
             onClick={onCancel}
-            style={{
-              flex: 1, padding: 12, borderRadius: 10,
-              background: 'transparent', border: '1px solid #DEE0E3',
-              fontSize: 14, fontWeight: 600, color: '#4A4F5A',
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >{t('common.cancel')}</button>
-          <button
+            className="h-auto flex-1 cursor-pointer rounded-[10px] py-3 font-semibold text-[14px]"
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button
             onClick={() => onSubmit(code)}
             disabled={!code.trim()}
-            style={{
-              flex: 1, padding: 12, borderRadius: 10,
-              background: code.trim() ? '#0B95F8' : '#E8EAED',
-              color: code.trim() ? '#fff' : '#9DA3AE',
-              border: 'none',
-              fontSize: 14, fontWeight: 700,
-              cursor: code.trim() ? 'pointer' : 'not-allowed',
-              fontFamily: 'inherit',
-            }}
-          >{t('login.connect')}</button>
+            className="h-auto flex-1 cursor-pointer rounded-[10px] py-3 font-bold text-[14px]"
+          >
+            {t('login.connect')}
+          </Button>
         </div>
       </div>
     </div>
   );
 }
 
-// Persona card on the login screen — tap to log in as that persona.
-function LoginPersonaCard({ persona: p, onSelect }) {
-  return (
-    <div
-      onClick={() => onSelect(p)}
-      style={{
-        background: '#fff',
-        borderRadius: 12,
-        marginBottom: 8,
-        cursor: 'pointer',
-        border: '1px solid #E5E8EE',
-        borderLeft: `4px solid ${p.color}`,
-        padding: '12px 13px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 11,
-        boxShadow: '0 1px 3px rgba(20,21,26,0.04)',
-      }}
-    >
-      <div style={{
-        width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-        background: p.bg,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 18,
-      }}>{p.icon}</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 1 }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#14151A', letterSpacing: '-0.2px' }}>{p.name}</span>
-          {p.isWint && (
-            <span style={{
-              fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4,
-              background: '#F5F3FF', color: '#7C3AED', letterSpacing: '.3px', textTransform: 'uppercase',
-            }}>Wint</span>
-          )}
-        </div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: p.color, marginBottom: 1 }}>{p.role}</div>
-        <div style={{ fontSize: 12, color: '#717684' }}>{p.sub}</div>
-      </div>
-      <span style={{ fontSize: 16, color: '#D1D5DB', flexShrink: 0 }}>›</span>
-    </div>
-  );
-}
+/* The persona card that used to live here is now
+   src/components/PersonaPicker.jsx, shared with screens/PersonaSelect.jsx so
+   the two pickers cannot drift apart again. */
 
 function AppShell() {
   const location = useLocation();

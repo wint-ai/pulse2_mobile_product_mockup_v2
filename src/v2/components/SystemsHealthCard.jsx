@@ -739,7 +739,7 @@ export default function SystemsHealthCard({
           Systems types
         </p>
         <div className="flex w-full flex-wrap items-center gap-x-[20px]">
-          <SystemTypeChip glyph={<PhotoSensor3 size={16.842} />} label="Topology" count={topology} />
+          <SystemTypeChip glyph={<PhotoSensor3 size={16.842} />} label="Flow Monitoring" count={topology} />
           <SystemTypeChip glyph={<FloodLine size={16} />} label="Flood" count={flood} />
           <SystemTypeChip glyph={<BrandDrops size={16} />} label="Humidity" count={humidity} />
         </div>
