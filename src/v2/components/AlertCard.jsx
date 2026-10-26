@@ -215,7 +215,14 @@ const FIG_LABEL = String.raw`font-sans font-normal leading-[16.5px] overflow-hid
 /* 199683:24887 — Detected on the left, Event ID on the right. Named
    OVERLAY_META_* because this file already has a META_ROW for other variants
    and it is a different row. */
-const OVERLAY_META_ROW = String.raw`content-stretch flex items-center justify-between relative shrink-0 w-full`
+/* 199683:24887 is one row of 334px: Detected takes 194 and Event ID 128,
+   which fits the node's own timestamp and nothing longer. Ours is a real
+   clock on a 393 frame, and the two groups ran into each other — the copy
+   control was the first thing pushed off the edge.
+   `flex-wrap` + a row gap lets Event ID drop to its own line instead, and
+   the Detected group may shrink; the id group never does, because a
+   truncated id cannot be read out or copied. */
+const OVERLAY_META_ROW = String.raw`content-stretch flex flex-wrap gap-x-[12px] gap-y-[6px] items-center justify-between relative shrink-0 w-full`
 const OVERLAY_META_LABEL = String.raw`font-sans font-normal leading-[16.5px] relative shrink-0 text-slate-500 text-xs whitespace-nowrap`
 const OVERLAY_META_VALUE = String.raw`font-sans font-medium leading-5 relative shrink-0 text-slate-900 text-sm whitespace-nowrap`
 const OVERLAY_ID_PILL = String.raw`bg-slate-100 content-stretch flex items-center justify-center relative rounded-[5px] shrink-0 w-[58px]`
@@ -349,6 +356,13 @@ const MOCK_EVENT = {
   detectIn: null,
   shutoffIn: null,
   detectShare: 50,
+  /* The strip is OFF by default since 2026-10-26 — owner, looking at it:
+     "why i still see this bar here?". Kept behind a flag rather than deleted,
+     same as the Attention block: the research behind it stands (these are
+     milestone-anchored durations, and two of them is a sequence), and the
+     only question it failed is whether this card is where they belong.
+     `showResponse` brings it back with no rebuild. */
+  showResponse: false,
   eventIdLabel: 'Event ID',
   eventId: 'Ik-6598',
   page: 1,
@@ -681,7 +695,7 @@ export default function AlertCard({
               An event still running gets a hatched, open-ended second segment
               instead of a fake duration: it has no end yet, and drawing one
               would be the only lie on this card. */}
-          {data.detectIn || data.shutoffIn ? (
+          {data.showResponse && (data.detectIn || data.shutoffIn) ? (
             <div className="flex w-full flex-col gap-[4px]" data-name="Response">
               <div className="flex h-[6px] w-full overflow-hidden rounded-full bg-slate-100">
                 <div
@@ -717,11 +731,11 @@ export default function AlertCard({
 
           <div className={OVERLAY_META_ROW} data-node-id="199683:24887">
             <div
-              className="content-stretch flex gap-[4px] h-[20px] items-center relative shrink-0"
+              className="content-stretch flex min-w-0 flex-1 gap-[4px] h-[20px] items-center relative"
               data-node-id="199683:24888"
             >
               <p className={OVERLAY_META_LABEL}>{data.detectedLabel}</p>
-              <p className={OVERLAY_META_VALUE}>{data.detectedAt}</p>
+              <p className={`${OVERLAY_META_VALUE} min-w-0 truncate`}>{data.detectedAt}</p>
             </div>
             {/* Dropped rather than drawn empty when the caller has no id. */}
             {data.eventId ? (

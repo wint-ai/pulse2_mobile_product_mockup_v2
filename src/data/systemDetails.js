@@ -181,3 +181,59 @@ export function getActivePolicy(systemId) {
 export function getNextPolicy(systemId) {
   return getNextPolicyForSystem(systemId);
 }
+
+/* ── Finding notes ─────────────────────────────────────────────────────────
+ * Owner, 2026-10-26: "make sure for all systems we have photos and notes that
+ * help find the systems."
+ *
+ * The Notes field defaulted to an empty textarea on every system, so the one
+ * thing it exists for — telling the next engineer where the unit physically
+ * is — was never answered. These are the mock defaults: a user override still
+ * wins (locationInfoStore.getNotesOverride), and the moment anyone types their
+ * own, theirs is what shows.
+ *
+ * Built from the system's OWN fields where they exist — its name, its
+ * location, the device it carries — so the note names the real thing rather
+ * than generic filler. The parts no dataset of ours holds (which level, which
+ * bay, who keeps the key) are drawn from a stable hash of the system id, the
+ * same way buildAlert fabricates flowRate and volume: reproducible, varied
+ * between systems, and consistent for one system across reloads.
+ */
+const LEVELS = ['Level B2', 'Level B1', 'Ground floor', 'Level 2', 'Roof plant'];
+const ACCESS = [
+  'Access through the service corridor — key from building reception.',
+  'Access via the loading bay stair; the plant room is the second door on the left.',
+  'Door is badge-controlled — facilities can grant access on the day.',
+  'Riser cupboard is unlocked during working hours, key from the duty engineer otherwise.',
+];
+const CONTACT = [
+  'Call the site contact before isolating anything.',
+  'Tell the duty engineer before closing the valve — this line feeds occupied floors.',
+  'No notice needed out of hours; log it in the building book afterwards.',
+  'Coordinate with the FM team: this riser is shared with the floor above.',
+];
+
+function noteHash(id) {
+  let h = 0;
+  const s = String(id ?? '');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/** A findability note for a system: where it is, how to get there, who to tell. */
+export function getFindingNotes(system) {
+  if (!system) return '';
+  const h = noteHash(system.id);
+  const level = LEVELS[h % LEVELS.length];
+  const bay = 1 + ((h >> 3) % 6);
+  const access = ACCESS[(h >> 5) % ACCESS.length];
+  const contact = CONTACT[(h >> 7) % CONTACT.length];
+  const where = system.l4Name ? `${level}, bay ${bay} — ${system.l4Name}` : `${level}, bay ${bay}`;
+  const what = system.name ? `The unit sits on the ${system.name} line` : 'The unit sits on the main line';
+  return [
+    `${where}.`,
+    `${what}, about 1.2 m above the valve set — the Wint box is the white one on the wall beside it.`,
+    access,
+    contact,
+  ].join('\n');
+}

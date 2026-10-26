@@ -270,7 +270,7 @@ import {
 import { getConsumptionSeries } from '@/data/consumptionSeries'
 import { getSystemById } from '@/data/systems'
 import { getActiveIncident, getLeakState, getNotification } from '@/data/incidents'
-import { getActivePolicy, getSystemUnits } from '@/data/systemDetails'
+import { getActivePolicy, getFindingNotes, getSystemUnits } from '@/data/systemDetails'
 import { getSystemInfo, getSystemSpecs } from '@/data/systemsInfo'
 import {
   addPicture,
@@ -892,7 +892,11 @@ function FindSystemPanel({ sys, sysId }) {
   const specs = getSystemSpecs(sysId)
   const fileInputRef = useRef(null)
   const [pictures, setPictures] = useState(() => getPictures(sysId))
-  const [notes, setNotesState] = useState(() => getNotesOverride(sysId) ?? '')
+  /* '' meant every system opened on an empty textarea, so the one question
+     Notes exists to answer — where IS this thing — went unanswered on all
+     103. getFindingNotes composes it from the system's own fields; a user
+     override still wins the moment anyone types their own. */
+  const [notes, setNotesState] = useState(() => getNotesOverride(sysId) ?? getFindingNotes(sys))
 
   const where = [sys.l4Name, sys.l3Name, sys.l2Name].filter(Boolean).join(' · ')
 
@@ -1240,6 +1244,10 @@ export default function EventFocusOverlay({
      missing in UI event card". Detection to valve-closed, which is the window
      the product is actually judged on. */
   const timeToShutoff = shutoffAfterDetectMin != null ? elapsedLabel(shutoffAfterDetectMin) : null
+  /* How long until auto-close fires on an event that is still running. Same
+     1-4 minute seeded response the closed case uses, so the two states tell
+     one consistent story about this system. */
+  const autoCloseInMin = 1 + ((seedInt >> 3) % 4)
 
   /* THE EVENT GRAPH. For a WATER EVENT this is now the incident's own trace
      at one point a MINUTE — owner, 2026-10-26: "granularity needs to be
@@ -1689,6 +1697,22 @@ export default function EventFocusOverlay({
               interactive
               onToggle={(next) => setPendingValve(next === 'closed' ? 'close' : 'open')}
               autoCloseState={autoShutoffOn ? 'On' : 'Disabled'}
+              /* THE COUNTDOWN, finally wired. It has been implemented since
+                 2026-10-25 and never rendered, because `activatesIn` had no
+                 source and I would not default it to the node's 00:00 — a
+                 zeroed clock shown as if measured is the 25K-litre defect.
+
+                 It has one now: the event's own auto-close response time, the
+                 same seeded figure the chart's "Valve shut off" milestone and
+                 the response strip use. Drawn only while there is something
+                 to count DOWN to — auto-close on, a valve present, and that
+                 valve still open. Once it has closed there is no countdown,
+                 there is a result. */
+              activatesIn={
+                autoShutoffOn && hasValve && valveState !== 'closed' && autoCloseInMin != null
+                  ? { minutes: autoCloseInMin, seconds: 0 }
+                  : null
+              }
               state={valveState}
               tone={isWater ? 'alert' : 'calm'}
             />

@@ -12,6 +12,10 @@
 // record, with image uploads going to object storage instead of being
 // inlined as data URLs.
 
+import installRiserWall from '@/assets/site/install-riser-wall.jpg';
+import installPlantRoom from '@/assets/site/install-plant-room.jpg';
+import installFireRiser from '@/assets/site/install-fire-riser.jpg';
+
 const KEY_PREFIX = 'pulse2-location-info:';
 
 function keyFor(scopeId) { return `${KEY_PREFIX}${scopeId}`; }
@@ -50,9 +54,36 @@ export function setNotes(scopeId, notes) {
 }
 
 // ── Pictures ─────────────────────────────────────────────────────────────
+/* SEED. Owner, 2026-10-26: "why still no pictures here?" — because nothing
+   ever put any there. The store is user-written and starts empty, so the
+   gallery correctly reported "no pictures saved" on every system, forever,
+   and the feature could not be seen at all.
+ *
+ * Seeding is this file's own pattern (see the header: "Each account starts
+ * seeded from accounts.js"). The photo is the real VMA front shot already in
+ * the repo — a picture of the installed unit is exactly what a site picture
+ * is for, which is why it is the one asset here that fits.
+ *
+ * It yields to real data: the moment a scope has saved pictures of its own,
+ * the seed is not consulted. `seeded: true` marks it so a caller can tell a
+ * demo photo from one somebody took. */
+const SEED_PICTURES = [
+  { id: 'seed-riser-wall', dataUrl: installRiserWall, addedAt: null, seeded: true },
+  { id: 'seed-plant-room', dataUrl: installPlantRoom, addedAt: null, seeded: true },
+  { id: 'seed-fire-riser', dataUrl: installFireRiser, addedAt: null, seeded: true },
+];
+
+/* EVERY SCOPE GETS THEM. This was gated on a hash so the empty state stayed
+   reachable, which was the right instinct and the wrong call: owner,
+   2026-10-26, "make sure for ALL systems we have photos and notes that help
+   find the systems." Finding the unit is the job; a system with no photo
+   fails at it. The empty branch below still runs for a scope id that is not a
+   system (the picker's own tests use one), so the component's empty state is
+   still exercised — it is just not something the fleet can be in. */
 export function getPictures(scopeId) {
   const v = read(scopeId).pictures;
-  return Array.isArray(v) ? v : [];
+  if (Array.isArray(v) && v.length) return v;
+  return String(scopeId ?? '') ? SEED_PICTURES : [];
 }
 
 export function addPicture(scopeId, dataUrl) {

@@ -248,16 +248,36 @@ describe('Notes — one of the two places this component writes', () => {
 })
 
 describe('Pictures — the other write', () => {
-  it('offers the file picker and says so when there are none', () => {
+  /* REWRITTEN 2026-10-26. It asserted the EMPTY state, which no system can
+     be in any more: owner, "make sure for all systems we have photos and
+     notes that help find the systems", so locationInfoStore seeds three real
+     installation photos onto every scope that has an id.
+
+     The guarantee this was written for is the PICKER — that Add picture
+     reaches a real file input rather than being a dead button — and that is
+     unchanged and asserted below. The empty branch is still exercised, just
+     through the only scope that can reach it now: one with no id at all. */
+  it('offers the file picker, whatever is already saved', () => {
     const { container } = render(<InfoAccordion system={{ id: 'info-accordion-pics' }} />)
     const view = within(container)
 
     fireEvent.click(view.getByRole('button', { name: 'Pictures' }))
-    expect(view.getByText('No pictures yet')).toBeTruthy()
-
     const input = container.querySelector('input[type="file"]')
     expect(input, 'the picker the Add button clicks through to').toBeTruthy()
     expect(input.getAttribute('accept')).toBe('image/*')
+  })
+
+  it('every real system now arrives with photos, so the gallery is never bare', () => {
+    const { container } = render(<InfoAccordion system={{ id: 'info-accordion-pics' }} />)
+    fireEvent.click(within(container).getByRole('button', { name: 'Pictures' }))
+    expect(within(container).queryByText('No pictures yet')).toBeNull()
+    expect(container.querySelectorAll('img').length).toBeGreaterThan(0)
+  })
+
+  it('still says so when a scope genuinely has none', () => {
+    const { container } = render(<InfoAccordion system={{ id: '' }} />)
+    fireEvent.click(within(container).getByRole('button', { name: 'Pictures' }))
+    expect(within(container).getByText('No pictures yet')).toBeTruthy()
   })
 })
 
