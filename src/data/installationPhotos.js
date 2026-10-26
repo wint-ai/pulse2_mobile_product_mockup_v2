@@ -27,9 +27,11 @@
  * build-time-checked path.
  *
  * DETERMINISM
- * Which system gets which photo is a pure function of the system id, through
- * the repo's own `stableHash`/`mix32`. No `Math.random()` anywhere: a reload
- * must not reshuffle the fleet.
+ * Which system gets which photos, and HOW MANY of them, is a pure function of
+ * the system id, through the repo's own `stableHash`/`mix32`. No
+ * `Math.random()` anywhere: a reload must not reshuffle the fleet, and a
+ * thumbnail grid that was three wide on one render and one wide on the next
+ * would make every screenshot of this app disagree with the last.
  */
 import { stableHash, mix32 } from './upstream/parity'
 import { SYSTEMS } from './systems'
@@ -94,104 +96,184 @@ export const INSTALLATION_PHOTOS = {
  * system is visibly wrong to anyone who knows the product, and a mockup that
  * is visibly wrong about the product is worse than one that shows nothing.
  *
- * `quota` is the percentage of that family that gets a photo. It is NOT 100
- * anywhere: a fleet where every system has a photo is less honest than a mix,
- * and "no pictures saved for this system yet" is a real state the panel has to
- * keep handling. Irrigation lines get none at all — none of the seven photos
- * shows an irrigation install, and inventing one would be the lie this file
- * exists to avoid.
+ * COVERAGE IS TOTAL. Every system gets between one and three pictures.
+ *
+ * It did not used to be. Each family carried a `quota` — the percentage of
+ * that family that got a picture — so 53 of the 103 were covered and "No
+ * pictures saved for this system yet" stayed a reachable state. The owner
+ * ruled against that on 2026-10-26, looking at his own "Cooling Tower Makeup
+ * — Zone 5" at 240 Harborview Ave: "why i still dont see installation pics
+ * here / 1-3 for each system /event". The quota is gone. There is no path
+ * through `photoIdsFor` that returns an empty list, including for a name no
+ * family matches — `FALLBACK` catches that rather than letting a future
+ * rename reintroduce the empty state silently.
+ *
+ * `primary` is the family-correct picture and is picked first. `extras` are
+ * the looser second and third, drawn only from frames that are at least
+ * plausible on that family — which is why `fire-riser` appears in exactly one
+ * family and nowhere else. A fire riser behind a kitchen feed is the specific
+ * wrongness this structure exists to prevent, and widening coverage is not a
+ * reason to stop preventing it.
  */
+
+/**
+ * `riser-cupboard` and `riser-cupboard-wide` are two angles of ONE cupboard,
+ * not two installs. Whenever the first is a system's primary and that system
+ * is getting more than one picture, the second follows it — but only then.
+ * The pair does not pin the count: a domestic system drawn at 1 shows the
+ * close shot alone, and one drawn at 3 shows both plus an extra.
+ *
+ * `riser-cupboard-wide` is therefore deliberately absent from every `primary`
+ * and `extras` list below: the wide frame never appears without the close one
+ * it belongs to.
+ */
+const PAIRED_WITH = {
+  'riser-cupboard': 'riser-cupboard-wide',
+}
+
 const FAMILIES = [
-  // Fire protection — unmistakable, and only one photo shows it.
-  { re: /fire/i, photos: [['fire-riser']], quota: 80 },
+  // Fire protection — unmistakable, and only one photo shows it. The extras
+  // are the plant-room context a riser sits in, never another service's
+  // cupboard.
+  {
+    re: /fire/i,
+    primary: ['fire-riser'],
+    extras: ['plant-room-wall', 'branch-manifold'],
+  },
 
   // Mechanical plant: cooling towers, chillers, HVAC loops, boiler makeup.
   {
     re: /cooling tower|chiller|hvac|boiler/i,
-    photos: [['hvac-plant-manifold']],
-    quota: 65,
+    primary: ['hvac-plant-manifold'],
+    extras: ['plant-room-wall', 'branch-manifold'],
   },
 
-  // Domestic / catering services. The two riser-cupboard frames are two shots
-  // of ONE cupboard, so they are seeded together as a pair rather than being
-  // split across two systems as if they were two different installs. They are
-  // also the only multi-picture systems, which keeps the thumbnail grid's
-  // wrapping exercised.
+  // Domestic / catering services. Two primaries rather than one so thirteen
+  // systems do not all open on the same frame.
   {
     re: /domestic|kitchen|laundry/i,
-    photos: [['riser-cupboard', 'riser-cupboard-wide']],
-    quota: 70,
+    primary: ['riser-cupboard', 'riser-cupboard-leds'],
+    extras: ['branch-manifold', 'plant-room-wall'],
   },
 
   // Incoming mains, basement supplies and roof tank feeds — all plant-room
   // pipework on a backboard.
   {
     re: /main supply|basement supply|roof tank/i,
-    photos: [['plant-room-wall']],
-    quota: 60,
+    primary: ['plant-room-wall'],
+    extras: ['branch-manifold', 'riser-cupboard-leds'],
   },
 
-  // Irrigation: deliberately none. See the note above.
-  { re: /irrigation/i, photos: [], quota: 0 },
+  /* IRRIGATION — THESE ARE STAND-INS. READ THIS BEFORE TRUSTING THEM.
+     None of the seven photographs shows an irrigation install. This family
+     used to be seeded with nothing at all for exactly that reason. Coverage
+     is now total by the owner's instruction, so the choice is not "right
+     picture or none" but "least wrong picture", and the two frames here are
+     the two an irrigation feed could plausibly look like: `branch-manifold`
+     is a wall-mounted manifold feeding four metered take-offs, which is the
+     shape an irrigation zone header actually has, and `plant-room-wall` is a
+     generic metered take-off on a backboard.
+     `fire-riser` and the residential riser cupboards are NOT here and must
+     not be added — those are identifiably some other service.
+     Nobody should cite an irrigation system's pictures as evidence of what a
+     WINT irrigation install looks like. They are furniture for the mockup.
+     The fix, when it matters, is a real irrigation photograph in
+     `src/assets/installations/`, not a different stand-in. Capped at two by
+     having only one extra: there is no third frame honest enough to use. */
+  {
+    re: /irrigation/i,
+    primary: ['branch-manifold'],
+    extras: ['plant-room-wall'],
+  },
 
-  // Residential apartments. Both frames are multi-dwelling riser/branch
-  // cupboards, which is what an apartment's own system actually hangs off.
-  // The quota is much lower here: 50 of the 103 systems are apartments, and
-  // photographing every flat in a block is not something anyone does.
+  // Residential apartments — 50 of the 103, so this family needs the most
+  // internal variety or half the fleet opens on one frame. Three primaries
+  // and three extras, all of them multi-dwelling riser/branch cupboards or
+  // the backboard such a branch comes off.
   {
     re: /apartment/i,
-    photos: [['riser-cupboard-leds'], ['branch-manifold']],
-    quota: 30,
+    primary: ['riser-cupboard-leds', 'branch-manifold', 'riser-cupboard'],
+    extras: ['branch-manifold', 'riser-cupboard-leds', 'plant-room-wall'],
   },
 ]
+
+/* The name no family matched. Today every one of the 103 matches a family
+   above, so this is unreachable — and it is here so that it STAYS
+   unreachable-but-harmless. A renamed or newly synced system that fell
+   through would otherwise hit `find() === undefined` and show the empty state
+   the owner just ruled out, on a screen nobody would think to re-check.
+   Deliberately generic: a plant-room backboard and a branch manifold say
+   almost nothing about which service they are on, which is the right thing to
+   say about a system we cannot classify. */
+const FALLBACK = {
+  primary: ['plant-room-wall'],
+  extras: ['branch-manifold', 'riser-cupboard-leds'],
+}
 
 /* A fixed timestamp, not Date.now(): these are "already on file", and a seed
    whose addedAt moved every reload would sort differently on each render. */
 const SEEDED_AT = '2025-06-17T19:16:00.000Z'
 
-function photoIdsFor(systemId, name, alwaysCover) {
-  const family = FAMILIES.find(f => f.re.test(name))
-  if (!family || family.photos.length === 0) return []
+/* Each draw goes through mix32 under its OWN prefix. parity.js explains why:
+   `stableHash` is h*31 + c, so hashing a prefixed string shifts the result by
+   a CONSTANT for a given modulus — two raw-hash draws off the same id end up
+   tied to each other. Here that would have meant the count deciding the
+   primary, i.e. every three-picture system in a family opening on the same
+   frame. */
+function draw(systemId, salt, n) {
+  return n > 0 ? mix32(stableHash(`instphoto-${salt}:${systemId}`)) % n : 0
+}
 
-  /* Coverage gate. Through mix32 so it does not correlate with the pick
-     below — parity.js documents why two draws off the raw hash of the same id
-     end up tied to each other. */
-  if (!alwaysCover) {
-    const gate = mix32(stableHash(`instphoto-gate:${systemId}`)) % 100
-    if (gate >= family.quota) return []
+/**
+ * The pictures for one system: never fewer than one, never more than three,
+ * never the same frame twice.
+ *
+ * The count is drawn flat over 1..3 so all three thumbnail-grid widths get
+ * exercised. It is a ceiling, not a promise: a family with a small honest
+ * pool (irrigation) tops out below it rather than padding with a frame that
+ * would be a lie.
+ *
+ * `extras` is read from a ROTATING start rather than from index 0. Without
+ * that, every two-picture apartment in a block showed the identical pair and
+ * the list read as wallpaper — the count varied but the combination did not.
+ */
+function photoIdsFor(systemId, name) {
+  const family = FAMILIES.find(f => f.re.test(name)) ?? FALLBACK
+
+  const primary = family.primary[draw(systemId, 'pick', family.primary.length)]
+  const want = 1 + draw(systemId, 'count', 3)
+  const out = [primary]
+  if (out.length >= want) return out
+
+  const mate = PAIRED_WITH[primary]
+  if (mate && !out.includes(mate)) out.push(mate)
+
+  const pool = family.extras.filter(p => !out.includes(p))
+  const start = draw(systemId, 'rot', pool.length)
+  for (let i = 0; i < pool.length && out.length < want; i++) {
+    const candidate = pool[(start + i) % pool.length]
+    if (!out.includes(candidate)) out.push(candidate)
   }
 
-  const pick = mix32(stableHash(`instphoto-pick:${systemId}`)) % family.photos.length
-  return family.photos[pick]
+  return out.slice(0, want)
 }
 
 /* systemId -> [photoId]. Built once at module load.
  *
- * A system that carries an event skips the quota and is always covered, as
- * long as its family has a photo at all. Two reasons, and the first is the
- * one that matters:
+ * Every system in SYSTEMS is in this map, and every entry holds 1-3 ids. The
+ * old version skipped systems whose quota roll failed and carried a long note
+ * about why event-carrying systems were exempted from that roll; both are
+ * moot now that the roll is gone.
  *
- *   · FindSystemPanel only EXISTS inside EventFocusOverlay, and the overlay is
- *     reached from the events list on HomeAllAccounts. So the systems a
- *     reviewer actually opens this panel on are, overwhelmingly, the ones with
- *     an event. Leaving those to a 60–70% dice roll meant 6 of the 13 showed
- *     the empty state on the only path most people will ever walk.
- *   · It is also the truthful direction. A system that has had a water event
- *     is precisely the system someone has been sent to go and look at, so it
- *     is MORE likely to have photographs on file, not less.
- *
- * The rule is "every event-carrying system in a family that HAS a photo", not
- * "every event-carrying system": an irrigation line would still show the empty
- * state with an event open, because no photo here shows an irrigation install.
- * As the dataset stands none of the 13 happens to be an irrigation line, so in
- * practice today all 13 do get one — stated plainly rather than left implied.
- * 50 of the 103 systems still have no photo at all, so the empty state is very
- * much a live state, reached from the systems list and the system page.
+ * Events are covered by construction, not by a second rule. `FindSystemPanel`
+ * exists only inside `EventFocusOverlay`, and both of the overlay's callers
+ * hand it a system id — HomeAllAccounts maps its `waterEvents` rows straight
+ * off `s.id`, and SystemPageV2Screen passes `system.id`. There is no
+ * event-only scope id for a seed to miss.
  */
 const ASSIGNMENTS = new Map()
 for (const s of SYSTEMS) {
-  const ids = photoIdsFor(s.id, s.name || '', s.alert != null)
-  if (ids.length) ASSIGNMENTS.set(s.id, ids)
+  ASSIGNMENTS.set(s.id, photoIdsFor(s.id, s.name || ''))
 }
 
 /**
@@ -207,6 +289,12 @@ for (const s of SYSTEMS) {
  * a URL is exactly as valid there as a data URL — and it keeps 638 KB of
  * photographs out of localStorage, which the store's own write() warns can
  * throw QuotaExceededError on large images.
+ *
+ * NOTHING HERE IS WRITTEN TO localStorage. `locationInfoStore.getPictures`
+ * merges these in on READ and tombstones a dismissed one by id. That is what
+ * lets this file's seed set change — as it just did, from 53 systems to all
+ * 103 — and have the change show up on a browser that already holds a stored
+ * record for that scope. Persisting the seeds would freeze them.
  */
 export function getSeededPictures(scopeId) {
   const ids = ASSIGNMENTS.get(scopeId)
@@ -228,4 +316,9 @@ export function isSeededPictureId(pictureId) {
 /** Test/diagnostic hook: how many systems ended up with photographs. */
 export function seededSystemCount() {
   return ASSIGNMENTS.size
+}
+
+/** Test/diagnostic hook: the photo ids for one system, without the record shape. */
+export function seededPhotoIdsFor(systemId) {
+  return ASSIGNMENTS.get(systemId) ?? []
 }
