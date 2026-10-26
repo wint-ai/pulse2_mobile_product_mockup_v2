@@ -248,7 +248,7 @@ import {
   WifiOff,
   X,
 } from 'lucide-react'
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
@@ -258,7 +258,12 @@ import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
 import vmaFront from '@/assets/wint-vma-front.png'
-import { peakFlowRate, toFlowRateSeries } from '@/v2/components/eventFlowSeries'
+import {
+  buildEventFlowSeries,
+  elapsedLabel,
+  peakFlowRate,
+  toFlowRateSeries,
+} from '@/v2/components/eventFlowSeries'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
 import { getSystemById } from '@/data/systems'
 import { getActiveIncident, getLeakState, getNotification } from '@/data/incidents'
@@ -565,7 +570,7 @@ const FLOW_CHART_CONFIG = {
  *
  * An empty window draws the empty state, never a flat line at zero.
  */
-function EventFlowChart({ points, peak }) {
+function EventFlowChart({ points, peak, marks = [] }) {
   if (!points.length) {
     return (
       <p className="text-[13px] text-slate-500">
@@ -579,7 +584,9 @@ function EventFlowChart({ points, peak }) {
         <span className="text-[18px] font-bold tracking-[-0.4px] text-slate-900">
           {peak?.toLocaleString?.() ?? peak}
         </span>
-        <span className="text-[12px] font-medium text-slate-500">L/h peak today</span>
+        <span className="text-[12px] font-medium text-slate-500">
+          {marks.length ? 'L/h peak during the event' : 'L/h peak today'}
+        </span>
       </div>
       {/* aspect-auto cancels ChartContainer's aspect-video — the phone frame
           needs an explicit height, never a fixed width. */}
@@ -599,7 +606,7 @@ function EventFlowChart({ points, peak }) {
             tick={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}
           />
           <XAxis
-            dataKey="hour"
+            dataKey={marks.length ? 'label' : 'hour'}
             height={22}
             tickLine={false}
             axisLine={false}
@@ -607,6 +614,32 @@ function EventFlowChart({ points, peak }) {
             interval={5}
             tick={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}
           />
+          {/* THE MILESTONES. Owner: "add a few milestones on the chart when
+              it started, detected and valve shut off, so a user looks at that
+              and clearly understands what happened during the leak." Drawn as
+              vertical rules rather than dots so they read against the line
+              whatever height it is at, and labelled at an angle because three
+              horizontal labels collide on a 393px frame. Each takes the
+              colour of what it means: onset and detection are the problem,
+              the shut-off is the resolution. */}
+          {marks.map(mk => (
+            <ReferenceLine
+              key={mk.key}
+              x={`${mk.minute >= 0 ? '+' : '−'}${Math.abs(mk.minute)}m`}
+              stroke={
+                mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)'
+              }
+              strokeDasharray="3 3"
+              strokeWidth={1.25}
+              label={{
+                value: mk.label,
+                position: 'insideTopLeft',
+                fontSize: 10,
+                fontFamily: 'var(--font-sans)',
+                fill: mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)',
+              }}
+            />
+          ))}
           <ChartTooltip content={<ChartTooltipContent />} />
           <Line
             type="monotone"
@@ -1082,10 +1115,51 @@ export default function EventFocusOverlay({
      number (eventFlowSeries.js). Read on every render rather than memoised:
      getConsumption memoises per system id upstream, so this is a map over 24
      points, and a dependency array here would be the more expensive half. */
-  const flowPoints = toFlowRateSeries(
-    getConsumptionSeries(sysId, sys.name, 'H', 0)?.series ?? [],
-  )
-  const flowPeak = peakFlowRate(flowPoints)
+  /* THE INCIDENT'S CLOCK. The dataset records ONE real time — when the event
+     was raised (alert.startedAt). It carries no leak-onset and no valve-close
+     stamp, so the other two milestones are derived here, from the same stable
+     hash the rest of the mock data uses (buildAlert fabricates flowRate,
+     volume and age the same way). Owner's standing ruling on exactly this:
+     "you need to ignore if we have data in this prototype or not — this is a
+     prototype that needs to show how to use it when we have data."
+
+     Ranges, not magic numbers: detection lands 2-6 minutes after onset, and
+     an auto-close fires 1-4 minutes after detection. A valve only closes when
+     the system HAS one, auto-close is on, and the valve is actually shut —
+     otherwise `shutoffAfterDetectMin` is null and the milestone is not drawn,
+     which is most events. */
+  const flowSeed = `${sysId}|${evt.type ?? 'event'}`
+  const seedInt = [...flowSeed].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)
+  const detectLagMin = 2 + (seedInt % 5)
+  const eventDurationMin = 45
+  const shutoffAfterDetectMin =
+    hasValve && autoShutoffOn && valveState === 'closed' ? 1 + ((seedInt >> 3) % 4) : null
+  /* The number the card was missing — owner: "the time elapsed to shut off is
+     missing in UI event card". Detection to valve-closed, which is the window
+     the product is actually judged on. */
+  const timeToShutoff = shutoffAfterDetectMin != null ? elapsedLabel(shutoffAfterDetectMin) : null
+
+  /* THE EVENT GRAPH. For a WATER EVENT this is now the incident's own trace
+     at one point a MINUTE — owner, 2026-10-26: "granularity needs to be
+     minutely when avg event shown here is 45 minutes", "always show at least
+     10 min before event starts". For a fault there is no flow story to tell,
+     so it stays the system's day at hourly buckets, which is what the whole
+     section used to be for every type. */
+  const eventFlow = isWater
+    ? buildEventFlowSeries({
+        key: eventId ?? sysId,
+        peakLph: Number(String(evt.flowRate ?? '').replace(/[^\d.]/g, '')) || 120,
+        durationMin: eventDurationMin,
+        detectLagMin: detectLagMin,
+        shutoffMin: shutoffAfterDetectMin,
+      })
+    : null
+  const flowPoints = eventFlow
+    ? eventFlow.points
+    : toFlowRateSeries(getConsumptionSeries(sysId, sys.name, 'H', 0)?.series ?? [])
+  const flowPeak = eventFlow
+    ? Math.max(...eventFlow.points.map(p => p.lph))
+    : peakFlowRate(flowPoints)
 
   const adviceSteps = advice(evt.type, {
     hasValve,
@@ -1272,7 +1346,13 @@ export default function EventFocusOverlay({
             /* 'overlay', not 'mobile'. The 2026-10-25 redraw is THIS
                surface's only; SystemPageV2Screen keeps `mobile`. */
             variant={alertRow.ignored ? 'ignored' : 'overlay'}
-            event={alertRow}
+            /* Merged HERE, not into `alertRow` above: timeToShutoff is
+               derived from the valve state, which is resolved further down
+               the body, and a const read before its declaration is a
+               ReferenceError this repo's lint cannot see (no react plugin —
+               scripts/check-jsx-refs.mjs:1-11 documents the same blind spot
+               for components). */
+            event={{ ...alertRow, shutoffIn: timeToShutoff }}
             actions={false}
             className="w-full! shrink-0"
           />
@@ -1489,7 +1569,13 @@ export default function EventFocusOverlay({
             under the facts it charts. See EventFlowChart / eventFlowSeries.js
             for what the line honestly is. */}
         <Section id={`event-graph-${sysId}`} title="Event graph">
-          {() => <EventFlowChart points={flowPoints} peak={flowPeak} />}
+          {() => (
+            <EventFlowChart
+              points={flowPoints}
+              peak={flowPeak}
+              marks={eventFlow?.marks ?? []}
+            />
+          )}
         </Section>
 
         {/* ── What should I do ──────────────────────────────────────────────

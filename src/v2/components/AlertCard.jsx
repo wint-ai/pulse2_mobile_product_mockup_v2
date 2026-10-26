@@ -319,6 +319,12 @@ const MOCK_EVENT = {
      event id, all literal copy on the node. */
   flowLabel: 'Flow Rate',
   durationLabel: 'Duration',
+  /* Detection -> valve closed. Owner, 2026-10-26: "the time elapsed to shut
+     off is missing in UI event card". Null on an event that never closed a
+     valve, which is most of them, and the tile is then not drawn — a dash in
+     a figure slot reads as a measurement of nothing. */
+  shutoffLabel: 'Time to shut off',
+  shutoffIn: null,
   eventIdLabel: 'Event ID',
   eventId: 'Ik-6598',
   page: 1,
@@ -626,6 +632,19 @@ export default function AlertCard({
               </div>
               <p className={FIG_LABEL}>{data.durationLabel}</p>
             </div>
+            {/* THE THIRD TILE, and only when there is one to draw. The frame
+                draws two because its example never closed a valve; an event
+                that DID is the one the product is actually judged on, so the
+                number goes beside the other two rather than into a section
+                nobody opens. */}
+            {data.shutoffIn ? (
+              <div className={FIG_TILE} data-name="Time to shut off">
+                <div className="content-stretch flex items-center relative shrink-0">
+                  <p className={FIG_VALUE}>{data.shutoffIn}</p>
+                </div>
+                <p className={FIG_LABEL}>{data.shutoffLabel}</p>
+              </div>
+            ) : null}
           </div>
 
           <div className={OVERLAY_META_ROW} data-node-id="199683:24887">

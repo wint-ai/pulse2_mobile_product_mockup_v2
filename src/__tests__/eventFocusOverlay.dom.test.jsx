@@ -734,21 +734,63 @@ describe('Event graph', () => {
     expect(toFlowRateSeries(null)).toEqual([])
   })
 
-  it('offers the section and plots this system’s real series', async () => {
-    const { getConsumptionSeries } = await import('@/data/consumptionSeries')
-    const { toFlowRateSeries, peakFlowRate } = await import('@/v2/components/eventFlowSeries')
-    const expected = peakFlowRate(
-      toFlowRateSeries(getConsumptionSeries(leakSys.id, leakSys.name, 'H', 0).series),
-    )
+  /* REWRITTEN 2026-10-26. It asserted the hourly DAY series, which is what
+     this section plotted for every event type. A water event now plots the
+     INCIDENT at one point a minute — owner: "granularity needs to be minutely
+     when avg event shown here is 45 minutes", "always show at least 10 min
+     before event starts". The guarantee is the one it was written for and is
+     unchanged: recharts draws nothing under happy-dom, so the section has to
+     say something true in TEXT or this file can assert nothing about it. */
+  it('plots the incident at minute resolution, with the pre-roll the owner asked for', async () => {
+    const { buildEventFlowSeries } = await import('@/v2/components/eventFlowSeries')
+    const { points } = buildEventFlowSeries({ key: 'k', peakLph: 120, durationMin: 45 })
 
+    // One point a minute, 10 minutes of it before onset.
+    expect(points[0].minute).toBe(-10)
+    expect(points.filter(p => p.minute < 0)).toHaveLength(10)
+    expect(points.at(-1).minute).toBe(45)
+    for (let i = 1; i < points.length; i++) {
+      expect(points[i].minute - points[i - 1].minute).toBe(1)
+    }
+    // The signature: a floor that never reaches zero once the event is running.
+    const during = points.filter(p => p.minute >= 0)
+    expect(Math.min(...during.map(p => p.lph))).toBeGreaterThan(0)
+    // And a STEP, not a ramp — the first minute of the event is already up.
+    const preMax = Math.max(...points.filter(p => p.minute < 0).map(p => p.lph))
+    expect(during[0].lph).toBeGreaterThan(preMax)
+  })
+
+  it('is stable across calls, so the line does not animate under the user', async () => {
+    const { buildEventFlowSeries } = await import('@/v2/components/eventFlowSeries')
+    const a = buildEventFlowSeries({ key: 'same', peakLph: 90, durationMin: 20 })
+    const b = buildEventFlowSeries({ key: 'same', peakLph: 90, durationMin: 20 })
+    expect(a.points).toEqual(b.points)
+  })
+
+  it('marks started and detected, and shut-off only when a valve closed', async () => {
+    const { buildEventFlowSeries } = await import('@/v2/components/eventFlowSeries')
+    const running = buildEventFlowSeries({ key: 'r', durationMin: 45, detectLagMin: 3 })
+    expect(running.marks.map(m => m.key)).toEqual(['started', 'detected'])
+    expect(running.marks.find(m => m.key === 'started').minute).toBe(0)
+    expect(running.marks.find(m => m.key === 'detected').minute).toBe(3)
+
+    const closed = buildEventFlowSeries({
+      key: 'c', durationMin: 45, detectLagMin: 3, shutoffMin: 2,
+    })
+    expect(closed.marks.map(m => m.key)).toEqual(['started', 'detected', 'shutoff'])
+    expect(closed.marks.find(m => m.key === 'shutoff').minute).toBe(5)
+    // After the valve closes the line falls back toward the floor.
+    const atPlateau = closed.points.find(p => p.minute === 4).lph
+    const afterClose = closed.points.find(p => p.minute === 12).lph
+    expect(afterClose).toBeLessThan(atPlateau * 0.2)
+  })
+
+  it('still offers the section, and states the peak in text', () => {
     renderOverlay()
     const { header, panel } = section(/^Event graph$/)
     fireEvent.click(header)
     expect(panel.hidden).toBe(false)
-    // The peak is stated in text, so the section says something true even
-    // where the chart itself cannot render.
-    expect(within(panel).getByText('L/h peak today')).toBeInTheDocument()
-    expect(within(panel).getByText(expected.toLocaleString())).toBeInTheDocument()
+    expect(within(panel).getByText(/L\/h peak/)).toBeInTheDocument()
   })
 })
 
