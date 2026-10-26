@@ -104,7 +104,11 @@
 import { Button } from '@/components/ui/button'
 import { Chart03, TriangleFill } from '@/v2/icons'
 import { cn } from '@/lib/utils'
-import wave from '@/assets/system-hero-wave.png'
+/* Figma's own two rasters, re-encoded into the repo. 199703:30816 references
+   823c4.png and 199703:31382 references 6df46.png — different images, not one
+   image and a tint. See the wave block below for the measurements. */
+import waveAlert from '@/assets/system-hero-wave-alert.png'
+import waveCalm from '@/assets/system-hero-wave-calm.png'
 
 /* The nodes spell two families — Geist for the figures, Figtree for the words.
    Both carry the project's own fallbacks.
@@ -189,19 +193,41 @@ export default function SystemHeroCard({
           it carries the meaning. It is deliberately allowed to run past this
           element's own height, which is what puts it behind the first cards
           exactly as both frames draw it. */}
-      {/* THE BLEND MODE IS THEME-CONDITIONAL. See the long note on the same
-          change in SystemsOverviewHero.jsx; the arithmetic is identical.
-          `multiply` is `backdrop x source`, and on a dark card the backdrop is
-          ~0.09, so this whole group -- the wave at opacity-50 AND the
-          mix-blend-color tint over it -- collapsed to a near-black rectangle
-          with a brown cast. Measured internal range 1.09:1 under dark against
-          2.78:1 under light.
+      {/* ── TWO RASTERS, NOT ONE RASTER AND A TINT ────────────────────────
+          2026-10-26, owner: "the waves color is not exactly as in figma."
 
-          Dropping the multiply off `light` is what restores it. The group then
-          composites normally: the card shows through the wave's 50% alpha and
-          the tint takes its hue from #ff7b7d / #6bb2fa and its luminance from
-          that result, which is the same construction `light` gets -- only the
-          ground underneath has moved. `light` is untouched. */}
+          It could not have been. This drew ONE blue-grey wave at opacity-50
+          under a flat `mix-blend-color` tint, and called the result red on an
+          alert. 199703:30816 and 199703:31382 reference DIFFERENT image
+          assets, and measuring them settles it:
+
+            Figma alert (823c4.png)   738x582  avg #e4474b  #a51114..#fd868c
+            Figma calm  (6df46.png)   738x582  avg #4c86f9  #1035f4..#9dccff
+            our system-hero-wave.png 1206x778  avg #7ba8f9  #1332f5..#faffff
+
+          So the designer paints two waves. The old construction was wrong
+          twice over: no tint over that lighter, higher-contrast blue can land
+          on #e4474b, and even the CALM state was too pale because the source
+          raster is not the one Figma uses. Both are now shipped and picked by
+          tone, which makes the colour exact by construction rather than
+          approximated.
+
+          `opacity-50` and both tint layers are GONE with it. The node applies
+          the image at mix-blend-multiply and nothing else — the colour is in
+          the pixels now, so anything layered over them can only move it away
+          from the design.
+
+          THE BLEND MODE STAYS THEME-CONDITIONAL, and for the reason the old
+          note here recorded: `multiply` is `backdrop x source`, and on a dark
+          card the backdrop is ~0.09, which collapses the wave to a near-black
+          rectangle (measured internal range 1.09:1 under dark against 2.78:1
+          under light). Dropping the multiply off `light` composites it
+          normally there. `light` is untouched.
+
+          system-hero-wave.png IS NOT DELETED — SystemsOverviewHero, TriageBand
+          and EventFocusOverlay still draw it, and the overlay's own node
+          (199431:138924) genuinely does use the tint construction. Different
+          node, different build; only this card's wave changed. */}
       {/* ── THE WAVE NOW SPANS THE CARD, NOT A FIXED 369 ──────────────────
           2026-10-26. It was `mx-auto w-[369px]` inside a component the page
           bled to the full 393, which put the wave 12px off each phone edge
@@ -235,24 +261,15 @@ export default function SystemHeroCard({
         )}
         data-node-id={alert ? '199703:31476' : '199703:32478'}
       >
-        <div className="absolute inset-0 pointer-events-none rounded-[20px]">
-          <div className="absolute inset-0 opacity-50 overflow-hidden rounded-[20px]">
-            <img alt="" className="absolute h-full left-[-13.65%] max-w-none top-0 w-[121.84%]" src={wave} />
-          </div>
-          {/* The two tints were frozen hex. Neither is a new colour: #ff7b7d is
-              --red-400 (#ff6467) and #6bb2fa is --wave-bg-from (#66B5F9), both
-              within a couple of sRGB units of the token that already names
-              them. They are NOT identical, though, so `light` keeps its literal
-              -- a token swap here would move light pixels -- and every other
-              theme takes the named token, which is the only form that can
-              follow `contrast`. */}
-          <div
-            className={cn(
-              'absolute inset-0 mix-blend-color rounded-[20px]',
-              alert
-                ? 'bg-[#ff7b7d] [[data-theme]:not([data-theme=light])_&]:bg-red-400'
-                : 'bg-[#6bb2fa] [[data-theme]:not([data-theme=light])_&]:bg-[var(--wave-bg-from)]',
-            )}
+        {/* The node draws the raster at the card's full width and lets it
+            crop vertically: `aspect-[369/291] left-0 right-0 top-0` with the
+            image at `inset-0 size-full`. `object-cover` is what reproduces
+            that here without pinning a height the raster has to match. */}
+        <div className="absolute inset-0 overflow-hidden rounded-[20px] pointer-events-none">
+          <img
+            alt=""
+            className="absolute inset-0 block size-full max-w-none object-cover"
+            src={alert ? waveAlert : waveCalm}
           />
         </div>
       </div>

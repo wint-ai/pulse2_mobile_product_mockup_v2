@@ -207,6 +207,43 @@ describe('the wave', () => {
     expect(waveBox(container).getAttribute('aria-hidden')).toBe('true')
   })
 
+  it('uses a DIFFERENT raster per tone, not one image recoloured', () => {
+    /* Owner, 2026-10-26: "the waves color is not exactly as in figma."
+
+       It could not have been. The card drew one blue-grey wave under a flat
+       mix-blend-color tint and called the result red. Measured, the three
+       images are not interchangeable:
+
+         Figma alert   avg #e4474b
+         Figma calm    avg #4c86f9
+         old single    avg #7ba8f9   <- what was being tinted
+
+       No tint over the third lands on the first. So the tone picks a
+       pre-coloured raster, and this asserts the property that fixes it: the
+       two tones resolve to two different `src` values. */
+    const { container: a } = mount({ tone: 'alert' })
+    const alertSrc = a.querySelector('[aria-hidden="true"] img').getAttribute('src')
+    cleanup()
+    const { container: c } = mount({ tone: 'calm' })
+    const calmSrc = c.querySelector('[aria-hidden="true"] img').getAttribute('src')
+
+    expect(alertSrc).toBeTruthy()
+    expect(calmSrc).toBeTruthy()
+    expect(alertSrc, 'both tones drew the same wave').not.toBe(calmSrc)
+  })
+
+  it('layers nothing over the raster', () => {
+    /* The colour is in the pixels now. An `opacity-*` or a `mix-blend-color`
+       fill over them can only move the wave away from the design, which is
+       exactly how the old construction drifted. */
+    const { container } = mount({ tone: 'alert' })
+    const box = waveBox(container)
+    expect(box.querySelectorAll('img')).toHaveLength(1)
+    const inner = box.innerHTML
+    expect(inner, 'a tint layer is back').not.toContain('mix-blend-color')
+    expect(inner, 'the wave is being faded again').not.toContain('opacity-50')
+  })
+
   it('takes the alert artwork on an alert tone and the calm one otherwise', () => {
     const { container: alert } = mount({ tone: 'alert' })
     expect(alert.querySelector('[data-hero-tone]').dataset.heroTone).toBe('alert')

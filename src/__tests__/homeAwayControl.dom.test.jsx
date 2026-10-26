@@ -138,3 +138,64 @@ describe('the residential gate', () => {
     expect(screen.getByText('Alerts')).toBeTruthy()
   })
 })
+
+describe('policy OR Home/Away, never both', () => {
+  /* Owner, 2026-10-26: "they are not working together, Policy or Home/Away.
+     Residential is home away."
+
+     They are two answers to one question — what rules is this system running
+     under. A flat on Home means no water is expected at all; a Working-hours
+     window means water IS expected between 8 and 5. Stacked, they contradict
+     each other and the reader cannot tell which the valve obeys. */
+
+  const POLICIES = [{ id: 'p', name: 'Working hours', window: '8:00 AM – 5:00 PM' }]
+  const SETTINGS = [
+    { id: 'alerts', label: 'Alerts', value: 'On', tone: 'on' },
+    { id: 'auto', label: 'Auto Shutoff Valve', value: 'Off', tone: 'off' },
+  ]
+
+  it('a residential card draws Home/Away and NO schedule or settings', () => {
+    render(
+      <ActivePolicyCard
+        mode="home"
+        onModeChange={() => {}}
+        policies={POLICIES}
+        settings={SETTINGS}
+      />,
+    )
+    // The mode is there...
+    expect(screen.getAllByRole('radio')).toHaveLength(2)
+    // ...and the commercial answer is not, even though it was passed in.
+    expect(screen.queryByText('Working hours'), 'the schedule is still drawn').toBeNull()
+    expect(screen.queryByText('Alerts'), 'the settings rows are still drawn').toBeNull()
+    expect(screen.queryByText('Auto Shutoff Valve')).toBeNull()
+    // The card itself survives the swap.
+    expect(screen.getByText('Active policy')).toBeTruthy()
+  })
+
+  it('a commercial card draws the schedule and settings and NO Home/Away', () => {
+    render(<ActivePolicyCard mode="home" policies={POLICIES} settings={SETTINGS} />)
+    expect(screen.getByText('Working hours')).toBeTruthy()
+    expect(screen.getByText('Alerts')).toBeTruthy()
+    expect(screen.queryAllByRole('radio')).toHaveLength(0)
+    expect(screen.queryByText('Current Mode')).toBeNull()
+  })
+
+  it('passing data for both still renders exactly one of them', () => {
+    /* The page passes policies and settings unconditionally and adds the
+       mode props only for Residential, so "both supplied" is the NORMAL
+       residential call, not a misuse. The card has to choose. */
+    const { container } = render(
+      <ActivePolicyCard
+        mode="away"
+        onModeChange={() => {}}
+        policies={POLICIES}
+        settings={SETTINGS}
+      />,
+    )
+    const hasMode = container.querySelectorAll('[role="radio"]').length > 0
+    const hasPolicy = container.textContent.includes('Working hours')
+    expect(hasMode && hasPolicy, 'both answers drawn at once').toBe(false)
+    expect(hasMode || hasPolicy, 'neither answer drawn').toBe(true)
+  })
+})

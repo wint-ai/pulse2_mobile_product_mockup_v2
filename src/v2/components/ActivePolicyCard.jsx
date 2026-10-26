@@ -336,8 +336,23 @@ export default function ActivePolicyCard({
 
       {/* ── Body 199532:96319 ────────────────────────────────────────────── */}
       <div className="flex w-full shrink-0 flex-col items-start gap-[19px] px-[16px] pt-[19px]">
-        {/* The policy windows — 199532:96142, gap 12. */}
-        {policies.length ? (
+        {/* ── POLICY *OR* HOME/AWAY, NEVER BOTH ──────────────────────────
+            Owner, 2026-10-26: "they are not working together, Policy or
+            Home/Away. Residential is home away."
+
+            These are two answers to ONE question — what rules is this system
+            running under — and a card that stacked both asked it twice and
+            answered it twice over. A flat on Home means no water is expected
+            at all; a Working-hours window means water IS expected between 8
+            and 5. Drawn together they contradict each other, and the reader
+            has no way to tell which one the valve is actually obeying.
+
+            So the division picks the answer. A residential system IS its
+            Home/Away mode and draws nothing else; a commercial one draws its
+            schedule and the two settings. `onModeChange` is still the switch,
+            because only a caller that can commit a mode change should be
+            offered one — see the page, which passes it on l2Name. */}
+        {!onModeChange && policies.length ? (
           <div className="flex w-full shrink-0 flex-col items-start gap-[12px]" data-node-id="199532:96142">
             {policies.map((policy, index) => (
               <div
@@ -384,7 +399,7 @@ export default function ActivePolicyCard({
             neither. 199532:96189 / 199532:96194 give each one a slate-100 row
             and a Badge carrying its actual state, which is the whole point of
             a policy summary. */}
-        {settings.length ? (
+        {!onModeChange && settings.length ? (
           <div className="flex w-full shrink-0 flex-col items-start gap-[19px]" data-node-id="199532:96187">
             {settings.map((setting, index) => (
               <div
@@ -428,7 +443,8 @@ export default function ActivePolicyCard({
           </div>
         ) : null}
 
-        {/* HOME / AWAY — residential only; see the constants block. */}
+        {/* HOME / AWAY — residential only, and INSTEAD of the two blocks
+            above rather than under them. See the note on them. */}
         {onModeChange ? (
           <div className="flex w-full shrink-0 flex-col items-start gap-[14px]">
             <div className="flex w-full shrink-0 items-center justify-between">
