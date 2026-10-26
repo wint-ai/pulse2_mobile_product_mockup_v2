@@ -40,11 +40,18 @@
 // scope and filter are untouched.
 
 import { ROOT_ACCOUNT_ID } from './upstream/buildTree';
+import { accountWithDescendants } from './accounts';
 
 // Real upstream ids, so a persona's scope resolves to the same records the web
 // app shows. See src/data/upstream/mrg-snapshot.json.
 const SITE_100_MERIDIAN = 'a0c8e000000L9jyAAC';
-const ACCOUNT_SOUTHBRIDGE = '0014H000049GnStQAK';
+
+/* MRG and every sub-account under it. Computed ONCE at module load rather than
+   inside the filter: `systemFilter` runs per system on every persona change,
+   and rebuilding the set 103 times to answer one membership question each is
+   work for nothing. See the account-manager persona below for why this is a
+   rollup at all. */
+const MRG_PORTFOLIO = accountWithDescendants(ROOT_ACCOUNT_ID);
 
 export const DEFAULT_PERSONA = {
   id: 'wint-admin',
@@ -168,11 +175,16 @@ export const PERSONAS = [
     systemFilter: (s) => s.l2 === 'esrt-office',
   },
   {
+    /* The id still says "subaccount" and is left alone deliberately: it is
+       persisted in localStorage under PERSONA_KEY and named by routeSmoke's
+       persona sweep, so renaming it would silently log out anyone mid-demo
+       and buy nothing. The SCOPE is what changed. */
     id: 'account-manager-subaccount',
     name: 'Priya Raman',
     role: 'Account Manager',
-    sub: 'Southbridge Health',
-    description: 'Manages one MRG sub-account. Demonstrates account-scoped visibility inside a parent portfolio.',
+    sub: 'Meridian Realty Group',
+    description:
+      'Manages the MRG portfolio and the sub-accounts under it. Demonstrates account-rollup visibility.',
     email: 'p.raman@meridianrealty.com',
     phone: '+1 212 555 0164',
     icon: '🌐',
@@ -182,7 +194,29 @@ export const PERSONAS = [
     isWint: false,
     homePath: '/',
     tabMode: 'manager',
-    systemFilter: (s) => s.account === ACCOUNT_SOUTHBRIDGE,
+    /* ── A ROLLUP, NOT ONE ACCOUNT ROW ─────────────────────────────────────
+       Owner, 2026-10-26: "why i dont see all systems and locations when sign
+       in as account manger on side bar?"
+
+       This read `s.account === ACCOUNT_SOUTHBRIDGE` and resolved to 2 of 103
+       systems. Not a bug in the drawer — the drawer was the only honest
+       surface in the app. The snapshot tags exactly one site (30 Dogwood Dr,
+       2 systems, under Office) to Southbridge Health; every other system,
+       including all 50 apartments, falls through to the MRG root. So the tree
+       correctly drew "Residential 0" and five childless building rows, which
+       reads as broken rather than as empty.
+
+       Home disagreed because it never consulted the persona at all
+       (HomeAllAccounts.jsx: `const all = SYSTEMS ?? []`), so it showed 103
+       systems and a residential water event beside a drawer showing 2. Two
+       surfaces, two datasets.
+
+       An account manager manages an account AND the sub-accounts beneath it,
+       so the scope is the rollup from the MRG root down — which is both the
+       realistic reading and what makes this persona demoable. Southbridge is
+       inside that set rather than excluded by it. `accountWithDescendants`
+       walks down from the id it is given; see its note in accounts.js. */
+    systemFilter: (s) => MRG_PORTFOLIO.has(s.account),
   },
 
   // ── WINT STAFF ─────────────────────────────────────────────────────────────
