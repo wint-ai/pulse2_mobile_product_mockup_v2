@@ -355,10 +355,15 @@ describe('the valve', () => {
   })
 })
 
-describe('find this system', () => {
+describe('device details', () => {
+  /* RENAMED 2026-10-26. The accordion was "Find this system"; 199683:24919
+     makes that an ACTION — a pill on the new System details card — so the
+     accordion took the name of what it actually lists. The card above now
+     carries the name/location/address this used to be the only home for, and
+     the pill opens and scrolls to this. */
   it('offers the section, with the device photo and the location', () => {
     renderOverlay()
-    const { header, panel } = section(/^Find this system/)
+    const { header, panel } = section(/^Device details/)
     fireEvent.click(header)
     expect(panel.hidden).toBe(false)
     expect(within(panel).getByAltText(/wint device/i)).toBeInTheDocument()
@@ -369,7 +374,7 @@ describe('find this system', () => {
     const { getNotesOverride, setNotes } = await import('@/data/locationInfoStore')
     setNotes(leakSys.id, '')
     renderOverlay()
-    fireEvent.click(section(/^Find this system/).header)
+    fireEvent.click(section(/^Device details/).header)
 
     const box = screen.getByLabelText('Notes')
     fireEvent.change(box, { target: { value: 'Riser cupboard, 2nd floor' } })
@@ -385,7 +390,7 @@ describe('the collapsible sections', () => {
        facts are a read-only strip at the top now (owner, 2026-10-18), so the
        accordion only exists on a fault. The wiring contract is the same for
        the sections that remain. */
-    for (const name of [/^Event graph$/, /^Who was notified/, /^Find this system$/]) {
+    for (const name of [/^Event graph$/, /^Who was notified/, /^Device details$/]) {
       const { header, panel } = section(name)
       expect(header).toHaveAttribute('aria-expanded')
       expect(panel, `no panel for ${name}`).toBeTruthy()

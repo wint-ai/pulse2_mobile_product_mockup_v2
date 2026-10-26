@@ -255,6 +255,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { Separator } from '@/components/ui/separator'
 import AlertCard from '@/v2/components/AlertCard'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
+import { Waves } from '@/v2/icons'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
 import vmaFront from '@/assets/wint-vma-front.png'
@@ -1285,13 +1286,38 @@ export default function EventFocusOverlay({
             repeat all three verbatim — "the title is rendered twice", and on a
             sheet capped at 85% of 852 that duplication cost a whole row. The
             header is now WHICH SYSTEM, which is the one thing the card does
-            not say; the severity dot stays because it is 9px and it is what
-            makes the sheet readable the instant it opens. */}
-        <span
-          aria-hidden="true"
-          className="size-[9px] shrink-0 rounded-full"
-          style={{ background: isWater ? (isLowFlow ? TOKEN.low : TOKEN.high) : meta.sevColor }}
-        />
+            not say.
+
+            THE 9px DOT BECAME THE WAVES DISC, 2026-10-26 — owner: "missing
+            visualisation on header, the waves component". A dot carries
+            severity by colour alone, which says "something is wrong" and
+            nothing about WHAT. The disc is the same mark the alert card
+            (199683:24873) and every Events Timeline row already use for a
+            water event, so the header now opens with the app's own sign for
+            water rather than a generic bullet. 22px, not the card's 28 —
+            this sits on a 34px header row.
+
+            A FAULT KEEPS THE DOT. There is no waves glyph for Offline or AC
+            Power Lost, and borrowing one would say "water" about an event
+            that has nothing to do with water. */}
+        {isWater ? (
+          <span
+            aria-hidden="true"
+            className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-red-100"
+          >
+            <Waves
+              size={14}
+              className="block text-destructive"
+              style={{ color: isLowFlow ? TOKEN.low : TOKEN.high }}
+            />
+          </span>
+        ) : (
+          <span
+            aria-hidden="true"
+            className="size-[9px] shrink-0 rounded-full"
+            style={{ background: meta.sevColor }}
+          />
+        )}
         {/* Owner's call, 2026-10-18: the location belongs under the system
             name. "Apartment 5" alone does not say which building, and the
             breadcrumb was previously buried inside the Event-details
@@ -1422,6 +1448,65 @@ export default function EventFocusOverlay({
             </div>
           </div>
         ) : null}
+
+        {/* ── System details ───────────────────────────────────────────────
+            199683:24906, the second card in both frames and the one thing in
+            them this surface did not draw at all. It names WHAT is leaking
+            and WHERE, which until now you had to open an accordion to learn.
+
+            Three lines, each dropped rather than faked when its value is
+            missing. `locationAddress` is the real street address off the
+            upstream snapshot and 50 of 103 systems carry one — the rest get
+            the location name alone, never a placeholder. The frame's third
+            line is a city; the dataset has no city field, so it is not
+            invented and the address carries the location on its own.
+
+            "Find this system" is the node's own pill (199683:24919). It is an
+            action, not a heading — which is why the accordion that used to
+            own that title is now "Device details", the thing it actually
+            lists. */}
+        <section
+          aria-label="System details"
+          className="w-full shrink-0 rounded-[18px] border border-solid border-card bg-surface-card px-[16px] py-[12px]"
+          data-node-id="199683:24906"
+        >
+          <p className="text-[13px] font-semibold text-slate-900" data-node-id="199683:24910">
+            System details
+          </p>
+          <div className="mt-[6px] flex flex-col gap-[4px]">
+            <p className="text-[15px] font-medium text-foreground" data-node-id="199683:24914">
+              {sys.name}
+            </p>
+            {sys.l4Name ? (
+              <p className="text-[13px] text-slate-600" data-node-id="199683:24916">
+                {sys.l4Name}
+              </p>
+            ) : null}
+            {sys.locationAddress ? (
+              <p className="text-[13px] text-slate-500" data-node-id="199683:24918">
+                {sys.locationAddress}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            /* Section owns its own open state, so there is no setter to
+               call from out here — but its header is a real button with a
+               known id, which is enough: open it if it is shut, then bring it
+               into view. A pill that scrolls to a closed accordion would be
+               the kind of half-wired control v2-page-parity exists to stop. */
+            onClick={() => {
+              const header = document.getElementById(`event-find-${sysId}-header`)
+              if (!header) return
+              if (header.getAttribute('aria-expanded') === 'false') header.click()
+              header.scrollIntoView({ block: 'center', behavior: 'smooth' })
+            }}
+            className="mt-[10px] inline-flex h-[24px] cursor-pointer items-center gap-[4px] rounded-[26px] bg-accent px-[8px] text-[12px] font-medium text-primary outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            data-node-id="199683:24919"
+          >
+            Find this system
+          </button>
+        </section>
 
         {/* ── Valve status ──────────────────────────────────────────────────
             The real ValveStatusCard, not a copy of it. This used to be a
@@ -1625,7 +1710,7 @@ export default function EventFocusOverlay({
 
         {/* ── "Help me find the system" ─────────────────────────────────────
             The owner's answer to their own question: photo + install notes. */}
-        <Section id={`event-find-${sysId}`} title="Find this system">
+        <Section id={`event-find-${sysId}`} title="Device details">
           <FindSystemPanel sys={sys} sysId={sysId} />
         </Section>
 
