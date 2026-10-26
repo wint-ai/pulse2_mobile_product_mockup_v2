@@ -11,6 +11,27 @@
 // In a real product these would be server-side fields on the location
 // record, with image uploads going to object storage instead of being
 // inlined as data URLs.
+//
+// ── SEEDED INSTALLATION PHOTOS vs THE USER'S OWN ────────────────────────
+// Systems also carry real installation photographs out of the box (see
+// installationPhotos.js). Those are NEVER written to localStorage. They are
+// merged in on read, ahead of whatever the user has added:
+//
+//   getPictures()  =  [ seeds the user has not deleted ] ++ [ user pictures ]
+//
+// Keeping the two apart is what stops them clobbering each other. If seeds
+// were written into the stored array on first read, a later change to the
+// seed set would either be invisible on a browser that had already read it
+// or, if it re-seeded, would duplicate or delete rows the user had curated.
+// Keeping them out means addPicture() only ever appends to the user's own
+// list and cannot disturb a seed, and re-seeding cannot touch a user row.
+//
+// Deleting a seed therefore cannot be a splice — there is nothing stored to
+// splice out — so it records a TOMBSTONE in `removedSeeds` instead. The user
+// can delete a seeded photo and have it stay deleted across reloads, which is
+// the behaviour the X button already promises on every other picture.
+
+import { getSeededPictures, isSeededPictureId } from './installationPhotos';
 
 const KEY_PREFIX = 'pulse2-location-info:';
 
@@ -51,8 +72,11 @@ export function setNotes(scopeId, notes) {
 
 // ── Pictures ─────────────────────────────────────────────────────────────
 export function getPictures(scopeId) {
-  const v = read(scopeId).pictures;
-  return Array.isArray(v) ? v : [];
+  const obj = read(scopeId);
+  const mine = Array.isArray(obj.pictures) ? obj.pictures : [];
+  const dropped = Array.isArray(obj.removedSeeds) ? obj.removedSeeds : [];
+  const seeds = getSeededPictures(scopeId).filter(p => !dropped.includes(p.id));
+  return [...seeds, ...mine];
 }
 
 export function addPicture(scopeId, dataUrl) {
@@ -69,6 +93,14 @@ export function addPicture(scopeId, dataUrl) {
 
 export function removePicture(scopeId, pictureId) {
   const obj = read(scopeId);
-  obj.pictures = (obj.pictures || []).filter(p => p.id !== pictureId);
+  if (isSeededPictureId(pictureId)) {
+    // A seed is not in the stored array, so there is nothing to filter out.
+    // Record that the user dismissed it; getPictures() honours the tombstone.
+    const dropped = Array.isArray(obj.removedSeeds) ? obj.removedSeeds : [];
+    if (!dropped.includes(pictureId)) dropped.push(pictureId);
+    obj.removedSeeds = dropped;
+  } else {
+    obj.pictures = (obj.pictures || []).filter(p => p.id !== pictureId);
+  }
   write(scopeId, obj);
 }
