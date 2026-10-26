@@ -140,7 +140,14 @@ describe('the two layouts', () => {
     renderOverlay()
     expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true')
     // The event label is the header title AND the AlertCard's own title.
-    expect(screen.getAllByText(leakSys.alert.label).length).toBeGreaterThan(0)
+    /* The card's title is the frame's SHORT form — 199683:24875 is a
+       one-line 170px box reading "High flow event", where alert.label
+       ("High Flow Water Event") wraps to two and pushes the card 25px
+       taller. The full label is still on the surface: the dialog's
+       accessible name carries it, which is what the sr-only <h2> is for. */
+    const short = `${leakSys.alert.type === 'leak-high' ? 'High' : 'Low'} flow event`
+    expect(screen.getAllByText(short).length).toBeGreaterThan(0)
+    expect(screen.getByRole('dialog').getAttribute('aria-labelledby')).toBeTruthy()
     // The incident timeline is the water layout's spine, in the house card.
     expect(screen.getByText('Events Timeline')).toBeInTheDocument()
   })
@@ -170,10 +177,20 @@ describe('it reuses the app’s own components', () => {
     renderOverlay()
     // AlertCard's own slots: the event title, the "Detected" meta row, the
     // lifecycle status pill, and the flow figure with its unit.
-    expect(screen.getAllByText(leakSys.alert.label).length).toBeGreaterThan(0)
+    /* The card's title is the frame's SHORT form — 199683:24875 is a
+       one-line 170px box reading "High flow event", where alert.label
+       ("High Flow Water Event") wraps to two and pushes the card 25px
+       taller. The full label is still on the surface: the dialog's
+       accessible name carries it, which is what the sr-only <h2> is for. */
+    const short = `${leakSys.alert.type === 'leak-high' ? 'High' : 'Low'} flow event`
+    expect(screen.getAllByText(short).length).toBeGreaterThan(0)
+    expect(screen.getByRole('dialog').getAttribute('aria-labelledby')).toBeTruthy()
     expect(screen.getByText('Detected')).toBeInTheDocument()
     expect(screen.getByText(leakSys.alert.startedAt)).toBeInTheDocument()
-    expect(screen.getByText('L/H flow rate')).toBeInTheDocument()
+    /* Just the unit now: the tile under it is captioned "Flow Rate", so
+       "L/H flow rate" said it twice and overflowed the node's 161px tile. */
+    expect(screen.getByText('L/H')).toBeInTheDocument()
+    expect(screen.getByText('Flow Rate')).toBeInTheDocument()
     // The figure is the alert's own flow rate with the unit stripped, exactly
     // as SystemPageV2Screen's alertCardsFor builds it.
     const rate = String(leakSys.alert.flowRate).replace(/[^\d,.]/g, '')

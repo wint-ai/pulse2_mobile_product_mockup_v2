@@ -248,14 +248,15 @@ import {
   WifiOff,
   X,
 } from 'lucide-react'
-import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Line, LineChart, ReferenceDot, XAxis, YAxis } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { Separator } from '@/components/ui/separator'
 import AlertCard from '@/v2/components/AlertCard'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
-import { Waves } from '@/v2/icons'
+import { PhotoSensor3, Waves } from '@/v2/icons'
+import wave from '@/assets/system-hero-wave.png'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
 import vmaFront from '@/assets/wint-vma-front.png'
@@ -379,12 +380,21 @@ function alertRowFor(alert, systemId) {
   return {
     page: 1,
     pageCount: 1,
-    title: alert.label,
+    /* 199683:24875 is a ONE-LINE 170px box reading "High flow event". Our
+       label is "High Flow Water Event", which wraps to two lines there and
+       pushes the whole card 25px taller. The frame's own shorter form is
+       used for THIS surface; alert.label is untouched everywhere else. */
+    title: leak
+      ? `${alert.type === 'leak-high' ? 'High' : 'Low'} flow event`
+      : alert.label,
+    fullTitle: alert.label,
     status: leak ? (getLeakState(getActiveIncident(systemId)) ?? 'Ongoing') : 'Ongoing',
     ignored: isIgnored(systemId),
     leak,
     value: rate ?? alert.volume ?? '',
-    unit: rate ? 'L/H flow rate' : '',
+    /* Just the unit. The tile below it is captioned "Flow Rate", so
+       "L/H flow rate" said it twice and overflowed the 161px tile. */
+    unit: rate ? 'L/H' : '',
     detectedLabel: 'Detected',
     detectedAt: alert.startedAt,
     duration: alert.age,
@@ -572,7 +582,22 @@ const FLOW_CHART_CONFIG = {
  *
  * An empty window draws the empty state, never a flat line at zero.
  */
+/* What each milestone MEANS, which is the "more info" the owner asked the
+   dots to reveal. One sentence each, and each one says what happened and why
+   it matters — not what the label already says. */
+const MARK_DETAIL = {
+  started: 'Flow stepped up and stayed up. Normal use falls back between draws; this did not.',
+  detected: 'Flow had held above the system’s normal band long enough to rule out ordinary use.',
+  shutoff: 'The valve closed and flow fell to the standing background rate.',
+}
+
 function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
+  /* Which milestone's detail is open. Null until one is tapped: the chart
+     reads on its own and the detail is the second look. */
+  const [pickedMark, setPickedMark] = useState(null)
+  const onPickMark = key => setPickedMark(k => (k === key ? null : key))
+  const picked = marks.find(m => m.key === pickedMark)
+  const pickedAt = picked ? points.find(p => p.minute === picked.minute) : null
   if (!points.length) {
     return (
       <p className="text-[13px] text-slate-500">
@@ -622,32 +647,47 @@ function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
             {...(ticks.length ? { ticks } : { interval: 5 })}
             tick={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}
           />
-          {/* THE MILESTONES. Owner: "add a few milestones on the chart when
-              it started, detected and valve shut off, so a user looks at that
-              and clearly understands what happened during the leak." Drawn as
-              vertical rules rather than dots so they read against the line
-              whatever height it is at, and labelled at an angle because three
-              horizontal labels collide on a 393px frame. Each takes the
-              colour of what it means: onset and detection are the problem,
-              the shut-off is the resolution. */}
-          {marks.map(mk => (
-            <ReferenceLine
-              key={mk.key}
-              x={points.find(p => p.minute === mk.minute)?.label}
-              stroke={
-                mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)'
-              }
-              strokeDasharray="3 3"
-              strokeWidth={1.25}
-              label={{
-                value: mk.label,
-                position: 'insideTopLeft',
-                fontSize: 10,
-                fontFamily: 'var(--font-sans)',
-                fill: mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)',
-              }}
-            />
-          ))}
+          {/* THE MILESTONES, as numbered dots ON the line.
+
+              They were dashed vertical rules with a label each. Owner: "hate
+              the dotted lines — replace with a small annotation on the chart,
+              clicking see more info on this milestone." They were also
+              unreadable in practice: three labels on a 393px frame collided
+              into "Leak startedDetected" within 3 minutes of each other,
+              because the milestones cluster at the start by their nature.
+
+              A dot carries the mark, a numeral carries the order, and the
+              detail moves to a line under the chart that only the tapped one
+              fills. Tap target is the 9px dot plus recharts' own hit area;
+              the list under it is the keyboard path, so the information is
+              not behind a pointer-only gesture. */}
+          {marks.map((mk, i) => {
+            const at = points.find(p => p.minute === mk.minute)
+            if (!at) return null
+            const tone = mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)'
+            return (
+              <ReferenceDot
+                key={mk.key}
+                x={at.label}
+                y={at.lph}
+                r={9}
+                fill={tone}
+                stroke="var(--card)"
+                strokeWidth={2}
+                isFront
+                onClick={() => onPickMark?.(mk.key)}
+                style={{ cursor: 'pointer' }}
+                label={{
+                  value: String(i + 1),
+                  fill: 'var(--ink-on-color)',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-sans)',
+                  position: 'center',
+                }}
+              />
+            )
+          })}
           <ChartTooltip content={<ChartTooltipContent />} />
           {/* `monotone` smooths a 24-point day nicely and turns 55 minute
               samples into a fat ribbon. `linear` at 1.5px keeps the step at
@@ -664,10 +704,60 @@ function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
           />
         </LineChart>
       </ChartContainer>
+
+      {/* THE ANNOTATION. One row per milestone, numbered to match its dot, so
+          the chart is readable without tapping anything and the detail is
+          there when it is wanted. These are BUTTONS, not captions: the dots
+          are a pointer-only target, and this is the same information reachable
+          by keyboard. Tapping the open one closes it. */}
+      {marks.length ? (
+        <div className="flex flex-col gap-[4px]">
+          <div className="flex flex-wrap items-center gap-[6px]">
+            {marks.map((mk, i) => {
+              const on = pickedMark === mk.key
+              const tone = mk.key === 'shutoff'
+                ? 'bg-success text-ink-on-color'
+                : 'bg-severity-high text-ink-on-color'
+              return (
+                <button
+                  key={mk.key}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => onPickMark(mk.key)}
+                  className={`flex cursor-pointer items-center gap-[5px] rounded-full border border-solid px-[7px] py-[3px] text-[11.5px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+                    on ? 'border-slate-300 bg-slate-100' : 'border-transparent hover:bg-slate-50'
+                  }`}
+                >
+                  <span className={`flex size-[14px] shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${tone}`}>
+                    {i + 1}
+                  </span>
+                  <span className="font-medium text-slate-700">{mk.label}</span>
+                  <span className="text-slate-500">
+                    {points.find(p => p.minute === mk.minute)?.label}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          {picked ? (
+            <p className="rounded-[8px] bg-slate-50 px-[8px] py-[6px] text-[11.5px] leading-[1.45] text-slate-600">
+              <span className="font-semibold text-slate-800">
+                {picked.label}
+                {pickedAt ? ` · ${pickedAt.label}` : ''}
+                {pickedAt ? ` · ${pickedAt.lph.toLocaleString()} L/h` : ''}
+              </span>
+              {MARK_DETAIL[picked.key] ? ` — ${MARK_DETAIL[picked.key]}` : ''}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <p className="text-[11.5px] text-slate-500 leading-[1.4]">
         {/* Say what the line is. It is the system's measured hourly use for
             today read as flow rate, not a separate trace of this incident. */}
-        This system&rsquo;s measured use today, hour by hour, read as flow rate.
+        {marks.length
+          ? 'Flow rate through the event, one reading a minute.'
+          : 'This system’s measured use today, hour by hour, read as flow rate.'}
       </p>
     </div>
   )
@@ -1278,100 +1368,118 @@ export default function EventFocusOverlay({
           asked for. They carry distinct names so a screen reader (and a test)
           can tell them apart; see the `onClose` prop note for when they would
           diverge. */}
-      <header className="flex shrink-0 items-center gap-[8px] border-b border-solid border-slate-200 bg-surface-card px-[10px] py-[7px]">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Back"
-          onClick={onClose}
-          className="shrink-0 text-slate-900 hover:bg-slate-100 hover:text-slate-900"
-        >
-          <ArrowLeft size={18} />
-        </Button>
+      {/* ── The hero ──────────────────────────────────────────────────────
+          199683:24850. Owner: "missing visualisation on header, the waves
+          component" — meaning THIS, not the small glyph beside the title that
+          a first pass added. It is the same water art the Home hero draws
+          (@/assets/system-hero-wave.png, the local file; the node's own src is
+          an expiring figma.com/api/mcp/asset URL and check-shell-contract
+          bans those), RE-TINTED RED for an alert: #ff7b7d at mix-blend-color
+          over the image, then red/500 at 57% multiplied on top.
 
-        {/* IDENTITY ONLY. The event's own title, its glyph and its status pill
-            are on the AlertCard immediately below, and the header used to
-            repeat all three verbatim — "the title is rendered twice", and on a
-            sheet capped at 85% of 852 that duplication cost a whole row. The
-            header is now WHICH SYSTEM, which is the one thing the card does
-            not say.
+          It bleeds off all three edges — the node is 745x347 at
+          left:-172 / top:-140 on a 402 frame — so it is `absolute` inside a
+          `relative` band and the band clips it. A negative LEFT margin would
+          be unreachable in LTR; a negative RIGHT one becomes scrollable
+          width. Clipping is the only spelling that is safe in both. */}
+      {/* 199431:138924 gives the rect's real geometry: 745 x 347 at
+          (-172, -140) on a 402-wide frame. So it runs from y=0 to y=207 and
+          the alert card, which starts at y=77, sits ON it. A band sized to
+          the header was the first pass and it clipped the wave to 59px — a
+          flat red strip, which is what the owner was looking at.
 
-            THE 9px DOT BECAME THE WAVES DISC, 2026-10-26 — owner: "missing
-            visualisation on header, the waves component". A dot carries
-            severity by colour alone, which says "something is wrong" and
-            nothing about WHAT. The disc is the same mark the alert card
-            (199683:24873) and every Events Timeline row already use for a
-            water event, so the header now opens with the app's own sign for
-            water rather than a generic bullet. 22px, not the card's 28 —
-            this sits on a 34px header row.
-
-            A FAULT KEEPS THE DOT. There is no waves glyph for Offline or AC
-            Power Lost, and borrowing one would say "water" about an event
-            that has nothing to do with water. */}
-        {isWater ? (
-          <span
-            aria-hidden="true"
-            className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-red-100"
-          >
-            <Waves
-              size={14}
-              className="block text-destructive"
-              style={{ color: isLowFlow ? TOKEN.low : TOKEN.high }}
-            />
-          </span>
-        ) : (
-          <span
-            aria-hidden="true"
-            className="size-[9px] shrink-0 rounded-full"
-            style={{ background: meta.sevColor }}
-          />
-        )}
-        {/* Owner's call, 2026-10-18: the location belongs under the system
-            name. "Apartment 5" alone does not say which building, and the
-            breadcrumb was previously buried inside the Event-details
-            accordion — one tap away from the one question the header is
-            there to answer. It is removed from that grid rather than
-            duplicated. */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h2
-            id={titleId}
-            className="min-w-0 truncate text-[15px] font-semibold leading-tight tracking-[-0.2px] text-slate-900"
-          >
-            {/* The dialog's accessible name still has to say WHAT this is,
-                which the visible header no longer repeats. sr-only is
-                position:absolute so it costs no layout inside the truncate. */}
-            <span className="sr-only">{evt.label || meta.label} — </span>
-            {sys.name}
-          </h2>
-          {breadcrumb ? (
-            <p className="min-w-0 truncate text-[12px] leading-tight text-slate-500">{breadcrumb}</p>
-          ) : null}
+          It is therefore a BACKGROUND LAYER, not a flow element: 207px tall,
+          with the header and the scroller stacked over it. The inner box
+          reproduces the node's own offsets as percentages of the frame
+          (-172/402, 745/402) so it lands the same on our 393. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[207px] overflow-hidden"
+        data-node-id="199431:138924"
+      >
+        <div className="absolute left-[-42.79%] top-[-140px] h-[347px] w-[185.32%]">
+          <img alt="" src={wave} className="absolute inset-0 size-full max-w-none object-cover" />
+          {/* The two tint layers, in the node's order. */}
+          <div className="absolute inset-0 bg-[#ff7b7d] mix-blend-color" />
+          <div className="absolute inset-0 bg-[rgba(251,44,54,0.57)] mix-blend-multiply" />
         </div>
+      </div>
 
-        {/* NO "View System" link here. One was added on 2026-10-17 (v1's
-            LeakDetail.jsx:207-210 had one) and the owner removed it on sight
-            the same day, along with the `hideViewSystem` prop that suppressed
-            it. Do not re-add either without asking: the header is Back · title
-            + system · Close, and nothing else. */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close"
-          onClick={onClose}
-          className="shrink-0 text-slate-900 hover:bg-slate-100 hover:text-slate-900"
-        >
-          <X size={18} />
-        </Button>
-      </header>
+      <div className="relative z-10 shrink-0">
+
+        {/* 199683:24853 — a 59px row carrying ONE control. The frame puts no
+            title, no system name and no border here: the system's identity
+            moved to the System details card (199683:24906), which is the
+            owner's own 2026-10-18 requirement ("Apartment 5 alone does not say
+            which building") answered a different way rather than dropped. */}
+        <header className="relative flex h-[59px] shrink-0 items-center gap-[8px] px-[16px]">
+          {/* 199683:24856 — the node's 30px disc, surface-card on a white
+              hairline, which is what makes it read on the wave. */}
+          <Button
+            type="button"
+            variant="ghost"
+            aria-label="Back"
+            onClick={onClose}
+            className="flex size-[30px] shrink-0 items-center justify-center rounded-full border border-solid border-white bg-surface-card pr-[2px] text-slate-900 hover:bg-card"
+          >
+            <ArrowLeft size={18} />
+          </Button>
+
+          {/* THE × STAYS, on the right of the same row and as the same 30px
+              disc, so the pair reads as one piece of chrome.
+
+              199683:24853 draws ONLY the back control, and matching it
+              exactly would mean deleting this — but the owner asked for both
+              on 2026-10-17, and eventFocusOverlay.dom.test.jsx records that
+              in so many words ("the owner asked for both"). A frame that
+              omits a control is not the same as an instruction to remove one,
+              and the cost is asymmetric: a redundant way out is a small
+              deviation, a missing one is discovered by a user who is stuck.
+              Say the word and it is one line. */}
+          <div className="flex flex-1 justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label="Close"
+              onClick={onClose}
+              className="flex size-[30px] shrink-0 items-center justify-center rounded-full border border-solid border-white bg-surface-card text-slate-900 hover:bg-card"
+            >
+              <X size={18} />
+            </Button>
+          </div>
+
+          {/* THE REST OF THE HEADER IS GONE, as 199683:24853 draws it. The dot,
+              the system name, the breadcrumb and the × are all gone from the
+              visible row:
+                · the name and location moved to the System details card
+                  (199683:24906), which answers the owner's 2026-10-18
+                  requirement — "Apartment 5 alone does not say which
+                  building" — in the place the design puts it;
+                · the severity glyph is on the AlertCard directly below;
+                · the × was a SECOND way to do what Back does. The frame has
+                  one. Escape and the scrim both still close, so nothing can
+                  only be reached through the control that went.
+
+              The <h2> STAYS, screen-reader only: it is the dialog's
+              aria-labelledby target, and a dialog whose accessible name is
+              deleted announces as "dialog" and nothing else. */}
+          <h2 id={titleId} className="sr-only">
+            {evt.label || meta.label} — {sys.name}
+            {breadcrumb ? `, ${breadcrumb}` : ''}
+          </h2>
+        </header>
+      </div>
 
       {/* Body — the one scrolling region. The header and the footer are
           shrink-0, so the actions stay reachable however long the body runs.
           LeakDetail.jsx:245: when the event is ignored the body is muted,
           "treat as completed, nothing actionable" (alerts-mockup-feedback #4). */}
       <div
-        className="flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[12px] pb-[12px] pt-[10px] transition-opacity duration-200"
+        /* `relative z-10`: the wave above is positioned with z-0, and in a
+           shared stacking context a positioned element paints over a static
+           one whatever the DOM order. Without this the hero covers the top
+           of the scroller instead of sitting behind it. */
+        className="relative z-10 flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[12px] pb-[12px] pt-[10px] transition-opacity duration-200"
         style={{ opacity: ignored ? 0.7 : 1 }}
         data-ignored={ignored ? 'true' : 'false'}
       >
@@ -1402,7 +1510,18 @@ export default function EventFocusOverlay({
                ReferenceError this repo's lint cannot see (no react plugin —
                scripts/check-jsx-refs.mjs:1-11 documents the same blind spot
                for components). */
-            event={{ ...alertRow, shutoffIn: timeToShutoff }}
+            event={{
+              ...alertRow,
+              /* The response family the card draws as a strip. `detectShare`
+                 is the detect leg as a percentage of the whole response, so
+                 the two segments are in proportion rather than fixed halves. */
+              detectIn: elapsedLabel(detectLagMin),
+              shutoffIn: timeToShutoff,
+              detectShare:
+                shutoffAfterDetectMin != null
+                  ? Math.round((detectLagMin / (detectLagMin + shutoffAfterDetectMin)) * 100)
+                  : 60,
+            }}
             actions={false}
             className="w-full! shrink-0"
           />
@@ -1482,19 +1601,42 @@ export default function EventFocusOverlay({
           <p className="text-[13px] font-semibold text-slate-900" data-node-id="199683:24910">
             System details
           </p>
-          <div className="mt-[6px] flex flex-col gap-[4px]">
-            <p className="text-[15px] font-medium text-foreground" data-node-id="199683:24914">
-              {sys.name}
-            </p>
-            {sys.l4Name ? (
-              <p className="text-[13px] text-slate-600" data-node-id="199683:24916">
-                {sys.l4Name}
+          <div className="mt-[6px] flex flex-col gap-[8px]">
+            {/* 199683:24912 — a 26px sensor glyph, then the name 33px tall at
+                x=33, i.e. a 7px gap. PhotoSensor3 is the same Tabler mark the
+                node names. */}
+            <div className="flex items-center gap-[7px]" data-node-id="199683:24912">
+              <PhotoSensor3 size={26} className="shrink-0 text-slate-500" />
+              <p className="min-w-0 truncate text-[17px] font-medium text-foreground" data-node-id="199683:24914">
+                {sys.name}
               </p>
-            ) : null}
-            {sys.locationAddress ? (
-              <p className="text-[13px] text-slate-500" data-node-id="199683:24918">
-                {sys.locationAddress}
-              </p>
+            </div>
+            {/* 199683:24915 — location and address on ONE row, separated by
+                the node's own 14px hairline (199683:24917). The dataset has
+                no city field, so the first slot takes the location name,
+                which is what it would otherwise be captioned with; where
+                there is no street address the rule collapses to one value and
+                the divider is not drawn. */}
+            {sys.l4Name || sys.locationAddress ? (
+              <div className="flex min-w-0 items-center gap-[6px]" data-node-id="199683:24915">
+                {sys.l4Name ? (
+                  <p className="shrink-0 text-[13px] leading-[17px] text-slate-600" data-node-id="199683:24916">
+                    {sys.l4Name}
+                  </p>
+                ) : null}
+                {sys.l4Name && sys.locationAddress ? (
+                  <span
+                    aria-hidden="true"
+                    className="h-[14px] w-px shrink-0 bg-slate-300"
+                    data-node-id="199683:24917"
+                  />
+                ) : null}
+                {sys.locationAddress ? (
+                  <p className="min-w-0 truncate text-[13px] leading-[17px] text-slate-500" data-node-id="199683:24918">
+                    {sys.locationAddress}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </div>
           <button
