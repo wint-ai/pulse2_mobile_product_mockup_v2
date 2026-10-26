@@ -262,7 +262,6 @@ import ValveStatusCard from '@/v2/components/ValveStatusCard'
 import vmaFront from '@/assets/wint-vma-front.png'
 import {
   buildEventFlowSeries,
-  elapsedLabel,
   flowTicks,
   peakFlowRate,
   toFlowRateSeries,
@@ -1247,16 +1246,13 @@ export default function EventFocusOverlay({
   const seedInt = [...flowSeed].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)
   const detectLagMin = 2 + (seedInt % 5)
   const eventDurationMin = 45
+  /* How long until auto-close fires on an event still running. Same 1-4
+     minute seeded response the closed case uses, so the two states tell one
+     consistent story about this system. It feeds the countdown only — the
+     response strip that also used it was removed on 2026-10-26. */
+  const autoCloseInMin = 1 + ((seedInt >> 3) % 4)
   const shutoffAfterDetectMin =
     hasValve && autoShutoffOn && valveState === 'closed' ? 1 + ((seedInt >> 3) % 4) : null
-  /* The number the card was missing — owner: "the time elapsed to shut off is
-     missing in UI event card". Detection to valve-closed, which is the window
-     the product is actually judged on. */
-  const timeToShutoff = shutoffAfterDetectMin != null ? elapsedLabel(shutoffAfterDetectMin) : null
-  /* How long until auto-close fires on an event that is still running. Same
-     1-4 minute seeded response the closed case uses, so the two states tell
-     one consistent story about this system. */
-  const autoCloseInMin = 1 + ((seedInt >> 3) % 4)
 
   /* THE EVENT GRAPH. For a WATER EVENT this is now the incident's own trace
      at one point a MINUTE — owner, 2026-10-26: "granularity needs to be
@@ -1512,24 +1508,7 @@ export default function EventFocusOverlay({
             /* 'overlay', not 'mobile'. The 2026-10-25 redraw is THIS
                surface's only; SystemPageV2Screen keeps `mobile`. */
             variant={alertRow.ignored ? 'ignored' : 'overlay'}
-            /* Merged HERE, not into `alertRow` above: timeToShutoff is
-               derived from the valve state, which is resolved further down
-               the body, and a const read before its declaration is a
-               ReferenceError this repo's lint cannot see (no react plugin —
-               scripts/check-jsx-refs.mjs:1-11 documents the same blind spot
-               for components). */
-            event={{
-              ...alertRow,
-              /* The response family the card draws as a strip. `detectShare`
-                 is the detect leg as a percentage of the whole response, so
-                 the two segments are in proportion rather than fixed halves. */
-              detectIn: elapsedLabel(detectLagMin),
-              shutoffIn: timeToShutoff,
-              detectShare:
-                shutoffAfterDetectMin != null
-                  ? Math.round((detectLagMin / (detectLagMin + shutoffAfterDetectMin)) * 100)
-                  : 60,
-            }}
+            event={alertRow}
             actions={false}
             className="w-full! shrink-0"
           />

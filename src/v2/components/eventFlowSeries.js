@@ -252,11 +252,3 @@ export function flowTicks(points) {
     })
     .map(p => p.label)
 }
-
-/** "4m 30s" from minutes, for the card's time-to-shutoff readout. */
-export function elapsedLabel(minutes) {
-  if (minutes == null || !Number.isFinite(minutes)) return null
-  const m = Math.max(0, Math.round(minutes))
-  if (m < 60) return `${m}m`
-  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`
-}

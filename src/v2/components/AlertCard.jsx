@@ -54,7 +54,8 @@
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Copy } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, Copy } from 'lucide-react'
 import { Waves, WifiDisconnected02 } from '@/v2/icons'
 
 /* ── Inlined Figma assets ─────────────────────────────────────────────────── */
@@ -346,23 +347,6 @@ const MOCK_EVENT = {
      event id, all literal copy on the node. */
   flowLabel: 'Flow Rate',
   durationLabel: 'Duration',
-  /* Detection -> valve closed. Owner, 2026-10-26: "the time elapsed to shut
-     off is missing in UI event card". Null on an event that never closed a
-     valve, which is most of them, and the tile is then not drawn — a dash in
-     a figure slot reads as a measurement of nothing. */
-  /* The response family, as durations between the event's own milestones.
-     Null when the milestone has not happened, which is what keeps the strip
-     honest on an event still running. */
-  detectIn: null,
-  shutoffIn: null,
-  detectShare: 50,
-  /* The strip is OFF by default since 2026-10-26 — owner, looking at it:
-     "why i still see this bar here?". Kept behind a flag rather than deleted,
-     same as the Attention block: the research behind it stands (these are
-     milestone-anchored durations, and two of them is a sequence), and the
-     only question it failed is whether this card is where they belong.
-     `showResponse` brings it back with no rebuild. */
-  showResponse: false,
   eventIdLabel: 'Event ID',
   eventId: 'Ik-6598',
   page: 1,
@@ -556,6 +540,54 @@ function StatBadge({ deg, blend, icon, value, valueClass }) {
  *        store collision: ignoredIncidents is keyed by systemId, so ignoring a
  *        power fault wrote the record a water-event ignore writes.
  */
+/* THE COPY CONTROL. Owner, 2026-10-26: "still no interaction when copy event
+   id" — it copied and said nothing, so there was no way to tell it had
+   worked, or that it had silently failed.
+ *
+ * It now swaps to a tick for 1.6s and announces through a polite live region,
+ * so the confirmation reaches a screen reader too rather than being a purely
+ * visual flicker. The clipboard call can reject — embedded webviews refuse it
+ * without a prompt — and that is reported as "Press and hold to copy" rather
+ * than a tick that lies. */
+function CopyEventId({ id, label }) {
+  const [state, setState] = useState('idle')
+  useEffect(() => {
+    if (state === 'idle') return undefined
+    const t = setTimeout(() => setState('idle'), 1600)
+    return () => clearTimeout(t)
+  }, [state])
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(String(id))
+      setState('done')
+    } catch {
+      setState('failed')
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={`Copy event ID ${id}`}
+        onClick={copy}
+        className={`flex size-[16px] shrink-0 cursor-pointer items-center justify-center rounded-[4px] outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+          state === 'done' ? 'text-success' : 'text-slate-500 hover:text-slate-700'
+        }`}
+        data-node-id="199683:24896"
+        data-copy-state={state}
+      >
+        {state === 'done' ? <Check size={16} /> : <Copy size={16} />}
+      </button>
+      {/* The same confirmation, for anyone not watching the icon. */}
+      <span aria-live="polite" className="sr-only">
+        {state === 'done' ? `${label} copied` : state === 'failed' ? 'Press and hold to copy' : ''}
+      </span>
+    </>
+  )
+}
+
 export default function AlertCard({
   variant = 'mobile',
   event = MOCK_EVENT,
@@ -670,64 +702,7 @@ export default function AlertCard({
               </div>
               <p className={FIG_LABEL}>{data.durationLabel}</p>
             </div>
-
           </div>
-
-          {/* ── The response strip ──────────────────────────────────────
-              A third tile reading "2m / Time to shut off" was here, and a
-              bare figure is the weakest way to say this. Owner: "research how
-              to make the time elapsed component better, that looks cool."
-
-              What the research settles: these are not one number but a FAMILY
-              of milestone-anchored durations — incident tooling calls them
-              time-to-detect and time-to-mitigate (Grafana IRM computes MTTD as
-              declared-minus-start; FireHydrant treats detect / acknowledge /
-              mitigate / resolve as one family). Two of them is a sequence, and
-              a sequence wants a shape, not a digit.
-
-              So: one strip, segments in proportion to their real durations,
-              each labelled. It answers "how fast did we catch it" and "how
-              fast did we stop it" in a glance and in the right order. The
-              countdown literature's one firm rule is applied too — the
-              direction is NAMED ("to detect", "to shut off") rather than left
-              for the reader to infer from a bare clock.
-
-              An event still running gets a hatched, open-ended second segment
-              instead of a fake duration: it has no end yet, and drawing one
-              would be the only lie on this card. */}
-          {data.showResponse && (data.detectIn || data.shutoffIn) ? (
-            <div className="flex w-full flex-col gap-[4px]" data-name="Response">
-              <div className="flex h-[6px] w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full shrink-0 bg-severity-high"
-                  style={{ width: `${data.detectShare ?? 50}%` }}
-                />
-                <div
-                  className={
-                    data.shutoffIn
-                      ? 'h-full flex-1 bg-success'
-                      : 'h-full flex-1 bg-[repeating-linear-gradient(135deg,var(--slate-300)_0_4px,transparent_4px_8px)]'
-                  }
-                />
-              </div>
-              <div className="flex items-baseline justify-between">
-                <p className="text-[11.5px] text-slate-500">
-                  <span className="font-semibold text-severity-high">{data.detectIn}</span>
-                  {' to detect'}
-                </p>
-                <p className="text-[11.5px] text-slate-500">
-                  {data.shutoffIn ? (
-                    <>
-                      <span className="font-semibold text-success">{data.shutoffIn}</span>
-                      {' to shut off'}
-                    </>
-                  ) : (
-                    'still running'
-                  )}
-                </p>
-              </div>
-            </div>
-          ) : null}
 
           <div className={OVERLAY_META_ROW} data-node-id="199683:24887">
             <div
@@ -747,26 +722,7 @@ export default function AlertCard({
                 <div className={OVERLAY_ID_PILL} data-node-id="199683:24894">
                   <p className={OVERLAY_META_VALUE}>{data.eventId}</p>
                 </div>
-                {/* 199683:24896 — "Huge Icons / copy-01", 16px. An id exists
-                    to be quoted to somebody, so it copies. navigator.clipboard
-                    rejects in some embedded views and the catch is the whole
-                    handling: there is nothing useful to say, and an
-                    unhandled rejection in a click handler is worse. */}
-                <button
-                  type="button"
-                  aria-label={`Copy event ID ${data.eventId}`}
-                  onClick={() => {
-                    try {
-                      navigator.clipboard?.writeText?.(String(data.eventId))?.catch?.(() => {})
-                    } catch {
-                      /* no clipboard here; the id is on screen to read */
-                    }
-                  }}
-                  className="flex size-[16px] shrink-0 cursor-pointer items-center justify-center rounded-[4px] text-slate-500 outline-none hover:text-slate-700 focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                  data-node-id="199683:24896"
-                >
-                  <Copy size={16} />
-                </button>
+                <CopyEventId id={data.eventId} label={data.eventIdLabel} />
               </div>
             ) : null}
           </div>
