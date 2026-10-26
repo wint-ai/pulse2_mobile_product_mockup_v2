@@ -109,14 +109,19 @@ describe('the consumption chart plots the routed system', () => {
          0 in the sum: PLS-WC-17 says an unreached day reports nothing, and a
          total that only happens to come out right is not the assertion. */
       const { series } = getConsumptionSeries(system.id, system.name, 'D', 0)
-      const expected = fmtL(
+      /* ` L` because the unit moved ONTO the value on 2026-10-26 (owner:
+         "why here is writen the way we cant understand?" - it read "68.5K"
+         over "Total L", so neither half was a phrase). The card now draws
+         "68.5K L" over "Total", and this assertion is about the figure the
+         card paints, so it carries the unit too. */
+      const expected = `${fmtL(
         series.filter((p) => p.litres != null).reduce((sum, p) => sum + p.litres, 0),
-      )
+      )} L`
 
       const { container, unmount } = mountAt(system.id)
       const view = within(container)
-      // "Total L" is the card's first headline figure.
-      expect(view.getAllByText('Total L').length, system.id).toBeGreaterThan(0)
+      // "Total" is the card's first headline figure.
+      expect(view.getAllByText('Total').length, system.id).toBeGreaterThan(0)
       expect(view.getAllByText(expected).length, `${system.id} total ${expected}`).toBeGreaterThan(0)
       unmount()
     }

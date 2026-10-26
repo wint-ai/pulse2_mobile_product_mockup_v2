@@ -241,8 +241,8 @@ describe('granularity is a dropdown', () => {
 
   it('labels the headline figures for the bucket being plotted', () => {
     const { container, rerender } = renderCard()
-    expect(within(container).getByText('Daily Avg L')).toBeTruthy()
-    expect(within(container).getByText('Peak Day L')).toBeTruthy()
+    expect(within(container).getByText('Daily avg')).toBeTruthy()
+    expect(within(container).getByText('Peak day')).toBeTruthy()
 
     rerender(
       <WaterConsumptionCardV2
@@ -253,7 +253,7 @@ describe('granularity is a dropdown', () => {
         onMonthChange={() => {}}
       />,
     )
-    expect(within(container).getByText('Monthly Avg L')).toBeTruthy()
-    expect(within(container).getByText('Peak Month L')).toBeTruthy()
+    expect(within(container).getByText('Monthly avg')).toBeTruthy()
+    expect(within(container).getByText('Peak month')).toBeTruthy()
   })
 })

@@ -68,7 +68,7 @@ const mountSystem = () => {
   return r
 }
 
-/* §2's metric labels name the selected grouping's period, so "Monthly Avg L"
+/* §2's metric labels name the selected grouping's period, so "Monthly avg"
    on first paint is the grouping stating itself.
 
    PLS-WC-03 IS STILL PINNED THE SAME WAY, through a different control. The
@@ -83,8 +83,8 @@ const mountSystem = () => {
    is not the default this rule is about. */
 const opensOnMonthly = (container) => {
   const view = within(container)
-  expect(view.getAllByText('Monthly Avg L').length).toBeGreaterThan(0)
-  expect(view.getAllByText('Peak Month L').length).toBeGreaterThan(0)
+  expect(view.getAllByText('Monthly avg').length).toBeGreaterThan(0)
+  expect(view.getAllByText('Peak month').length).toBeGreaterThan(0)
   expect(currentGranularity(container)).toBe('Month')
   expect(currentGranularity(container)).not.toBe('Day')
 }
@@ -100,7 +100,7 @@ const opensOnMonthly = (container) => {
    so the two screens now open on different groupings ON PURPOSE. */
 const opensOnMonthToDate = (container) => {
   const view = within(container)
-  expect(view.getAllByText('Daily Avg L').length).toBeGreaterThan(0)
+  expect(view.getAllByText('Daily avg').length).toBeGreaterThan(0)
   expect(currentGranularity(container)).toBe('Day')
   /* And the caption is the owner's form: day-range then month, no year.
      Pinned here as well as in systemHeroSeeMore.dom.test.jsx because this is
@@ -127,7 +127,7 @@ describe('the default window', () => {
     const view = within(container)
     pickGranularity(container, 'Month')
     expect(currentGranularity(container)).toBe('Month')
-    expect(view.getAllByText('Monthly Avg L').length).toBeGreaterThan(0)
+    expect(view.getAllByText('Monthly avg').length).toBeGreaterThan(0)
     expect(view.getAllByText('Nov 2025 - Oct 2026').length).toBeGreaterThan(0)
     expect(view.queryByText(/Nothing flowed in yet/i)).toBeNull()
   })
@@ -136,7 +136,7 @@ describe('the default window', () => {
     const { container } = mountHome()
     const view = within(container)
     pickGranularity(container, 'Day')
-    expect(view.getAllByText('Daily Avg L').length).toBeGreaterThan(0)
+    expect(view.getAllByText('Daily avg').length).toBeGreaterThan(0)
     expect(currentGranularity(container)).toBe('Day')
     // §3.1 rebuilds the window; it must not land on the empty state.
     expect(view.queryByText(/Nothing flowed in yet/i)).toBeNull()

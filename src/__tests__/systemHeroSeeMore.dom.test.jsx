@@ -1,6 +1,14 @@
 // @vitest-environment happy-dom
 //
-// The System hero's "See more" is a ONE-WAY JUMP into the consumption chart.
+// The System hero's "All stats" is a ONE-WAY JUMP into the consumption chart.
+//
+// THE CONTROL WAS CALLED "See more" until 2026-10-26, which is why this file
+// is still named after it. Figma 199703:30816 / 199703:31382 renamed it to
+// "All stats" and moved it opposite the delta row; everything this file
+// asserts about its BEHAVIOUR is unchanged, and is still the 2026-10-20
+// ruling quoted below. The helper stays spelled `seeMore` for the same
+// reason: one label moved, and renaming twenty call sites would bury that
+// one real change in noise.
 //
 // 2026-10-20, the owner, looking at the System page hero:
 //
@@ -123,11 +131,11 @@ const mount = () =>
 
 /* The accessible name is no longer the two words the comp draws. A control
    that moves the page has to say where it goes, so the button is named
-   "See more: go to the water consumption chart" — the visible label first, so
+   "All stats: go to the water consumption chart" — the visible label first, so
    voice control still matches what is painted (WCAG 2.5.3). Matching on the
    prefix keeps this test honest about the words on screen without freezing the
    rest of the sentence. */
-const seeMore = (c) => within(c).getByRole('button', { name: /^See more\b/ })
+const seeMore = (c) => within(c).getByRole('button', { name: /^All stats\b/ })
 const compareSwitch = (c) =>
   within(c).queryByRole('switch', { name: /compare previous period/i })
 /* The chart's own wrapper, the node the jump scrolls to (Figma 198629:51874).
@@ -145,10 +153,21 @@ const chartNode = (c) => c.querySelector('[data-node-id="198629:51874"]')
    and it no longer has to guess the tone or peel a prefix. The old ids stay in
    the selector so the test keeps working against either generation of the
    component rather than silently passing on neither. */
+const RANGE_NODES = [
+  /* 2026-10-26, the current generation. The hero is an INSTANCE now, so the
+     range line's id is tone-dependent again: alert 199703:30816, calm
+     199703:31382, each with its own instance-qualified child. */
+  'I199703:30816;199703:30079',
+  'I199703:31382;199703:32482',
+  // The generation before it, when both tones shared one id.
+  '199383:141633',
+]
+const CAPTION_BLOCK_NODES = ['199396:84051', '199296:50197', '199296:50721']
+
 const captionRange = (c) => {
-  const range = c.querySelector('[data-node-id="199383:141633"]')
+  const range = c.querySelector(RANGE_NODES.map((id) => `[data-node-id="${id}"]`).join(', '))
   const node = range
-    ?? c.querySelector('[data-node-id="199396:84051"], [data-node-id="199296:50197"], [data-node-id="199296:50721"]')
+    ?? c.querySelector(CAPTION_BLOCK_NODES.map((id) => `[data-node-id="${id}"]`).join(', '))
   expect(node, 'the hero caption is missing').toBeTruthy()
   return node.textContent.replace(/^Water consumption\s*/, '').trim()
 }
@@ -222,21 +241,21 @@ describe('the consumption chart is always on the page', () => {
 
     const control = seeMore(container)
     expect(control.tagName).toBe('BUTTON')
-    expect(control.textContent).toContain('See more')
+    expect(control.textContent).toContain('All stats')
     expect(control.hasAttribute('aria-expanded'), 'the jump claims to expand something').toBe(false)
 
     fireEvent.click(control)
 
-    // Still the same one control, still reading "See more". There is no
+    // Still the same one control, still reading "All stats". There is no
     // second state for it to flip into.
     expect(within(container).queryByRole('button', { name: /see less/i })).toBeNull()
-    expect(seeMore(container).textContent).toContain('See more')
+    expect(seeMore(container).textContent).toContain('All stats')
     expect(seeMore(container).hasAttribute('aria-expanded')).toBe(false)
     expect(chartNode(container), 'the chart was closed by the control').toBeTruthy()
   })
 })
 
-describe('the hero "See more" is a jump into the chart', () => {
+describe('the hero "All stats" is a jump into the chart', () => {
   it('scrolls the chart into view, and does it again on a second tap', () => {
     const { container } = mount()
     expect(scrollSpy).not.toHaveBeenCalled()

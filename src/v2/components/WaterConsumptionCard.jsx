@@ -52,9 +52,12 @@ function deriveStats(series) {
   if (!series.length) return []
   const total = series.reduce((sum, d) => sum + d.litres, 0)
   return [
-    { value: fmtL(total), label: 'Total L' },
-    { value: fmtL(total / series.length), label: 'Avg / Day L' },
-    { value: fmtL(Math.max(...series.map((d) => d.litres))), label: 'Peak Day L' },
+    /* Unit on the value, not the label — see the long note on the same
+       change in WaterConsumptionCardV2's deriveStats. Kept in step here so
+       the two cards cannot disagree about how a litre is written. */
+    { value: `${fmtL(total)} L`, label: 'Total' },
+    { value: `${fmtL(total / series.length)} L`, label: 'Avg / day' },
+    { value: `${fmtL(Math.max(...series.map((d) => d.litres)))} L`, label: 'Peak day' },
   ]
 }
 

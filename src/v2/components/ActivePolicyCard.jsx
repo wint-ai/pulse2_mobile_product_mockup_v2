@@ -108,48 +108,78 @@
  */
 
 import { useId, useState } from 'react'
-import { House, PlaneTakeoff } from 'lucide-react'
+import { ArrowRight, House, PlaneTakeoff } from 'lucide-react'
 
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Clock01, LocationDot } from '@/v2/icons'
 import { cn } from '@/lib/utils'
 
 /* The frame names the family as a Figma style ("Figtree:SemiBold"), which is
    not a font the browser can resolve. Carried with the project's own fallback
    chain, same as SystemHeroCard / SystemTopologyCard do. */
 
-/* Card shell 199296:50268 / 199296:50538 — byte-identical on both nodes. */
-const CARD = String.raw`bg-surface-card content-stretch flex flex-col gap-[19px] items-start p-[18px] relative rounded-[18px] shrink-0 w-full`
+/* Card shell 199539:181835. The node is `pb-[18px]` with NO top padding and
+   no row gap: the header carries its own py-[6px], the rule sits flush, and
+   the body owns pt-[19px]. The old shell was a uniform p-[18px] gap-[19px]
+   box, which is why the header could not reach the card's edges. */
+const CARD = String.raw`bg-surface-card content-stretch flex flex-col items-start pb-[18px] relative rounded-[18px] shrink-0 w-full overflow-hidden`
 
-/* 199296:50618 / 199296:50621 — the two halves of the mode control. Held as
-   String.raw constants and swapped whole rather than merged through cn():
-   twMerge cannot tell `border-[length:var(--border-width\/border,1px)]` from
-   `border-[var(--wint-blue-accent,#0b81f8)]` and drops one of them. */
+const FOCUS = 'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
+
+/* The status pip's tint. The frame ships two exports of the SAME LocationDot
+   geometry differing only in fill — #008236 and #FB2C36 — which are stock
+   green-700 and red-500 from the shadcn ramp this project draws from, so they
+   are utilities here rather than two more frozen hexes. `muted` is ours: the
+   frame has no third state, but `autoShutoff` is 'N/A' on the twenty
+   metering-only systems and neither green nor red is honest about a setting
+   that does not exist on the hardware. */
+const STATUS_TONE = {
+  on: 'text-green-700',
+  off: 'text-red-500',
+  muted: 'text-slate-400',
+}
+
+/* ── HOME / AWAY ──────────────────────────────────────────────────────────
+   RESIDENTIAL ONLY, and that gate is the owner's: "Home away is a simple
+   policy for apartmants, depends per systms, make it for ressidential onlt"
+   (2026-10-26). An office tower has no "away" in the sense PRD 04e means —
+   the building is occupied on a schedule, which is what the Working hours
+   policy above already states — so the control is drawn only where it means
+   something. SystemPageV2Screen decides by division (l2Name) and simply
+   passes no `onModeChange` elsewhere.
+
+   IT IS NOT IN 199539:181835. The frame draws the header, the policy row and
+   the two settings rows and stops. The control is kept anyway, on the owner's
+   word in the same exchange — "dont remove home away" — and sits BELOW the
+   settings rows, which is where the superseded node had it relative to
+   everything else on the card. If a later frame places it somewhere specific,
+   that frame wins.
+
+   199296:50618 / 199296:50621 — the two halves. Held as String.raw constants
+   and swapped whole rather than merged through cn(): twMerge cannot tell
+   `border-[length:...]` from `border-[var(...)]` and drops one of them. */
 const MODE_BASE = String.raw`content-stretch flex flex-[1_0_0] flex-col h-[42px] items-center justify-center min-w-px pt-1 relative rounded-[9px]`
 /* The selected half was a frozen `bg-[#cde6ff]`. Under dark that stayed a
-   light blue slab (14.7:1 against the card) with --primary ink on top of it,
-   which inverts to near-white there — the selected mode became the one you
-   could not read. --secondary is this repo's pale informational blue and is
-   the ground --secondary-foreground (= --primary) is defined against, so the
-   pair moves together under every theme. NOTE: --secondary is #f2f6ff in
-   `light`, a step paler than #cde6ff — the selected state reads slightly
-   quieter there. The border, which is what actually carries "selected", is
-   unchanged. */
+   light blue slab (14.7:1 against the card) with --primary ink on top, which
+   inverts to near-white there — the selected mode became the one you could
+   not read. --secondary is this repo's pale informational blue and is the
+   ground --secondary-foreground (= --primary) is defined against, so the pair
+   moves together under every theme. */
 const MODE_ON = String.raw`bg-secondary border border-primary border-solid `
 const MODE_OFF = String.raw`bg-slate-100 `
 const MODE_LABEL = String.raw`[word-break:break-word] font-medium leading-8 relative shrink-0 text-2xl tracking-[-0.6px] whitespace-nowrap`
 const MODE_LABEL_ON = String.raw`text-primary`
 const MODE_LABEL_OFF = String.raw`text-muted-foreground`
 
-const FOCUS = 'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
-
-/* 199296:50338 / 199296:50341 — the two chips are the same node twice over. */
-const CHIP = String.raw`bg-[#e2eafc] content-stretch flex flex-col gap-[8px] items-start justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full`
-const CHIP_TEXT = String.raw`[word-break:break-word] leading-5 relative shrink-0 text-foreground text-sm w-full`
-/* Figma draws exactly two chips, so only two ids exist. A third would be the
-   same node again; it renders without one rather than claiming a false id. */
-const CHIP_NODE_IDS = ['199296:50338', '199296:50341']
-
 const DEFAULT_POLICIES = [{ id: 'business-hours', name: 'Business Hours', window: '8AM-8PM' }]
-const DEFAULT_CHIPS = ['Alerts', 'Valve handling: Auto shut-off ']
+/* The frame's own two rows, as the shape reference for a caller that passes
+   none. SystemPageV2Screen passes the system's REAL policy — see its call. */
+const DEFAULT_SETTINGS = [
+  { id: 'alerts', label: 'Alerts', value: 'On', tone: 'on' },
+  { id: 'auto-shutoff', label: 'Auto Shutoff Valve', value: 'Off', tone: 'off' },
+]
+
 /* ICONS AND COPY COME FROM THE PRD, not from taste.
    docs/PRD/04e-home-away.md in the sandbox repo, locked 2026-06-08 round 6:
 
@@ -182,8 +212,6 @@ const DEFAULT_MODE_OPTIONS = [
   },
 ]
 
-/* 199296:50276 "Ellipse 1" — the whole exported file is a single filled
-   circle, so it is inlined at the exact geometry Figma gave it. */
 function PolicyDot({ color = '#1a6fe0' }) {
   return (
     <svg
@@ -230,11 +258,15 @@ function ChevronDown1736() {
 }
 
 export default function ActivePolicyCard({
-  tone = 'calm',
   title = 'Active policy',
-  description = 'Leak confirmed — flow sustained above threshold',
   policies = DEFAULT_POLICIES,
-  chips = DEFAULT_CHIPS,
+  settings = DEFAULT_SETTINGS,
+  showAllLabel = 'Show all',
+  /** Renders the header's "Show all" control. Omit it and no control is drawn. */
+  onShowAll,
+  /* HOME / AWAY — residential only. The control is drawn only when a caller
+     supplies `onModeChange`, so a commercial system passes nothing and gets
+     the frame's card exactly. See the constants block above. */
   modeLabel = 'Current Mode',
   learnMoreLabel = 'Learn more',
   mode = 'home',
@@ -243,19 +275,16 @@ export default function ActivePolicyCard({
   onLearnMore,
   className,
 }) {
-  const alert = tone === 'alert'
   const modeLabelId = `${useId()}-mode`
-
-  /* "Learn more" WAS A DEAD CONTROL. It called `onLearnMore`, and no caller
-     passed one — SystemPageV2Screen mounts this card with `policies`, `mode`
-     and `onModeChange` and nothing else — so the button rendered, focused,
-     and did nothing. A chevron-down promises a disclosure; this is now one.
-     `onLearnMore` is kept as an override for a caller that would rather open
-     its own sheet, which is what PRD 04e eventually wants. */
-  const [explainerOpen, setExplainerOpen] = useState(false)
   const explainerId = `${modeLabelId}-explainer`
+  /* "Learn more" WAS A DEAD CONTROL — it called `onLearnMore` and no caller
+     passed one, so the button rendered, focused and did nothing. A
+     chevron-down promises a disclosure; this is one. `onLearnMore` survives
+     as an override for a caller that would rather open its own sheet, which
+     is what PRD 04e eventually wants. */
+  const [explainerOpen, setExplainerOpen] = useState(false)
 
-  /* Roving tabindex: a radiogroup is one tab stop and the arrows move the
+  /* Roving tabindex: a radiogroup is ONE tab stop and the arrows move the
      selection inside it. */
   const onModeKeyDown = (event) => {
     const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp']
@@ -266,109 +295,166 @@ export default function ActivePolicyCard({
     const next = modeOptions[(at + step + modeOptions.length) % modeOptions.length]
     if (next && next.value !== mode) onModeChange?.(next.value)
   }
-
   return (
-    <div className={cn(CARD, className)} data-node-id={alert ? '199296:50538' : '199296:50268'} data-name="Topology">
-      {alert ? (
-        <p
-          className={`[word-break:break-word] font-sans font-semibold leading-[18px] relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] whitespace-nowrap`}
-          data-node-id="199296:50539"
-        >
-          {title}
-        </p>
-      ) : (
-        <div
-          className={`[word-break:break-word] content-stretch flex flex-col font-sans font-normal gap-[9px] items-start relative shrink-0 w-full`}
-          data-node-id="199296:50269"
-        >
-          <p
-            className="leading-[18px] relative shrink-0 text-slate-700 text-lg whitespace-nowrap"
-            data-node-id="199296:50270"
-          >
-            {title}
-          </p>
-          {/* `text-gray-700` is left as the stock utility NAME on purpose: it
-              is mapped through --color-gray-700 in @theme inline, so it
-              themes. Unmapped it bound to stock Tailwind's #364153, which no
-              theme could move and which read ~1.8:1 on a dark card. */}
-          {description ? (
+    <div className={cn(CARD, className)} data-node-id="199539:181835" data-name="Active policy">
+      {/* ── CardHeader 199532:96292 ──────────────────────────────────────── */}
+      <div className="flex w-full shrink-0 items-center gap-[10px] px-[16px] py-[6px]">
+        <div className="min-w-px flex-[1_0_0]">
+          <div className="flex size-full flex-col items-start gap-[4px] py-[6px]">
             <p
-              className="leading-5 min-w-full relative shrink-0 text-gray-700 text-sm tracking-normal w-[min-content]"
-              dir="auto"
-              data-node-id="199296:50271"
+              className="[word-break:break-word] w-full font-sans font-medium text-sm leading-5 text-foreground"
+              data-node-id="199532:96295"
             >
-              {description}
+              {title}
             </p>
-          ) : null}
-        </div>
-      )}
-
-      {alert ? (
-        <>
-          {/* 199296:50610 — a 1px #e2e8f0 rule. Figma pins it at w-[335px],
-              which is wider than this card's 303px content box: the designer
-              drew the rules on this board at near-frame width (the sibling
-              card's rule, 199296:50511, is the same 335). Taken literally it
-              hangs out of the card, so it runs full-bleed-within-padding
-              instead. Everything else on the node is verbatim. */}
-          <div className="h-0 relative shrink-0 w-full" data-node-id="199296:50610">
-            <div className="absolute inset-[-1px_0_0_0]">
-              <svg
-                className="block max-w-none size-full text-slate-200"
-                width="335"
-                height="1"
-                viewBox="0 0 335 1"
-                fill="none"
-                preserveAspectRatio="none"
-                xmlns="http://www.w3.org/2000/svg"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path d="M0 0.5H335" stroke="currentColor" />
-              </svg>
-            </div>
           </div>
-
-          <div
-            className="content-stretch flex flex-col gap-[14px] items-start relative shrink-0 w-full"
-            data-node-id="199296:50611"
-            data-name="Container"
+        </div>
+        {/* 199532:96298 — "Show all" + a lucide arrow-right, which the frame's
+            own export IS (the asset's node is literally "Lucide Icons /
+            arrow-right"), so this is the real glyph rather than a lookalike.
+            A caption with an arrow promises navigation; it is only drawn when
+            a caller supplies somewhere to go. */}
+        {onShowAll ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size={null}
+            onClick={onShowAll}
+            className={`flex h-[32px] shrink-0 items-center justify-end gap-[6px] rounded-[10px] px-[4px] py-0 font-sans font-medium text-sm leading-5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 ${FOCUS}`}
+            data-node-id="199532:96298"
           >
-            <div
-              className="content-stretch flex items-center justify-between relative shrink-0 w-full"
-              data-node-id="199296:50612"
-              data-name="Paragraph"
-            >
+            {showAllLabel}
+            <ArrowRight className="size-[16px] shrink-0" aria-hidden="true" />
+          </Button>
+        ) : null}
+      </div>
+
+      {/* 199532:96322 — a 1px rule under the header. The node draws it as an
+          h-0 box with the line pinned one pixel above, which is a border by
+          another name. */}
+      <div className="h-px w-full shrink-0 bg-slate-200" data-node-id="199532:96322" />
+
+      {/* ── Body 199532:96319 ────────────────────────────────────────────── */}
+      <div className="flex w-full shrink-0 flex-col items-start gap-[19px] px-[16px] pt-[19px]">
+        {/* The policy windows — 199532:96142, gap 12. */}
+        {policies.length ? (
+          <div className="flex w-full shrink-0 flex-col items-start gap-[12px]" data-node-id="199532:96142">
+            {policies.map((policy, index) => (
+              <div
+                key={policy.id ?? policy.name ?? index}
+                className="flex w-full shrink-0 items-center gap-[6px]"
+                data-node-id="199532:96145"
+              >
+                <div className="relative size-[9px] shrink-0" data-node-id="199532:96146">
+                  <PolicyDot color={policy.dotColor} />
+                </div>
+                <div className="flex min-w-px flex-[1_0_0] items-center justify-between">
+                  <p
+                    className="[word-break:break-word] font-sans font-semibold text-base leading-6 text-slate-900 whitespace-nowrap"
+                    dir="auto"
+                    data-node-id="199532:96147"
+                  >
+                    {policy.name}
+                  </p>
+                </div>
+                {/* 199532:96148 — the window, behind a clock. The glyph only
+                    appears with a window to caption; a clock beside nothing
+                    would be decoration. */}
+                {policy.window ? (
+                  <div className="flex shrink-0 items-center gap-[7px]" data-node-id="199532:96148">
+                    <Clock01 className="size-[14px] shrink-0 text-slate-600" aria-hidden="true" />
+                    <p
+                      className="[word-break:break-word] font-sans font-medium text-xs leading-[15px] text-slate-600 whitespace-nowrap"
+                      dir="auto"
+                      data-node-id="199532:96158"
+                    >
+                      {policy.window}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {/* ── The settings rows — 199532:96187, gap 19 ──────────────────────
+            THESE WERE PLAIN CHIPS. The card drew two #e2eafc pills holding the
+            bare strings "Alerts" and "Valve handling: Auto shut-off " — a
+            label with no value, so the card named two settings and reported
+            neither. 199532:96189 / 199532:96194 give each one a slate-100 row
+            and a Badge carrying its actual state, which is the whole point of
+            a policy summary. */}
+        {settings.length ? (
+          <div className="flex w-full shrink-0 flex-col items-start gap-[19px]" data-node-id="199532:96187">
+            {settings.map((setting, index) => (
+              <div
+                key={setting.id ?? setting.label ?? index}
+                className="flex w-full shrink-0 items-center justify-between"
+              >
+                <div
+                  className="flex min-w-px flex-[1_0_0] items-center justify-between rounded-[11px] bg-slate-100 px-[13px] py-[9px]"
+                  data-node-id={index === 0 ? '199532:96189' : '199532:96194'}
+                >
+                  <p
+                    className="[word-break:break-word] font-sans font-medium text-sm leading-5 text-slate-600 whitespace-nowrap"
+                    data-node-id={index === 0 ? '199532:96190' : '199532:96197'}
+                  >
+                    {setting.label}
+                  </p>
+                  {setting.value ? (
+                    <Badge
+                      variant="secondary"
+                      className="h-[22px] shrink-0 gap-[4.4px] overflow-clip rounded-[28.6px] border-transparent bg-surface-card px-[6.6px] py-[2.2px]"
+                      data-node-id={index === 0 ? '199532:96192' : '199532:96198'}
+                    >
+                      {/* The SAME LocationDot the sidebar and the health cards
+                          draw. The frame's own export is three concentric
+                          circles at 0.31579 / 0.5 / 0.10526 of the box with
+                          the outer two at 10% — identical geometry, so this is
+                          an exact match rather than a substitution, and only
+                          the tint differs between the two rows. */}
+                      <LocationDot
+                        size={14.52}
+                        className={cn('shrink-0', STATUS_TONE[setting.tone] ?? STATUS_TONE.muted)}
+                      />
+                      <span className="overflow-hidden font-sans font-medium text-[13.2px] leading-[17.6px] text-slate-700 text-ellipsis whitespace-nowrap">
+                        {setting.value}
+                      </span>
+                    </Badge>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {/* HOME / AWAY — residential only; see the constants block. */}
+        {onModeChange ? (
+          <div className="flex w-full shrink-0 flex-col items-start gap-[14px]">
+            <div className="flex w-full shrink-0 items-center justify-between">
               <p
-                className={`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-muted-foreground text-sm text-center whitespace-nowrap`}
-                data-node-id="199296:50613"
+                className="[word-break:break-word] font-sans font-semibold text-sm leading-5 text-muted-foreground whitespace-nowrap"
                 id={modeLabelId}
               >
                 {modeLabel}
               </p>
-              {/* A caret in a frame has no behaviour; this is the only way into
-                  the policy explainer, so it is a real button. */}
+              {/* A caret in a frame has no behaviour; this is the only way
+                  into the policy explainer, so it is a real button. */}
               <button
                 type="button"
-                onClick={() => (onLearnMore ? onLearnMore() : setExplainerOpen(v => !v))}
+                onClick={() => (onLearnMore ? onLearnMore() : setExplainerOpen((v) => !v))}
                 aria-expanded={onLearnMore ? undefined : explainerOpen}
                 aria-controls={onLearnMore ? undefined : explainerId}
-                className={`content-stretch flex gap-[2px] items-center relative shrink-0 cursor-pointer rounded-[8px] ${FOCUS}`}
-                data-node-id="199296:50614"
+                className={`content-stretch flex cursor-pointer items-center gap-[2px] rounded-[8px] ${FOCUS}`}
               >
-                <span
-                  className={`[word-break:break-word] font-sans font-normal leading-3 overflow-hidden relative shrink-0 text-[12px] text-slate-600 text-ellipsis whitespace-nowrap`}
-                  data-node-id="199296:50615"
-                >
+                <span className="[word-break:break-word] font-sans font-normal text-[12px] leading-3 text-slate-600 whitespace-nowrap">
                   {learnMoreLabel}
                 </span>
                 <span
                   className={cn(
-                    'block relative shrink-0 size-[17.36px] transition-transform duration-200',
+                    'relative block size-[17.36px] shrink-0 transition-transform duration-200',
                     !onLearnMore && explainerOpen ? 'rotate-180' : null,
                   )}
-                  data-node-id="199296:50616"
-                  data-name="Tabler Icons / chevron-down"
                 >
                   <ChevronDown1736 />
                 </span>
@@ -379,10 +465,9 @@ export default function ActivePolicyCard({
               role="radiogroup"
               aria-labelledby={modeLabelId}
               onKeyDown={onModeKeyDown}
-              className="content-stretch flex items-start relative shrink-0 w-full"
-              data-node-id="199296:50617"
+              className="content-stretch flex w-full shrink-0 items-start"
             >
-              {modeOptions.map((option, index) => {
+              {modeOptions.map((option) => {
                 const selected = option.value === mode
                 return (
                   <button
@@ -393,32 +478,27 @@ export default function ActivePolicyCard({
                     tabIndex={selected ? 0 : -1}
                     onClick={() => onModeChange?.(option.value)}
                     className={`${selected ? MODE_ON : MODE_OFF}${MODE_BASE} cursor-pointer ${FOCUS}`}
-                    data-node-id={index === 0 ? '199296:50618' : index === 1 ? '199296:50621' : undefined}
-                    data-name={index === 0 ? 'Heading 2' : index === 1 ? 'Heading 3' : undefined}
                   >
-                    <span
-                      className="content-stretch flex gap-[8px] items-center justify-center relative shrink-0"
-                      data-node-id={index === 0 ? '199296:50619' : index === 1 ? '199296:50622' : undefined}
-                    >
+                    <span className="content-stretch flex shrink-0 items-center justify-center gap-[8px]">
                       {/* The glyph carries the mode; the fill carries the
                           selection. PRD 04e is explicit that the two modes are
                           "equally valid life states" and must not be split by
                           semantic colour — no green for Home, no blue for Away
                           — so both sides take the SAME treatment and differ
-                          only by icon and by which one is filled. The frame's
-                          selected fill is mode-independent, so it satisfies
-                          that rule as drawn. */}
+                          only by icon and by which one is filled. */}
                       {option.Icon ? (
                         <option.Icon
                           aria-hidden="true"
-                          className={cn('shrink-0 size-[22px]', selected ? MODE_LABEL_ON : MODE_LABEL_OFF)}
+                          className={cn(
+                            'size-[22px] shrink-0',
+                            selected ? MODE_LABEL_ON : MODE_LABEL_OFF,
+                          )}
                           strokeWidth={selected ? 2.2 : 1.8}
                         />
                       ) : null}
                       <span
                         className={`${MODE_LABEL} font-sans ${selected ? MODE_LABEL_ON : MODE_LABEL_OFF}`}
                         dir="auto"
-                        data-node-id={index === 0 ? '199296:50620' : index === 1 ? '199296:50623' : undefined}
                       >
                         {option.label}
                       </span>
@@ -430,106 +510,18 @@ export default function ActivePolicyCard({
 
             {/* PRD 04e's locked mode description, both sentences: what use is
                 expected, then what the valve will do. It describes the mode
-                you are IN, which is what "Current mode · Learn more" asks. */}
+                you are IN, which is what "Current Mode / Learn more" asks. */}
             {!onLearnMore && explainerOpen ? (
               <p
                 id={explainerId}
                 className="w-full rounded-[9px] bg-slate-50 px-[12px] py-[10px] font-sans text-[13px] leading-[19px] text-slate-600"
               >
-                {(modeOptions.find(o => o.value === mode) ?? modeOptions[0])?.description}
+                {(modeOptions.find((o) => o.value === mode) ?? modeOptions[0])?.description}
               </p>
             ) : null}
           </div>
-        </>
-      ) : (
-        <>
-          <div
-            className="content-stretch flex flex-col gap-[12px] items-start relative shrink-0 w-full"
-            data-node-id="199296:50272"
-          >
-            {/* The frame draws one row. 50273/50274 are the per-row wrappers
-                Figma emitted around it, so the list repeats from 50273 and the
-                ids below recur on every row — they are one component instance
-                stamped N times, not N distinct nodes. */}
-            {policies.map((policy, index) => (
-              <div
-                key={policy.id ?? policy.name ?? index}
-                className="content-stretch flex flex-col items-start relative shrink-0 w-full"
-                data-node-id="199296:50273"
-              >
-                <div
-                  className="content-stretch flex flex-col items-start relative shrink-0 w-full"
-                  data-node-id="199296:50274"
-                >
-                  <div
-                    className="content-stretch flex gap-[6px] items-center relative shrink-0 w-full"
-                    data-node-id="199296:50275"
-                  >
-                    <div className="relative shrink-0 size-[9px]" data-node-id="199296:50276">
-                      <PolicyDot color={policy.dotColor} />
-                    </div>
-                    <div
-                      className="content-stretch flex flex-[1_0_0] items-center justify-between min-w-px relative"
-                      data-node-id="199296:50277"
-                      data-name="Header"
-                    >
-                      <div
-                        className="content-stretch flex flex-[1_0_0] items-center justify-between min-w-px relative"
-                        data-node-id="I199296:50277;198064:50481"
-                      >
-                        <div
-                          className="content-stretch flex items-center relative shrink-0"
-                          data-node-id="I199296:50277;198064:50433"
-                        >
-                          <div
-                            className="content-stretch flex gap-[6px] items-center relative shrink-0"
-                            data-node-id="I199296:50277;199150:124756"
-                          >
-                            <p
-                              className={`[word-break:break-word] font-sans font-semibold leading-[19.25px] relative shrink-0 text-foreground text-sm whitespace-nowrap`}
-                              dir="auto"
-                              data-node-id="I199296:50277;198064:50427"
-                            >
-                              {policy.name}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    {policy.window ? (
-                      <div
-                        className="content-stretch flex gap-[10px] items-center relative shrink-0"
-                        data-node-id="199296:50278"
-                      >
-                        <p
-                          className={`[word-break:break-word] font-sans font-medium leading-[15px] relative shrink-0 text-muted-foreground text-xs whitespace-nowrap`}
-                          data-node-id="199296:50301"
-                        >
-                          {policy.window}
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* The chips are siblings of the policy list on the node, not part of
-              a row — they describe the card, so they stay card-level here. */}
-          {chips.map((chip, index) => (
-            <div key={`${index}-${chip}`} className={CHIP} data-node-id={CHIP_NODE_IDS[index]}>
-              <p
-                className={`${CHIP_TEXT} font-sans font-semibold`}
-                dir="auto"
-                data-node-id={index === 0 ? '199296:50339' : index === 1 ? '199296:50342' : undefined}
-              >
-                {chip}
-              </p>
-            </div>
-          ))}
-        </>
-      )}
+        ) : null}
+      </div>
     </div>
   )
 }

@@ -703,6 +703,11 @@ export default function SystemPageV2Screen() {
          The rest of the chain lives in the drawer, which renders the whole
          tree and auto-expands to this system. */
       parentName: sys.l4Name ?? sys.l3Name ?? null,
+      /* THE DIVISION — "Office" | "Residential". Carried through because the
+         Active policy card's Home/Away control is residential-only (owner,
+         2026-10-26), and this memo is the only shape that card's call site
+         can see. It is the l2 level of the account tree, not a label. */
+      l2Name: sys.l2Name ?? null,
       /* The device's own state, carried through rather than left for a caller
          to dig out of `devices`. The System type card's open body reports all
          three, and `power` was reading as "Unknown" because this object never
@@ -978,7 +983,12 @@ export default function SystemPageV2Screen() {
      (the oldest window, and Yearly, which is the whole series at once). */
   const heroFigures = useMemo(() => {
     const read = (consumptionView?.series ?? []).filter(p => p.litres != null)
-    if (!read.length) return { figure: '—', unit: null, total: '—', delta: null }
+    /* `pct: null`, matching the key the hero actually reads. This said
+       `delta: null` and went on saying it after the hero stopped reading
+       `delta`, which left the empty case returning no `pct` at all. It
+       happened to render correctly (the hero tests `!= null` and `undefined`
+       passes that), but it was the right answer by accident. */
+    if (!read.length) return { figure: '—', unit: null, total: '—', pct: null }
     const total = read.reduce((sum, p) => sum + p.litres, 0)
     const fmt = n =>
       n >= 1e6 ? `${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M` :
@@ -1004,7 +1014,6 @@ export default function SystemPageV2Screen() {
       figure: fmt(total),
       unit: 'L',
       total: `${fmt(total)}L`,
-      delta: pct == null ? null : `${pct > 0 ? '+' : ''}${pct}%`,
       pct,
       deltaLitres: Math.round(newer - older),
       /* Whether the percentage is a real comparison or the half-against-half
@@ -1015,7 +1024,9 @@ export default function SystemPageV2Screen() {
   }, [consumptionView, consumptionCompareSpan])
 
   const heroTotal = heroFigures.figure
-  const heroDelta = heroFigures.delta
+  /* `heroDelta` is gone with the pill that printed it. The hero takes the
+     SIGNED number now and formats both of its marks itself; the pre-joined
+     "+120%" string had no second reader. */
 
   /* ── The chart's actions ────────────────────────────────────────────────
      §4 is NORMATIVE about what each one keeps and what it resets, and the
@@ -1520,7 +1531,30 @@ export default function SystemPageV2Screen() {
             the scroller's top inset and the tab row still lands on the node's
             y=92. */}
         <div
-          className="content-stretch flex flex-col gap-[22px] items-start pt-[25px] -mx-[16px] w-[calc(100%+32px)] px-[16px] relative [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          /* SPACING, 2026-10-26, measured off 199703:31475 rather than
+             estimated. The frame's root is px-[16px] py-[8px] (which this
+             page's root already matches) and inside it:
+
+               Mobile Header Bar  h-59          y =  8..67
+               gap                10
+               Tabs row           h-36          y = 77..113
+               gap                16
+               hero (absolute)    top-[129px]   y = 129..420, copy ends 287
+               Content            pt-[10px]     first card at y = 305
+
+             This carried pt-[25px] and gap-[22px], which is 15px too much air
+             above the tab row and 6px too much under it: 21px of extra slack
+             before the hero, on a page the owner has already asked to tighten
+             once ("update spacing on header area, now its more compact in
+             figma").
+
+             ONE GAP CANNOT SPELL BOTH of the frame's two values: tabs->hero
+             is 16 and hero->first card is 18 (8 of root gap plus Content's
+             own pt-10). 16 is the one that shows, because it sits between two
+             visible edges, so it is the one taken; the body lands 2px tighter
+             than the frame, which is inside the drift the frame has on its
+             own gutters (17 left against 16 right). */
+          className="content-stretch flex flex-col gap-[16px] items-start pt-[10px] -mx-[16px] w-[calc(100%+32px)] px-[16px] relative [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', minHeight: 0 }}
           data-node-id="198379:80449"
         >
@@ -1629,20 +1663,34 @@ export default function SystemPageV2Screen() {
                 199394:79634 + 199394:79635 (calm). Both nodes pin it BELOW the
                 tab row, 20px under it, which is where it now sits.
 
-                It bleeds out of the frame's 16px inset so the wave reaches the
-                phone's edges: the nodes position the wave against the ROOT
-                frame (left-[17px] / left-[9px]), not against the card column,
-                so the component has to span the full 393 for those offsets to
-                mean what Figma means by them.
+                IT NO LONGER BLEEDS. It carried `-mx-[16px]
+                w-[calc(100%+32px)]` on the reasoning that the nodes pin the
+                wave to the ROOT frame rather than to the card column. But
+                402 - 17 - 369 = 16, so `left-[17px]` on a 402 frame IS the
+                card gutter, and 199703:31476 settles it: the hero is
+                `left-[17px] w-[369px]` against a Content column of w-[370px]
+                at px-[16px]. Spanning the full 393 put the wave four pixels
+                proud of every card beneath it, the whole length of the page.
+                See the wave's own note in SystemHeroCard.
 
                 It stays visible on BOTH tabs rather than living inside the
-                Overview panel: in both frames the wave is a page-level layer,
-                not a card. */}
+                Overview panel: in all three frames the wave is a page-level
+                layer the cards scroll over, not a card in the list. */}
             <SystemHeroCard
-              className="-mx-[16px] w-[calc(100%+32px)]"
               total={heroTotal}
               unit={heroFigures.unit}
-              delta={heroDelta}
+              /* SIGNED NUMBER, not the formatted string this used to pass.
+                 199703:30816 splits the delta into a triangle and an unsigned
+                 figure, and only the raw sign can drive both without the two
+                 being able to disagree. See the prop's own note. */
+              deltaPct={heroFigures.pct}
+              /* The span the percentage is measured against, which is the
+                 SAME label the chart's legend puts over its comparison line
+                 (consumptionCompareLabel). One comparison, named once, read
+                 in two places. Null wherever there is no previous window
+                 (the oldest one, and Yearly), and the hero then draws the
+                 percentage with no "vs." caption. */
+              compareLabel={consumptionCompareLabel}
               /* THE CAPTION IS THE WINDOW'S ELAPSED SPAN WHERE THERE IS ONE.
                  "this dates needs to be date to month / eg for today 1-21.10"
                  — `labelRange` is that form and only the Daily grouping
@@ -1853,15 +1901,98 @@ export default function SystemPageV2Screen() {
                     }
 
                     if (key === 'policy') {
-                      /* Active policy 199296:50268 / 199296:50538 */
+                      /* ACTIVE POLICY, redrawn against 199539:181835.
+
+                            IT WAS DRAWING THE SHAPE-REFERENCE FIXTURE. This
+                            passed `system.policies`, and the only object in
+                            the app with a `policies` key is the SYSTEM
+                            fallback at the top of this file, the one its own
+                            comment calls "SHAPE REFERENCE, not content". So
+                            every system's policy card read "Open loop
+                            20:15 - 23:59 / Sensors 20:15 - 23:59": placeholder
+                            text, on a card whose entire job is to state the
+                            rules the system is actually running under. That
+                            comment's own warning, word for word, about
+                            wrong-but-plausible data not announcing itself.
+
+                            `system.policy` is the real thing and was already
+                            on this page (getActivePolicy, in the system memo
+                            above) for the valve card's handling panel. It
+                            carries name, schedule, alert and autoShutoff,
+                            which is exactly the one policy row and the two
+                            settings rows the frame draws.
+
+                            autoShutoff is 'Enabled' | 'Disabled' | 'N/A', and
+                            the third is real: buildTree records 20 MRG systems
+                            as metering-only, where there is no valve to shut.
+                            Those take the muted pip, because "Off" would
+                            claim a setting the hardware does not have. */
                       return (
                         <ActivePolicyCard
                           key={key}
                           className="shrink-0"
-                          tone={alerting ? 'alert' : 'calm'}
-                          policies={system.policies}
-                          mode={policyMode}
-                          onModeChange={setPolicyMode}
+                          policies={
+                            system.policy
+                              ? [
+                                  {
+                                    id: 'active',
+                                    name: system.policy.name,
+                                    window: system.policy.schedule,
+                                  },
+                                ]
+                              : []
+                          }
+                          settings={[
+                            {
+                              id: 'alerts',
+                              label: 'Alerts',
+                              value: system.policy?.alert === 'Active' ? 'On' : 'Off',
+                              tone: system.policy?.alert === 'Active' ? 'on' : 'off',
+                            },
+                            {
+                              id: 'auto-shutoff',
+                              label: 'Auto Shutoff Valve',
+                              value:
+                                system.policy?.autoShutoff === 'Enabled'
+                                  ? 'On'
+                                  : system.policy?.autoShutoff === 'Disabled'
+                                    ? 'Off'
+                                    : 'N/A',
+                              tone:
+                                system.policy?.autoShutoff === 'Enabled'
+                                  ? 'on'
+                                  : system.policy?.autoShutoff === 'Disabled'
+                                    ? 'off'
+                                    : 'muted',
+                            },
+                          ]}
+                          /* HOME / AWAY, RESIDENTIAL ONLY. Owner, 2026-10-26:
+                             "Home away is a simple policy for apartmants,
+                             depends per systms, make it for ressidential
+                             onlt" — and, in the same exchange, "dont remove
+                             home away".
+
+                             So the control stays, but only where it means
+                             something. An office tower has no "away" in PRD
+                             04e's sense: it is occupied on a schedule, which
+                             the Working hours row above already states.
+
+                             THE DIVISION IS `l2Name`, not `residential`.
+                             buildTree sets a `residential` boolean on the
+                             node (buildTree.js:564) but it does not survive
+                             onto the SYSTEMS records — measured 0 of 103 —
+                             whereas l2Name carries the division the tree is
+                             actually built around: Office 53, Residential 50.
+                             Using the flag that exists in name only would
+                             have silently hidden this control on every system
+                             in the fleet.
+
+                             Passing NO `onModeChange` is what suppresses it,
+                             so a commercial system draws the frame's card
+                             exactly, with nothing stubbed or disabled. */
+                          {...(system.l2Name === 'Residential'
+                            ? { mode: policyMode, onModeChange: setPolicyMode }
+                            : {})}
                         />
                       )
                     }

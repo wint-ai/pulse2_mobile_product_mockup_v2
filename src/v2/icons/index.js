@@ -55,3 +55,17 @@ export { default as BrandDrops } from './BrandDrops'
 export { default as LocationDot } from './LocationDot'
 export { default as ChevronLeft16 } from './ChevronLeft16'
 export { default as ChevronRight16 } from './ChevronRight16'
+
+// ── Consumption hero (Figma 199703:30816 / 199703:31382) ──────────────────
+// The 2026-10-26 redraw of the Water consumption card brought two glyphs the
+// set did not own. Chart03 in particular discharges a standing note in
+// SystemHeroCard that lucide's <ChartLine> was "NOT IMPLEMENTED ... stands
+// in" — it is the real Huge Icons drawing now.
+export { default as TriangleFill } from './TriangleFill'
+export { default as Chart03 } from './Chart03'
+
+// Active policy card (Figma 199539:181835)
+// The policy window's clock. LocationDot above is reused for the On/Off
+// status pip unchanged: the frame's own export is the same three radii at the
+// same ratios, so it is an exact match rather than a lookalike.
+export { default as Clock01 } from './Clock01'

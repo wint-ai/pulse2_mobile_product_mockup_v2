@@ -517,15 +517,36 @@ function deriveStats(series, period = 'D') {
        932px that never bites; at 375px a derived "889.5K" would sit on its
        neighbour. min-w- keeps the comp's column rhythm and lets the rare wide
        value push instead of collide. */
-    { value: fmtL(total), label: 'Total L', width: 'w-[62px]' },
+    /* THE UNIT GOES ON THE NUMBER, NOT ON THE LABEL. Owner, 2026-10-26, reading
+       this strip: "why here is writen the way we cant understand?"
+
+       It drew "99M" above "Total L". The value had no unit and the label ended in
+       one, so neither half read as English: "Total L" is not a noun phrase, and
+       "99M" is not a quantity. Splitting them the other way is the ordinary
+       convention and fixes both at once — "99M L" is a quantity, "Total" is a
+       label.
+
+       THIS IS A DELIBERATE DEVIATION FROM THE FRAME, which is normally not
+       allowed on this surface: 199703:31539 really does draw "Total L" /
+       "Monthly Avg L" / "Peak Month L", and the house rule is to transcribe the
+       frame rather than rewrite it. The owner asking for it in words is the one
+       thing that outranks that rule, and the quote above is the request. Do not
+       "restore" these to the frame's spelling without checking with them.
+
+       The period words are lower-cased because they are now mid-phrase ("Monthly
+       avg", "Peak month") rather than a title ending in a unit. */
+    /* 62 -> 76: the value grew by " L" and "99M L" no longer fits the
+       comp's first column. 76 + 100 + 100 + two 10px gaps is 296 against the
+       313 this row has at 393px, so the three still sit across as drawn. */
+    { value: `${fmtL(total)} L`, label: 'Total', width: 'w-[76px]' },
     {
-      value: fmtL(total / read.length),
-      label: `${BUCKET_ADJ[period] ?? 'Daily'} Avg L`,
+      value: `${fmtL(total / read.length)} L`,
+      label: `${BUCKET_ADJ[period] ?? 'Daily'} avg`,
       width: 'w-[100px]',
     },
     {
-      value: fmtL(Math.max(...read.map((d) => d.litres))),
-      label: `Peak ${BUCKET_NOUN[period] ?? 'Day'} L`,
+      value: `${fmtL(Math.max(...read.map((d) => d.litres)))} L`,
+      label: `Peak ${(BUCKET_NOUN[period] ?? 'Day').toLowerCase()}`,
       width: 'w-[100px]',
     },
   ]

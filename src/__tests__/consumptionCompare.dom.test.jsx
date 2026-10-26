@@ -94,7 +94,7 @@ describe('compare previous period', () => {
   it('accepts a previous window without disturbing the current one', () => {
     const { container } = card({ compare: true, compareData: PREV })
     // The current series' own figures still drive the headline.
-    expect(within(container).getByText('Monthly Avg L')).toBeTruthy()
+    expect(within(container).getByText('Monthly avg')).toBeTruthy()
     expect(sw(container).getAttribute('aria-checked')).toBe('true')
   })
 })

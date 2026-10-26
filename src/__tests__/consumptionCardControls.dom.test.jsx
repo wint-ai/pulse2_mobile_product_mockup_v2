@@ -136,25 +136,25 @@ describe('metrics are hidden when the window has no data (PLS-WC-19, §6)', () =
   it('shows all three over a window that has readings', () => {
     const { container } = card()
     const view = within(container)
-    expect(view.getByText('Total L')).toBeTruthy()
-    expect(view.getByText('Daily Avg L')).toBeTruthy()
-    expect(view.getByText('Peak Day L')).toBeTruthy()
+    expect(view.getByText('Total')).toBeTruthy()
+    expect(view.getByText('Daily avg')).toBeTruthy()
+    expect(view.getByText('Peak day')).toBeTruthy()
   })
 
   it('hides them over a window the period has not reached (PLS-WC-17)', () => {
     const unreached = SERIES.map((row) => ({ ...row, litres: null }))
     const { container } = card({ data: unreached })
     const view = within(container)
-    expect(view.queryByText('Total L')).toBeNull()
-    expect(view.queryByText('Daily Avg L')).toBeNull()
-    expect(view.queryByText('Peak Day L')).toBeNull()
+    expect(view.queryByText('Total')).toBeNull()
+    expect(view.queryByText('Daily avg')).toBeNull()
+    expect(view.queryByText('Peak day')).toBeNull()
   })
 
   it('hides them rather than reporting three zeros over an all-zero window', () => {
     const zeroed = SERIES.map((row) => ({ ...row, litres: 0 }))
     const { container } = card({ data: zeroed })
     const text = (container.textContent || '').replace(/\s+/g, ' ')
-    expect(within(container).queryByText('Total L')).toBeNull()
+    expect(within(container).queryByText('Total')).toBeNull()
     expect(text).not.toMatch(/\b0 Total/)
   })
 

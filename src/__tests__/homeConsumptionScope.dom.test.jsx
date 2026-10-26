@@ -41,12 +41,14 @@ describe('home screen consumption', () => {
     // 'M', not 'D': PLS-WC-03 makes Monthly the default grouping, so the
     // newest MONTHLY window is what the card totals on first paint.
     const { series } = getFleetConsumptionSeries(SYSTEMS ?? [], 'M', 0)
-    const expected = fmtL(series.reduce((sum, p) => sum + p.litres, 0))
+    // ` L` - the unit moved onto the value; see the same note in
+    // systemPageRouteData.dom.test.jsx.
+    const expected = `${fmtL(series.reduce((sum, p) => sum + p.litres, 0))} L`
 
     const { container } = mount()
     const view = within(container)
 
-    expect(view.getAllByText('Total L').length).toBeGreaterThan(0)
+    expect(view.getAllByText('Total').length).toBeGreaterThan(0)
     expect(view.getAllByText(expected).length, `fleet total ${expected}`).toBeGreaterThan(0)
   })
 
@@ -76,6 +78,6 @@ describe('home screen consumption', () => {
 
     // The regression this replaces: Y / M / H used to land on the empty state.
     expect(view.queryByText(/Nothing flowed in yet/i)).toBeNull()
-    expect(view.getAllByText('Monthly Avg L').length).toBeGreaterThan(0)
+    expect(view.getAllByText('Monthly avg').length).toBeGreaterThan(0)
   })
 })

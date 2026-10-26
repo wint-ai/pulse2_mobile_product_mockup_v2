@@ -101,9 +101,8 @@
  * pasted back in from Figma — but no live class string in this file carries
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
-import { ChartLine } from 'lucide-react'
-
 import { Button } from '@/components/ui/button'
+import { Chart03, TriangleFill } from '@/v2/icons'
 import { cn } from '@/lib/utils'
 import wave from '@/assets/system-hero-wave.png'
 
@@ -120,12 +119,33 @@ import wave from '@/assets/system-hero-wave.png'
 const GEIST = "font-['Geist:Medium','Geist','Figtree',sans-serif]"
 
 export default function SystemHeroCard({
-  /** The headline figure WITHOUT its unit — 199383:141636 draws "5,830". */
+  /** The headline figure WITHOUT its unit — 199703:30082 draws "5,830". */
   total,
-  /** 199383:141637, a separate 20px run beside the figure. */
+  /** 199703:30084, a separate 20px run beside the figure. */
   unit,
-  /** 199383:141639, inside the pill. */
-  delta,
+  /**
+   * The change against the previous window, SIGNED, as a number — not a
+   * string, and not pre-formatted.
+   *
+   * It used to be `delta`, a ready-made "+120%" that this component printed
+   * verbatim. The 2026-10-26 nodes split that one value across two marks: a
+   * triangle that points with the sign and a figure that carries none. A
+   * caller handing over "+120%" cannot drive both, and a caller handing over
+   * a string plus a separate direction can let the two disagree. One signed
+   * number is the only shape where the arrow and the digits cannot contradict
+   * each other.
+   *
+   * null when there is nothing to compare against; 0 draws the figure with no
+   * triangle at all. See the delta row.
+   */
+  deltaPct,
+  /**
+   * The window the percentage is measured against, printed after "vs." —
+   * 199703:30090 draws "vs. 1-24 Jul". Omit it and the caption is not drawn;
+   * the percentage still is. This is the previous span's own label, so the
+   * hero names the same comparison the chart's legend does.
+   */
+  compareLabel,
   rangeLabel,
   tone = 'calm',
   /** Fires the jump to the consumption chart. See the control below. */
@@ -182,13 +202,38 @@ export default function SystemHeroCard({
           the tint takes its hue from #ff7b7d / #6bb2fa and its luminance from
           that result, which is the same construction `light` gets -- only the
           ground underneath has moved. `light` is untouched. */}
+      {/* ── THE WAVE NOW SPANS THE CARD, NOT A FIXED 369 ──────────────────
+          2026-10-26. It was `mx-auto w-[369px]` inside a component the page
+          bled to the full 393, which put the wave 12px off each phone edge
+          while every card under it sat at 16px — four pixels proud, the whole
+          length of the page.
+
+          THE BLEED WAS A MISREADING, and this is where it is corrected. The
+          note below used to argue that "the nodes position the wave against
+          the ROOT frame (left-[17px] / left-[9px]), not against the card
+          column, so the component has to span the full 393". But 402 - 17 -
+          369 = 16: left-[17px] on a 402 frame IS the card gutter, not an
+          offset from it. 199703:31476 settles it — the hero is `left-[17px]
+          w-[369px]` against a Content column of w-[370px] at px-[16px], so
+          the two edges line up to within the frame's own 1px of drift.
+
+          So the hero is a CARD, the same width as every card beneath it, and
+          the wave simply fills it. The owner's "the waves component is not
+          right and left symetric in the screen" was this bug; centring the
+          wave inside a bled component made it symmetric without making it
+          align, which is why it still looked wrong afterwards.
+
+          It is still ALLOWED TO RUN PAST this element's own height — 291px of
+          wave under 158px of copy — which is what puts it behind the first
+          cards exactly as the frame draws it. Only the horizontal axis
+          changed. */}
       <div
         aria-hidden="true"
         className={cn(
           'absolute mix-blend-multiply [[data-theme]:not([data-theme=light])_&]:mix-blend-normal pointer-events-none rounded-[20px] top-0',
-          'inset-x-0 mx-auto h-[291px] w-[369px]',
+          'inset-x-0 h-[291px]',
         )}
-        data-node-id={alert ? '199383:141500' : '199394:79634'}
+        data-node-id={alert ? '199703:31476' : '199703:32478'}
       >
         <div className="absolute inset-0 pointer-events-none rounded-[20px]">
           <div className="absolute inset-0 opacity-50 overflow-hidden rounded-[20px]">
@@ -212,120 +257,171 @@ export default function SystemHeroCard({
         </div>
       </div>
 
-      {/* The copy — 199396:84050. The node pins it absolutely at top-[171px],
-          23px below the wave's own top edge (sysB: top-[186px], 38px below).
-          Here it is in flow with that offset as a margin, so the hero occupies
-          real height in the scroll instead of floating over what follows.
+      {/* ── THE COPY ROW — 199703:30816 (alert) / 199703:31382 (calm) ───────
+          The 2026-10-26 redraw. The card is 369x291 and every offset below is
+          measured inside it, which is why this row is `w-[369px] mx-auto` —
+          the same box the wave above already takes.
 
-          mx-auto rather than the node's left-[132px]: 132 + 154/2 = 209 against
-          a 393 frame centre of 196.5, i.e. the node's own block is 12.5px off
-          centre. Centring it is the intent; the 12.5px is canvas drift. */}
+          `items-end` is the node's own alignment, not a choice: the copy block
+          runs y=17..158 and the "All stats" pill y=129..158, so the two share
+          a bottom edge and nothing else. Reading that as one bottom-aligned
+          row is what lets the pill keep its place when the figure wraps to a
+          different height, which absolute offsets would not survive.
+
+          pl-[18px] / pr-[17px] are the node's two gutters. They differ by a
+          pixel and that is the frame, not a rounding error on our side. */}
       <div
-        className="relative content-stretch flex flex-col gap-[5px] items-center mt-[23px] mx-auto w-[154px]"
-        data-node-id="199396:84050"
+        className="relative flex w-full items-end justify-between pl-[18px] pr-[17px] pt-[17px]"
+        data-node-id={alert ? '199703:30816' : '199703:31382'}
       >
-        {/* 199396:84051 — caption over date range, both centred and white. */}
-        <div
-          className={String.raw`[word-break:break-word] content-stretch flex flex-col items-start leading-[0] relative shrink-0 text-white text-base text-center w-full`}
-          data-node-id="199396:84051"
-        >
+        {/* The copy block — 145x141 at (18, 17).
+            LEFT-ALIGNED NOW. It was centred, and the centring was ours: the
+            superseded 199396:84050 pinned the block at left-[132px], which put
+            it 12.5px off a 393 frame's centre, and this file read that as
+            canvas drift and corrected it. Both new nodes settle the question
+            the other way — `items-start` at a flush 18px gutter — so the
+            correction is gone with the node that motivated it.
+
+            No fixed width. The node's 145 is just the caption's own measured
+            run; pinning it would clip a longer range label, and this caption
+            is fed real windows ("Nov 2025 - Oct 2026") rather than the frame's
+            one example. */}
+        <div className="flex min-w-0 flex-col items-start gap-[13px]">
+          {/* Caption over date range — 145x48, two 24px lines, no gap. */}
           <div
-            className={String.raw`flex flex-col font-sans font-bold justify-center relative shrink-0 w-full`}
-            data-node-id="199383:141632"
+            className="[word-break:break-word] flex flex-col items-start justify-center text-base text-white"
+            data-node-id={alert ? 'I199703:30816;199703:30077' : 'I199703:31382;199703:32480'}
           >
-            <p className={String.raw`leading-6`}>Water consumption</p>
-          </div>
-          {rangeLabel ? (
-            <div
-              className={String.raw`flex flex-col font-sans font-medium justify-center relative shrink-0 w-full`}
-              data-node-id="199383:141633"
+            <p
+              className="font-sans font-bold leading-6"
+              data-node-id={alert ? 'I199703:30816;199703:30078' : 'I199703:31382;199703:32481'}
             >
-              <p className={String.raw`leading-6`}>{rangeLabel}</p>
-            </div>
-          ) : null}
-        </div>
-
-        {/* 199383:141635 — the figure and its unit. */}
-        <div
-          className={String.raw`[word-break:break-word] content-stretch flex ${GEIST} font-medium gap-[8px] items-center leading-[0] relative shrink-0 text-white tracking-[-1.0556px] whitespace-nowrap`}
-          data-node-id="199383:141635"
-        >
-          <div className="flex flex-col justify-center relative shrink-0 text-[42.222px]" data-node-id="199383:141636">
-            <p className="leading-[58.056px]">{total}</p>
+              Water consumption
+            </p>
+            {/* The range keeps a node id of its own because a test addresses
+                it directly — systemHeroSeeMore's `captionRange` reads this
+                line to prove the hero and the chart name ONE window. */}
+            {rangeLabel ? (
+              <p
+                className="font-sans font-medium leading-6"
+                data-node-id={alert ? 'I199703:30816;199703:30079' : 'I199703:31382;199703:32482'}
+              >
+                {rangeLabel}
+              </p>
+            ) : null}
           </div>
-          {unit ? (
-            <div className="flex flex-col justify-center relative shrink-0 text-[20px]" data-node-id="199383:141637">
-              <p className="leading-[20px]">{unit}</p>
-            </div>
-          ) : null}
-        </div>
 
-        {/* 199396:84052 — the delta pill, then the way into the chart. */}
-        <div
-          className="content-stretch flex flex-col gap-[5px] items-center relative shrink-0 w-full"
-          data-node-id="199396:84052"
-        >
-          {delta ? (
+          {/* The figure and the delta — a 132x80 box, `justify-end`. The 80 is
+              the node's and the content is 78 (a 59px figure row over a 20px
+              delta row, hard against each other with no gap), so the box
+              bottom-aligns its pair and leaves the slack on top. Keeping the
+              height means the "All stats" pill opposite does not move when the
+              delta row is absent. */}
+          <div className="flex h-[80px] flex-col items-start justify-end">
+            {/* The figure row — gap 6, was 8. */}
             <div
-              /* Same veil as the hero chips in SystemsOverviewHero.jsx, and
-                 the same ruling: `light` keeps the literal byte for byte, every
-                 other theme computes the 28% from --ink-on-color. */
-              className="bg-[rgba(241,245,249,0.28)] [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)] content-stretch flex h-[34px] items-center justify-center relative rounded-[12px] shrink-0 w-[100px]"
-              data-node-id="199383:141638"
+              className={String.raw`[word-break:break-word] flex ${GEIST} font-medium gap-[6px] items-center leading-[0] shrink-0 text-white tracking-[-1.0556px] whitespace-nowrap`}
+              data-node-id={alert ? 'I199703:30816;199703:30081' : 'I199703:31382;199703:32484'}
             >
+              <p className="text-[42.222px] leading-[58.056px]">{total}</p>
+              {unit ? (
+                /* 12x59 with pt-[13px] — the node drops the unit 13px so it
+                   rides the figure's baseline rather than its optical centre,
+                   which is where plain `items-center` had been putting it. */
+                <div className="flex h-[59px] w-[12px] flex-col items-center justify-center pt-[13px]">
+                  <p className="text-[20px] leading-[20px]">{unit}</p>
+                </div>
+              ) : null}
+            </div>
+
+            {/* ── THE DELTA ROW — the pill is gone ──────────────────────────
+                It was a 100x34 rounded-12 veil holding a signed "+120%". Both
+                new nodes draw an unpilled row instead: a 10px triangle, the
+                percentage, then the window it is measured against.
+
+                THE SIGN MOVED INTO THE TRIANGLE. The frames draw "120%" and
+                "96%" with no "+" or "-" anywhere — direction is carried by the
+                glyph, which 199703:31382 flips with `-scale-y-100` rather than
+                shipping a second icon. So the number here is the ABSOLUTE
+                percentage and `deltaPct`'s sign only chooses the rotation.
+
+                ZERO DRAWS NO TRIANGLE. Neither frame has a flat state and
+                there is no third glyph to borrow, so an unchanged window gets
+                the figure alone rather than an arrow that would have to claim
+                a direction the data does not have. */}
+            {deltaPct != null ? (
               <div
-                className={String.raw`[word-break:break-word] flex flex-col ${GEIST} font-medium justify-center leading-[0] relative shrink-0 text-[20px] text-white tracking-[-1.0556px] whitespace-nowrap`}
-                data-node-id="199383:141639"
+                className="flex items-center gap-[6px]"
+                data-node-id={alert ? 'I199703:30816;199703:30086' : 'I199703:31382;199703:32489'}
+                data-delta-direction={deltaPct > 0 ? 'up' : deltaPct < 0 ? 'down' : 'flat'}
               >
-                <p className="leading-[20px]">{delta}</p>
+                <div className="flex items-center gap-[2px]">
+                  {deltaPct === 0 ? null : (
+                    <TriangleFill
+                      size={10}
+                      className={cn('shrink-0 text-white', deltaPct < 0 && '-scale-y-100')}
+                    />
+                  )}
+                  <p
+                    className={String.raw`${GEIST} font-medium text-[20px] leading-[20px] text-white tracking-[-1.0556px] whitespace-nowrap`}
+                  >
+                    {Math.abs(deltaPct)}%
+                  </p>
+                </div>
+                {/* "vs. {window}". Rendered only when there IS a previous
+                    window to name — on the oldest window, and at Yearly, the
+                    percentage falls back to the window's own two halves and
+                    there is no earlier span to print. The frame has no variant
+                    for that, so this draws nothing rather than inventing a
+                    caption for it. */}
+                {compareLabel ? (
+                  <p className="font-sans font-normal text-xs leading-[12px] text-[#fafbfc] opacity-90 whitespace-nowrap">
+                    vs. {compareLabel}
+                  </p>
+                ) : null}
               </div>
-            </div>
-          ) : null}
-
-          {/* 199396:84062 — "See more" is a JUMP to the consumption chart, and
-              nothing else. 2026-10-20, the owner on this control: "see more is
-              only redirect to consumption chart on the dates above, so see
-              less is not relevant — and in addition consumption chart shall be
-              always visible."
-
-              So the chart is no longer behind this control — it is always
-              mounted on the page — and this button neither opens nor closes
-              anything. It scrolls the chart into view and puts it on the
-              window the caption above names, with the previous-period
-              comparison on. The label is therefore ALWAYS "See more"; there is
-              no second state for "See less" to describe.
-
-              NO aria-expanded. It used to carry one, which was honest while
-              this was a disclosure triangle and is a lie now: a control that
-              expands nothing must not announce an expanded state, and a screen
-              reader would promise a region that opens and closes. What
-              replaces it is a NAME that says where the button goes — the comp
-              draws two words, and two words out of context do not tell a
-              non-sighted user that the page is about to move. The visible
-              "See more" stays the first words of that name (WCAG 2.5.3, so
-              voice control still matches what is drawn), and it is still a
-              real <button>, which is the one thing about this control that has
-              never been negotiable. */}
-          {onJumpToChart ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size={null}
-              onClick={onJumpToChart}
-              aria-label="See more: go to the water consumption chart"
-              className="content-stretch flex gap-[5px] items-center justify-center relative shrink-0 rounded-[8px] px-[8px] text-ink-on-color hover:bg-card/15 hover:text-current"
-              data-node-id="199396:84062"
-            >
-              <ChartLine className="size-[16px] shrink-0" aria-hidden="true" />
-              <span
-                className={String.raw`[word-break:break-word] font-sans font-normal relative shrink-0 text-xs leading-[16.5px] whitespace-nowrap`}
-                data-node-id="199383:141640"
-              >
-                See more
-              </span>
-            </Button>
-          ) : null}
+            ) : null}
+          </div>
         </div>
+
+        {/* ── "ALL STATS" — 82x29 at (270, 129) ────────────────────────────
+            SAME CONTROL, NEW NAME AND NEW PLACE. It read "See more" under the
+            figure; both new nodes put it opposite the delta row and call it
+            "All stats". The BEHAVIOUR is untouched and is still the 2026-10-20
+            ruling — "see more is only redirect to consumption chart on the
+            dates above, so see less is not relevant, and in addition
+            consumption chart shall be always visible". It jumps to the chart,
+            puts it on the window the caption names, and turns the
+            previous-period comparison on. It opens nothing, so it still
+            carries NO aria-expanded.
+
+            The accessible name leads with the visible label (WCAG 2.5.3, so
+            voice control matches what is drawn) and then says where the button
+            goes, because "All stats" out of context does not tell a non-sighted
+            user the page is about to move.
+
+            Now bordered: a white hairline over the 28% veil, which the old
+            unbordered ghost did not have. The veil follows the same theme rule
+            as every other chip on a wave — `light` keeps the literal byte for
+            byte, every other theme computes the 28% from --ink-on-color. */}
+        {onJumpToChart ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size={null}
+            onClick={onJumpToChart}
+            aria-label="All stats: go to the water consumption chart"
+            className="flex h-[29px] shrink-0 items-center gap-[6px] rounded-[12px] border border-solid border-white bg-[rgba(241,245,249,0.28)] px-[7px] text-ink-on-color hover:bg-card/30 hover:text-current [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)]"
+            data-node-id={alert ? 'I199703:30816;199703:30091' : 'I199703:31382;199703:32494'}
+          >
+            <Chart03 className="size-[16px] shrink-0" aria-hidden="true" />
+            <span
+              className={String.raw`[word-break:break-word] font-sans font-medium shrink-0 text-xs leading-[15px] whitespace-nowrap`}
+            >
+              All stats
+            </span>
+          </Button>
+        ) : null}
       </div>
     </div>
   )
