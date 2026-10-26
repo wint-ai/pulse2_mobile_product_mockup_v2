@@ -979,7 +979,16 @@ function FindSystemPanel({ sys, sysId }) {
                 key={p.id}
                 className="relative aspect-square overflow-hidden rounded-[8px] bg-slate-100"
               >
-                <img src={p.dataUrl} alt={`Site picture ${i + 1}`} className="block size-full object-cover" />
+                {/* A seeded installation photo carries a real description of
+                    what is in the frame (installationPhotos.js). On a panel
+                    whose whole job is "help me find this system", that is the
+                    part a screen-reader user most needs, so it wins over the
+                    positional fallback a user-uploaded picture gets. */}
+                <img
+                  src={p.dataUrl}
+                  alt={p.alt || `Site picture ${i + 1}`}
+                  className="block size-full object-cover"
+                />
                 <Button
                   type="button"
                   variant="ghost"

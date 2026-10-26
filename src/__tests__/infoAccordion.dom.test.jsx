@@ -26,6 +26,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { render, cleanup, fireEvent, within } from '@testing-library/react'
 
+import { SYSTEMS } from '@/data/systems'
 import InfoAccordion from '@/v2/components/InfoAccordion'
 import { SYSTEMS_INFO } from '@/data/systemsInfo'
 import { getNotesOverride } from '@/data/locationInfoStore'
@@ -267,8 +268,12 @@ describe('Pictures — the other write', () => {
     expect(input.getAttribute('accept')).toBe('image/*')
   })
 
+  /* A REAL system id. installationPhotos keys its seed off SYSTEMS, so a
+     synthetic id gets nothing — which is also what keeps the empty case
+     below reachable. */
   it('every real system now arrives with photos, so the gallery is never bare', () => {
-    const { container } = render(<InfoAccordion system={{ id: 'info-accordion-pics' }} />)
+    const real = SYSTEMS[0]
+    const { container } = render(<InfoAccordion system={real} />)
     fireEvent.click(within(container).getByRole('button', { name: 'Pictures' }))
     expect(within(container).queryByText('No pictures yet')).toBeNull()
     expect(container.querySelectorAll('img').length).toBeGreaterThan(0)

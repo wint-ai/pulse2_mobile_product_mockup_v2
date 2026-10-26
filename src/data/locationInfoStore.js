@@ -11,10 +11,27 @@
 // In a real product these would be server-side fields on the location
 // record, with image uploads going to object storage instead of being
 // inlined as data URLs.
+//
+// ── SEEDED INSTALLATION PHOTOS vs THE USER'S OWN ────────────────────────
+// Systems also carry real installation photographs out of the box (see
+// installationPhotos.js). Those are NEVER written to localStorage. They are
+// merged in on read, ahead of whatever the user has added:
+//
+//   getPictures()  =  [ seeds the user has not deleted ] ++ [ user pictures ]
+//
+// Keeping the two apart is what stops them clobbering each other. If seeds
+// were written into the stored array on first read, a later change to the
+// seed set would either be invisible on a browser that had already read it
+// or, if it re-seeded, would duplicate or delete rows the user had curated.
+// Keeping them out means addPicture() only ever appends to the user's own
+// list and cannot disturb a seed, and re-seeding cannot touch a user row.
+//
+// Deleting a seed therefore cannot be a splice — there is nothing stored to
+// splice out — so it records a TOMBSTONE in `removedSeeds` instead. The user
+// can delete a seeded photo and have it stay deleted across reloads, which is
+// the behaviour the X button already promises on every other picture.
 
-import installRiserWall from '@/assets/site/install-riser-wall.jpg';
-import installPlantRoom from '@/assets/site/install-plant-room.jpg';
-import installFireRiser from '@/assets/site/install-fire-riser.jpg';
+import { getSeededPictures, isSeededPictureId } from './installationPhotos';
 
 const KEY_PREFIX = 'pulse2-location-info:';
 
@@ -54,36 +71,12 @@ export function setNotes(scopeId, notes) {
 }
 
 // ── Pictures ─────────────────────────────────────────────────────────────
-/* SEED. Owner, 2026-10-26: "why still no pictures here?" — because nothing
-   ever put any there. The store is user-written and starts empty, so the
-   gallery correctly reported "no pictures saved" on every system, forever,
-   and the feature could not be seen at all.
- *
- * Seeding is this file's own pattern (see the header: "Each account starts
- * seeded from accounts.js"). The photo is the real VMA front shot already in
- * the repo — a picture of the installed unit is exactly what a site picture
- * is for, which is why it is the one asset here that fits.
- *
- * It yields to real data: the moment a scope has saved pictures of its own,
- * the seed is not consulted. `seeded: true` marks it so a caller can tell a
- * demo photo from one somebody took. */
-const SEED_PICTURES = [
-  { id: 'seed-riser-wall', dataUrl: installRiserWall, addedAt: null, seeded: true },
-  { id: 'seed-plant-room', dataUrl: installPlantRoom, addedAt: null, seeded: true },
-  { id: 'seed-fire-riser', dataUrl: installFireRiser, addedAt: null, seeded: true },
-];
-
-/* EVERY SCOPE GETS THEM. This was gated on a hash so the empty state stayed
-   reachable, which was the right instinct and the wrong call: owner,
-   2026-10-26, "make sure for ALL systems we have photos and notes that help
-   find the systems." Finding the unit is the job; a system with no photo
-   fails at it. The empty branch below still runs for a scope id that is not a
-   system (the picker's own tests use one), so the component's empty state is
-   still exercised — it is just not something the fleet can be in. */
 export function getPictures(scopeId) {
-  const v = read(scopeId).pictures;
-  if (Array.isArray(v) && v.length) return v;
-  return String(scopeId ?? '') ? SEED_PICTURES : [];
+  const obj = read(scopeId);
+  const mine = Array.isArray(obj.pictures) ? obj.pictures : [];
+  const dropped = Array.isArray(obj.removedSeeds) ? obj.removedSeeds : [];
+  const seeds = getSeededPictures(scopeId).filter(p => !dropped.includes(p.id));
+  return [...seeds, ...mine];
 }
 
 export function addPicture(scopeId, dataUrl) {
@@ -100,6 +93,14 @@ export function addPicture(scopeId, dataUrl) {
 
 export function removePicture(scopeId, pictureId) {
   const obj = read(scopeId);
-  obj.pictures = (obj.pictures || []).filter(p => p.id !== pictureId);
+  if (isSeededPictureId(pictureId)) {
+    // A seed is not in the stored array, so there is nothing to filter out.
+    // Record that the user dismissed it; getPictures() honours the tombstone.
+    const dropped = Array.isArray(obj.removedSeeds) ? obj.removedSeeds : [];
+    if (!dropped.includes(pictureId)) dropped.push(pictureId);
+    obj.removedSeeds = dropped;
+  } else {
+    obj.pictures = (obj.pictures || []).filter(p => p.id !== pictureId);
+  }
   write(scopeId, obj);
 }
