@@ -89,7 +89,7 @@ const fmt = (n) => Number(n ?? 0).toLocaleString('en-US')
    component once shipped and crashed at runtime. Elements keep each icon a
    plain, visible reference. */
 const TYPES = [
-  { key: 'topology', name: 'Topology systems', type: SYSTEM_TYPE.FLOW, size: 19.168, glyph: <PhotoSensor3 size="100%" className="absolute inset-0 block" /> },
+  { key: 'topology', name: 'Flow Monitoring systems', type: SYSTEM_TYPE.FLOW, size: 19.168, glyph: <PhotoSensor3 size="100%" className="absolute inset-0 block" /> },
   { key: 'humidity', name: 'Humidity sensors', type: SYSTEM_TYPE.HUMIDITY, size: 18.21, glyph: <BrandDrops size="100%" className="absolute inset-0 block" /> },
   { key: 'flood', name: 'Flood sensors', type: SYSTEM_TYPE.FLOOD, size: 18.21, glyph: <FloodLine size="100%" className="absolute inset-0 block" /> },
 ]

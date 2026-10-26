@@ -64,7 +64,7 @@ describe('SystemsOverviewHero — the type chips', () => {
     const names = [...container.querySelectorAll('[role="img"]')]
       .map((el) => el.getAttribute('aria-label'))
     expect(names).toEqual([
-      'Topology systems: 156',
+      'Flow Monitoring systems: 156',
       'Humidity sensors: 45',
       'Flood sensors: 55',
     ])
@@ -75,7 +75,7 @@ describe('SystemsOverviewHero — the type chips', () => {
     const names = [...container.querySelectorAll('[role="img"]')]
       .map((el) => el.getAttribute('aria-label'))
     expect(names).toEqual([
-      'Topology systems: 0',
+      'Flow Monitoring systems: 0',
       'Humidity sensors: 0',
       'Flood sensors: 0',
     ])
@@ -195,7 +195,7 @@ describe('SystemsOverviewHero — the chips are a way into the Systems tab', () 
   it('never names a destination a zero chip will not go to', () => {
     const { container } = hero(() => {}, { topology: 103 })
     const labels = [...container.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))
-    expect(labels).toContain('Topology systems: 103. Show these in the Systems tab.')
+    expect(labels).toContain('Flow Monitoring systems: 103. Show these in the Systems tab.')
     expect(labels).toContain('Humidity sensors: 0')
     expect(labels).toContain('Flood sensors: 0')
   })
@@ -228,16 +228,16 @@ describe('SystemsOverviewHero — one tap explains, two taps navigate', () => {
     const { container } = hero((t) => picked.push(t))
     expect(explainer(container), 'nothing is revealed before a tap').toBeNull()
 
-    await userEvent.click(chip(container, /^Topology/))
+    await userEvent.click(chip(container, /^Flow Monitoring/))
     expect(picked, 'the first tap must not navigate').toEqual([])
-    expect(explainer(container).textContent).toContain('Topology systems')
+    expect(explainer(container).textContent).toContain('Flow Monitoring systems')
     expect(explainer(container).textContent).toContain('metered water line')
   })
 
   it('the second tap on the SAME chip navigates', async () => {
     const picked = []
     const { container } = hero((t) => picked.push(t))
-    const topology = chip(container, /^Topology/)
+    const topology = chip(container, /^Flow Monitoring/)
     await userEvent.click(topology)
     await userEvent.click(topology)
     expect(picked).toEqual(['flow'])
@@ -249,16 +249,16 @@ describe('SystemsOverviewHero — one tap explains, two taps navigate', () => {
        touched once. */
     const picked = []
     const { container } = hero((t) => picked.push(t))
-    await userEvent.click(chip(container, /^Topology/))
+    await userEvent.click(chip(container, /^Flow Monitoring/))
     await userEvent.click(chip(container, /^Flood/))
     expect(picked, 'a first tap on another chip is still a first tap').toEqual([])
     expect(explainer(container).textContent).toContain('Flood sensors')
-    expect(explainer(container).textContent).not.toContain('Topology')
+    expect(explainer(container).textContent).not.toContain('Flow Monitoring')
   })
 
   it('a tap somewhere else puts the reveal away', async () => {
     const { container } = hero(() => {})
-    await userEvent.click(chip(container, /^Topology/))
+    await userEvent.click(chip(container, /^Flow Monitoring/))
     expect(explainer(container)).toBeTruthy()
     await userEvent.click(document.body)
     expect(explainer(container), 'an armed chip must not outlive the glance').toBeNull()
@@ -266,7 +266,7 @@ describe('SystemsOverviewHero — one tap explains, two taps navigate', () => {
 
   it('Escape puts the reveal away', async () => {
     const { container } = hero(() => {})
-    await userEvent.click(chip(container, /^Topology/))
+    await userEvent.click(chip(container, /^Flow Monitoring/))
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(explainer(container)).toBeNull()
   })
@@ -274,7 +274,7 @@ describe('SystemsOverviewHero — one tap explains, two taps navigate', () => {
   it('a reveal does not survive the counts changing under it', async () => {
     const picked = []
     const { container, rerender } = hero((t) => picked.push(t))
-    await userEvent.click(chip(container, /^Topology/))
+    await userEvent.click(chip(container, /^Flow Monitoring/))
     expect(explainer(container)).toBeTruthy()
 
     rerender(
@@ -295,7 +295,7 @@ describe('SystemsOverviewHero — one tap explains, two taps navigate', () => {
        Enter or Space. */
     const picked = []
     const { container } = hero((t) => picked.push(t))
-    fireEvent.click(chip(container, /^Topology/), { detail: 0 })
+    fireEvent.click(chip(container, /^Flow Monitoring/), { detail: 0 })
     expect(picked).toEqual(['flow'])
     expect(explainer(container), 'and it opens no reveal on the way past').toBeNull()
   })
@@ -315,7 +315,7 @@ describe('SystemsOverviewHero — one tap explains, two taps navigate', () => {
 
   it('tells a screen reader which chip is open', async () => {
     const { container } = hero(() => {})
-    const topology = chip(container, /^Topology/)
+    const topology = chip(container, /^Flow Monitoring/)
     expect(topology.getAttribute('aria-expanded')).toBe('false')
     await userEvent.click(topology)
     expect(topology.getAttribute('aria-expanded')).toBe('true')
@@ -326,7 +326,7 @@ describe('SystemsOverviewHero — one tap explains, two taps navigate', () => {
        escapes the 393x852 frame. This repo has been bitten three times, so the
        band is pinned to living INSIDE the hero. */
     const { container } = hero(() => {})
-    await userEvent.click(chip(container, /^Topology/))
+    await userEvent.click(chip(container, /^Flow Monitoring/))
     const band = explainer(container)
     expect(container.contains(band), 'the band stays inside the hero').toBe(true)
     expect(band.className).toContain('absolute')
@@ -334,7 +334,7 @@ describe('SystemsOverviewHero — one tap explains, two taps navigate', () => {
 
   it('paints the band in tokens, so all four themes re-ground it', async () => {
     const { container } = hero(() => {})
-    await userEvent.click(chip(container, /^Topology/))
+    await userEvent.click(chip(container, /^Flow Monitoring/))
     const band = explainer(container)
     expect(band.className).toContain('bg-card')
     expect(band.className).toContain('border-border')
