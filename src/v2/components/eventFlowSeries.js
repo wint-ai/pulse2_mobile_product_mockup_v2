@@ -120,6 +120,10 @@ const clampInt = (n, lo, hi) => Math.max(lo, Math.min(hi, Math.round(n)))
  * @param {number} [o.preRollMin]   minutes of normal demand before onset (>= 10)
  * @param {number} [o.detectLagMin] onset -> detected
  * @param {number} [o.shutoffMin]   detected -> valve closed; null if it never closed
+ * @param {string} [o.startClock]    "HH:MM" of onset, so the axis reads in
+ *                                   wall time rather than "+12m". Owner,
+ *                                   2026-10-26: "x axis needs to be timestamps
+ *                                   with the right spacing." 
  * @returns {{points: {minute:number,label:string,lph:number}[],
  *            marks: {key:string,minute:number,label:string}[]}}
  */
@@ -130,12 +134,26 @@ export function buildEventFlowSeries({
   preRollMin = 10,
   detectLagMin = 3,
   shutoffMin = null,
+  startClock = null,
 } = {}) {
   const rng = seeded(`eventflow|${key}|${peakLph}|${durationMin}`)
   /* The owner's floor, not a preference: "always show at least 10 min before
      event starts". A caller asking for less gets 10. */
   const pre = Math.max(10, Math.round(preRollMin))
-  const dur = clampInt(durationMin, 1, 24 * 60)
+  /* THE WINDOW ENDS SHORTLY AFTER THE STORY DOES. A 45-minute window on an
+     event whose valve shut at minute 5 spends 40 of its 56 points on a flat
+     floor — the chart is then mostly nothing happening, which is the other
+     half of "too overwhelmed": the part that matters is squeezed into the
+     first fifth. Where a valve closed, the window runs to the close plus a
+     10-minute tail — enough to show the line settle and stay down, which is
+     the proof the valve worked. An event still running keeps its full
+     duration, because there the plateau IS the story. */
+  const closedAt = shutoffMin != null ? detectLagMin + shutoffMin : null
+  const dur = clampInt(
+    closedAt != null ? Math.min(durationMin, closedAt + 10) : durationMin,
+    1,
+    24 * 60,
+  )
   const plateau = Math.max(1, peakLph)
 
   /* The standing background draw. Never zero while the event runs — that is
@@ -147,15 +165,16 @@ export function buildEventFlowSeries({
   /* Normal demand before onset: short draw-offs that FALL BACK. Drawn from the
      rng so two systems do not share a silhouette. */
   let burst = 0
+  let ou = 0
   for (let m = 0; m <= total; m++) {
     const minute = m - pre
     let lph
     if (minute < 0) {
       // Pre-roll: a near-zero floor with occasional real draw-offs.
       if (burst > 0) burst -= 1
-      else if (rng() < 0.18) burst = 1 + Math.floor(rng() * 2)
-      const draw = burst > 0 ? plateau * (0.12 + 0.22 * rng()) : 0
-      lph = floor * (0.3 + 0.5 * rng()) + draw
+      else if (rng() < 0.16) burst = 1 + Math.floor(rng() * 2)
+      const draw = burst > 0 ? plateau * (0.1 + 0.18 * rng()) : 0
+      lph = floor * (0.4 + 0.3 * rng()) + draw
     } else if (shutoffMin != null && minute >= detectLagMin + shutoffMin) {
       /* Valve closed. Not instantly zero — a closing valve leaves the line in
          the pipe to drain, which is a short decay, then the floor. */
@@ -164,12 +183,18 @@ export function buildEventFlowSeries({
     } else {
       /* The plateau: held, with the few-percent buzz a real meter reads, and a
          very slight upward drift as the opening works itself wider. */
-      const drift = 1 + 0.035 * (minute / Math.max(1, dur))
-      lph = plateau * drift * (0.955 + 0.09 * rng())
+      /* The buzz was +/-4.5%, which at one point a minute reads as a solid
+         band rather than a plateau — owner: "chart now too overwhelmed, find
+         the balance". Halved, and a 3-sample carry so consecutive minutes are
+         correlated the way a real meter's are instead of resampling noise
+         every point. */
+      const drift = 1 + 0.03 * (minute / Math.max(1, dur))
+      ou = ou * 0.72 + (rng() - 0.5) * 0.028
+      lph = plateau * drift * (1 + ou)
     }
     points.push({
       minute,
-      label: `${minute >= 0 ? '+' : '−'}${Math.abs(minute)}m`,
+      label: clockAt(startClock, minute),
       lph: Math.round(lph * 10) / 10,
     })
   }
@@ -189,6 +214,43 @@ export function buildEventFlowSeries({
     })
   }
   return { points, marks }
+}
+
+/** "HH:MM" `base` advanced by `minute`; falls back to a relative label. */
+function clockAt(base, minute) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(base ?? ''))
+  if (!m) return `${minute >= 0 ? '+' : '−'}${Math.abs(minute)}m`
+  const total = ((Number(m[1]) * 60 + Number(m[2]) + minute) % 1440 + 1440) % 1440
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
+/**
+ * Which points carry a tick. Minute data gives 55+ of them and recharts will
+ * draw every label it is given, so the axis has to be told. Picks a round
+ * step — 5, 10, 15, 30 or 60 minutes — that lands 4-7 ticks in the window,
+ * and anchors them on the clock's own round minutes rather than on the
+ * pre-roll's start, so the labels read 10:20, 10:30, 10:40 instead of 10:18,
+ * 10:28, 10:38. Owner: "the right spacing".
+ */
+export function flowTickInterval(points) {
+  if (!Array.isArray(points) || points.length < 2) return 0
+  const span = points.length
+  const step = [5, 10, 15, 30, 60].find(n => span / n <= 7) ?? 60
+  return step
+}
+
+/** The subset of labels that should carry a tick, for XAxis `ticks`. */
+export function flowTicks(points) {
+  if (!Array.isArray(points) || !points.length) return []
+  const step = flowTickInterval(points)
+  if (!step) return []
+  return points
+    .filter(p => {
+      const m = /^(\d{1,2}):(\d{2})$/.exec(p.label)
+      // Round wall-clock minutes when we have a clock; round offsets otherwise.
+      return m ? Number(m[2]) % step === 0 : p.minute % step === 0
+    })
+    .map(p => p.label)
 }
 
 /** "4m 30s" from minutes, for the card's time-to-shutoff readout. */

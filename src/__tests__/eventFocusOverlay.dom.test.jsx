@@ -760,6 +760,42 @@ describe('Event graph', () => {
     expect(during[0].lph).toBeGreaterThan(preMax)
   })
 
+  /* Owner, 2026-10-26: "chart now too overwhelmed, find the balance" and "x
+     axis needs timestamps with the right spacing". Both are geometry, and
+     recharts renders nothing here, so they are pinned on the series. */
+  it('labels the axis in wall time, anchored on the event clock', async () => {
+    const { buildEventFlowSeries } = await import('@/v2/components/eventFlowSeries')
+    const { points } = buildEventFlowSeries({ key: 'k', durationMin: 45, startClock: '10:18' })
+    // 10 minutes of pre-roll means the window opens at 10:08, not 10:18.
+    expect(points[0].label).toBe('10:08')
+    expect(points.find(p => p.minute === 0).label).toBe('10:18')
+    expect(points.at(-1).label).toBe('11:03')
+  })
+
+  it('spaces ticks on ROUND clock minutes, 4-7 of them', async () => {
+    const { buildEventFlowSeries, flowTicks } = await import('@/v2/components/eventFlowSeries')
+    for (const durationMin of [20, 45, 120]) {
+      const { points } = buildEventFlowSeries({ key: 'k', durationMin, startClock: '10:18' })
+      const ticks = flowTicks(points)
+      expect(ticks.length, `${durationMin}m window`).toBeGreaterThanOrEqual(4)
+      expect(ticks.length, `${durationMin}m window`).toBeLessThanOrEqual(7)
+      /* The point of explicit ticks over recharts' `interval`: that counts
+         from the first sample and would label 10:18, 10:28, 10:38. */
+      for (const t of ticks) expect(Number(t.slice(3)) % 5).toBe(0)
+    }
+  })
+
+  it('ends the window shortly after the valve closes, not 40 flat minutes later', async () => {
+    const { buildEventFlowSeries } = await import('@/v2/components/eventFlowSeries')
+    const closed = buildEventFlowSeries({
+      key: 'c', durationMin: 45, detectLagMin: 3, shutoffMin: 2, startClock: '10:18',
+    })
+    // Shut off at minute 5; the window runs to 15, not 45.
+    expect(closed.points.at(-1).minute).toBe(15)
+    const running = buildEventFlowSeries({ key: 'r', durationMin: 45, shutoffMin: null })
+    expect(running.points.at(-1).minute).toBe(45)
+  })
+
   it('is stable across calls, so the line does not animate under the user', async () => {
     const { buildEventFlowSeries } = await import('@/v2/components/eventFlowSeries')
     const a = buildEventFlowSeries({ key: 'same', peakLph: 90, durationMin: 20 })

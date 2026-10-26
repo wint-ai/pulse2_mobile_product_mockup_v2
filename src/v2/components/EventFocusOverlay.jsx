@@ -261,6 +261,7 @@ import vmaFront from '@/assets/wint-vma-front.png'
 import {
   buildEventFlowSeries,
   elapsedLabel,
+  flowTicks,
   peakFlowRate,
   toFlowRateSeries,
 } from '@/v2/components/eventFlowSeries'
@@ -570,7 +571,7 @@ const FLOW_CHART_CONFIG = {
  *
  * An empty window draws the empty state, never a flat line at zero.
  */
-function EventFlowChart({ points, peak, marks = [] }) {
+function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
   if (!points.length) {
     return (
       <p className="text-[13px] text-slate-500">
@@ -605,13 +606,19 @@ function EventFlowChart({ points, peak, marks = [] }) {
             tickMargin={8}
             tick={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}
           />
+          {/* Minute data is 55+ points and recharts labels every one it is
+              given. `ticks` is the explicit subset — round wall-clock minutes
+              at a step that lands 4-7 labels — rather than `interval`, which
+              counts from the first point and so lands on 10:18, 10:28, 10:38
+              instead of 10:20, 10:30, 10:40. Owner: "x axis needs timestamps
+              with the right spacing". */}
           <XAxis
             dataKey={marks.length ? 'label' : 'hour'}
             height={22}
             tickLine={false}
             axisLine={false}
             tickMargin={6}
-            interval={5}
+            {...(ticks.length ? { ticks } : { interval: 5 })}
             tick={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}
           />
           {/* THE MILESTONES. Owner: "add a few milestones on the chart when
@@ -625,7 +632,7 @@ function EventFlowChart({ points, peak, marks = [] }) {
           {marks.map(mk => (
             <ReferenceLine
               key={mk.key}
-              x={`${mk.minute >= 0 ? '+' : '−'}${Math.abs(mk.minute)}m`}
+              x={points.find(p => p.minute === mk.minute)?.label}
               stroke={
                 mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)'
               }
@@ -641,11 +648,15 @@ function EventFlowChart({ points, peak, marks = [] }) {
             />
           ))}
           <ChartTooltip content={<ChartTooltipContent />} />
+          {/* `monotone` smooths a 24-point day nicely and turns 55 minute
+              samples into a fat ribbon. `linear` at 1.5px keeps the step at
+              onset sharp, which is the one feature of this chart that has to
+              read at a glance. */}
           <Line
-            type="monotone"
+            type={marks.length ? 'linear' : 'monotone'}
             dataKey="lph"
             stroke="var(--color-lph)"
-            strokeWidth={2}
+            strokeWidth={marks.length ? 1.5 : 2}
             dot={false}
             activeDot={{ r: 3 }}
             isAnimationActive={false}
@@ -1152,6 +1163,10 @@ export default function EventFocusOverlay({
         durationMin: eventDurationMin,
         detectLagMin: detectLagMin,
         shutoffMin: shutoffAfterDetectMin,
+        /* The axis reads in wall time. alert.startedAt is the one real clock
+           the dataset carries, and it is when the event was RAISED — so the
+           trace is anchored to it and onset sits detectLagMin before. */
+        startClock: evt.startedAt ?? alertRow.detectedAt,
       })
     : null
   const flowPoints = eventFlow
@@ -1574,6 +1589,7 @@ export default function EventFocusOverlay({
               points={flowPoints}
               peak={flowPeak}
               marks={eventFlow?.marks ?? []}
+              ticks={eventFlow ? flowTicks(eventFlow.points) : []}
             />
           )}
         </Section>
