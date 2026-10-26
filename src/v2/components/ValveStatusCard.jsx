@@ -76,6 +76,7 @@
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import ValveStatus from '@/v2/components/ValveStatus'
 
@@ -175,6 +176,75 @@ const STRIP_BODY = String.raw`content-stretch flex flex-col gap-[8px] items-star
 /* 199683:24831 — digits and colon as three runs, which is how the node splits
    them and what lets the colon keep its own 3px gaps. */
 const STRIP_CLOCK = String.raw`content-stretch flex font-sans font-medium gap-[3px] items-center leading-6 relative shrink-0 text-slate-800 text-2xl`
+/* ── The live countdown ───────────────────────────────────────────────────
+ * Owner, 2026-10-26: "i want it to feel more live on UI, to see how it real
+ * elapsed", and "maybe something like 'valve will be closed in:'".
+ *
+ * So it TICKS. A frozen figure on a card about something imminent reads as a
+ * label; a number moving every second reads as a deadline, which is what this
+ * is. The label names the action rather than leaving "will activate" to be
+ * puzzled out.
+ *
+ * One interval, cleared on unmount and restarted only when the starting
+ * figure changes — not a timer per render. `Date.now()` is read inside the
+ * effect, never in the render body: this repo's eslint flags an impure read
+ * during render (react-hooks/purity) and it is right to, since it makes a
+ * component's output depend on when React happened to call it.
+ *
+ * At zero it stops and says so. It does not run negative, and it does not
+ * claim the valve has closed — this card does not know that; the valve state
+ * above it does. */
+function LiveCountdown({ minutes, seconds, label }) {
+  const total = Math.max(0, Math.round((minutes || 0) * 60 + (seconds || 0)))
+  const [left, setLeft] = useState(total)
+
+  /* No setState at the top of this effect: that is a cascading render and
+     the repo's eslint rejects it. The component is KEYED on `total` at its
+     call site, so a new figure remounts it and useState picks the new
+     starting value up for free. */
+  useEffect(() => {
+    if (total <= 0) return undefined
+    const started = Date.now()
+    const id = setInterval(() => {
+      const gone = Math.floor((Date.now() - started) / 1000)
+      setLeft(Math.max(0, total - gone))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [total])
+
+  const m = Math.floor(left / 60)
+  const sec = left % 60
+
+  return (
+    <div className="flex w-full flex-col gap-[2px]" data-node-id="199683:24830">
+      <p
+        className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-slate-600 text-sm`}
+        data-node-id="199683:24834"
+      >
+        {label}
+      </p>
+      <p
+        className={cn('font-sans', STRIP_CLOCK)}
+        dir="auto"
+        aria-live="off"
+        data-countdown={left}
+      >
+        {left === 0 ? (
+          'closing now'
+        ) : (
+          <>
+            {m}
+            <span className="text-[16px]">m</span>
+            {' '}
+            {pad2(sec)}
+            <span className="text-[16px]">s</span>
+          </>
+        )}
+      </p>
+    </div>
+  )
+}
+
 /* Two digits a side; a 7 would otherwise read as 0:7. */
 const pad2 = (n) => String(n).padStart(2, '0')
 
@@ -251,7 +321,19 @@ export default function ValveStatusCard({
      drawn word on this card is one, which is this file's rule. */
   attentionLabel = 'Attention',
   attentionBody = 'In case a Leak is detected — the valve will not automatically shut off and water loss is at risk',
-  activatesInLabel = 'Will activate in',
+  /* "Will activate in" beside a 00 : 00 clock — owner, 2026-10-26: "i don't
+     like the will activate in 10:00 time elapsed, this is not clear text."
+     Two faults, and the format is the worse one:
+
+       · 10:00 IN A COLON FORMAT READS AS A WALL CLOCK. "Will activate in
+         10:00" parses as "at ten o'clock" at least as readily as "in ten
+         minutes", and the card gives no unit anywhere to settle it. Explicit
+         units cannot be misread: 10m, 2m 45s.
+       · "Will activate" names nothing. WHAT activates? The badge above says
+         Auto-close Valve, but the sentence has to stand on its own — it is
+         the line someone reads while deciding whether to close the valve by
+         hand first. It says what will happen: the valve closes. */
+  activatesInLabel = 'Valve will be closed in:',
   /* WHEN auto-close fires, as the countdown in 199683:24849. NOT DEFAULTED:
      nothing in this app carries an auto-close delay — systemDetails.js records
      autoShutoff as Enabled/Disabled/N/A and no timing at all. The node's
@@ -408,19 +490,12 @@ export default function ValveStatusCard({
                 {/* ONE ROW, not a stack: the frame reads "00 : 00 Will
                     activate in" across a single line, with the clock large
                     and the label beside it. */}
-                <div className="flex w-full items-baseline gap-[8px]">
-                  <div className={STRIP_CLOCK} data-node-id="199683:24830">
-                    <p className="relative shrink-0" dir="auto">{pad2(activatesIn.minutes)}</p>
-                    <p className="relative shrink-0" dir="auto">:</p>
-                    <p className="relative shrink-0" dir="auto">{pad2(activatesIn.seconds)}</p>
-                  </div>
-                  <p
-                    className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-slate-600 text-sm`}
-                    data-node-id="199683:24834"
-                  >
-                    {activatesInLabel}
-                  </p>
-                </div>
+                <LiveCountdown
+                  key={`${activatesIn.minutes}:${activatesIn.seconds}`}
+                  minutes={activatesIn.minutes}
+                  seconds={activatesIn.seconds}
+                  label={activatesInLabel}
+                />
               </>
             ) : null}
           </div>
