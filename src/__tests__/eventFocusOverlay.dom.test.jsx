@@ -885,3 +885,108 @@ describe('What should I do', () => {
     expect(within(panel).getByText(/metering-only/i)).toBeInTheDocument()
   })
 })
+
+/* ── THE COLLAPSING HERO ──────────────────────────────────────────────────
+   Owner, 2026-10-26: "stop make this area floating — I mean the red waves."
+
+   The wave band used to be PINNED: an absolute layer the cards scrolled over,
+   so the red never moved however far you scrolled. It now translates with the
+   scroller and leaves, while the back / × discs stay put.
+
+   This is pinned by a test because the whole mechanism is two refs and a
+   scroll handler — there is no state, nothing re-renders, and nothing else in
+   the suite would notice if `onScroll` were dropped from the scroller or the
+   ref came loose from the band. The screen would simply go back to the
+   behaviour the owner rejected, silently.
+
+   happy-dom lays nothing out, so `scrollTop` is a plain settable property and
+   no element has a height. That is enough here: what is asserted is the
+   arithmetic the handler does with scrollTop, not the geometry the browser
+   would do with the result. */
+describe('the red wave collapses with the content', () => {
+  const band = () => document.querySelector('[data-node-id="199431:138924"]')
+  const bar = () => document.querySelector('[data-solid]')
+  const scroller = () => document.querySelector('[data-ignored]')
+
+  /** Scroll the body to `y` the way a browser would: move it, then announce. */
+  function scrollTo(y) {
+    const el = scroller()
+    el.scrollTop = y
+    fireEvent.scroll(el)
+    return el
+  }
+
+  it('the band and the scroller are both wired', () => {
+    /* The self-check. Every assertion below reads these three nodes, and a
+       querySelector that stops matching returns null rather than failing, so
+       without this the rest of the block would pass by not running. */
+    renderOverlay()
+    expect(band(), 'the wave band (data-node-id 199431:138924)').toBeTruthy()
+    expect(bar(), 'the pinned header bar (data-solid)').toBeTruthy()
+    expect(scroller(), 'the one scrolling region (data-ignored)').toBeTruthy()
+  })
+
+  it('sits at rest until the body is scrolled', () => {
+    renderOverlay()
+    // No transform written yet — the band is where Figma puts it.
+    expect(band().style.transform).toBe('')
+    expect(bar().dataset.solid).toBe('false')
+  })
+
+  it('moves up by exactly as much as the body scrolled', () => {
+    renderOverlay()
+    scrollTo(40)
+    expect(band().style.transform).toBe('translate3d(0, -40px, 0)')
+    scrollTo(120)
+    expect(band().style.transform).toBe('translate3d(0, -120px, 0)')
+  })
+
+  it('stops once it is off the top rather than translating for ever', () => {
+    /* HERO_H is 207. An unclamped handler would keep writing -3000px on a long
+       timeline, which costs a compositor layer the size of the scroll. */
+    renderOverlay()
+    scrollTo(3000)
+    expect(band().style.transform).toBe('translate3d(0, -207px, 0)')
+  })
+
+  it('ignores a negative scrollTop (iOS rubber-banding)', () => {
+    /* A bounce at the top reports a negative scrollTop in Safari. Unclamped,
+       that pushes the band DOWN over the header. */
+    renderOverlay()
+    scrollTo(-80)
+    expect(band().style.transform).toBe('translate3d(0, 0px, 0)')
+  })
+
+  it('the bar goes solid only once the wave has cleared it', () => {
+    /* HERO_H 207 − BAR_H 59 = 148. Before that the discs sit on red and the
+       bar must stay transparent or it would cover the wave it sits on. */
+    renderOverlay()
+    scrollTo(100)
+    expect(bar().dataset.solid, 'still over the wave').toBe('false')
+    scrollTo(148)
+    expect(bar().dataset.solid, 'wave bottom exactly at the bar bottom').toBe('false')
+    scrollTo(149)
+    expect(bar().dataset.solid, 'wave has passed — content would slide under').toBe('true')
+  })
+
+  it('goes back to transparent on the way up', () => {
+    renderOverlay()
+    scrollTo(400)
+    expect(bar().dataset.solid).toBe('true')
+    scrollTo(0)
+    expect(bar().dataset.solid).toBe('false')
+    expect(band().style.transform).toBe('translate3d(0, 0px, 0)')
+  })
+
+  it('the way out does NOT scroll away with it', () => {
+    /* The half of the pattern that is a safety property rather than a visual
+       one: the band collapses, the dismiss controls do not. Both discs are
+       outside the scroller, so scrolling cannot remove them. */
+    renderOverlay()
+    scrollTo(3000)
+    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy()
+    // And they are genuinely outside the scrolling region, not just present.
+    expect(scroller().contains(screen.getByRole('button', { name: 'Back' }))).toBe(false)
+  })
+})

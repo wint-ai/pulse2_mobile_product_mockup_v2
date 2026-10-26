@@ -362,6 +362,26 @@ const CHANNEL_LABEL = { push: 'Push', email: 'Email', sms: 'SMS' }
 const CARD_SHELL =
   'w-full shrink-0 rounded-[18px] border border-solid border-card bg-surface-card'
 
+/* ── The collapsing hero, 2026-10-26 ─────────────────────────────────────────
+   Owner: "stop make this area floating — I mean the red waves." The wave band
+   was pinned: an absolute layer the cards scrolled OVER, so the red never
+   moved and 207px of a 852px frame was permanently spent on ornament.
+
+   It now collapses, which is what iOS does with a large title and what
+   Material calls a collapsing toolbar: the band translates up with the
+   scroller until it is gone, while the back / × discs stay pinned — a sheet
+   whose dismiss control scrolls out of reach is the one thing the HIG is
+   unambiguous about.
+
+   HERO_H is the band's own height and BAR_H the header row's, both taken from
+   the Figma geometry below rather than guessed. Their DIFFERENCE is the point
+   at which the wave's bottom edge clears the header: before it, content slides
+   under a red band and reads as intended; after it, the header would float
+   over bare cards, so that is exactly when the bar takes a background. */
+const HERO_H = 207
+const BAR_H = 59
+const BAR_SOLID_AT = HERO_H - BAR_H
+
 /* ── Pure helpers (module-local: a component file may only export its
       component, per the react-refresh rule this repo lints with) ─────────── */
 
@@ -1127,6 +1147,24 @@ export default function EventFocusOverlay({
     return () => clearInterval(id)
   }, [open])
 
+  /* THE COLLAPSING HERO — see the HERO_H note above for what it does.
+     Written to the DOM through refs rather than held in state, deliberately:
+     a scroll handler that calls setState re-renders this whole component on
+     every frame of every flick, and this component mounts a recharts chart, a
+     timeline card and a photo grid. Nothing it paints depends on the scroll
+     position except these two nodes, so the two nodes are what the handler
+     touches. A transform and a data attribute are both compositor-cheap. */
+  const waveRef = useRef(null)
+  const barRef = useRef(null)
+  const onBodyScroll = e => {
+    const y = e.currentTarget.scrollTop
+    /* Clamped: past HERO_H the band is already off the top, and an unclamped
+       translate would keep growing for the length of the scroll. */
+    const shift = Math.min(Math.max(y, 0), HERO_H)
+    if (waveRef.current) waveRef.current.style.transform = `translate3d(0, ${-shift}px, 0)`
+    if (barRef.current) barRef.current.dataset.solid = y > BAR_SOLID_AT ? 'true' : 'false'
+  }
+
   /* Escape dismisses. Radix gave this for free; an in-frame overlay has to say
      so itself — ValveConfirmSheet.jsx carries the same effect, which is why
      this one stands down while that sheet is open: otherwise one Escape would
@@ -1395,10 +1433,19 @@ export default function EventFocusOverlay({
           It is therefore a BACKGROUND LAYER, not a flow element: 207px tall,
           with the header and the scroller stacked over it. The inner box
           reproduces the node's own offsets as percentages of the frame
-          (-172/402, 745/402) so it lands the same on our 393. */}
+          (-172/402, 745/402) so it lands the same on our 393.
+
+          STILL a layer rather than a flow element after the 2026-10-26
+          collapse, and that is the whole reason it is one: the wave has to
+          sit BEHIND the header discs at rest, which a flow element above the
+          header cannot do. It is translated by the scroller instead, so it
+          reads as part of the content without being part of it — and the
+          Figma geometry above is untouched, since transform moves the band
+          and changes nothing it is measured from. */}
       <div
+        ref={waveRef}
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[207px] overflow-hidden"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[207px] overflow-hidden will-change-transform"
         data-node-id="199431:138924"
       >
         <div className="absolute left-[-42.79%] top-[-140px] h-[347px] w-[185.32%]">
@@ -1409,7 +1456,21 @@ export default function EventFocusOverlay({
         </div>
       </div>
 
-      <div className="relative z-10 shrink-0">
+      {/* The PINNED bar. It stays `shrink-0` outside the scroller, so the two
+          ways out never scroll away — see the HERO_H note.
+
+          `data-solid` is written by onBodyScroll, not by React, and flips once
+          the wave's bottom edge has passed this row. Background only, no
+          border: a border-b would add a pixel to a 59px row the frame
+          specifies exactly, and would shift every card under it by 1px at the
+          moment it appeared. --background is #F4F6F9 and the discs are
+          --surface-card #fafbfc on a white hairline, so they keep their edge
+          against the solid bar as well as against the wave. */}
+      <div
+        ref={barRef}
+        data-solid="false"
+        className="relative z-10 shrink-0 transition-colors duration-200 data-[solid=true]:bg-background"
+      >
 
         {/* 199683:24853 — a 59px row carrying ONE control. The frame puts no
             title, no system name and no border here: the system's identity
@@ -1483,6 +1544,7 @@ export default function EventFocusOverlay({
            shared stacking context a positioned element paints over a static
            one whatever the DOM order. Without this the hero covers the top
            of the scroller instead of sitting behind it. */
+        onScroll={onBodyScroll}
         className="relative z-10 flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[12px] pb-[12px] pt-[10px] transition-opacity duration-200"
         style={{ opacity: ignored ? 0.7 : 1 }}
         data-ignored={ignored ? 'true' : 'false'}
