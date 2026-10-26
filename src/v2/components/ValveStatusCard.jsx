@@ -150,6 +150,34 @@ const BTN = String.raw`bg-accent border border-slate-900 border-solid content-st
 // I199383:141566;100985:11132
 const BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
 
+/* ── The `redraw` set ─────────────────────────────────────────────────────
+   199683:24796 / :24797 / :24810, the EVENT OVERLAY only. Opt-in, because
+   this card is also SystemPageV2Screen:1840 and an earlier pass changed both
+   — owner: "the card in other pages needs to remain as it was". Every mount
+   that passes nothing keeps 199383:141553 byte for byte. */
+const BTN_REDRAW = String.raw`bg-slate-100 border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex gap-1 items-center justify-center shrink-0 w-[161px] px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const BTN_TEXT_REDRAW = String.raw`[word-break:break-word] font-sans font-semibold relative shrink-0 text-slate-900 text-base leading-6 whitespace-nowrap`
+/* 24px/24 medium slate-800 at -0.6, which makes the state the loudest thing
+   in the row. The original is 19.501px slate-600. */
+const VALUE_REDRAW = String.raw`[word-break:break-word] font-sans font-medium relative shrink-0 text-2xl leading-6 tracking-[-0.6px] text-slate-800 whitespace-nowrap`
+/* 199683:24810 — the AUTO-CLOSE panel. It replaces a fixed h-[80px] strip on
+   the page gradient; this one is a flat slate-100 tile that SIZES TO ITS
+   CONTENT, because its two states are different heights (one line of clock
+   against three lines of warning). */
+const STRIP_REDRAW = String.raw`bg-slate-100 content-stretch flex flex-col gap-[16px] items-start justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full max-w-full`
+const STRIP_ROW = String.raw`content-stretch flex items-center justify-between relative shrink-0 w-full`
+const STRIP_LABEL = String.raw`[word-break:break-word] font-sans font-medium relative shrink-0 text-slate-600 text-sm leading-5 whitespace-nowrap`
+/* The node's badge tokens at their emitted values (6.6 / 2.2 / 4.4 / 28.6),
+   kept rather than rounded so the pill matches its neighbours in the frame. */
+const STRIP_BADGE = String.raw`bg-surface-card content-stretch flex gap-[4.4px] h-[22px] items-center justify-center overflow-clip px-[6.6px] py-[2.2px] relative rounded-[28.6px] shrink-0`
+const STRIP_BADGE_TEXT = String.raw`[word-break:break-word] font-sans font-medium leading-[17.6px] overflow-hidden relative shrink-0 text-[13.2px] text-slate-700 text-ellipsis whitespace-nowrap`
+const STRIP_BODY = String.raw`content-stretch flex flex-col gap-[8px] items-start justify-center relative shrink-0 w-full`
+/* 199683:24831 — digits and colon as three runs, which is how the node splits
+   them and what lets the colon keep its own 3px gaps. */
+const STRIP_CLOCK = String.raw`content-stretch flex font-sans font-medium gap-[3px] items-center leading-6 relative shrink-0 text-slate-800 text-2xl`
+/* Two digits a side; a 7 would otherwise read as 0:7. */
+const pad2 = (n) => String(n).padStart(2, '0')
+
 /* 199383:141567 — the handling strip. The old red/50 fill is gone; the node
    paints the page's own two-layer gradient, carried as an inline style because
    Figma emits it as one (an arbitrary Tailwind value cannot hold the commas). */
@@ -211,6 +239,26 @@ export default function ValveStatusCard({
      fix was a hand copy of this card's atoms in that file, which silently went
      stale the moment this card was rebuilt. A prop here keeps one source. */
   interactive = true,
+  /* OPT-IN to the 2026-10-25 redraw. Default false: the System page passes
+     nothing and keeps what it draws today. Only EventFocusOverlay opts in. */
+  redraw = false,
+  /* `redraw` only. 199683:24813 names the SETTING where the original named
+     the behaviour, and the badge carries its state — "On" (199683:24849) or
+     "Disabled" (199394:78935), which are what policy.autoShutoff returns. */
+  autoCloseLabel = 'Auto-close Valve',
+  autoCloseState = 'On',
+  /* 199683:24824 / :24825 / :24834 — frozen Figma strings, props so every
+     drawn word on this card is one, which is this file's rule. */
+  attentionLabel = 'Attention',
+  attentionBody = 'In case a Leak is detected — the valve will not automatically shut off and water loss is at risk',
+  activatesInLabel = 'Will activate in',
+  /* WHEN auto-close fires, as the countdown in 199683:24849. NOT DEFAULTED:
+     nothing in this app carries an auto-close delay — systemDetails.js records
+     autoShutoff as Enabled/Disabled/N/A and no timing at all. The node's
+     00 : 00 is a placeholder, and a zeroed clock rendered as if measured is
+     the 25K-litre defect again. Pass {minutes, seconds} when the data exists;
+     until then the On state is the label and the badge. */
+  activatesIn = null,
   label = 'Valve status',
   stateLabel,
   handlingLabel = 'Valve handling:',
@@ -226,7 +274,15 @@ export default function ValveStatusCard({
   // still overridable, which is what keeps every drawn string a prop.
   const value = stateLabel ?? (isOpen ? 'Open' : 'Closed')
   // See WORDING above — "Open valve" is derived, not drawn.
-  const action = isOpen ? 'Close valve' : 'Open valve'
+  /* 199683:24797 draws "Close valve now". The open wording has no frame, so
+     it is derived and still overridable. */
+  const action = redraw
+    ? (isOpen ? 'Close valve now' : 'Open valve now')
+    : (isOpen ? 'Close valve' : 'Open valve')
+  /* One branch for the whole panel. Both halves came off separate branches
+     once, and a system with auto-close off read "Auto shut-off" above the
+     auto-shut-off sentence — the panel contradicting its own first line. */
+  const autoCloseOff = String(autoCloseState).toLowerCase() === 'disabled'
 
   return (
     <div className={cn(CARD, className)} data-node-id={NODE.card} data-name="IOT overview" {...props}>
@@ -251,8 +307,8 @@ export default function ValveStatusCard({
                 preserveAspectRatio="none"
               />
             </div>
-            <div className={VALUE} data-node-id={NODE.value}>
-              <p className="leading-[29.251px]" dir="auto">
+            <div className={redraw ? VALUE_REDRAW : VALUE} data-node-id={NODE.value}>
+              <p className={redraw ? 'leading-6' : 'leading-[29.251px]'} dir="auto">
                 {value}
               </p>
             </div>
@@ -268,16 +324,80 @@ export default function ValveStatusCard({
           <button
             type="button"
             onClick={() => onToggle?.(isOpen ? 'closed' : 'open')}
-            className={BTN}
+            className={redraw ? BTN_REDRAW : BTN}
             data-node-id={NODE.button}
             data-name="Button"
           >
-            <p className={BTN_TEXT}>{action}</p>
+            <p className={redraw ? BTN_TEXT_REDRAW : BTN_TEXT}>{action}</p>
           </button>
         ) : null}
       </div>
 
       {t === 'alert' ? (
+        redraw ? (
+        /* 199683:24810 — label + state badge, then a body that only the
+           Disabled state draws. The On state is the badge alone unless a
+           countdown is supplied; see `activatesIn`. */
+        <div className={STRIP_REDRAW} data-node-id="199683:24810">
+          <div className={STRIP_ROW} data-node-id="199683:24812" data-name="Row">
+            <p className={STRIP_LABEL} data-node-id="199683:24813">{autoCloseLabel}</p>
+            <div className={STRIP_BADGE} data-node-id="199683:24816" data-name="Badge">
+              <p className={STRIP_BADGE_TEXT}>{autoCloseState}</p>
+            </div>
+          </div>
+
+          <div className={STRIP_BODY} data-node-id="199683:24820">
+            {autoCloseOff ? (
+              <>
+                <div
+                  className="content-stretch flex gap-[6px] items-center relative shrink-0 w-full"
+                  data-node-id="199683:24821"
+                >
+                  <div
+                    className={String.raw`bg-red-200 content-stretch flex items-center justify-center relative rounded-[20px] shrink-0 size-[16px]`}
+                    data-node-id="199683:24822"
+                    data-name="rightIcon"
+                  >
+                    <div
+                      className="relative shrink-0 size-[12px] text-red-500"
+                      data-node-id="199683:24823"
+                      data-name="Phosphor Icons / warning"
+                    >
+                      <WarningGlyph />
+                    </div>
+                  </div>
+                  <p
+                    className={String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-slate-900 text-sm whitespace-nowrap`}
+                    data-node-id="199683:24824"
+                  >
+                    {attentionLabel}
+                  </p>
+                </div>
+                <p
+                  className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-gray-700 text-sm tracking-normal w-full`}
+                  data-node-id="199683:24825"
+                >
+                  {attentionBody}
+                </p>
+              </>
+            ) : activatesIn ? (
+              <>
+                <div className={STRIP_CLOCK} data-node-id="199683:24830">
+                  <p className="relative shrink-0" dir="auto">{pad2(activatesIn.minutes)}</p>
+                  <p className="relative shrink-0" dir="auto">:</p>
+                  <p className="relative shrink-0" dir="auto">{pad2(activatesIn.seconds)}</p>
+                </div>
+                <p
+                  className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-slate-600 text-sm w-full`}
+                  data-node-id="199683:24834"
+                >
+                  {activatesInLabel}
+                </p>
+              </>
+            ) : null}
+          </div>
+        </div>
+        ) : (
         <div className={STRIP} style={STRIP_GRADIENT} data-node-id={NODE.strip}>
           <div
             className="content-stretch flex gap-[8px] items-start relative shrink-0 w-full"
@@ -306,6 +426,7 @@ export default function ValveStatusCard({
             data-node-id="199383:141572"
           >{`${handlingDescription} `}</p>
         </div>
+        )
       ) : null}
     </div>
   )

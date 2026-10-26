@@ -1041,7 +1041,11 @@ export default function EventFocusOverlay({
     : deterministicId(sysId + evt.type, ID_PREFIX[evt.type] || 'evt')
 
   /* The summary card — the System page's own AlertCard, from the same row. */
-  const alertRow = alertRowFor(evt, sysId)
+  /* 199683:24892 puts the Event ID inside the card, on the meta row opposite
+     "Detected". `eventId` is computed just above, so the card and the fault
+     section's own row cannot disagree — and only one ever renders, since that
+     section is !isWater. */
+  const alertRow = { ...alertRowFor(evt, sysId), eventId }
 
   /* VALVE. The system's devices, filtered on `d.valve`, exactly as
      SystemPageV2Screen does it. The enriched page object already carries
@@ -1059,8 +1063,6 @@ export default function EventFocusOverlay({
   /* The card speaks state ('open'|'closed'); the sheet speaks intent
      ('open'|'close'). The translation is the one the page makes at
      SystemPageV2Screen.jsx:1105. */
-  const valveAction = valveState === 'closed' ? 'open' : 'close'
-  const valveActionLabel = valveState === 'closed' ? 'Open valve' : 'Close valve'
 
   /* The ONLY place a valve change is committed from, and only ever after the
      sheet's confirm. The page is told; this overlay remembers it solely so a
@@ -1139,13 +1141,21 @@ export default function EventFocusOverlay({
      down NO. The muted body and the "Ignored by {name}" pill are unchanged. */
   const showClaimActions = isWater && !ignored
   const showIgnore = isWater && !ignored && Boolean(onIgnore)
-  const showValveAction = isWater && hasValve
   const showFooter =
-    showValveAction || (showClaimActions && (!investigating || isOwner)) || showIgnore
+    /* `showValveAction` used to lead this: a water event with a valve always
+       had a footer, because the valve primary lived in it. That primary is in
+       the Valve status panel now, so the footer opens only when it holds
+       something — On it / Stand down / Ignore. */
+    (showClaimActions && (!investigating || isOwner)) || showIgnore
 
   return (
     <div
-      className="absolute inset-0 z-50 flex flex-col justify-end"
+      /* FULL OVERLAY, 2026-10-25. Owner: "it needs to be full overlay, not
+         like now". It was a bottom sheet — justify-end with a max-h-[85%]
+         panel — which left the page's tab row showing above it and the
+         TabBar below. 199683:24849 draws the event as the WHOLE screen, so
+         the panel fills the frame and the scrim no longer shows. */
+      className="absolute inset-0 z-50 flex flex-col"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -1161,10 +1171,10 @@ export default function EventFocusOverlay({
         className="absolute inset-0 cursor-default bg-[rgba(15,23,43,0.45)]"
       />
 
-      {/* The panel. `relative` so it paints over the scrim, `max-h-[85%]` so
-          the page shows above it, and the top corners rounded like every other
-          sheet in this repo. */}
-      <div className="relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[18px] bg-background">
+      {/* The panel. `relative` so it paints over the scrim, and now `h-full`
+          rather than `max-h-[85%]`: it owns the frame. The rounded top corners
+          go with the sheet — a full-height panel has nothing to round against. */}
+      <div className="relative flex h-full flex-col overflow-hidden bg-background">
       {/* Header — the event, the system it is on, and BOTH ways out the owner
           asked for. They carry distinct names so a screen reader (and a test)
           can tell them apart; see the `onClose` prop note for when they would
@@ -1259,7 +1269,9 @@ export default function EventFocusOverlay({
             bug; the class is carried on both so the two cannot diverge.) */}
         {alertRow ? (
           <AlertCard
-            variant={alertRow.ignored ? 'ignored' : 'mobile'}
+            /* 'overlay', not 'mobile'. The 2026-10-25 redraw is THIS
+               surface's only; SystemPageV2Screen keeps `mobile`. */
+            variant={alertRow.ignored ? 'ignored' : 'overlay'}
             event={alertRow}
             actions={false}
             className="w-full! shrink-0"
@@ -1343,16 +1355,20 @@ export default function EventFocusOverlay({
                 copy — it is this file's own `advice()` valve line for
                 autoShutoff !== 'Enabled', so the panel and "What now" say the
                 same thing in the same words. */}
+            {/* INTERACTIVE AGAIN. It was read-only from 2026-10-17 — owner:
+                "now we have 2 valve CTA" — because the card's button
+                duplicated the footer primary. 199683:24849 settles which of
+                the two survives: it draws "Close valve now" INSIDE this panel
+                and gives the footer no valve action, so there is still
+                exactly one control. It asks; setPendingValve opens
+                ValveConfirmSheet, the same gate the footer used. */}
             <ValveStatusCard
-              interactive={false}
+              redraw
+              interactive
+              onToggle={(next) => setPendingValve(next === 'closed' ? 'close' : 'open')}
+              autoCloseState={autoShutoffOn ? 'On' : 'Disabled'}
               state={valveState}
               tone={isWater ? 'alert' : 'calm'}
-              handling={autoShutoffOn ? 'Auto shut-off' : 'Manual only'}
-              handlingDescription={
-                autoShutoffOn
-                  ? 'In case a Leak is detected — the valve will automatically shut off'
-                  : 'Nothing will close the valve for you. If this needs stopping, close it from the button below.'
-              }
             />
           </section>
         ) : null}
@@ -1459,17 +1475,11 @@ export default function EventFocusOverlay({
             </div>
           ) : null}
 
-          {/* LeakDetail.jsx:507-512 / ErrorAlertDetail.jsx:169-173. */}
-          {eventId ? (
-            <div className="mt-[12px] flex items-center gap-[8px]">
-              <span className="text-[11px] font-bold uppercase tracking-[0.4px] text-slate-500">
-                Event ID
-              </span>
-              <span className="min-w-0 truncate rounded-[4px] bg-slate-100 px-[8px] py-[2px] font-mono-label text-[13px] font-semibold text-slate-900">
-                {eventId}
-              </span>
-            </div>
-          ) : null}
+          {/* THE EVENT ID MOVED into the alert card's meta row, where
+              199683:24892 draws it opposite "Detected". It was in both for a
+              moment and a fault then showed it twice, which is what a
+              duplicated readout always costs. One source, one place: the
+              card. (Was LeakDetail.jsx:507-512 / ErrorAlertDetail:169-173.) */}
         </Section>
         ) : null}
 
@@ -1539,22 +1549,12 @@ export default function EventFocusOverlay({
           exactly as it did before. */}
       {showFooter ? (
         <footer className="shrink-0 border-t border-solid border-slate-200 bg-surface-card px-[12px] pb-[12px] pt-[9px]">
-          {showValveAction ? (
-            <>
-              <Button
-                type="button"
-                onClick={() => setPendingValve(valveAction)}
-                className="h-[44px] w-full text-[15px] font-semibold"
-              >
-                {valveActionLabel}
-              </Button>
-              <p className="mt-[4px] mb-[6px] text-center text-[11.5px] text-slate-500">
-                {valveAction === 'close'
-                  ? 'Stops the water · asks you to confirm'
-                  : 'Lets water flow again · asks you to confirm'}
-              </p>
-            </>
-          ) : null}
+          {/* THE VALVE PRIMARY MOVED UP into the Valve status panel, where
+              199683:24849 and 199394:78935 both draw it and neither puts one
+              here. ON IT AND IGNORE STAY — owner, twice: "we need to keep the
+              ignore and on it". They are absent from both frames, but the
+              frames are a valve redraw, not a footer spec, and wired
+              functionality is not dropped because a drawing omits it. */}
 
           {/* The secondary row. One line, each control taking an equal share,
               so two or three of them read as peers rather than as a stack of
@@ -1572,16 +1572,14 @@ export default function EventFocusOverlay({
             {showClaimActions && !investigating ? (
               <Button
                 type="button"
-                variant={showValveAction ? 'secondary' : 'default'}
+                /* The solid slot is On it's again; it was demoted only
+                   because the valve primary sat above it. */
+                variant="default"
                 onClick={() => {
                   setNow(Date.now())
                   claim()
                 }}
-                className={
-                  showValveAction
-                    ? 'h-[44px] flex-1 bg-slate-100 text-[15px] font-semibold text-slate-700 hover:bg-slate-200'
-                    : 'h-[44px] flex-1 text-[15px] font-semibold'
-                }
+                className="h-[44px] flex-1 text-[15px] font-semibold"
               >
                 On it
               </Button>
@@ -1615,7 +1613,7 @@ export default function EventFocusOverlay({
               of the footer's height on a sheet capped at 85%. The primary's
               caption wins when there is one, because it is the control that
               does something irreversible to the building's water. */}
-          {showValveAction ? null : showIgnore ? (
+          {showIgnore ? (
             <p className="mt-[5px] text-center text-[11.5px] text-slate-500">
               Ignore · treat as expected, valve stays open, cannot be undone
             </p>
