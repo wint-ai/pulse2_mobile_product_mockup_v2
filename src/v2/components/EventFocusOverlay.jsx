@@ -1293,17 +1293,30 @@ export default function EventFocusOverlay({
           `relative` band and the band clips it. A negative LEFT margin would
           be unreachable in LTR; a negative RIGHT one becomes scrollable
           width. Clipping is the only spelling that is safe in both. */}
-      <div className="relative shrink-0 overflow-hidden" data-node-id="199683:24850">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-          <img
-            alt=""
-            src={wave}
-            className="absolute left-[-13.65%] top-0 h-[168.88%] w-[121.84%] max-w-none mix-blend-multiply"
-          />
+      {/* 199431:138924 gives the rect's real geometry: 745 x 347 at
+          (-172, -140) on a 402-wide frame. So it runs from y=0 to y=207 and
+          the alert card, which starts at y=77, sits ON it. A band sized to
+          the header was the first pass and it clipped the wave to 59px — a
+          flat red strip, which is what the owner was looking at.
+
+          It is therefore a BACKGROUND LAYER, not a flow element: 207px tall,
+          with the header and the scroller stacked over it. The inner box
+          reproduces the node's own offsets as percentages of the frame
+          (-172/402, 745/402) so it lands the same on our 393. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[207px] overflow-hidden"
+        data-node-id="199431:138924"
+      >
+        <div className="absolute left-[-42.79%] top-[-140px] h-[347px] w-[185.32%]">
+          <img alt="" src={wave} className="absolute inset-0 size-full max-w-none object-cover" />
           {/* The two tint layers, in the node's order. */}
           <div className="absolute inset-0 bg-[#ff7b7d] mix-blend-color" />
           <div className="absolute inset-0 bg-[rgba(251,44,54,0.57)] mix-blend-multiply" />
         </div>
+      </div>
+
+      <div className="relative z-10 shrink-0">
 
         {/* 199683:24853 — a 59px row carrying ONE control. The frame puts no
             title, no system name and no border here: the system's identity
@@ -1373,7 +1386,11 @@ export default function EventFocusOverlay({
           LeakDetail.jsx:245: when the event is ignored the body is muted,
           "treat as completed, nothing actionable" (alerts-mockup-feedback #4). */}
       <div
-        className="flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[12px] pb-[12px] pt-[10px] transition-opacity duration-200"
+        /* `relative z-10`: the wave above is positioned with z-0, and in a
+           shared stacking context a positioned element paints over a static
+           one whatever the DOM order. Without this the hero covers the top
+           of the scroller instead of sitting behind it. */
+        className="relative z-10 flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[12px] pb-[12px] pt-[10px] transition-opacity duration-200"
         style={{ opacity: ignored ? 0.7 : 1 }}
         data-ignored={ignored ? 'true' : 'false'}
       >

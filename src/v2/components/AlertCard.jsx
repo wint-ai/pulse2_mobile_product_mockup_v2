@@ -187,21 +187,37 @@ const AVATAR_ALERT_LG = String.raw`bg-red-100 content-stretch flex items-center 
    needs to remain as it was — the change is only for the event drawer". The
    two sets sit side by side rather than one being edited into the other. */
 const AVATAR_OVERLAY = String.raw`bg-red-100 content-stretch flex items-center justify-center relative rounded-[16.066px] shrink-0 size-[28px]`
-const TITLE_OVERLAY = String.raw`[word-break:break-word] font-sans font-semibold leading-[24.75px] relative shrink-0 text-foreground text-lg w-[170px]`
+const TITLE_OVERLAY = String.raw`[word-break:break-word] font-sans font-semibold leading-[24.75px] relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] w-[170px]`
 /* 199683:24878 / :24883 — two tiles, each taking half the row. */
 const FIG_TILE = String.raw`[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col gap-[2px] h-full items-center justify-center min-w-px relative rounded-[16px] whitespace-nowrap`
+/* THE TILES CARRY A WASH, which is what makes them read as tiles inside the
+   card rather than as two columns of text — the thing missing from the first
+   pass. 199544:186991's isolated render shows it plainly where the full-page
+   frame did not.
+
+   Themed, not the node's literal: painted as rgba() the tile would stay
+   #edf1f9 under `dark` while its own figures follow the theme, which is the
+   exact defect ValveStatusCard's strip hit (its text measured 1.08:1). The
+   node's stops are 29.24 / 12.35 / 17.588 / 76.864 — the PAGE ROOT's set, so
+   --app-bg-stops and not --chip-bg-stops; index.css:451-455 draws that
+   distinction. Only the angle is the tile's own. */
+const FIG_TILE_WASH = {
+  backgroundImage:
+    'linear-gradient(158.66913308065506deg, var(--app-bg-stops)), ' +
+    'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)',
+}
 /* 199683:24880 / :24885 — RED/700, not foreground. Both figures are red in
    the frame, and that is most of what makes the card read as an alert rather
    than a readout. */
 const FIG_VALUE = String.raw`font-sans font-semibold leading-[35.479px] overflow-hidden relative shrink-0 text-[21.833px] text-red-700 text-ellipsis`
 const FIG_UNIT = String.raw`font-sans font-medium leading-5 overflow-hidden relative shrink-0 text-slate-500 text-sm text-ellipsis`
-const FIG_LABEL = String.raw`font-sans font-normal leading-[16.5px] overflow-hidden relative shrink-0 text-muted-foreground text-xs text-ellipsis`
+const FIG_LABEL = String.raw`font-sans font-normal leading-[16.5px] overflow-hidden relative shrink-0 text-slate-500 text-xs text-ellipsis`
 /* 199683:24887 — Detected on the left, Event ID on the right. Named
    OVERLAY_META_* because this file already has a META_ROW for other variants
    and it is a different row. */
 const OVERLAY_META_ROW = String.raw`content-stretch flex items-center justify-between relative shrink-0 w-full`
-const OVERLAY_META_LABEL = String.raw`font-sans font-normal leading-[16.5px] relative shrink-0 text-muted-foreground text-xs whitespace-nowrap`
-const OVERLAY_META_VALUE = String.raw`font-sans font-medium leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
+const OVERLAY_META_LABEL = String.raw`font-sans font-normal leading-[16.5px] relative shrink-0 text-slate-500 text-xs whitespace-nowrap`
+const OVERLAY_META_VALUE = String.raw`font-sans font-medium leading-5 relative shrink-0 text-slate-900 text-sm whitespace-nowrap`
 const OVERLAY_ID_PILL = String.raw`bg-slate-100 content-stretch flex items-center justify-center relative rounded-[5px] shrink-0 w-[58px]`
 
 const AVATAR_MUTED = String.raw`bg-slate-200 content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[42px]`
@@ -617,7 +633,7 @@ export default function AlertCard({
             className="content-stretch flex gap-[12px] h-[73px] items-start relative shrink-0 w-full"
             data-node-id="199683:24877"
           >
-            <div className={FIG_TILE} data-node-id="199683:24878">
+            <div className={FIG_TILE} style={FIG_TILE_WASH} data-node-id="199683:24878">
               <div
                 className="content-stretch flex gap-[12px] items-center relative shrink-0"
                 data-node-id="199683:24879"
@@ -627,7 +643,7 @@ export default function AlertCard({
               </div>
               <p className={FIG_LABEL}>{data.flowLabel}</p>
             </div>
-            <div className={FIG_TILE} data-node-id="199683:24883">
+            <div className={FIG_TILE} style={FIG_TILE_WASH} data-node-id="199683:24883">
               <div
                 className="content-stretch flex items-center relative shrink-0"
                 data-node-id="199683:24884"
@@ -642,7 +658,7 @@ export default function AlertCard({
                 number goes beside the other two rather than into a section
                 nobody opens. */}
             {data.shutoffIn ? (
-              <div className={FIG_TILE} data-name="Time to shut off">
+              <div className={FIG_TILE} style={FIG_TILE_WASH} data-name="Time to shut off">
                 <div className="content-stretch flex items-center relative shrink-0">
                   <p className={FIG_VALUE}>{data.shutoffIn}</p>
                 </div>
@@ -687,7 +703,7 @@ export default function AlertCard({
                   className="flex size-[16px] shrink-0 cursor-pointer items-center justify-center rounded-[4px] text-slate-500 outline-none hover:text-slate-700 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                   data-node-id="199683:24896"
                 >
-                  <Copy size={14} />
+                  <Copy size={16} />
                 </button>
               </div>
             ) : null}
