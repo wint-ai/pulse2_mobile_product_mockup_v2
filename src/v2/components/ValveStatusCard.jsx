@@ -342,6 +342,17 @@ export default function ValveStatusCard({
           <div className={STRIP_ROW} data-node-id="199683:24812" data-name="Row">
             <p className={STRIP_LABEL} data-node-id="199683:24813">{autoCloseLabel}</p>
             <div className={STRIP_BADGE} data-node-id="199683:24816" data-name="Badge">
+              {/* The node's leftIcon slot. A dot, taking the state's own
+                  colour — green when auto-close will fire, red when it will
+                  not — so the badge is legible without reading the word. */}
+              <span
+                aria-hidden="true"
+                className={
+                  autoCloseOff
+                    ? 'size-[6px] shrink-0 rounded-full bg-destructive'
+                    : 'size-[6px] shrink-0 rounded-full bg-success'
+                }
+              />
               <p className={STRIP_BADGE_TEXT}>{autoCloseState}</p>
             </div>
           </div>
@@ -382,17 +393,22 @@ export default function ValveStatusCard({
               </>
             ) : activatesIn ? (
               <>
-                <div className={STRIP_CLOCK} data-node-id="199683:24830">
-                  <p className="relative shrink-0" dir="auto">{pad2(activatesIn.minutes)}</p>
-                  <p className="relative shrink-0" dir="auto">:</p>
-                  <p className="relative shrink-0" dir="auto">{pad2(activatesIn.seconds)}</p>
+                {/* ONE ROW, not a stack: the frame reads "00 : 00 Will
+                    activate in" across a single line, with the clock large
+                    and the label beside it. */}
+                <div className="flex w-full items-baseline gap-[8px]">
+                  <div className={STRIP_CLOCK} data-node-id="199683:24830">
+                    <p className="relative shrink-0" dir="auto">{pad2(activatesIn.minutes)}</p>
+                    <p className="relative shrink-0" dir="auto">:</p>
+                    <p className="relative shrink-0" dir="auto">{pad2(activatesIn.seconds)}</p>
+                  </div>
+                  <p
+                    className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-slate-600 text-sm`}
+                    data-node-id="199683:24834"
+                  >
+                    {activatesInLabel}
+                  </p>
                 </div>
-                <p
-                  className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-slate-600 text-sm w-full`}
-                  data-node-id="199683:24834"
-                >
-                  {activatesInLabel}
-                </p>
               </>
             ) : null}
           </div>

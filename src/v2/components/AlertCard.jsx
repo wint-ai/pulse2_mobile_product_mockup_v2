@@ -189,7 +189,10 @@ const AVATAR_OVERLAY = String.raw`bg-red-100 content-stretch flex items-center j
 const TITLE_OVERLAY = String.raw`[word-break:break-word] font-sans font-semibold leading-[24.75px] relative shrink-0 text-foreground text-lg w-[170px]`
 /* 199683:24878 / :24883 — two tiles, each taking half the row. */
 const FIG_TILE = String.raw`[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col gap-[2px] h-full items-center justify-center min-w-px relative rounded-[16px] whitespace-nowrap`
-const FIG_VALUE = String.raw`font-sans font-semibold leading-[35.479px] overflow-hidden relative shrink-0 text-[21.833px] text-foreground text-ellipsis`
+/* 199683:24880 / :24885 — RED/700, not foreground. Both figures are red in
+   the frame, and that is most of what makes the card read as an alert rather
+   than a readout. */
+const FIG_VALUE = String.raw`font-sans font-semibold leading-[35.479px] overflow-hidden relative shrink-0 text-[21.833px] text-red-700 text-ellipsis`
 const FIG_UNIT = String.raw`font-sans font-medium leading-5 overflow-hidden relative shrink-0 text-slate-500 text-sm text-ellipsis`
 const FIG_LABEL = String.raw`font-sans font-normal leading-[16.5px] overflow-hidden relative shrink-0 text-muted-foreground text-xs text-ellipsis`
 /* 199683:24887 — Detected on the left, Event ID on the right. Named

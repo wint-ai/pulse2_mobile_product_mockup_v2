@@ -256,6 +256,7 @@ import { Separator } from '@/components/ui/separator'
 import AlertCard from '@/v2/components/AlertCard'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import { Waves } from '@/v2/icons'
+import wave from '@/assets/system-hero-wave.png'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
 import vmaFront from '@/assets/wint-vma-front.png'
@@ -1269,93 +1270,94 @@ export default function EventFocusOverlay({
           asked for. They carry distinct names so a screen reader (and a test)
           can tell them apart; see the `onClose` prop note for when they would
           diverge. */}
-      <header className="flex shrink-0 items-center gap-[8px] border-b border-solid border-slate-200 bg-surface-card px-[10px] py-[7px]">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Back"
-          onClick={onClose}
-          className="shrink-0 text-slate-900 hover:bg-slate-100 hover:text-slate-900"
-        >
-          <ArrowLeft size={18} />
-        </Button>
+      {/* ── The hero ──────────────────────────────────────────────────────
+          199683:24850. Owner: "missing visualisation on header, the waves
+          component" — meaning THIS, not the small glyph beside the title that
+          a first pass added. It is the same water art the Home hero draws
+          (@/assets/system-hero-wave.png, the local file; the node's own src is
+          an expiring figma.com/api/mcp/asset URL and check-shell-contract
+          bans those), RE-TINTED RED for an alert: #ff7b7d at mix-blend-color
+          over the image, then red/500 at 57% multiplied on top.
 
-        {/* IDENTITY ONLY. The event's own title, its glyph and its status pill
-            are on the AlertCard immediately below, and the header used to
-            repeat all three verbatim — "the title is rendered twice", and on a
-            sheet capped at 85% of 852 that duplication cost a whole row. The
-            header is now WHICH SYSTEM, which is the one thing the card does
-            not say.
-
-            THE 9px DOT BECAME THE WAVES DISC, 2026-10-26 — owner: "missing
-            visualisation on header, the waves component". A dot carries
-            severity by colour alone, which says "something is wrong" and
-            nothing about WHAT. The disc is the same mark the alert card
-            (199683:24873) and every Events Timeline row already use for a
-            water event, so the header now opens with the app's own sign for
-            water rather than a generic bullet. 22px, not the card's 28 —
-            this sits on a 34px header row.
-
-            A FAULT KEEPS THE DOT. There is no waves glyph for Offline or AC
-            Power Lost, and borrowing one would say "water" about an event
-            that has nothing to do with water. */}
-        {isWater ? (
-          <span
-            aria-hidden="true"
-            className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-red-100"
-          >
-            <Waves
-              size={14}
-              className="block text-destructive"
-              style={{ color: isLowFlow ? TOKEN.low : TOKEN.high }}
-            />
-          </span>
-        ) : (
-          <span
-            aria-hidden="true"
-            className="size-[9px] shrink-0 rounded-full"
-            style={{ background: meta.sevColor }}
+          It bleeds off all three edges — the node is 745x347 at
+          left:-172 / top:-140 on a 402 frame — so it is `absolute` inside a
+          `relative` band and the band clips it. A negative LEFT margin would
+          be unreachable in LTR; a negative RIGHT one becomes scrollable
+          width. Clipping is the only spelling that is safe in both. */}
+      <div className="relative shrink-0 overflow-hidden" data-node-id="199683:24850">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+          <img
+            alt=""
+            src={wave}
+            className="absolute left-[-13.65%] top-0 h-[168.88%] w-[121.84%] max-w-none mix-blend-multiply"
           />
-        )}
-        {/* Owner's call, 2026-10-18: the location belongs under the system
-            name. "Apartment 5" alone does not say which building, and the
-            breadcrumb was previously buried inside the Event-details
-            accordion — one tap away from the one question the header is
-            there to answer. It is removed from that grid rather than
-            duplicated. */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h2
-            id={titleId}
-            className="min-w-0 truncate text-[15px] font-semibold leading-tight tracking-[-0.2px] text-slate-900"
-          >
-            {/* The dialog's accessible name still has to say WHAT this is,
-                which the visible header no longer repeats. sr-only is
-                position:absolute so it costs no layout inside the truncate. */}
-            <span className="sr-only">{evt.label || meta.label} — </span>
-            {sys.name}
-          </h2>
-          {breadcrumb ? (
-            <p className="min-w-0 truncate text-[12px] leading-tight text-slate-500">{breadcrumb}</p>
-          ) : null}
+          {/* The two tint layers, in the node's order. */}
+          <div className="absolute inset-0 bg-[#ff7b7d] mix-blend-color" />
+          <div className="absolute inset-0 bg-[rgba(251,44,54,0.57)] mix-blend-multiply" />
         </div>
 
-        {/* NO "View System" link here. One was added on 2026-10-17 (v1's
-            LeakDetail.jsx:207-210 had one) and the owner removed it on sight
-            the same day, along with the `hideViewSystem` prop that suppressed
-            it. Do not re-add either without asking: the header is Back · title
-            + system · Close, and nothing else. */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close"
-          onClick={onClose}
-          className="shrink-0 text-slate-900 hover:bg-slate-100 hover:text-slate-900"
-        >
-          <X size={18} />
-        </Button>
-      </header>
+        {/* 199683:24853 — a 59px row carrying ONE control. The frame puts no
+            title, no system name and no border here: the system's identity
+            moved to the System details card (199683:24906), which is the
+            owner's own 2026-10-18 requirement ("Apartment 5 alone does not say
+            which building") answered a different way rather than dropped. */}
+        <header className="relative flex h-[59px] shrink-0 items-center gap-[8px] px-[16px]">
+          {/* 199683:24856 — the node's 30px disc, surface-card on a white
+              hairline, which is what makes it read on the wave. */}
+          <Button
+            type="button"
+            variant="ghost"
+            aria-label="Back"
+            onClick={onClose}
+            className="flex size-[30px] shrink-0 items-center justify-center rounded-full border border-solid border-white bg-surface-card pr-[2px] text-slate-900 hover:bg-card"
+          >
+            <ArrowLeft size={18} />
+          </Button>
+
+          {/* THE × STAYS, on the right of the same row and as the same 30px
+              disc, so the pair reads as one piece of chrome.
+
+              199683:24853 draws ONLY the back control, and matching it
+              exactly would mean deleting this — but the owner asked for both
+              on 2026-10-17, and eventFocusOverlay.dom.test.jsx records that
+              in so many words ("the owner asked for both"). A frame that
+              omits a control is not the same as an instruction to remove one,
+              and the cost is asymmetric: a redundant way out is a small
+              deviation, a missing one is discovered by a user who is stuck.
+              Say the word and it is one line. */}
+          <div className="flex flex-1 justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label="Close"
+              onClick={onClose}
+              className="flex size-[30px] shrink-0 items-center justify-center rounded-full border border-solid border-white bg-surface-card text-slate-900 hover:bg-card"
+            >
+              <X size={18} />
+            </Button>
+          </div>
+
+          {/* THE REST OF THE HEADER IS GONE, as 199683:24853 draws it. The dot,
+              the system name, the breadcrumb and the × are all gone from the
+              visible row:
+                · the name and location moved to the System details card
+                  (199683:24906), which answers the owner's 2026-10-18
+                  requirement — "Apartment 5 alone does not say which
+                  building" — in the place the design puts it;
+                · the severity glyph is on the AlertCard directly below;
+                · the × was a SECOND way to do what Back does. The frame has
+                  one. Escape and the scrim both still close, so nothing can
+                  only be reached through the control that went.
+
+              The <h2> STAYS, screen-reader only: it is the dialog's
+              aria-labelledby target, and a dialog whose accessible name is
+              deleted announces as "dialog" and nothing else. */}
+          <h2 id={titleId} className="sr-only">
+            {evt.label || meta.label} — {sys.name}
+            {breadcrumb ? `, ${breadcrumb}` : ''}
+          </h2>
+        </header>
+      </div>
 
       {/* Body — the one scrolling region. The header and the footer are
           shrink-0, so the actions stay reachable however long the body runs.
