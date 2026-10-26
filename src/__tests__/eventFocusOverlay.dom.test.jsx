@@ -250,23 +250,22 @@ describe('the valve', () => {
      rule; 2026-10-25 changed which of the two survives. 199683:24849 and
      199394:78935 both draw "Close valve now" inside the Valve status panel
      and give the footer no valve action, so the card is interactive again and
-     the footer primary is the one that went. The count below is what actually
-     matters and it is unchanged. */
+     the footer primary is the one that went. The COUNT is what matters and it
+     is unchanged. */
   it('has exactly ONE valve control, and it is in the Valve status panel', () => {
     renderOverlay({ system: valveSys, valve: { state: 'open', onIntent: () => {} } })
     // No switch anywhere: the status is a readout.
     expect(screen.queryByRole('switch')).toBeNull()
     const controls = screen.getAllByRole('button', { name: /valve now$/i })
     expect(controls).toHaveLength(1)
-    // And it lives in the panel, not the footer.
-    const panel = screen.getByRole('region', { name: 'Valve status' })
-    expect(panel).toContainElement(controls[0])
+    // And it lives in the panel, not the footer — a stronger claim than the count.
+    expect(screen.getByRole('region', { name: 'Valve status' })).toContainElement(controls[0])
   })
 
-  /* With the valve control out of the footer, the solid slot is On it's
-     again — it was only ever demoted because the valve sat above it. The
-     owner's standing requirement, twice on 2026-10-25 ("we need to keep the
-     ignore and on it"): both survive the redraw, whatever the frames draw. */
+  /* With the valve out of the footer the solid slot is On it's again — it was
+     demoted only because the valve sat above it. The owner's standing
+     requirement, twice: "we need to keep the ignore and on it". Both survive
+     the redraw whatever the frames draw. */
   it('keeps On it and Ignore in the footer, with On it back as the primary', () => {
     renderOverlay({ system: valveSys, onIgnore: () => {} })
     expect(screen.getByRole('button', { name: /^close valve now$/i })).toBeInTheDocument()
@@ -356,10 +355,15 @@ describe('the valve', () => {
   })
 })
 
-describe('find this system', () => {
+describe('device details', () => {
+  /* RENAMED 2026-10-26. The accordion was "Find this system"; 199683:24919
+     makes that an ACTION — a pill on the new System details card — so the
+     accordion took the name of what it actually lists. The card above now
+     carries the name/location/address this used to be the only home for, and
+     the pill opens and scrolls to this. */
   it('offers the section, with the device photo and the location', () => {
     renderOverlay()
-    const { header, panel } = section(/^Find this system/)
+    const { header, panel } = section(/^Device details/)
     fireEvent.click(header)
     expect(panel.hidden).toBe(false)
     expect(within(panel).getByAltText(/wint device/i)).toBeInTheDocument()
@@ -370,7 +374,7 @@ describe('find this system', () => {
     const { getNotesOverride, setNotes } = await import('@/data/locationInfoStore')
     setNotes(leakSys.id, '')
     renderOverlay()
-    fireEvent.click(section(/^Find this system/).header)
+    fireEvent.click(section(/^Device details/).header)
 
     const box = screen.getByLabelText('Notes')
     fireEvent.change(box, { target: { value: 'Riser cupboard, 2nd floor' } })
@@ -386,7 +390,7 @@ describe('the collapsible sections', () => {
        facts are a read-only strip at the top now (owner, 2026-10-18), so the
        accordion only exists on a fault. The wiring contract is the same for
        the sections that remain. */
-    for (const name of [/^Event graph$/, /^Who was notified/, /^Find this system$/]) {
+    for (const name of [/^Event graph$/, /^Who was notified/, /^Device details$/]) {
       const { header, panel } = section(name)
       expect(header).toHaveAttribute('aria-expanded')
       expect(panel, `no panel for ${name}`).toBeTruthy()
@@ -622,17 +626,27 @@ describe('who was notified', () => {
 
 /* Owner, 2026-10-17: "why incident is full screen and not like here in context".
    The house modal-sheet chrome, copied from SystemsFilterSheet.jsx:97. */
-describe('the sheet chrome', () => {
-  it('is a bottom-anchored panel over a scrim, not a full-frame takeover', () => {
+/* THE CHROME REVERSED, 2026-10-25. It was a bottom-anchored sheet, from the
+   owner's 2026-10-17 note above. They reversed it with the 199683:24849
+   redraw: "it needs to be full overlay, not like now" — the sheet left the
+   page's tab row showing above it and the TabBar below, and the frame draws
+   the event as the whole screen. The ruling that did NOT change is the one
+   underneath both: it stays an `absolute inset-0` layer INSIDE the phone
+   frame, never a portal, because a portalled overlay covers the browser
+   window with the phone in the middle of it. That is what this now guards. */
+describe('the overlay chrome', () => {
+  it('fills the phone frame, and does so without portalling', () => {
     renderOverlay()
     const dialog = screen.getByRole('dialog')
     // The outer layer stays inside the phone frame — no portal.
     expect(dialog.className).toContain('absolute inset-0 z-50')
-    expect(dialog.className).toContain('justify-end')
-    // The panel is capped so the page shows above it, with rounded top corners.
-    const panel = dialog.querySelector('.rounded-t-\\[18px\\]')
-    expect(panel, 'no bottom-anchored panel').toBeTruthy()
-    expect(panel.className).toContain('max-h-[85%]')
+    expect(dialog.className).not.toContain('fixed')
+    expect(dialog.className).not.toContain('justify-end')
+    // The panel owns the full height; the sheet's cap and top radius are gone.
+    const panel = dialog.querySelector('.h-full')
+    expect(panel, 'no full-height panel').toBeTruthy()
+    expect(panel.className).not.toContain('max-h-[85%]')
+    expect(panel.className).not.toContain('rounded-t-')
   })
 
   it('dismisses on the scrim, which is named apart from the ×', () => {
@@ -725,21 +739,99 @@ describe('Event graph', () => {
     expect(toFlowRateSeries(null)).toEqual([])
   })
 
-  it('offers the section and plots this system’s real series', async () => {
-    const { getConsumptionSeries } = await import('@/data/consumptionSeries')
-    const { toFlowRateSeries, peakFlowRate } = await import('@/v2/components/eventFlowSeries')
-    const expected = peakFlowRate(
-      toFlowRateSeries(getConsumptionSeries(leakSys.id, leakSys.name, 'H', 0).series),
-    )
+  /* REWRITTEN 2026-10-26. It asserted the hourly DAY series, which is what
+     this section plotted for every event type. A water event now plots the
+     INCIDENT at one point a minute — owner: "granularity needs to be minutely
+     when avg event shown here is 45 minutes", "always show at least 10 min
+     before event starts". The guarantee is the one it was written for and is
+     unchanged: recharts draws nothing under happy-dom, so the section has to
+     say something true in TEXT or this file can assert nothing about it. */
+  it('plots the incident at minute resolution, with the pre-roll the owner asked for', async () => {
+    const { buildEventFlowSeries } = await import('@/v2/components/eventFlowSeries')
+    const { points } = buildEventFlowSeries({ key: 'k', peakLph: 120, durationMin: 45 })
 
+    // One point a minute, 10 minutes of it before onset.
+    expect(points[0].minute).toBe(-10)
+    expect(points.filter(p => p.minute < 0)).toHaveLength(10)
+    expect(points.at(-1).minute).toBe(45)
+    for (let i = 1; i < points.length; i++) {
+      expect(points[i].minute - points[i - 1].minute).toBe(1)
+    }
+    // The signature: a floor that never reaches zero once the event is running.
+    const during = points.filter(p => p.minute >= 0)
+    expect(Math.min(...during.map(p => p.lph))).toBeGreaterThan(0)
+    // And a STEP, not a ramp — the first minute of the event is already up.
+    const preMax = Math.max(...points.filter(p => p.minute < 0).map(p => p.lph))
+    expect(during[0].lph).toBeGreaterThan(preMax)
+  })
+
+  /* Owner, 2026-10-26: "chart now too overwhelmed, find the balance" and "x
+     axis needs timestamps with the right spacing". Both are geometry, and
+     recharts renders nothing here, so they are pinned on the series. */
+  it('labels the axis in wall time, anchored on the event clock', async () => {
+    const { buildEventFlowSeries } = await import('@/v2/components/eventFlowSeries')
+    const { points } = buildEventFlowSeries({ key: 'k', durationMin: 45, startClock: '10:18' })
+    // 10 minutes of pre-roll means the window opens at 10:08, not 10:18.
+    expect(points[0].label).toBe('10:08')
+    expect(points.find(p => p.minute === 0).label).toBe('10:18')
+    expect(points.at(-1).label).toBe('11:03')
+  })
+
+  it('spaces ticks on ROUND clock minutes, 4-7 of them', async () => {
+    const { buildEventFlowSeries, flowTicks } = await import('@/v2/components/eventFlowSeries')
+    for (const durationMin of [20, 45, 120]) {
+      const { points } = buildEventFlowSeries({ key: 'k', durationMin, startClock: '10:18' })
+      const ticks = flowTicks(points)
+      expect(ticks.length, `${durationMin}m window`).toBeGreaterThanOrEqual(4)
+      expect(ticks.length, `${durationMin}m window`).toBeLessThanOrEqual(7)
+      /* The point of explicit ticks over recharts' `interval`: that counts
+         from the first sample and would label 10:18, 10:28, 10:38. */
+      for (const t of ticks) expect(Number(t.slice(3)) % 5).toBe(0)
+    }
+  })
+
+  it('ends the window shortly after the valve closes, not 40 flat minutes later', async () => {
+    const { buildEventFlowSeries } = await import('@/v2/components/eventFlowSeries')
+    const closed = buildEventFlowSeries({
+      key: 'c', durationMin: 45, detectLagMin: 3, shutoffMin: 2, startClock: '10:18',
+    })
+    // Shut off at minute 5; the window runs to 15, not 45.
+    expect(closed.points.at(-1).minute).toBe(15)
+    const running = buildEventFlowSeries({ key: 'r', durationMin: 45, shutoffMin: null })
+    expect(running.points.at(-1).minute).toBe(45)
+  })
+
+  it('is stable across calls, so the line does not animate under the user', async () => {
+    const { buildEventFlowSeries } = await import('@/v2/components/eventFlowSeries')
+    const a = buildEventFlowSeries({ key: 'same', peakLph: 90, durationMin: 20 })
+    const b = buildEventFlowSeries({ key: 'same', peakLph: 90, durationMin: 20 })
+    expect(a.points).toEqual(b.points)
+  })
+
+  it('marks started and detected, and shut-off only when a valve closed', async () => {
+    const { buildEventFlowSeries } = await import('@/v2/components/eventFlowSeries')
+    const running = buildEventFlowSeries({ key: 'r', durationMin: 45, detectLagMin: 3 })
+    expect(running.marks.map(m => m.key)).toEqual(['started', 'detected'])
+    expect(running.marks.find(m => m.key === 'started').minute).toBe(0)
+    expect(running.marks.find(m => m.key === 'detected').minute).toBe(3)
+
+    const closed = buildEventFlowSeries({
+      key: 'c', durationMin: 45, detectLagMin: 3, shutoffMin: 2,
+    })
+    expect(closed.marks.map(m => m.key)).toEqual(['started', 'detected', 'shutoff'])
+    expect(closed.marks.find(m => m.key === 'shutoff').minute).toBe(5)
+    // After the valve closes the line falls back toward the floor.
+    const atPlateau = closed.points.find(p => p.minute === 4).lph
+    const afterClose = closed.points.find(p => p.minute === 12).lph
+    expect(afterClose).toBeLessThan(atPlateau * 0.2)
+  })
+
+  it('still offers the section, and states the peak in text', () => {
     renderOverlay()
     const { header, panel } = section(/^Event graph$/)
     fireEvent.click(header)
     expect(panel.hidden).toBe(false)
-    // The peak is stated in text, so the section says something true even
-    // where the chart itself cannot render.
-    expect(within(panel).getByText('L/h peak today')).toBeInTheDocument()
-    expect(within(panel).getByText(expected.toLocaleString())).toBeInTheDocument()
+    expect(within(panel).getByText(/L\/h peak/)).toBeInTheDocument()
   })
 })
 

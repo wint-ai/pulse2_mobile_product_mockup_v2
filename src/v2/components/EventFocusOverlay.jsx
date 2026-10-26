@@ -248,17 +248,24 @@ import {
   WifiOff,
   X,
 } from 'lucide-react'
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from 'recharts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { Separator } from '@/components/ui/separator'
 import AlertCard from '@/v2/components/AlertCard'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
+import { Waves } from '@/v2/icons'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
 import vmaFront from '@/assets/wint-vma-front.png'
-import { peakFlowRate, toFlowRateSeries } from '@/v2/components/eventFlowSeries'
+import {
+  buildEventFlowSeries,
+  elapsedLabel,
+  flowTicks,
+  peakFlowRate,
+  toFlowRateSeries,
+} from '@/v2/components/eventFlowSeries'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
 import { getSystemById } from '@/data/systems'
 import { getActiveIncident, getLeakState, getNotification } from '@/data/incidents'
@@ -565,7 +572,7 @@ const FLOW_CHART_CONFIG = {
  *
  * An empty window draws the empty state, never a flat line at zero.
  */
-function EventFlowChart({ points, peak }) {
+function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
   if (!points.length) {
     return (
       <p className="text-[13px] text-slate-500">
@@ -579,7 +586,9 @@ function EventFlowChart({ points, peak }) {
         <span className="text-[18px] font-bold tracking-[-0.4px] text-slate-900">
           {peak?.toLocaleString?.() ?? peak}
         </span>
-        <span className="text-[12px] font-medium text-slate-500">L/h peak today</span>
+        <span className="text-[12px] font-medium text-slate-500">
+          {marks.length ? 'L/h peak during the event' : 'L/h peak today'}
+        </span>
       </div>
       {/* aspect-auto cancels ChartContainer's aspect-video — the phone frame
           needs an explicit height, never a fixed width. */}
@@ -598,21 +607,57 @@ function EventFlowChart({ points, peak }) {
             tickMargin={8}
             tick={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}
           />
+          {/* Minute data is 55+ points and recharts labels every one it is
+              given. `ticks` is the explicit subset — round wall-clock minutes
+              at a step that lands 4-7 labels — rather than `interval`, which
+              counts from the first point and so lands on 10:18, 10:28, 10:38
+              instead of 10:20, 10:30, 10:40. Owner: "x axis needs timestamps
+              with the right spacing". */}
           <XAxis
-            dataKey="hour"
+            dataKey={marks.length ? 'label' : 'hour'}
             height={22}
             tickLine={false}
             axisLine={false}
             tickMargin={6}
-            interval={5}
+            {...(ticks.length ? { ticks } : { interval: 5 })}
             tick={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}
           />
+          {/* THE MILESTONES. Owner: "add a few milestones on the chart when
+              it started, detected and valve shut off, so a user looks at that
+              and clearly understands what happened during the leak." Drawn as
+              vertical rules rather than dots so they read against the line
+              whatever height it is at, and labelled at an angle because three
+              horizontal labels collide on a 393px frame. Each takes the
+              colour of what it means: onset and detection are the problem,
+              the shut-off is the resolution. */}
+          {marks.map(mk => (
+            <ReferenceLine
+              key={mk.key}
+              x={points.find(p => p.minute === mk.minute)?.label}
+              stroke={
+                mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)'
+              }
+              strokeDasharray="3 3"
+              strokeWidth={1.25}
+              label={{
+                value: mk.label,
+                position: 'insideTopLeft',
+                fontSize: 10,
+                fontFamily: 'var(--font-sans)',
+                fill: mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)',
+              }}
+            />
+          ))}
           <ChartTooltip content={<ChartTooltipContent />} />
+          {/* `monotone` smooths a 24-point day nicely and turns 55 minute
+              samples into a fat ribbon. `linear` at 1.5px keeps the step at
+              onset sharp, which is the one feature of this chart that has to
+              read at a glance. */}
           <Line
-            type="monotone"
+            type={marks.length ? 'linear' : 'monotone'}
             dataKey="lph"
             stroke="var(--color-lph)"
-            strokeWidth={2}
+            strokeWidth={marks.length ? 1.5 : 2}
             dot={false}
             activeDot={{ r: 3 }}
             isAnimationActive={false}
@@ -1041,7 +1086,11 @@ export default function EventFocusOverlay({
     : deterministicId(sysId + evt.type, ID_PREFIX[evt.type] || 'evt')
 
   /* The summary card — the System page's own AlertCard, from the same row. */
-  const alertRow = alertRowFor(evt, sysId)
+  /* 199683:24892 puts the Event ID inside the card, on the meta row opposite
+     "Detected". `eventId` is computed just above, so the card and the fault
+     section's own row cannot disagree — and only one ever renders, since that
+     section is !isWater. */
+  const alertRow = { ...alertRowFor(evt, sysId), eventId }
 
   /* VALVE. The system's devices, filtered on `d.valve`, exactly as
      SystemPageV2Screen does it. The enriched page object already carries
@@ -1058,8 +1107,7 @@ export default function EventFocusOverlay({
   const valveState = valve?.state ?? confirmedValve ?? derivedValveState
   /* The card speaks state ('open'|'closed'); the sheet speaks intent
      ('open'|'close'). The translation is the one the page makes at
-     SystemPageV2Screen.jsx:1105, and it now happens at the ValveStatusCard
-     mount below, since that is where the control lives. */
+     SystemPageV2Screen.jsx:1105. */
 
   /* The ONLY place a valve change is committed from, and only ever after the
      sheet's confirm. The page is told; this overlay remembers it solely so a
@@ -1079,10 +1127,55 @@ export default function EventFocusOverlay({
      number (eventFlowSeries.js). Read on every render rather than memoised:
      getConsumption memoises per system id upstream, so this is a map over 24
      points, and a dependency array here would be the more expensive half. */
-  const flowPoints = toFlowRateSeries(
-    getConsumptionSeries(sysId, sys.name, 'H', 0)?.series ?? [],
-  )
-  const flowPeak = peakFlowRate(flowPoints)
+  /* THE INCIDENT'S CLOCK. The dataset records ONE real time — when the event
+     was raised (alert.startedAt). It carries no leak-onset and no valve-close
+     stamp, so the other two milestones are derived here, from the same stable
+     hash the rest of the mock data uses (buildAlert fabricates flowRate,
+     volume and age the same way). Owner's standing ruling on exactly this:
+     "you need to ignore if we have data in this prototype or not — this is a
+     prototype that needs to show how to use it when we have data."
+
+     Ranges, not magic numbers: detection lands 2-6 minutes after onset, and
+     an auto-close fires 1-4 minutes after detection. A valve only closes when
+     the system HAS one, auto-close is on, and the valve is actually shut —
+     otherwise `shutoffAfterDetectMin` is null and the milestone is not drawn,
+     which is most events. */
+  const flowSeed = `${sysId}|${evt.type ?? 'event'}`
+  const seedInt = [...flowSeed].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)
+  const detectLagMin = 2 + (seedInt % 5)
+  const eventDurationMin = 45
+  const shutoffAfterDetectMin =
+    hasValve && autoShutoffOn && valveState === 'closed' ? 1 + ((seedInt >> 3) % 4) : null
+  /* The number the card was missing — owner: "the time elapsed to shut off is
+     missing in UI event card". Detection to valve-closed, which is the window
+     the product is actually judged on. */
+  const timeToShutoff = shutoffAfterDetectMin != null ? elapsedLabel(shutoffAfterDetectMin) : null
+
+  /* THE EVENT GRAPH. For a WATER EVENT this is now the incident's own trace
+     at one point a MINUTE — owner, 2026-10-26: "granularity needs to be
+     minutely when avg event shown here is 45 minutes", "always show at least
+     10 min before event starts". For a fault there is no flow story to tell,
+     so it stays the system's day at hourly buckets, which is what the whole
+     section used to be for every type. */
+  const eventFlow = isWater
+    ? buildEventFlowSeries({
+        key: eventId ?? sysId,
+        peakLph: Number(String(evt.flowRate ?? '').replace(/[^\d.]/g, '')) || 120,
+        durationMin: eventDurationMin,
+        detectLagMin: detectLagMin,
+        shutoffMin: shutoffAfterDetectMin,
+        /* The axis reads in wall time. alert.startedAt is the one real clock
+           the dataset carries, and it is when the event was RAISED — so the
+           trace is anchored to it and onset sits detectLagMin before. */
+        startClock: evt.startedAt ?? alertRow.detectedAt,
+      })
+    : null
+  const flowPoints = eventFlow
+    ? eventFlow.points
+    : toFlowRateSeries(getConsumptionSeries(sysId, sys.name, 'H', 0)?.series ?? [])
+  const flowPeak = eventFlow
+    ? Math.max(...eventFlow.points.map(p => p.lph))
+    : peakFlowRate(flowPoints)
 
   const adviceSteps = advice(evt.type, {
     hasValve,
@@ -1139,15 +1232,20 @@ export default function EventFocusOverlay({
   const showClaimActions = isWater && !ignored
   const showIgnore = isWater && !ignored && Boolean(onIgnore)
   const showFooter =
-    /* A water event with a valve used to force a footer open, because the
-       valve primary lived in it. That primary moved into the Valve status
-       panel on 2026-10-25, so the footer opens only when it actually holds
+    /* `showValveAction` used to lead this: a water event with a valve always
+       had a footer, because the valve primary lived in it. That primary is in
+       the Valve status panel now, so the footer opens only when it holds
        something — On it / Stand down / Ignore. */
     (showClaimActions && (!investigating || isOwner)) || showIgnore
 
   return (
     <div
-      className="absolute inset-0 z-50 flex flex-col justify-end"
+      /* FULL OVERLAY, 2026-10-25. Owner: "it needs to be full overlay, not
+         like now". It was a bottom sheet — justify-end with a max-h-[85%]
+         panel — which left the page's tab row showing above it and the
+         TabBar below. 199683:24849 draws the event as the WHOLE screen, so
+         the panel fills the frame and the scrim no longer shows. */
+      className="absolute inset-0 z-50 flex flex-col"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -1163,10 +1261,10 @@ export default function EventFocusOverlay({
         className="absolute inset-0 cursor-default bg-[rgba(15,23,43,0.45)]"
       />
 
-      {/* The panel. `relative` so it paints over the scrim, `max-h-[85%]` so
-          the page shows above it, and the top corners rounded like every other
-          sheet in this repo. */}
-      <div className="relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[18px] bg-background">
+      {/* The panel. `relative` so it paints over the scrim, and now `h-full`
+          rather than `max-h-[85%]`: it owns the frame. The rounded top corners
+          go with the sheet — a full-height panel has nothing to round against. */}
+      <div className="relative flex h-full flex-col overflow-hidden bg-background">
       {/* Header — the event, the system it is on, and BOTH ways out the owner
           asked for. They carry distinct names so a screen reader (and a test)
           can tell them apart; see the `onClose` prop note for when they would
@@ -1188,13 +1286,38 @@ export default function EventFocusOverlay({
             repeat all three verbatim — "the title is rendered twice", and on a
             sheet capped at 85% of 852 that duplication cost a whole row. The
             header is now WHICH SYSTEM, which is the one thing the card does
-            not say; the severity dot stays because it is 9px and it is what
-            makes the sheet readable the instant it opens. */}
-        <span
-          aria-hidden="true"
-          className="size-[9px] shrink-0 rounded-full"
-          style={{ background: isWater ? (isLowFlow ? TOKEN.low : TOKEN.high) : meta.sevColor }}
-        />
+            not say.
+
+            THE 9px DOT BECAME THE WAVES DISC, 2026-10-26 — owner: "missing
+            visualisation on header, the waves component". A dot carries
+            severity by colour alone, which says "something is wrong" and
+            nothing about WHAT. The disc is the same mark the alert card
+            (199683:24873) and every Events Timeline row already use for a
+            water event, so the header now opens with the app's own sign for
+            water rather than a generic bullet. 22px, not the card's 28 —
+            this sits on a 34px header row.
+
+            A FAULT KEEPS THE DOT. There is no waves glyph for Offline or AC
+            Power Lost, and borrowing one would say "water" about an event
+            that has nothing to do with water. */}
+        {isWater ? (
+          <span
+            aria-hidden="true"
+            className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-red-100"
+          >
+            <Waves
+              size={14}
+              className="block text-destructive"
+              style={{ color: isLowFlow ? TOKEN.low : TOKEN.high }}
+            />
+          </span>
+        ) : (
+          <span
+            aria-hidden="true"
+            className="size-[9px] shrink-0 rounded-full"
+            style={{ background: meta.sevColor }}
+          />
+        )}
         {/* Owner's call, 2026-10-18: the location belongs under the system
             name. "Apartment 5" alone does not say which building, and the
             breadcrumb was previously buried inside the Event-details
@@ -1261,8 +1384,16 @@ export default function EventFocusOverlay({
             bug; the class is carried on both so the two cannot diverge.) */}
         {alertRow ? (
           <AlertCard
-            variant={alertRow.ignored ? 'ignored' : 'mobile'}
-            event={alertRow}
+            /* 'overlay', not 'mobile'. The 2026-10-25 redraw is THIS
+               surface's only; SystemPageV2Screen keeps `mobile`. */
+            variant={alertRow.ignored ? 'ignored' : 'overlay'}
+            /* Merged HERE, not into `alertRow` above: timeToShutoff is
+               derived from the valve state, which is resolved further down
+               the body, and a const read before its declaration is a
+               ReferenceError this repo's lint cannot see (no react plugin —
+               scripts/check-jsx-refs.mjs:1-11 documents the same blind spot
+               for components). */
+            event={{ ...alertRow, shutoffIn: timeToShutoff }}
             actions={false}
             className="w-full! shrink-0"
           />
@@ -1318,6 +1449,65 @@ export default function EventFocusOverlay({
           </div>
         ) : null}
 
+        {/* ── System details ───────────────────────────────────────────────
+            199683:24906, the second card in both frames and the one thing in
+            them this surface did not draw at all. It names WHAT is leaking
+            and WHERE, which until now you had to open an accordion to learn.
+
+            Three lines, each dropped rather than faked when its value is
+            missing. `locationAddress` is the real street address off the
+            upstream snapshot and 50 of 103 systems carry one — the rest get
+            the location name alone, never a placeholder. The frame's third
+            line is a city; the dataset has no city field, so it is not
+            invented and the address carries the location on its own.
+
+            "Find this system" is the node's own pill (199683:24919). It is an
+            action, not a heading — which is why the accordion that used to
+            own that title is now "Device details", the thing it actually
+            lists. */}
+        <section
+          aria-label="System details"
+          className="w-full shrink-0 rounded-[18px] border border-solid border-card bg-surface-card px-[16px] py-[12px]"
+          data-node-id="199683:24906"
+        >
+          <p className="text-[13px] font-semibold text-slate-900" data-node-id="199683:24910">
+            System details
+          </p>
+          <div className="mt-[6px] flex flex-col gap-[4px]">
+            <p className="text-[15px] font-medium text-foreground" data-node-id="199683:24914">
+              {sys.name}
+            </p>
+            {sys.l4Name ? (
+              <p className="text-[13px] text-slate-600" data-node-id="199683:24916">
+                {sys.l4Name}
+              </p>
+            ) : null}
+            {sys.locationAddress ? (
+              <p className="text-[13px] text-slate-500" data-node-id="199683:24918">
+                {sys.locationAddress}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            /* Section owns its own open state, so there is no setter to
+               call from out here — but its header is a real button with a
+               known id, which is enough: open it if it is shut, then bring it
+               into view. A pill that scrolls to a closed accordion would be
+               the kind of half-wired control v2-page-parity exists to stop. */
+            onClick={() => {
+              const header = document.getElementById(`event-find-${sysId}-header`)
+              if (!header) return
+              if (header.getAttribute('aria-expanded') === 'false') header.click()
+              header.scrollIntoView({ block: 'center', behavior: 'smooth' })
+            }}
+            className="mt-[10px] inline-flex h-[24px] cursor-pointer items-center gap-[4px] rounded-[26px] bg-accent px-[8px] text-[12px] font-medium text-primary outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            data-node-id="199683:24919"
+          >
+            Find this system
+          </button>
+        </section>
+
         {/* ── Valve status ──────────────────────────────────────────────────
             The real ValveStatusCard, not a copy of it. This used to be a
             hand-rolled compact row (ValveReadout) built from the card's atoms
@@ -1345,32 +1535,20 @@ export default function EventFocusOverlay({
                 copy — it is this file's own `advice()` valve line for
                 autoShutoff !== 'Enabled', so the panel and "What now" say the
                 same thing in the same words. */}
-            {/* INTERACTIVE AGAIN, 2026-10-25. It was mounted read-only on
-                2026-10-17 — owner: "now we have 2 valve CTA" — because the
-                card's button duplicated the footer's primary. 199683:24849
-                settles which of the two survives: it draws "Close valve now"
-                INSIDE this panel and gives the footer no valve action at all.
-                So the duplicate is gone the other way round, and there is
-                still exactly one valve control on this surface.
-                It asks; it does not act. setPendingValve opens
-                ValveConfirmSheet, which is the same gate the footer used. */}
+            {/* INTERACTIVE AGAIN. It was read-only from 2026-10-17 — owner:
+                "now we have 2 valve CTA" — because the card's button
+                duplicated the footer primary. 199683:24849 settles which of
+                the two survives: it draws "Close valve now" INSIDE this panel
+                and gives the footer no valve action, so there is still
+                exactly one control. It asks; setPendingValve opens
+                ValveConfirmSheet, the same gate the footer used. */}
             <ValveStatusCard
+              redraw
               interactive
               onToggle={(next) => setPendingValve(next === 'closed' ? 'close' : 'open')}
+              autoCloseState={autoShutoffOn ? 'On' : 'Disabled'}
               state={valveState}
               tone={isWater ? 'alert' : 'calm'}
-              /* The panel's badge now carries the SETTING, not the behaviour:
-                 199683:24849 draws "On" and 199394:78935 "Disabled", which are
-                 the two states buildPolicy() already returns. The old pair
-                 ("Auto shut-off" / "Manual only") described what happens; the
-                 redraw names the switch and lets the body underneath say what
-                 it costs. */
-              handling={autoShutoffOn ? 'On' : 'Disabled'}
-              /* Only the DISABLED state draws a sentence, so this is the
-                 disabled one — the node's own words, which are blunter than
-                 the line they replace about where the button is. The valve
-                 control is still the footer's, unchanged. */
-              handlingDescription="In case a Leak is detected — the valve will not automatically shut off and water loss is at risk"
             />
           </section>
         ) : null}
@@ -1477,17 +1655,11 @@ export default function EventFocusOverlay({
             </div>
           ) : null}
 
-          {/* LeakDetail.jsx:507-512 / ErrorAlertDetail.jsx:169-173. */}
-          {eventId ? (
-            <div className="mt-[12px] flex items-center gap-[8px]">
-              <span className="text-[11px] font-bold uppercase tracking-[0.4px] text-slate-500">
-                Event ID
-              </span>
-              <span className="min-w-0 truncate rounded-[4px] bg-slate-100 px-[8px] py-[2px] font-mono-label text-[13px] font-semibold text-slate-900">
-                {eventId}
-              </span>
-            </div>
-          ) : null}
+          {/* THE EVENT ID MOVED into the alert card's meta row, where
+              199683:24892 draws it opposite "Detected". It was in both for a
+              moment and a fault then showed it twice, which is what a
+              duplicated readout always costs. One source, one place: the
+              card. (Was LeakDetail.jsx:507-512 / ErrorAlertDetail:169-173.) */}
         </Section>
         ) : null}
 
@@ -1497,7 +1669,14 @@ export default function EventFocusOverlay({
             under the facts it charts. See EventFlowChart / eventFlowSeries.js
             for what the line honestly is. */}
         <Section id={`event-graph-${sysId}`} title="Event graph">
-          {() => <EventFlowChart points={flowPoints} peak={flowPeak} />}
+          {() => (
+            <EventFlowChart
+              points={flowPoints}
+              peak={flowPeak}
+              marks={eventFlow?.marks ?? []}
+              ticks={eventFlow ? flowTicks(eventFlow.points) : []}
+            />
+          )}
         </Section>
 
         {/* ── What should I do ──────────────────────────────────────────────
@@ -1531,7 +1710,7 @@ export default function EventFocusOverlay({
 
         {/* ── "Help me find the system" ─────────────────────────────────────
             The owner's answer to their own question: photo + install notes. */}
-        <Section id={`event-find-${sysId}`} title="Find this system">
+        <Section id={`event-find-${sysId}`} title="Device details">
           <FindSystemPanel sys={sys} sysId={sysId} />
         </Section>
 
@@ -1558,14 +1737,11 @@ export default function EventFocusOverlay({
       {showFooter ? (
         <footer className="shrink-0 border-t border-solid border-slate-200 bg-surface-card px-[12px] pb-[12px] pt-[9px]">
           {/* THE VALVE PRIMARY MOVED UP into the Valve status panel, where
-              199683:24849 and 199394:78935 both draw it, and neither frame
-              puts one here. ON IT AND IGNORE STAY — owner, twice on
-              2026-10-25: "we need to keep the ignore and on it". They are
-              absent from both frames, but the frames are a valve redraw, not
-              a footer spec, and wired functionality is not dropped on the
-              strength of a drawing that does not show it.
-              The confirm gate is unchanged: the panel's button calls the same
-              setPendingValve -> ValveConfirmSheet the primary here called. */}
+              199683:24849 and 199394:78935 both draw it and neither puts one
+              here. ON IT AND IGNORE STAY — owner, twice: "we need to keep the
+              ignore and on it". They are absent from both frames, but the
+              frames are a valve redraw, not a footer spec, and wired
+              functionality is not dropped because a drawing omits it. */}
 
           {/* The secondary row. One line, each control taking an equal share,
               so two or three of them read as peers rather than as a stack of
@@ -1583,8 +1759,8 @@ export default function EventFocusOverlay({
             {showClaimActions && !investigating ? (
               <Button
                 type="button"
-                /* The solid slot is On it's again. It was demoted to
-                   secondary only because the valve primary sat above it. */
+                /* The solid slot is On it's again; it was demoted only
+                   because the valve primary sat above it. */
                 variant="default"
                 onClick={() => {
                   setNow(Date.now())

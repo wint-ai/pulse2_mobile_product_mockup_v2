@@ -179,6 +179,27 @@ const AVATAR_ALERT = String.raw`bg-red-100 content-stretch flex items-center jus
    around a 37px glyph. Kept beside the 42px one rather than replacing it:
    `water-event` and `ignored` still draw the smaller disc. */
 const AVATAR_ALERT_LG = String.raw`bg-red-100 content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[61px]`
+/* ── The `overlay` variant's atoms ────────────────────────────────────────
+   199683:24849 / 199394:78935, fetched 2026-10-25. These belong to the EVENT
+   OVERLAY ALONE. `mobile` answers to 199394:79687 and is what the System page
+   draws; owner, after an earlier pass changed both: "the card in other pages
+   needs to remain as it was — the change is only for the event drawer". The
+   two sets sit side by side rather than one being edited into the other. */
+const AVATAR_OVERLAY = String.raw`bg-red-100 content-stretch flex items-center justify-center relative rounded-[16.066px] shrink-0 size-[28px]`
+const TITLE_OVERLAY = String.raw`[word-break:break-word] font-sans font-semibold leading-[24.75px] relative shrink-0 text-foreground text-lg w-[170px]`
+/* 199683:24878 / :24883 — two tiles, each taking half the row. */
+const FIG_TILE = String.raw`[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col gap-[2px] h-full items-center justify-center min-w-px relative rounded-[16px] whitespace-nowrap`
+const FIG_VALUE = String.raw`font-sans font-semibold leading-[35.479px] overflow-hidden relative shrink-0 text-[21.833px] text-foreground text-ellipsis`
+const FIG_UNIT = String.raw`font-sans font-medium leading-5 overflow-hidden relative shrink-0 text-slate-500 text-sm text-ellipsis`
+const FIG_LABEL = String.raw`font-sans font-normal leading-[16.5px] overflow-hidden relative shrink-0 text-muted-foreground text-xs text-ellipsis`
+/* 199683:24887 — Detected on the left, Event ID on the right. Named
+   OVERLAY_META_* because this file already has a META_ROW for other variants
+   and it is a different row. */
+const OVERLAY_META_ROW = String.raw`content-stretch flex items-center justify-between relative shrink-0 w-full`
+const OVERLAY_META_LABEL = String.raw`font-sans font-normal leading-[16.5px] relative shrink-0 text-muted-foreground text-xs whitespace-nowrap`
+const OVERLAY_META_VALUE = String.raw`font-sans font-medium leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
+const OVERLAY_ID_PILL = String.raw`bg-slate-100 content-stretch flex items-center justify-center relative rounded-[5px] shrink-0 w-[58px]`
+
 const AVATAR_MUTED = String.raw`bg-slate-200 content-stretch flex items-center justify-center relative rounded-[35px] shrink-0 size-[42px]`
 /* src/v2/icons/Waves is the same Phosphor glyph, exported into a 21-unit box at
    stroke 1.08063; the alert-card export is a 19.111-unit box at stroke 1.58861.
@@ -237,6 +258,9 @@ const SHELL_WATER_EVENT = `${SHELL} max-w-[440px]`
    all — the frame hugs its content now. min-h-[178px] went with it: the node
    sets none, and the three unit chips below already carry the card past 178. */
 const SHELL_MOBILE = String.raw`bg-surface-card border border-red-500 border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[18px] shrink-0 w-full`
+/* 199683:24868 — the overlay shell. Same chassis as SHELL_MOBILE today, kept
+   separate so the two can diverge without the System page following. */
+const SHELL_OVERLAY = String.raw`bg-surface-card border border-red-500 border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[18px] shrink-0 w-full`
 const INNER_COLUMN = 'content-stretch flex flex-[1_0_0] flex-col items-start justify-between min-h-px relative w-full'
 
 /* The wash, themed. The angle stays here, the colours come from the shipped
@@ -291,6 +315,18 @@ const MOCK_EVENT = {
   detectedLabel: 'Detected',
   detectedAt: 'Apr 02, 2026 08:13:15',
   duration: '6h 36m',
+  /* 199683:24882 / :24886 / :24893 — the `overlay` tiles' captions and the
+     event id, all literal copy on the node. */
+  flowLabel: 'Flow Rate',
+  durationLabel: 'Duration',
+  /* Detection -> valve closed. Owner, 2026-10-26: "the time elapsed to shut
+     off is missing in UI event card". Null on an event that never closed a
+     valve, which is most of them, and the tile is then not drawn — a dash in
+     a figure slot reads as a measurement of nothing. */
+  shutoffLabel: 'Time to shut off',
+  shutoffIn: null,
+  eventIdLabel: 'Event ID',
+  eventId: 'Ik-6598',
   page: 1,
   pageCount: 2,
   sensorTotal: '7 Sensors',
@@ -525,6 +561,115 @@ export default function AlertCard({
           </button>
         </div>
       </div>
+    ))
+  }
+
+  /* ── `overlay` ────────────────────────────────────────────────────────────
+     199683:24849 / 199394:78935, the EVENT OVERLAY only. `mobile` above is
+     untouched and is what SystemPageV2Screen still draws.
+
+     Against `mobile` this is flatter and wider:
+       row 1  a 28px disc + a ONE-LINE title, status pill opposite
+       row 2  TWO tiles, each half the width, figure over caption
+       row 3  Detected on the left, Event ID in a chip on the right
+     The same values are on screen either way; duration stops being a red tail
+     on the Detected line and becomes a figure in its own right, which is what
+     the second tile is for. */
+  if (variant === 'overlay') {
+    return shell(SHELL_OVERLAY, (
+      <>
+        <div
+          className="content-stretch flex flex-col gap-[12px] items-start relative shrink-0 w-full"
+          data-node-id="199683:24869"
+        >
+          <div
+            className="content-stretch flex items-center justify-between relative shrink-0 w-full"
+            data-node-id="199683:24870"
+          >
+            <div
+              className="content-stretch flex gap-[11px] items-center relative shrink-0"
+              data-node-id="199683:24872"
+            >
+              <div className={AVATAR_OVERLAY} data-node-id="199683:24873">
+                <Waves size={17} className={`block text-destructive ${WAVES_WEIGHT}`} />
+              </div>
+              <p className={TITLE_OVERLAY} dir="auto" data-node-id="199683:24875">
+                {data.title}
+              </p>
+            </div>
+            {/* Status, not a destination — a Badge so it is not a dead button. */}
+            <Badge
+              variant="destructive"
+              className={String.raw`bg-red-500 content-stretch flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`}
+              data-node-id="199683:24876"
+            >
+              <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-ink-on-color text-xs whitespace-nowrap">
+                {data.status}
+              </span>
+            </Badge>
+          </div>
+
+          <div
+            className="content-stretch flex gap-[12px] h-[73px] items-start relative shrink-0 w-full"
+            data-node-id="199683:24877"
+          >
+            <div className={FIG_TILE} data-node-id="199683:24878">
+              <div
+                className="content-stretch flex gap-[12px] items-center relative shrink-0"
+                data-node-id="199683:24879"
+              >
+                <p className={FIG_VALUE}>{data.value}</p>
+                <p className={FIG_UNIT}>{data.unit}</p>
+              </div>
+              <p className={FIG_LABEL}>{data.flowLabel}</p>
+            </div>
+            <div className={FIG_TILE} data-node-id="199683:24883">
+              <div
+                className="content-stretch flex items-center relative shrink-0"
+                data-node-id="199683:24884"
+              >
+                <p className={FIG_VALUE}>{data.duration}</p>
+              </div>
+              <p className={FIG_LABEL}>{data.durationLabel}</p>
+            </div>
+            {/* THE THIRD TILE, and only when there is one to draw. The frame
+                draws two because its example never closed a valve; an event
+                that DID is the one the product is actually judged on, so the
+                number goes beside the other two rather than into a section
+                nobody opens. */}
+            {data.shutoffIn ? (
+              <div className={FIG_TILE} data-name="Time to shut off">
+                <div className="content-stretch flex items-center relative shrink-0">
+                  <p className={FIG_VALUE}>{data.shutoffIn}</p>
+                </div>
+                <p className={FIG_LABEL}>{data.shutoffLabel}</p>
+              </div>
+            ) : null}
+          </div>
+
+          <div className={OVERLAY_META_ROW} data-node-id="199683:24887">
+            <div
+              className="content-stretch flex gap-[4px] h-[20px] items-center relative shrink-0"
+              data-node-id="199683:24888"
+            >
+              <p className={OVERLAY_META_LABEL}>{data.detectedLabel}</p>
+              <p className={OVERLAY_META_VALUE}>{data.detectedAt}</p>
+            </div>
+            {/* Dropped rather than drawn empty when the caller has no id. */}
+            {data.eventId ? (
+              <div
+                className="content-stretch flex gap-[4px] h-[20px] items-center relative shrink-0"
+                data-node-id="199683:24892"
+              >
+                <p className={OVERLAY_META_LABEL}>{data.eventIdLabel}</p>
+                <div className={OVERLAY_ID_PILL} data-node-id="199683:24894">
+                  <p className={OVERLAY_META_VALUE}>{data.eventId}</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </>
     ))
   }
 
