@@ -1,6 +1,6 @@
 {
-  "name": "Pulse 2.0",
-  "short_name": "Pulse",
+  "name": "Wint Pulse - Mobile App",
+  "short_name": "Wint Pulse",
   "start_url": "/pulse2_mobile_product_mockup_v2/",
   "scope": "/pulse2_mobile_product_mockup_v2/",
   "display": "standalone",
