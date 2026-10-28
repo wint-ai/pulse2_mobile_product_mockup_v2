@@ -324,9 +324,14 @@ const STEP_META = {
   // better than waves: these rows are about a message leaving the system.
   'alert-sent': { title: 'Alert Sent', kind: 'network' },
   'reminder-sent': { title: 'Reminder sent', kind: 'network' },
-  // User actions.
-  'on-it': { title: 'On it', actor: true },
-  'stand-down': { title: 'Stand down', actor: true },
+  /* User actions, in the PAST TENSE — these are log entries, not controls.
+     Renamed with the controls on 2026-10-28 so the timeline and the buttons
+     above it speak one language: someone who taps "Remove" and then reads
+     "Stand down" three cards below has to work out that they are the same
+     act. The step TYPES are untouched, because they are the incident data's
+     own keys and nothing about the store changed. */
+  'on-it': { title: 'Assigned', actor: true },
+  'stand-down': { title: 'Removed', actor: true },
   ignored: { title: 'Ignored', actor: true },
 }
 
