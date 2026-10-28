@@ -245,8 +245,8 @@ describe('water event actions reach the stores — from the incident, not the ca
   it('the card carries no action row and no "View details" link, only a way in', () => {
     const { container } = mount()
     const view = within(container)
-    expect(view.queryByRole('button', { name: /^on it$/i })).toBeNull()
-    expect(view.queryByRole('button', { name: /^ignore$/i })).toBeNull()
+    expect(view.queryByRole('button', { name: /^assign to me$/i })).toBeNull()
+    expect(view.queryByRole('button', { name: /^ignore event$/i })).toBeNull()
     // The rejected control: "dont like the view details and not 45 degrees
     // arrow inside the card."
     expect(view.queryByRole('button', { name: /view details/i })).toBeNull()
@@ -265,7 +265,7 @@ describe('water event actions reach the stores — from the incident, not the ca
     expect(isInvestigating(sys.id)).toBe(false)
     const { container } = mount()
     const overlay = openEvent(container)
-    const btn = overlay.getByRole('button', { name: /^on it$/i })
+    const btn = overlay.getByRole('button', { name: /^assign to me$/i })
     expect(btn, 'no "On it" control in the overlay').toBeTruthy()
     fireEvent.click(btn)
     expect(isInvestigating(sys.id)).toBe(true)
@@ -288,7 +288,7 @@ describe('water event actions reach the stores — from the incident, not the ca
     expect(isIgnored(sys.id)).toBe(false)
     const { container } = mount()
     const overlay = openEvent(container)
-    const btn = overlay.getByRole('button', { name: /^ignore$/i })
+    const btn = overlay.getByRole('button', { name: /^ignore event$/i })
     expect(btn, 'no "Ignore" control in the overlay').toBeTruthy()
     fireEvent.click(btn)
 

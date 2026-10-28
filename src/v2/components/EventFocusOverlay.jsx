@@ -239,12 +239,13 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   ChevronDown,
-  Eye,
+  ChevronRight,
   Flag,
   ImagePlus,
   MapPin,
   PowerOff,
   TriangleAlert,
+  UserCircle2,
   WifiOff,
   X,
 } from 'lucide-react'
@@ -414,6 +415,15 @@ function alertRowFor(alert, systemId) {
     /* Just the unit. The tile below it is captioned "Flow Rate", so
        "L/H flow rate" said it twice and overflowed the 161px tile. */
     unit: rate ? 'L/H' : '',
+    /* THE SECOND TILE — 199703:42976, "13,564 L / Total". The event's
+       accumulated volume, and it is only ever the volume: on a leak with a
+       flow rate `value` already took the rate, so `alert.volume` is free and
+       is what the frame tiles beside it. Stripped to digits the same way the
+       rate is, because the dataset spells it "13,564 L" and the unit is a
+       separate run at a different size. Null when the event carries no
+       volume yet, which hides the tile rather than drawing a zero. */
+    total: leak && alert.volume ? String(alert.volume).replace(/[^\d,.]/g, '') : null,
+    totalUnit: leak && alert.volume ? 'L' : '',
     detectedLabel: 'Detected',
     detectedAt: alert.startedAt,
     duration: alert.age,
@@ -1372,12 +1382,16 @@ export default function EventFocusOverlay({
      down NO. The muted body and the "Ignored by {name}" pill are unchanged. */
   const showClaimActions = isWater && !ignored
   const showIgnore = isWater && !ignored && Boolean(onIgnore)
-  const showFooter =
-    /* `showValveAction` used to lead this: a water event with a valve always
-       had a footer, because the valve primary lived in it. That primary is in
-       the Valve status panel now, so the footer opens only when it holds
-       something — On it / Stand down / Ignore. */
-    (showClaimActions && (!investigating || isOwner)) || showIgnore
+  /* THE FOOTER IS NOW ONE CONTROL: "Assign to me", and only while the event
+     is unclaimed. 199703:40914 draws it that way and 199703:42941 — the same
+     event once claimed — draws no footer at all.
+
+     It used to open for Stand down and for Ignore as well. Both moved to
+     where the frames put them: Remove sits in the Assigned-to card beside the
+     claim it releases, and Ignore has its own Event handling card. Neither
+     was dropped; `showIgnore` still gates Ignore exactly as it did, it is
+     just read somewhere else now. */
+  const showFooter = showClaimActions && !investigating
 
   return (
     <div
@@ -1513,21 +1527,32 @@ export default function EventFocusOverlay({
             </Button>
           </div>
 
-          {/* THE REST OF THE HEADER IS GONE, as 199683:24853 draws it. The dot,
-              the system name, the breadcrumb and the × are all gone from the
-              visible row:
-                · the name and location moved to the System details card
-                  (199683:24906), which answers the owner's 2026-10-18
-                  requirement — "Apartment 5 alone does not say which
-                  building" — in the place the design puts it;
-                · the severity glyph is on the AlertCard directly below;
-                · the × was a SECOND way to do what Back does. The frame has
-                  one. Escape and the scrim both still close, so nothing can
-                  only be reached through the control that went.
+          {/* ── THE SYSTEM'S NAME IS BACK, CENTRED — 199703:42952 ───────────
+              2026-10-28. The name was removed from this row on the reading
+              that 199683:24853 drew no title and that the System details card
+              carried it instead. All three of the latest frames put it back,
+              centred between the controls, and it is the first thing you need
+              on a surface you arrive at from a list: WHICH system is this.
 
-              The <h2> STAYS, screen-reader only: it is the dialog's
-              aria-labelledby target, and a dialog whose accessible name is
-              deleted announces as "dialog" and nothing else. */}
+              ABSOLUTELY POSITIONED, which is the node's own construction
+              (`left-[calc(50%-66px)]`) and is also what keeps it centred on
+              the ROW rather than on the space left between two discs of
+              different widths. `pointer-events-none` so it can never swallow
+              a tap meant for the back control under it, and px-[46px] so a
+              long system name truncates before it reaches either disc.
+
+              The sr-only <h2> STAYS and keeps the full sentence. It is the
+              dialog's aria-labelledby target, and the visible title is only
+              the system's name — a dialog announcing "Fire Riser 2" and
+              nothing else would not say what happened to it. */}
+          <p
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 truncate px-[46px] text-center text-[18px] font-semibold leading-[24px] tracking-[-0.45px] text-slate-900"
+            data-node-id="199703:42952"
+          >
+            {sys.name}
+          </p>
+
           <h2 id={titleId} className="sr-only">
             {evt.label || meta.label} — {sys.name}
             {breadcrumb ? `, ${breadcrumb}` : ''}
@@ -1600,29 +1625,60 @@ export default function EventFocusOverlay({
           </div>
         ) : null}
 
-        {/* ── Claimed strip ─────────────────────────────────────────────────
-            LeakDetail.jsx:372-381 — "On it · {actor}" and how long they have
-            had it. Nothing else in v2 draws this. Only present once someone
-            holds the claim; the offer to claim is the footer's primary. */}
+        {/* ── ASSIGNED TO — 199703:43519 ────────────────────────────────────
+            The claim, as the latest frames draw it. It was a blue "On it ·
+            {actor}" strip with an eye glyph; it is now a house card carrying
+            who holds the event, how long they have held it, and the way to
+            hand it back.
+
+            THE VOCABULARY CHANGED WITH IT, and the three frames are
+            consistent about it: "On it" is "Assign to me", "Stand down" is
+            "Remove", and a held event reads "Assigned to {who}". Same
+            functions, same gates, same stores — only the words moved. The
+            owner's standing "we need to keep the ignore and on it" is
+            honoured by keeping the ACTIONS; the frames renamed them.
+
+            "you" rather than the actor's own name when the viewer is the one
+            holding it — 199703:42952 draws "Assigned to you", and a card that
+            told you your own name would be answering a question nobody asked.
+            Someone else's claim still names them, which is the whole point of
+            the row on a shared event. */}
         {isWater && investigating && investigatingInfo ? (
-          <div className="flex w-full shrink-0 items-center gap-[9px] rounded-[18px] bg-accent px-[14px] py-[12px]">
-            <span
-              aria-hidden="true"
-              className="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] bg-card text-primary"
-            >
-              <Eye size={16} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="min-w-0 truncate text-[14px] font-semibold text-slate-900">
-                On it · {investigatingInfo.actor}
-              </p>
-              <p className="min-w-0 truncate text-[12px] text-slate-600">
+          <div
+            className="flex w-full shrink-0 items-center justify-between gap-[12px] rounded-[18px] bg-surface-card p-[18px]"
+            data-node-id="199703:43519"
+          >
+            <div className="flex min-w-0 flex-col justify-center gap-[6px]">
+              <div className="flex min-w-0 items-center gap-[6px]">
+                <UserCircle2 size={16} aria-hidden="true" className="shrink-0 text-slate-600" />
+                <p className="min-w-0 truncate text-[16px] leading-[24px] text-slate-900">
+                  Assigned to{' '}
+                  <span className="font-semibold">{isOwner ? 'you' : investigatingInfo.actor}</span>
+                </p>
+              </div>
+              <p className="min-w-0 truncate text-[14px] leading-[20px] text-slate-600">
                 {formatDuration(
                   Math.max(0, Math.floor((now - investigatingInfo.startedAt) / 1000)),
                 )}{' '}
                 ago
               </p>
             </div>
+
+            {/* 199703:44244 — "Remove" hands the event back. Gated exactly as
+                Stand down was: only the actor holding the claim may release
+                it (LeakDetail.jsx:393-402), so someone else's claim shows the
+                row without the control. */}
+            {isOwner ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={standDown}
+                className="h-[24px] shrink-0 rounded-[26px] bg-slate-100 px-[10px] py-0 text-[14px] font-medium text-slate-700 hover:bg-slate-200"
+                data-node-id="199703:44244"
+              >
+                Remove
+              </Button>
+            ) : null}
           </div>
         ) : null}
 
@@ -1767,6 +1823,60 @@ export default function EventFocusOverlay({
               tone={isWater ? 'alert' : 'calm'}
             />
           </section>
+        ) : null}
+
+        {/* ── EVENT HANDLING — 199703:43037 ─────────────────────────────────
+            Ignore has its own card now, between the valve and the system
+            details, where all three frames put it. It was a footer button
+            sharing a row with the claim controls, which made an irreversible
+            action look like a peer of a reversible one.
+
+            A CARD-SIZED TAP TARGET for a destructive action is a deliberate
+            trade: it is bigger and easier to hit than the old 44px button,
+            but it does not DO anything on its own — `onIgnore` hands the
+            intent to the page, which opens the one-question feedback flow.
+            Nothing is ignored by this tap alone. See the prop's note.
+
+            THE FRAME'S DESCRIPTION IS NOT USED, and this is the one place
+            this surface departs from it. 199703:43046 draws "Tells the team
+            someone is looking into this" under "Ignore event" — but that
+            sentence is the CLAIM's, and the frame uses it again, correctly,
+            under "Assign to me" in 199703:40914. Under Ignore it is simply
+            wrong: ignoring does not tell anyone anything, it suppresses the
+            event and PRD 14 has no un-ignore. Printing it would describe an
+            irreversible action as a notification. Ours says what Ignore does.
+            One line to restore the frame's wording if the owner wants it
+            verbatim. */}
+        {showIgnore ? (
+          <button
+            type="button"
+            onClick={() => onIgnore(sysId)}
+            /* NAMED EXPLICITLY. Without this the accessible name is every
+               word inside the card concatenated — "Event handling Ignore
+               event Treat as expected…" — which is not what the control is
+               called and is not what a user would say to a voice assistant.
+               The label is exactly the visible primary text (WCAG 2.5.3) and
+               the consequence moves to `aria-describedby`, which is where a
+               screen reader expects to find it. */
+            aria-label="Ignore event"
+            aria-describedby={`${titleId}-ignore-desc`}
+            className={`${CARD_SHELL} flex items-center gap-[12px] px-[18px] py-[16px] text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50`}
+            data-node-id="199703:43037"
+          >
+            <span className="flex min-w-0 flex-1 flex-col gap-[4px]">
+              <span className="text-[14px] leading-[20px] text-slate-600">Event handling</span>
+              <span className="text-[20px] font-medium leading-[28px] tracking-[-0.5px] text-slate-900">
+                Ignore event
+              </span>
+              <span
+                id={`${titleId}-ignore-desc`}
+                className="text-[14px] leading-[20px] text-slate-500"
+              >
+                Treat as expected — the valve stays open, and this cannot be undone
+              </span>
+            </span>
+            <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-slate-400" />
+          </button>
         ) : null}
 
         {/* ── Sections ──────────────────────────────────────────────────────
@@ -1971,60 +2081,38 @@ export default function EventFocusOverlay({
                              right to ignore. It is the one control gated on a
                              prop (`onIgnore`) rather than on state, which is
                              the only reason it can ever look "missing". */}
-          <div className="flex items-stretch gap-[8px]">
-            {showClaimActions && !investigating ? (
-              <Button
-                type="button"
-                /* The solid slot is On it's again; it was demoted only
-                   because the valve primary sat above it. */
-                variant="default"
-                onClick={() => {
-                  setNow(Date.now())
-                  claim()
-                }}
-                className="h-[44px] flex-1 text-[15px] font-semibold"
-              >
-                On it
-              </Button>
-            ) : null}
+          {/* 199703:40914 — ONE control, full width, and only while the event
+              is unclaimed. The footer used to hold up to three peers in a
+              row (On it / Stand down / Ignore); the frames split them by
+              where they belong:
 
-            {showClaimActions && investigating && isOwner ? (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={standDown}
-                className="h-[44px] flex-1 bg-slate-100 text-[15px] font-semibold text-slate-700 hover:bg-slate-200"
-              >
-                Stand down
-              </Button>
-            ) : null}
+                Assign to me   here, as the single sticky primary
+                Remove         in the Assigned-to card, with the claim
+                Ignore event   in its own Event handling card
 
-            {showIgnore ? (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => onIgnore(sysId)}
-                className="h-[44px] flex-1 bg-slate-100 text-[15px] font-semibold text-slate-700 hover:bg-slate-200"
-              >
-                Ignore
-              </Button>
-            ) : null}
-          </div>
+              So the footer disappears entirely once the event is claimed,
+              which is what gives the body back ~70px on the surface that
+              needs it most. */}
+          <Button
+            type="button"
+            variant="default"
+            onClick={() => {
+              setNow(Date.now())
+              claim()
+            }}
+            className="h-[56px] w-full rounded-[28px] bg-slate-900 text-[16px] font-semibold text-white hover:bg-slate-800"
+            data-node-id="199703:41186"
+          >
+            Assign to me
+          </Button>
 
-          {/* ONE caption in the whole footer. It used to be one per button,
-              which on a claimed event was three lines of 11.5px type and most
-              of the footer's height on a sheet capped at 85%. The primary's
-              caption wins when there is one, because it is the control that
-              does something irreversible to the building's water. */}
-          {showIgnore ? (
-            <p className="mt-[5px] text-center text-[11.5px] text-slate-500">
-              Ignore · treat as expected, valve stays open, cannot be undone
-            </p>
-          ) : showClaimActions && !investigating ? (
-            <p className="mt-[5px] text-center text-[11.5px] text-slate-500">
-              On it tells the team someone is looking into this
-            </p>
-          ) : null}
+          {/* The frame's own caption, and it is accurate here — claiming IS
+              the act of telling the team. (The same sentence appears under
+              "Ignore event" in 199703:43046, where it is not; see that
+              card.) */}
+          <p className="mt-[8px] text-center text-[14px] leading-[20px] text-slate-500">
+            Tells the team someone is looking into this
+          </p>
         </footer>
       ) : null}
       </div>

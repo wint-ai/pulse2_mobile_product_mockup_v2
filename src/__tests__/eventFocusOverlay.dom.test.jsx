@@ -95,6 +95,18 @@ beforeEach(() => {
   ALL_IDS.forEach(resetStores)
 })
 
+/* THE CLAIM CONTROLS WERE RENAMED on 2026-10-28, by Figma 199703:42941 /
+   199703:40914. Same functions, same stores, same gates — different words,
+   and a different place on the surface:
+
+       On it      -> "Assign to me"  the sticky footer primary, unclaimed only
+       Stand down -> "Remove"        inside the Assigned-to card, owner only
+       Ignore     -> "Ignore event"  its own Event handling card
+
+   The owner's standing "we need to keep the ignore and on it" is about the
+   ACTIONS, and every one of them is still here and still asserted below.
+   These matchers name the new labels; what they assert did not change. */
+
 afterEach(() => {
   cleanup()
   ALL_IDS.forEach(resetStores)
@@ -200,8 +212,8 @@ describe('it reuses the app’s own components', () => {
   it('does NOT draw AlertCard’s own action row — the footer is the only one', () => {
     renderOverlay({ onIgnore: () => {} })
     // One On it and one Ignore on the whole surface, not two of each.
-    expect(screen.getAllByRole('button', { name: /^on it$/i })).toHaveLength(1)
-    expect(screen.getAllByRole('button', { name: /^ignore$/i })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: /^assign to me$/i })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: /^ignore event$/i })).toHaveLength(1)
   })
 
   it('feeds EventsTimelineCard the INCIDENT’s steps, not the system history', () => {
@@ -286,11 +298,11 @@ describe('the valve', () => {
   it('keeps On it and Ignore in the footer, with On it back as the primary', () => {
     renderOverlay({ system: valveSys, onIgnore: () => {} })
     expect(screen.getByRole('button', { name: /^close valve now$/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^on it$/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /^assign to me$/i })).toHaveAttribute(
       'data-variant',
       'default',
     )
-    expect(screen.getByRole('button', { name: /^ignore$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^ignore event$/i })).toBeInTheDocument()
   })
 
   it('commits nothing on the tap — ValveConfirmSheet gates it, with v1’s copy', () => {
@@ -349,7 +361,7 @@ describe('the valve', () => {
     expect(screen.queryByRole('region', { name: 'Valve status' })).toBeNull()
     expect(screen.queryByRole('button', { name: /valve now$/i })).toBeNull()
     // …and the claim takes the solid slot back.
-    expect(screen.getByRole('button', { name: /^on it$/i })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /^assign to me$/i })).toHaveAttribute(
       'data-variant',
       'default',
     )
@@ -498,20 +510,20 @@ describe('a fault offers no water-event actions', () => {
     // onIgnore is supplied, so its absence is a decision about faults and not
     // simply a missing handler.
     renderOverlay({ system: faultSys, onIgnore: () => {} })
-    expect(screen.queryByRole('button', { name: /^ignore$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^ignore event$/i })).toBeNull()
   })
 
   it('has no On it control', () => {
     renderOverlay({ system: faultSys, onIgnore: () => {} })
-    expect(screen.queryByRole('button', { name: /^on it$/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: /stand down/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^assign to me$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^remove$/i })).toBeNull()
   })
 })
 
 describe('On it / Stand down / Ignore', () => {
   it('offers On it while unclaimed, and claiming reads back the actor', () => {
     const { rerender } = renderOverlay()
-    fireEvent.click(screen.getByRole('button', { name: /^on it$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^assign to me$/i }))
     expect(isInvestigating(leakSys.id)).toBe(true)
 
     rerender(
@@ -519,15 +531,23 @@ describe('On it / Stand down / Ignore', () => {
         <EventFocusOverlay open systemId={leakSys.id} onClose={() => {}} />
       </MemoryRouter>,
     )
-    // "On it · {actor}" — LeakDetail.jsx:372-381.
-    expect(screen.getByText(new RegExp(`On it · ${getCurrentActor()}`))).toBeInTheDocument()
+    /* "Assigned to you" — 199703:43519. The claimed strip said
+       "On it · {actor}"; the card says "Assigned to", and when the VIEWER is
+       the one holding it the name is replaced by "you", because a card that
+       told you your own name would answer a question nobody asked. */
+    expect(screen.getByText(/Assigned to/)).toBeInTheDocument()
+    expect(screen.getByText('you')).toBeInTheDocument()
   })
 
   it('does NOT offer Stand down when someone else holds the claim', () => {
     startInvestigating(leakSys.id, { actor: 'Dana Whitfield' })
     renderOverlay()
-    expect(screen.getByText(/On it · Dana Whitfield/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /stand down/i })).toBeNull()
+    /* SOMEONE ELSE's claim still NAMES them — that is the whole point of the
+       row on a shared event, and the "you" shorthand above must not leak
+       into it. */
+    expect(screen.getByText('Dana Whitfield')).toBeInTheDocument()
+    expect(screen.queryByText('you'), 'someone else’s claim read as mine').toBeNull()
+    expect(screen.queryByRole('button', { name: /^remove$/i })).toBeNull()
   })
 
   it('offers Stand down to the claiming actor, and it calls stopInvestigating', () => {
@@ -535,13 +555,13 @@ describe('On it / Stand down / Ignore', () => {
     const onStandDown = []
     renderOverlay({ onStandDown: id => onStandDown.push(id) })
 
-    fireEvent.click(screen.getByRole('button', { name: /stand down/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^remove$/i }))
 
     // The store is the assertion: Stand down means the claim is released.
     expect(isInvestigating(leakSys.id)).toBe(false)
     expect(onStandDown).toEqual([leakSys.id])
     // And the surface repaints back to the unclaimed offer.
-    expect(screen.getByRole('button', { name: /^on it$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^assign to me$/i })).toBeInTheDocument()
   })
 
   /* THE 2026-10-17 REPORT: a claimed event's footer showed only "Stand down".
@@ -550,17 +570,17 @@ describe('On it / Stand down / Ignore', () => {
     startInvestigating(leakSys.id, { actor: getCurrentActor() })
     renderOverlay({ onIgnore: () => {} })
 
-    expect(screen.getByRole('button', { name: /stand down/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^ignore$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^remove$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^ignore event$/i })).toBeInTheDocument()
     // On it is spent, not duplicated.
-    expect(screen.queryByRole('button', { name: /^on it$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^assign to me$/i })).toBeNull()
   })
 
   it('still offers Ignore when SOMEONE ELSE holds the claim', () => {
     startInvestigating(leakSys.id, { actor: 'Dana Whitfield' })
     renderOverlay({ onIgnore: () => {} })
-    expect(screen.getByRole('button', { name: /^ignore$/i })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /stand down/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /^ignore event$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^remove$/i })).toBeNull()
   })
 
   /* The ONLY reason Ignore is ever absent on a live water event: the mount
@@ -569,8 +589,8 @@ describe('On it / Stand down / Ignore', () => {
   it('draws no Ignore when the mount supplies no onIgnore', () => {
     startInvestigating(leakSys.id, { actor: getCurrentActor() })
     renderOverlay()
-    expect(screen.getByRole('button', { name: /stand down/i })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^ignore$/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /^remove$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^ignore event$/i })).toBeNull()
   })
 })
 
@@ -585,9 +605,9 @@ describe('the ignored state', () => {
     expect(screen.getByText('Scheduled irrigation')).toBeInTheDocument()
 
     // PRD 04a:146-154 — Ignore and On it are spent. (PRD 14) nothing un-ignores.
-    expect(screen.queryByRole('button', { name: /^ignore$/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: /^on it$/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: /stand down/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^ignore event$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^assign to me$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^remove$/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /un-?ignore/i })).toBeNull()
   })
 
@@ -618,7 +638,7 @@ describe('the ignored state', () => {
   it('offers the Ignore control while the event is live', () => {
     const ignored = []
     renderOverlay({ onIgnore: id => ignored.push(id) })
-    fireEvent.click(screen.getByRole('button', { name: /^ignore$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^ignore event$/i }))
     // The overlay states the intent; the page owns the flow that commits it,
     // so the store must NOT have been written here.
     expect(ignored).toEqual([leakSys.id])
@@ -998,5 +1018,101 @@ describe('the red wave collapses with the content', () => {
     expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy()
     // And they are genuinely outside the scrolling region, not just present.
     expect(scroller().contains(screen.getByRole('button', { name: 'Back' }))).toBe(false)
+  })
+})
+
+/* ── THE 2026-10-28 FLOW — 199703:42941 / 199703:40914 / 199703:42282 ──────
+   Three frames of ONE flow: the event unclaimed, the same event claimed, and
+   the valve confirmation over it. What they changed is WHERE each control
+   lives, so these assert placement and gating rather than appearance.
+
+       unclaimed   a sticky "Assign to me" at the foot, and no Assigned card
+       claimed     an "Assigned to {who}" card with Remove, and NO footer
+       either      "Ignore event" in its own card, between valve and details
+
+   The owner's standing "we need to keep the ignore and on it" is about the
+   ACTIONS. All three survive the rename; these pin that they do. */
+describe('the claim flow, as the latest frames lay it out', () => {
+  const assignBtn = () => screen.queryByRole('button', { name: /^assign to me$/i })
+  const removeBtn = () => screen.queryByRole('button', { name: /^remove$/i })
+  const ignoreBtn = () => screen.queryByRole('button', { name: /^ignore event$/i })
+
+  it('UNCLAIMED: offers Assign to me, and draws no Assigned card', () => {
+    renderOverlay({ onIgnore: () => {} })
+    expect(assignBtn()).toBeTruthy()
+    expect(screen.queryByText(/Assigned to/), 'an unclaimed event claims an owner').toBeNull()
+    expect(removeBtn(), 'Remove with nothing to remove').toBeNull()
+  })
+
+  it('CLAIMED: the footer goes away entirely', () => {
+    /* 199703:42941 draws no footer at all. This is the ~70px the body gets
+       back, and it is the easiest thing to regress by leaving the old
+       `showFooter` expression in place. */
+    startInvestigating(leakSys.id, { actor: getCurrentActor() })
+    renderOverlay({ onIgnore: () => {} })
+    expect(assignBtn(), 'still offering to claim an event I hold').toBeNull()
+    expect(screen.getByText(/Assigned to/)).toBeTruthy()
+    expect(removeBtn()).toBeTruthy()
+  })
+
+  it('Remove releases the claim, and only the holder sees it', () => {
+    startInvestigating(leakSys.id, { actor: 'Dana Whitfield' })
+    renderOverlay({ onIgnore: () => {} })
+    expect(screen.getByText('Dana Whitfield')).toBeTruthy()
+    expect(removeBtn(), 'offered to release someone else\u2019s claim').toBeNull()
+
+    cleanup()
+    startInvestigating(leakSys.id, { actor: getCurrentActor() })
+    renderOverlay({ onIgnore: () => {} })
+    fireEvent.click(removeBtn())
+    expect(isInvestigating(leakSys.id), 'Remove did not reach the store').toBe(false)
+  })
+
+  it('Ignore event is reachable in BOTH claim states', () => {
+    /* It moved out of the footer, and the footer now disappears when the
+       event is claimed — so the obvious way to break this is to let Ignore
+       disappear with it. A claim replaces the offer to claim; it does not
+       withdraw the right to ignore. */
+    renderOverlay({ onIgnore: () => {} })
+    expect(ignoreBtn(), 'no Ignore while unclaimed').toBeTruthy()
+
+    cleanup()
+    startInvestigating(leakSys.id, { actor: getCurrentActor() })
+    renderOverlay({ onIgnore: () => {} })
+    expect(ignoreBtn(), 'Ignore vanished with the footer').toBeTruthy()
+  })
+
+  it('Ignore event is named by its label, not by its whole card', () => {
+    /* The card holds three lines of text. Without an explicit name the
+       accessible name is all of them concatenated, which is neither what the
+       control is called nor what anyone would say to a voice assistant. */
+    renderOverlay({ onIgnore: () => {} })
+    const btn = ignoreBtn()
+    expect(btn.getAttribute('aria-label')).toBe('Ignore event')
+    // ...and the consequence is still announced, via description not name.
+    const describedBy = btn.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    expect(document.getElementById(describedBy).textContent).toMatch(/cannot be undone/i)
+  })
+
+  it('Ignore still hands the intent out rather than ignoring on the tap', () => {
+    /* PRD 14 has no un-ignore, so the card must not commit. A bigger tap
+       target for a destructive action is only safe while this holds. */
+    const seen = []
+    renderOverlay({ onIgnore: (id) => seen.push(id) })
+    fireEvent.click(ignoreBtn())
+    expect(seen).toEqual([leakSys.id])
+    expect(isIgnored(leakSys.id), 'the card ignored it by itself').toBe(false)
+  })
+
+  it('the header names the system', () => {
+    /* 199703:42952. It was dropped on the reading that the System details
+       card carried it; all three frames put it back, centred, because WHICH
+       system this is, is the first thing you need on a surface you arrive at
+       from a list. */
+    const { container } = renderOverlay()
+    const title = container.querySelector('[data-node-id="199703:42952"]')
+    expect(title).toBeTruthy()
+    expect(title.textContent).toBe(leakSys.name)
   })
 })

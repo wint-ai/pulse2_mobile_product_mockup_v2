@@ -347,6 +347,11 @@ const MOCK_EVENT = {
      event id, all literal copy on the node. */
   flowLabel: 'Flow Rate',
   durationLabel: 'Duration',
+  /* 199703:42980 — the second tile is the event's accumulated volume. No
+     default VALUE, only a label: `total` is what gates the tile, and a
+     default figure here would draw a litre count on every event whose data
+     does not carry one. */
+  totalLabel: 'Total',
   eventIdLabel: 'Event ID',
   eventId: 'Ik-6598',
   page: 1,
@@ -679,27 +684,65 @@ export default function AlertCard({
             </Badge>
           </div>
 
+          {/* ── THE FIGURES — 199703:42969, two tiles over one wide row ──────
+              The 2026-10-28 frames changed WHICH figures are tiled. It was
+              Flow Rate beside Duration; it is now Flow Rate beside TOTAL,
+              with Duration on its own full-width row underneath.
+
+              That ordering is the event's own logic rather than a layout
+              preference: flow rate and total volume are both quantities of
+              water and compare against each other, while duration is a span
+              and compares against neither. Tiling the first two and giving
+              the third its own line stops the card inviting a comparison
+              between litres and minutes.
+
+              Duration keeps its figure and its label on ONE line here (the
+              node is a 35px row, not a 57px tile), so the label sits beside
+              the value rather than under it. */}
           <div
-            className="content-stretch flex gap-[12px] h-[73px] items-start relative shrink-0 w-full"
-            data-node-id="199683:24877"
+            className="content-stretch flex flex-col gap-[12px] relative shrink-0 w-full"
+            data-node-id="199703:42969"
           >
-            <div className={FIG_TILE} style={FIG_TILE_WASH} data-node-id="199683:24878">
-              <div
-                className="content-stretch flex gap-[12px] items-center relative shrink-0"
-                data-node-id="199683:24879"
-              >
-                <p className={FIG_VALUE}>{data.value}</p>
-                <p className={FIG_UNIT}>{data.unit}</p>
+            <div
+              className="content-stretch flex gap-[12px] h-[57px] items-center relative shrink-0 w-full"
+              data-node-id="199703:42970"
+            >
+              <div className={FIG_TILE} style={FIG_TILE_WASH} data-node-id="199703:42971">
+                <div
+                  className="content-stretch flex gap-[5px] items-center relative shrink-0"
+                  data-node-id="199703:42972"
+                >
+                  <p className={FIG_VALUE}>{data.value}</p>
+                  <p className={FIG_UNIT}>{data.unit}</p>
+                </div>
+                <p className={FIG_LABEL}>{data.flowLabel}</p>
               </div>
-              <p className={FIG_LABEL}>{data.flowLabel}</p>
+
+              {/* TOTAL, and it is drawn only when there IS one. `volume` is
+                  the event's accumulated litres; a leak detected a minute ago
+                  may not carry one yet, and an empty tile beside a full one
+                  reads as a measurement of zero. Without it the flow tile
+                  takes the width, which is the honest shape. */}
+              {data.total ? (
+                <div className={FIG_TILE} style={FIG_TILE_WASH} data-node-id="199703:42976">
+                  <div
+                    className="content-stretch flex gap-[5px] items-center relative shrink-0"
+                    data-node-id="199703:42977"
+                  >
+                    <p className={FIG_VALUE}>{data.total}</p>
+                    {data.totalUnit ? <p className={FIG_UNIT}>{data.totalUnit}</p> : null}
+                  </div>
+                  <p className={FIG_LABEL}>{data.totalLabel}</p>
+                </div>
+              ) : null}
             </div>
-            <div className={FIG_TILE} style={FIG_TILE_WASH} data-node-id="199683:24883">
-              <div
-                className="content-stretch flex items-center relative shrink-0"
-                data-node-id="199683:24884"
-              >
-                <p className={FIG_VALUE}>{data.duration}</p>
-              </div>
+
+            <div
+              className={`${FIG_TILE} h-[35px] flex-row gap-[6px]`}
+              style={FIG_TILE_WASH}
+              data-node-id="199703:42981"
+            >
+              <p className={FIG_VALUE}>{data.duration}</p>
               <p className={FIG_LABEL}>{data.durationLabel}</p>
             </div>
           </div>
