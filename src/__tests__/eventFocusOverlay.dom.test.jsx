@@ -38,6 +38,12 @@ import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
+/* THE REAL CALL SITE. The 2026-10-29 bug ("why ignore action only available
+   from system page and not also when user clicks on event from location
+   view") was invisible to every test in this file, because they all mount the
+   overlay directly and pass their own props. The only thing that catches a
+   host wiring it wrong is going through the host. */
+import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
 import { SYSTEMS } from '@/data/systems'
 import { getActiveIncident, getNotification } from '@/data/incidents'
 import { getSystemUnits } from '@/data/systemDetails'
@@ -99,9 +105,15 @@ beforeEach(() => {
    199703:40914. Same functions, same stores, same gates — different words,
    and a different place on the surface:
 
-       On it      -> "Assign to me"  the sticky footer primary, unclaimed only
+       On it      -> "Assign to me"  tile 2 of "Manage event", unclaimed only
        Stand down -> "Remove"        inside the Assigned-to card, owner only
-       Ignore     -> "Ignore event"  its own Event handling card
+       Ignore     -> "Ignore event"  tile 1 of "Manage event"
+
+   AND THE PLACES MOVED AGAIN on 2026-10-29, by 199772:145451 / 199768:86540.
+   "Assign to me" was the sticky footer's single primary and "Ignore event" a
+   full-width "Event handling" card below the valve; they are now the two
+   tiles of a "Manage event" row ABOVE it, and there is no footer on this
+   surface in either claim state. Same functions, same stores, same gates.
 
    The owner's standing "we need to keep the ignore and on it" is about the
    ACTIONS, and every one of them is still here and still asserted below.
@@ -209,7 +221,7 @@ describe('it reuses the app’s own components', () => {
     expect(screen.getAllByText(rate).length).toBeGreaterThan(0)
   })
 
-  it('does NOT draw AlertCard’s own action row — the footer is the only one', () => {
+  it('does NOT draw AlertCard’s own action row — Manage event is the only one', () => {
     renderOverlay({ onIgnore: () => {} })
     // One On it and one Ignore on the whole surface, not two of each.
     expect(screen.getAllByRole('button', { name: /^assign to me$/i })).toHaveLength(1)
@@ -291,18 +303,21 @@ describe('the valve', () => {
     expect(screen.getByRole('region', { name: 'Valve status' })).toContainElement(controls[0])
   })
 
-  /* With the valve out of the footer the solid slot is On it's again — it was
-     demoted only because the valve sat above it. The owner's standing
-     requirement, twice: "we need to keep the ignore and on it". Both survive
-     the redraw whatever the frames draw. */
-  it('keeps On it and Ignore in the footer, with On it back as the primary', () => {
+  /* SUPERSEDED 2026-10-29 — this used to assert that Assign carried
+     `data-variant="default"`, i.e. that it was the footer's solid primary.
+     There is no footer now: 199772:145451 puts Assign and Ignore in the
+     "Manage event" tile row, where neither is a shadcn <Button> and neither
+     outranks the other. What the assertion was really protecting is the
+     owner's standing requirement, twice over — "we need to keep the ignore
+     and on it" — and that all three controls coexist on one screen without
+     the valve CTA being duplicated. That is what it pins now. */
+  it('keeps the valve CTA, Assign and Ignore as three distinct controls', () => {
     renderOverlay({ system: valveSys, onIgnore: () => {} })
     expect(screen.getByRole('button', { name: /^close valve now$/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^assign to me$/i })).toHaveAttribute(
-      'data-variant',
-      'default',
-    )
+    expect(screen.getByRole('button', { name: /^assign to me$/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^ignore event$/i })).toBeInTheDocument()
+    // ...and none of them sits in a footer, because there is not one.
+    expect(document.querySelector('[role="dialog"] footer')).toBeNull()
   })
 
   it('commits nothing on the tap — ValveConfirmSheet gates it, with v1’s copy', () => {
@@ -360,11 +375,13 @@ describe('the valve', () => {
     renderOverlay({ system: noValveSys, valve: { state: 'open', onIntent: () => {} } })
     expect(screen.queryByRole('region', { name: 'Valve status' })).toBeNull()
     expect(screen.queryByRole('button', { name: /valve now$/i })).toBeNull()
-    // …and the claim takes the solid slot back.
-    expect(screen.getByRole('button', { name: /^assign to me$/i })).toHaveAttribute(
-      'data-variant',
-      'default',
-    )
+    /* …and the claim is still offered. This used to read "the claim takes the
+       solid slot back" and assert data-variant="default" on it, which was a
+       fact about the sticky footer's <Button>. 2026-10-29 deleted that footer
+       (199772:145451 draws none) and Assign is now a "Manage event" tile, so
+       there is no variant to rank. What survives is the claim itself, which is
+       what a system with no valve has to offer. */
+    expect(screen.getByRole('button', { name: /^assign to me$/i })).toBeInTheDocument()
   })
 
   it('lets Escape cancel the confirmation without closing the event behind it', () => {
@@ -415,10 +432,11 @@ describe('device details', () => {
 describe('the collapsible sections', () => {
   it('wires each header to its own panel with aria-expanded / aria-controls', () => {
     renderOverlay()
-    /* "Event details" is no longer a section on a water event — its four
-       facts are a read-only strip at the top now (owner, 2026-10-18), so the
-       accordion only exists on a fault. The wiring contract is the same for
-       the sections that remain. */
+    /* "Event details" is not an ACCORDION on a water event. It was a strip
+       (2026-10-18), then nothing (2026-10-21), and since 2026-10-29 it is the
+       plain group heading 199772:145509 draws over the detail cards — so the
+       accordion by that name still only exists on a fault. The wiring
+       contract is the same for the sections that remain. */
     for (const name of [/^Event graph$/, /^Who was notified/, /^Device details$/]) {
       const { header, panel } = section(name)
       expect(header).toHaveAttribute('aria-expanded')
@@ -584,8 +602,9 @@ describe('On it / Stand down / Ignore', () => {
   })
 
   /* The ONLY reason Ignore is ever absent on a live water event: the mount
-     passed no handler, so the control has no destination. HomeAllAccounts does
-     exactly this today — see the report. */
+     passed no handler, so the control has no destination. This is the gate
+     itself, asserted directly; `the location view` describe at the bottom of
+     this file asserts that the real HomeAllAccounts mount now satisfies it. */
   it('draws no Ignore when the mount supplies no onIgnore', () => {
     startInvestigating(leakSys.id, { actor: getCurrentActor() })
     renderOverlay()
@@ -595,20 +614,146 @@ describe('On it / Stand down / Ignore', () => {
 })
 
 describe('the ignored state', () => {
-  it('shows who ignored it and the captured reason, and drops the claim row', () => {
+  /* SUPERSEDED 2026-10-29 by 199754:28589. This used to be "shows who ignored
+     it and the captured reason": the surface drew an orange banner reading
+     "Ignored by {name}" with PRD 15's cause under it, carried over from
+     LeakDetail.jsx:305-319. The frame draws neither. It draws one slate/900
+     pill over the wave — a message-blocked glyph and the words "Event
+     Ignored" — and the standing rule is that this project transcribes the
+     frame rather than writing strings it does not contain.
+
+     SO THE ACTOR AND THE CAUSE ARE NO LONGER ON THIS SURFACE AT ALL, and
+     their absence is deliberately NOT pinned here, for the same reason
+     a33aee8 refused to pin Detection's: a test that froze the loss would make
+     it harder to reverse. Both values are still in ignoredIncidents, and the
+     component says where to put them back. What IS pinned is the frame's
+     strip and the thing the old test really protected — that an ignored event
+     offers no actions. */
+  it('draws the Event Ignored strip, and no actions at all', () => {
     ignoreIncident(leakSys.id, { tag: 'Scheduled irrigation', ignoredBy: 'Marcus Ellery' })
     expect(isIgnored(leakSys.id)).toBe(true)
 
-    renderOverlay({ onIgnore: () => {} })
+    const { container } = renderOverlay({ onIgnore: () => {} })
 
-    expect(screen.getByText('Ignored by Marcus Ellery')).toBeInTheDocument()
-    expect(screen.getByText('Scheduled irrigation')).toBeInTheDocument()
+    const strip = container.querySelector('[data-node-id="199755:29744"]')
+    expect(strip, 'the 199755:29744 header strip').toBeTruthy()
+    expect(strip.textContent).toBe('Event Ignored')
+    // The banner it replaces is gone, name and all.
+    expect(screen.queryByText(/^Ignored by /)).toBeNull()
 
     // PRD 04a:146-154 — Ignore and On it are spent. (PRD 14) nothing un-ignores.
     expect(screen.queryByRole('button', { name: /^ignore event$/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /^assign to me$/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /^remove$/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /un-?ignore/i })).toBeNull()
+  })
+
+  /* 199754:28589 draws no "Manage event" section. That falls out of the
+     gates the tiles already carry (`!ignored` on both), but the tiles are new
+     and they REPLACED the control that gating was written for, so it is
+     asserted rather than assumed. */
+  it('draws no Manage event row once the event is ignored', () => {
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    const { container } = renderOverlay({ onIgnore: () => {} })
+    expect(container.querySelector('[data-node-id="199772:145466"]')).toBeNull()
+    expect(screen.queryByText('Manage event')).toBeNull()
+  })
+
+  /* The strip belongs to the HEADER, not to the body — 199755:33270 groups
+     it with the header bar. Two things depend on that and both were a real
+     rendering fault before it moved: inside the scroller it took the ignored
+     body's `opacity: 0.7` (a slate/900 pill at 70% over the red hero reads as
+     maroon, which is what the AlertCard agent saw and reported), and it
+     scrolled away from a surface whose whole message is its state. */
+  it('draws the strip OUTSIDE the dimmed body, with the header', () => {
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    const { container } = renderOverlay({ onIgnore: () => {} })
+    const strip = container.querySelector('[data-node-id="199755:29744"]')
+    const scroller = container.querySelector('[data-ignored="true"]')
+    expect(scroller, 'the one scrolling region').toBeTruthy()
+    expect(scroller.contains(strip), 'the strip is inside the dimmed body').toBe(false)
+    // ...and still above it in the document.
+    // DOCUMENT_POSITION_FOLLOWING === 4
+    expect(strip.compareDocumentPosition(scroller) & 4).toBe(4)
+  })
+
+  /* 199768:87266 — the ignored frame's one line of prose, and the ONLY
+     sentence this surface draws outside a card.
+
+     IT IS NOT AN AUTO-SHUT-OFF-DISABLED LINE, which is the reading that
+     nearly kept it out: every node in this set is the "Auto Shut Off Enabled"
+     variant, so a disabled-variant string would have been evidence of a
+     variant the set does not cover. WaterEventFeedbackSheet.jsx:765-766
+     settles it — the identical string is bullet 1 of the IGNORE confirmation
+     (199745:21420). It is a consequence of ignoring, not of configuration,
+     which is why it appears here and only here.
+
+     The two halves are pinned separately because the bold word is the whole
+     point of the sentence and is the easiest thing to lose to a reflow. */
+  it('states what ignoring cost, with the frame\u2019s emphasis', () => {
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    const { container } = renderOverlay({ onIgnore: () => {} })
+    const line = container.querySelector('[data-node-id="199768:87266"]')
+    expect(line, 'the 199768:87266 sentence').toBeTruthy()
+    expect(line.textContent.replace(/\s+/g, ' ').trim()).toBe(
+      'The valve will not be automatically closed, even if the flow keeps growing.',
+    )
+    // <strong>, not a bare bold span, so the emphasis reaches the a11y tree.
+    expect(line.querySelector('strong')?.textContent).toBe('not')
+    // It is the ignored state's, and only the ignored state's.
+    cleanup()
+    clearIgnored(leakSys.id)
+    const live = renderOverlay({ onIgnore: () => {} })
+    expect(live.container.querySelector('[data-node-id="199768:87266"]')).toBeNull()
+  })
+
+  /* It sits between the alert card and the valve card, which is where
+     199754:28589 puts it. */
+  it('puts that sentence after the alert card and before the valve', () => {
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    const { container } = renderOverlay({ onIgnore: () => {} })
+    const line = container.querySelector('[data-node-id="199768:87266"]')
+    const card = container.querySelector('[data-ignored="true"]').firstElementChild
+    const valve = screen.queryByRole('region', { name: 'Valve status' })
+    // DOCUMENT_POSITION_PRECEDING === 2, _FOLLOWING === 4
+    expect(line.compareDocumentPosition(card) & 2).toBe(2)
+    if (valve) expect(line.compareDocumentPosition(valve) & 4).toBe(4)
+  })
+
+  /* 199754:28590 — the ignored hero carries ONE tint, slate/500 blended as
+     colour, where the live event carries #ff7b7d plus a red multiply. The red
+     band over a muted card was reported as the card bleeding red; it is the
+     band that is wrong there. */
+  it('greys the hero wave once the event is ignored', () => {
+    const live = renderOverlay({ onIgnore: () => {} })
+    const band = () => live.container.querySelector('[data-node-id="199431:138924"]')
+    expect(band().innerHTML).toMatch(/bg-\[#ff7b7d\]/)
+    cleanup()
+
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    const { container } = renderOverlay({ onIgnore: () => {} })
+    const ignoredBand = container.querySelector('[data-node-id="199431:138924"]')
+    expect(ignoredBand.innerHTML).toMatch(/bg-slate-500/)
+    expect(ignoredBand.innerHTML).not.toMatch(/bg-\[#ff7b7d\]/)
+  })
+
+  /* AlertCard grew an `ignored-overlay` shell — the overlay's geometry on a
+     slate/500 border, 199772:144341. Both surfaces pass actions={false} and
+     an event whose `.ignored` is true, so the card cannot tell them apart;
+     the call site picks, exactly as the mobile / overlay split already does.
+     Without this flip the new shell is unreachable.
+
+     199772:144519 is AlertCard's own marker for the overlaid shell — it
+     renders that node id only when `overlaid` is true (AlertCard.jsx, search
+     `const overlaid`). Asserted on the ID rather than on geometry so this
+     does not depend on that component's class strings. */
+  it('mounts AlertCard as ignored-overlay, not the System page shell', () => {
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    const { container } = renderOverlay({ onIgnore: () => {} })
+    expect(
+      container.querySelector('[data-node-id="199772:144519"]'),
+      'the ignored card is still the System page shell — variant not flipped',
+    ).toBeTruthy()
   })
 
   /* DELIBERATE DEPARTURE from how PRD 04a:146-154 has been read — see the
@@ -1026,9 +1171,9 @@ describe('the red wave collapses with the content', () => {
    the valve confirmation over it. What they changed is WHERE each control
    lives, so these assert placement and gating rather than appearance.
 
-       unclaimed   a sticky "Assign to me" at the foot, and no Assigned card
-       claimed     an "Assigned to {who}" card with Remove, and NO footer
-       either      "Ignore event" in its own card, between valve and details
+       unclaimed   "Assign to me" as tile 2 of Manage event, no Assigned card
+       claimed     an "Assigned to {who}" card with Remove, and no Assign tile
+       either      "Ignore event" as tile 1, in both claim states
 
    The owner's standing "we need to keep the ignore and on it" is about the
    ACTIONS. All three survive the rename; these pin that they do. */
@@ -1044,10 +1189,10 @@ describe('the claim flow, as the latest frames lay it out', () => {
     expect(removeBtn(), 'Remove with nothing to remove').toBeNull()
   })
 
-  it('CLAIMED: the footer goes away entirely', () => {
-    /* 199703:42941 draws no footer at all. This is the ~70px the body gets
-       back, and it is the easiest thing to regress by leaving the old
-       `showFooter` expression in place. */
+  it('CLAIMED: the offer to claim goes away, the Assigned card arrives', () => {
+    /* The gate is the old `showFooter` expression, unchanged — it just reads
+       as a tile gate now. The easiest way to regress this is to drop the
+       `!investigating` half while moving it. */
     startInvestigating(leakSys.id, { actor: getCurrentActor() })
     renderOverlay({ onIgnore: () => {} })
     expect(assignBtn(), 'still offering to claim an event I hold').toBeNull()
@@ -1105,6 +1250,72 @@ describe('the claim flow, as the latest frames lay it out', () => {
     expect(isIgnored(leakSys.id), 'the card ignored it by itself').toBe(false)
   })
 
+  /* ── THE 2026-10-29 ROW — 199772:145451 / 199768:86540 ──────────────────
+     The sticky footer is deleted and "Event handling" is replaced by a
+     "Manage event" 2-up tile row above the valve. These pin the three things
+     the owner ruled on, each of which is a one-line regression. */
+  it('draws Manage event as a two-tile row, and no footer anywhere', () => {
+    renderOverlay({ onIgnore: () => {} })
+    expect(screen.getByText('Manage event')).toBeInTheDocument()
+    // The eyebrow the full-width card used to carry is gone with the card.
+    expect(screen.queryByText('Event handling')).toBeNull()
+    expect(document.querySelector('[role="dialog"] footer')).toBeNull()
+
+    const row = document.querySelector('[data-node-id="199772:145466"]')
+    expect(row, 'the tile row').toBeTruthy()
+    expect(within(row).getAllByRole('button')).toHaveLength(2)
+  })
+
+  it('labels tile 2 "Assign", not "Ignore" — the frame draws both as Ignore', () => {
+    /* 199772:145475 and 199772:145485 are the same button instance and the
+       frame only relabelled the first, so it reads "Ignore" on a tile titled
+       "Assign to me". The owner confirmed that is a copy bug. Reproducing it
+       would be the worst kind of pixel fidelity, so this pins the fix. */
+    renderOverlay({ onIgnore: () => {} })
+    const ignoreTile = ignoreBtn()
+    const assignTile = assignBtn()
+    expect(within(ignoreTile).getByText('Ignore')).toBeInTheDocument()
+    expect(within(ignoreTile).getByText('Mark as expected')).toBeInTheDocument()
+    expect(within(assignTile).getByText('Assign')).toBeInTheDocument()
+    expect(within(assignTile).getByText('Claim alert')).toBeInTheDocument()
+    expect(within(assignTile).queryByText('Ignore')).toBeNull()
+  })
+
+  it('shortens the Ignore copy but keeps the warning in the description', () => {
+    /* "Treat as expected — the valve stays open, and this cannot be undone"
+       is replaced on screen by the frame's "Mark as expected". PRD 14 has no
+       un-ignore, so the consequence must not simply be deleted: it moves to
+       aria-describedby, which is where a screen reader expects it. */
+    renderOverlay({ onIgnore: () => {} })
+    /* Not `toBeVisible`: jsdom loads no stylesheet, so `sr-only` has no
+       effect there and everything reads as visible. What is checkable is
+       that the sentence is no longer INSIDE the tile — it is referenced from
+       outside it instead. */
+    expect(within(ignoreBtn()).queryByText(/the valve stays open/)).toBeNull()
+    expect(within(ignoreBtn()).getByText('Mark as expected')).toBeInTheDocument()
+    const describedBy = ignoreBtn().getAttribute('aria-describedby')
+    expect(document.getElementById(describedBy).textContent).toMatch(/cannot be undone/i)
+  })
+
+  it('puts Manage event ABOVE the valve card, which the old card was below', () => {
+    renderOverlay({ system: valveSys, onIgnore: () => {} })
+    const row = document.querySelector('[data-node-id="199772:145466"]')
+    const valve = screen.getByRole('region', { name: 'Valve status' })
+    // Node.DOCUMENT_POSITION_FOLLOWING === 4: `valve` comes after `row`.
+    expect(row.compareDocumentPosition(valve) & 4).toBe(4)
+  })
+
+  it('brings "Event details" back on a water event, as a heading', () => {
+    /* 199774:159810 / 199772:145509. It is a label over the detail cards, not
+       the four-fact strip a33aee8 removed and not an accordion — see the
+       component's note for why the strip is NOT what came back. */
+    renderOverlay()
+    const heading = document.querySelector('[data-node-id="199772:145509"]')
+    expect(heading).toBeTruthy()
+    expect(heading.textContent).toBe('Event details')
+    expect(screen.queryByRole('button', { name: /^Event details$/ })).toBeNull()
+  })
+
   it('the header names the system', () => {
     /* 199703:42952. It was dropped on the reading that the System details
        card carried it; all three frames put it back, centred, because WHICH
@@ -1114,5 +1325,62 @@ describe('the claim flow, as the latest frames lay it out', () => {
     const title = container.querySelector('[data-node-id="199703:42952"]')
     expect(title).toBeTruthy()
     expect(title.textContent).toBe(leakSys.name)
+  })
+})
+
+/* ── THE LOCATION VIEW'S MOUNT — the 2026-10-29 wiring bug ─────────────────
+   Owner: "we have a bug / why ignore action only available from system page
+   and not also when user clicks on event from location view".
+
+   HomeAllAccounts mounted EventFocusOverlay with `open`, `systemId` and
+   `onClose` only. Ignore is gated on `Boolean(onIgnore)` — on purpose, so a
+   control never promises a destination its host has not wired — so the
+   control simply never rendered on anything opened from the TriageBand.
+
+   A DIRECT MOUNT CANNOT CATCH THIS. Every other test in this file passes its
+   own `onIgnore` and therefore asserts the component, not the wiring. This
+   one drives the page: render /, click a water-event row in the band, and
+   look for the control in the overlay that opens.
+
+   THE BLAST RADIUS WAS ONLY onIgnore, which is checked below too: Assign is
+   gated on state (`!ignored && !investigating`), Remove on `isOwner` and the
+   valve card on the system's own devices, so none of the three needed a prop
+   and none of them was ever missing here. */
+describe('reached from the location view, not mounted directly', () => {
+  const renderHome = () =>
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <HomeAllAccounts />
+      </MemoryRouter>,
+    )
+
+  /** The band's rows carry an aria-label ending "running <duration>". */
+  const bandRows = () =>
+    [...document.querySelectorAll('button')].filter(b =>
+      /running /.test(b.getAttribute('aria-label') || ''),
+    )
+
+  it('offers Ignore on an event opened from the TriageBand', () => {
+    renderHome()
+    const rows = bandRows()
+    expect(rows.length, 'no water-event rows in the band to open').toBeGreaterThan(0)
+
+    fireEvent.click(rows[0])
+    expect(screen.getByRole('dialog'), 'the row did not open the overlay').toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: /^ignore event$/i }),
+      'Ignore is missing on the location-view path — onIgnore is unwired again',
+    ).toBeInTheDocument()
+  })
+
+  it('offers the claim from that path too, which never needed a prop', () => {
+    renderHome()
+    const rows = bandRows()
+    fireEvent.click(rows[0])
+    /* Assign is gated on state, not on `onClaim`, so it has always worked
+       here. Pinned because the bug report claimed otherwise and the fix would
+       have been to pass a no-op handler this page has nothing to repaint
+       with. */
+    expect(screen.getByRole('button', { name: /^assign to me$/i })).toBeInTheDocument()
   })
 })

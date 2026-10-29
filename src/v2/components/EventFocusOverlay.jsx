@@ -238,13 +238,13 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
+  ArrowRight,
   ChevronDown,
-  ChevronRight,
-  Flag,
   ImagePlus,
   MapPin,
   PowerOff,
   TriangleAlert,
+  User,
   UserCircle2,
   WifiOff,
   X,
@@ -256,7 +256,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { Separator } from '@/components/ui/separator'
 import AlertCard from '@/v2/components/AlertCard'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
-import { PhotoSensor3, Waves } from '@/v2/icons'
+import { MessageBlocked, PhotoSensor3, Waves } from '@/v2/icons'
 import wave from '@/assets/system-hero-wave.png'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
@@ -279,7 +279,7 @@ import {
   removePicture,
   setNotes,
 } from '@/data/locationInfoStore'
-import { isIgnored, getIgnoredInfo } from '@/data/ignoredIncidents'
+import { isIgnored } from '@/data/ignoredIncidents'
 import {
   isInvestigating,
   getInvestigatingInfo,
@@ -797,6 +797,77 @@ function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
   )
 }
 
+/**
+ * ONE TILE of the "Manage event" row — 199772:145467 (Ignore) and
+ * 199772:145477 (Assign), which are the same Section component with different
+ * contents.
+ *
+ * SUBSTITUTIONS, both of them this repo's standing ones:
+ *   Huge Icons / message-blocked -> <MessageBlocked/> (v2/icons), 16px
+ *   Huge Icons / user           -> lucide-react <User/>, 16px
+ *   Huge Icons / arrow-right-02 -> lucide-react <ArrowRight/>, 16px
+ * The arrow is the swap SystemHealthCard.jsx:115-121 and TriageBand.jsx:89
+ * already document and measure. `user` is the same call: the node's own
+ * inset-[14.58%_20.83%_14.58%_20.84%] puts Huge's art box at x 5->19,
+ * y 3.5->20.5 in a 24-unit grid; lucide's User is x 4->20, y 3->21 — the same
+ * head-plus-shoulders construction, one unit wider and taller. Per
+ * src/v2/icons/index.js ("Lucide still covers everything it already has"),
+ * that is a reuse rather than a new project-owned glyph. Figma's
+ * `-rotate-180 -scale-x-100` wrapper is dropped with both: it is a net
+ * vertical flip of a vertically symmetric mark.
+ *
+ * THE PILL IS NOT ABSOLUTELY POSITIONED. Figma emits it
+ * `absolute left-[283px] top-[41px]`, which is where it sat on the 402-wide
+ * artboard the component was drawn on — on the ~179px tile this row actually
+ * builds, that is ~100px outside the card. It is an artifact of the emit, not
+ * a design decision, so the pill is right-aligned in its own row instead. It
+ * keeps the frame's vertical band (y=41 is the sub-label's row) without
+ * reproducing a number that only held at one width.
+ *
+ * TOKENS ONLY. The frame's `bg-[#fafbfc]` is this repo's --surface-card and
+ * its `border-white` the house card border; slate-100 / slate-200 / slate-500
+ * / slate-800 and --foreground are all themed, so the whole tile moves under
+ * ?theme=contrast. The chip's ink is the one value the emit does not carry
+ * (the glyph is an <img> there); slate-700 reads with the slate-800 title.
+ *
+ * NAMED EXPLICITLY. Without aria-label the accessible name is every word in
+ * the tile concatenated — "Ignore event Mark as expected Ignore" — which is
+ * neither what the control is called nor what anyone would say to a voice
+ * assistant (WCAG 2.5.3). The consequence travels in aria-describedby.
+ */
+function ManageTile({ icon, title, sub, pill, label, describedBy, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-describedby={describedBy}
+      className="flex h-[85px] min-w-0 flex-[1_0_0] flex-col justify-center gap-[9px] rounded-[22px] border border-solid border-card bg-surface-card px-[12px] py-[11px] text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
+      {/* 199772:145469 — the 28px chip and the title, 2px apart. */}
+      <span className="flex w-full items-center gap-[2px]">
+        <span className="flex size-[28px] shrink-0 items-center justify-center rounded-[18.361px] bg-slate-100 text-slate-700">
+          {icon}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[20px] font-semibold leading-[32.5px] tracking-[-0.5px] text-slate-800">
+          {title}
+        </span>
+      </span>
+      {/* 199772:145476 + 199772:145475 — the sub-label, and the pill the emit
+          floated off the card, on one row. */}
+      <span className="flex w-full items-center justify-between gap-[8px]">
+        <span className="min-w-0 truncate text-[14px] font-medium leading-[20px] text-slate-500">
+          {sub}
+        </span>
+        <span className="inline-flex h-[24px] shrink-0 items-center gap-[4px] rounded-[26px] bg-slate-200 px-[10px] text-[12px] font-medium leading-[12px] text-foreground">
+          {pill}
+          <ArrowRight size={16} aria-hidden="true" />
+        </span>
+      </span>
+    </button>
+  )
+}
+
 function Fact({ label, value }) {
   if (value === null || value === undefined || value === '') return null
   return (
@@ -1215,7 +1286,10 @@ export default function EventFocusOverlay({
   /* Ignore is a water-event concept, so a fault never reads as ignored even if
      the system carries an ignore from an earlier water event. */
   const ignored = isWater && isIgnored(sysId)
-  const ignoredInfo = getIgnoredInfo(sysId)
+  /* `getIgnoredInfo` is NOT read any more. 199754:28589 draws neither the
+     actor nor PRD 15's captured cause — see the "EVENT IGNORED" strip below
+     for what that costs and how to put them back. The store still holds
+     both. */
   const investigating = isInvestigating(sysId)
   const investigatingInfo = getInvestigatingInfo(sysId)
   const me = getCurrentActor()
@@ -1387,16 +1461,41 @@ export default function EventFocusOverlay({
      down NO. The muted body and the "Ignored by {name}" pill are unchanged. */
   const showClaimActions = isWater && !ignored
   const showIgnore = isWater && !ignored && Boolean(onIgnore)
-  /* THE FOOTER IS NOW ONE CONTROL: "Assign to me", and only while the event
-     is unclaimed. 199703:40914 draws it that way and 199703:42941 — the same
-     event once claimed — draws no footer at all.
+  /* The Assign tile carries exactly the gate the sticky footer carried: a
+     water event, not ignored, not already held. A claim does not withdraw the
+     right to ignore, so `showIgnore` is deliberately NOT gated on
+     `investigating` — see its note above. */
+  const showAssign = showClaimActions && !investigating
+  /* ── THERE IS NO FOOTER AT ALL — 2026-10-29 ─────────────────────────────
+     SUPERSEDED RULING, KEPT. The decision this reverses stays written down
+     rather than deleted, because this repo's convention is that a withdrawn
+     ruling stays visible so nobody re-derives the old one from the same
+     frames a third time. It read, 2026-10-28, from 199703:40914 / 199703:42941:
 
-     It used to open for Stand down and for Ignore as well. Both moved to
-     where the frames put them: Remove sits in the Assigned-to card beside the
-     claim it releases, and Ignore has its own Event handling card. Neither
-     was dropped; `showIgnore` still gates Ignore exactly as it did, it is
-     just read somewhere else now. */
-  const showFooter = showClaimActions && !investigating
+         "THE FOOTER IS NOW ONE CONTROL: 'Assign to me', and only while the
+          event is unclaimed. 199703:40914 draws it that way and 199703:42941
+          — the same event once claimed — draws no footer at all. ... So the
+          footer disappears entirely once the event is claimed, which is what
+          gives the body back ~70px."
+
+     That was a fair reading of THOSE frames. The owner was shown it and ruled
+     that the new ones win: 199772:145451 and 199768:86540 draw no sticky
+     footer in EITHER claim state, and put the claim where Ignore already was
+     — as the second tile of the "Manage event" 2-up row above the valve. So
+     Assign stops being a mode of the chrome and becomes one of two peers,
+     which is what it always was semantically.
+
+     NOTHING WAS DROPPED. `showAssign` above IS the old `showFooter`
+     expression, unchanged, now read as a tile gate; `claim()` is the same
+     function writing the same store; Remove still lives in the Assigned-to
+     card. The owner's standing "we need to keep the ignore and on it" is
+     satisfied by the row rather than by a bar.
+
+     AND THE BODY KEEPS THE ~70px — now in both claim states rather than only
+     the claimed one, which is the practical argument for the new layout. The
+     scroller is the last flex child of the panel, so deleting the footer
+     simply hands it that height; the scroller's own pb-[12px] is what keeps
+     the timeline off the frame's bottom edge. */
 
   return (
     <div
@@ -1469,9 +1568,26 @@ export default function EventFocusOverlay({
       >
         <div className="absolute left-[-42.79%] top-[-140px] h-[347px] w-[185.32%]">
           <img alt="" src={wave} className="absolute inset-0 size-full max-w-none object-cover" />
-          {/* The two tint layers, in the node's order. */}
-          <div className="absolute inset-0 bg-[#ff7b7d] mix-blend-color" />
-          <div className="absolute inset-0 bg-[rgba(251,44,54,0.57)] mix-blend-multiply" />
+          {/* THE TINT IS THE STATE'S, 2026-10-29. The live event's two layers
+              are 199431:138924's own, in the node's order: #ff7b7d blended as
+              colour, then red/500 at 57% multiplied over it.
+
+              AN IGNORED EVENT'S HERO IS GREY. 199754:28590 is the same
+              screenshot with ONE tint — slate/500 blended as colour — and no
+              red multiply at all, which is the whole visual difference
+              between the two frames above the fold. It is not decoration: a
+              red band over a muted, un-actionable card was reported as the
+              card bleeding red, and it is the band that is wrong there, not
+              the card. The art, the geometry and the blend modes are
+              untouched; only the tint changes. */}
+          {ignored ? (
+            <div className="absolute inset-0 bg-slate-500 mix-blend-color" />
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-[#ff7b7d] mix-blend-color" />
+              <div className="absolute inset-0 bg-[rgba(251,44,54,0.57)] mix-blend-multiply" />
+            </>
+          )}
         </div>
       </div>
 
@@ -1563,6 +1679,66 @@ export default function EventFocusOverlay({
             {breadcrumb ? `, ${breadcrumb}` : ''}
           </h2>
         </header>
+
+        {/* ── EVENT IGNORED — 199755:29744 ──────────────────────────────────
+            The ignored state's second header bar, and it REPLACES the orange
+            "Ignored by {name}" banner that stood below the alert card. That
+            banner was LeakDetail.jsx:305-319 carried forward: an amber strip
+            with a flag glyph, the actor's name in bold, and PRD 15's captured
+            cause under it. 199754:28589 draws none of that. It draws a
+            slate/900 pill at 47px, backdrop-blurred over the wave, centred,
+            holding a 17px message-blocked glyph and the words "Event
+            Ignored" — and nothing else.
+
+            SO THE ACTOR AND THE CAUSE ARE NOT DRAWN ANY MORE, and neither is
+            stated anywhere else on this surface. That is the frame
+            transcribed rather than a judgement that they do not matter: the
+            standing rule is that this project writes no string the frame does
+            not contain, and "Ignored by Marcus Ellery" is such a string. Both
+            values are still in ignoredIncidents and both are one line to
+            restore. Reported rather than quietly re-homed, the same way
+            Detection was when the fact strip went.
+
+            IT BELONGS TO THE HEADER, NOT TO THE BODY. 199755:33270 is a
+            `flex-col gap-[10px]` holding the header bar and then this strip,
+            above the alert card — so it is rendered inside the pinned bar
+            here rather than as the scroller's first child. Two things follow
+            from that and both are the reason for it: the strip does not take
+            the body's `opacity: 0.7` ignored dim (muting the announcement OF
+            the mute reads as a rendering fault), and it cannot scroll away
+            from a surface whose whole message is its state. The cost is 47px
+            of pinned height, and only while the event is ignored.
+
+            THE GROUND IS `bg-foreground` + `text-background`, NOT the
+            frame's literal slate/900 on #fafbfc, and this is the pair
+            ValveStatusCard.jsx:220-245 already measured and declared for the
+            inverted-button pattern. In :root `--foreground: var(--slate-900)`
+            so under `light` the frame is transcribed byte for byte — but
+            --slate-900 is the INK ramp and it INVERTS: under `dark` it is
+            zinc-50, which made this strip a near-white pill carrying
+            near-white text. Measured there at 1.01:1 before this changed;
+            bg-foreground + text-background clears AA in all four (light
+            16.47, dark 19.05, sand 18.92, contrast 4.95).
+
+            ONE VARIANT ONLY. 199754:28589 is the "Auto Shut Off Enabled"
+            drawing, like every node in this set. It is not evidence about
+            what the disabled variant draws here, so nothing is removed on its
+            authority beyond the banner it directly replaces. */}
+        {isWater && ignored ? (
+          <div className="px-[12px] pb-[10px]">
+            <div
+              className="flex h-[47px] w-full items-center justify-center gap-[5px] rounded-[35px] bg-foreground px-[8px] backdrop-blur-[3px]"
+              data-node-id="199755:29744"
+            >
+              <span className="flex size-[28px] shrink-0 items-center justify-center text-background">
+                <MessageBlocked size={17} />
+              </span>
+              <p className="text-[20px] font-semibold leading-[32.5px] text-background">
+                Event Ignored
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Body — the one scrolling region. The header and the footer are
@@ -1598,12 +1774,65 @@ export default function EventFocusOverlay({
         {alertRow ? (
           <AlertCard
             /* 'overlay', not 'mobile'. The 2026-10-25 redraw is THIS
-               surface's only; SystemPageV2Screen keeps `mobile`. */
-            variant={alertRow.ignored ? 'ignored' : 'overlay'}
+               surface's only; SystemPageV2Screen keeps `mobile`.
+
+               AND 'ignored-overlay', not 'ignored', since 2026-10-29. The
+               ignored card now has an overlay drawing of its own
+               (199772:144341 / 199754:28589 — the overlay geometry on a
+               slate/500 border) beside the System page's. A CALL-SITE FLIP is
+               the only way to pick it: both surfaces pass actions={false} and
+               an event whose `.ignored` is true, so AlertCard has no signal
+               of its own to tell them apart. It is the same split the
+               existing `mobile` / `overlay` pair already makes. */
+            variant={alertRow.ignored ? 'ignored-overlay' : 'overlay'}
             event={alertRow}
             actions={false}
             className="w-full! shrink-0"
           />
+        ) : null}
+
+        {/* ── WHAT IGNORING COST — 199768:87266 ────────────────────────────
+            The ignored frame's one line of prose, between the alert card and
+            the valve card, and the only sentence this surface draws outside a
+            card.
+
+            IT IS NOT A STATEMENT THAT AUTO-SHUT-OFF IS CONFIGURED OFF — which
+            is the reading that nearly kept it out, since every node in this
+            set is the "Auto Shut Off Enabled" variant and a disabled-variant
+            line would have been evidence of a variant the set does not cover.
+            WaterEventFeedbackSheet.jsx:765-766 settles it independently: the
+            identical string is bullet 1 of the IGNORE confirmation
+            (199745:21420), under "You're telling Wint this flow is OK. Here's
+            what happens:". So it is a consequence of ignoring — shut-off is
+            on, and ignoring is what suspends it for this event. The sheet
+            PROMISES it; this surface is where the promise is shown as kept,
+            which is exactly why it appears in the ignored frame and nowhere
+            else.
+
+            SPELLED THE WAY THE SHEET SPELLS IT, deliberately: same sizes,
+            same `text-foreground`, same `<strong className="font-bold">`
+            around the one word. Two surfaces carrying one promise in one
+            wording is the point, and `<strong>` rather than the node's bare
+            bold span so the emphasis survives into the accessibility tree.
+            The node's `text-black` is a literal; --foreground is the token
+            that paints it (slate/900 under `light`) and the only one that
+            moves under the other three themes.
+
+            IT IS BODY, NOT CHROME, so unlike the "Event Ignored" strip it
+            stays inside the scroller and takes the ignored `opacity: 0.7`
+            with the cards it sits between. That is the right side of the line
+            — it describes what happened to the event, it does not announce
+            the state — and it is measured, not assumed: it lands well below
+            the 207px hero band, on flat --background, where 0.7 leaves it
+            comfortably past AA in all four themes. */}
+        {isWater && ignored ? (
+          <p
+            className="w-full shrink-0 text-[14px] leading-[20px] text-foreground"
+            data-node-id="199768:87266"
+          >
+            The valve will <strong className="font-bold">not</strong> be automatically
+            closed, even if the flow keeps growing.
+          </p>
         ) : null}
 
         {/* NO explanatory sentence here. One existed ("Flow that never stops
@@ -1613,22 +1842,6 @@ export default function EventFocusOverlay({
             are gone with it, so there is nothing left to drift. Interpretation
             that is genuinely useful belongs in "What should I do", and only as
             a step somebody can act on. Do not reintroduce this. */}
-
-        {/* ── Ignored banner ────────────────────────────────────────────────
-            LeakDetail.jsx:305-319. AlertCard's `ignored` variant mutes the card
-            and shows an "Ignored" pill but carries neither the actor nor the
-            reason, which is what PRD 04a:146-154 is actually about. Copy rule
-            (2026-06-02): two lines max. No "auto-shutoff suppressed" line —
-            that was the confirmation-time warning, not a status. */}
-        {isWater && ignored ? (
-          <div className="flex w-full shrink-0 items-start gap-[8px] rounded-[10px] bg-orange-100 px-[12px] py-[10px] text-[13px] text-slate-900">
-            <Flag size={16} className="mt-[1px] shrink-0" style={{ color: TOKEN.low }} />
-            <div className="min-w-0">
-              <p className="min-w-0 font-bold">Ignored by {ignoredInfo?.ignoredBy || 'You'}</p>
-              {ignoredInfo?.tag ? <p className="min-w-0 text-slate-600">{ignoredInfo.tag}</p> : null}
-            </div>
-          </div>
-        ) : null}
 
         {/* ── ASSIGNED TO — 199703:43519 ────────────────────────────────────
             The claim, as the latest frames draw it. It was a blue "On it ·
@@ -1769,6 +1982,107 @@ export default function EventFocusOverlay({
           </button>
         </section>
 
+        {/* ── MANAGE EVENT — 199772:145464 ─────────────────────────────────
+            WAS the full-width "Event handling" card (199703:43037): one
+            eyebrow + title + chevron row holding Ignore alone, drawn BELOW
+            the valve. 199772:145451 and 199768:86540 replace it with a
+            "Manage event" heading over a 2-up tile row, ABOVE the valve, and
+            fold the claim into it as the second tile.
+
+            THE PILL ON TILE 2 READS "Assign", NOT "Ignore". The frame draws
+            "Ignore" on BOTH tiles — 199772:145475 and 199772:145485 are the
+            same button instance and only the first was relabelled — and the
+            owner confirmed that is a copy bug rather than a design. A pill
+            reading "Ignore" on a tile titled "Assign to me" would be the
+            worst kind of pixel fidelity.
+
+            ONE TILE IS ALLOWED TO BE THE ROW, AND THAT STATE IS NOT DRAWN
+            ANYWHERE. Both new frames show the event UNCLAIMED, so neither
+            says what the row looks like once Assign is gated out. The gate
+            itself is not a new decision — it is the old `showFooter`
+            expression, which has always withdrawn the offer to claim an
+            event you already hold, and the suite pins it. So the only thing
+            extrapolated here is the LAYOUT of a state the frames omit: each
+            tile is flex-[1_0_0], so Ignore takes the full width rather than
+            sitting at half-width beside a hole. Flagged rather than presented
+            as transcription. The heading and the row are drawn only while
+            there is at least one tile to put in them. */}
+        {showIgnore || showAssign ? (
+          <div className="flex w-full shrink-0 flex-col gap-[10px]">
+            <p
+              className="text-[16px] font-medium leading-[26px] tracking-[-0.4px] text-slate-500"
+              data-node-id="199772:145465"
+            >
+              Manage event
+            </p>
+            <div className="flex items-start gap-[12px]" data-node-id="199772:145466">
+              {showIgnore ? (
+                /* A CARD-SIZED TAP TARGET for a destructive action is a
+                   deliberate trade, carried over from the card this replaces:
+                   it is bigger and easier to hit than a 44px button, but it
+                   does not DO anything on its own — `onIgnore` hands the
+                   intent to the page, which opens the one-question feedback
+                   flow. Nothing is ignored by this tap alone.
+
+                   THE SUB-LABEL IS THE FRAME'S OWN NOW, "Mark as expected",
+                   replacing "Treat as expected — the valve stays open, and
+                   this cannot be undone". The long form was written when that
+                   sentence was the card's only description and had to carry
+                   the warning. It still carries it, via aria-describedby,
+                   which is where a screen reader expects a consequence to
+                   live; the visible line is the design's.
+
+                   AND THE OLD FRAME'S DESCRIPTION FOR THIS TILE IS STILL
+                   NOT USED: 199703:43046 drew "Tells the team someone is
+                   looking into this" under Ignore, which is the CLAIM's
+                   sentence and is simply wrong here — ignoring tells nobody
+                   anything. The new frames do not draw it under either tile,
+                   so it is not drawn here under either. */
+                <ManageTile
+                  icon={<MessageBlocked size={16} aria-hidden="true" />}
+                  title="Ignore event"
+                  sub="Mark as expected"
+                  pill="Ignore"
+                  label="Ignore event"
+                  describedBy={`${titleId}-ignore-desc`}
+                  onClick={() => onIgnore(sysId)}
+                />
+              ) : null}
+              {showAssign ? (
+                <ManageTile
+                  icon={<User size={16} aria-hidden="true" />}
+                  title="Assign to me"
+                  sub="Claim alert"
+                  pill="Assign"
+                  label="Assign to me"
+                  onClick={() => {
+                    setNow(Date.now())
+                    claim()
+                  }}
+                />
+              ) : null}
+            </div>
+            {/* THE ONE STRING ON THIS ROW THE NEW FRAMES DO NOT CONTAIN, and
+                it is never drawn. 199772:145451 replaces the Ignore card's
+                visible sentence with "Mark as expected", which says what the
+                tap means but not what it costs; PRD 14 has no un-ignore, so
+                the warning the old card printed in full is kept as the
+                control's accessible description, where a screen reader
+                expects a consequence to live (and where
+                eventFocusOverlay.dom.test.jsx has pinned it since the card
+                was built). It is the SAME string, moved, not new copy — and
+                it is one line to delete if the owner wants the frame
+                transcribed with nothing held back.
+
+                The Assign tile has no such line: claiming is reversible from
+                the Assigned-to card, and its drawn "Claim alert" is the
+                frame's own. */}
+            <p className="sr-only" id={`${titleId}-ignore-desc`}>
+              Treat as expected — the valve stays open, and this cannot be undone
+            </p>
+          </div>
+        ) : null}
+
         {/* ── Valve status ──────────────────────────────────────────────────
             The real ValveStatusCard, not a copy of it. This used to be a
             hand-rolled compact row (ValveReadout) built from the card's atoms
@@ -1830,76 +2144,62 @@ export default function EventFocusOverlay({
           </section>
         ) : null}
 
-        {/* ── EVENT HANDLING — 199703:43037 ─────────────────────────────────
-            Ignore has its own card now, between the valve and the system
-            details, where all three frames put it. It was a footer button
-            sharing a row with the claim controls, which made an irreversible
-            action look like a peer of a reversible one.
-
-            A CARD-SIZED TAP TARGET for a destructive action is a deliberate
-            trade: it is bigger and easier to hit than the old 44px button,
-            but it does not DO anything on its own — `onIgnore` hands the
-            intent to the page, which opens the one-question feedback flow.
-            Nothing is ignored by this tap alone. See the prop's note.
-
-            THE FRAME'S DESCRIPTION IS NOT USED, and this is the one place
-            this surface departs from it. 199703:43046 draws "Tells the team
-            someone is looking into this" under "Ignore event" — but that
-            sentence is the CLAIM's, and the frame uses it again, correctly,
-            under "Assign to me" in 199703:40914. Under Ignore it is simply
-            wrong: ignoring does not tell anyone anything, it suppresses the
-            event and PRD 14 has no un-ignore. Printing it would describe an
-            irreversible action as a notification. Ours says what Ignore does.
-            One line to restore the frame's wording if the owner wants it
-            verbatim. */}
-        {showIgnore ? (
-          <button
-            type="button"
-            onClick={() => onIgnore(sysId)}
-            /* NAMED EXPLICITLY. Without this the accessible name is every
-               word inside the card concatenated — "Event handling Ignore
-               event Treat as expected…" — which is not what the control is
-               called and is not what a user would say to a voice assistant.
-               The label is exactly the visible primary text (WCAG 2.5.3) and
-               the consequence moves to `aria-describedby`, which is where a
-               screen reader expects to find it. */
-            aria-label="Ignore event"
-            aria-describedby={`${titleId}-ignore-desc`}
-            className={`${CARD_SHELL} flex items-center gap-[12px] px-[18px] py-[16px] text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50`}
-            data-node-id="199703:43037"
-          >
-            <span className="flex min-w-0 flex-1 flex-col gap-[4px]">
-              <span className="text-[14px] leading-[20px] text-slate-600">Event handling</span>
-              <span className="text-[20px] font-medium leading-[28px] tracking-[-0.5px] text-slate-900">
-                Ignore event
-              </span>
-              <span
-                id={`${titleId}-ignore-desc`}
-                className="text-[14px] leading-[20px] text-slate-500"
-              >
-                Treat as expected — the valve stays open, and this cannot be undone
-              </span>
-            </span>
-            <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-slate-400" />
-          </button>
-        ) : null}
-
         {/* ── Sections ──────────────────────────────────────────────────────
             Collapsed by default except the facts on a fault, which has no
             incident timeline below to read instead (v1's ErrorAlertDetail has
             none either). */}
-        {/* THE FOUR-FACT STRIP IS GONE, 2026-10-21, at the owner's request.
-            It had been promoted out of the accordion on 2026-10-18 on the
-            grounds that State / Flow level / Auto-shutoff / Detection ARE the
-            event; three of the four turned out to be said already, directly
-            above it:
-              State        the alert card's status pill ("Ongoing")
-              Flow level   the event's own title ("High Flow Water Event")
-              Auto-shutoff the valve handling panel, in a full sentence
-            So the strip was mostly restating its neighbours.
-            DETECTION is the one thing that went with it and is now stated
-            nowhere on this surface — flagged to the owner rather than quietly
-            re-homed, since where it belongs is a design question. */}
+        {/* ── EVENT DETAILS — 199774:159810, heading 199772:145509 ─────────
+            BACK ON A WATER EVENT, 2026-10-29, at the owner's request — and it
+            comes back as a HEADING over the cards below, because that is what
+            the new frames draw. 199774:159810 and 199768:86628 are a
+            `flex-col gap-[16px]` group whose first child is the 16px slate/500
+            label "Event details" and whose remaining children are the detail
+            cards: System details, What should I do, the event graph, Who was
+            notified. There is no fact grid anywhere in them.
+
+            SUPERSEDED RULING, KEPT — the 2026-10-21 removal this partially
+            reverses stays written down so nobody re-derives it:
+
+                "THE FOUR-FACT STRIP IS GONE, 2026-10-21, at the owner's
+                 request. It had been promoted out of the accordion on
+                 2026-10-18 on the grounds that State / Flow level /
+                 Auto-shutoff / Detection ARE the event; three of the four
+                 turned out to be said already, directly above it:
+                   State        the alert card's status pill ("Ongoing")
+                   Flow level   the event's own title ("High Flow Water Event")
+                   Auto-shutoff the valve handling panel, in a full sentence
+                 So the strip was mostly restating its neighbours."
+
+            WHAT CAME BACK IS THE SECTION, NOT THE STRIP. The commit that took
+            it out (a33aee8) removed a 2-column State / Flow level /
+            Auto-shutoff / Detection grid; the frames that bring "Event
+            details" back do not contain it, so re-adding it would be
+            reinventing the section rather than restoring it, and would put
+            three restatements back on the surface for the sake of a name.
+
+            DETECTION IS STILL HOMELESS. It is the one fact that went with the
+            strip and is stated nowhere on this surface. It is NOT quietly
+            re-homed under this heading — the new frames do not draw it, and
+            where it belongs is still the design question a33aee8 flagged. It
+            is reported again rather than answered here.
+
+            STRUCTURE, NOT A WRAPPER. The frames nest the detail cards inside
+            the group; here the heading is a sibling that precedes them, so
+            the scroller keeps its single flat gap-[10px] column and the
+            cards below are untouched. The one ordering difference worth
+            knowing: the frames put the System details card INSIDE this group,
+            below the valve. It stays above the valve here, directly under the
+            alert card, where it has been since 199683:24906 and where the
+            brief for this change expects the identity line to be. One move if
+            the owner wants the frame's order literally. */}
+        {isWater ? (
+          <p
+            className="w-full shrink-0 pt-[2px] text-[16px] font-medium leading-[26px] tracking-[-0.4px] text-slate-500"
+            data-node-id="199772:145509"
+          >
+            Event details
+          </p>
+        ) : null}
 
         {!isWater ? (
         <Section id={`event-facts-${sysId}`} title="Event details" defaultOpen>
@@ -2054,72 +2354,6 @@ export default function EventFocusOverlay({
         ) : null}
       </div>
 
-      {/* ── Action bar ────────────────────────────────────────────────────
-          Pinned below the scroller rather than at the end of it, so the
-          controls are reachable without scrolling a long timeline first.
-
-          HIERARCHY (owner, 2026-10-17): on a live water event the VALVE is the
-          main action — "On it" only tells colleagues somebody is looking,
-          closing the valve is what stops the water. So the solid primary is
-          Close valve / Open valve, and On it / Stand down / Ignore share the
-          secondary row under it. On a system with NO valve there is no valve
-          action, so the claim takes the solid slot back and the footer reads
-          exactly as it did before. */}
-      {showFooter ? (
-        <footer className="shrink-0 border-t border-solid border-slate-200 bg-surface-card px-[12px] pb-[12px] pt-[9px]">
-          {/* THE VALVE PRIMARY MOVED UP into the Valve status panel, where
-              199683:24849 and 199394:78935 both draw it and neither puts one
-              here. ON IT AND IGNORE STAY — owner, twice: "we need to keep the
-              ignore and on it". They are absent from both frames, but the
-              frames are a valve redraw, not a footer spec, and wired
-              functionality is not dropped because a drawing omits it. */}
-
-          {/* The secondary row. One line, each control taking an equal share,
-              so two or three of them read as peers rather than as a stack of
-              primaries. Every gate is the one it always had:
-                On it        water-only, while unclaimed
-                Stand down   replaces it, and ONLY for the claiming actor
-                             (LeakDetail.jsx:393-402) — someone else's claim
-                             shows neither
-                Ignore       water-only, and it STAYS BESIDE Stand down: a
-                             claim replaces On it, it does not withdraw the
-                             right to ignore. It is the one control gated on a
-                             prop (`onIgnore`) rather than on state, which is
-                             the only reason it can ever look "missing". */}
-          {/* 199703:40914 — ONE control, full width, and only while the event
-              is unclaimed. The footer used to hold up to three peers in a
-              row (On it / Stand down / Ignore); the frames split them by
-              where they belong:
-
-                Assign to me   here, as the single sticky primary
-                Remove         in the Assigned-to card, with the claim
-                Ignore event   in its own Event handling card
-
-              So the footer disappears entirely once the event is claimed,
-              which is what gives the body back ~70px on the surface that
-              needs it most. */}
-          <Button
-            type="button"
-            variant="default"
-            onClick={() => {
-              setNow(Date.now())
-              claim()
-            }}
-            className="h-[56px] w-full rounded-[28px] bg-slate-900 text-[16px] font-semibold text-white hover:bg-slate-800"
-            data-node-id="199703:41186"
-          >
-            Assign to me
-          </Button>
-
-          {/* The frame's own caption, and it is accurate here — claiming IS
-              the act of telling the team. (The same sentence appears under
-              "Ignore event" in 199703:43046, where it is not; see that
-              card.) */}
-          <p className="mt-[8px] text-center text-[14px] leading-[20px] text-slate-500">
-            Tells the team someone is looking into this
-          </p>
-        </footer>
-      ) : null}
       </div>
 
       {/* The confirmation, carrying v1's exact copy. The footer's primary is

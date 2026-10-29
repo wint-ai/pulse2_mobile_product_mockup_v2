@@ -84,6 +84,7 @@ import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import SystemHealthCard from '@/v2/components/SystemHealthCard'
 import SystemsOverviewHero from '@/v2/components/SystemsOverviewHero'
 import TriageBand from '@/v2/components/TriageBand'
+import WaterEventFeedbackSheet from '@/v2/components/WaterEventFeedbackSheet'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import { CaretDown } from '@/v2/icons'
@@ -110,7 +111,13 @@ import {
   stepAvailability,
   windowMonthsOf,
 } from '@/v2/lib/consumptionWindow'
-import { SYSTEMS, computeWidgets, computeKPIs } from '@/data/systems'
+import { SYSTEMS, computeWidgets, computeKPIs, getSystemById } from '@/data/systems'
+/* THE IGNORE FLOW's three reads, added 2026-10-29 with the fix below. Each is
+   the same module SystemPageV2Screen uses, so the two entry points into
+   EventFocusOverlay cannot answer differently about one event. */
+import { getActiveIncident, getLeakState } from '@/data/incidents'
+import { ignoreIncident, isIgnored } from '@/data/ignoredIncidents'
+import { getCurrentActor } from '@/data/currentUser'
 /* The four history sources v1's Alerts screen reads (EventsScreen.jsx:169-174).
    They are the ONLY honest past-event data this app has; the v2 overlay was
    never wired to any of them, which is why its History tab could not render a
@@ -776,6 +783,49 @@ export default function HomeAllAccounts({ expanded = false }) {
      as state rather than a route so the page behind it stays mounted and its
      scroll position survives the round trip. */
   const [focusedEventSystemId, setFocusedEventSystemId] = useState(null)
+
+  /* ── THE IGNORE FLOW, WIRED — 2026-10-29 ────────────────────────────────
+     Owner: "we have a bug / why ignore action only available from system page
+     and not also when user clicks on event from location view".
+
+     IT WAS EXACTLY ONE MISSING PROP. EventFocusOverlay gates Ignore on
+     `Boolean(onIgnore)` — deliberately, so a control never promises a
+     destination its host has not wired — and this page passed none. The note
+     that stood at the mount said as much and said to wire it "once
+     WaterEventFeedbackSheet lands". It has landed; SystemPageV2Screen has
+     mounted it since 2026-10-17. This is that wiring, built against the
+     2026-10-29 overlay rather than the footer it replaced.
+
+     NOTHING ELSE WAS GATED OFF. Checked one by one before fixing, because
+     the report was that Assign, Remove and the valve were missing here too:
+       Assign to me   gated on `isWater && !ignored && !investigating`
+       Remove         gated on `isOwner`
+       valve card     gated on `hasValve`, i.e. the system's own devices
+     None of the three reads a prop, so all three already work from this page.
+     `onClaim` / `onStandDown` are repaint hints for the HOST's own cards and
+     the overlay repaints itself without them; this page's water rows come
+     from computeSystemHealth over SYSTEMS, which no claim touches, so there
+     is nothing here for them to repaint and they stay unpassed rather than
+     wired to a no-op.
+
+     `valve` STAYS UNPASSED TOO, and that is a decision, not an omission. On
+     the System page that prop is a seam onto `closedValves`, which is that
+     page's state of record; this page has no valve state at all. Duplicating
+     the seam's no-device branch here would create exactly the drift its own
+     comment warns about, and inventing a second state of record would be
+     worse than having none. EventFocusOverlay documents the prop-less mount
+     (`confirmedValve`, "a mount that owns no valve state still shows the user
+     what they just did"), so a valve change made from this entry point is
+     confirmed and shown but not recorded page-side. WHETHER THE VALVE SHOULD
+     BE OPERABLE FROM THE LOCATION VIEW AT ALL IS A PRODUCT QUESTION, and it
+     is reported rather than answered here. */
+  const [ignoreFlowSystemId, setIgnoreFlowSystemId] = useState(null)
+  /* Module-level stores have no in-memory cache, so a commit is asked for as
+     a repaint — the same seam SystemPageV2Screen calls `bump`. It is what
+     redraws the overlay behind the sheet in its ignored state. */
+  const [, setIgnoreTick] = useState(0)
+  const bumpIgnore = () => setIgnoreTick(n => n + 1)
+  const ignoreFlowSystem = ignoreFlowSystemId ? getSystemById(ignoreFlowSystemId) : null
 
   /* The data decides, not the route. 198314:73471 and 198328:89061 are two
      STATES of one card — healthy, and has-events — so pinning the default route
@@ -1498,21 +1548,88 @@ export default function HomeAllAccounts({ expanded = false }) {
             which already carries `relative` — the counterpart of 198379:80447
             on the System page. Mounted unconditionally; open={false} renders
             null.
-            NO onIgnore on purpose. This page owns no ignore flow (the System
-            page has IgnoreBottomSheet; this one has nothing), and the overlay
-            deliberately draws no Ignore button when it has no handler rather
-            than drawing a dead one. The intended destination is the
-            one-question feedback flow WaterEventFeedbackSheet, being built
-            separately; wire `onIgnore` to it here once it lands. */}
+            onIgnore IS WIRED NOW — 2026-10-29. The note that stood here said
+            "This page owns no ignore flow ... wire `onIgnore` to it here once
+            it lands", and WaterEventFeedbackSheet has landed. Until this, the
+            Ignore control simply did not render on anything reached from the
+            location view, which is the bug the owner reported. See the
+            `ignoreFlowSystemId` note above for what was and was not gated off
+            with it, and for why `valve`, `onClaim` and `onStandDown` are
+            still not passed.
+            The handler is the System page's, character for character: open
+            the flow, commit nothing. It fires on the tap in the overlay's
+            "Manage event" tile; the sheet below owns the commit. */}
         <EventFocusOverlay
           open={focusedEventSystemId !== null}
           systemId={focusedEventSystemId}
           onClose={() => setFocusedEventSystemId(null)}
+          onIgnore={sysId => {
+            if (!isIgnored(sysId)) setIgnoreFlowSystemId(sysId)
+          }}
         />
       </div>
 
       {/* Behind the burger. Navigation only — the v2 drawer carries no global
           scope, and v1 screens keep their own NavigationDrawer. */}
+      {/* THE IGNORE FLOW — the second half of the 2026-10-29 fix, and a
+          deliberate MOUNT of SystemPageV2Screen's sheet rather than a copy of
+          its chrome. PRD 06 + 14: ignoring is irreversible, so the sheet
+          shows the consequences and confirms before anything commits, and
+          PRD 15's "why" is captured at commit time.
+
+          PAGE LEVEL, AFTER the frame root that holds EventFocusOverlay, for
+          the same reason it is on the System page: the sheet is
+          `absolute inset-0` and the nearest positioned ancestor is Phone.jsx's
+          393x852 frame, so it covers the phone, and mounting it after the
+          frame root makes it draw OVER the overlay the Ignore was tapped in.
+
+          THE COMMIT IS THIS PAGE'S, and it is the System page's handler pair
+          verbatim (SystemPageV2Screen, search `onIgnoreConfirmed`): the sheet
+          writes its own feedback record and never touches ignoredIncidents.
+          The repaint afterwards is what redraws the overlay behind it in its
+          ignored state — this page's own water rows come from
+          computeSystemHealth over SYSTEMS and do not move.
+
+          `eventState` is the PRD 06 + 14 gate: Ignore is a Warning-state
+          action, and the sheet refuses the ignore flow on 'shutoff' as a
+          backstop, so this page and the System page cannot drift on which
+          events are ignorable. */}
+      <WaterEventFeedbackSheet
+        open={ignoreFlowSystemId !== null}
+        trigger="ignore"
+        systemId={ignoreFlowSystemId}
+        systemName={ignoreFlowSystem?.name}
+        eventLabel={ignoreFlowSystem?.alert?.label}
+        eventState={
+          ignoreFlowSystemId &&
+          getLeakState(getActiveIncident(ignoreFlowSystemId)) === 'ShutOff'
+            ? 'shutoff'
+            : 'warning'
+        }
+        onCancel={() => setIgnoreFlowSystemId(null)}
+        onIgnoreConfirmed={() => {
+          if (ignoreFlowSystemId && !isIgnored(ignoreFlowSystemId)) {
+            ignoreIncident(ignoreFlowSystemId, { ignoredBy: getCurrentActor() })
+          }
+          bumpIgnore()
+        }}
+        onComplete={record => {
+          /* The cause PRD 15 asks for at ignore-commit time. The sheet has
+             already persisted the full answer; the ignored-incident record
+             carries the short reason, so the chips and note are folded back
+             into it when the user gave any. A bare "Ignore anyway" leaves it
+             null, which is what "nothing is mandatory" means here. */
+          const summary = record
+            ? [record.chips?.join(', '), record.note].filter(Boolean).join(' — ') || null
+            : null
+          if (summary && ignoreFlowSystemId) {
+            ignoreIncident(ignoreFlowSystemId, { tag: summary, ignoredBy: getCurrentActor() })
+          }
+          setIgnoreFlowSystemId(null)
+          bumpIgnore()
+        }}
+      />
+
       <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       {/* The designed destination for "Show all" / "Show past events" / "Show
