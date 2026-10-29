@@ -111,6 +111,34 @@ describe('auto-shutoff DISABLED (199703:41537)', () => {
     ).toBeTruthy()
   })
 
+  it('grounds the Attention block in a TOKEN, so it survives the dark theme', () => {
+    /* THE BUG THIS PINS. The panel was `bg-red-50`, and `--red-50` is not
+       defined anywhere in src/index.css — Tailwind supplies its own built-in
+       #fef2f2 when the repo defines none, so the class resolved silently and
+       painted a fixed pale pink that no theme could move. Every ink on top of
+       it followed the theme, so under `dark` the panel measured 1.05:1 for
+       "Attention" and 1.16:1 for the sentence: the entire warning was
+       invisible, on the only state that draws a warning.
+
+       No ink could fix it (the best on a frozen ground was 2.64:1); the
+       GROUND had to become a token. --alert-surface-critical is the repo's
+       declared critical alert surface and moves with the theme. Measured on
+       the live overlay from rasterised pixels, after the fix:
+       light 14.63 / dark 18.42 / sand 16.21 / contrast 3.00.
+
+       A class whose token does not exist is the failure mode here, so the
+       assertion is on the token NAME, not on a colour. */
+    const { container } = mount(disabled)
+    const cls = attention(container).className
+    expect(cls).toContain('bg-alert-surface-critical')
+    expect(cls, 'red-50 is not a token in this repo; it froze under every theme')
+      .not.toContain('bg-red-50')
+    const label = screen.getByText('Attention')
+    expect(label.className).toContain('text-foreground')
+    expect(label.className, '--slate-900 is a ramp step, not the declared opposing ink')
+      .not.toContain('text-slate-900')
+  })
+
   it('starts COLLAPSED, with the warning itself still visible', () => {
     /* Owner: "the attention takes too much space maybe collapsed it?"
 
@@ -173,17 +201,46 @@ describe('the action', () => {
     expect(onToggle).toHaveBeenCalledWith('closed')
   })
 
-  it('is a PILL at the resolved radius, not the emitted fallback', () => {
-    /* `get_design_context` printed
+  it('is a FILLED pill, fully rounded, not the outline it used to be', () => {
+    /* 199772:145508 (canonical frame 199772:145451) replaced the outline with
+         bg-slate-900 h-[54px] rounded-[458.696px]
+         drop-shadow-[0px_2.296px_3.214px_rgba(47,116,237,0.28)] w-full
+       458.696 on a 54px element is Figma writing "fully rounded", so the
+       class is `rounded-full` - the spelling this codebase already uses.
+
+       THE OLD GUARD, KEPT: `get_design_context` printed
          rounded-[var(--component/button/size-xs/radius,8px)]
-       and that 8 is stale: get_variable_defs resolves the token to 26. Taken
-       literally it drew a nearly square-cornered button and the owner caught
-       it on sight - "this is not as in figma / the button". Pinned because
-       the next person to paste from Figma will see the same 8. */
+       and that 8 is stale - the token resolves to 26. Taken literally it drew
+       a nearly square-cornered button and the owner caught it on sight,
+       "this is not as in figma / the button". The literal is still wrong
+       here, just differently, so the assertion stays. */
     const { container } = mount()
     const cls = within(container).getByRole('button', { name: /Close valve now/ }).className
-    expect(cls).toContain('rounded-[26px]')
+    expect(cls).toContain('rounded-full')
     expect(cls, 'the stale 8px fallback is back').not.toContain('rounded-[8px]')
+    expect(cls, 'Figma’s 458.696 literal is not a third spelling of rounded-full')
+      .not.toContain('458.696')
+    expect(cls).toContain('h-[54px]')
+    expect(cls, 'the outline treatment is gone').not.toContain('border-slate-900')
+  })
+
+  it('fills with --foreground and inks with --background, so it survives all four themes', () => {
+    /* --slate-900 is the INK ramp step and INVERTS per theme (index.css:825
+       makes it zinc-50 under `dark`), so a literal `bg-slate-900` fill is a
+       near-WHITE button there and Figma's light label vanishes into it -
+       measured 1.01:1 against --ink-on-color, 1.04:1 against white.
+       --foreground IS --slate-900 under `light` (index.css:99), so the frame
+       is transcribed exactly, and --background is the token declared as its
+       opposite in every theme (the pairing tooltip.jsx:36 already uses).
+       Measured: light 16.47 / dark 19.05 / sand 18.92 / contrast 4.95. */
+    const { container } = mount()
+    const btn = within(container).getByRole('button', { name: /Close valve now/ })
+    expect(btn.className).toContain('bg-foreground')
+    expect(btn.className, '--slate-900 inverts; it cannot be the fill').not.toContain('bg-slate-900')
+    const label = btn.querySelector('p')
+    expect(label.className).toContain('text-background')
+    expect(label.className, '--ink-on-color is 1.01:1 on this ground under dark')
+      .not.toContain('text-ink-on-color')
   })
 
   it('is omitted entirely as a readout, not disabled', () => {

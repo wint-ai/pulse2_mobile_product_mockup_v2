@@ -99,12 +99,64 @@ import ValveStatus from '@/v2/components/ValveStatus'
    SCOPE: `redraw` only, which today is EventFocusOverlay alone. The System
    page draws the compact inline card (199703:31517 in the page frame: a
    117px box with a 161px button beside the state) and is untouched, which is
-   the owner's standing rule that a card's other mounts stay as they are. */
+   the owner's standing rule that a card's other mounts stay as they are.
+
+   ── 2026-10-29, THE CANONICAL FRAME 199772:145451 (402x1991) ─────────────
+   Owner, on a screenshot of this card: "this component is not latest as in
+   figma". The valve Section in that frame is 199772:145487 and it is
+   complete in the cache (well above the ~100KB truncation). Read against
+   this render it gives FOUR content deltas, all applied below —
+
+     199772:145491  heading   14/20 Medium  ->  18/24.75 SemiBold -0.45
+     199772:145492  row       content-sized ->  h-[70px]
+     199772:145496  panel     gap-[8px]     ->  gap-[2px]
+     199772:145508  button    outline       ->  filled (see V2_BTN)
+
+   — and TWO things that look like deltas and are NOT. Every node in that
+   frame is named "Water Event View - Auto Shut Off ENABLED", so the frame
+   is one variant, and the owner's screenshot is the other:
+
+     · THE RIGHT TILE. The frame draws an "Auto-shutoff in" label over a
+       00 : 00 clock. This card ALREADY draws exactly that whenever
+       auto-shutoff is on and there is something to count down to
+       (`showClock`), and EventFocusOverlay:2020 wires `activatesIn` from
+       the event's own auto-close time. The "Disabled" badge is the OTHER
+       state of the same slot, which this frame does not show. Not removed.
+     · THE ATTENTION BLOCK. The frame goes straight from the row to the
+       button. It would: Attention is drawn only when auto-shutoff is OFF
+       (`autoCloseOff && showAttention`), and in this frame it is on. 099327a
+       collapsed Attention deliberately three days ago. Not removed.
+
+   NOT CHANGED, AND FLAGGED INSTEAD — THE CHASSIS. 199772:145487 draws the
+   Section at `rounded-[var(--rounded-3xl,22px)]` with its padding on a
+   CardHeader (px-[16px] py-[6px]) and a fixed h-[209px], where this card is
+   rounded-[18px] p-[18px] and content-sized. Three reasons it is a question
+   rather than an edit: (1) 18px is the HOUSE radius — EventFocusOverlay's
+   own CARD_SHELL names SystemTypeCard, ValveStatusCard, ActivePolicyCard,
+   InsightsCard and EventsTimelineCard as all drawing it, so moving this one
+   to 22 makes it the only card on the surface at a different radius;
+   (2) this repo has no --rounded-3xl and no 22px radius token, so the change
+   could only be a raw literal, against the tokens-only rule; and (3) in the
+   frame that Section is a SHARED component (199772:145477 Assign is the same
+   one), so the chassis belongs to the overlay's Section, which another agent
+   is mid-edit in. Owner's call. */
 const V2_CARD = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[18px] items-start justify-center p-[18px] relative rounded-[18px] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
-const V2_COL = String.raw`content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full`
+/* 199772:145490 — gap-[11px], and the frame holds the heading, the row AND
+   the button in that one stack, so the row->button gap is 11 too, not 10. */
+const V2_COL = String.raw`content-stretch flex flex-col gap-[11px] items-start relative shrink-0 w-full`
 const V2_HEAD = String.raw`content-stretch flex flex-col gap-[11px] items-start relative shrink-0 w-full`
-const V2_TITLE = String.raw`[word-break:break-word] font-sans font-medium leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
-const V2_ROW = String.raw`bg-slate-100 content-stretch flex gap-[8px] items-center justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full`
+/* 199772:145491 — THE HEADING GREW. It was 14/20 Medium on --foreground,
+   transcribed from the superseded 199703:38730; the canonical frame draws
+   18/24.75 SemiBold slate-800 at -0.45 tracking, which is also the spelling
+   every other card title in this repo already uses (AlertCard TITLE_OVERLAY,
+   EventsTimelineCard TITLE_FIGMA, SystemTypeCard BODY_TITLE). Not a variant
+   difference: the heading is drawn the same in both states. */
+const V2_TITLE = String.raw`[word-break:break-word] font-sans font-semibold leading-[24.75px] relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] whitespace-nowrap`
+/* 199772:145492 — h-[70px] is the node's. The row was content-sized here
+   (38px state box + 9px pads = 56px); the frame fixes 70, which is what the
+   panel beside it needs once its own gap drops to 2 (20px label + 24px clock
+   + 18px pads = 62). The two numbers are a pair — see V2_PANEL. */
+const V2_ROW = String.raw`bg-slate-100 content-stretch flex gap-[8px] h-[70px] items-center justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full`
 /* 117px and 38px are the node's. `shrink-0` is NOT on it: the panel beside it
    is flex-1 with min-w-px, so at 393px the state box keeps its width and the
    panel takes the remainder, which is the behaviour the fixed width is for. */
@@ -112,7 +164,10 @@ const V2_STATE = String.raw`content-stretch flex gap-[6px] h-[38px] items-center
 const V2_GLYPH = String.raw`content-stretch flex flex-col items-center justify-center relative shrink-0 size-[30px]`
 const V2_GLYPH_BOX = String.raw`h-[20.84px] relative shrink-0 w-[21.831px]`
 const V2_VALUE = String.raw`[word-break:break-word] font-sans font-medium leading-6 relative shrink-0 text-2xl text-slate-800 tracking-[-0.6px] whitespace-nowrap`
-const V2_PANEL = String.raw`bg-slate-100 content-stretch flex flex-[1_0_0] flex-col gap-[8px] items-end justify-center min-w-px px-[13px] py-[9px] relative rounded-[11px]`
+/* 199772:145496 — gap-[2px], not 8. The label and the figure under it are one
+   readout, and 8px read as two stacked things; the frame tightens them and
+   takes the height back on the row (V2_ROW's h-[70px]). */
+const V2_PANEL = String.raw`bg-slate-100 content-stretch flex flex-[1_0_0] flex-col gap-[2px] items-end justify-center min-w-px px-[13px] py-[9px] relative rounded-[11px]`
 const V2_PANEL_ROW = String.raw`content-stretch flex gap-[5px] items-center justify-end relative shrink-0 w-full`
 const V2_PANEL_LABEL = String.raw`[word-break:break-word] font-sans font-medium leading-5 min-w-0 truncate relative text-slate-600 text-sm`
 /* 199703:39363 — "00", ":", "00" as three runs at gap-3, not one string. The
@@ -124,13 +179,52 @@ const V2_BADGE_TEXT = String.raw`[word-break:break-word] font-sans font-medium l
 /* 199703:42035. The node fixes h-[80px] and w-[334px]; 334 is just a 370 card
    minus its 18px padding, so it is w-full here, and the height is a MINIMUM
    because the body is real copy that may run past the node's two lines. */
-const V2_ATTN = String.raw`bg-red-50 content-stretch flex flex-col gap-[16px] items-start justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full`
+/* ── 2026-10-29: THE GROUND WAS NOT A TOKEN, AND THAT WAS THE BUG ────────
+   This panel was `bg-red-50`, and `--red-50` IS NOT DEFINED ANYWHERE IN
+   src/index.css. Tailwind supplies its own built-in red-50 (#fef2f2) when the
+   repo defines none, so the class resolved silently and painted a FIXED pale
+   pink that no theme could move — while every ink on top of it followed the
+   theme. Under `dark` the panel measured 1.05:1 for "Attention" and 1.16:1
+   for the sentence under it: the whole warning was invisible, on the one
+   state that draws a warning at all. Measured on the live overlay, rasterised
+   pixels, with the panel composited over the card behind it.
+
+   THE INK COULD NOT FIX IT. On a ground that never moves there is no ink that
+   works in all four, because every ink token goes light under `dark` — the
+   best available was 2.64:1. The ground had to become a token.
+
+   --ink-on-color IS THE WRONG TOKEN HERE, and it is worth writing down
+   because it is the obvious guess: it is near-white in light/dark/sand, so on
+   this pale panel it measures 1.06:1 in THREE themes. It applies to ink on a
+   ground that stays dark-and-coloured, not to a pale alert surface.
+
+   --alert-surface-critical is this repo's declared critical alert ground and
+   it moves with the theme (:root red-100, `dark` red-400 @10%, `contrast` its
+   own pink). index.css:262 marks its light value #ffe2e2 as FIGMA'S OWN alert
+   surface, so this is not an invented colour.
+
+   ONE VISIBLE CONSEQUENCE, FLAGGED: in `light` the panel goes #fef2f2 ->
+   #ffe2e2, a slightly deeper pink. 199703:42035 drew the paler one. If the
+   owner wants that exact pink back it has to come with a token, or the panel
+   goes invisible under `dark` again. */
+const V2_ATTN = String.raw`bg-alert-surface-critical content-stretch flex flex-col gap-[16px] items-start justify-center px-[13px] py-[9px] relative rounded-[11px] shrink-0 w-full`
 const V2_ATTN_INNER = String.raw`content-stretch flex flex-col gap-[4px] items-start justify-center relative shrink-0 w-full`
 const V2_ATTN_ROW = String.raw`content-stretch flex gap-[6px] items-center relative shrink-0 w-full`
 const V2_ATTN_ICON = String.raw`bg-red-200 content-stretch flex items-center justify-center relative rounded-[20px] shrink-0 size-[16px]`
-const V2_ATTN_LABEL = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-slate-900 text-sm whitespace-nowrap`
+/* `text-foreground`, not `text-slate-900`. In `light` the two are the same
+   byte (index.css:99 `--foreground: var(--slate-900)`), so nothing moves
+   there; elsewhere --foreground is the ink declared to oppose the surface,
+   while --slate-900 is a ramp step that happens to. Measured on the new
+   ground: slate-900 gives 14.63 / 18.42 / 14.35 / 1.20, foreground gives
+   14.63 / 18.42 / 16.21 / 3.00 — strictly better in sand and the only one of
+   the two that stays legible under `contrast`. */
+const V2_ATTN_LABEL = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
 const V2_ATTN_BODY = String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-gray-700 text-sm tracking-normal w-full`
 /* A PILL, full width, below the row.
+   SUPERSEDED BY THE BLOCK BELOW as a description of what this button draws —
+   199772:145508 replaced the 26/10 outline with a filled 54px pill. The note
+   is kept because its LESSON is still the file's, and because the 26/10 pair
+   is still what BTN_REDRAW and the ignored state draw.
    RADIUS 26 AND PX 10, RESOLVED — not the 8 and 8 the emitted code shows.
    `get_design_context` prints a token's FALLBACK, and these two are stale in
    the file: `rounded-[var(--component/button/size-xs/radius,8px)]` and
@@ -141,8 +235,59 @@ const V2_ATTN_BODY = String.raw`[word-break:break-word] font-sans font-normal le
    to 10, which is also the pill the inline button has always used.
    THE LESSON, since this file now carries several of them: a `var(--x, N)`
    fallback is a guess about N, not a reading of it. */
-const V2_BTN = String.raw`border border-slate-900 border-solid content-stretch cursor-pointer flex gap-1 items-center justify-center px-2.5 py-[12px] relative rounded-[26px] shrink-0 w-full outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
-const V2_BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-6 relative shrink-0 text-slate-900 text-base whitespace-nowrap`
+/* ── 2026-10-29: THE PILL IS FILLED NOW — 199772:145508 ───────────────────
+   The canonical frame (199772:145451, 402x1991) draws this button as
+
+     bg-slate-900 h-[54px] rounded-[458.696px]
+     drop-shadow-[0px_2.296px_3.214px_rgba(47,116,237,0.28)] w-full
+
+   with an 18/24.75 SemiBold label in #fbfbfc — so the outline treatment that
+   stood here (border-slate-900, transparent ground, slate-900 ink, 16/24) is
+   gone, along with its `gap-1 px-2.5 py-[12px]`: the frame has no gap and no
+   pads, it centres one label inside a fixed 54px.
+
+   RADIUS. 458.696 on a 54px-tall element is Figma's way of writing "fully
+   rounded", so it is `rounded-full` — which is what this codebase already
+   spells that with (ActiveWaterEventsCard, EventFocusOverlay, SystemTypeCard,
+   SystemsFilterSheet…). The literal would have been a third spelling of the
+   same intent.
+
+   THE GROUND IS `bg-foreground`, NOT `bg-slate-900` — and the difference is
+   only visible off `light`. In :root `--foreground: var(--slate-900)`
+   (index.css:99), so under `light` the two are the same #0f172b byte and the
+   frame is transcribed exactly. But --slate-900 is the INK ramp step and it
+   INVERTS per theme: under `dark` it resolves to zinc-50 (index.css:825).
+   A `bg-slate-900` fill is therefore a near-WHITE button under `dark`, and the
+   light label Figma puts on it disappears — measured 1.01:1 with
+   `text-ink-on-color`, 1.04:1 with `text-white`. (EventFocusOverlay.jsx:2108
+   ships that latent defect today on its own `bg-slate-900 text-white` CTA.
+   Reported, not touched — not this file.)
+
+   --ink-on-color DOES NOT APPLY HERE. It is ink that must stay light on a
+   ground that stays COLOURED in every theme — severity chips, danger,
+   success. This ground is not coloured; it is the ink ramp wearing the
+   surface's job, which is the inverted-button pattern, and this repo already
+   has a declared pair for that: tooltip.jsx:36 draws `bg-foreground` +
+   `text-background`. Measured across all four:
+
+     bg-foreground + text-background   light 16.47  dark 19.05  sand 18.92  contrast 4.95
+     bg-slate-900  + text-ink-on-color light 17.21  dark  1.01  sand 16.88  contrast 3.44
+
+   The pair is the only one that clears AA in all four, and `contrast` — the
+   theme that exists to break exactly this kind of assumption — is where the
+   slate-900 reading drops to 3.44 even before `dark` zeroes it.
+
+   THE DROP SHADOW IS THE ONE UN-TOKENED VALUE ON THIS BUTTON. No token in
+   index.css holds rgba(47,116,237,0.28) / #2f74ed: the repo's blues are
+   --primary #0b81f8 (light) and blue-500 #2b7fff (dark), --shadow-raised and
+   --shadow-overlay are both neutral black at 8%/10%, and nothing else is
+   close. It is carried as the literal the frame emits, with precedent
+   (PillTabs.jsx:281 carries rgba(161,161,161,0.5) the same way) — but it is
+   NOT a token, it will not move under the four themes, and no token was
+   invented for it. FLAGGED for the owner: either #2f74ed earns a token or
+   this shadow should be dropped. */
+const V2_BTN = String.raw`bg-foreground content-stretch cursor-pointer drop-shadow-[0px_2.296px_3.214px_rgba(47,116,237,0.28)] flex h-[54px] items-center justify-center relative rounded-full shrink-0 w-full outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const V2_BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-[24.75px] relative shrink-0 text-background text-lg whitespace-nowrap`
 
 /* sysA's ids. sysB draws the same card as
    141553->143046, 141554->143047, 141555->143048, 141556->143049,
