@@ -1,16 +1,27 @@
 // @vitest-environment happy-dom
 //
-// Water Event feedback — "Was this worth alerting about?"
+// Water Event feedback — two flows, two sources of truth.
 //
-// The sheet replaces the v1 tag taxonomy (20 chips, two groups, no primary
-// question) with one question and a scoped branch. Two triggers share that
-// question: the end of an event, and the moment the user ignores a live one.
+// ── 2026-10-29: the ignore flow's expectations were REWRITTEN, not deleted ──
+// The owner ruled that Figma supersedes `page-water-event-feedback-end.html`
+// for `trigger="ignore"`: 199745:20202 (the consequences) and 199748:26265
+// (the documentation step). The question "Was this worth alerting about?", its
+// Yes/No branch, the two per-branch headings and the points reward are gone
+// from that flow, so the cases that pinned them now pin their ABSENCE — a
+// deleted test would have let any of them quietly come back.
 //
-// What these tests pin is the set of promises the review mockup makes twice
-// over, because each of them is a thing that quietly breaks:
-//   • nothing is mandatory — one tap on Yes or No is a whole, persisted answer
-//   • the Ignore consequences come BEFORE the question, and the ignore itself
-//     only commits on "Ignore anyway"
+// `trigger="event-ended"` is NOT covered by either frame and is unchanged,
+// question and reward included. Its cases below are untouched.
+//
+// What these tests pin, because each is a thing that quietly breaks:
+//   • nothing is mandatory — on event-ended one tap on Yes or No is a whole,
+//     persisted answer; on ignore, no chip and no note persists nothing at all
+//   • the Ignore consequences come BEFORE the documentation step, and the
+//     ignore itself only commits on "Ignore anyway"
+//   • "This can't be undone" is its OWN panel, not a fourth consequence bullet
+//   • the ignore flow's `answer` is DERIVED from the chip set, because the
+//     store still rejects a record without one — a shim, pinned so it is
+//     visible rather than load-bearing-and-forgotten
 //   • "Was it fixed?" is Yes-branch, end-of-event only; the ignored event is
 //     still running, so the question has no answer yet
 //   • the note is capped at 140 characters, counter and value both
@@ -226,8 +237,8 @@ describe('the optional note', () => {
 describe('trigger: ignore', () => {
   const openIgnore = (props) => open({ trigger: 'ignore', ...props })
 
-  it('shows the consequences BEFORE the question, and commits nothing yet', () => {
-    const { view, calls } = openIgnore()
+  it('shows the consequences BEFORE the documentation step, and commits nothing yet', () => {
+    const { view, calls, container } = openIgnore()
 
     expect(view.getByRole('dialog', { name: 'Ignore this water event?' })).toBeTruthy()
     expect(view.getByText('Ignore this water event?')).toBeTruthy()
@@ -235,22 +246,32 @@ describe('trigger: ignore', () => {
       view.getByText(/You’re telling Wint this flow is OK\. Here’s what happens:/),
     ).toBeTruthy()
 
-    // All four consequences, including the two that cost.
+    // THREE consequences in the list — 199745:21441 / :21442 / :21460.
+    const bullets = container.querySelectorAll('li')
+    expect(bullets).toHaveLength(3)
     expect(view.getByText(/be automatically closed, even if the flow keeps/)).toBeTruthy()
     expect(view.getByText(/New events still\s+alert normally\./)).toBeTruthy()
     expect(view.getByText(/until the\s+water flow actually stops\./)).toBeTruthy()
-    expect(view.getByText(/can’t be undone for this event\./)).toBeTruthy()
+
+    // The irreversibility is its OWN tinted panel (199747:23437), NOT a fourth
+    // <li> in the list above — which is exactly how it used to render, and the
+    // delta the owner screenshotted. The wording is unchanged by the move.
+    const undone = view.getByText(/can’t be undone for this event\./)
+    expect(undone.closest('li')).toBeNull()
+    expect(undone.closest('.bg-alert-surface-critical')).toBeTruthy()
 
     expect(btn(view, 'Cancel')).toBeTruthy()
     expect(btn(view, 'Ignore anyway')).toBeTruthy()
 
-    // The question is not reachable yet.
+    // The documentation step is not reachable yet, and the retired question
+    // is not reachable at all.
+    expect(view.queryByText('Document alert handling')).toBeNull()
     expect(view.queryByText('Was this worth alerting about?')).toBeNull()
     expect(view.queryByRole('button', { name: 'Yes' })).toBeNull()
     expect(calls.ignoreConfirmed).toEqual([])
   })
 
-  it('fires onIgnoreConfirmed only on "Ignore anyway", then morphs into the question', () => {
+  it('fires onIgnoreConfirmed only on "Ignore anyway", then shows the documentation step', () => {
     const { view, calls } = openIgnore()
 
     expect(calls.ignoreConfirmed).toEqual([])
@@ -258,10 +279,24 @@ describe('trigger: ignore', () => {
 
     expect(calls.ignoreConfirmed).toHaveLength(1)
     expect(view.queryByText('Ignore this water event?')).toBeNull()
-    expect(view.getByText('Was this worth alerting about?')).toBeTruthy()
-    expect(view.getByText('Your answer helps Wint learn. Nothing is mandatory.')).toBeTruthy()
-    // The context line now says the ignore happened.
-    expect(view.getByText(/Water event ignored · Fire Riser 2/)).toBeTruthy()
+
+    // 199748:26265, top to bottom: the banner, the heading, the flat chip set.
+    expect(view.getByText('Event marked as ignored')).toBeTruthy()
+    expect(view.getByText('Document alert handling')).toBeTruthy()
+
+    // The retired question and its branch are gone from this flow entirely.
+    expect(view.queryByText('Was this worth alerting about?')).toBeNull()
+    expect(view.queryByText('Your answer helps Wint learn. Nothing is mandatory.')).toBeNull()
+    expect(view.queryByRole('button', { name: 'Yes' })).toBeNull()
+    expect(view.queryByRole('button', { name: 'No' })).toBeNull()
+
+    // So is the reward — the frame scores nothing and draws no points chip.
+    expect(view.queryByText(/points earned/)).toBeNull()
+    expect(view.queryByText(/^\+\d+$/)).toBeNull()
+
+    // And so is the context line: the frame's chrome is the handle and the
+    // close button, nothing else.
+    expect(view.queryByText(/Fire Riser 2/)).toBeNull()
   })
 
   it('Cancel backs out without ignoring and without recording anything', () => {
@@ -275,45 +310,63 @@ describe('trigger: ignore', () => {
     expect(getFeedback(SYS.systemId)).toEqual([])
   })
 
-  it('Yes asks why it was ignored, with the Ignore-specific chips', () => {
+  it('offers ONE flat chip set — no branch, and no per-branch heading', () => {
     const { view } = openIgnore()
     fireEvent.click(btn(view, 'Ignore anyway'))
-    fireEvent.click(btn(view, 'Yes'))
 
-    expect(view.getByText("Thanks — we'll stay out of your way.")).toBeTruthy()
-    expect(view.getByText('Why ignore it then?')).toBeTruthy()
+    // 199748:26646, in the frame's own reading order. The first five are the
+    // old ignore.yes chips unchanged; "Unnecessary Alert" is new.
     for (const chip of [
       'Already fixing it',
       'Plumber scheduled',
       'Known ongoing issue',
       'Water shut off manually',
       'Something else',
+      'Unnecessary Alert',
     ]) {
       expect(btn(view, chip), chip).toBeTruthy()
     }
+
+    // The retired branch headings and microcopy.
+    expect(view.queryByText('Why ignore it then?')).toBeNull()
+    expect(view.queryByText("What's happening instead?")).toBeNull()
+    expect(view.queryByText("Thanks — we'll stay out of your way.")).toBeNull()
+    expect(view.queryByText('Thanks — Wint will be quieter here.')).toBeNull()
+
+    // The old no-branch chips belonged to a branch that no longer exists.
+    for (const gone of ['Filling a pool / tub / spa', 'Running irrigation', 'Heavy use today']) {
+      expect(view.queryByRole('button', { name: gone }), gone).toBeNull()
+    }
   })
 
-  it('No asks what is happening instead, with the false-alarm chips', () => {
+  it('closes on the frame’s own final button, which is NOT a "Done"', () => {
     const { view } = openIgnore()
     fireEvent.click(btn(view, 'Ignore anyway'))
-    fireEvent.click(btn(view, 'No'))
 
-    expect(view.getByText('Thanks — Wint will be quieter here.')).toBeTruthy()
-    expect(view.getByText("What's happening instead?")).toBeTruthy()
-    for (const chip of [
-      'Filling a pool / tub / spa',
-      'Running irrigation',
-      'Heavy use today',
-      'Construction or maintenance',
-      'This is normal here',
-      'Something else',
-    ]) {
-      expect(btn(view, chip), chip).toBeTruthy()
-    }
+    expect(view.getByText('+ Add note (optional)')).toBeTruthy()
+    expect(view.queryByRole('button', { name: 'Done' })).toBeNull()
+
+    // REPORTED, NOT FIXED: the frame labels this "Ignore anyway" a second
+    // time, after the button that got the user here said the same thing.
+    // Shipped as drawn — this assertion is the record of that, so a future
+    // relabel has to be a deliberate change with a ruling behind it.
+    expect(btn(view, 'Ignore anyway')).toBeTruthy()
   })
 
-  it.each(['yes', 'no'])('never asks "Was it fixed?" on the %s branch — the event is live', (b) => {
-    const { view } = openIgnore({ initialStep: b })
+  it('writes nothing when no chip and no note were given', () => {
+    const { view, calls } = openIgnore()
+    fireEvent.click(btn(view, 'Ignore anyway'))
+    fireEvent.click(btn(view, 'Ignore anyway'))
+
+    // The ignore itself is the caller's; an empty documentation step is not a
+    // record. "Nothing is mandatory", and a blank answer is not an answer.
+    expect(getFeedback(SYS.systemId)).toEqual([])
+    expect(calls.complete).toEqual([null])
+    expect(calls.cancel).toEqual([])
+  })
+
+  it('never asks "Was it fixed?" — the ignored event is still running', () => {
+    const { view } = openIgnore({ initialStep: 'question' })
 
     expect(view.queryByText('Was it fixed?')).toBeNull()
     expect(view.queryByRole('radiogroup')).toBeNull()
@@ -321,18 +374,41 @@ describe('trigger: ignore', () => {
     expect(view.queryByRole('radio', { name: 'Resolved on its own' })).toBeNull()
   })
 
-  it('records the answer against the ignore trigger', () => {
+  it('records the chips against the ignore trigger, and scores nothing', () => {
     const { view } = openIgnore()
     fireEvent.click(btn(view, 'Ignore anyway'))
-    fireEvent.click(btn(view, 'No'))
-    fireEvent.click(btn(view, 'Heavy use today'))
-    fireEvent.click(btn(view, 'Done'))
+    fireEvent.click(btn(view, 'Known ongoing issue'))
+    fireEvent.click(btn(view, 'Ignore anyway'))
 
     const saved = getLatestFeedback(SYS.systemId)
     expect(saved.trigger).toBe('ignore')
-    expect(saved.answer).toBe('no')
-    expect(saved.chips).toEqual(['Heavy use today'])
+    expect(saved.chips).toEqual(['Known ongoing issue'])
     expect(saved.fixed).toBeNull()
+    // The frames award nothing. Points are the event-ended flow's alone now.
+    expect(saved.points).toBe(0)
+  })
+
+  /* THE DERIVED `answer` — a shim, pinned so it cannot drift silently.
+     The sheet no longer ASKS "was this worth alerting about?", but
+     eventFeedbackStore.addFeedback still rejects any record whose answer is
+     not 'yes'/'no', so it is derived from the frame's own chip set:
+     "Unnecessary Alert" IS the old "no". If the store's gate is ever relaxed,
+     this pair of cases is the thing to revisit. */
+  it('derives the answer from the chip set rather than asking for it', () => {
+    const withChip = (chip) => {
+      const { view } = openIgnore()
+      fireEvent.click(btn(view, 'Ignore anyway'))
+      fireEvent.click(btn(view, chip))
+      fireEvent.click(btn(view, 'Ignore anyway'))
+      const saved = getLatestFeedback(SYS.systemId)
+      cleanup()
+      localStorage.clear()
+      clearAllFeedback()
+      return saved
+    }
+
+    expect(withChip('Unnecessary Alert').answer).toBe('no')
+    expect(withChip('Plumber scheduled').answer).toBe('yes')
   })
 
   it('refuses to render on a Shutoff event — Ignore is a Warning-state action', () => {
@@ -356,12 +432,19 @@ describe('driving the sheet to a state', () => {
   it.each([
     ['event-ended', 'yes', 'What was it?'],
     ['event-ended', 'no', 'What was it really?'],
-    ['ignore', 'yes', 'Why ignore it then?'],
-    ['ignore', 'no', "What's happening instead?"],
   ])('%s / %s lands on its follow-up', (trigger, initialStep, heading) => {
     const { view } = open({ trigger, initialStep })
     expect(view.getByText(heading)).toBeTruthy()
     expect(btn(view, 'Done')).toBeTruthy()
+  })
+
+  /* The ignore flow has exactly two steps now (199745:20202 → 199748:26265),
+     so there is no branch to jump to: anything that is not 'warning' resolves
+     to the documentation step rather than rendering nothing. */
+  it.each(['question', 'yes', 'no'])('ignore / %s lands on the documentation step', (initialStep) => {
+    const { view } = open({ trigger: 'ignore', initialStep })
+    expect(view.getByText('Document alert handling')).toBeTruthy()
+    expect(view.queryByText('Ignore this water event?')).toBeNull()
   })
 
   it('a jumped-to branch scores the primary answer it stands in for', () => {
@@ -437,8 +520,8 @@ describe('the store', () => {
   it('lets one event carry both an ignore-time answer and an end-of-event one', () => {
     const first = open({ trigger: 'ignore' })
     fireEvent.click(btn(first.view, 'Ignore anyway'))
-    fireEvent.click(btn(first.view, 'No'))
-    fireEvent.click(btn(first.view, 'Done'))
+    fireEvent.click(btn(first.view, 'Known ongoing issue'))
+    fireEvent.click(btn(first.view, 'Ignore anyway'))
     cleanup()
 
     const second = open()

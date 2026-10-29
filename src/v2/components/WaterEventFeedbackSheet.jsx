@@ -1,40 +1,82 @@
 /**
- * Water Event feedback — "Was this worth alerting about?"
+ * Water Event feedback — two flows, two sources of truth.
  *
- * Source of truth: `page-water-event-feedback-end.html`, the product owner's
- * review mockup. It replaces the v1 tag taxonomy (20 chips across two groups,
- * every tag a chip, no primary question — PRD 15 § 5.4) with one primary
- * question, 4–6 scoped chips per branch, nothing mandatory, and an animated
- * reward on tap.
+ * ── 2026-10-29: FIGMA SUPERSEDES THE HTML MOCKUP, FOR THE IGNORE FLOW ──────
+ * This file's source of truth USED TO BE `page-water-event-feedback-end.html`,
+ * the product owner's review mockup in the sandbox repo. Two Figma nodes now
+ * contradict it, the owner was shown the conflict explicitly, and ruled:
+ * **Figma wins. Rebuild the sheet.**
  *
- * TWO TRIGGERS, ONE QUESTION
+ *   199745:20202  "Ignore this water event?"  → step 'warning'
+ *   199748:26265  "Document alert handling"   → step 'question' (ignore)
+ *
+ * SUPERSEDED, NOT DELETED — the old reasoning is kept below because deleting
+ * it is how a ruling gets re-derived. Two sessions in this codebase have
+ * already rebuilt a decision that had been settled, because the reasoning was
+ * removed instead of marked. What the ruling retired, for the ignore flow:
+ *
+ *   • the primary question "Was this worth alerting about?"
+ *   • its Yes/No branch and the two per-branch headings
+ *     ("Why ignore it then?" / "What's happening instead?")
+ *   • the points / gamification reward and the "Thanks!" panel
+ *
+ * THE RULING IS SCOPED TO THE IGNORE FLOW, AND THAT SCOPE IS FORCED.
+ * Both frames draw `trigger="ignore"`. NO frame covers `trigger="event-ended"`,
+ * which is live (the push "Tag the cause" CTA, `?action=tag`, reaches it via
+ * SystemPageV2Screen). Applying the ruling to it as well would leave that flow
+ * with no heading and no entry control, and the only way to fill the hole is to
+ * author copy — which the owner has forbidden in the same breath ("transcribe
+ * the frame; never write a string the frame does not contain"). So the
+ * event-ended flow below is UNCHANGED, question and reward included, and the
+ * collision is reported rather than resolved here.
+ *
+ * ── THE SUPERSEDED REASONING (kept for the record) ────────────────────────
+ * The HTML mockup replaced the v1 tag taxonomy (20 chips across two groups,
+ * every tag a chip, no primary question — PRD 15 § 5.4) with ONE primary
+ * question, 4-6 scoped chips per branch, nothing mandatory, and an animated
+ * reward on tap. That shape still governs `event-ended`. For `ignore` it is
+ * retired: the frames ask no question, score nothing, and document the ignore
+ * with one flat chip set instead of a branch.
+ *
+ * TWO TRIGGERS
  *   trigger="event-ended"  fires after a water event ends. Opens straight on
  *                          the question. Yes adds a "Was it fixed?" toggle.
+ *                          Governed by the HTML mockup. Unchanged.
  *   trigger="ignore"       fires when the user taps Ignore on a LIVE event.
- *                          Opens on the consequences, not the question — the
- *                          user confirms before anything commits, and only
- *                          then does the sheet morph into the same question
- *                          with Ignore-specific chips. No "Was it fixed?"
- *                          (the event is still running), no Undo, no tag-type
- *                          picker. Allowed in the Warning state only, never
- *                          Shutoff: pass `eventState` and the sheet refuses to
- *                          render on 'shutoff' as a backstop — the real gate
- *                          belongs to the caller.
+ *                          Opens on the consequences (199745:20202); "Ignore
+ *                          anyway" commits the ignore and moves to the
+ *                          documentation step (199748:26265). Allowed in the
+ *                          Warning state only, never Shutoff: pass `eventState`
+ *                          and the sheet refuses to render on 'shutoff' as a
+ *                          backstop — the real gate belongs to the caller.
  *
- * NOTHING IS MANDATORY
- * The mockup says this twice. A single tap on Yes or No is a complete answer:
- * closing the sheet at any point after that still persists it. Chips, the
- * fixed-state and the note are all optional detail on top.
+ * NOTHING IS MANDATORY — still true on both flows. On `ignore` the ignore
+ * itself commits on the first "Ignore anyway"; the documentation after it is
+ * optional, and closing without touching a chip records nothing rather than
+ * recording an empty answer.
+ *
+ * THE DERIVED `answer`, AND WHY IT IS A SHIM — REPORTED, NOT FIXED.
+ * `eventFeedbackStore.addFeedback` hard-rejects any record whose `answer` is
+ * not 'yes' or 'no' (eventFeedbackStore.js, "if (answer !== 'yes' && answer
+ * !== 'no') return null"). The ignore flow no longer ASKS that question, so a
+ * faithful transcription would write `answer: undefined` and the store would
+ * silently discard every chip and note the user just entered — a dead writer.
+ * Until the store's gate is revisited (that file is not this change's to
+ * edit), the answer is DERIVED from the frame's own chip set: the new
+ * "Unnecessary Alert" chip is precisely the old "No, not worth alerting
+ * about", so selecting it records 'no' and anything else records 'yes'. This
+ * is a mapping, not invented copy — but it is a shim, and it is flagged.
  *
  * WHY NOT THE SHADCN <Sheet>
  * shadcn's Sheet is a Radix dialog that portals to document.body, and this app
  * draws inside a fixed 393x852 frame (src/components/Phone.jsx) — a portal
- * escapes that frame by design and covers the whole browser window. Every
- * sheet in this repo is an `absolute inset-0` overlay inside the page instead:
+ * escapes that frame by design and covers the whole browser window
+ * (ValveConfirmSheet.jsx:17-25 documents that failure). Every sheet in this
+ * repo is an `absolute inset-0` overlay inside the page instead:
  * SystemsFilterSheet:97, ValveConfirmSheet. This follows that house pattern
  * and uses shadcn Button / Toggle / ToggleGroup / Badge / Separator INSIDE it.
  *
- * ANIMATION WITHOUT TIMERS
+ * ANIMATION WITHOUT TIMERS — event-ended only now.
  * The mockup sequences the reward and the follow-up with setTimeout. Here the
  * follow-up is always mounted and revealed by a delayed CSS animation
  * (`wef-reveal`, 420ms delay, fill-mode both) instead. Same perceived
@@ -55,15 +97,50 @@
  * the state BEFORE that pass. It is still the rule if an escaped name is ever
  * pasted back in from Figma — but no live class string in this file carries
  * one now, and a fresh paste should resolve the fallback hex to a utility.
+ *
+ * TOKEN MAP FOR THE TWO FRAMES. Figma names on the left, the utility that
+ * paints them here on the right. Three of them deliberately do NOT transcribe
+ * the literal, and the reason is the same one ValveStatusCard.jsx:165-190
+ * measured across all four themes — the slate ramp is the INK ramp and it
+ * INVERTS per theme, so a literal `bg-slate-900` fill is a near-WHITE button
+ * under `dark`:
+ *
+ *   colors/slate/900 (button ground) → bg-foreground + text-background
+ *                                      (the declared inverted-button pair;
+ *                                       the only one that clears AA in all
+ *                                       four themes)
+ *   colors/slate/950 (Cancel ink)    → text-foreground   — one tonal step up,
+ *   colors/slate/700 (Cancel border) → border-foreground   for the same reason
+ *   colors/slate/300 (grab handle)   → bg-slate-300
+ *   colors/slate/100 (chips, icon discs, close button) → bg-muted
+ *   colors/slate/700 (chip ink)      → text-slate-700
+ *   colors/slate/800 (headings)      → text-slate-800
+ *   colors/red/50    (irreversible panel) → bg-alert-surface-critical
+ *   #e8f1df          (ignored banner, un-tokened in Figma) → bg-alert-surface-success
+ *   #fafbfc          (sheet chassis)  → bg-surface-card
+ *   black            (bullet body)    → text-foreground
+ *
+ * The scrim was a literal `rgba(20,21,26,0.42)`. Figma draws colors/slate/600
+ * at 70%, which is a fixed slate and would not survive `dark`; the house
+ * spelling is `bg-foreground/45` (ValveConfirmSheet.jsx:47,109) and that is
+ * what it uses now — a token, and the same veil.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Check, X, TriangleAlert, BellOff, Clock, RotateCcw } from 'lucide-react'
+import {
+  Check,
+  X,
+  Droplets,
+  MessageSquareOff,
+  RefreshCwOff,
+  Smile,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import ValveStatus from '@/v2/components/ValveStatus'
 import {
   addFeedback,
   getLearnedCount,
@@ -73,15 +150,19 @@ import {
 import { getCurrentActor } from '@/data/currentUser'
 
 /* ── Copy & chips ───────────────────────────────────────────────────────────
-   Verbatim from the mockup. Exported so a test (or a future PRD rewrite) can
-   assert against the list rather than retyping it. */
+   Every string below is transcribed from its source — the HTML mockup for the
+   event-ended flow, the Figma frame for the ignore flow. Exported shapes so a
+   test (or a future rewrite) can assert against the list rather than retyping
+   it. Nothing here is authored. */
 
+/* event-ended only. SUPERSEDED for `ignore` — see the header. */
 const PRIMARY_QUESTION = 'Was this worth alerting about?'
 const PRIMARY_HINT = 'Your answer helps Wint learn. Nothing is mandatory.'
 const SOMETHING_ELSE = 'Something else'
 const NOTE_MAX = 140
 
-/** Demo gamification. The mockup's own numbers. */
+/** Demo gamification. The mockup's own numbers. event-ended only — the Figma
+ *  frames score nothing, so the ignore flow never awards. */
 const POINTS = { PRIMARY: 5, CHIP: 5, NOTE: 10 }
 
 const FIXED_OPTIONS = [
@@ -91,6 +172,44 @@ const FIXED_OPTIONS = [
   // commentary is explicit, and it is why this is not a two-state toggle.
   FIXED_STATES.SELF_RESOLVED,
 ]
+
+/* ── The ignore flow, from Figma ───────────────────────────────────────────
+   199748:26265 draws ONE flat chip set, not a branch. The first five are the
+   old `ignore.yes` chips unchanged; "Unnecessary Alert" (199761:25771, with
+   the Huge Icons / smile leftIcon) is new and appears nowhere else in src/. */
+
+const UNNECESSARY_ALERT = 'Unnecessary Alert'
+
+/** Reading order of the badges in 199748:26646. Their x/y in the frame is a
+ *  wrapped row — 24px chips on a 34px pitch, i.e. a 10px gap — so a plain
+ *  `flex flex-wrap gap-[10px]` reproduces the frame's layout exactly while
+ *  staying safe at 393px, which absolute placement would not be. */
+const IGNORE_CHIPS = [
+  'Already fixing it',
+  'Plumber scheduled',
+  'Known ongoing issue',
+  'Water shut off manually',
+  SOMETHING_ELSE,
+  UNNECESSARY_ALERT,
+]
+
+/** 199748:27414 — the green banner above the heading. */
+const IGNORED_BANNER = 'Event marked as ignored'
+/** 199748:26645 */
+const IGNORE_HEADING = 'Document alert handling'
+/** 199745:21420 */
+const WARNING_TITLE = 'Ignore this water event?'
+
+/**
+ * 199748:26654 — the frame's final button.
+ *
+ * REPORTED, SHIPPED AS DRAWN: this reads "Ignore anyway" a SECOND time, after
+ * the user has already pressed a button with that exact label on the previous
+ * step to get here. That looks like a copy bug. The owner has not ruled on it,
+ * and the standing instruction is to transcribe the frame, so the frame's
+ * string is what ships. Do not "fix" this without a ruling.
+ */
+const IGNORE_CONFIRM_LABEL = 'Ignore anyway'
 
 const FLOWS = {
   'event-ended': {
@@ -117,37 +236,6 @@ const FLOWS = {
         'Heavy use (cleaning / laundry / guests)',
         'Construction or maintenance',
         'One-off event',
-        SOMETHING_ELSE,
-      ],
-      askFixed: false,
-    },
-  },
-  ignore: {
-    context: 'Ignore water event',
-    contextAfterConfirm: 'Water event ignored',
-    yes: {
-      microcopy: "Thanks — we'll stay out of your way.",
-      heading: 'Why ignore it then?',
-      chips: [
-        'Already fixing it',
-        'Plumber scheduled',
-        'Known ongoing issue',
-        'Water shut off manually',
-        SOMETHING_ELSE,
-      ],
-      // No "Was it fixed?" here. The event is still live — the mockup lists
-      // this under "What's intentionally missing".
-      askFixed: false,
-    },
-    no: {
-      microcopy: 'Thanks — Wint will be quieter here.',
-      heading: "What's happening instead?",
-      chips: [
-        'Filling a pool / tub / spa',
-        'Running irrigation',
-        'Heavy use today',
-        'Construction or maintenance',
-        'This is normal here',
         SOMETHING_ELSE,
       ],
       askFixed: false,
@@ -215,6 +303,29 @@ const SHEET_CSS = `
 const CHOICE_CLASS =
   'h-auto flex-col gap-[8px] rounded-[14px] border-[1.5px] border-border bg-card px-[12px] py-[20px] text-[17px] font-bold text-slate-800'
 
+/**
+ * The frame's Badge, as a selectable control.
+ *
+ * 199748:26647 et al: h-24, px-8/py-2, gap-4, radius 26 (fully rounded at this
+ * height), ground colors/slate/100, a 1px white rim, 12/16 Medium in
+ * colors/slate/700.
+ *
+ * THE PRESSED TREATMENT IS NOT FROM THE FRAME, AND CANNOT BE. The frame draws
+ * every chip unselected — it shows no selected state at all. But these chips
+ * ARE the documentation the step exists to capture, so a control with no
+ * selected state is a broken control, not a faithful one. The `data-[state=on]`
+ * rules below are therefore carried over UNCHANGED from the treatment this
+ * file already shipped; nothing about them is newly invented here. Flagged.
+ */
+const IGNORE_CHIP_CLASS =
+  'h-[24px] min-w-0 gap-[4px] rounded-full border border-background bg-muted px-[8px] py-[2px] text-[12px] font-medium text-slate-700 leading-[16px] ' +
+  'data-[state=on]:border-primary data-[state=on]:bg-primary/8 data-[state=on]:text-primary'
+
+/** 199745:21423 / 199748:26654 — the dark navy confirm. See the header's token
+ *  map for why the ground is `bg-foreground` and not a literal `bg-slate-900`. */
+const DARK_BUTTON_CLASS =
+  'h-auto rounded-full bg-foreground px-[10px] py-[12px] text-[16px] font-semibold text-background leading-[24px] hover:bg-foreground/90'
+
 /* Deterministic scatter — the mockup randomises, but a stable render keeps
    snapshots and reviews honest and costs nothing visually. */
 const scatter = (i, n, spread) => {
@@ -281,25 +392,29 @@ function Celebration() {
   )
 }
 
-/** One consequence of Ignore. Danger rows get the high-severity treatment —
- *  the valve bullet and the irreversibility bullet are the two that cost. */
+/**
+ * One consequence of Ignore — 199745:21441 / :21442 / :21460.
+ *
+ * The frame gives every bullet the SAME neutral disc (colors/slate/100, 28px)
+ * and no danger treatment; the red is reserved for the separate irreversibility
+ * panel below. The `danger` prop and the severity-high disc that used to live
+ * here are gone with it.
+ */
 function WarnPoint(props) {
+  // `const Icon = props.icon`, not a renamed destructure: eslint's
+  // no-unused-vars does not see `{ icon: Icon }` being used as a JSX tag and
+  // reports it dead. This is the spelling the file already used.
   const Icon = props.icon
-  const { danger, children } = props
+  const { iconSize = 17, children } = props
   return (
-    <li className="mb-[10px] flex items-start gap-[10px]">
+    <li className="flex items-center gap-[9px]">
       <span
         aria-hidden="true"
-        className={cn(
-          'mt-[1px] flex size-[20px] shrink-0 items-center justify-center rounded-full',
-          danger
-            ? 'bg-severity-high/14 text-severity-high'
-            : 'bg-slate-100 text-slate-700',
-        )}
+        className="flex size-[28px] shrink-0 items-center justify-center rounded-full bg-muted text-slate-700"
       >
-        <Icon size={12} strokeWidth={2.4} />
+        <Icon size={iconSize} strokeWidth={1.8} />
       </span>
-      <span className="text-[13px] text-slate-700 leading-[19px]">
+      <span className="min-w-0 flex-1 text-[14px] text-foreground leading-[20px]">
         {children}
       </span>
     </li>
@@ -312,8 +427,8 @@ function WarnPoint(props) {
  * @param {'event-ended'|'ignore'} [props.trigger]
  * @param {string} props.systemId          storage key + what the record points at
  * @param {string} [props.eventKey]        override the storage key (closed event id)
- * @param {string} [props.systemName]      shown in the sheet's context line
- * @param {string} [props.eventLabel]      e.g. "High Flow · 6h 36m"
+ * @param {string} [props.systemName]      context line — event-ended only now
+ * @param {string} [props.eventLabel]      context line — event-ended only now
  * @param {'warning'|'shutoff'} [props.eventState]  Ignore is refused on 'shutoff'
  * @param {'warning'|'question'|'yes'|'no'|'done'} [props.initialStep]  review/test driver
  * @param {() => void} [props.onCancel]
@@ -344,19 +459,21 @@ function FeedbackSheet({
   onComplete,
 }) {
   const isIgnore = trigger === 'ignore'
-  const flow = FLOWS[isIgnore ? 'ignore' : 'event-ended']
+  const flow = FLOWS['event-ended']
   const storageKey = eventKey || systemId
 
-  /* Where the sheet opens. The ignore flow always opens on the consequences;
-     everything else opens on the question. `initialStep` is the review /
-     test driver — the mockup's own "Jump to: Yes branch" / "Jump to: No
-     branch" / "Reset flow" controls, expressed as a prop. */
+  /* Where the sheet opens. The ignore flow always opens on the consequences
+     and has exactly two steps now, so any other `initialStep` resolves to the
+     documentation step. `initialStep` is the review / test driver — the
+     mockup's own "Jump to" controls, expressed as a prop. */
   const jump = initialStep || (isIgnore ? 'warning' : 'question')
-  const jumpBranch = jump === 'yes' || jump === 'no' ? jump : null
+  const jumpBranch = !isIgnore && (jump === 'yes' || jump === 'no') ? jump : null
 
-  const [step, setStep] = useState(
-    jumpBranch ? 'branch' : jump === 'warning' && !isIgnore ? 'question' : jump,
-  )
+  const [step, setStep] = useState(() => {
+    if (isIgnore) return jump === 'warning' ? 'warning' : 'question'
+    if (jumpBranch) return 'branch'
+    return jump === 'warning' ? 'question' : jump
+  })
   const [answer, setAnswer] = useState(jumpBranch)
   const [chips, setChips] = useState([])
   const [fixed, setFixed] = useState(null)
@@ -364,7 +481,9 @@ function FeedbackSheet({
   const [noteOpen, setNoteOpen] = useState(false)
   // Landing on a branch counts as having tapped the primary answer, so the
   // score reads the same as it would for a user who got there by hand.
-  const [points, setPoints] = useState(jumpBranch || jump === 'done' ? POINTS.PRIMARY : 0)
+  const [points, setPoints] = useState(
+    !isIgnore && (jumpBranch || jump === 'done') ? POINTS.PRIMARY : 0,
+  )
   const [ignoreConfirmed, setIgnoreConfirmed] = useState(isIgnore ? jump !== 'warning' : false)
   const [floats, setFloats] = useState([])
   const [celebrate, setCelebrate] = useState(false)
@@ -401,21 +520,35 @@ function FeedbackSheet({
     [storageKey, isIgnore, chips, note, fixed, systemId],
   )
 
+  /* The ignore flow captures no yes/no. See the header: the store rejects a
+     record without one, so it is derived from the frame's own chip set rather
+     than left undefined, and nothing is written at all when the user gave no
+     detail to write. */
+  const ignoreDetail = chips.length > 0 || note.trim().length > 0
+  const commitIgnore = useCallback(() => {
+    if (!ignoreDetail) return null
+    return commit(chips.includes(UNNECESSARY_ALERT) ? 'no' : 'yes', 0)
+  }, [ignoreDetail, commit, chips])
+
   const close = useCallback(
     (reason) => {
       if (closed.current) return
       closed.current = true
+      if (isIgnore) {
+        // Nothing has committed until "Ignore anyway" on the warning step.
+        if (!ignoreConfirmed) { onCancel?.(); return }
+        // The ignore itself is already committed by the caller; the
+        // documentation is optional. Either outcome is complete, not a cancel.
+        onComplete?.(commitIgnore())
+        return
+      }
       if (answer) {
         onComplete?.(commit(answer, points))
-      } else if (isIgnore && ignoreConfirmed) {
-        // The ignore is already committed by the caller; the feedback was
-        // skipped. That is a complete outcome, not a cancel.
-        onComplete?.(null)
       } else if (reason === 'cancel' || !answer) {
         onCancel?.()
       }
     },
-    [answer, points, commit, isIgnore, ignoreConfirmed, onCancel, onComplete],
+    [answer, points, commit, isIgnore, ignoreConfirmed, commitIgnore, onCancel, onComplete],
   )
 
   /* Escape closes. Radix gave this for free; an in-frame overlay says so
@@ -427,7 +560,8 @@ function FeedbackSheet({
   }, [step, close])
 
   /* The Thanks panel holds, then hands back. Longer when the user went deep
-     enough to earn the celebration. */
+     enough to earn the celebration. event-ended only — the ignore frames draw
+     no Thanks panel, so the ignore flow never reaches this step. */
   useEffect(() => {
     if (step !== 'done') return
     const t = setTimeout(() => close('done'), celebrate ? 2400 : 2000)
@@ -469,11 +603,11 @@ function FeedbackSheet({
   const toggleChip = (label, el) => {
     if (chips.includes(label)) {
       setChips((prev) => prev.filter((c) => c !== label))
-      setPoints((p) => p - POINTS.CHIP)
+      if (!isIgnore) setPoints((p) => p - POINTS.CHIP)
       return
     }
     setChips((prev) => [...prev, label])
-    award(POINTS.CHIP, el)
+    if (!isIgnore) award(POINTS.CHIP, el)
     // "Something else" is the only chip that opens the note by itself.
     if (label === SOMETHING_ELSE) setNoteOpen(true)
   }
@@ -493,8 +627,10 @@ function FeedbackSheet({
     const next = raw.slice(0, NOTE_MAX)
     const had = note.trim().length > 0
     const has = next.trim().length > 0
-    if (!had && has) award(POINTS.NOTE, noteRef.current)
-    if (had && !has) setPoints((p) => p - POINTS.NOTE)
+    if (!isIgnore) {
+      if (!had && has) award(POINTS.NOTE, noteRef.current)
+      if (had && !has) setPoints((p) => p - POINTS.NOTE)
+    }
     setNote(next)
   }
 
@@ -503,6 +639,10 @@ function FeedbackSheet({
     setStep('question')
     onIgnoreConfirmed?.()
   }
+
+  /* 199748:26654. The frame ends here — there is no Thanks panel after it — so
+     this writes whatever documentation was given and hands back. */
+  const finishIgnore = () => close('done')
 
   const finish = () => {
     // The screen-wide celebration is reserved for the users who went deep
@@ -515,8 +655,8 @@ function FeedbackSheet({
   }
 
   const branch = answer ? flow[answer] : null
-  const context = isIgnore && ignoreConfirmed ? flow.contextAfterConfirm : flow.context
-  const title = step === 'warning' ? 'Ignore this water event?' : PRIMARY_QUESTION
+  const title =
+    step === 'warning' ? WARNING_TITLE : isIgnore ? IGNORE_HEADING : PRIMARY_QUESTION
 
   return (
     <div
@@ -535,99 +675,139 @@ function FeedbackSheet({
         type="button"
         aria-label="Dismiss"
         onClick={() => close(step === 'warning' ? 'cancel' : 'dismiss')}
-        className="absolute inset-0 cursor-default bg-[rgba(20,21,26,0.42)]"
+        className="absolute inset-0 cursor-default bg-foreground/45"
       />
 
       <div className="wef-sheet relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[24px] bg-surface-card shadow-[0_-8px_32px_rgba(0,0,0,0.18)]">
-        <div aria-hidden="true" className="mx-auto mb-[6px] mt-[10px] h-[4px] w-[36px] rounded-[2px] bg-[#dee0e3]" />
+        {/* 199745:21417 / 199748:26641 — the grab handle. */}
+        <div aria-hidden="true" className="mx-auto mb-[6px] mt-[11px] h-[4px] w-[34px] shrink-0 rounded-[10px] bg-slate-300" />
 
-        <div className="flex items-center justify-between gap-[10px] px-[18px] pb-[10px] pt-[4px]">
-          <p className="min-w-0 flex-1 truncate text-[12px] font-medium tracking-[0.2px] text-muted-foreground leading-[16px]">
-            {[context, systemName, eventLabel].filter(Boolean).join(' · ')}
-          </p>
+        {/* The ignore frames draw NO context line and NO points chip — only the
+            handle and the close button. The header row below is therefore
+            event-ended's alone. REPORTED: `systemName` and `eventLabel` are
+            still passed by both SystemPageV2Screen call sites, so on the
+            ignore flow they now arrive and go unrendered. */}
+        {isIgnore ? (
+          /* 199745:24605 / 199748:26655 — left-[362px] in a 402px frame, i.e.
+             10px from the right edge, floating over the content. */
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Close"
+            onClick={() => close(step === 'warning' ? 'cancel' : 'dismiss')}
+            className="absolute right-[10px] top-[10px] z-10 size-[30px] rounded-full border border-background bg-muted text-slate-700 hover:bg-muted"
+          >
+            <X size={18} strokeWidth={2} />
+          </Button>
+        ) : (
+          <div className="flex items-center justify-between gap-[10px] px-[18px] pb-[10px] pt-[4px]">
+            <p className="min-w-0 flex-1 truncate text-[12px] font-medium tracking-[0.2px] text-muted-foreground leading-[16px]">
+              {[flow.context, systemName, eventLabel].filter(Boolean).join(' · ')}
+            </p>
 
-          <div className="flex items-center gap-[10px]">
-            {points > 0 ? (
-              <Badge
-                key={points}
-                aria-label={`${points} points earned`}
-                className={cn(
-                  'wef-pulse border-transparent px-[10px] py-[4px] text-[12px] font-bold',
-                  points >= POINTS.NOTE
-                    ? 'bg-[linear-gradient(135deg,rgba(255,184,0,.22),rgba(245,158,11,.28))] text-[#b45309]'
-                    : 'bg-primary/10 text-primary',
-                )}
-              >
-                +{points}
-              </Badge>
-            ) : null}
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Close"
-              onClick={() => close(step === 'warning' ? 'cancel' : 'dismiss')}
-              className="rounded-full text-muted-foreground"
-            >
-              <X size={16} strokeWidth={2.2} />
-            </Button>
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-[18px] pb-[24px] pt-[8px]">
-          {/* ── Ignore: consequences first, before the question ───────────── */}
-          {step === 'warning' ? (
-            <section>
-              <div className="my-[10px] flex items-center gap-[10px]">
-                <span
-                  aria-hidden="true"
-                  className="flex size-[36px] shrink-0 items-center justify-center rounded-full bg-severity-high/12 text-severity-high"
+            <div className="flex items-center gap-[10px]">
+              {points > 0 ? (
+                <Badge
+                  key={points}
+                  aria-label={`${points} points earned`}
+                  className={cn(
+                    'wef-pulse border-transparent px-[10px] py-[4px] text-[12px] font-bold',
+                    points >= POINTS.NOTE
+                      ? 'bg-[linear-gradient(135deg,rgba(255,184,0,.22),rgba(245,158,11,.28))] text-[#b45309]'
+                      : 'bg-primary/10 text-primary',
+                  )}
                 >
-                  <TriangleAlert size={20} strokeWidth={2.2} />
-                </span>
-                <h2 className="text-[18px] font-bold tracking-[-0.3px] text-foreground leading-[24px]">
-                  Ignore this water event?
-                </h2>
+                  +{points}
+                </Badge>
+              ) : null}
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Close"
+                onClick={() => close('dismiss')}
+                className="rounded-full text-muted-foreground"
+              >
+                <X size={16} strokeWidth={2.2} />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto',
+            // 199745:21416 / 199748:26640 — pl-34 pr-35 pb-30 on a 402px frame.
+            isIgnore ? 'px-[34px] pb-[30px] pt-[13px]' : 'px-[18px] pb-[24px] pt-[8px]',
+          )}
+        >
+          {/* ── Ignore step 1: the consequences — 199745:20202 ────────────── */}
+          {step === 'warning' ? (
+            <section className="flex flex-col gap-[19px]">
+              <div className="flex flex-col gap-[18px]">
+                <div className="flex flex-col gap-[6px]">
+                  {/* 199745:21420 */}
+                  <h2 className="text-[20px] font-bold text-slate-800 leading-[26px]">
+                    {WARNING_TITLE}
+                  </h2>
+                  {/* 199745:21433 */}
+                  <p className="text-[14px] text-foreground leading-[20px]">
+                    You&rsquo;re telling Wint this flow is OK. Here&rsquo;s what happens:
+                  </p>
+                </div>
+
+                <ul className="m-0 flex list-none flex-col gap-[15px] p-0">
+                  {/* 199745:21435 — the frame's own "Valve status" instance, so
+                      this is the project's valve mark, not a stand-in glyph. */}
+                  <WarnPoint icon={ValveGlyph} iconSize={16}>
+                    The valve will <strong className="font-bold">not</strong> be automatically
+                    closed, even if the flow keeps growing.
+                  </WarnPoint>
+                  {/* 199745:21444 — Huge Icons / message-blocked. NOT a bell:
+                      the brief's "BellOff already matches" does not hold. */}
+                  <WarnPoint icon={MessageSquareOff}>
+                    You won&rsquo;t get more notifications about this event. New events still
+                    alert normally.
+                  </WarnPoint>
+                  {/* 199747:23443 — Tabler Icons / droplets. */}
+                  <WarnPoint icon={Droplets}>
+                    Wint keeps measuring. The event stays visible as Ignored until the water
+                    flow actually stops.
+                  </WarnPoint>
+                </ul>
               </div>
 
-              <p className="mx-[2px] mb-[12px] text-[13.5px] text-slate-700 leading-[21px]">
-                You&rsquo;re telling Wint this flow is OK. Here&rsquo;s what happens:
-              </p>
-
-              <ul className="m-0 list-none p-0">
-                <WarnPoint icon={X} danger>
-                  The valve will <strong>not</strong> be automatically closed, even if the flow keeps
-                  growing.
-                </WarnPoint>
-                <WarnPoint icon={BellOff}>
-                  You won&rsquo;t get more notifications about <em>this</em> event. New events still
-                  alert normally.
-                </WarnPoint>
-                <WarnPoint icon={Clock}>
-                  Wint keeps measuring. The event stays visible as <strong>Ignored</strong> until the
-                  water flow actually stops.
-                </WarnPoint>
-                <WarnPoint icon={RotateCcw} danger>
+              {/* 199747:23437 — its OWN panel in the frame, tinted
+                  colors/red/50, not a fourth bullet inside the list above. */}
+              <div className="flex items-center gap-[9px] rounded-[9px] bg-alert-surface-critical px-[7px] py-[9px]">
+                <span
+                  aria-hidden="true"
+                  className="flex size-[28px] shrink-0 items-center justify-center text-alert-ink-critical"
+                >
+                  <RefreshCwOff size={17} strokeWidth={1.8} />
+                </span>
+                <span className="min-w-0 flex-1 text-[14px] text-foreground leading-[20px]">
                   This can&rsquo;t be undone for this event.
-                </WarnPoint>
-              </ul>
+                </span>
+              </div>
 
-              <Separator className="mt-[16px] bg-slate-100" />
-              <div className="mt-[12px] flex gap-[10px]">
+              {/* 199745:21422 — gap-7, both buttons flex-1. No separator above
+                  them in the frame. */}
+              <div className="flex gap-[7px]">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => close('cancel')}
-                  className="h-[46px] flex-1 rounded-[12px] bg-card text-[14px] font-bold"
+                  className="h-auto flex-1 rounded-full border border-foreground bg-transparent px-[10px] py-[12px] text-[16px] font-semibold text-foreground leading-[24px]"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="button"
-                  variant="destructive"
                   onClick={confirmIgnore}
-                  className="h-[46px] flex-1 rounded-[12px] bg-severity-high text-[14px] font-bold hover:bg-[#ba365c]"
+                  className={cn('flex-1', DARK_BUTTON_CLASS)}
                 >
                   Ignore anyway
                 </Button>
@@ -635,8 +815,97 @@ function FeedbackSheet({
             </section>
           ) : null}
 
-          {/* ── The one primary question ──────────────────────────────────── */}
-          {step === 'question' ? (
+          {/* ── Ignore step 2: document the handling — 199748:26265 ───────── */}
+          {step === 'question' && isIgnore ? (
+            <section className="flex flex-col gap-[19px]">
+              <div className="flex flex-col gap-[18px]">
+                <div className="flex flex-col gap-[20px]">
+                  {/* 199748:27414 */}
+                  <div className="flex items-center gap-[7px] rounded-[12px] bg-alert-surface-success px-[5px] py-[5px]">
+                    <span
+                      aria-hidden="true"
+                      className="flex size-[32px] shrink-0 items-center justify-center rounded-full bg-surface-card text-success"
+                    >
+                      <Check size={20} strokeWidth={2.6} />
+                    </span>
+                    <p className="min-w-0 flex-1 text-[18px] font-semibold tracking-[-0.45px] text-slate-800 leading-[22px]">
+                      {IGNORED_BANNER}
+                    </p>
+                  </div>
+
+                  {/* 199748:26645 */}
+                  <h2 className="text-[20px] font-bold text-slate-800 leading-[26px]">
+                    {IGNORE_HEADING}
+                  </h2>
+
+                  {/* 199748:26646 — one flat set, no branch, no heading above
+                      it beyond the one already rendered. */}
+                  <div className="flex flex-wrap gap-[10px]">
+                    {IGNORE_CHIPS.map((label) => (
+                      <Toggle
+                        key={label}
+                        variant="outline"
+                        pressed={chips.includes(label)}
+                        onClick={(e) => toggleChip(label, e.currentTarget)}
+                        className={IGNORE_CHIP_CLASS}
+                      >
+                        {/* 199761:25771's leftIcon — Huge Icons / smile. Only
+                            this chip carries one in the frame. */}
+                        {label === UNNECESSARY_ALERT ? (
+                          <Smile aria-hidden="true" size={16} strokeWidth={1.8} className="shrink-0" />
+                        ) : null}
+                        {label}
+                      </Toggle>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 199748:26652. The frame draws the opener only; the field it
+                    opens is this component's existing behaviour, not a state
+                    taken from the frame. */}
+                {noteOpen ? (
+                  <div>
+                    <textarea
+                      ref={noteRef}
+                      value={note}
+                      maxLength={NOTE_MAX}
+                      aria-label="Note (optional)"
+                      placeholder="Describe briefly..."
+                      onChange={(e) => changeNote(e.target.value)}
+                      className="h-[72px] w-full resize-none rounded-[10px] border-[1.5px] border-border bg-card px-[12px] py-[10px] text-[13px] text-foreground outline-none focus:border-primary leading-[18px]"
+                    />
+                    <p className="mt-[4px] text-right text-[11px] text-slate-400 leading-[15px]">
+                      {note.length}/{NOTE_MAX}
+                    </p>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => setNoteOpen(true)}
+                    className="h-auto justify-start px-0 py-0 text-[16px] font-bold tracking-[-0.4px] text-slate-800 no-underline leading-[26px] hover:no-underline"
+                  >
+                    + Add note (optional)
+                  </Button>
+                )}
+              </div>
+
+              {/* 199748:26653 — one full-width dark button. See
+                  IGNORE_CONFIRM_LABEL for the duplicated-label report. */}
+              <div className="flex">
+                <Button
+                  type="button"
+                  onClick={finishIgnore}
+                  className={cn('flex-1', DARK_BUTTON_CLASS)}
+                >
+                  {IGNORE_CONFIRM_LABEL}
+                </Button>
+              </div>
+            </section>
+          ) : null}
+
+          {/* ── event-ended: the one primary question ─────────────────────── */}
+          {step === 'question' && !isIgnore ? (
             <section>
               <h2 className="mx-[4px] mb-[20px] mt-[10px] text-[20px] font-bold tracking-[-0.3px] text-foreground leading-[26px]">
                 {PRIMARY_QUESTION}
@@ -673,7 +942,7 @@ function FeedbackSheet({
             </section>
           ) : null}
 
-          {/* ── Reward, then the scoped follow-up ─────────────────────────── */}
+          {/* ── event-ended: reward, then the scoped follow-up ────────────── */}
           {step === 'branch' && branch ? (
             <section>
               <div className="flex flex-col items-center gap-[6px] pb-[14px] pt-[10px]">
@@ -708,10 +977,7 @@ function FeedbackSheet({
                       variant="outline"
                       pressed={chips.includes(label)}
                       onClick={(e) => toggleChip(label, e.currentTarget)}
-                      className={cn(
-                        'h-auto rounded-full border-[1.5px] border-border bg-card px-[14px] py-[9px] text-[13px] font-semibold text-slate-700 data-[state=on]:border-primary data-[state=on]:bg-primary/8 data-[state=on]:text-primary leading-[17px]',
-                        label === SOMETHING_ELSE && 'border-dashed',
-                      )}
+                      className="h-auto rounded-full border-[1.5px] border-border bg-card px-[12px] py-[7px] text-[12.5px] font-semibold text-slate-700 data-[state=on]:border-primary data-[state=on]:bg-primary/8 data-[state=on]:text-primary leading-[16px]"
                     >
                       {label}
                     </Toggle>
@@ -786,7 +1052,7 @@ function FeedbackSheet({
             </section>
           ) : null}
 
-          {/* ── Thanks ────────────────────────────────────────────────────── */}
+          {/* ── event-ended: Thanks ───────────────────────────────────────── */}
           {step === 'done' ? (
             <section className="flex flex-col items-center gap-[14px] px-[24px] pb-[32px] pt-[36px] text-center">
               <span
@@ -829,4 +1095,10 @@ function FeedbackSheet({
       {celebrate && step === 'done' ? <Celebration /> : null}
     </div>
   )
+}
+
+/** Adapter so <WarnPoint icon={…}> can take the project's valve mark, whose
+ *  prop is `size` + `state` rather than lucide's `size` + `strokeWidth`. */
+function ValveGlyph({ size }) {
+  return <ValveStatus state="open" size={size} />
 }
