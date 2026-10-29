@@ -10,6 +10,46 @@
  * The card's layer name is still the shadcn template leftover
  * "Card • Q2 Dividend Income"; that card IS the Events Timeline.
  *
+ * ── THE WATER-EVENT OVERLAY FRAMES, 2026-10-29 ───────────────────────────────
+ * The owner gave ten frames of the water-event overlay, all named "Water Event
+ * View - Auto Shut Off Enabled", and asked for every sub-component to be
+ * updated from them. A survey pass fetched all ten, but every one of those
+ * get_design_context payloads is cut at ~100KB and the cut lands INSIDE this
+ * card — so the timeline was unverified rather than absent. Drilled below it by
+ * fetching the Events Timeline child on its own:
+ *   199772:145585  the card on the canonical new-layout frame 199772:145451
+ *   199754:28770   the card on the ignored state            199754:28589
+ * The two are the same document row for row; only the instance root differs.
+ * Both are instances of the SAME master as every other current drawing of this
+ * card, 199532:88179 — which is NOT the master 199383:141630 / 199359:126908
+ * this file was built from. Three things that master changed are applied below:
+ * the avatar is a circle, the network bubble is slate rather than blue, and the
+ * mock's three frame rows read "Ended" / "Ended" / "Connectivity Restored".
+ *
+ * THE TRAP IN THOSE TWO FETCHES, so nobody chases it again. Fetching the card
+ * NODE on its own resolves Figma's variables in the file's default mode, not
+ * the frame's. Against 199772:145585 the emitted fallbacks read 'Geist:Medium',
+ * card/padding-sm 13px, button/size-default px 10px / radius 10px, button
+ * h-[32px], and a live shadow/popover/layer-2 (0 2 4 -2 rgba(0,0,0,.1)).
+ * Against all TEN frame-level payloads the SAME nodes read 'Figtree:Medium',
+ * padding-sm 17px, button px 12px / radius 26px, h-[36px] and a fully
+ * transparent layer-2. The frame mode is the product's. Nothing in this file's
+ * header, pill or card-shell geometry was changed on the node-level numbers;
+ * they are a fetch artifact, not a redesign.
+ *
+ * Confirmed directly: get_design_context 199772:145451 with forceCode:true
+ * emits THE SAME node I199772:145585;199532:88179;149:2490 as padding-sm 17px /
+ * 'Figtree:Medium' / button h-[36px] / layer-2 all-zero. forceCode did NOT
+ * defeat the size cap on this frame — the payload still stops at exactly
+ * 100,000 characters, inside this card's header — so the rows below it are
+ * reachable only through the child node, which is why they are cited that way.
+ *
+ * OPEN, reported rather than decided — see the notes at each site:
+ *   · the water bubble is now colors/red/50, and this project has no red-50;
+ *   · the frames draw a chevron on EVERY row, including rows with nothing to
+ *     expand;
+ *   · the frames' third row carries no timestamp.
+ *
  * (Supersedes the earlier pass's nodes 199296:50453 / 199296:50716, which were
  * an older copy of the same two pages. The sub-paths under the card are
  * identical, so the old → new id map is 1:1; the data-node-id attributes below
@@ -345,10 +385,31 @@ const BADGE_TONE = {
   },
 }
 
-/** Avatar bubble tint per event kind. 199383:141684 (water) / 198352:121532 (network). */
+/**
+ * Avatar bubble tint per event kind. 199383:141684 (water) / 198352:121532
+ * (network), re-read 2026-10-29 off 199772:145585 and 199754:28770.
+ *
+ * NETWORK — CHANGED. Both overlay cards paint the wifi row's bubble
+ * colors/slate/100 (#f1f5f9) on node 199532:89931, and so does 199745:20383.
+ * No current node paints it blue. `bg-blue-100` was also the one tint in this
+ * file no theme could move: index.css defines no --blue-100 and maps no
+ * --color-blue-100, so it bound to stock Tailwind and sat still under
+ * ?theme=contrast. --color-slate-100 IS mapped (index.css:662), so this now
+ * follows the drawing and the theme at once. The wifi glyph keeps its own
+ * stroke; #2B7FFF on #f1f5f9 still reads.
+ *
+ * WATER — NOT CHANGED, AND REPORTED. Those same nodes name colors/red/50
+ * (#fef2f2) on 199532:89873 / :90088, where the superseded 199296 copy named
+ * colors/red/100. The design did move. This project has no --red-50 and no
+ * --color-red-50 mapping, so writing `bg-red-50` would bind to stock Tailwind
+ * and freeze under every theme — reintroducing exactly the defect removed from
+ * the network tint one line up. --red-100 is the themed alert surface
+ * (index.css:262, --alert-surface-critical). Left as it is: adding a themed
+ * --red-50 across the four themes is an index.css decision, not this file's.
+ */
 const KIND_TONE = {
   water: String.raw`bg-red-100`,
-  network: String.raw`bg-blue-100`,
+  network: String.raw`bg-slate-100`,
 }
 
 const BADGE_BASE = String.raw`border-transparent content-stretch flex gap-1 h-[24px] items-center justify-center overflow-clip px-2 py-0.5 relative rounded-[26px] shrink-0`
@@ -374,13 +435,24 @@ const MENU_SHELL = String.raw`absolute right-0 top-[calc(100%+6px)] z-20 bg-card
 const MENU_ITEM = String.raw`cursor-pointer flex gap-[8px] h-[32px] items-center justify-between px-[8px] rounded-[8px] text-neutral-900 text-sm text-left w-full hover:bg-slate-100`
 
 // ── Mock data ────────────────────────────────────────────────────────────────
-// Verbatim from the two nodes: three identical rows, each "High Flow Anomaly" /
-// "Ongoing" / Flow 1180 / L/h·Volume 8,420 / Duration 6h 36m / the cause line /
-// "Apr 02, 2026 08:13:15". Figma repeats one component instance; that is not an
-// instruction to hardcode three rows, so this is only the DEFAULT for a bare
-// mount. Rows 4 and 5 are kept from the previous pass so the network avatar,
-// the Tag chip, the notification chip and the expandable sub-timeline each
-// still have a fixture — the card renders all of them and none was removed.
+// Rows 1-3 are verbatim from the card as the water-event overlay draws it:
+// 199772:145585 (canonical frame 199772:145451) and 199754:28770 (ignored state
+// 199754:28589), both fetched below the ~100KB truncation that hid this card
+// from the survey. The two agree row for row:
+//   1  199532:89870  waves   "High Flow Anomaly"     Badge "Ended", 3 metrics,
+//                            the cause line, "Apr 02, 2026 08:13:15"
+//   2  199532:90085  waves   identical to row 1
+//   3  199532:89928  wifi-02 "Connectivity Restored" — NO status chip, no
+//                            metrics and NO timestamp are drawn on it; its only
+//                            chip is the "Tag" one at the bottom right
+// WAS: three identical "High Flow Anomaly" / "Ongoing" rows in the `warning`
+// tone. No current node draws that row. BADGE_TONE.warning is NOT deleted —
+// SystemPageV2Screen.jsx:671 builds exactly that badge from live data.
+// Figma repeats one component instance; that is not an instruction to hardcode
+// three rows, so this is only the DEFAULT for a bare mount. Rows 4 and 5 are
+// kept from the previous pass so the Tag chip, the notification chip and the
+// expandable sub-timeline each still have a fixture — the card renders all of
+// them and none was removed.
 const MOCK_METRICS = [
   { label: 'Flow', value: '1180' },
   { label: 'L/h·Volume', value: '8,420' },
@@ -390,33 +462,38 @@ const MOCK_STEPS = ['Closing 11:42 AM', 'Verifying 11:42 AM', 'Closed 11:43 AM']
 
 const MOCK_EVENTS = [
   {
+    // Frame row 1 — 199532:89870.
     id: 'evt-1',
     kind: 'water',
     title: 'High Flow Anomaly',
-    badge: { label: 'Ongoing', tone: 'warning' },
+    badge: { label: 'Ended', tone: 'ended' },
     metrics: MOCK_METRICS,
     description: 'Leak confirmed — flow sustained above threshold',
     timestamp: 'Apr 02, 2026 08:13:15',
   },
   {
+    // Frame row 2 — 199532:90085. Identical to row 1 in both nodes.
     id: 'evt-2',
     kind: 'water',
     title: 'High Flow Anomaly',
-    badge: { label: 'Ongoing', tone: 'warning' },
+    badge: { label: 'Ended', tone: 'ended' },
     metrics: MOCK_METRICS,
     description: 'Leak confirmed — flow sustained above threshold',
     timestamp: 'Apr 02, 2026 08:13:15',
   },
   {
+    /* Frame row 3 — 199532:89928. The node draws no status chip (199532:89937
+       holds the title alone), no metrics and no timestamp; the "Tag" chip at
+       199532:89945 is the whole of its right-hand footer. Spelled as the frame
+       spells it rather than padded out to match rows 1-2. */
     id: 'evt-3',
-    kind: 'water',
-    title: 'High Flow Anomaly',
-    badge: { label: 'Ongoing', tone: 'warning' },
-    metrics: MOCK_METRICS,
-    description: 'Leak confirmed — flow sustained above threshold',
-    timestamp: 'Apr 02, 2026 08:13:15',
+    kind: 'network',
+    title: 'Connectivity Restored',
+    description: 'Offline for 2h 15m',
+    tag: 'Tag',
   },
   {
+    // Fixture, not a frame row: the only one carrying an expandable step list.
     id: 'evt-4',
     kind: 'network',
     title: 'Connectivity Restored',
@@ -432,7 +509,7 @@ const MOCK_EVENTS = [
     title: 'High Flow Anomaly',
     badge: { label: 'Warning', tone: 'warningLead' },
     badgeFirst: true, // 198352:121556 — this row leads with the pill.
-    avatarShape: 'circle', // 198352:121444 — the old full-circle avatar.
+    avatarShape: 'circle', // 198352:121444. Now also the default; kept explicit.
     metrics: MOCK_METRICS,
     description: 'Leak confirmed — flow sustained above threshold',
     timestamp: 'Apr 02, 2026 08:13:15',
@@ -472,9 +549,18 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
   const sent = notificationCount(event.notifications)
 
   const title = (
-    /* Figma has `shrink-0 whitespace-nowrap` here; see deviation 4. */
+    /* Figma has `shrink-0 whitespace-nowrap` here; see deviation 4.
+       text-slate-900, not text-neutral-950: the token this node names CHANGED.
+       The superseded copy named var(--foreground,#0a0a0a) on 199296:50372 /
+       :50404 / :50432, and text-neutral-950 is that fallback hex spelled as a
+       utility. Both overlay cards name colors/slate/900 #0f172b instead, on
+       199532:89880 and :90095. Both utilities are mapped and themed
+       (index.css:670 slate, :696 neutral), so this is the token name moving to
+       the one the design now states, not a colour being picked — and in this
+       project --foreground IS var(--slate-900) (index.css:99), so the node's
+       old and new names have converged on the same ink anyway. */
     <p
-      className={String.raw`[word-break:break-word] font-sans font-semibold leading-5 min-w-0 overflow-hidden relative text-neutral-950 text-sm text-ellipsis whitespace-nowrap`}
+      className={String.raw`[word-break:break-word] font-sans font-semibold leading-5 min-w-0 overflow-hidden relative text-slate-900 text-sm text-ellipsis whitespace-nowrap`}
       data-node-id="I199383:141630;101006:7299;199383:141691"
     >
       {event.title}
@@ -509,9 +595,18 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
         <div
           className={cn(
             'content-stretch flex items-center justify-center relative shrink-0 size-[24px]',
-            /* The redesign draws every avatar as the 8.19px squircle. 'circle'
-               is still honoured for the older full-round avatar. */
-            event.avatarShape === 'circle' ? 'rounded-[30px]' : 'rounded-[8.19px]',
+            /* CHANGED 2026-10-29 — the squircle is stale, not a variant.
+               Every current drawing of this card makes the avatar a full
+               circle: rounded-[30px] on 199532:89873 / :90088 / :89931 in both
+               overlay cards (199772:145585, 199754:28770), in 199703:42463,
+               199745:20383 and 199748:26439, and on the System page's own
+               instances (I199544:186028 inside 199394:78935, I199683:25014
+               inside 199683:24849). rounded-[8.19px] survives in exactly one
+               cached node — 199296:50453, the copy the header above already
+               records as superseded. Both surfaces that mount this card have
+               moved, so the DEFAULT moves with them. The old shape is not
+               deleted: avatarShape="squircle" still asks for it. */
+            event.avatarShape === 'squircle' ? 'rounded-[8.19px]' : 'rounded-[30px]',
             KIND_TONE[event.kind] ?? KIND_TONE.water,
           )}
           data-node-id="I199383:141630;101006:7299;199383:141684"
@@ -689,7 +784,7 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
  * @param {object[]} events
  *   Default `MOCK_EVENTS`. Shape:
  *   `{ id, kind:'water'|'network', title, badge:{label,tone}, badgeFirst,
- *      avatarShape:'circle', metrics:[{label,value}], description, timestamp,
+ *      avatarShape:'squircle', metrics:[{label,value}], description, timestamp,
  *      tag, notifications, steps:[] }`
  *   `badge.tone` is a BADGE_TONE key: ended | warning | warningLead | shutoff;
  *   an unknown tone falls back to `warning`. `notifications` may be an array of

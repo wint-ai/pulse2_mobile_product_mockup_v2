@@ -190,6 +190,72 @@ describe('the header title matches the one spelling both Figma states draw', () 
   })
 })
 
+describe('the bare mount draws the water-event overlay\u2019s own three rows', () => {
+  /* 199772:145585 (canonical frame 199772:145451) and 199754:28770 (the
+     ignored state 199754:28589) draw this card identically, and both sit below
+     the ~100KB truncation that hid them from the earlier survey. Their three
+     rows are the default `events`. This pins the claim that MOCK_EVENTS rows
+     1-3 are frame-verbatim, because nothing else can tell. */
+  it('rows 1-2 are "High Flow Anomaly" / "Ended", not the old "Ongoing"', () => {
+    const { container } = render(<EventsTimelineCard />)
+    const rows = container.querySelectorAll('[data-name="Activity feed item"]')
+    for (const row of [rows[0], rows[1]]) {
+      expect(row.textContent).toContain('High Flow Anomaly')
+      expect(row.textContent).toContain('Ended')
+      expect(row.textContent).toContain('Leak confirmed')
+      expect(row.textContent).toContain('Apr 02, 2026 08:13:15')
+    }
+    const text = container.textContent
+    /* 199532:89881 / :90096 spell the chip "Ended". No current node draws an
+       "Ongoing" row in this card; BADGE_TONE.warning is kept for the live
+       badge SystemPageV2Screen.jsx:671 builds, not for this fixture. */
+    expect(text).not.toContain('Ongoing')
+  })
+
+  it('row 3 is the wifi row: no status chip, no metrics, a "Tag" chip', () => {
+    const { container } = render(<EventsTimelineCard />)
+    const rows = container.querySelectorAll('[data-name="Activity feed item"]')
+    const third = rows[2]
+    expect(third.textContent).toContain('Connectivity Restored')
+    expect(third.textContent).toContain('Offline for 2h 15m')
+    expect(third.textContent).toContain('Tag')
+    // 199532:89937 holds the title alone — no badge beside it, and no metrics.
+    expect(third.textContent).not.toContain('Ended')
+    expect(third.textContent).not.toContain('L/h\u00b7Volume')
+  })
+
+  it('every avatar is the circle the current master draws, not the squircle', () => {
+    const { container } = render(<EventsTimelineCard />)
+    const avatars = container.querySelectorAll('[data-node-id="I199383:141630;101006:7299;199383:141684"]')
+    expect(avatars.length).toBeGreaterThan(0)
+    for (const a of avatars) {
+      /* rounded-[30px] on 199532:89873 / :90088 / :89931 in both overlay cards
+         and on the System page's own instances. rounded-[8.19px] survives only
+         in 199296:50453, the superseded copy. */
+      expect(a.className).toContain('rounded-[30px]')
+      expect(a.className).not.toContain('rounded-[8.19px]')
+    }
+    // The old shape is not deleted, only no longer the default.
+    const { container: sq } = render(
+      <EventsTimelineCard events={[{ id: 's', kind: 'water', title: 'T', avatarShape: 'squircle' }]} />,
+    )
+    expect(
+      sq.querySelector('[data-node-id="I199383:141630;101006:7299;199383:141684"]').className,
+    ).toContain('rounded-[8.19px]')
+  })
+
+  it('the network bubble is the themeable slate, never the unmapped blue-100', () => {
+    const { container } = render(<EventsTimelineCard />)
+    const rows = container.querySelectorAll('[data-name="Activity feed item"]')
+    const bubble = rows[2].querySelector('[data-node-id="I199383:141630;101006:7299;199383:141684"]')
+    /* 199532:89931 is colors/slate/100. bg-blue-100 was also unthemeable:
+       index.css maps no --color-blue-100, so it bound to stock Tailwind and
+       stood still under ?theme=contrast. */
+    expect(bubble.className).toContain('bg-slate-100')
+    expect(container.innerHTML).not.toContain('bg-blue-100')
+  })
+})
+
 describe('the card box survives cn() into the DOM', () => {
   it('keeps the border, the radius and the fixed box', () => {
     const { container } = render(<EventsTimelineCard events={EVENTS} />)
