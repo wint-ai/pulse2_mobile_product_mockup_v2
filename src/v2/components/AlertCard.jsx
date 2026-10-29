@@ -289,6 +289,20 @@ const SHELL_MOBILE = String.raw`bg-surface-card border border-red-500 border-sol
 /* 199683:24868 — the overlay shell. Same chassis as SHELL_MOBILE today, kept
    separate so the two can diverge without the System page following. */
 const SHELL_OVERLAY = String.raw`bg-surface-card border border-red-500 border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[18px] shrink-0 w-full`
+/* 199772:144341 — the IGNORED card as the EVENT OVERLAY draws it, inside
+   199754:28589. The same overlay geometry as SHELL_OVERLAY with the severity
+   colour taken off the edge: `colors/slate/500` (#62748e), not red-500,
+   because an ignored event is no longer alerting.
+
+   A SECOND shell, not a replacement: `ignored` keeps SHELL below on the
+   System page, where the card is still Figma's fixed 308x136 in a carousel.
+   That is the same split `mobile` / `overlay` already makes, and it exists
+   for the same reason — the two surfaces draw this card differently and
+   neither should follow the other.
+
+   w-full, not the node's w-[370px], for the reason given on SHELL_MOBILE:
+   every card on the overlay shares a width. */
+const SHELL_IGNORED_OVERLAY = String.raw`bg-surface-card border border-slate-500 border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[18px] shrink-0 w-full`
 const INNER_COLUMN = 'content-stretch flex flex-[1_0_0] flex-col items-start justify-between min-h-px relative w-full'
 
 /* The wash, themed. The angle stays here, the colours come from the shipped
@@ -526,9 +540,16 @@ function StatBadge({ deg, blend, icon, value, valueClass }) {
 
 /**
  * @param {object}   props
- * @param {'mobile'|'water-event'|'ignored'|'sensors'|'sensors-errors'|'empty'} props.variant
+ * @param {'mobile'|'overlay'|'water-event'|'ignored'|'ignored-overlay'|'sensors'|'sensors-errors'|'empty'} props.variant
  *        `mobile` is the 375px treatment (308x178, two full-width actions); the
  *        other five are the 308x136 desktop sizes of the same card.
+ *        `overlay` and `ignored-overlay` are the EVENT OVERLAY's pair — the
+ *        same two states as `mobile` / `ignored`, on that surface's hugging,
+ *        w-full shell and in its flatter body (tiles rather than a summary
+ *        line, and no pager on either). They share one body and differ only
+ *        in the shell's border and the status pill. A caller picks per
+ *        SURFACE, not per state: the System page uses `mobile` / `ignored`,
+ *        the overlay uses `overlay` / `ignored-overlay`.
  * @param {object}   props.event      copy + counts; defaults to MOCK_EVENT.
  * @param {Function} props.onAction   (actionId, event) => void. Ids:
  *        'paginate' | 'on-it' | 'ignore' | 'action' | 'sensor-more' |
@@ -650,8 +671,36 @@ export default function AlertCard({
      The same values are on screen either way; duration stops being a red tail
      on the Detected line and becomes a figure in its own right, which is what
      the second tile is for. */
-  if (variant === 'overlay') {
-    return shell(SHELL_OVERLAY, (
+  /* ── `overlay` and `ignored-overlay` ─────────────────────────────────────
+     ONE BODY. 199772:144341 (the ignored card inside 199754:28589) was
+     transcribed node by node against 199770:143907 (the live one, inside
+     199772:145451) and the two are the SAME drawing: the 28px red/100 disc,
+     the w-[170px] one-line title, the gap-[12px] column, the h-[57px] pair of
+     tiles over the h-[35px] Duration row, and the meta row with the Detected
+     stamp, the w-[58px] Event ID chip and its copy glyph (199772:144375,
+     "Huge Icons / copy-01" — the affordance is in the frame, not borrowed
+     from the live variant by analogy). Exactly two things differ, and both
+     are the severity coming off a card that is no longer alerting: the
+     shell's border, and the status pill.
+
+     NO PAGER, AND NOTHING WAS REMOVED TO GET THERE. The frame draws none —
+     but neither does the live overlay card, and never has: this surface is
+     one event, not a paged list. The two bodies converge rather than one
+     losing a control. The SYSTEM PAGE's `ignored` variant below keeps its
+     pager, its muted summary and its own pill untouched; it answers to
+     198374:56322 and is not what this frame is about.
+
+     ONE VARIANT'S EVIDENCE. Every node in this set is the "Auto Shut Off
+     Enabled" drawing, so nothing is deleted on its authority beyond the two
+     differences above. */
+  if (variant === 'overlay' || variant === 'ignored-overlay') {
+    const ignoredOverlay = variant === 'ignored-overlay'
+    /* Hoisted, not inlined into the JSX. check-text-overflow.mjs only treats a
+       text node as data-bearing when it finds a bare `{identifier}` within two
+       lines of the className; a `{cond ? … : data.status}` child reads as a
+       static string to it and takes the node out of the check. */
+    const pillLabel = ignoredOverlay ? 'Ignored' : data.status
+    return shell(ignoredOverlay ? SHELL_IGNORED_OVERLAY : SHELL_OVERLAY, (
       <>
         <div
           className="content-stretch flex flex-col gap-[12px] items-start relative shrink-0 w-full"
@@ -672,14 +721,36 @@ export default function AlertCard({
                 {data.title}
               </p>
             </div>
-            {/* Status, not a destination — a Badge so it is not a dead button. */}
+            {/* Status, not a destination — a Badge so it is not a dead button.
+                Ignored (199772:144519) is the same chassis in the muted pair:
+                slate-200 behind slate-700, and the literal "Ignored" the frame
+                carries rather than the lifecycle label a live event shows.
+
+                It keeps everything the 2026-10-17 decision pinned on the
+                System page's pill — `data-status-pill` so a caller that opens
+                the event on a card tap can tell this is not card body,
+                `cursor-default` against the wrapper's inherited pointer, and
+                no role, no tab stop and no handler. Ignore is irreversible
+                (PRD 14); this reports the state and emits nothing. */}
             <Badge
-              variant="destructive"
-              className={String.raw`bg-red-500 content-stretch flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`}
-              data-node-id="199683:24876"
+              variant={ignoredOverlay ? 'secondary' : 'destructive'}
+              className={
+                ignoredOverlay
+                  ? String.raw`bg-slate-200 content-stretch cursor-default flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`
+                  : String.raw`bg-red-500 content-stretch flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`
+              }
+              data-status-pill={ignoredOverlay ? '' : undefined}
+              data-node-id={ignoredOverlay ? '199772:144519' : '199683:24876'}
             >
-              <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-ink-on-color text-xs whitespace-nowrap">
-                {data.status}
+              {/* ON ONE LINE, and both branches written out in full.
+                  check-text-overflow.mjs reads LINE BY LINE and needs
+                  `className=`, `shrink-0` and `whitespace-nowrap` together on
+                  one of them; splitting this across lines, or hoisting the
+                  strings to consts, takes the node out of its view entirely.
+                  This file has had five overflow failures fixed in it, so
+                  staying visible to that checker is worth the long line. */}
+              <span className={ignoredOverlay ? '[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-slate-700 text-xs whitespace-nowrap' : '[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-ink-on-color text-xs whitespace-nowrap'}>
+                {pillLabel}
               </span>
             </Badge>
           </div>
@@ -737,8 +808,18 @@ export default function AlertCard({
               ) : null}
             </div>
 
+            {/* gap-[2px], FIG_TILE's own, with no override on top. This row
+                carried `gap-[6px]` — a transcription slip, not a decision:
+                199772:144362 (ignored) and 199770:143907's duration row (live)
+                BOTH say gap-[2px], so the frames agree and there is no variant
+                difference for 6px to express. Both surfaces close by 4px.
+
+                An override here was fragile anyway: `gap-[2px] … gap-[6px]` in
+                one class string is not resolved by the order it is written in
+                — both utilities exist and CSS source order decides. Dropping
+                it makes the value deterministic as well as correct. */}
             <div
-              className={`${FIG_TILE} h-[35px] flex-row gap-[6px]`}
+              className={`${FIG_TILE} h-[35px] flex-row`}
               style={FIG_TILE_WASH}
               data-node-id="199703:42981"
             >
@@ -989,6 +1070,10 @@ export default function AlertCard({
     ))
   }
 
+  /* 198374:56322, the SYSTEM PAGE's ignored card — a fixed 308x136 in the
+     alert carousel, with its pager, its muted summary and its own pill. The
+     event overlay's ignored card is a different drawing (199772:144341) and
+     is handled by `ignored-overlay` above; neither follows the other. */
   if (variant === 'ignored') {
     return shell(SHELL, (
       <div className={INNER_COLUMN}>
