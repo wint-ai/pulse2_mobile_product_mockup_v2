@@ -19,9 +19,12 @@
 //   • the Ignore consequences come BEFORE the documentation step, and the
 //     ignore itself only commits on "Ignore anyway"
 //   • "This can't be undone" is its OWN panel, not a fourth consequence bullet
-//   • the ignore flow's `answer` is DERIVED from the chip set, because the
-//     store still rejects a record without one — a shim, pinned so it is
-//     visible rather than load-bearing-and-forgotten
+//   • the ignore flow's `answer` is DERIVED from the "Unnecessary Alert"
+//     control, because the store still rejects a record without one — a shim,
+//     pinned so it is visible rather than load-bearing-and-forgotten
+//   • and that a record STILL persists when that control is untouched: the
+//     store's gate is silent, so a derived answer that ever reached it as
+//     undefined would void every ignore record with nothing to show for it
 //   • "Was it fixed?" is Yes-branch, end-of-event only; the ignored event is
 //     still running, so the question has no answer yet
 //   • the note is capped at 140 characters, counter and value both
@@ -310,21 +313,42 @@ describe('trigger: ignore', () => {
     expect(getFeedback(SYS.systemId)).toEqual([])
   })
 
-  it('offers ONE flat chip set — no branch, and no per-branch heading', () => {
+  it('offers ONE flat set of CAUSES — no branch, and no per-branch heading', () => {
     const { view } = openIgnore()
     fireEvent.click(btn(view, 'Ignore anyway'))
 
-    // 199748:26646, in the frame's own reading order. The first five are the
-    // old ignore.yes chips unchanged; "Unnecessary Alert" is new.
-    for (const chip of [
+    /* RULED 2026-10-31. 199748:26646 still draws six ignore REASONS and the
+       component no longer transcribes them: the owner ruled the chips are
+       CAUSES of the water instead, in this DOM order. The accepted
+       consequence, stated by the owner: the ignore flow no longer captures
+       WHY the alert was ignored, and the ignored-incident badge that read
+       "Plumber scheduled" now reads "Stuck or running toilet". */
+    const CAUSES = [
+      'Stuck or running toilet',
+      'Broken pipe',
+      'Tap or hose left on',
+      'Irrigation',
+      'Cooling or HVAC',
+      'Something else',
+    ]
+    for (const chip of CAUSES) {
+      expect(btn(view, chip), chip).toBeTruthy()
+    }
+
+    // Order is pinned because the 2/2/2 wrap depends on it, and the wrap is
+    // what keeps the step the same height as the frame it diverges from.
+    const row = btn(view, CAUSES[0]).parentElement
+    expect([...row.children].map((c) => c.textContent)).toEqual(CAUSES)
+
+    // The frame's reasons went with the ruling. "Unnecessary Alert" did NOT —
+    // it is still here, just no longer in this row. Its own case is below.
+    for (const gone of [
       'Already fixing it',
       'Plumber scheduled',
       'Known ongoing issue',
       'Water shut off manually',
-      'Something else',
-      'Unnecessary Alert',
     ]) {
-      expect(btn(view, chip), chip).toBeTruthy()
+      expect(view.queryByRole('button', { name: gone }), gone).toBeNull()
     }
 
     // The retired branch headings and microcopy.
@@ -339,24 +363,58 @@ describe('trigger: ignore', () => {
     }
   })
 
-  it('closes on the frame’s own final button, which is NOT a "Done"', () => {
+  /* "Unnecessary Alert" survived the 2026-10-31 ruling as its OWN control
+     BELOW the causes: it is a verdict on the alert, not a cause, and it is
+     the only false-positive report anywhere in the v2 app — the last trace of
+     the retired "Was this worth alerting about?". Pinned so a future tidy-up
+     can neither fold it back into the row nor drop it. */
+  it('keeps "Unnecessary Alert" as its own control BELOW the cause row', () => {
+    const { view } = openIgnore()
+    fireEvent.click(btn(view, 'Ignore anyway'))
+
+    const verdict = btn(view, 'Unnecessary Alert')
+    const row = btn(view, 'Stuck or running toilet').parentElement
+
+    // Outside the wrap, so it is not one of the six and cannot wrap into them.
+    expect(row.contains(verdict)).toBe(false)
+    // BELOW, not above — 4 is Node.DOCUMENT_POSITION_FOLLOWING.
+    expect(row.compareDocumentPosition(verdict) & 4).toBeTruthy()
+
+    // No heading and no helper copy was authored for it: none was ruled on,
+    // and the retired question it descends from stays retired.
+    expect(view.queryByText('Was this worth alerting about?')).toBeNull()
+    expect(view.queryByText('Why ignore it then?')).toBeNull()
+  })
+
+  it('closes on a "Done", and offers no second exit beside it', () => {
     const { view } = openIgnore()
     fireEvent.click(btn(view, 'Ignore anyway'))
 
     expect(view.getByText('+ Add note (optional)')).toBeTruthy()
-    expect(view.queryByRole('button', { name: 'Done' })).toBeNull()
 
-    // REPORTED, NOT FIXED: the frame labels this "Ignore anyway" a second
-    // time, after the button that got the user here said the same thing.
-    // Shipped as drawn — this assertion is the record of that, so a future
-    // relabel has to be a deliberate change with a ruling behind it.
-    expect(btn(view, 'Ignore anyway')).toBeTruthy()
+    /* RULED 2026-10-31, inverting what this case used to pin. The frame
+       labels this button "Ignore anyway" a SECOND time, after the button that
+       got the user here said the same thing, on a sheet whose banner already
+       says the event is ignored. That was shipped as drawn for want of a
+       ruling; there is one now. The ignore itself committed on the previous
+       step, and this button writes optional detail if any was given and
+       otherwise only dismisses — so "Done" is the one label true in both
+       states, which is the case Apple's HIG covers for a final step. */
+    expect(btn(view, 'Done')).toBeTruthy()
+    expect(view.queryByRole('button', { name: 'Ignore anyway' })).toBeNull()
+
+    /* And NOTHING beside it. The X and the scrim already dismiss, and inside
+       the ignore branch of `close` the reason argument is never read, so all
+       three paths are identical — a "Skip" here would be a second control
+       doing byte-for-byte the same thing as the first. */
+    expect(view.queryByRole('button', { name: 'Skip' })).toBeNull()
+    expect(view.queryByRole('button', { name: 'Cancel' })).toBeNull()
   })
 
-  it('writes nothing when no chip and no note were given', () => {
+  it('writes nothing when no cause, no verdict and no note were given', () => {
     const { view, calls } = openIgnore()
     fireEvent.click(btn(view, 'Ignore anyway'))
-    fireEvent.click(btn(view, 'Ignore anyway'))
+    fireEvent.click(btn(view, 'Done'))
 
     // The ignore itself is the caller's; an empty documentation step is not a
     // record. "Nothing is mandatory", and a blank answer is not an answer.
@@ -377,12 +435,12 @@ describe('trigger: ignore', () => {
   it('records the chips against the ignore trigger, and scores nothing', () => {
     const { view } = openIgnore()
     fireEvent.click(btn(view, 'Ignore anyway'))
-    fireEvent.click(btn(view, 'Known ongoing issue'))
-    fireEvent.click(btn(view, 'Ignore anyway'))
+    fireEvent.click(btn(view, 'Broken pipe'))
+    fireEvent.click(btn(view, 'Done'))
 
     const saved = getLatestFeedback(SYS.systemId)
     expect(saved.trigger).toBe('ignore')
-    expect(saved.chips).toEqual(['Known ongoing issue'])
+    expect(saved.chips).toEqual(['Broken pipe'])
     expect(saved.fixed).toBeNull()
     // The frames award nothing. Points are the event-ended flow's alone now.
     expect(saved.points).toBe(0)
@@ -390,16 +448,20 @@ describe('trigger: ignore', () => {
 
   /* THE DERIVED `answer` — a shim, pinned so it cannot drift silently.
      The sheet no longer ASKS "was this worth alerting about?", but
-     eventFeedbackStore.addFeedback still rejects any record whose answer is
-     not 'yes'/'no', so it is derived from the frame's own chip set:
-     "Unnecessary Alert" IS the old "no". If the store's gate is ever relaxed,
-     this pair of cases is the thing to revisit. */
-  it('derives the answer from the chip set rather than asking for it', () => {
-    const withChip = (chip) => {
+     eventFeedbackStore.addFeedback:176 still rejects any record whose answer
+     is not 'yes'/'no'. Since 2026-10-31 it is derived from the "Unnecessary
+     Alert" CONTROL and no longer from the chip set — the chips are causes
+     now, and `chips.includes('Unnecessary Alert')` would have gone
+     permanently false the moment the labels changed, silently recording every
+     ignore as 'yes'. Both halves of the mapping are pinned below, and the
+     case after this one pins the third thing the ternary exists to make
+     impossible. If the store's gate is ever relaxed, start here. */
+  it('derives the answer from the Unnecessary Alert control, not from the chips', () => {
+    const after = (taps) => {
       const { view } = openIgnore()
       fireEvent.click(btn(view, 'Ignore anyway'))
-      fireEvent.click(btn(view, chip))
-      fireEvent.click(btn(view, 'Ignore anyway'))
+      for (const tap of taps) fireEvent.click(btn(view, tap))
+      fireEvent.click(btn(view, 'Done'))
       const saved = getLatestFeedback(SYS.systemId)
       cleanup()
       localStorage.clear()
@@ -407,8 +469,42 @@ describe('trigger: ignore', () => {
       return saved
     }
 
-    expect(withChip('Unnecessary Alert').answer).toBe('no')
-    expect(withChip('Plumber scheduled').answer).toBe('yes')
+    // The verdict alone is enough detail to write — it is what the record's
+    // answer IS — and it is NOT folded into chips, because it is not a cause.
+    const no = after(['Unnecessary Alert'])
+    expect(no.answer).toBe('no')
+    expect(no.chips).toEqual([])
+
+    // A cause alone is the other half.
+    expect(after(['Broken pipe']).answer).toBe('yes')
+
+    // Both together: the cause is the chip, the verdict is still the answer.
+    const both = after(['Broken pipe', 'Unnecessary Alert'])
+    expect(both.answer).toBe('no')
+    expect(both.chips).toEqual(['Broken pipe'])
+  })
+
+  /* THE TRAP THIS GUARDS. addFeedback's gate is unconditional AND silent: if
+     the derived answer ever reaches it as undefined, it returns null for
+     EVERY ignore record, onComplete fires with null, the ignored-incident
+     summary is null and the badge never appears again — no error, no warning,
+     total data loss. The untouched control is the state that would hit it. */
+  it('still persists a record when the Unnecessary Alert control is untouched', () => {
+    const { view, calls } = openIgnore()
+    fireEvent.click(btn(view, 'Ignore anyway'))
+    fireEvent.click(btn(view, 'Cooling or HVAC'))
+    fireEvent.click(btn(view, 'Done'))
+
+    const saved = getLatestFeedback(SYS.systemId)
+    expect(saved).toBeTruthy()
+    expect(saved.answer).toBe('yes')
+    expect(saved.chips).toEqual(['Cooling or HVAC'])
+
+    // And the caller gets the record, not the null that the gate would hand
+    // back — which is the only thing distinguishing the two at the call site.
+    expect(calls.complete).toHaveLength(1)
+    expect(calls.complete[0]).not.toBeNull()
+    expect(calls.complete[0].answer).toBe('yes')
   })
 
   it('refuses to render on a Shutoff event — Ignore is a Warning-state action', () => {
@@ -520,8 +616,8 @@ describe('the store', () => {
   it('lets one event carry both an ignore-time answer and an end-of-event one', () => {
     const first = open({ trigger: 'ignore' })
     fireEvent.click(btn(first.view, 'Ignore anyway'))
-    fireEvent.click(btn(first.view, 'Known ongoing issue'))
-    fireEvent.click(btn(first.view, 'Ignore anyway'))
+    fireEvent.click(btn(first.view, 'Tap or hose left on'))
+    fireEvent.click(btn(first.view, 'Done'))
     cleanup()
 
     const second = open()

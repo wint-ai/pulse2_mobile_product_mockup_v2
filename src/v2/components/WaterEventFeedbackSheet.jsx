@@ -32,6 +32,33 @@
  * event-ended flow below is UNCHANGED, question and reward included, and the
  * collision is reported rather than resolved here.
  *
+ * ── 2026-10-31: THREE OWNER RULINGS DIVERGE FROM 199748:26265 ─────────────
+ * The owner ruled on 2026-10-31 on the documentation step, and the ruling
+ * OUTRANKS the transcribe-the-frame instruction stated at :28-33 above — the
+ * same way IGNORE_HEADING's override does, and for the same reason: the owner
+ * was shown the frame's own string and asked for something else. The three
+ * changes, and ONLY these three:
+ *
+ *   1. The final button reads "Done", not the frame's "Ignore anyway". See
+ *      IGNORE_DONE_LABEL.
+ *   2. The six chips are CAUSES of the water, not reasons for ignoring. See
+ *      IGNORE_CAUSES.
+ *   3. "Unnecessary Alert" is no longer one of those six. It sits BELOW them
+ *      as its own control, because it is a verdict on the alert and not a
+ *      cause. See UNNECESSARY_ALERT.
+ *
+ * A DIFF AGAINST 199748:26265 WILL FLAG ALL THREE, FOREVER. The node is
+ * unchanged — verified in the Figma cache on 2026-10-31: it still draws the
+ * six old reason chips and still labels the final button "Ignore anyway".
+ * The code is what is right here. Do not "correct" any of it back without a
+ * ruling that reverses this one. Everything else in the ignore flow is still
+ * a verbatim transcription.
+ *
+ * THE ACCEPTED CONSEQUENCE, stated by the owner rather than discovered here:
+ * the ignore flow no longer captures WHY the user ignored the alert, only
+ * what caused the water. The ignored-incident badge that reads "Plumber
+ * scheduled" today will read "Stuck or running toilet". That is the trade.
+ *
  * ── THE SUPERSEDED REASONING (kept for the record) ────────────────────────
  * The HTML mockup replaced the v1 tag taxonomy (20 chips across two groups,
  * every tag a chip, no primary question — PRD 15 § 5.4) with ONE primary
@@ -59,15 +86,24 @@
  *
  * THE DERIVED `answer`, AND WHY IT IS A SHIM — REPORTED, NOT FIXED.
  * `eventFeedbackStore.addFeedback` hard-rejects any record whose `answer` is
- * not 'yes' or 'no' (eventFeedbackStore.js, "if (answer !== 'yes' && answer
- * !== 'no') return null"). The ignore flow no longer ASKS that question, so a
- * faithful transcription would write `answer: undefined` and the store would
- * silently discard every chip and note the user just entered — a dead writer.
+ * not 'yes' or 'no' (eventFeedbackStore.js:176, "if (answer !== 'yes' &&
+ * answer !== 'no') return null"). That gate is UNCONDITIONAL and SILENT: an
+ * `answer` of undefined makes addFeedback return null for every ignore
+ * record, onComplete fires with null, the ignored-incident summary is null
+ * and the badge never appears again — no error, no warning, nothing in the
+ * console. The ignore flow no longer ASKS that question, so a faithful
+ * transcription would write exactly that undefined and quietly destroy every
+ * record the step exists to capture.
+ *
  * Until the store's gate is revisited (that file is not this change's to
- * edit), the answer is DERIVED from the frame's own chip set: the new
- * "Unnecessary Alert" chip is precisely the old "No, not worth alerting
- * about", so selecting it records 'no' and anything else records 'yes'. This
- * is a mapping, not invented copy — but it is a shim, and it is flagged.
+ * edit), the answer is DERIVED. Since 2026-10-31 it is derived from the
+ * "Unnecessary Alert" CONTROL below the causes rather than from the `chips`
+ * array — the control is the only thing on the step that is a verdict on the
+ * alert, and it is precisely the old "No, not worth alerting about". The
+ * expression is total by construction: on → 'no', off → 'yes', with no third
+ * arm and no lookup that can miss, so `answer` cannot reach the store as
+ * undefined. If this is ever re-pointed again, keep that property. This is a
+ * mapping, not invented copy — but it is a shim, and it is flagged.
  *
  * WHY NOT THE SHADCN <Sheet>
  * shadcn's Sheet is a Radix dialog that portals to document.body, and this app
@@ -179,23 +215,60 @@ const FIXED_OPTIONS = [
 ]
 
 /* ── The ignore flow, from Figma ───────────────────────────────────────────
-   199748:26265 draws ONE flat chip set, not a branch. The first five are the
-   old `ignore.yes` chips unchanged; "Unnecessary Alert" (199761:25771, with
-   the Huge Icons / smile leftIcon) is new and appears nowhere else in src/. */
+   199748:26265 draws ONE flat chip set, not a branch, and that shape is
+   unchanged. What the six chips SAY is the owner's, not the frame's — see the
+   2026-10-31 block in the header. */
 
+/**
+ * 199761:25771 — the verdict on the alert, NOT a cause of the water.
+ *
+ * 2026-10-31: the owner ruled this out of the chip row and under it, as its
+ * own control: "Keep it, below the chips." Listing a verdict among causes is
+ * a category error, and this is the only false-positive report anywhere in
+ * the v2 app — the last trace of the retired "Was this worth alerting about?"
+ * question. It is kept, moved, and NOT deleted.
+ *
+ * Its own selected state lives in `unnecessary`, not in `chips`, which is why
+ * it never reaches the record's `chips` array and so never reaches the
+ * ignored-incident badge. It reaches the record as the derived `answer`
+ * instead — that IS what it means. See commitIgnore.
+ *
+ * It keeps 199761:25771's own Huge Icons / smile leftIcon; the frame gives a
+ * leftIcon to this label and to no other.
+ */
 const UNNECESSARY_ALERT = 'Unnecessary Alert'
 
-/** Reading order of the badges in 199748:26646. Their x/y in the frame is a
- *  wrapped row — 24px chips on a 34px pitch, i.e. a 10px gap — so a plain
- *  `flex flex-wrap gap-[10px]` reproduces the frame's layout exactly while
- *  staying safe at 393px, which absolute placement would not be. */
-const IGNORE_CHIPS = [
-  'Already fixing it',
-  'Plumber scheduled',
-  'Known ongoing issue',
-  'Water shut off manually',
+/**
+ * The six causes, in the owner's own DOM order — ruled 2026-10-31, replacing
+ * the frame's six ignore REASONS ('Already fixing it', 'Plumber scheduled',
+ * 'Known ongoing issue', 'Water shut off manually', 'Something else',
+ * 'Unnecessary Alert'). The frame still draws those; see the header.
+ *
+ * THE LAYOUT IS DELIBERATELY UNCHANGED. 199748:26646's x/y is a wrapped row —
+ * 24px chips on a 34px pitch, i.e. a 10px gap — so a plain
+ * `flex flex-wrap gap-[10px]` reproduces the frame's layout exactly while
+ * staying safe at 393px, which absolute placement would not be. These six
+ * wrap 2/2/2 at 393px, exactly as the frame's six did, so the step's height
+ * is unchanged by the relabel. That wrap was CONFIRMED BY RENDERING at 393px
+ * in all four themes, not by measuring the strings — a 325px content box
+ * (px-[34px] inside the 393px frame) leaves little margin and the arithmetic
+ * is not the thing to trust.
+ *
+ * SECOND CONSUMER, WHEN THERE IS A RULING FOR IT. `FLOWS['event-ended'].yes`
+ * below carries six near-identical cause labels of its own. It is the natural
+ * place for this list to be shared, and sharing it is then a one-line change
+ * (`chips: IGNORE_CAUSES`) rather than a refactor. It is NOT done here: the
+ * owner's ruling is scoped to the ignore flow, that scope is forced (:25-33),
+ * and the event-ended chips are governed by the HTML mockup. Do it once the
+ * owner rules on that flow, not before.
+ */
+const IGNORE_CAUSES = [
+  'Stuck or running toilet',
+  'Broken pipe',
+  'Tap or hose left on',
+  'Irrigation',
+  'Cooling or HVAC',
   SOMETHING_ELSE,
-  UNNECESSARY_ALERT,
 ]
 
 /** 199748:27414 — the green banner above the heading. */
@@ -215,10 +288,12 @@ const IGNORED_BANNER = 'Event marked as ignored'
  * override is sanctioned — it is NOT drift.
  *
  * DO NOT "CORRECT" THIS BACK. A diff against 199748:26645 will flag it
- * forever, because the node is unchanged; the code is what is right here. The
- * override is scoped to THIS ONE STRING — every other string in the ignore
- * flow is still a verbatim transcription, IGNORE_CONFIRM_LABEL below very
- * much included (it has no ruling and must not be "fixed").
+ * forever, because the node is unchanged; the code is what is right here.
+ *
+ * This was once the ONLY such override in the file. It is not any more — on
+ * 2026-10-31 the owner ruled three more divergences, recorded in the header
+ * block above. Every string in the ignore flow that is not named by one of
+ * those four rulings is still a verbatim transcription.
  *
  * WHY AN AUTHORED STRING AND NOT ONE ALREADY IN THE REPO. The two candidates
  * in this register are not headings. PRIMARY_HINT (:160, "Your answer helps
@@ -235,15 +310,32 @@ const IGNORE_HEADING = 'Help us improve'
 const WARNING_TITLE = 'Ignore this water event?'
 
 /**
- * 199748:26654 — the frame's final button.
+ * 199748:26654 — the frame's final button. RULED 2026-10-31.
  *
- * REPORTED, SHIPPED AS DRAWN: this reads "Ignore anyway" a SECOND time, after
- * the user has already pressed a button with that exact label on the previous
- * step to get here. That looks like a copy bug. The owner has not ruled on it,
- * and the standing instruction is to transcribe the frame, so the frame's
- * string is what ships. Do not "fix" this without a ruling.
+ * The frame labels it "Ignore anyway" a SECOND time, after the user pressed a
+ * button with that exact label on the previous step to get here, on a sheet
+ * whose banner already says "Event marked as ignored". That was reported and
+ * shipped as drawn for want of a ruling. There is a ruling now: it reads
+ * "Done".
+ *
+ * WHY "DONE" IS RIGHT HERE AND VAGUE ELSEWHERE. Carbon's "avoid vague words
+ * like Done" governs a dialog button that PERFORMS the action — there, Done
+ * hides what is about to happen. This button performs nothing of the sort:
+ * the ignore was committed on the previous step via onIgnoreConfirmed, and
+ * commitIgnore writes nothing at all when no cause and no note were given, so
+ * the button saves optional detail if any exists and otherwise only
+ * dismisses. Apple's HIG covers exactly that case — "on the final
+ * confirmation step, the Done button becomes active to let people acknowledge
+ * completion of the task and dismiss the sheet". Done is the only candidate
+ * true in both states.
+ *
+ * NO SECOND EXIT WAS ADDED, DELIBERATELY. The X at the top right and the
+ * scrim already dismiss, and inside the `isIgnore` branch of `close` the
+ * `reason` argument is never read — all three paths are byte-for-byte
+ * identical. A "Skip" beside this button would be a second control doing the
+ * same thing, which is the duplication this ruling removed, re-added.
  */
-const IGNORE_CONFIRM_LABEL = 'Ignore anyway'
+const IGNORE_DONE_LABEL = 'Done'
 
 const FLOWS = {
   'event-ended': {
@@ -353,6 +445,21 @@ const CHOICE_CLASS =
  */
 const IGNORE_CHIP_CLASS =
   'h-[24px] min-w-0 gap-[4px] rounded-full border border-background bg-muted px-[8px] py-[2px] text-[12px] font-medium text-slate-700 leading-[16px] ' +
+  'data-[state=on]:border-primary data-[state=on]:bg-primary/8 data-[state=on]:text-primary'
+
+/**
+ * The "Unnecessary Alert" control, below the cause row — 2026-10-31.
+ *
+ * Same metrics as a chip, so the two rows sit on one rhythm, but an outlined
+ * ground and muted ink instead of a filled one: the owner asked for it to be
+ * visually SUBORDINATE to the causes, and this is a small structural addition
+ * rather than a new section. It carries NO heading and NO helper copy — none
+ * was ruled on, and authoring one would be exactly the drift :28-33 forbids.
+ * `self-start` keeps it hugging its label instead of stretching to the column
+ * width it now lives in. The pressed treatment is the chips' own, unchanged.
+ */
+const UNNECESSARY_CONTROL_CLASS =
+  'h-[24px] min-w-0 shrink-0 gap-[4px] self-start rounded-full border border-border bg-transparent px-[8px] py-[2px] text-[12px] font-medium text-muted-foreground leading-[16px] ' +
   'data-[state=on]:border-primary data-[state=on]:bg-primary/8 data-[state=on]:text-primary'
 
 /** 199745:21423 / 199748:26654 — the dark navy confirm. See the header's token
@@ -513,6 +620,10 @@ function FeedbackSheet({
   const [fixed, setFixed] = useState(null)
   const [note, setNote] = useState('')
   const [noteOpen, setNoteOpen] = useState(false)
+  /* The "Unnecessary Alert" verdict — ignore flow only, and deliberately NOT
+     a member of `chips`: it is not a cause, it does not belong on the
+     ignored-incident badge, and it is the sole source of the derived answer. */
+  const [unnecessary, setUnnecessary] = useState(false)
   // Landing on a branch counts as having tapped the primary answer, so the
   // score reads the same as it would for a user who got there by hand.
   const [points, setPoints] = useState(
@@ -554,15 +665,26 @@ function FeedbackSheet({
     [storageKey, isIgnore, chips, note, fixed, systemId],
   )
 
-  /* The ignore flow captures no yes/no. See the header: the store rejects a
-     record without one, so it is derived from the frame's own chip set rather
-     than left undefined, and nothing is written at all when the user gave no
-     detail to write. */
-  const ignoreDetail = chips.length > 0 || note.trim().length > 0
+  /* The ignore flow captures no yes/no. See the header: addFeedback rejects a
+     record without one — unconditionally and silently — so the answer is
+     DERIVED, and nothing is written at all when the user gave no detail to
+     write.
+
+     SINCE 2026-10-31 IT IS DERIVED FROM `unnecessary`, NOT FROM `chips`. The
+     chips are causes now and none of them is a verdict on the alert, so the
+     old `chips.includes(UNNECESSARY_ALERT)` would have gone permanently false
+     the moment the labels changed — every ignore record silently recorded as
+     'yes'. Re-pointed, not deleted. Keep this expression TOTAL: two arms, no
+     lookup, so `answer` can never arrive at the store as undefined.
+
+     The verdict also counts as detail. Toggling it on with no cause picked is
+     still something the user said, and a record that exists only to carry
+     answer:'no' is the whole point of keeping the control. */
+  const ignoreDetail = unnecessary || chips.length > 0 || note.trim().length > 0
   const commitIgnore = useCallback(() => {
     if (!ignoreDetail) return null
-    return commit(chips.includes(UNNECESSARY_ALERT) ? 'no' : 'yes', 0)
-  }, [ignoreDetail, commit, chips])
+    return commit(unnecessary ? 'no' : 'yes', 0)
+  }, [ignoreDetail, commit, unnecessary])
 
   const close = useCallback(
     (reason) => {
@@ -873,24 +995,37 @@ function FeedbackSheet({
                   </h2>
 
                   {/* 199748:26646 — one flat set, no branch, no heading above
-                      it beyond the one already rendered. */}
-                  <div className="flex flex-wrap gap-[10px]">
-                    {IGNORE_CHIPS.map((label) => (
-                      <Toggle
-                        key={label}
-                        variant="outline"
-                        pressed={chips.includes(label)}
-                        onClick={(e) => toggleChip(label, e.currentTarget)}
-                        className={IGNORE_CHIP_CLASS}
-                      >
-                        {/* 199761:25771's leftIcon — Huge Icons / smile. Only
-                            this chip carries one in the frame. */}
-                        {label === UNNECESSARY_ALERT ? (
-                          <Smile aria-hidden="true" size={16} strokeWidth={1.8} className="shrink-0" />
-                        ) : null}
-                        {label}
-                      </Toggle>
-                    ))}
+                      it beyond the one already rendered. The labels are the
+                      owner's causes since 2026-10-31; the layout is the
+                      frame's, unchanged, and still wraps 2/2/2 at 393px. */}
+                  <div className="flex flex-col gap-[10px]">
+                    <div className="flex flex-wrap gap-[10px]">
+                      {IGNORE_CAUSES.map((label) => (
+                        <Toggle
+                          key={label}
+                          variant="outline"
+                          pressed={chips.includes(label)}
+                          onClick={(e) => toggleChip(label, e.currentTarget)}
+                          className={IGNORE_CHIP_CLASS}
+                        >
+                          {label}
+                        </Toggle>
+                      ))}
+                    </div>
+
+                    {/* The alert verdict, under the causes — 2026-10-31. Its
+                        own control, outside the wrap and outside `chips`,
+                        because it is not a cause. No heading and no helper
+                        copy: none was ruled on. See UNNECESSARY_ALERT. */}
+                    <Toggle
+                      variant="outline"
+                      pressed={unnecessary}
+                      onClick={() => setUnnecessary((v) => !v)}
+                      className={UNNECESSARY_CONTROL_CLASS}
+                    >
+                      <Smile aria-hidden="true" size={16} strokeWidth={1.8} className="shrink-0" />
+                      {UNNECESSARY_ALERT}
+                    </Toggle>
                   </div>
                 </div>
 
@@ -924,15 +1059,16 @@ function FeedbackSheet({
                 )}
               </div>
 
-              {/* 199748:26653 — one full-width dark button. See
-                  IGNORE_CONFIRM_LABEL for the duplicated-label report. */}
+              {/* 199748:26653 — one full-width dark button, relabelled by the
+                  2026-10-31 ruling. See IGNORE_DONE_LABEL, including why no
+                  second exit sits beside it. */}
               <div className="flex">
                 <Button
                   type="button"
                   onClick={finishIgnore}
                   className={cn('flex-1', DARK_BUTTON_CLASS)}
                 >
-                  {IGNORE_CONFIRM_LABEL}
+                  {IGNORE_DONE_LABEL}
                 </Button>
               </div>
             </section>
