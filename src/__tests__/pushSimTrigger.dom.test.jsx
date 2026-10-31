@@ -332,11 +332,13 @@ describe('one press is one fire', () => {
 })
 
 /**
- * THE TWO DEV AIDS. Both are off unless their flag says otherwise, and the
- * first assertion in each block is that absence — a concealed feature that
- * grows a visible handle by accident has stopped being the feature.
+ * THE VISIBLE HANDLE, on by default since 2026-10-31 at the owner's request
+ * and intended to go back to being concealed (DEV_FLAGS.handle). Because the
+ * default is now `on`, the two off-switches are the only way to be rid of it
+ * and are pinned here individually - and so is the fact that a dismissal
+ * SURVIVES A RELOAD, which a store that could only record "on" could not do.
  */
-describe('?simhandle=1 - the visible handle', () => {
+describe('the visible handle - on by default, temporarily', () => {
   beforeEach(() => { localStorage.setItem('pulse2-persona-id', 'wint-admin') })
   afterEach(() => {
     cleanup()
@@ -346,58 +348,102 @@ describe('?simhandle=1 - the visible handle', () => {
   })
 
   const handle = () => screen.queryByRole('button', { name: 'Push sim' })
+  const dismiss = () => screen.getByRole('button', { name: 'Hide the push simulator handle' })
 
-  it('draws nothing at all without the flag', () => {
+  it('is on screen with no flag at all - this is the flipped default', () => {
     mount()
-    expect(handle()).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Hide the push simulator handle' })).toBeNull()
+    expect(handle()).not.toBeNull()
+    expect(dismiss()).not.toBeNull()
   })
 
   it('opens the sheet on a plain click - no gesture, no timing', () => {
-    window.history.replaceState({}, '', '/?simhandle=1')
     mount()
     expect(sheet()).toBeNull()
     fireEvent.click(handle())
     expect(sheet()).not.toBeNull()
   })
 
-  /* The whole reason this one persists and `?sim=1` does not: the owner has
-     to be able to reload and still have it, and Phone.jsx's remount would
-     otherwise eat it on a handset exactly as it ate `?sim=1`. */
-  it('survives a reload, and the URL it arrived on is left clean', () => {
-    window.history.replaceState({}, '', '/?simhandle=1&theme=contrast')
+  /* Rule 0: the handle is an addition. The gesture it stands in for has to
+     keep working, on the same screen, with the pill visible. */
+  it('does not replace the concealed gesture', () => {
+    vi.useFakeTimers()
+    try {
+      mount()
+      expect(handle()).not.toBeNull()
+      stubAnchor()
+      hold(IN_ZONE, { pointerType: 'mouse' })
+      expect(sheet()).not.toBeNull()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('is turned off by ?simhandle=0, and STAYS off across a reload', () => {
+    window.history.replaceState({}, '', '/?simhandle=0&theme=contrast')
     const first = mount()
-    expect(handle()).not.toBeNull()
+    expect(handle()).toBeNull()
+    // Ours is stripped; anything else in the query survives.
     expect(window.location.search).not.toContain('simhandle')
     expect(window.location.search).toContain('theme=contrast')
 
+    // A plain reload must not resurrect it - that is what the '0' is for.
     first.unmount()
+    mount()
+    expect(handle()).toBeNull()
+  })
+
+  it('is turned off by its own ×, and that also survives a reload', () => {
+    const first = mount()
+    fireEvent.click(dismiss())
+    expect(handle()).toBeNull()
+    expect(sessionStorage.getItem('pulse2-sim-handle')).toBe('0')
+
+    first.unmount()
+    mount()
+    expect(handle()).toBeNull()
+  })
+
+  it('comes back on ?simhandle=1 after it has been dismissed', () => {
+    const first = mount()
+    fireEvent.click(dismiss())
+    first.unmount()
+
+    window.history.replaceState({}, '', '/?simhandle=1')
     mount()
     expect(handle()).not.toBeNull()
   })
 
-  it('goes away again on ?simhandle=0, and on its own dismiss', () => {
-    window.history.replaceState({}, '', '/?simhandle=1')
+  /* The dismissal is a decision about THIS tab, not a setting. A new tab
+     starts from the default, and so does whoever the link is pasted to. */
+  it('a fresh tab returns to the default rather than inheriting a dismissal', () => {
     const first = mount()
-    fireEvent.click(screen.getByRole('button', { name: 'Hide the push simulator handle' }))
-    expect(handle()).toBeNull()
+    fireEvent.click(dismiss())
     first.unmount()
 
-    // Re-arm it, then turn it off through the URL instead.
-    window.history.replaceState({}, '', '/?simhandle=1')
-    const second = mount()
-    expect(handle()).not.toBeNull()
-    second.unmount()
-    window.history.replaceState({}, '', '/?simhandle=0')
+    sessionStorage.clear() // what a new tab actually gets
     mount()
-    expect(handle()).toBeNull()
+    expect(handle()).not.toBeNull()
   })
 
   it('never outlives the tab - it is sessionStorage, not localStorage', () => {
+    const first = mount()
+    fireEvent.click(dismiss())
+    expect(localStorage.getItem('pulse2-sim-handle')).toBeNull()
+    first.unmount()
+
     window.history.replaceState({}, '', '/?simhandle=1')
     mount()
     expect(sessionStorage.getItem('pulse2-sim-handle')).toBe('1')
     expect(localStorage.getItem('pulse2-sim-handle')).toBeNull()
+  })
+
+  /* It sits above the TabBar and on the LEFT: the bottom-right 64x64 is the
+     concealed gesture's zone and the handle may not cover it. */
+  it('is placed clear of both the TabBar and the gesture zone', () => {
+    mount()
+    const pill = handle().parentElement
+    expect(pill.className).toContain('left-[12px]')
+    expect(pill.className).not.toContain('right-')
+    expect(pill.className).toContain('bottom-[72px]')
+    expect(pill.className).not.toContain('bottom-[10px]')
   })
 })
 

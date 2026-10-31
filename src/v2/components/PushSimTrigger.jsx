@@ -38,25 +38,29 @@
  * fixed in the hook; these two aids exist so that the NEXT time it does not
  * work, nobody has to guess:
  *
- *   ?simhandle=1 — draws a small labelled handle that opens the sheet on a
- *                  plain tap or click. No gesture, no timing, no geometry.
- *   ?simdebug=1  — outlines the hit zone and shows a live readout of what the
- *                  gesture saw: whether a press arrived at all, its pointer
- *                  type and coordinates, the zone's own rect, whether the
- *                  press was inside it, how long it was held, how far it
- *                  moved, and the exact condition that rejected it.
+ *   the handle — a small labelled pill that opens the sheet on a plain tap or
+ *                 click. No gesture, no timing, no geometry. ON BY DEFAULT
+ *                 since 2026-10-31, temporarily and at the owner's request;
+ *                 the full reasoning, and what reverting it costs, is at
+ *                 DEV_FLAGS.handle below. Turned off with `?simhandle=0` or
+ *                 the `×` on the pill, and back on with `?simhandle=1`.
+ *   ?simdebug=1 — outlines the hit zone and shows a live readout of what the
+ *                 gesture saw: whether a press arrived at all, its pointer
+ *                 type and coordinates, the zone's own rect, whether the
+ *                 press was inside it, how long it was held, how far it
+ *                 moved, and the exact condition that rejected it. OFF by
+ *                 default and unreachable without its flag.
  *
- * BOTH ARE OFF BY DEFAULT AND NEITHER CAN APPEAR WITHOUT ITS FLAG. They are
- * temporary aids, not a change to the concealed design.
+ * Neither aid replaces anything. The concealed long press keeps working
+ * exactly as it does, on every route, with the handle on screen.
  *
- * Unlike `?sim=1` they PERSIST for the session, in `sessionStorage`, because
- * the owner has to be able to reload and still have them — and because the
+ * Unlike `?sim=1`, both PERSIST for the session in `sessionStorage` — the
+ * owner has to be able to reload and keep their choice, and the
  * DesktopFrame/MobileLayout remount race described below would otherwise eat
- * them on a handset exactly as it ate `?sim=1`. `sessionStorage` and not
- * `localStorage`: the aid dies with the tab, so a review link that gets
- * pasted around cannot leave a visible handle in somebody else's browser
- * tomorrow. Each flag is turned off again by `=0` in the URL, or by the `×`
- * on the aid itself.
+ * it on a handset exactly as it ate `?sim=1`. `sessionStorage` and not
+ * `localStorage`: the decision dies with the tab, so a fresh tab (and anyone
+ * the review link is pasted to) starts from the default rather than
+ * inheriting a stale one in either direction.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -109,27 +113,59 @@ function readSimParam() {
 /* The dev-aid flags: URL param ➜ sessionStorage key. Named the way the rest
    of the app names its query flags (`?theme=`, `?sim=1`, `?p=`). */
 const DEV_FLAGS = {
-  handle: { param: 'simhandle', key: 'pulse2-sim-handle' },
-  debug: { param: 'simdebug', key: 'pulse2-sim-debug' },
+  /**
+   * ⚠ TEMPORARY. THE DEFAULT WAS FLIPPED TO `true` ON 2026-10-31, AT THE
+   * OWNER'S EXPLICIT REQUEST — "make it always visible for now".
+   *
+   * Why: the handle shipped flag-gated, the owner loaded the app without
+   * `?simhandle=1`, saw nothing, and asked where it was. Flag-gating is the
+   * right design for a concealed tool and it was costing them the only thing
+   * they actually needed that day — a reliable way to fire a notification
+   * mid-demo without depending on a gesture that had just been broken.
+   *
+   * THE INTENDED END STATE IS CONCEALED. Setting `defaultOn` back to `false`
+   * is the whole revert: the gesture becomes the only way in again, and the
+   * handle goes back to needing `?simhandle=1`. Nothing else has to move.
+   * "For now" is exactly the kind of thing that quietly becomes permanent,
+   * so this note is the reminder that it was never meant to stay.
+   */
+  handle: { param: 'simhandle', key: 'pulse2-sim-handle', defaultOn: true },
+  debug: { param: 'simdebug', key: 'pulse2-sim-debug', defaultOn: false },
 }
 
 /**
- * Read one dev-aid flag, latching `=1` into the session and clearing it on
- * `=0`. Called from a state initialiser, so it is written to be safe under a
- * StrictMode double-invoke: setting the same key twice is the same as setting
+ * Read one dev-aid flag. THREE states, not two, which is what the flipped
+ * default above forces:
+ *
+ *   key absent  → `defaultOn` — a fresh tab gets the default, always
+ *   key `'0'`   → dismissed in this tab, and it STAYS dismissed across a
+ *                 reload, which is the whole point of storing it at all
+ *   key `'1'`   → explicitly asked for, e.g. re-enabled after a dismissal
+ *
+ * With the handle's default now `on`, a store that could only record "on"
+ * would make the `×` and `?simhandle=0` last exactly until the next reload.
+ * `sessionStorage` and emphatically not `localStorage`: a dismissal must die
+ * with the tab, so tomorrow — and anyone the review link is pasted to —
+ * starts from the default rather than inheriting a stale decision.
+ *
+ * Called from a state initialiser, so it is written to be safe under a
+ * StrictMode double-invoke: writing the same key twice is the same as writing
  * it once, and the answer does not depend on how many times it is asked.
  */
-function readDevFlag({ param, key }) {
+function readDevFlag({ param, key, defaultOn = false }) {
   try {
     const value = new URLSearchParams(window.location.search).get(param)
-    if (value === '1') sessionStorage.setItem(key, '1')
-    else if (value === '0') sessionStorage.removeItem(key)
-    return sessionStorage.getItem(key) === '1'
-  } catch { return false }
+    if (value === '1' || value === '0') sessionStorage.setItem(key, value)
+    const stored = sessionStorage.getItem(key)
+    if (stored === '1') return true
+    if (stored === '0') return false
+    return defaultOn
+  } catch { return defaultOn }
 }
 
-function clearDevFlag({ key }) {
-  try { sessionStorage.removeItem(key) } catch { /* private mode */ }
+/** The `×` on an aid: dismissed for this tab, and it survives a reload. */
+function dismissDevFlag({ key }) {
+  try { sessionStorage.setItem(key, '0') } catch { /* private mode */ }
 }
 
 /** `1,2` and `—` rather than `undefined` — a readout with holes in it is noise. */
@@ -231,8 +267,8 @@ export default function PushSimTrigger() {
     fireDemoReset()
   }, [])
 
-  const hideHandle = useCallback(() => { clearDevFlag(DEV_FLAGS.handle); setShowHandle(false) }, [])
-  const hideDebug = useCallback(() => { clearDevFlag(DEV_FLAGS.debug); setDebug(false) }, [])
+  const hideHandle = useCallback(() => { dismissDevFlag(DEV_FLAGS.handle); setShowHandle(false) }, [])
+  const hideDebug = useCallback(() => { dismissDevFlag(DEV_FLAGS.debug); setDebug(false) }, [])
 
   return (
     <>
@@ -261,16 +297,29 @@ export default function PushSimTrigger() {
           (the house rule: ValveConfirmSheet.jsx:17-25). */}
       {debug && <GestureReadout diag={diag} liveHeldMs={liveHeldMs} onHide={hideDebug} />}
 
-      {/* ── DEV AID: the visible handle. BOTTOM-LEFT, not bottom-right, so it
-          never sits on top of the concealed zone it exists to stand in for —
-          the two aids have to be usable at the same time. Bottom-left is the
-          other corner the inertness probe cleared (useConcealedLongPress.js). */}
+      {/* ── DEV AID: the visible handle, now on by default (DEV_FLAGS.handle).
+          ABOVE THE TAB BAR, AND ON THE LEFT. Two separate constraints:
+          - not bottom-RIGHT, because that is the concealed gesture's own
+            64x64 zone and the handle must never occlude it. The gesture
+            keeps working with this on screen; the handle is an addition,
+            not a replacement.
+          - not flush to the bottom, because at 393px the TabBar's first
+            label sits there and the pill clipped the corner of "Home".
+            That was tolerable for an opt-in aid and is not for one that is
+            always on screen, so it clears the TabBar entirely.
+
+          SOLID PRIMARY, NOT A QUIET OUTLINE. It is deliberately the loudest
+          thing on the screen that is not content, because the owner also
+          could not tell a stale build from a build where they simply had not
+          found the handle. The previous deployed build has no handle at all,
+          so the pill IS the build signal: see it and you are on this build.
+          A subtle affordance would have left both questions open. */}
       {showHandle && !open && (
-        <div className="absolute bottom-[10px] left-[10px] z-[240] flex items-center gap-[4px]">
+        <div className="absolute bottom-[72px] left-[12px] z-[240] flex items-center overflow-hidden rounded-full border border-solid border-primary bg-primary shadow-sm">
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="rounded-full border border-solid border-border-strong bg-surface-card px-[10px] py-[5px] font-semibold text-[11px] leading-[14px] text-muted-foreground shadow-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="px-[12px] py-[6px] font-semibold text-[12px] leading-[16px] text-primary-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             Push sim
           </button>
@@ -278,7 +327,7 @@ export default function PushSimTrigger() {
             type="button"
             aria-label="Hide the push simulator handle"
             onClick={hideHandle}
-            className="flex size-[22px] items-center justify-center rounded-full border border-solid border-border-strong bg-surface-card text-[11px] leading-[14px] text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="border-l border-solid border-primary-foreground/40 px-[9px] py-[6px] text-[12px] leading-[16px] text-primary-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             ×
           </button>
