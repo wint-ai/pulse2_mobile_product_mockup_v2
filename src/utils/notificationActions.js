@@ -9,6 +9,11 @@
 // Specific states layer additional actions on top (Tag, Ignore, On it, etc.)
 // but View is the constant - the user always has a way out of the notification
 // into the source system.
+// LABEL, NOT IDENTITY (owner, 2026-10-31): the claim action reads "Assign to
+// me" wherever a user sees it. The action key stays 'investigate' and the
+// timeline step id stays 'on-it' -- PushNotifications.jsx:644 and the timeline
+// config switch on those, and renaming them would be churn with a real chance
+// of breaking a switch.
 export function buildActions(n, { investigating, ignored, tagged }) {
   // Non-water notifications: just View. Specific non-water alert types
   // (valve error, power lost, offline, etc.) don't have actionable
@@ -24,7 +29,7 @@ export function buildActions(n, { investigating, ignored, tagged }) {
     case 'Warning':
       return [
         { key: 'view',        label: 'View',  primary: true },
-        ...(investigating ? [] : [{ key: 'investigate', label: 'On it' }]),
+        ...(investigating ? [] : [{ key: 'investigate', label: 'Assign to me' }]),
         { key: 'ignore',      label: 'Ignore' },
       ];
     case 'Ongoing':
@@ -36,7 +41,7 @@ export function buildActions(n, { investigating, ignored, tagged }) {
       // No Ignore on Critical state.
       return [
         { key: 'view',        label: 'View',  primary: true },
-        ...(investigating ? [] : [{ key: 'investigate', label: 'On it' }]),
+        ...(investigating ? [] : [{ key: 'investigate', label: 'Assign to me' }]),
       ];
     case 'End of Leak':
       // PRD 15 § 7.1 - readable label, no Dismiss (swipe-to-dismiss native).

@@ -8,7 +8,7 @@
 //   [detection lockup: circle + "Detected on" + date + time . Xh Xm ago + state pill]
 //   [bold title: "High Flow Event" / "Low Flow Event"]
 //   [flow rate row: "Flow rate XX.X L/hour"]
-//   [optional action row: Ignore this event . Notify team I'm on it]
+//   [optional action row: Assign to me / Stand down]
 //
 // States rendered: empty (no active water event), Warning, Ongoing,
 // Shutoff, Ignored (muted). Ended is NOT rendered by this widget (W18) -- the
@@ -26,9 +26,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext';
-import IgnoreBottomSheet from './IgnoreBottomSheet';
 import TagBottomSheet from './TagBottomSheet';
-import { ignoreIncident, isIgnored as isSystemIgnored, getIgnoredInfo } from '../data/ignoredIncidents';
+import { isIgnored as isSystemIgnored, getIgnoredInfo } from '../data/ignoredIncidents';
 import { getTags, addTag, removeTagAt } from '../data/tagsStore';
 import { getCurrentActor } from '../data/currentUser';
 import { computeActiveEvents } from '../data/events';
@@ -107,7 +106,6 @@ export default function WaterEventDetailsWidget({ sys, readOnly = false, onActio
   const { theme } = useTheme();
   // eslint-disable-next-line no-unused-vars
   const navigate = useNavigate();
-  const [showIgnore, setShowIgnore] = useState(false);
   const [showTag, setShowTag] = useState(false);
   // Pulse-on-arrival from a push notification deep link.
   const [pulseOnArrival, setPulseOnArrival] = useState(false);
@@ -128,12 +126,16 @@ export default function WaterEventDetailsWidget({ sys, readOnly = false, onActio
       searchParams.delete('pulse');
       dirty = true;
     }
+    // IGNORE RETIRED, 2026-10-31 (owner: "Retire them"): ?action=ignore used
+    // to open v1's IgnoreBottomSheet from here. Ignore now commits in exactly
+    // one place, v2's WaterEventFeedbackSheet on /system/:systemId, which is
+    // where the push's Ignore button already lands. The param is still consumed
+    // so a hand-pasted /v1/system/:id?action=ignore does not survive a refresh.
     if (action === 'tag') {
       setShowTag(true);
       searchParams.delete('action');
       dirty = true;
     } else if (action === 'ignore') {
-      setShowIgnore(true);
       searchParams.delete('action');
       dirty = true;
     }
@@ -245,15 +247,20 @@ export default function WaterEventDetailsWidget({ sys, readOnly = false, onActio
     : t('system_detail.water_event_widget.title_low_flow');
 
   // Action visibility (W17, W19, W27, W30 + W31 stand-down):
-  //   Warning Standard:  Ignore + Notify-team-on-it (or Stand down when claimed by viewer)
-  //   Warning Simple:    Ignore only
-  //   Ongoing/Shutoff Standard: Notify-team-on-it (or Stand down when claimed by viewer)
-  //   Ongoing/Shutoff Simple:   no actions
+  //   Warning/Ongoing/Shutoff Standard: Assign to me (or Stand down when
+  //     claimed by viewer)
+  //   Simple (hideOnIt): no actions
   //   Ignored: no actions
   // When the on-it is claimed by someone other than the viewer, no on-it
   // button shows -- they'd need to coordinate out-of-band to take over.
+  //
+  // IGNORE RETIRED, 2026-10-31 (owner: "Retire them"). A Warning used to carry
+  // an Ignore button here that opened v1's IgnoreBottomSheet: no
+  // irreversibility confirmation, no ShutOff gate, no eventFeedbackStore write.
+  // Ignore now commits in exactly one place, v2's WaterEventFeedbackSheet on
+  // /system/:systemId. The Ignored pill and the muted Ignored treatment below
+  // are NOT retired -- they read ignoredIncidents, which the v2 flow writes.
   const isActiveLifecycle = ['warning', 'ongoing', 'shutoff'].includes(lifecycle.state);
-  const showIgnoreBtn = !readOnly && !isIgnored && lifecycle.state === 'warning';
   const showOnItBtn = !readOnly && !isIgnored && !hideOnIt && !onItClaimed && isActiveLifecycle;
   const showStandDownBtn = !readOnly && !isIgnored && !hideOnIt && viewerIsTheActor && isActiveLifecycle;
   // Per Rami 2026-06-15 (reverses the earlier same-day decision): the Tag
@@ -286,7 +293,7 @@ export default function WaterEventDetailsWidget({ sys, readOnly = false, onActio
   // Tag handling (still kept for URL-param deep link from push CTA).
   const tagList = getTags(sys.id);
 
-  const showActionsRow = showIgnoreBtn || showOnItBtn || showStandDownBtn;
+  const showActionsRow = showOnItBtn || showStandDownBtn;
 
   return (
     <>
@@ -387,15 +394,6 @@ export default function WaterEventDetailsWidget({ sys, readOnly = false, onActio
         {/* Action row */}
         {showActionsRow && (
           <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            {showIgnoreBtn && (
-              <ActionButton
-                icon="block"
-                label={t('system_detail.water_event_widget.actions.ignore')}
-                bg="#FBEAEF"
-                color="#A5455E"
-                onClick={() => setShowIgnore(true)}
-              />
-            )}
             {showOnItBtn && (
               <ActionButton
                 icon="front_hand"
@@ -419,24 +417,6 @@ export default function WaterEventDetailsWidget({ sys, readOnly = false, onActio
       </div>
 
       {/* Bottom sheets */}
-      {showIgnore && (
-        <IgnoreBottomSheet
-          onClose={() => setShowIgnore(false)}
-          onConfirm={({ chip, chipOther, detail }) => {
-            const parts = [];
-            if (chip === 'Other' && chipOther) parts.push(chipOther);
-            else if (chip) parts.push(chip);
-            if (detail) parts.push(detail);
-            ignoreIncident(sys.id, {
-              tag: parts.join(' · ') || null,
-              ignoredBy: currentActor,
-            });
-            setShowIgnore(false);
-            setTagBumper(b => b + 1);
-            onAction?.('ignored');
-          }}
-        />
-      )}
       {showTag && (
         <TagBottomSheet
           currentTags={tagList}

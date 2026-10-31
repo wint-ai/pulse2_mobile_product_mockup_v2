@@ -95,7 +95,7 @@
       "actor_someone": "someone",
       "actions": {
         "ignore": "Ignore this event",
-        "on_it": "Notify team I'm on it",
+        "on_it": "Assign to me",
         "stand_down": "Stand down"
       }
     },

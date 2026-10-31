@@ -9,7 +9,7 @@ import { getSystemById, getSystemTz } from '../../data/systems';
 import { getActiveIncident, getNotification, getLeakState } from '../../data/incidents';
 import { getActivePolicy } from '../../data/systemDetails';
 import { CURRENT_EVENTS } from '../../data/events';
-import { ignoreIncident, isIgnored, getIgnoredInfo } from '../../data/ignoredIncidents';
+import { isIgnored, getIgnoredInfo } from '../../data/ignoredIncidents';
 import { isInvestigating, getInvestigatingInfo, startInvestigating, stopInvestigating } from '../../data/investigatingStore';
 import { saveTag, getTag, getTags, addTag, removeTagAt } from '../../data/tagsStore';
 import { getCurrentActor } from '../../data/currentUser';
@@ -19,7 +19,6 @@ import { parseEventInstant, formatDuration } from '../../utils/format';
 import { getAncestorScopes } from '../../utils/ancestorScopes';
 import { useUserContext } from '../../context/UserContext';
 import TagBottomSheet from '../../components/TagBottomSheet';
-import IgnoreBottomSheet from '../../components/IgnoreBottomSheet';
 import TagCelebration from '../../components/TagCelebration';
 
 // Per-leak timeline step config. Locked decisions:
@@ -129,10 +128,6 @@ export default function LeakDetail() {
   const investigating = sys ? isInvestigating(sys.id) : false;
   const investigatingInfo = sys ? getInvestigatingInfo(sys.id) : null;
   const [, forceTick] = useState(0);  // forces re-read after toggle
-  // Single chip-based bottom sheet replaces the old two-step red-modal + mandatory-tag flow.
-  // Matches the locked ignore-tag-flows.html Phone 3a/3b reference: warning + optional chips
-  // + Cancel/Ignore. Tag is optional.
-  const [showIgnoreSheet, setShowIgnoreSheet] = useState(false);
   const [showTagSheet, setShowTagSheet] = useState(false);
   const [tagBumper, setTagBumper] = useState(0);  // forces re-read of getTag after save
   const [celebrationKey, setCelebrationKey] = useState(0);
@@ -145,18 +140,27 @@ export default function LeakDetail() {
   const tag = sys ? getTag(sys.id) : null;
   void tagBumper;  // referenced only to invalidate render
 
-  // Deep-link from notification: ?action=ignore opens the ignore confirm,
-  // ?action=tag opens the tag sheet. Strip the param after handling so a
-  // refresh doesn't re-trigger.
+  // Deep-link from notification: ?action=tag opens the tag sheet. Strip the
+  // param after handling so a refresh doesn't re-trigger.
+  //
+  // IGNORE RETIRED, 2026-10-31 (owner: "Retire them"). ?action=ignore used to
+  // open v1's IgnoreBottomSheet from here. That path had no irreversibility
+  // confirmation, no ShutOff gate (WaterEventFeedbackSheet.jsx:502 refuses
+  // trigger="ignore" at eventState 'shutoff'; this screen would have taken it)
+  // and never wrote eventFeedbackStore. Ignore now commits in exactly one
+  // place: v2's WaterEventFeedbackSheet on /system/:systemId, which is where
+  // the push's Ignore button already lands (PushNotifications.jsx:656), so no
+  // live caller was sending this screen an ignore. The param is still stripped,
+  // so a hand-pasted /alert/:id?action=ignore settles on the event with nothing
+  // opened rather than on the retired sheet.
   useEffect(() => {
     const action = searchParams.get('action');
     if (!action) return;
-    if (action === 'ignore' && !ignored) setShowIgnoreSheet(true);
-    else if (action === 'tag') setShowTagSheet(true);
+    if (action === 'tag') setShowTagSheet(true);
     const next = new URLSearchParams(searchParams);
     next.delete('action');
     setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams, ignored]);
+  }, [searchParams, setSearchParams]);
 
   // Dispatch: non-water-event alerts get the simpler ErrorAlertDetail layout.
   const isWater = sys.alert?.type === 'leak-high' || sys.alert?.type === 'leak-low';
@@ -271,33 +275,15 @@ export default function LeakDetail() {
             {/* Valve Control — top of action stack per locked order */}
             <ValveControlCard sys={sys} />
 
-            {/* Ignore card (suppressed when ignored — banner takes its place) */}
-            {!ignored && (
-              <div style={{
-                background: theme.card, borderRadius: 12, padding: '10px 13px',
-                display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8, border: theme.cardBorder,
-              }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(229,161,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#B47B0A' }}>flag</span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: theme.text }}>Ignore Water Event</div>
-                  <div style={{ fontSize: 13, color: theme.textTertiary, marginTop: 1 }}>
-                    Treat as expected · valve stays open · cannot be undone
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowIgnoreSheet(true)}
-                  style={{
-                    fontSize: 14, fontWeight: 600, padding: '7px 13px', borderRadius: 8, border: 'none',
-                    background: 'rgba(229,161,0,0.20)', color: '#B47B0A',
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >Ignore</button>
-              </div>
-            )}
+            {/* IGNORE CARD RETIRED, 2026-10-31 (owner: "Retire them"). An
+                "Ignore Water Event" card sat here and opened v1's
+                IgnoreBottomSheet. It is gone, not restyled: the gap between it
+                and v2 was behavioural, not visual. The banner below is NOT
+                retired — it reads ignoredIncidents, which the v2 flow writes, so
+                an event ignored on /system/:systemId still reads as ignored on
+                this screen, actor and cause included. */}
 
-            {/* Ignored banner (replaces the Ignore card when already ignored).
+            {/* Ignored banner (shown once the event has been ignored in v2).
                 Copy rule (2026-06-02): two lines max. Line 1 = "Ignored by {actor}".
                 Line 2 = the captured tag (chip + detail), only if one exists.
                 Do NOT add an "auto-shutoff suppressed" line — that was the confirmation-time
@@ -356,7 +342,10 @@ export default function LeakDetail() {
               >{tag ? '✓ Tagged' : 'Tag'}</button>
             </div>
 
-            {/* On it card (canonical label per ignore-tag-flows.html lock — suppressed when ignored) */}
+            {/* Claim card. LABEL STANDARDISED 2026-10-31 (owner: "Assign to
+                me"): the offer reads "Assign to me". The claimed line keeps
+                "On it · {actor}" because it reports state, not an action, and no
+                replacement for it was approved. Suppressed when ignored. */}
             {!ignored && (() => {
               const me = getCurrentActor();
               const isOwner = investigating && investigatingInfo && investigatingInfo.actor === me;
@@ -372,7 +361,7 @@ export default function LeakDetail() {
                     <div style={{ fontSize: 15, fontWeight: 600, color: theme.text }}>
                       {investigating && investigatingInfo
                         ? `On it · ${investigatingInfo.actor}`
-                        : 'On it'}
+                        : 'Assign to me'}
                     </div>
                     <div style={{ fontSize: 13, color: theme.textTertiary, marginTop: 1 }}>
                       {investigating && investigatingInfo
@@ -388,7 +377,7 @@ export default function LeakDetail() {
                         background: 'rgba(4,173,239,0.15)', color: '#04ADEF',
                         cursor: 'pointer', fontFamily: 'inherit',
                       }}
-                    >On it</button>
+                    >Assign to me</button>
                   )}
                   {investigating && isOwner && (
                     <button
@@ -509,26 +498,6 @@ export default function LeakDetail() {
                 <div style={{ fontSize: 11, fontWeight: 700, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: '.4px' }}>Event ID</div>
                 <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: theme.inputBg, color: theme.text }}>{leakId}</span>
               </div>
-            )}
-
-            {/* Chip-based Ignore bottom sheet — single-step, tag is optional.
-                Matches ignore-tag-flows.html Phone 3a/3b (locked canonical reference).
-                Replaces the old red-modal popup + mandatory-tag two-step flow (2026-06-02). */}
-            {showIgnoreSheet && (
-              <IgnoreBottomSheet
-                onClose={() => setShowIgnoreSheet(false)}
-                onConfirm={({ chip, chipOther, detail }) => {
-                  // Compose a human-readable summary of the chip + Other text + detail
-                  // to display on the Ignored banner. All three pieces are optional.
-                  const summary = composeChipSummary({ chip, chipOther, detail });
-                  ignoreIncident(sys.id, {
-                    tag: summary,
-                    ignoredBy: getCurrentActor(),
-                  });
-                  setShowIgnoreSheet(false);
-                  navigate('/alerts');
-                }}
-              />
             )}
 
             {/* Chip-based Tag bottom sheet — root-cause tagging for real water events.

@@ -53,12 +53,12 @@ describe('action set reflects persisted state per system', () => {
   const N_WARNING = { type: 'leak', state: 'Warning', systemId: SYS };
   const N_END_OF_LEAK = { type: 'leak', state: 'End of Leak', systemId: SYS };
 
-  it('fresh Warning: View · On it · Ignore', () => {
+  it('fresh Warning: View · Assign to me · Ignore', () => {
     const a = buildFor(N_WARNING, SYS);
     expect(a.map(x => x.key)).toEqual(['view', 'investigate', 'ignore']);
   });
 
-  it('after On it: button hidden on next render', () => {
+  it('after claiming: the claim button is hidden on next render', () => {
     startInvestigating(SYS, { actor: 'Sarah' });
     const a = buildFor(N_WARNING, SYS);
     expect(a.find(x => x.key === 'investigate')).toBeUndefined();
@@ -121,9 +121,9 @@ describe('action set reflects persisted state per system', () => {
 
 describe('action labels are user-readable (never internal keys)', () => {
   const SYS = APT_WITH_EVENT;
-  it('Warning labels are exactly View, On it, Ignore', () => {
+  it('Warning labels are exactly View, Assign to me, Ignore', () => {
     const a = buildActions({ type: 'leak', state: 'Warning', systemId: SYS }, { investigating: false, ignored: false, tagged: false });
-    expect(a.map(x => x.label)).toEqual(['View', 'On it', 'Ignore']);
+    expect(a.map(x => x.label)).toEqual(['View', 'Assign to me', 'Ignore']);
     // No raw keys leaking through as labels
     a.forEach(x => expect(x.label).not.toBe(x.key));
   });

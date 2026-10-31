@@ -12,13 +12,19 @@ function labels(actions) {
 }
 
 describe('notification action set per state', () => {
-  it('Warning: View · On it · Ignore', () => {
+  /* LABEL STANDARDISED 2026-10-31 (owner: "Assign to me"). The claim action
+     used to read "On it" on the push, "Assign to me" in the v2 overlay and
+     "Claim alert" on its tile. The KEY is deliberately unchanged: the label is
+     what the user reads, 'investigate' is what PushNotifications.jsx:644
+     dispatches on. Both assertions below are here so a future relabel cannot
+     quietly take the key with it. */
+  it('Warning: View · Assign to me · Ignore', () => {
     const a = buildActions({ type: 'leak', state: 'Warning' }, { investigating: false, ignored: false, tagged: false });
     expect(keys(a)).toEqual(['view', 'investigate', 'ignore']);
-    expect(labels(a)).toEqual(['View', 'On it', 'Ignore']);
+    expect(labels(a)).toEqual(['View', 'Assign to me', 'Ignore']);
   });
 
-  it('Warning + already investigating: On it is HIDDEN', () => {
+  it('Warning + already investigating: the claim action is HIDDEN', () => {
     const a = buildActions({ type: 'leak', state: 'Warning' }, { investigating: true, ignored: false, tagged: false });
     expect(keys(a)).toEqual(['view', 'ignore']); // no investigate
   });
@@ -29,13 +35,15 @@ describe('notification action set per state', () => {
     expect(a.find(x => x.key === 'dismiss')).toBeUndefined();
   });
 
-  it('Shutoff: View · On it (no Ignore on Critical)', () => {
+  it('Shutoff: View · Assign to me (no Ignore on Critical)', () => {
     const a = buildActions({ type: 'leak', state: 'Shutoff' }, { investigating: false, ignored: false, tagged: false });
     expect(keys(a)).toEqual(['view', 'investigate']);
+    // The second of the two claim-label sites, pinned alongside Warning above.
+    expect(labels(a)).toEqual(['View', 'Assign to me']);
     expect(a.find(x => x.key === 'ignore')).toBeUndefined();
   });
 
-  it('Shutoff + investigating: On it hidden', () => {
+  it('Shutoff + investigating: the claim action is hidden', () => {
     const a = buildActions({ type: 'leak', state: 'Shutoff' }, { investigating: true, ignored: false, tagged: false });
     expect(keys(a)).toEqual(['view']);
   });
