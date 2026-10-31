@@ -585,6 +585,66 @@
   --chart-3: oklch(0.59816 0.20766 258.291);      /* #1B79F8 */
   --chart-4: var(--success);
   --chart-5: var(--severity-high);
+
+  /* ── OS chrome — src/components/PushNotifications.jsx ────────────────
+     Every other token in this file describes one of the APP's surfaces.
+     These do not, and that is the whole point of them.
+
+     PushNotifications draws a phone lock screen, a pulled-down shade, an
+     other-app heads-up and an in-app banner. Three of those imitate the
+     OPERATING SYSTEM, not Wint. A notification that adopts the app's card
+     surface, the app's tinted avatar and the app's radius has stopped
+     reading as a notification and started reading as an AlertCard that
+     escaped its list — which is the one thing a push must never do.
+
+     So the OS chrome keeps its own ground, its own ink and its own
+     radius. It is tokenised rather than hardcoded so a theme can still
+     move it; it is NOT aliased to the app's surface tokens, because an
+     app surface that inverts under `dark` would drag the simulated OS
+     with it and the lock screen would stop being a lock screen. */
+
+  /* The lock-screen wallpaper. 160deg, three stops — the literals the
+     component carried inline, converted to oklch like the rest of Phase
+     1f, so `light` does not move by a single pixel. */
+  --os-wallpaper-from: oklch(0.22844 0.03843 282.932);  /* #1a1a2e */
+  --os-wallpaper-via:  oklch(0.25428 0.05708 266.709);  /* #16213e */
+  --os-wallpaper-to:   oklch(0.32522 0.08840 255.106);  /* #0f3460 */
+
+  /* The pulled-down shade's scrim — 180deg, same hue, alpha-bearing so
+     the wallpaper reads through it. */
+  --os-shade-bg-from: oklch(0.19438 0.03144 269.293 / 0.96);  /* rgba(15,20,35,.96) */
+  --os-shade-bg-to:   oklch(0.19438 0.03144 269.293 / 0.85);  /* rgba(15,20,35,.85) */
+
+  /* The shade's own card. Darker and more opaque than the lock card's
+     frosted glass, because it sits on a scrim rather than on wallpaper. */
+  --os-shade-card: oklch(0.28823 0.02210 277.509 / 0.92);     /* rgba(40,42,54,.92) */
+
+  /* ONE radius for both OS cards, where the component had two arbitrary
+     ones (16px lock, 14px shade). Larger than the house --radius so the
+     OS cards read as rounder than an app card — which is what Android 12+
+     and iOS both do, and what makes the surface legible as system chrome
+     at a glance. The in-app banner is NOT on this token: it belongs to
+     the app and takes the house 18px. */
+  --os-notification-radius: 20px;
+
+  /* The ink on all of that, and the source of the white-alpha glass
+     palette: every frosted fill, every hairline and every ink level on
+     the lock and shade surfaces is this token at an alpha, so one
+     declaration moves the whole family.
+
+     DELIBERATELY NOT --ink-on-color, though the two are the same white
+     in `light` and the resemblance is the trap. --ink-on-color is ink on
+     a ground that is coloured by PRODUCT SEMANTICS — a severity chip, the
+     brand blue — and `contrast` inverts it on purpose (see the note at
+     its declaration in that block). Those grounds and that ink are moved
+     by the theme together. The OS glass is not a product ground: it is
+     fixed dark by --os-wallpaper-* and --os-shade-* above, which do NOT
+     invert. Aliasing would import half of a pair — the ink would flip to
+     a dark blue and the ground would stay dark, and `contrast` would
+     render the lock screen dark-on-dark. Standing alone, --os-chrome-ink
+     moves WITH the wallpaper or not at all, which is the only coherent
+     way to theme chrome. */
+  --os-chrome-ink: oklch(1 0 0);                              /* #ffffff */
 }
 
 /* Plain @theme, NOT @theme inline. Inside `@theme inline` Tailwind writes
@@ -597,6 +657,14 @@
    it follow. Fonts were the one token mapped the wrong way round. */
 @theme {
   --font-sans: var(--font-sans-stack);
+
+  /* Here and not in `@theme inline` below, for exactly the reason the
+     comment above gives for the font: `inline` writes the VALUE into the
+     utility, so a theme redefining --os-notification-radius on an
+     ancestor could never reach `rounded-os-notification`. Out here the
+     utility compiles to var() and the override works. The --os-* COLOURS
+     do want `inline`, same as every other colour token. */
+  --radius-os-notification: var(--os-notification-radius);
 }
 
 @theme inline {
@@ -720,6 +788,19 @@
   --color-bar-fill-ok-from: var(--bar-fill-ok-from);
   --color-bar-fill-ok-to: var(--bar-fill-ok-to);
   --color-scrim: var(--scrim);
+
+  /* OS chrome — see the --os-* block in :root. --color-os-chrome-ink is
+     the one that earns its place most: it lets the whole white-alpha
+     glass palette be written as opacity modifiers (bg-os-chrome-ink/12,
+     text-os-chrome-ink/90, border-os-chrome-ink/10) instead of 30-odd
+     rgba(255,255,255,x) literals that no theme could ever find. */
+  --color-os-wallpaper-from: var(--os-wallpaper-from);
+  --color-os-wallpaper-via: var(--os-wallpaper-via);
+  --color-os-wallpaper-to: var(--os-wallpaper-to);
+  --color-os-shade-bg-from: var(--os-shade-bg-from);
+  --color-os-shade-bg-to: var(--os-shade-bg-to);
+  --color-os-shade-card: var(--os-shade-card);
+  --color-os-chrome-ink: var(--os-chrome-ink);
 }
 
 .material-symbols-outlined {
@@ -1141,6 +1222,21 @@ button {
   --shadow-overlay:
     0 0 0 1px rgba(189, 189, 189, 0.12),
     0px 24px 48px -12px rgba(1, 4, 9, 0.8);
+
+  /* OS chrome — RESTATED AT THE SAME VALUES, on purpose, and that is not
+     redundancy. A phone's lock screen does not invert because the app on
+     it went dark; it was already dark. Leaving these to inherit would
+     render identically today and would silently be a different decision —
+     "nobody thought about it" rather than "dark deliberately does not
+     move the wallpaper". The lines are here so the next person moving
+     this theme sees that the choice was made. */
+  --os-wallpaper-from: oklch(0.22844 0.03843 282.932);
+  --os-wallpaper-via:  oklch(0.25428 0.05708 266.709);
+  --os-wallpaper-to:   oklch(0.32522 0.08840 255.106);
+  --os-shade-bg-from: oklch(0.19438 0.03144 269.293 / 0.96);
+  --os-shade-bg-to:   oklch(0.19438 0.03144 269.293 / 0.85);
+  --os-shade-card: oklch(0.28823 0.02210 277.509 / 0.92);
+  --os-chrome-ink: oklch(1 0 0);
 }
 
 /* ── sand — shadcn Stone (light) ─────────────────────────────────────
@@ -1248,6 +1344,18 @@ button {
   --wash-5: color-mix(in oklab, var(--background), var(--primary) 9.3%);
 
   --surface-card: color-mix(in oklab, var(--card), var(--background) 44.8%);
+
+  /* OS chrome — the wallpaper is the one place a warm cast costs nothing
+     and proves the token is live: same lightness as :root, hue rotated
+     off blue onto stone's warm axis. The ink warms with it, so the glass
+     palette stays a single family. */
+  --os-wallpaper-from: oklch(0.22844 0.03843 56);
+  --os-wallpaper-via:  oklch(0.25428 0.042 48);
+  --os-wallpaper-to:   oklch(0.32522 0.052 62);
+  --os-shade-bg-from: oklch(0.19438 0.026 50 / 0.96);
+  --os-shade-bg-to:   oklch(0.19438 0.026 50 / 0.85);
+  --os-shade-card: oklch(0.28823 0.018 55 / 0.92);
+  --os-chrome-ink: oklch(0.99 0.006 85);
 }
 
 /* ── contrast — the diagnostic, NOT in the picker ────────────────────
@@ -1390,6 +1498,24 @@ button {
   --wash-3: color-mix(in oklab, var(--background), var(--primary) 9.1%);
   --wash-4: color-mix(in oklab, var(--background), var(--primary) 6.5%);
   --wash-5: color-mix(in oklab, var(--background), var(--primary) 9.3%);
+
+  /* OS chrome — the instrument reaches the lock screen too, and the ink
+     is the half that matters. --ink-on-color inverts to a dark blue in
+     this theme on purpose; --os-chrome-ink does NOT follow it, because
+     the OS ground below stays dark under every theme and an inverted ink
+     on a non-inverted ground is dark-on-dark, not a diagnostic. So the
+     ground goes loud — a deep violet no real wallpaper would ship — and
+     the ink goes acid, the same yellow this theme's
+     --sidebar-accent-foreground uses. Measured on the lock card that is
+     the most legible the four themes get, which is the right direction
+     for the accessibility instrument to err in. */
+  --os-wallpaper-from: oklch(0.18 0.14 300);
+  --os-wallpaper-via:  oklch(0.16 0.16 320);
+  --os-wallpaper-to:   oklch(0.2 0.18 285);
+  --os-shade-bg-from: oklch(0.14 0.16 310 / 0.96);
+  --os-shade-bg-to:   oklch(0.14 0.16 310 / 0.85);
+  --os-shade-card: oklch(0.22 0.18 295 / 0.92);
+  --os-chrome-ink: oklch(0.98 0.2 110);
 }
 
 /* ── the two Wint gradients, on every theme but `light` (Ruling C) ───
@@ -1458,4 +1584,18 @@ button {
     linear-gradient(90deg, var(--card) 0%, var(--card) 100%);
 
   --tile-bg: var(--chip-bg);
+}
+
+/* ── Notification entrance ────────────────────────────────────────────
+   This lived in an inline <style> inside InAppBanner, which meant the
+   rule existed only while the in-app banner was mounted.
+   HeadsUpNotification animates with `bannerIn` too, and the two surfaces
+   are mutually exclusive by construction — PushNotifications renders the
+   banner only when phoneState === 'inapp' and the heads-up only when it
+   is 'other-app'. So the heads-up referenced a keyframe that was never
+   in the document and simply appeared, with no entrance at all. Here it
+   is global and both surfaces slide. */
+@keyframes bannerIn {
+  from { transform: translateY(-110%); }
+  to   { transform: translateY(0); }
 }

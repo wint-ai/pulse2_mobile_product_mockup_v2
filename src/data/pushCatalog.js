@@ -5,6 +5,16 @@
 //
 // Source: docs/Notification IDs -V10.9.xlsx. Don't invent IDs - if you need to
 // add a card, look it up in the spreadsheet first.
+//
+// `tint` is a CSS colour value, consumed as a 10px dot in PushSimSheet and a
+// 4px border in ControlPanel — the simulator's own chrome, which ships to
+// nobody. The four that have an exact token (--severity-high, --success,
+// --danger, --slate-500) now use it. THE REST ARE DELIBERATELY LEFT RAW:
+// #C84A28, #B82C5C, #7A8189 and #B5651A are near-misses for tokens rather than
+// matches, and quietly rounding a dev tool's dots to the nearest token would
+// make two catalogue rows that are visibly different today render identically.
+// If these dots ever need to theme, they need their own decision first — which
+// is a bigger conversation than a 10px dot is worth.
 
 export const PUSH_CATALOG = [
   // ============= Water Events =============
@@ -13,7 +23,7 @@ export const PUSH_CATALOG = [
     section: 'Water Events',
     sectionIcon: 'water_drop',
     label: 'Warning detected',
-    tint: '#DB4670',
+    tint: 'var(--severity-high)',   /* #DB4670 */
     glyph: 'water_drop',
     fireableType: 'leak-warning',
     variants: [
@@ -88,7 +98,7 @@ export const PUSH_CATALOG = [
     id: 'VC_OK_02',
     section: 'Water Events',
     label: 'Valve closed successfully (after WE)',
-    tint: '#5C9E1A',
+    tint: 'var(--success)',         /* #5C9E1A */
     glyph: 'check_circle',
     fireableType: 'valve-closed-after-we',
     eligibility: (s) => s.valve != null,
@@ -97,7 +107,7 @@ export const PUSH_CATALOG = [
     id: 'LE_01',
     section: 'Water Events',
     label: 'Water Event ended (+ feedback)',
-    tint: '#5C9E1A',
+    tint: 'var(--success)',         /* #5C9E1A */
     glyph: 'check_circle',
     fireableType: 'leak-ended',
     params: [
@@ -122,7 +132,7 @@ export const PUSH_CATALOG = [
     id: 'V_ER',
     section: 'Valve',
     label: 'Valve error',
-    tint: '#A5455E',
+    tint: 'var(--danger)',          /* #A5455E */
     glyph: 'error',
     fireableType: 'valve-error',
     variants: [
@@ -137,7 +147,7 @@ export const PUSH_CATALOG = [
     id: 'V_ER_04',
     section: 'Valve',
     label: 'Valve error cleared',
-    tint: '#5C9E1A',
+    tint: 'var(--success)',         /* #5C9E1A */
     glyph: 'check_circle',
     fireableType: 'valve-error-cleared',
     eligibility: (s) => true,
@@ -158,7 +168,7 @@ export const PUSH_CATALOG = [
     id: 'PW_02',
     section: 'Power',
     label: 'AC Power reconnected',
-    tint: '#5C9E1A',
+    tint: 'var(--success)',         /* #5C9E1A */
     glyph: 'power',
     fireableType: 'power-restored',
     eligibility: (s) => true,
@@ -170,7 +180,7 @@ export const PUSH_CATALOG = [
     section: 'Communication',
     sectionIcon: 'wifi',
     label: 'System offline',
-    tint: '#717684',
+    tint: 'var(--slate-500)',       /* #717684 */
     glyph: 'wifi_off',
     fireableType: 'offline',
     params: [
@@ -182,7 +192,7 @@ export const PUSH_CATALOG = [
     id: 'COM_02',
     section: 'Communication',
     label: 'System back online',
-    tint: '#5C9E1A',
+    tint: 'var(--success)',         /* #5C9E1A */
     glyph: 'wifi',
     fireableType: 'online',
     eligibility: (s) => true,
@@ -194,7 +204,7 @@ export const PUSH_CATALOG = [
     section: 'Sensors',
     sectionIcon: 'sensors',
     label: 'Valve disconnected',
-    tint: '#717684',
+    tint: 'var(--slate-500)',       /* #717684 */
     glyph: 'link_off',
     fireableType: 'valve-disconnected',
     eligibility: (s) => s.valve != null,
@@ -203,7 +213,7 @@ export const PUSH_CATALOG = [
     id: 'SEN_02',
     section: 'Sensors',
     label: 'Valve reconnected',
-    tint: '#5C9E1A',
+    tint: 'var(--success)',         /* #5C9E1A */
     glyph: 'link',
     fireableType: 'valve-reconnected',
     eligibility: (s) => s.valve != null,
@@ -212,7 +222,7 @@ export const PUSH_CATALOG = [
     id: 'SEN_03',
     section: 'Sensors',
     label: 'Meter disconnected',
-    tint: '#717684',
+    tint: 'var(--slate-500)',       /* #717684 */
     glyph: 'water_damage',
     fireableType: 'meter-disconnected',
     eligibility: (s) => true,
@@ -221,7 +231,7 @@ export const PUSH_CATALOG = [
     id: 'SEN_04',
     section: 'Sensors',
     label: 'Meter reconnected',
-    tint: '#5C9E1A',
+    tint: 'var(--success)',         /* #5C9E1A */
     glyph: 'water_drop',
     fireableType: 'meter-reconnected',
     eligibility: (s) => true,

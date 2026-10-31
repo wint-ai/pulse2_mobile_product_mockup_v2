@@ -13,9 +13,35 @@
 // Resolved-state reflection: investigating/ignored/tagged status is read from
 // the same persistence stores LeakDetail uses — so an action taken on one
 // surface (notification, alert detail) is reflected on the others.
+//
+// ─── A NOTE ON THE STYLING, BECAUSE IT DELIBERATELY BREAKS THE PATTERN ──────
+//
+// This is a v1 module, but v2 mounts it: App.jsx wraps every v2 route in it.
+// docs/TOKENIZATION-PLAN.md scopes its phases to src/v2/ + src/components/ui/
+// and names only TabBar.jsx and Phone.jsx as the v1 modules v2 mounts, so this
+// file was never migrated and still carried 83 inline style objects, 42
+// distinct raw colours and zero tokens. It is ported now, on the plan's own
+// terms (":598 — if a v1 screen is being ported, its theme debt is part of
+// that port's cost").
+//
+// The port is to Tailwind utilities on the repo's tokens, with ONE standing
+// exception that is the whole design of these surfaces:
+//
+//   THREE OF THE FOUR SURFACES IMITATE THE OPERATING SYSTEM, NOT THE APP.
+//
+// A lock screen, a notification shade and an other-app heads-up are phone
+// chrome. If they adopt the app's card surface, the app's tinted avatar and
+// the app's radius, they stop reading as notifications and start reading as an
+// AlertCard that escaped its list. So the dark wallpaper, the white-alpha
+// glass, the solid-fill category circle, the tighter insets, the larger OS
+// radius, the heavier float and the oversized lock clock are all PRESERVED —
+// but each one is expressed through a token (the --os-* family in index.css)
+// rather than a literal, so a theme can still move them. Only the in-app
+// banner is a Wint surface, and it takes house tokens throughout.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronDown, CircleAlert, LockOpen, Plug, PowerOff, Unlink, Wifi, WifiOff } from 'lucide-react';
 import { isInvestigating, getInvestigatingInfo, startInvestigating } from '../data/investigatingStore';
 import { isIgnored, getIgnoredInfo } from '../data/ignoredIncidents';
 import { hasTagFeedback } from '../data/eventFeedbackStore';
@@ -24,6 +50,8 @@ import { subscribe as bridgeSubscribe, publish as bridgePublish } from '../lib/p
 import { applyPushEvent, applyDemoReset } from '../lib/pushEvents';
 import { useUserContext } from '../context/UserContext';
 import { SYSTEMS } from '../data/systems';
+import { CloseFill, Droplets, Warning } from '../v2/icons';
+import { cn } from '../lib/utils';
 
 // Build the payload the desktop /push-panel uses to scope its system picker
 // to whatever persona the phone is currently logged in as.
@@ -93,6 +121,33 @@ function applyDataLayerSideEffects(event) {
   applyPushEvent(event);
 }
 
+// ─── The shared spacing / type scale ────────────────────────────────────────
+//
+// The port collapsed six ad-hoc padding strings and three gap values into this
+// named set. Two of the four entries are smaller than their app equivalents on
+// purpose: an OS notification is denser than a card in a list, and its stack
+// is tighter than a card list's. That density is one of the things that makes
+// the surface read as system chrome, so it is preserved — named, not scattered.
+const OS_CARD_INSET = 'px-[14px] py-[12px]';   // tighter than the app's card inset
+const APP_CARD_INSET = 'px-[12px] py-[10px]';  // the in-app banner, a Wint surface
+const CARD_STACK_GAP = 'mb-[8px]';             // tighter than a card list's stack
+const TITLE_GAP = 'gap-[10px]';                // already matches the app's title gap
+const HEADER_GAP = 'gap-[8px]';
+
+// Status pills ("On it · Dana", "Ignored"). borderRadius: 4 was the loudest
+// "different app" tell in the file after the typeface — the house badge is
+// rounded-full / rounded-[26px], never a 4px rectangle.
+const PILL = 'shrink-0 rounded-full px-[7px] py-[2px] text-[11px] leading-[14px] font-medium';
+
+// Tailwind v4 scans for LITERAL class strings, so none of these can be built
+// by interpolation (`bg-${accent}` compiles to nothing at all, silently).
+// Every class a surface can take is spelled out once, here.
+const ACCENT = {
+  'primary':       { solid: 'bg-primary',       onSolid: 'text-primary-foreground',       wash: 'bg-primary/8',       ink: 'text-primary' },
+  'severity-high': { solid: 'bg-severity-high', onSolid: 'text-severity-high-foreground', wash: 'bg-severity-high/8', ink: 'text-severity-high' },
+  'severity-low':  { solid: 'bg-severity-low',  onSolid: 'text-severity-low-foreground',  wash: 'bg-severity-low/8',  ink: 'text-severity-low' },
+};
+
 // ─── Per-state action map ───────────────────────────────────────────────────
 
 // Action set per notification state - see src/utils/notificationActions.js
@@ -110,7 +165,16 @@ function NotifActions({ notification: n, onAction, dark = false }) {
   // tagsStore, and not under the bare system id the ignore flow uses. Reading
   // anything else here leaves the push offering "Tag the cause" forever.
   const tagged = sysId ? hasTagFeedback(sysId) : false;
-  const accentColor = n.severity === 'High Flow' ? '#DB4670' : '#F05C25';
+
+  // BUG FIX: this read n.severity without first asking whether the event IS a
+  // water event, so EVERY non-leak push — valve error, power lost, sensor
+  // offline — fell through to the Low-Flow orange and drew an orange primary
+  // button. The four card components (LockCard, ShadeCard, InAppBanner,
+  // HeadsUpNotification) all guarded with isLeak; only this one did not.
+  const isLeak = n.type === 'leak';
+  const accent = ACCENT[!isLeak
+    ? 'primary'
+    : n.severity === 'High Flow' ? 'severity-high' : 'severity-low'];
 
   const actions = buildActions(n, { investigating, ignored, tagged });
   if (actions.length === 0) return null;
@@ -118,71 +182,75 @@ function NotifActions({ notification: n, onAction, dark = false }) {
   // The Tag CTA on the Water Event ended push (PRD 15 § 7.1) gets a special
   // Wint accent blue treatment - brand-consistent and reads as inviting
   // rather than alarming. Other primary actions use the severity color.
+  //
+  // #036AB5, the gradient's dark stop, has no token and does not get one minted
+  // for it: it is --primary walked 28% toward black, so that is how it is
+  // written. A theme moving --primary moves both stops together.
+  const TAG_GRADIENT =
+    'bg-[linear-gradient(135deg,var(--primary)_0%,color-mix(in_oklab,var(--primary),black_28%)_100%)]';
+
   if (dark) {
     return (
-      <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-        {actions.map(a => {
-          const bg = a.tagCta
-            ? 'linear-gradient(135deg, #0B95F8 0%, #036AB5 100%)'
-            : a.primary ? accentColor : 'rgba(255,255,255,0.12)';
-          return (
-            <div key={a.key}
-              onClick={(e) => { e.stopPropagation(); onAction(a.key, n); }}
-              style={{
-                flex: '1 1 0', minWidth: 80, padding: a.tagCta ? '11px 6px' : '8px 6px', borderRadius: 10, textAlign: 'center',
-                background: bg,
-                fontSize: a.tagCta ? 13 : 12, fontWeight: 800,
-                color: a.done ? 'rgba(255,255,255,0.6)' : '#fff',
-                cursor: 'pointer',
-                boxShadow: a.tagCta ? '0 4px 10px rgba(11,149,248,0.30)' : 'none',
-              }}>{a.label}</div>
-          );
-        })}
+      <div className="mt-[8px] flex flex-wrap gap-[6px]">
+        {actions.map(a => (
+          <div key={a.key}
+            onClick={(e) => { e.stopPropagation(); onAction(a.key, n); }}
+            className={cn(
+              'min-w-[80px] flex-[1_1_0] cursor-pointer rounded-md px-[6px] text-center font-medium',
+              a.tagCta ? 'py-[11px] text-[13px] leading-[18px]' : 'py-[8px] text-[12px] leading-[16px]',
+              // The glass button ground is the chrome ink at 12%, same family
+              // as every other frosted fill on these two surfaces.
+              a.tagCta ? TAG_GRADIENT : a.primary ? accent.solid : 'bg-os-chrome-ink/12',
+              a.tagCta
+                ? 'text-ink-on-color [box-shadow:0_4px_10px_color-mix(in_oklab,var(--primary)_30%,transparent)]'
+                : a.primary ? accent.onSolid
+                : a.done ? 'text-os-chrome-ink/60' : 'text-os-chrome-ink',
+            )}>{a.label}</div>
+        ))}
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-      {actions.map(a => {
-        const tagBlue = '#0B95F8';
-        const color = a.tagCta ? '#fff' : a.primary ? accentColor : a.done ? '#5C9E1A' : '#717684';
-        const background = a.tagCta
-          ? 'linear-gradient(135deg, #0B95F8 0%, #036AB5 100%)'
-          : a.primary ? `${accentColor}14` : 'transparent';
-        return (
-          <span key={a.key}
-            onClick={(e) => { e.stopPropagation(); onAction(a.key, n); }}
-            style={{
-              fontSize: a.tagCta ? 13 : 13, fontWeight: a.tagCta ? 800 : 600,
-              color,
-              cursor: 'pointer', padding: a.tagCta ? '8px 14px' : '4px 8px', borderRadius: a.tagCta ? 8 : 6,
-              background,
-              boxShadow: a.tagCta ? `0 3px 8px ${tagBlue}33` : 'none',
-            }}>{a.label}</span>
-        );
-      })}
+    <div className={cn('mt-[8px] flex flex-wrap', HEADER_GAP)}>
+      {actions.map(a => (
+        <span key={a.key}
+          onClick={(e) => { e.stopPropagation(); onAction(a.key, n); }}
+          className={cn(
+            'cursor-pointer text-[13px] leading-[18px] font-medium',
+            a.tagCta
+              ? cn('rounded-md px-[14px] py-[8px] text-ink-on-color', TAG_GRADIENT,
+                   // ${tagBlue}33 — string-concatenated hex alpha, which cannot
+                   // take a var(). 0x33/0xff = 20%.
+                   '[box-shadow:0_3px_8px_color-mix(in_oklab,var(--primary)_20%,transparent)]')
+              : cn('rounded-md px-[8px] py-[4px]',
+                   // ${accentColor}14 — the same hex-alpha problem. 0x14/0xff ≈ 8%.
+                   a.primary ? cn(accent.wash, accent.ink)
+                   : a.done ? 'text-success' : 'text-muted-foreground'),
+          )}>{a.label}</span>
+      ))}
     </div>
   );
 }
 
-// ─── Category icon — timeline-style 24×24 colored circle + Material glyph ──
+// ─── Category icon — timeline-style 24×24 colored circle + glyph ────────────
 //
-// Replaces the V11 spec literal `💧 / ⚠ / ⚡ / 📵` emoji prefix that lived
-// in the title text. Same visual pattern as Event Timeline rows in EventRow:
-// 24×24 circle, white filled Material glyph, color per category. Keeps the
-// app reading as one design language. The title text still arrives WITH the
-// V11 emoji prefix (so the catalogue source-of-truth is unchanged); we strip
-// the emoji at render time and substitute the circle.
+// Same visual pattern as Event Timeline rows in EventRow: a 24×24 circle, a
+// glyph in the circle's own foreground token, colour per category. Keeps the
+// app reading as one design language.
 //
-// Mapping:
-//   leak / leak-* / water-event   → water_drop  (color = severity-driven)
-//   valve-error / sensor          → error / link_off / water_damage
-//   power-lost / power-restored   → power_off / power
-//   offline / online              → wifi_off / wifi
+// THE CIRCLE IS A SOLID FILL, NOT THE APP'S TINTED AVATAR. On the lock and
+// shade surfaces a 12%-tint avatar over dark glass is illegible; the solid
+// disc is the only version that survives both grounds, so it is used on all
+// four surfaces rather than branching.
 //
-// Severe SO_* variants (SO_04/06/07/08/09) get the same circle but with the
-// `warning` glyph instead of `water_drop`, to mirror V11's ⚠ vs 💧 distinction.
+// The glyphs were Material Symbols. src/v2 contains zero uses of that font —
+// these two surfaces were the only v2-reachable thing still loading it — so
+// they are now src/v2/icons + lucide, which is what the rest of v2 draws with.
+//
+// The title text still arrives WITH the V11 emoji prefix (so the catalogue
+// source-of-truth is unchanged); we strip the emoji at render time and
+// substitute the circle.
 
 const LEADING_EMOJI_REGEX = /^[💧⚠⚡📵]\s+/u;
 
@@ -196,47 +264,124 @@ function getNotificationCategory(n) {
   const variantId = n?.v10_9_id || n?.variantId || '';
   const severeShutoff = /^SO_(04|06|07|08|09)$/.test(variantId);
   const severeValveErr = /^V_ER_(01|02|03|05)$/.test(variantId);
-  const severeSensor = variantId === 'SEN_01' || variantId === 'SEN_03';
 
-  // Water event family (leak)
+  // Water event family (leak). Severe shutoff variants get the warning
+  // triangle instead of the droplet, mirroring V11's ⚠ vs 💧 distinction.
   if (n?.type === 'leak' || /^(WA|OL|SO|LE)_/.test(variantId)) {
-    const color = sev === 'Low Flow' ? '#F05C25' : '#DB4670';
-    const glyph = severeShutoff ? 'warning' : 'water_drop';
-    return { glyph, color };
+    const tone = sev === 'Low Flow' ? 'severity-low' : 'severity-high';
+    return { Icon: severeShutoff ? Warning : Droplets, tone };
   }
-  // Valve errors
+  // Valve errors.
+  //
+  // BUG FIX: the non-severe branch drew Material's `check_circle` — a success
+  // tick — on the --danger ground. A green-semantics glyph on a red disc is
+  // the wrong signal twice over. It is CircleAlert now; the severe branch
+  // keeps the triangle, so the two tiers still read apart.
   if (n?.type === 'valve-error' || /^V_ER_/.test(variantId)) {
-    return { glyph: severeValveErr ? 'warning' : 'check_circle', color: '#A5455E' };
+    return { Icon: severeValveErr ? Warning : CircleAlert, tone: 'danger' };
   }
-  // Sensors (valve/meter dis/reconnect)
+  // Sensors (valve/meter dis/reconnect).
+  //
+  // BUG FIX: this branch tested `severeSensor`, which was defined as exactly
+  // the condition that gets you INTO the branch — so the ternary was always
+  // true and the `link_off` arm was unreachable dead code. The header comment
+  // above said sensors draw link_off, and the code could never do it. The
+  // unreachable constant is gone and the branch now draws the disconnect
+  // glyph it always meant to. Which of SEN_01 / SEN_03 was supposed to be
+  // "severe" is not recoverable from the source; both are disconnects and
+  // both read as one.
   if (variantId === 'SEN_01' || variantId === 'SEN_03') {
-    return { glyph: severeSensor ? 'warning' : 'link_off', color: '#717684' };
+    return { Icon: Unlink, tone: 'slate-500' };
   }
-  if (variantId === 'SEN_02') return { glyph: 'link',        color: '#5C9E1A' };
-  if (variantId === 'SEN_04') return { glyph: 'water_drop',  color: '#5C9E1A' };
-  // Power
-  if (n?.type === 'power-lost')     return { glyph: 'power_off', color: '#B5651A' };
-  if (n?.type === 'power-restored') return { glyph: 'power',     color: '#5C9E1A' };
+  if (variantId === 'SEN_02') return { Icon: Plug,     tone: 'success' };
+  if (variantId === 'SEN_04') return { Icon: Droplets, tone: 'success' };
+  // Power.
+  //
+  // #B5651A (power-lost) has no right token in this system and one is NOT
+  // minted here. --severity-low is the nearest ground, but its comment pins it
+  // to "Low Flow Water Event" and a power cut is not a water event. The
+  // closest honest fit is the warning tier that is not water-specific:
+  // --alert-ink-warning as a solid ground. FLAGGED FOR THE OWNER — if power
+  // events deserve their own semantic colour, this is where it goes.
+  if (n?.type === 'power-lost')     return { Icon: PowerOff, tone: 'alert-ink-warning' };
+  if (n?.type === 'power-restored') return { Icon: Plug,     tone: 'success' };
   // Communication
-  if (n?.type === 'offline') return { glyph: 'wifi_off', color: '#717684' };
-  if (n?.type === 'online')  return { glyph: 'wifi',     color: '#5C9E1A' };
+  if (n?.type === 'offline') return { Icon: WifiOff, tone: 'slate-500' };
+  if (n?.type === 'online')  return { Icon: Wifi,    tone: 'success' };
   // Fallback - matches the old default banner accent
-  return { glyph: 'notifications', color: '#0B95F8' };
+  return { Icon: CircleAlert, tone: 'primary' };
 }
 
+// Ground → ink. The four severity grounds have a *-foreground partner that
+// flips with them per theme, which is exactly what ink on a coloured chip
+// needs. --slate-500 and --alert-ink-warning have no partner, so they take
+// --ink-on-color: the token that exists for "near-white ink on a ground that
+// stays coloured under every theme".
+// Literal strings only — see the note on ACCENT above.
+const TONE = {
+  'severity-high':     'bg-severity-high text-severity-high-foreground',
+  'severity-low':      'bg-severity-low text-severity-low-foreground',
+  'danger':            'bg-danger text-danger-foreground',
+  'success':           'bg-success text-success-foreground',
+  'primary':           'bg-primary text-primary-foreground',
+  'slate-500':         'bg-slate-500 text-ink-on-color',
+  'alert-ink-warning': 'bg-alert-ink-warning text-ink-on-color',
+};
+
 function CategoryCircle({ notification, size = 24, glyphSize = 14 }) {
-  const { glyph, color } = getNotificationCategory(notification);
+  const { Icon, tone } = getNotificationCategory(notification);
   return (
-    <div style={{
-      width: size, height: size, borderRadius: '50%',
-      background: color, flexShrink: 0,
-      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <span className="material-symbols-outlined" style={{
-        fontSize: glyphSize, color: '#fff', lineHeight: 1,
-        fontVariationSettings: "'FILL' 1",
-      }}>{glyph}</span>
+    <div
+      className={cn('inline-flex shrink-0 items-center justify-center rounded-full', TONE[tone])}
+      style={{ width: size, height: size }}>
+      <Icon size={glyphSize} />
     </div>
+  );
+}
+
+// ─── The glass surfaces' shared header row ──────────────────────────────────
+//
+// NOTE FOR THE OWNER, NOT A BUG: all four surfaces draw the ANDROID header
+// anatomy — app mark + "Wint" + timestamp. On iOS the system supplies the app
+// icon and the HIG says outright "Avoid including your app name or icon", so
+// the two platforms want different rows here. That is a design question, not a
+// tokenisation one, and it is left exactly as it was.
+
+function StatusPills({ investigating, ignored, investigatingInfo, ignoredInfo, dark }) {
+  return (
+    <>
+      {investigating && (
+        <span className={cn(PILL, dark
+          // MEASURED, not assumed. The app's own pair
+          // (--alert-surface-success + --alert-ink-success) is a direct swap on
+          // the light surfaces, but on the dark glass it measures 3.01:1
+          // ink-on-chip at 11px AND throws a 10-13:1 near-white chip onto the
+          // wallpaper — an app chip pasted onto OS chrome, which is the one
+          // thing these surfaces must not do. The glass idiom instead: the
+          // semantic hue as a 22% tint, the chrome ink as the label. 8.45:1 on
+          // the lock card, 10.74:1 on the shade — better than the 4.31/5.50
+          // the raw #A1D246 it replaces was getting.
+          ? 'bg-[color-mix(in_oklab,var(--success)_22%,transparent)] text-os-chrome-ink'
+          : 'bg-alert-surface-success text-alert-ink-success')}>
+          On it{investigatingInfo?.actor ? ` · ${investigatingInfo.actor}` : ''}
+        </span>
+      )}
+      {ignored && (
+        <span className={cn(PILL, dark
+          ? 'bg-[color-mix(in_oklab,var(--alert-ink-warning)_22%,transparent)] text-os-chrome-ink'
+          : 'bg-alert-surface-warning text-alert-ink-warning')}>
+          Ignored{ignoredInfo?.ignoredBy ? ` · ${ignoredInfo.ignoredBy}` : ''}
+        </span>
+      )}
+    </>
+  );
+}
+
+function WintMark({ size = 22, dark }) {
+  return (
+    <img src={`${BASE}wint-logo.svg`} alt=""
+      className={cn('shrink-0 rounded-[6px] p-[2px]', dark ? 'bg-card' : 'bg-accent')}
+      style={{ width: size, height: size }} />
   );
 }
 
@@ -244,7 +389,6 @@ function CategoryCircle({ notification, size = 24, glyphSize = 14 }) {
 
 function LockCard({ notification: n, expanded, onToggleExpand }) {
   const isLeak = n.type === 'leak';
-  const accentColor = isLeak ? (n.severity === 'High Flow' ? '#DB4670' : '#F05C25') : '#0B95F8';
   const timeStr = new Date(n.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const sysId = n.systemId;
   const investigating = sysId ? isInvestigating(sysId) : false;
@@ -253,39 +397,45 @@ function LockCard({ notification: n, expanded, onToggleExpand }) {
   const ignoredInfo = sysId ? getIgnoredInfo(sysId) : null;
 
   return (
-    <div style={{
-      background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(16px)',
-      borderRadius: 16, marginBottom: 8, overflow: 'hidden',
-      border: '1px solid rgba(255,255,255,0.08)',
-    }}>
+    // Frosted glass: the chrome ink at 12% over the wallpaper, hairline at 8%.
+    // One token (--os-chrome-ink) is the source of both, so a theme moving the
+    // ink moves the whole glass family with it.
+    <div className={cn(
+      'overflow-hidden rounded-os-notification border border-solid border-os-chrome-ink/8 bg-os-chrome-ink/12 backdrop-blur-[16px]',
+      CARD_STACK_GAP,
+    )}>
       {/* Top accent bar removed (Option A) - category circle carries severity. */}
-      <div onClick={onToggleExpand} style={{ padding: '12px 14px', cursor: 'pointer' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <img src={`${BASE}wint-logo.svg`} alt="" style={{ width: 22, height: 22, borderRadius: 6, background: '#fff', padding: 2, flexShrink: 0 }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Wint</span>
-          {investigating && <span style={{ fontSize: 10, fontWeight: 700, color: '#A1D246', background: 'rgba(161,210,70,0.18)', padding: '1px 6px', borderRadius: 4 }}>On it · {investigatingInfo?.actor || ''}</span>}
-          {ignored && <span style={{ fontSize: 10, fontWeight: 700, color: '#E5A100', background: 'rgba(229,161,0,0.18)', padding: '1px 6px', borderRadius: 4 }}>Ignored · {ignoredInfo?.ignoredBy || ''}</span>}
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginLeft: 'auto' }}>{timeStr}</span>
+      <div onClick={onToggleExpand} className={cn('cursor-pointer', OS_CARD_INSET)}>
+        <div className={cn('mb-[6px] flex items-center', HEADER_GAP)}>
+          <WintMark dark />
+          <span className="text-[13px] leading-[18px] font-semibold text-os-chrome-ink">Wint</span>
+          <StatusPills dark {...{ investigating, ignored, investigatingInfo, ignoredInfo }} />
+          <span className="ml-auto text-[11px] leading-[16px] text-os-chrome-ink/55">{timeStr}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div className={cn('flex items-start', TITLE_GAP)}>
           <CategoryCircle notification={n} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.9)', lineHeight: 1.3 }}>{stripLeadingEmoji(n.title)}</div>
-            {!expanded && <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 3 }}>{n.body}</div>}
+          <div className="min-w-0 flex-1">
+            <div className="text-[14px] leading-[18px] font-semibold text-os-chrome-ink/90">{stripLeadingEmoji(n.title)}</div>
+            {!expanded && <div className="mt-[3px] truncate text-[13px] leading-[18px] text-os-chrome-ink/70">{n.body}</div>}
           </div>
         </div>
       </div>
       {expanded && (
-        <div style={{ padding: '0 14px 12px' }}>
-          <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5, marginBottom: 6 }}>{n.body}</div>
+        <div className="px-[14px] pb-[12px]">
+          <div className="mb-[6px] text-[14px] leading-[20px] text-os-chrome-ink/80">{n.body}</div>
           {isLeak && (n.flowRate || n.volume || n.duration) && (
-            <div style={{ display: 'flex', gap: 6 }}>
-              {n.flowRate && <div style={{ flex: 1, background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{n.flowRate}</div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Flow rate</div></div>}
-              {n.volume && <div style={{ flex: 1, background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{n.volume}</div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Volume</div></div>}
-              {n.duration && <div style={{ flex: 1, background: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{n.duration}</div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Duration</div></div>}
+            <div className="flex gap-[6px]">
+              {[['Flow rate', n.flowRate], ['Volume', n.volume], ['Duration', n.duration]]
+                .filter(([, v]) => v)
+                .map(([label, value]) => (
+                  <div key={label} className="flex-1 rounded-[8px] bg-os-chrome-ink/6 px-[8px] py-[6px] text-center">
+                    <div className="text-[14px] leading-[18px] font-semibold text-os-chrome-ink">{value}</div>
+                    <div className="text-[10px] leading-[14px] text-os-chrome-ink/55">{label}</div>
+                  </div>
+                ))}
             </div>
           )}
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 10, textAlign: 'center' }}>
+          <div className="mt-[10px] text-center text-[11px] leading-[16px] text-os-chrome-ink/55">
             Unlock to take action
           </div>
         </div>
@@ -307,35 +457,43 @@ function PhoneLockScreen({ notifications, onUnlock, onPullShade }) {
   }, [notifications.length]);
 
   return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: 300,
-      background: 'linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      display: 'flex', flexDirection: 'column',
-      fontFamily: 'Inter, -apple-system, sans-serif', color: '#fff',
-    }}>
-      <div style={{ textAlign: 'center', paddingTop: 50, marginBottom: 20 }}>
-        <div style={{ fontSize: 56, fontWeight: 200, letterSpacing: '-2px' }}>{timeStr}</div>
-        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>{dateStr}</div>
+    // The wallpaper. fontFamily: 'Inter, …' is GONE from here and from the two
+    // surfaces below: it forced the FALLBACK face over Figtree, which is why
+    // InAppBanner and HeadsUpNotification — near-identical cards — rendered in
+    // two different typefaces. Nothing declares a family now, so all four
+    // inherit --font-sans-stack like the rest of the app.
+    <div className="absolute inset-0 z-[300] flex flex-col bg-[linear-gradient(160deg,var(--os-wallpaper-from)_0%,var(--os-wallpaper-via)_50%,var(--os-wallpaper-to)_100%)] text-os-chrome-ink">
+      <div className="mb-[20px] pt-[50px] text-center">
+        {/* The oversized, tightly-tracked lock clock — preserved, because an OS
+            clock is nothing like any type in the app and should not be. Weight
+            200 could not paint in either loaded face (Figtree and Inter both
+            start at 300) so it was silently rendering at 300 anyway; it says
+            300 now, which is the lightest weight that is actually real. */}
+        <div className="text-[56px] leading-[56px] font-light tracking-[-2px]">{timeStr}</div>
+        <div className="mt-[4px] text-[14px] leading-[20px] text-os-chrome-ink/55">{dateStr}</div>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px' }}>
-        {notifications.length === 0 && <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: 13, marginTop: 40 }}>No notifications</div>}
+      <div className="flex-1 overflow-y-auto px-[12px]">
+        {notifications.length === 0 && <div className="mt-[40px] text-center text-[13px] leading-[18px] text-os-chrome-ink/55">No notifications</div>}
         {notifications.map((n, i) => (
           <LockCard key={i} notification={n} expanded={expandedIdx === i}
             onToggleExpand={() => setExpandedIdx(expandedIdx === i ? null : i)} />
         ))}
       </div>
-      <div style={{ padding: '12px 0 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <div className="flex flex-col items-center gap-[8px] pt-[12px] pb-[20px]">
         {notifications.length > 0 && (
-          <div onClick={onPullShade} style={{
-            fontSize: 11, color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
-            padding: '6px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.08)',
-            border: '1px solid rgba(255,255,255,0.1)',
-          }}>↓ Pull down for actions</div>
+          // '↓ Pull down for actions' drew its arrow as a literal character.
+          // It is a real icon now, like every other glyph in v2.
+          <div onClick={onPullShade}
+            className="flex cursor-pointer items-center gap-[4px] rounded-full border border-solid border-os-chrome-ink/10 bg-os-chrome-ink/8 px-[14px] py-[6px] text-[11px] leading-[16px] text-os-chrome-ink/55">
+            <ChevronDown size={13} aria-hidden="true" />
+            Pull down for actions
+          </div>
         )}
-        <div onClick={onUnlock} style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)' }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'rgba(255,255,255,0.5)' }}>lock_open</span>
+        <div onClick={onUnlock}
+          className="flex h-[40px] w-[40px] cursor-pointer items-center justify-center rounded-full border border-solid border-os-chrome-ink/10 bg-os-chrome-ink/8 text-os-chrome-ink/55">
+          <LockOpen size={20} aria-hidden="true" />
         </div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>Tap to unlock</div>
+        <div className="text-[11px] leading-[16px] text-os-chrome-ink/55">Tap to unlock</div>
       </div>
     </div>
   );
@@ -344,36 +502,33 @@ function PhoneLockScreen({ notifications, onUnlock, onPullShade }) {
 // ─── Notification Shade (pulled down — actions visible) ─────────────────────
 
 function ShadeCard({ notification: n, onAction, version }) {
-  const isLeak = n.type === 'leak';
-  const accentColor = isLeak ? (n.severity === 'High Flow' ? '#DB4670' : '#F05C25') : '#0B95F8';
   const timeStr = new Date(n.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const sysId = n.systemId;
   const investigating = sysId ? isInvestigating(sysId) : false;
-  const investigatingInfo = sysId ? getInvestigatingInfo(sysId) : null;
   const ignored = sysId ? isIgnored(sysId) : false;
-  const ignoredInfo = sysId ? getIgnoredInfo(sysId) : null;
   void version;  // re-render trigger after action
 
   return (
-    <div style={{
-      background: 'rgba(40,42,54,0.92)', backdropFilter: 'blur(20px)',
-      borderRadius: 14, marginBottom: 8, overflow: 'hidden',
-      border: '1px solid rgba(255,255,255,0.06)',
-    }}>
+    <div className={cn(
+      'overflow-hidden rounded-os-notification border border-solid border-os-chrome-ink/6 bg-os-shade-card backdrop-blur-[20px]',
+      CARD_STACK_GAP,
+    )}>
       {/* Top accent bar removed (Option A) - category circle carries severity. */}
-      <div style={{ padding: '12px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <img src={`${BASE}wint-logo.svg`} alt="" style={{ width: 22, height: 22, borderRadius: 6, background: '#fff', padding: 2, flexShrink: 0 }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Wint</span>
-          {investigating && <span style={{ fontSize: 10, fontWeight: 700, color: '#A1D246', background: 'rgba(161,210,70,0.18)', padding: '1px 6px', borderRadius: 4 }}>Investigating</span>}
-          {ignored && <span style={{ fontSize: 10, fontWeight: 700, color: '#E5A100', background: 'rgba(229,161,0,0.18)', padding: '1px 6px', borderRadius: 4 }}>Ignored</span>}
-          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginLeft: 'auto' }}>{timeStr}</span>
+      <div className={OS_CARD_INSET}>
+        <div className={cn('mb-[6px] flex items-center', HEADER_GAP)}>
+          <WintMark dark />
+          <span className="text-[13px] leading-[18px] font-semibold text-os-chrome-ink">Wint</span>
+          {/* This surface shows the bare state, with no actor — so it does not
+              read getInvestigatingInfo / getIgnoredInfo at all. It used to
+              call both and discard the results. */}
+          <StatusPills dark investigating={investigating} ignored={ignored} />
+          <span className="ml-auto text-[11px] leading-[16px] text-os-chrome-ink/55">{timeStr}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div className={cn('flex items-start', TITLE_GAP)}>
           <CategoryCircle notification={n} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', lineHeight: 1.3 }}>{stripLeadingEmoji(n.title)}</div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4, lineHeight: 1.4 }}>{n.body}</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[14px] leading-[18px] font-semibold text-os-chrome-ink">{stripLeadingEmoji(n.title)}</div>
+            <div className="mt-[4px] text-[13px] leading-[18px] text-os-chrome-ink/70">{n.body}</div>
           </div>
         </div>
         <NotifActions notification={n} onAction={onAction} dark />
@@ -386,19 +541,19 @@ function PhoneShade({ notifications, onAction, onClose, version }) {
   const now = new Date();
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: 300,
-      background: 'linear-gradient(180deg, rgba(15,20,35,0.96) 0%, rgba(15,20,35,0.85) 100%)',
-      backdropFilter: 'blur(8px)',
-      display: 'flex', flexDirection: 'column',
-      fontFamily: 'Inter, -apple-system, sans-serif', color: '#fff',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px 8px' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>{timeStr}</div>
-        <div onClick={onClose} style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>Close ✕</div>
+    <div className="absolute inset-0 z-[300] flex flex-col bg-[linear-gradient(180deg,var(--os-shade-bg-from)_0%,var(--os-shade-bg-to)_100%)] text-os-chrome-ink backdrop-blur-[8px]">
+      <div className="flex items-center justify-between px-[18px] pt-[16px] pb-[8px]">
+        <div className="text-[13px] leading-[18px] font-semibold text-os-chrome-ink/70">{timeStr}</div>
+        {/* 'Close ✕' drew its glyph as a literal character; it is the house
+            CloseFill now. */}
+        <div onClick={onClose}
+          className="flex cursor-pointer items-center gap-[4px] text-[12px] leading-[16px] font-medium text-os-chrome-ink/70">
+          Close
+          <CloseFill size={12} aria-hidden="true" />
+        </div>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 12px 20px' }}>
-        {notifications.length === 0 && <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.2)', fontSize: 13, marginTop: 40 }}>No notifications</div>}
+      <div className="flex-1 overflow-y-auto px-[12px] pt-[6px] pb-[20px]">
+        {notifications.length === 0 && <div className="mt-[40px] text-center text-[13px] leading-[18px] text-os-chrome-ink/55">No notifications</div>}
         {notifications.map((n, i) => (
           <ShadeCard key={i} notification={n} onAction={onAction} version={version} />
         ))}
@@ -408,14 +563,17 @@ function PhoneShade({ notifications, onAction, onClose, version }) {
 }
 
 // ─── In-App Banner ──────────────────────────────────────────────────────────
+//
+// The one surface of the four that is a WINT surface rather than OS chrome:
+// it is drawn over the app, by the app. So it takes house tokens throughout —
+// --card ground, --foreground ink, the house 18px radius — and none of the
+// --os-* family.
 
 function InAppBanner({ notification: n, onAction, onDismiss, version }) {
   const [startY, setStartY] = useState(null);
   useEffect(() => { const t = setTimeout(onDismiss, 8000); return () => clearTimeout(t); }, [n, onDismiss]);
   void version;
 
-  const isLeak = n.type === 'leak';
-  const accentColor = isLeak ? (n.severity === 'High Flow' ? '#DB4670' : '#F05C25') : '#0B95F8';
   const sysId = n.systemId;
   const investigating = sysId ? isInvestigating(sysId) : false;
   const investigatingInfo = sysId ? getInvestigatingInfo(sysId) : null;
@@ -423,33 +581,34 @@ function InAppBanner({ notification: n, onAction, onDismiss, version }) {
   const ignoredInfo = sysId ? getIgnoredInfo(sysId) : null;
 
   return (
+    // The `bannerIn` keyframe used to be injected by an inline <style> right
+    // here, which meant HeadsUpNotification — which also animates with it, and
+    // never mounts at the same time as this component — had no entrance at
+    // all. It lives in index.css now and both surfaces slide.
     <div onTouchStart={(e) => setStartY(e.touches[0].clientY)}
       onTouchEnd={(e) => { if (startY !== null && e.changedTouches[0].clientY < startY - 30) onDismiss(); setStartY(null); }}
-      style={{ position: 'absolute', top: 6, left: 6, right: 6, zIndex: 250, animation: 'bannerIn 0.3s ease' }}>
-      <style>{`@keyframes bannerIn { from { transform: translateY(-110%); } to { transform: translateY(0); } }`}</style>
-      <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.18)' }}>
+      className="absolute top-[6px] right-[6px] left-[6px] z-[250] animate-[bannerIn_0.3s_ease]">
+      {/* --shadow-overlay, the house's float tier. An OS-grade notification
+          sits higher than a card, and that is the token that says so. */}
+      <div className="overflow-hidden rounded-[18px] bg-card [box-shadow:var(--shadow-overlay)]">
         {/* Top accent bar removed (Option A) - category circle carries severity. */}
-        <div style={{ padding: '10px 12px' }}>
+        <div className={APP_CARD_INSET}>
           {/* Top row: Wint logo + name + status pill + timestamp. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-            <img src={`${BASE}wint-logo.svg`} alt="" style={{ width: 22, height: 22, borderRadius: 6, background: '#f0f5fa', padding: 2, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#14151A' }}>Wint</span>
-            {investigating && <span style={{ fontSize: 10, fontWeight: 700, color: '#4F8118', background: 'rgba(161,210,70,0.18)', padding: '1px 6px', borderRadius: 4 }}>On it · {investigatingInfo?.actor || ''}</span>}
-            {ignored && <span style={{ fontSize: 10, fontWeight: 700, color: '#8C5A0F', background: 'rgba(229,161,0,0.18)', padding: '1px 6px', borderRadius: 4 }}>Ignored · {ignoredInfo?.ignoredBy || ''}</span>}
-            <span style={{ fontSize: 11, color: '#9DA3AE', marginLeft: 'auto' }}>now</span>
+          <div className={cn('mb-[6px] flex flex-wrap items-center', HEADER_GAP)}>
+            <WintMark />
+            <span className="text-[12px] leading-[16px] font-semibold text-foreground">Wint</span>
+            <StatusPills {...{ investigating, ignored, investigatingInfo, ignoredInfo }} />
+            <span className="ml-auto text-[11px] leading-[16px] text-muted-foreground">now</span>
           </div>
           {/* Title row: category circle + title text, mirroring timeline rows. */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <div className={cn('flex items-start', TITLE_GAP)}>
             <CategoryCircle notification={n} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#14151A', lineHeight: 1.3 }}>{stripLeadingEmoji(n.title)}</div>
-              <div style={{
-                fontSize: 13, color: '#717684', marginTop: 4, lineHeight: 1.45,
-                // Full V11 body shown - no line clamp, no truncation. Banner
-                // grows to fit. Auto-dismisses after 8s so the user has time to
-                // read flow rate / volume / shutoff threshold.
-                whiteSpace: 'normal', wordBreak: 'break-word',
-              }}>{n.body}</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] leading-[18px] font-semibold text-foreground">{stripLeadingEmoji(n.title)}</div>
+              {/* Full V11 body shown - no line clamp, no truncation. Banner
+                  grows to fit. Auto-dismisses after 8s so the user has time to
+                  read flow rate / volume / shutoff threshold. */}
+              <div className="mt-[4px] text-[13px] leading-[18px] break-words whitespace-normal text-muted-foreground">{n.body}</div>
             </div>
           </div>
           <NotifActions notification={n} onAction={onAction} />
@@ -463,20 +622,14 @@ function InAppBanner({ notification: n, onAction, onDismiss, version }) {
 
 function OtherAppScreen({ headsUp, onAction, version }) {
   return (
-    <div style={{
-      position: 'absolute', inset: 0, zIndex: 300, background: '#E8ECF0',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'Inter, -apple-system, sans-serif',
-    }}>
-      <div style={{ fontSize: 15, color: '#BCC3CE' }}>Another App</div>
+    <div className="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-background">
+      <div className="text-[15px] leading-[20px] text-slate-300">Another App</div>
       {headsUp && <HeadsUpNotification notification={headsUp} onAction={onAction} version={version} />}
     </div>
   );
 }
 
 function HeadsUpNotification({ notification: n, onAction, version }) {
-  const isLeak = n.type === 'leak';
-  const accentColor = isLeak ? (n.severity === 'High Flow' ? '#DB4670' : '#F05C25') : '#0B95F8';
   const sysId = n.systemId;
   const investigating = sysId ? isInvestigating(sysId) : false;
   const investigatingInfo = sysId ? getInvestigatingInfo(sysId) : null;
@@ -485,27 +638,23 @@ function HeadsUpNotification({ notification: n, onAction, version }) {
   void version;
 
   return (
-    <div style={{ position: 'absolute', top: 30, left: 8, right: 8, zIndex: 350, animation: 'bannerIn 0.3s ease' }}>
-      <div style={{
-        background: '#fff', borderRadius: 18, overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-      }}>
+    <div className="absolute top-[30px] right-[8px] left-[8px] z-[350] animate-[bannerIn_0.3s_ease]">
+      <div className="overflow-hidden rounded-[18px] bg-card [box-shadow:var(--shadow-overlay)]">
         {/* Top accent bar removed - category circle below carries the
             severity signal (Option A — mirrors timeline anatomy). */}
-        <div style={{ padding: '12px 14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-            <img src={`${BASE}wint-logo.svg`} alt="" style={{ width: 20, height: 20, borderRadius: 5, background: '#f0f5fa', padding: 2, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#14151A' }}>Wint</span>
-            {investigating && <span style={{ fontSize: 10, fontWeight: 700, color: '#4F8118', background: 'rgba(161,210,70,0.18)', padding: '1px 6px', borderRadius: 4 }}>On it · {investigatingInfo?.actor || ''}</span>}
-            {ignored && <span style={{ fontSize: 10, fontWeight: 700, color: '#8C5A0F', background: 'rgba(229,161,0,0.18)', padding: '1px 6px', borderRadius: 4 }}>Ignored · {ignoredInfo?.ignoredBy || ''}</span>}
-            <span style={{ fontSize: 11, color: '#9DA3AE', marginLeft: 'auto' }}>now</span>
+        <div className={OS_CARD_INSET}>
+          <div className={cn('mb-[6px] flex flex-wrap items-center', HEADER_GAP)}>
+            <WintMark size={20} />
+            <span className="text-[12px] leading-[16px] font-semibold text-foreground">Wint</span>
+            <StatusPills {...{ investigating, ignored, investigatingInfo, ignoredInfo }} />
+            <span className="ml-auto text-[11px] leading-[16px] text-muted-foreground">now</span>
           </div>
           {/* Title row: category circle + title text, mirroring timeline rows. */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <div className={cn('flex items-start', TITLE_GAP)}>
             <CategoryCircle notification={n} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#14151A', lineHeight: 1.3 }}>{stripLeadingEmoji(n.title)}</div>
-              <div style={{ fontSize: 13, color: '#717684', marginTop: 4, lineHeight: 1.4 }}>{n.body}</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] leading-[18px] font-semibold text-foreground">{stripLeadingEmoji(n.title)}</div>
+              <div className="mt-[4px] text-[13px] leading-[18px] text-muted-foreground">{n.body}</div>
             </div>
           </div>
           <NotifActions notification={n} onAction={onAction} />
@@ -644,7 +793,14 @@ export default function PushNotifications({ children }) {
     if (action === 'investigate') {
       // Mark investigating in the shared store. Stay on current surface; bump
       // version so visible cards re-read state and reflect the change.
-      if (sysId) startInvestigating(sysId, { actor: getCurrentActor() });
+      //
+      // BUG FIX — the guard. startInvestigating was called unconditionally
+      // here, where EventFocusOverlay.jsx:1432, SystemPageV2Screen.jsx:1388
+      // and WaterEventDetailsWidget.jsx:155 all check first. Without it, a
+      // second person tapping "On it" on a push overwrote the first person's
+      // claim AND reset their elapsed timer, silently — the push was the one
+      // surface in the app where claiming was destructive.
+      if (sysId && !isInvestigating(sysId)) startInvestigating(sysId, { actor: getCurrentActor() });
       setVersion(v => v + 1);
       return;
     }
@@ -678,7 +834,7 @@ export default function PushNotifications({ children }) {
   const dismissBanner = useCallback(() => setBanner(null), []);
 
   return (
-    <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+    <div className="relative flex min-h-0 flex-1 flex-col">
       {children}
 
       {phoneState === 'locked' && (

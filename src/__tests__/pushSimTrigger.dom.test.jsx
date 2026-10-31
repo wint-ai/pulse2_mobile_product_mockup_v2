@@ -738,8 +738,14 @@ describe('the payload is the desktop panel payload', () => {
 
 describe('canary - the state this gesture reads still looks the way it looks', () => {
   it('PushNotifications still draws its three surfaces at absolute / z-index 300', () => {
+    // The invariant is unchanged — the lock screen, the shade and the
+    // other-app screen each cover the whole phone at z-300, which is what
+    // makes them BLOCKING and what the concealed gesture reads. Only the
+    // spelling moved: PushNotifications was ported off inline styles onto
+    // Tailwind utilities, so `position: 'absolute', inset: 0, zIndex: 300`
+    // is now `absolute inset-0 z-[300]` in a className.
     const src = readFileSync('src/components/PushNotifications.jsx', 'utf8')
-    const hits = src.match(/position: 'absolute', inset: 0, zIndex: 300/g) || []
+    const hits = src.match(/absolute inset-0 z-\[300\]/g) || []
     expect(hits.length).toBe(3)
     expect(BLOCKING_Z_INDEX).toBe(300)
   })
