@@ -2,9 +2,20 @@
 /**
  * The concealed on-phone trigger for the push simulator.
  *
- * The whole feature IS touch behaviour, so these drive real touch sequences
- * rather than synthetic clicks: a click never exercises the hold timer, the
- * slop budget, the scroll cancel or the finger count, which are the four
+ * THESE DRIVE POINTER EVENTS, AND THAT IS THE POINT OF THE FILE.
+ *
+ * The first version of this suite drove the gesture with synthetic TOUCH
+ * events, because the hook listened to touch events. Both were wrong in the
+ * same direction and so they agreed with each other: on a laptop no touch
+ * event ever fires, the feature was dead under a mouse, and every test here
+ * was green. The owner found it in about ten seconds.
+ *
+ * So the hold is now exercised through `pointerdown`/`pointermove`/
+ * `pointerup` — the one path that covers mouse, touch and pen — and the
+ * opening case is run over BOTH `pointerType: 'mouse'` and
+ * `pointerType: 'touch'`, so neither input can regress without a red test.
+ * A plain click is still no substitute: it never exercises the hold timer,
+ * the slop budget, the scroll cancel or the pointer count, which are the four
  * things that decide whether a presenter can hold a corner for a second and a
  * half without the app doing something else instead.
  *
@@ -17,10 +28,12 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { useRef } from 'react'
 import { render, act, cleanup, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { UserProvider } from '@/context/UserContext'
 import PushSimTrigger from '@/v2/components/PushSimTrigger'
+import useConcealedLongPress, { REJECT } from '@/hooks/useConcealedLongPress'
 import { isSimulatedSurfaceShowing, BLOCKING_Z_INDEX } from '@/lib/simulatedSurface'
 import {
   firePushCard, fireOnSurface, defaultVariantId, isCardEligible,
@@ -47,16 +60,34 @@ function stubAnchor() {
   return anchor
 }
 
-function touch(type, points) {
-  const e = new Event(type, { bubbles: true, cancelable: true })
-  const list = points.map((p) => ({ clientX: p.x, clientY: p.y, identifier: 0, target: document.body }))
-  Object.defineProperty(e, 'touches', { value: list })
-  Object.defineProperty(e, 'changedTouches', { value: list })
-  return e
+/* One pointer, one id. `isPrimary` and `pointerId` are not decoration: they
+   are how the hook keeps a second finger away from the hold timer, and a
+   helper that always sent `isPrimary: true` would quietly remove that guard
+   from the suite. */
+function pointer(type, point, opts = {}) {
+  const up = type === 'pointerup' || type === 'pointercancel'
+  return new PointerEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientX: point.x,
+    clientY: point.y,
+    pointerId: opts.pointerId ?? 1,
+    pointerType: opts.pointerType ?? 'mouse',
+    isPrimary: opts.isPrimary ?? true,
+    button: opts.button ?? 0,
+    buttons: up ? 0 : 1,
+  })
 }
 
-function dispatch(type, points) {
-  act(() => { document.body.dispatchEvent(touch(type, points)) })
+function dispatch(type, point, opts) {
+  act(() => { document.body.dispatchEvent(pointer(type, point, opts)) })
+}
+
+/** A full hold: down, wait past the bar, up. */
+function hold(point, opts = {}, ms = 1300) {
+  dispatch('pointerdown', point, opts)
+  act(() => { vi.advanceTimersByTime(ms) })
+  dispatch('pointerup', point, opts)
 }
 
 function mount() {
@@ -87,73 +118,112 @@ describe('concealed long-press to push simulator sheet', () => {
     localStorage.clear()
   })
 
-  it('opens on a one-finger hold in the top-right zone, held past 1200ms', () => {
-    mount()
-    stubAnchor()
-    expect(sheet()).toBeNull()
+  /* THE REGRESSION THIS FILE EXISTS FOR. The feature shipped working under
+     exactly one of these two and green under both, because the suite only
+     ever drove the one that worked. */
+  for (const pointerType of ['mouse', 'touch']) {
+    it(`opens on a one-pointer ${pointerType} hold in the bottom-right zone, held past 1200ms`, () => {
+      mount()
+      stubAnchor()
+      expect(sheet()).toBeNull()
 
-    dispatch('touchstart', [IN_ZONE])
-    // Still nothing at a second - 1200ms is the bar, not 500ms.
-    act(() => { vi.advanceTimersByTime(1000) })
-    expect(sheet()).toBeNull()
+      dispatch('pointerdown', IN_ZONE, { pointerType })
+      // Still nothing at a second - 1200ms is the bar, not 500ms.
+      act(() => { vi.advanceTimersByTime(1000) })
+      expect(sheet()).toBeNull()
 
-    act(() => { vi.advanceTimersByTime(300) })
-    dispatch('touchend', [IN_ZONE])
-    expect(sheet()).not.toBeNull()
-  })
+      act(() => { vi.advanceTimersByTime(300) })
+      dispatch('pointerup', IN_ZONE, { pointerType })
+      expect(sheet()).not.toBeNull()
+    })
+  }
 
   it('does not open from the old top-right corner — it sits on the avatar', () => {
     mount()
     stubAnchor()
-    dispatch('touchstart', [OLD_TOP_RIGHT])
-    act(() => { vi.advanceTimersByTime(2000) })
-    dispatch('touchend', [OLD_TOP_RIGHT])
+    hold(OLD_TOP_RIGHT, {}, 2000)
     expect(sheet()).toBeNull()
   })
 
   it('does not open on a 300ms press', () => {
     mount()
     stubAnchor()
-    dispatch('touchstart', [IN_ZONE])
-    act(() => { vi.advanceTimersByTime(300) })
-    dispatch('touchend', [IN_ZONE])
+    hold(IN_ZONE, {}, 300)
     act(() => { vi.advanceTimersByTime(2000) })
     expect(sheet()).toBeNull()
   })
 
-  it('does not open when the finger drifts 20px - past the 10px budget', () => {
+  it('does not open when the pointer drifts 20px - past the 10px budget', () => {
     mount()
     stubAnchor()
-    dispatch('touchstart', [IN_ZONE])
+    const drifted = { x: IN_ZONE.x, y: IN_ZONE.y + 20 }
+    dispatch('pointerdown', IN_ZONE)
     act(() => { vi.advanceTimersByTime(400) })
-    dispatch('touchmove', [{ x: IN_ZONE.x, y: IN_ZONE.y + 20 }])
+    dispatch('pointermove', drifted)
     act(() => { vi.advanceTimersByTime(2000) })
-    dispatch('touchend', [{ x: IN_ZONE.x, y: IN_ZONE.y + 20 }])
+    dispatch('pointerup', drifted)
     expect(sheet()).toBeNull()
+  })
+
+  it('tolerates a 6px wobble - a hand on a phone is never still', () => {
+    mount()
+    stubAnchor()
+    dispatch('pointerdown', IN_ZONE)
+    act(() => { vi.advanceTimersByTime(400) })
+    dispatch('pointermove', { x: IN_ZONE.x + 6, y: IN_ZONE.y - 5 })
+    act(() => { vi.advanceTimersByTime(900) })
+    expect(sheet()).not.toBeNull()
   })
 
   it('does not open from outside the 64x64 zone', () => {
     mount()
     stubAnchor()
-    dispatch('touchstart', [{ x: 100, y: 300 }])
+    hold({ x: 100, y: 300 }, {}, 2000)
+    expect(sheet()).toBeNull()
+  })
+
+  it('does not open for two pointers - a second one down cancels the hold', () => {
+    mount()
+    stubAnchor()
+    dispatch('pointerdown', IN_ZONE, { pointerType: 'touch' })
+    act(() => { vi.advanceTimersByTime(300) })
+    dispatch('pointerdown', { x: 360, y: 40 }, { pointerType: 'touch', pointerId: 2, isPrimary: false })
     act(() => { vi.advanceTimersByTime(2000) })
     expect(sheet()).toBeNull()
   })
 
-  it('does not open for two fingers', () => {
+  it('ignores a non-primary pointer outright', () => {
     mount()
     stubAnchor()
-    dispatch('touchstart', [IN_ZONE, { x: 360, y: 40 }])
-    act(() => { vi.advanceTimersByTime(2000) })
+    hold(IN_ZONE, { pointerType: 'touch', pointerId: 7, isPrimary: false }, 2000)
+    expect(sheet()).toBeNull()
+  })
+
+  it('ignores a right-click hold - that is somebody else gesture', () => {
+    mount()
+    stubAnchor()
+    hold(IN_ZONE, { button: 2 }, 2000)
     expect(sheet()).toBeNull()
   })
 
   it('is cancelled by a scroll anywhere in the page', () => {
     mount()
     stubAnchor()
-    dispatch('touchstart', [IN_ZONE])
+    dispatch('pointerdown', IN_ZONE)
     act(() => { vi.advanceTimersByTime(400) })
     act(() => { document.body.dispatchEvent(new Event('scroll', { bubbles: true })) })
+    act(() => { vi.advanceTimersByTime(2000) })
+    expect(sheet()).toBeNull()
+  })
+
+  /* On a handset a scroll that starts inside the zone reaches us as
+     `pointercancel` before any scroll event does. */
+  it('is cancelled when the browser takes the pointer over', () => {
+    mount()
+    stubAnchor()
+    dispatch('pointerdown', IN_ZONE, { pointerType: 'touch' })
+    act(() => { vi.advanceTimersByTime(400) })
+    dispatch('pointercancel', IN_ZONE, { pointerType: 'touch' })
     act(() => { vi.advanceTimersByTime(2000) })
     expect(sheet()).toBeNull()
   })
@@ -169,17 +239,13 @@ describe('concealed long-press to push simulator sheet', () => {
     container.appendChild(surface)
     expect(isSimulatedSurfaceShowing()).toBe(true)
 
-    dispatch('touchstart', [IN_ZONE])
-    act(() => { vi.advanceTimersByTime(2000) })
-    dispatch('touchend', [IN_ZONE])
+    hold(IN_ZONE, {}, 2000)
     expect(sheet()).toBeNull()
 
     // Remove it and the same gesture works again - the block is a live read,
     // not a latch.
     surface.remove()
-    dispatch('touchstart', [IN_ZONE])
-    act(() => { vi.advanceTimersByTime(1300) })
-    dispatch('touchend', [IN_ZONE])
+    hold(IN_ZONE)
     expect(sheet()).not.toBeNull()
   })
 
@@ -196,9 +262,7 @@ describe('concealed long-press to push simulator sheet', () => {
     const spy = (e) => seen.push(e.type)
     document.addEventListener('click', spy)
 
-    dispatch('touchstart', [IN_ZONE])
-    act(() => { vi.advanceTimersByTime(1300) })
-    dispatch('touchend', [IN_ZONE])
+    hold(IN_ZONE, { pointerType: 'touch' })
     expect(sheet()).not.toBeNull()
 
     // The click the OS sends after the long press.
@@ -218,6 +282,227 @@ describe('concealed long-press to push simulator sheet', () => {
     banner.setAttribute('style', 'position: absolute; top: 6px; z-index: 250;')
     container.appendChild(banner)
     expect(isSimulatedSurfaceShowing()).toBe(false)
+  })
+})
+
+/**
+ * The hazard that comes WITH the fix.
+ *
+ * A touch on a real phone emits a pointer sequence and then a set of
+ * compatibility mouse events for the benefit of code written before Pointer
+ * Events existed. A hook that listened to pointer events AND mouse events (or
+ * AND touch events) would see one press as two and open the sheet twice. The
+ * hook listens to pointer events only, which is what makes this impossible —
+ * and this is the test that says so, with a counter rather than a DOM query,
+ * because `setOpen(true)` twice looks exactly like `setOpen(true)` once.
+ */
+describe('one press is one fire', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { cleanup(); vi.useRealTimers() })
+
+  function Harness({ onTrigger }) {
+    const ref = useRef(null)
+    useConcealedLongPress({ anchorRef: ref, onTrigger })
+    return <div ref={ref} data-harness-anchor="" />
+  }
+
+  it('does not fire twice when the compatibility mouse events follow a touch', () => {
+    const onTrigger = vi.fn()
+    render(<Harness onTrigger={onTrigger} />)
+    const anchor = document.querySelector('[data-harness-anchor]')
+    anchor.getBoundingClientRect = () => ({ ...SHELL, toJSON: () => SHELL })
+
+    hold(IN_ZONE, { pointerType: 'touch' })
+    expect(onTrigger).toHaveBeenCalledTimes(1)
+
+    /* What the browser sends next, for the benefit of pre-pointer code. None
+       of it may reach the timer. */
+    act(() => {
+      for (const type of ['mousedown', 'mouseup', 'click']) {
+        document.body.dispatchEvent(new MouseEvent(type, {
+          bubbles: true, cancelable: true, clientX: IN_ZONE.x, clientY: IN_ZONE.y,
+        }))
+      }
+      const touchEnd = new Event('touchend', { bubbles: true, cancelable: true })
+      document.body.dispatchEvent(touchEnd)
+      vi.advanceTimersByTime(2000)
+    })
+    expect(onTrigger).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * THE TWO DEV AIDS. Both are off unless their flag says otherwise, and the
+ * first assertion in each block is that absence — a concealed feature that
+ * grows a visible handle by accident has stopped being the feature.
+ */
+describe('?simhandle=1 - the visible handle', () => {
+  beforeEach(() => { localStorage.setItem('pulse2-persona-id', 'wint-admin') })
+  afterEach(() => {
+    cleanup()
+    window.history.replaceState({}, '', '/')
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+
+  const handle = () => screen.queryByRole('button', { name: 'Push sim' })
+
+  it('draws nothing at all without the flag', () => {
+    mount()
+    expect(handle()).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Hide the push simulator handle' })).toBeNull()
+  })
+
+  it('opens the sheet on a plain click - no gesture, no timing', () => {
+    window.history.replaceState({}, '', '/?simhandle=1')
+    mount()
+    expect(sheet()).toBeNull()
+    fireEvent.click(handle())
+    expect(sheet()).not.toBeNull()
+  })
+
+  /* The whole reason this one persists and `?sim=1` does not: the owner has
+     to be able to reload and still have it, and Phone.jsx's remount would
+     otherwise eat it on a handset exactly as it ate `?sim=1`. */
+  it('survives a reload, and the URL it arrived on is left clean', () => {
+    window.history.replaceState({}, '', '/?simhandle=1&theme=contrast')
+    const first = mount()
+    expect(handle()).not.toBeNull()
+    expect(window.location.search).not.toContain('simhandle')
+    expect(window.location.search).toContain('theme=contrast')
+
+    first.unmount()
+    mount()
+    expect(handle()).not.toBeNull()
+  })
+
+  it('goes away again on ?simhandle=0, and on its own dismiss', () => {
+    window.history.replaceState({}, '', '/?simhandle=1')
+    const first = mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Hide the push simulator handle' }))
+    expect(handle()).toBeNull()
+    first.unmount()
+
+    // Re-arm it, then turn it off through the URL instead.
+    window.history.replaceState({}, '', '/?simhandle=1')
+    const second = mount()
+    expect(handle()).not.toBeNull()
+    second.unmount()
+    window.history.replaceState({}, '', '/?simhandle=0')
+    mount()
+    expect(handle()).toBeNull()
+  })
+
+  it('never outlives the tab - it is sessionStorage, not localStorage', () => {
+    window.history.replaceState({}, '', '/?simhandle=1')
+    mount()
+    expect(sessionStorage.getItem('pulse2-sim-handle')).toBe('1')
+    expect(localStorage.getItem('pulse2-sim-handle')).toBeNull()
+  })
+})
+
+describe('?simdebug=1 - the gesture readout', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    localStorage.setItem('pulse2-persona-id', 'wint-admin')
+  })
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+    window.history.replaceState({}, '', '/')
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+
+  const readout = () => document.querySelector('[data-push-sim-debug]')
+  const zoneOutline = () => document.querySelector('[data-push-sim-zone]')
+
+  it('draws nothing at all without the flag', () => {
+    mount()
+    expect(readout()).toBeNull()
+    expect(zoneOutline()).toBeNull()
+  })
+
+  it('outlines the zone and reports an idle gesture before anything is pressed', () => {
+    window.history.replaceState({}, '', '/?simdebug=1')
+    mount()
+    expect(zoneOutline()).not.toBeNull()
+    expect(readout().textContent).toContain('none seen yet')
+  })
+
+  /* The point of the whole aid: on a laptop, press and be TOLD which
+     condition said no, instead of guessing between seven of them. */
+  it('names the condition that rejected a mouse press, with the coordinates and the zone', () => {
+    window.history.replaceState({}, '', '/?simdebug=1')
+    mount()
+    stubAnchor()
+
+    hold({ x: 100, y: 300 }, { pointerType: 'mouse' }, 1300)
+    const text = readout().textContent
+    expect(text).toContain(REJECT.OUTSIDE_ZONE)
+    expect(text).toContain('mouse @ 100,300')
+    // The zone's own rect, so a wrong anchor is visible rather than inferred.
+    expect(text).toContain('329,788 → 393,852')
+    expect(text).toContain('NO')
+  })
+
+  it('reports a press that was seen, held and fired', () => {
+    window.history.replaceState({}, '', '/?simdebug=1')
+    mount()
+    stubAnchor()
+
+    dispatch('pointerdown', IN_ZONE, { pointerType: 'mouse' })
+    expect(readout().textContent).toContain('down')
+    act(() => { vi.advanceTimersByTime(1300) })
+    expect(sheet()).not.toBeNull()
+  })
+
+  it('says when a simulated surface is what turned the press away', () => {
+    window.history.replaceState({}, '', '/?simdebug=1')
+    const { container } = mount()
+    stubAnchor()
+    const surface = document.createElement('div')
+    surface.setAttribute('style', 'position: absolute; inset: 0px; z-index: 300;')
+    container.appendChild(surface)
+
+    hold(IN_ZONE, { pointerType: 'mouse' }, 1300)
+    expect(readout().textContent).toContain(REJECT.SURFACE_UP)
+  })
+
+  it('says when the slop budget is what turned the press away', () => {
+    window.history.replaceState({}, '', '/?simdebug=1')
+    mount()
+    stubAnchor()
+    dispatch('pointerdown', IN_ZONE, { pointerType: 'mouse' })
+    act(() => { vi.advanceTimersByTime(200) })
+    dispatch('pointermove', { x: IN_ZONE.x + 25, y: IN_ZONE.y }, { pointerType: 'mouse' })
+    expect(readout().textContent).toContain(REJECT.SLOP)
+  })
+
+  it('turns off on ?simdebug=0 and on its own dismiss', () => {
+    window.history.replaceState({}, '', '/?simdebug=1')
+    const first = mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Hide the push simulator diagnostics' }))
+    expect(readout()).toBeNull()
+    first.unmount()
+
+    window.history.replaceState({}, '', '/?simdebug=1')
+    const second = mount()
+    expect(readout()).not.toBeNull()
+    second.unmount()
+    window.history.replaceState({}, '', '/?simdebug=0')
+    mount()
+    expect(readout()).toBeNull()
+  })
+
+  /* A readout that intercepted the press it is reporting on would be a
+     diagnostic that changes the thing it measures. */
+  it('cannot intercept the press it is reporting on', () => {
+    window.history.replaceState({}, '', '/?simdebug=1')
+    mount()
+    // happy-dom lays out no Tailwind, so the class is the assertion.
+    expect(readout().className).toContain('pointer-events-none')
+    expect(zoneOutline().className).toContain('pointer-events-none')
   })
 })
 
