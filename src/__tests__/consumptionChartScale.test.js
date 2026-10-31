@@ -15,6 +15,7 @@ import {
   barTopRadius,
   barWidthFor,
   bucketAccessibleName,
+  bucketHintText,
   bucketSlotWidth,
   drawnBarWidth,
   isBucketOpenable,
@@ -153,6 +154,58 @@ describe('bucket names and openability (§18, §3.5)', () => {
     expect(isBucketOpenable(june, 'H')).toBe(false)
     expect(isBucketOpenable({ day: 'Sep 30', litres: null }, 'D')).toBe(false)
     expect(isBucketOpenable({ day: 'Sep 30' }, 'D')).toBe(false)
+  })
+})
+
+/* ── The VISIBLE drill-down hint ───────────────────────────────────────────
+ *
+ * The owner: the double-tap that drills into the level below was
+ * undiscoverable. The web solves it with a tinted line under the reading;
+ * the wording here is the gesture-accurate one the owner chose, because a
+ * phone has no cursor to click with and the gesture is a DOUBLE tap.
+ *
+ * The point of these tests is the two levels the hint must STAY OFF, which
+ * is the half a screenshot cannot show: a bar that cannot be opened must not
+ * advertise that it can.
+ */
+describe('bucketHintText — the drill-down hint', () => {
+  const june = { day: 'Jun 26', litres: 18_432, key: { kind: 'month', y: 2026, m: 5 } }
+
+  it('names the level one step finer, at every level that has one', () => {
+    expect(bucketHintText({ day: '2024', litres: 5 }, 'Y')).toBe('Double-tap to see by month')
+    expect(bucketHintText(june, 'M')).toBe('Double-tap to see by day')
+    expect(bucketHintText({ day: 'Sep 1', litres: 5 }, 'D')).toBe('Double-tap to see by hour')
+  })
+
+  /* Hourly is the TERMINAL rung — the ladder runs coarse to fine, Y -> M ->
+     D -> H, so it is Hourly and not Yearly that has nothing below it. */
+  it('shows NO hint at Hourly, which has nothing below it', () => {
+    expect(bucketHintText(june, 'H')).toBeNull()
+  })
+
+  /* A day the month has not reached. isBucketOpenable already refuses the
+     drill; promising it would be a lie the bar cannot honour. */
+  it('shows NO hint on a bucket with no reading yet (PLS-WC-24)', () => {
+    expect(bucketHintText({ day: 'Sep 30', litres: null }, 'D')).toBeNull()
+    expect(bucketHintText({ day: 'Sep 30' }, 'D')).toBeNull()
+  })
+
+  /* The drift guard, and the reason the hint reads FINER_BUCKET rather than
+     spelling the nouns out a second time: the visible line and the
+     screen-reader line must never name different levels. */
+  it('names the same level the aria-label does, at every level', () => {
+    for (const [period, row] of [
+      ['Y', { day: '2024', litres: 5 }],
+      ['M', june],
+      ['D', { day: 'Sep 1', litres: 5 }],
+    ]) {
+      const noun = bucketHintText(row, period).slice('Double-tap to see by '.length)
+      expect(bucketAccessibleName(row, period)).toMatch(new RegExp(`Show by ${noun}\\.$`))
+    }
+  })
+
+  it('returns null, not an empty string, so the caller renders no element', () => {
+    expect(bucketHintText(june, 'H')).not.toBe('')
   })
 })
 

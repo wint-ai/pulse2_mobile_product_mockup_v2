@@ -145,6 +145,34 @@ export function bucketAccessibleName(row, period) {
 }
 
 /**
+ * The VISIBLE drill-down hint — the tooltip's third line.
+ *
+ * The web product solves the same discoverability problem with a tinted line
+ * under the value reading `Click to see by day`. The owner asked for that hint
+ * here and chose gesture-accurate wording over the web's: there is no cursor to
+ * click with on a phone, and the gesture is a DOUBLE tap, not a single one. So
+ * the shape is ported and the verb is not. Copy is the owner's, not invented.
+ *
+ * The noun comes from FINER_BUCKET — the same map bucketAccessibleName reads —
+ * so the visible hint and the aria-label cannot drift apart and name different
+ * levels. Everything else follows from isBucketOpenable, which means the two
+ * cases that must NOT advertise a drill-down are handled by construction:
+ *
+ *   - Hourly, the terminal rung: FINER_BUCKET has no H, so there is no noun to
+ *     put in the sentence and nothing below to open. Derived, not hard-coded —
+ *     add a finer grouping to the map and the hint appears with it.
+ *   - A bucket with no reading (a day the month has not reached): the drill
+ *     would be refused, so promising it is a lie the bar cannot honour.
+ *
+ * Returns null rather than an empty string so the caller renders no element at
+ * all — an empty line would still cost the tooltip its height.
+ */
+export function bucketHintText(row, period) {
+  if (!isBucketOpenable(row, period)) return null
+  return `Double-tap to see by ${FINER_BUCKET[period]}`
+}
+
+/**
  * PLS-WC-40 / §17 — reduced motion renders bars at full height with no
  * transition. Guarded twice over: happy-dom has no layout for recharts to
  * animate against, and a host without matchMedia must not throw here.

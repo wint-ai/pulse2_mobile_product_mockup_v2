@@ -118,7 +118,6 @@ import {
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
-  ChartTooltipContent,
 } from '@/components/ui/chart'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -128,6 +127,7 @@ import {
   BAR_GAP_PX,
   BAR_MAX_WIDTH,
   barTopRadius,
+  bucketHintText,
   bucketAccessibleName,
   isBucketOpenable,
   nearestBucketIndex,
@@ -672,6 +672,96 @@ const CHART_CONFIG_COMPARE = {
      on all of them. It is also the lighter step of the one brand hue the note
      above argues for, which is what the token was aliased for. */
   prevLitres: { label: 'Previous period', color: 'var(--chart-2)' },
+}
+
+/* ── The tooltip, with the drill-down hint ────────────────────────────────
+ *
+ * WHY THIS IS A COPY OF ChartTooltipContent AND NOT A PROP ON IT.
+ *
+ * The owner's call, explicitly: the hint belongs to THIS chart only. Every
+ * other chart in the app renders through the shared shadcn primitive in
+ * src/components/ui/chart.jsx, and a `hint` prop there would be one more
+ * branch in a vendored file every one of them depends on. So that file stays
+ * untouched and the layout below is duplicated deliberately.
+ *
+ * It is the `indicator="dot"` branch of the original and nothing else, because
+ * that is the only branch this card uses. Dropped as unreachable from here:
+ * `nestLabel` (always false when the indicator is a dot), the `formatter`
+ * escape hatch, `hideLabel` / `hideIndicator`, and the nameKey/labelKey
+ * indirection — this card always passes a labelFormatter and always keys on
+ * the dataKey. The container classes, the gaps and the type scale are copied
+ * verbatim, so a tooltip with no hint is pixel-identical to the one that
+ * shipped. If ui/chart.jsx is ever re-vendored, diff it against this.
+ *
+ * Exported for the tests: recharts needs real layout and renders nothing
+ * inside the plot under happy-dom, so the hint is asserted by rendering this
+ * component directly with a payload rather than through the chart.
+ *
+ * recharts clones this element with `active`, `payload` and `label`; `config`,
+ * `period` and `labelFormatter` come from the call site.
+ */
+export function ConsumptionTooltipContent({ active, payload, label, labelFormatter, config, period }) {
+  if (!active || !payload?.length) return null
+  const items = payload.filter((item) => item.type !== 'none')
+  if (!items.length) return null
+
+  /* Every entry in `payload` carries the same row, so the hint is asked of the
+     first. Under comparison that is the current series, which is the one the
+     drill-down actually opens — the previous period is drawn for contrast and
+     is not a tap target. bucketHintText returns null for the two cases that
+     must not advertise a drill-down: the terminal rung, and a bucket with no
+     reading yet. */
+  const hint = bucketHintText(payload[0]?.payload, period)
+
+  return (
+    <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+      <div className="font-medium">{labelFormatter ? labelFormatter(label, payload) : label}</div>
+      <div className="grid gap-1.5">
+        {items.map((item, index) => {
+          const key = `${item.dataKey ?? item.name ?? 'value'}`
+          const itemConfig = config?.[key]
+          const indicatorColor = item.payload?.fill ?? item.color
+          return (
+            <div
+              key={index}
+              className="flex w-full flex-wrap items-center gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground"
+            >
+              {itemConfig?.icon ? (
+                <itemConfig.icon />
+              ) : (
+                <div
+                  className="h-2.5 w-2.5 shrink-0 rounded-[2px] border-(--color-border) bg-(--color-bg)"
+                  style={{ '--color-bg': indicatorColor, '--color-border': indicatorColor }}
+                />
+              )}
+              <div className="flex flex-1 items-center justify-between leading-none">
+                <span className="text-muted-foreground">{itemConfig?.label ?? item.name}</span>
+                {item.value != null && (
+                  <span className="font-mono font-medium text-foreground tabular-nums">
+                    {typeof item.value === 'number' ? item.value.toLocaleString() : String(item.value)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {/* The hint. Smaller than the reading it sits under and tinted with
+          --muted-foreground, which all four themes define — contrast included,
+          where it moves with everything else. No raw hex: a Tailwind utility
+          naming a token this repo does not define falls through to stock
+          Tailwind and then freezes across all four themes with no warning.
+          `whitespace-nowrap` holds the sentence to ONE line. Allowed to wrap it
+          would add a fourth line of height at exactly the widths where the
+          tooltip already sits near the top of the plot, and recharts measures
+          the rendered box to decide when to flip it away from an edge
+          (allowEscapeViewBox is false on both axes here, its default), so a box
+          that changes height after measurement is the one case that escapes. */}
+      {hint ? (
+        <div className="whitespace-nowrap text-[10px] leading-tight text-muted-foreground">{hint}</div>
+      ) : null}
+    </div>
+  )
 }
 
 /* ── THE COMPARISON IS A LINE OVER THE BARS, NOT A SECOND BAR SERIES ───────
@@ -1818,7 +1908,18 @@ export default function WaterConsumptionCardV2({
                   /* Each granularity needs its own phrasing. Blindly
                      prefixing the scope label gives "2025 2024–2026" on Y and
                      "14 Sep 22, 2026" on H. */
-                  content={<ChartTooltipContent labelFormatter={formatBucket} />}
+                  /* The drill-down was undiscoverable — one tap shows the
+                     reading, two open the level below, and nothing said so.
+                     The tooltip now carries the hint, as the web does. See
+                     ConsumptionTooltipContent for why it is this card's own
+                     component rather than a prop on the shared one. */
+                  content={
+                    <ConsumptionTooltipContent
+                      labelFormatter={formatBucket}
+                      config={chartConfig}
+                      period={period}
+                    />
+                  }
                 />
                 {/* radius 100 is the comp's rounded-t-[100px]; recharts clamps it
                     to min(width, height) / 2, the same half-round cap the 16.6px
