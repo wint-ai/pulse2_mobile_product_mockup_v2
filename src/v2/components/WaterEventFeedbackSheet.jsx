@@ -150,6 +150,9 @@ import {
   FIXED_STATE_LABEL,
 } from '@/data/eventFeedbackStore'
 import { getCurrentActor } from '@/data/currentUser'
+/* The ignore gate lives in its own module, not here, because this file
+   exports a component — see ignoreGate.js for why it is shared at all. */
+import { acceptsIgnore } from '@/v2/components/ignoreGate'
 
 /* ── Copy & chips ───────────────────────────────────────────────────────────
    Every string below is transcribed from its source — the HTML mockup for the
@@ -471,7 +474,7 @@ export default function WaterEventFeedbackSheet(props) {
   if (!open) return null
   // Backstop for the locked rule: Ignore is a Warning-state action only, never
   // Shutoff. The real gate belongs to the caller; this stops a mis-wire.
-  if (trigger === 'ignore' && eventState === 'shutoff') return null
+  if (trigger === 'ignore' && !acceptsIgnore(eventState)) return null
   // The key is the reset. Closing unmounts the sheet and reopening builds a
   // fresh one, and a reviewer driving `initialStep` from Yes to No gets a
   // clean run rather than a half-filled one. No reset effect, no stale state.
