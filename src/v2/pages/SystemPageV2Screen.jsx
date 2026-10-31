@@ -192,6 +192,7 @@ import {
 } from '@/data/systemDetails'
 import { getEventsForSystem } from '@/data/events'
 import WaterEventFeedbackSheet from '@/v2/components/WaterEventFeedbackSheet'
+import { eventStateFor } from '@/v2/components/ignoreGate'
 import { tagEventKey } from '@/data/eventFeedbackStore'
 import { ignoreIncident, isIgnored } from '@/data/ignoredIncidents'
 import { startInvestigating, isInvestigating } from '@/data/investigatingStore'
@@ -1181,8 +1182,31 @@ export default function SystemPageV2Screen() {
     const wantsPulse = searchParams.get('pulse') === '1'
     if (!action && !wantsPulse) return
 
-    if (action === 'ignore' && !isIgnored(systemId)) setShowIgnoreFlow(true)
-    if (action === 'tag') setShowTagFeedback(true)
+    /* WATER EVENTS ONLY — this effect was the one place in the file that did
+       not consult `isWaterEvent` (:293), the line the owner has insisted on:
+       health is errors, water events are not health. Without the guard a
+       pasted /system/{id}?action=ignore on a valve error or a lost AC feed
+       opened a sheet headed "Ignore this water event?" over a fault,
+       resolved `eventState` to 'warning' (getLeakState(null) is not
+       'ShutOff', so the sheet's own shutoff backstop does not catch it) and
+       committed ignoreIncident(system.id) — the SAME per-system record a
+       genuine water ignore writes. Ignoring a fault was never intended:
+       v1's ErrorAlertDetail offers no Ignore at all, and EventFocusOverlay
+       draws no footer on a fault for exactly this reason (:1443). This adds
+       a guard and removes nothing that worked. */
+    const waterNow = isWaterEvent(system.alert)
+    if (action === 'ignore' && waterNow && !isIgnored(systemId)) setShowIgnoreFlow(true)
+    /* TAG IS GATED NARROWER, AND DELIBERATELY NOT ON `waterNow`. The tag link
+       is sent by exactly one push, LE_01 / "End of Leak"
+       (notificationActions.js:47), so it arrives AFTER the event ended and
+       `system.alert` may already be null by the time it lands. Reusing
+       `waterNow` here would kill the push's own Tag button on precisely the
+       systems it targets. The thing that must never happen is asking "Was
+       this worth alerting about?" about a DEVICE FAULT — so that, and only
+       that, is what this refuses. No alert at all still lands on the
+       question, as it always did. */
+    const faultNow = Boolean(system.alert) && !waterNow
+    if (action === 'tag' && !faultNow) setShowTagFeedback(true)
     /* §PRD 06 asks for a 2-second accent pulse on the card the push referred
        to — Slack's scroll-to-message highlight, not a badge. */
     if (wantsPulse) setPulse(true)
@@ -1255,11 +1279,17 @@ export default function SystemPageV2Screen() {
   /* PRD 06 + 14: Ignore is a WARNING-state action. getLeakState reads the
      incident's own steps and answers 'Warning' | 'Ongoing' | 'ShutOff';
      WaterEventFeedbackSheet takes the lowercase pair and refuses to render
-     the ignore flow on 'shutoff' as a backstop, so the two cannot drift.
-     'Ongoing' is still ignorable — EventFocusOverlay offers Ignore on every
-     live water event, claimed or not — only a closed valve takes it away. */
-  const eventState =
-    getLeakState(getActiveIncident(system.id)) === 'ShutOff' ? 'shutoff' : 'warning'
+     the ignore flow on 'shutoff' as a backstop. 'Ongoing' is still
+     ignorable — EventFocusOverlay offers Ignore on a claimed event as well
+     as an unclaimed one — only a closed valve takes it away.
+
+     THE 'ShutOff' COMPARISON THAT STOOD HERE IS NOW `eventStateFor` in
+     ignoreGate.js, which the sheet's own backstop reads too. It was one of
+     three sites that each retyped the
+     comparison, and EventFocusOverlay was about to become a fourth; the
+     control and the sheet disagreeing is precisely the dead-end this pass
+     fixes. See the note on that overlay's Ignore tile. */
+  const eventState = eventStateFor(getActiveIncident(system.id))
 
   /* WHERE THE TAG PATH'S FEEDBACK RECORD IS KEYED.
      eventFeedbackStore is keyed per event and holds an ARRAY per key, and the

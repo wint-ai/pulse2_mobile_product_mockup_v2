@@ -106,6 +106,85 @@ describe('the push deep-link contract (PRD 06)', () => {
   })
 })
 
+/* ── THE DEEP LINK RESPECTS THE WATER-EVENT / SYSTEM-HEALTH LINE ──────────
+   Owner, repeatedly: health is errors, water events are not health
+   (healthIsNotWaterEvents.dom.test.jsx quotes it). `isWaterEvent` at
+   SystemPageV2Screen:293 is the page's enforcement of that line, and the
+   ?action= effect was the one place that did not consult it: a pasted
+   /system/{faulted}?action=ignore opened a sheet titled "Ignore this water
+   event?" over a valve error, and "Ignore anyway" wrote ignoreIncident()
+   under the system id — the same record a genuine water ignore writes.
+
+   Ignoring a FAULT was never a feature. These pin the gap shut. */
+const faulted = SYSTEMS.find(
+  (s) => s.alert && s.alert.type !== 'leak-high' && s.alert.type !== 'leak-low',
+)
+const unalerted = SYSTEMS.find((s) => !s.alert)
+
+const mountFault = (search = '') =>
+  render(
+    <MemoryRouter initialEntries={[`/system/${faulted.id}${search}`]}>
+      <Routes>
+        <Route path="/system/:systemId" element={<SystemPageV2Screen />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+
+describe('the push deep link does not cross into system health', () => {
+  beforeEach(() => clearIgnored(faulted?.id ?? 'none'))
+
+  it('the dataset actually contains a fault-only system', () => {
+    // Asserted rather than assumed: if this goes empty the rest proves nothing.
+    expect(faulted, 'SYSTEMS has no system whose alert is a fault').toBeTruthy()
+    expect(['leak-high', 'leak-low']).not.toContain(faulted.alert.type)
+  })
+
+  it('?action=ignore does not open the ignore flow on a fault', () => {
+    mountFault('?action=ignore')
+    expect(
+      within(document.body).queryByText('Ignore this water event?'),
+      'a valve error / lost AC feed is not a water event to ignore',
+    ).toBeNull()
+    expect(
+      within(document.body).queryByRole('button', { name: 'Ignore anyway' }),
+      'nothing on a fault page may offer to commit an ignore',
+    ).toBeNull()
+    expect(isIgnored(faulted.id)).toBe(false)
+  })
+
+  it('?action=tag does not open the water question on a fault', () => {
+    /* NARROWER GUARD THAN IGNORE'S, deliberately — see the note at
+       SystemPageV2Screen's ?action= effect. The tag link comes from LE_01
+       ("End of Leak"), so it arrives AFTER the event ended and the system's
+       `alert` may already be gone; gating tag on isWaterEvent(system.alert)
+       the way ignore is gated would kill the tag path on exactly the systems
+       the push targets. What it is gated on is the fault, which is the thing
+       the water question must never be asked about. */
+    mountFault('?action=tag')
+    expect(
+      within(document.body).queryByText('Was this worth alerting about?'),
+      'the water-event question must not be asked about a device fault',
+    ).toBeNull()
+  })
+
+  it('?action=tag still opens on a system with no active alert', () => {
+    // The regression the narrower guard exists to avoid. If this fails, the
+    // tag guard was tightened to isWaterEvent and the end-of-leak push is dead.
+    expect(unalerted, 'SYSTEMS has no alert-free system').toBeTruthy()
+    render(
+      <MemoryRouter initialEntries={[`/system/${unalerted.id}?action=tag`]}>
+        <Routes>
+          <Route path="/system/:systemId" element={<SystemPageV2Screen />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(
+      within(document.body).queryByText('Was this worth alerting about?'),
+      'the end-of-leak tag link must still land',
+    ).toBeTruthy()
+  })
+})
+
 describe('the alerts overlay opens its rows (PRD 05a)', () => {
   const openOverlay = () => {
     render(

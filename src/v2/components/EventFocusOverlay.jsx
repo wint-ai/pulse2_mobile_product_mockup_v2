@@ -280,6 +280,7 @@ import {
   setNotes,
 } from '@/data/locationInfoStore'
 import { isIgnored } from '@/data/ignoredIncidents'
+import { acceptsIgnore, eventStateFor } from '@/v2/components/ignoreGate'
 import {
   isInvestigating,
   getInvestigatingInfo,
@@ -1460,7 +1461,36 @@ export default function EventFocusOverlay({
      irreversible and already done — PRD 14 has no un-ignore), On it / Stand
      down NO. The muted body and the "Ignored by {name}" pill are unchanged. */
   const showClaimActions = isWater && !ignored
-  const showIgnore = isWater && !ignored && Boolean(onIgnore)
+  /* ── THE IGNORE TILE NO LONGER DRAWS ON A SHUT-OFF EVENT — 2026-10-31 ───
+     WHAT WAS REMOVED, PLAINLY: on a water event whose valve has closed
+     (getLeakState -> 'ShutOff') this tile used to render, and it no longer
+     does. That is a visible change to a state the frames do draw a tile in.
+
+     WHY IT IS NOT A LOSS OF FUNCTION: the tile did nothing there. Tapping it
+     called `onIgnore`, both v2 hosts (SystemPageV2Screen, HomeAllAccounts)
+     answered by setting their ignore-flow flag, and WaterEventFeedbackSheet
+     refuses `trigger="ignore"` at eventState 'shutoff' and returns null. So
+     the user tapped a card-sized destructive-looking control and the app
+     said nothing and did nothing — a silent dead end, which is worse than
+     no control. Nothing that worked stopped working; a control that already
+     led nowhere stopped being offered.
+
+     NO NEW COPY. The alternative — explaining on tap why ignore is
+     unavailable once the water is off — needs a sentence this app does not
+     have, and authoring one is not this change's to do. Flagged for the
+     owner: if they want that sentence, the tile comes back disabled with it.
+
+     THE CONDITION COMES FROM THE SHEET, NOT FROM A SECOND 'ShutOff'. The
+     spelling of this concept is already split five ways across the repo
+     ('ShutOff' / 'Shutoff' / 'shutoff' / 'Shut-off' / 'warning'); retyping
+     one here is how a control and the sheet it opens drift apart, which is
+     the bug this fixes. `acceptsIgnore(eventStateFor(...))` is ignoreGate.js,
+     the one module the sheet's own backstop reads as well — asked before the
+     control is drawn instead of after it is tapped. PRD 06 + 14: Ignore is a
+     Warning-state action. 'Ongoing' stays
+     ignorable — only a closed valve takes it away. */
+  const ignorableNow = acceptsIgnore(eventStateFor(incident))
+  const showIgnore = isWater && !ignored && Boolean(onIgnore) && ignorableNow
   /* The Assign tile carries exactly the gate the sticky footer carried: a
      water event, not ignored, not already held. A claim does not withdraw the
      right to ignore, so `showIgnore` is deliberately NOT gated on

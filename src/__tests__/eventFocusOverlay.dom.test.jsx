@@ -601,10 +601,17 @@ describe('On it / Stand down / Ignore', () => {
     expect(screen.queryByRole('button', { name: /^remove$/i })).toBeNull()
   })
 
-  /* The ONLY reason Ignore is ever absent on a live water event: the mount
-     passed no handler, so the control has no destination. This is the gate
-     itself, asserted directly; `the location view` describe at the bottom of
-     this file asserts that the real HomeAllAccounts mount now satisfies it. */
+  /* One of the two reasons Ignore is absent on a live water event: the mount
+     passed no handler, so the control has no destination. This is that gate
+     asserted directly; `the location view` describe at the bottom of this
+     file asserts that the real HomeAllAccounts mount now satisfies it.
+
+     THE SECOND REASON ARRIVED 2026-10-31 and lives in its own file,
+     ignoreTileMatchesSheet.dom.test.jsx: once the valve has closed the sheet
+     refuses the ignore flow, so the tile is no longer offered either. It is
+     not asserted here because the live dataset carries no ShutOff event and
+     that file has to synthesise one. `leakSys` is Ongoing, so every case in
+     this describe is unaffected. */
   it('draws no Ignore when the mount supplies no onIgnore', () => {
     startInvestigating(leakSys.id, { actor: getCurrentActor() })
     renderOverlay()
