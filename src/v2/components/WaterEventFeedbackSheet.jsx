@@ -9,6 +9,8 @@
  *
  *   199745:20202  "Ignore this water event?"  → step 'warning'
  *   199748:26265  "Document alert handling"   → step 'question' (ignore)
+ *                  (the heading is the ONE string the owner has overridden —
+ *                   it ships as "Help us improve"; see IGNORE_HEADING below)
  *
  * SUPERSEDED, NOT DELETED — the old reasoning is kept below because deleting
  * it is how a ruling gets re-derived. Two sessions in this codebase have
@@ -195,8 +197,37 @@ const IGNORE_CHIPS = [
 
 /** 199748:27414 — the green banner above the heading. */
 const IGNORED_BANNER = 'Event marked as ignored'
-/** 199748:26645 */
-const IGNORE_HEADING = 'Document alert handling'
+/**
+ * 199748:26645 — THE ONE DELIBERATE DIVERGENCE FROM THE FRAME, 2026-10-31.
+ *
+ * The frame says "Document alert handling", and it still does — nothing in
+ * Figma has moved. The owner was shown that string and ruled that this step
+ * must read as the user HELPING TO IMPROVE the product rather than filing
+ * paperwork: "change this to help us improved or similar that make the user
+ * feels he is helping to improve."
+ *
+ * That ruling is the one thing that outranks the standing instruction stated
+ * at the top of this file ("transcribe the frame; never write a string the
+ * frame does not contain"). The owner asked for this string directly, so the
+ * override is sanctioned — it is NOT drift.
+ *
+ * DO NOT "CORRECT" THIS BACK. A diff against 199748:26645 will flag it
+ * forever, because the node is unchanged; the code is what is right here. The
+ * override is scoped to THIS ONE STRING — every other string in the ignore
+ * flow is still a verbatim transcription, IGNORE_CONFIRM_LABEL below very
+ * much included (it has no ruling and must not be "fixed").
+ *
+ * WHY AN AUTHORED STRING AND NOT ONE ALREADY IN THE REPO. The two candidates
+ * in this register are not headings. PRIMARY_HINT (:160, "Your answer helps
+ * Wint learn. Nothing is mandatory.") is a sub-line under a question, and the
+ * event-ended microcopy "Thanks — Wint learned from this." is past tense — it
+ * thanks the user for an answer already given, whereas this heading sits
+ * ABOVE an untouched chip set. src/i18n/locales/en.json offers only
+ * `tag_sheet.pitch` ("The system learns, your reports get better."), which is
+ * v1 copy for a different sheet and is likewise a pitch line, not a heading.
+ * This component reads no i18n at all, so nothing there needed updating.
+ */
+const IGNORE_HEADING = 'Help us improve'
 /** 199745:21420 */
 const WARNING_TITLE = 'Ignore this water event?'
 

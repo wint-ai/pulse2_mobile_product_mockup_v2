@@ -265,7 +265,7 @@ describe('trigger: ignore', () => {
 
     // The documentation step is not reachable yet, and the retired question
     // is not reachable at all.
-    expect(view.queryByText('Document alert handling')).toBeNull()
+    expect(view.queryByText('Help us improve')).toBeNull()
     expect(view.queryByText('Was this worth alerting about?')).toBeNull()
     expect(view.queryByRole('button', { name: 'Yes' })).toBeNull()
     expect(calls.ignoreConfirmed).toEqual([])
@@ -282,7 +282,7 @@ describe('trigger: ignore', () => {
 
     // 199748:26265, top to bottom: the banner, the heading, the flat chip set.
     expect(view.getByText('Event marked as ignored')).toBeTruthy()
-    expect(view.getByText('Document alert handling')).toBeTruthy()
+    expect(view.getByText('Help us improve')).toBeTruthy()
 
     // The retired question and its branch are gone from this flow entirely.
     expect(view.queryByText('Was this worth alerting about?')).toBeNull()
@@ -443,7 +443,7 @@ describe('driving the sheet to a state', () => {
      to the documentation step rather than rendering nothing. */
   it.each(['question', 'yes', 'no'])('ignore / %s lands on the documentation step', (initialStep) => {
     const { view } = open({ trigger: 'ignore', initialStep })
-    expect(view.getByText('Document alert handling')).toBeTruthy()
+    expect(view.getByText('Help us improve')).toBeTruthy()
     expect(view.queryByText('Ignore this water event?')).toBeNull()
   })
 
