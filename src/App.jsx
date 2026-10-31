@@ -12,6 +12,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import PersonaSelect from './screens/PersonaSelect';
 import ControlPanel from './screens/ControlPanel';
 import PushNotifications from './components/PushNotifications';
+import PushSimTrigger from './v2/components/PushSimTrigger';
 import SplashScreen from './components/SplashScreen';
 import HomeManager from './screens/home/HomeManager';
 import HomeUnified from './screens/home/HomeUnified';
@@ -542,6 +543,12 @@ function AppShell() {
               <LoginGate>
                 <AppRoutes />
               </LoginGate>
+              {/* The concealed on-phone push trigger. A sibling of LoginGate,
+                  not a wrapper: it renders nothing until its gesture fires, it
+                  must sit INSIDE PushNotifications' relative wrapper so its
+                  sheet and its measuring anchor share that box, and it must be
+                  mounted once for the whole app rather than per screen. */}
+              <PushSimTrigger />
             </PushNotifications>
           </PasswordGate>
           <SplashController />

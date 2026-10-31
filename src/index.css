@@ -740,6 +740,21 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
 }
 
+/* This is a phone mockup, and nothing in it is text anyone needs to select.
+   Left alone, a deliberate press-and-hold anywhere in the app raises iOS's
+   own callout and its selection loupe, which is exactly what the concealed
+   simulator gesture (src/hooks/useConcealedLongPress.js) is a 1200ms hold of.
+   The honest caveat: -webkit-touch-callout is reported broken as recently as
+   iOS 26.1, and user-select: none does not suppress the loupe at all — which
+   is why that gesture's zone is sited over inert chrome with no body text
+   and no <img> under it. preventDefault() on touchstart WOULD stop both, and
+   is not an option: it kills scrolling with them. */
+#root {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 button {
   font-family: inherit;
 }

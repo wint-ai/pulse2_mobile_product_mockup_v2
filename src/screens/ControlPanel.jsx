@@ -41,29 +41,12 @@ function initials(name) {
 // tests can exercise them directly. See that file for the full catalogue.
 
 import { buildPushText } from '../utils/pushText';
+// payloadMeta extracted to src/lib/pushPayload.js so the phone-side push-sim
+// sheet fires the identical payload rather than a second copy of this mapping.
+// Moved verbatim; nothing about /push behaves differently.
+import { payloadMeta } from '../lib/pushPayload';
 
 
-// Map a card's fireableType to (type, state, severity) on the push payload.
-// All state-mutation is handled by applyPushEvent in src/lib/pushEvents.js -
-// the sender's only job is to produce a payload and broadcast it.
-function payloadMeta(card, variantId) {
-  let type = card.fireableType;
-  let state;
-  let severity;
-  if (card.fireableType === 'leak-warning')        { type = 'leak'; state = 'Warning'; }
-  else if (card.fireableType === 'leak-ongoing')   { type = 'leak'; state = 'Ongoing'; }
-  else if (card.fireableType === 'leak-shutoff')   { type = 'leak'; state = 'Shutoff'; }
-  else if (card.fireableType === 'leak-ended')     { type = 'leak'; state = 'End of Leak'; }
-  else if (card.fireableType === 'valve-closing' || card.fireableType === 'valve-closed-after-we') {
-    // VC_S_02 / VC_OK_02 are Shutoff-phase sub-states, NOT closure pushes.
-    // v10_9_id on the payload selects the sub-state.
-    type = 'leak'; state = 'Shutoff';
-  }
-  if (type === 'leak') {
-    severity = (variantId === 'WA_02' || variantId === 'OL_02_low') ? 'Low Flow' : 'High Flow';
-  }
-  return { type, state, severity };
-}
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
