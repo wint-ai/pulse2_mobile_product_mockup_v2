@@ -19,6 +19,13 @@
  * things that decide whether a presenter can hold a corner for a second and a
  * half without the app doing something else instead.
  *
+ * ONE WAY IN, since 2026-11-01. The visible "Push sim" pill that stood in
+ * for the gesture while it was broken is gone, at the owner's explicit
+ * instruction; `?sim=1` stays as break-glass and `?simdebug=1` stays as the
+ * gesture's diagnostic, and neither draws anything on a normal load. The
+ * block that used to pin the pill now pins its absence, on z-index rather
+ * than on a label — see "the gesture is the only way in" below.
+ *
  * The last block is a canary, not a feature test. The gesture refuses to fire
  * while PushNotifications has its lock screen / shade / other-app surface up,
  * and the only way to read that state without editing that file is its
@@ -90,9 +97,11 @@ function hold(point, opts = {}, ms = 1300) {
   dispatch('pointerup', point, opts)
 }
 
-function mount() {
+/* `route` so the "nothing floats over the content" block can ask the question
+   on more than one screen — the pill that used to float was on every route. */
+function mount(route = '/') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[route]}>
       <UserProvider>
         {/* The relative wrapper PushNotifications puts around its children,
             which is the box the anchor stretches inside. */}
@@ -332,175 +341,143 @@ describe('one press is one fire', () => {
 })
 
 /**
- * THE VISIBLE HANDLE, opt-in behind `?simhandle=1` (DEV_FLAGS.handle).
+ * ONE WAY IN — THE GESTURE. This is what is left of the block that pinned the
+ * visible "Push sim" handle: rewritten rather than deleted, because the rule
+ * changed and the new rule needs pinning harder than the old one did.
  *
- * It was on by default for exactly one day, 2026-10-31 to 2026-11-01. The
- * default is back to off because the pill sits at z-240 over the Home
- * screen's Water-events rows, which scroll underneath it: a tap on a row's
- * left third opened this simulator, and a tap on the `×` silently hid the
- * handle and did nothing else. So the DEFAULT IS PINNED OFF below, together
- * with the fact that nothing is drawn at all without the flag - which is the
- * part that actually keeps the rows tappable - and `?simhandle=1` as the way
- * back in.
+ * The pill, its `×`, the `?simhandle` param and the `pulse2-sim-handle`
+ * session key were removed on 2026-11-01 at the owner's explicit instruction
+ * — "I don't understand why do I need two different URLs for that ... when
+ * touching secret area in the app, just opens the push". It was scaffolding
+ * thrown up while the gesture was dead under a mouse, not a designed
+ * affordance; and at `bottom-[72px] left-[12px] z-[240]` it floated over the
+ * Home screen's Water-events rows, which scroll underneath it, so it ate taps
+ * meant for them.
  *
- * The two off-switches are still pinned individually, and so is the fact that
- * a dismissal SURVIVES A RELOAD. That is not free with the default back at
- * off: `?simhandle=1` latches `'1'` in sessionStorage, so a store that could
- * only record "on" would have nowhere to put the `×` and the dismissal would
- * last until the next load. Hence the three-state store, and hence these.
+ * A suite that merely STOPPED asserting the pill would be satisfied by
+ * someone putting it straight back. So these assert the new rule instead:
+ *
+ *   - nothing is drawn over the content under any flag. The assertion is on
+ *     `z-[240]` itself, not on a label, because the next pill will have a
+ *     different label and the same problem.
+ *   - the dead param is DEAD: `?simhandle=1` is now just an unknown param —
+ *     it draws nothing, it is not even stripped, and nothing is ever written
+ *     to `pulse2-sim-handle`.
+ *   - the gesture is the gate, on BOTH inputs, with that param present.
+ *
+ * `?sim=1` is pinned further down, where it is also pinned to render no
+ * affordance of its own: it is break-glass, and the moment it grows one it
+ * becomes the second entrance that was just removed.
  */
-describe('the visible handle - off by default, reached with ?simhandle=1', () => {
-  beforeEach(() => { localStorage.setItem('pulse2-persona-id', 'wint-admin') })
+describe('the gesture is the only way in - nothing floats over the content', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    localStorage.setItem('pulse2-persona-id', 'wint-admin')
+  })
   afterEach(() => {
     cleanup()
+    vi.useRealTimers()
     window.history.replaceState({}, '', '/')
     localStorage.clear()
     sessionStorage.clear()
   })
 
+  /* The occlusion fix, pinned at the level that matters. Not "the button is
+     not findable" — nothing is IN THE DOM at the z-index the pill used, so
+     there is nothing left over the Water-events rows to swallow a tap. */
+  const floating = () =>
+    [...document.querySelectorAll('[class]')]
+      .filter((el) => (el.getAttribute('class') || '').includes('z-[240]'))
+
   const handle = () => screen.queryByRole('button', { name: 'Push sim' })
-  const dismiss = () => screen.getByRole('button', { name: 'Hide the push simulator handle' })
-  const dismissIfAny = () => screen.queryByRole('button', { name: 'Hide the push simulator handle' })
-  /** The only way the pill appears now. Mount with the flag, as a load would. */
-  const mountEnabled = () => {
-    window.history.replaceState({}, '', '/?simhandle=1')
-    return mount()
+
+  for (const route of ['/', '/system/MRG-OFF-001', '/location/Henrietta%20House']) {
+    it(`draws nothing over the content on ${route}`, () => {
+      mount(route)
+      expect(floating()).toHaveLength(0)
+      expect(handle()).toBeNull()
+      expect(sheet()).toBeNull()
+    })
   }
 
-  /* THE OCCLUSION FIX, pinned. Not just "the button is not findable": the
-     pill is not in the DOM at all, so there is nothing at z-240 left over
-     the Water-events rows to swallow a tap meant for a row. */
-  it('draws nothing at all with no flag - this is the default', () => {
+  /* The removed param. It is not handled, not stripped and not stored — it is
+     a string in the query that this component has never heard of. */
+  it('ignores ?simhandle=1 completely - it is not a param any more', () => {
+    window.history.replaceState({}, '', '/?simhandle=1')
+    mount()
+    expect(floating()).toHaveLength(0)
+    expect(handle()).toBeNull()
+    expect(sheet()).toBeNull()
+    // Not ours, so not stripped: proof it is no longer read at all.
+    expect(window.location.search).toContain('simhandle=1')
+    expect(sessionStorage.getItem('pulse2-sim-handle')).toBeNull()
+    expect(localStorage.getItem('pulse2-sim-handle')).toBeNull()
+  })
+
+  it('ignores ?simhandle=0 just as completely', () => {
+    window.history.replaceState({}, '', '/?simhandle=0')
+    mount()
+    expect(floating()).toHaveLength(0)
+    expect(handle()).toBeNull()
+    expect(sessionStorage.getItem('pulse2-sim-handle')).toBeNull()
+  })
+
+  /* And the flag cannot latch any more either: there is no key to latch into,
+     so a "reload" cannot resurrect a pill the way it used to resurrect one. */
+  it('cannot latch a handle into the tab across a reload', () => {
+    window.history.replaceState({}, '', '/?simhandle=1')
+    const first = mount()
+    expect(handle()).toBeNull()
+    first.unmount()
+
+    window.history.replaceState({}, '', '/')
     mount()
     expect(handle()).toBeNull()
-    expect(dismissIfAny()).toBeNull()
-    const overlays = [...document.querySelectorAll('[class]')]
-      .filter((el) => (el.getAttribute('class') || '').includes('z-[240]'))
-    expect(overlays).toHaveLength(0)
+    expect(floating()).toHaveLength(0)
   })
 
-  it('appears on ?simhandle=1, which is then stripped from the URL', () => {
-    mountEnabled()
-    expect(handle()).not.toBeNull()
-    expect(dismiss()).not.toBeNull()
-    expect(window.location.search).not.toContain('simhandle')
-  })
+  /* THE RULE ITSELF, on both inputs: with nothing drawn and no flag typed,
+     the hold is what opens the sheet. The mouse case is the one that was
+     broken when the pill was put up, so it is the one that most needs to be
+     red if it ever breaks again. */
+  for (const pointerType of ['mouse', 'touch']) {
+    it(`is the only way in under a ${pointerType}: nothing drawn, then the hold opens it`, () => {
+      mount()
+      expect(floating()).toHaveLength(0)
+      expect(handle()).toBeNull()
+      expect(sheet()).toBeNull()
 
-  /* The flag is typed once. It latches for the tab so a reload keeps it -
-     the owner must not have to re-type it mid-demo. */
-  it('latches for the tab, so a reload keeps it without the flag', () => {
-    const first = mountEnabled()
-    expect(handle()).not.toBeNull()
-    expect(sessionStorage.getItem('pulse2-sim-handle')).toBe('1')
+      stubAnchor()
+      hold(IN_ZONE, { pointerType })
+      expect(sheet()).not.toBeNull()
+      // Opening it still drew nothing at the pill's z-index.
+      expect(floating()).toHaveLength(0)
+    })
+  }
 
-    first.unmount()
-    mount() // a reload: the URL no longer says simhandle
-    expect(handle()).not.toBeNull()
-  })
-
-  it('opens the sheet on a plain click - no gesture, no timing', () => {
-    mountEnabled()
+  it('is still the gate with the dead param on the URL', () => {
+    window.history.replaceState({}, '', '/?simhandle=1')
+    mount()
+    stubAnchor()
     expect(sheet()).toBeNull()
-    fireEvent.click(handle())
+    hold(IN_ZONE, { pointerType: 'mouse' })
     expect(sheet()).not.toBeNull()
   })
 
-  /* Rule 0: the handle is an addition. The gesture it stands in for has to
-     keep working, on the same screen, with the pill visible. */
-  it('does not replace the concealed gesture', () => {
-    vi.useFakeTimers()
-    try {
-      mountEnabled()
-      expect(handle()).not.toBeNull()
-      stubAnchor()
-      hold(IN_ZONE, { pointerType: 'mouse' })
-      expect(sheet()).not.toBeNull()
-    } finally { vi.useRealTimers() }
-  })
-
-  /* And with the default off, the gesture is the ONLY way in on a plain
-     load - which is the end state the handle was always meant to return to. */
-  it('leaves the concealed gesture working as the only way in with no flag', () => {
-    vi.useFakeTimers()
-    try {
-      mount()
-      expect(handle()).toBeNull()
-      stubAnchor()
-      hold(IN_ZONE, { pointerType: 'touch' })
-      expect(sheet()).not.toBeNull()
-    } finally { vi.useRealTimers() }
-  })
-
-  it('is turned off by ?simhandle=0, and STAYS off across a reload', () => {
-    // Start from on, so the '0' has something to actually turn off.
-    mountEnabled().unmount()
-
-    window.history.replaceState({}, '', '/?simhandle=0&theme=contrast')
-    const second = mount()
-    expect(handle()).toBeNull()
-    // Ours is stripped; anything else in the query survives.
-    expect(window.location.search).not.toContain('simhandle')
-    expect(window.location.search).toContain('theme=contrast')
-
-    // A plain reload must not resurrect it - that is what the '0' is for,
-    // and the latched '1' is exactly what it has to beat.
-    second.unmount()
+  /* A plain click in the corner is not a way in. There is no element there to
+     click, and the gesture is a HOLD — this is the assertion that a tap-sized
+     shortcut has not crept back in under the gesture's own geometry. */
+  it('does not open on a plain tap in the gesture zone', () => {
     mount()
-    expect(handle()).toBeNull()
-  })
-
-  it('is turned off by its own ×, and that also survives a reload', () => {
-    const first = mountEnabled()
-    fireEvent.click(dismiss())
-    expect(handle()).toBeNull()
-    expect(sessionStorage.getItem('pulse2-sim-handle')).toBe('0')
-
-    first.unmount()
-    mount()
-    expect(handle()).toBeNull()
-  })
-
-  it('comes back on ?simhandle=1 after it has been dismissed', () => {
-    const first = mountEnabled()
-    fireEvent.click(dismiss())
-    first.unmount()
-
-    window.history.replaceState({}, '', '/?simhandle=1')
-    mount()
-    expect(handle()).not.toBeNull()
-  })
-
-  /* The latch is a decision about THIS tab, not a setting. A new tab starts
-     from the default - now off - and so does whoever the link is pasted to,
-     who never asked for a pill over their Water-events rows. */
-  it('a fresh tab returns to the default rather than inheriting the flag', () => {
-    mountEnabled().unmount()
-
-    sessionStorage.clear() // what a new tab actually gets
-    mount()
-    expect(handle()).toBeNull()
-  })
-
-  it('never outlives the tab - it is sessionStorage, not localStorage', () => {
-    const first = mountEnabled()
-    expect(sessionStorage.getItem('pulse2-sim-handle')).toBe('1')
-    expect(localStorage.getItem('pulse2-sim-handle')).toBeNull()
-
-    fireEvent.click(dismiss())
-    expect(sessionStorage.getItem('pulse2-sim-handle')).toBe('0')
-    expect(localStorage.getItem('pulse2-sim-handle')).toBeNull()
-    first.unmount()
-  })
-
-  /* It sits above the TabBar and on the LEFT: the bottom-right 64x64 is the
-     concealed gesture's zone and the handle may not cover it. */
-  it('is placed clear of both the TabBar and the gesture zone', () => {
-    mountEnabled()
-    const pill = handle().parentElement
-    expect(pill.className).toContain('left-[12px]')
-    expect(pill.className).not.toContain('right-')
-    expect(pill.className).toContain('bottom-[72px]')
-    expect(pill.className).not.toContain('bottom-[10px]')
+    stubAnchor()
+    dispatch('pointerdown', IN_ZONE, { pointerType: 'touch' })
+    act(() => { vi.advanceTimersByTime(80) })
+    dispatch('pointerup', IN_ZONE, { pointerType: 'touch' })
+    act(() => {
+      document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      vi.advanceTimersByTime(2000)
+    })
+    expect(sheet()).toBeNull()
   })
 })
 
@@ -609,7 +586,20 @@ describe('?simdebug=1 - the gesture readout', () => {
   })
 })
 
-describe('?sim=1 - the desktop escape hatch', () => {
+/**
+ * `?sim=1` — BREAK-GLASS, AND KEPT AS SUCH.
+ *
+ * It was not removed with the pill on 2026-11-01, and the distinction is the
+ * whole point: the pill was a second ENTRANCE, drawn on screen, over content.
+ * This is a URL. It costs no interface, it is how the simulator gets opened
+ * if the gesture misbehaves on an unfamiliar handset, and it is the only
+ * thing that worked during the period the gesture was dead under a mouse.
+ *
+ * So the last test here is not about `?sim=1` working — it is about `?sim=1`
+ * staying invisible. The moment it grows an affordance it stops being
+ * break-glass and becomes the thing the owner asked us to take away.
+ */
+describe('?sim=1 - break-glass, not a second way in', () => {
   beforeEach(() => { localStorage.setItem('pulse2-persona-id', 'wint-admin') })
   afterEach(() => {
     cleanup()
@@ -651,6 +641,21 @@ describe('?sim=1 - the desktop escape hatch', () => {
     mount()
     fireEvent.click(screen.getByRole('button', { name: 'Close push simulator' }))
     expect(sheet()).toBeNull()
+  })
+
+  /* IT RENDERS NO AFFORDANCE OF ITS OWN. Close the sheet it opened and the
+     screen is exactly the screen a plain load gives you: no pill, nothing at
+     the z-index the removed one used, and the gesture as the way back in. */
+  it('leaves nothing on screen once its sheet is closed', () => {
+    window.history.replaceState({}, '', '/?sim=1')
+    mount()
+    fireEvent.click(screen.getByRole('button', { name: 'Close push simulator' }))
+
+    const floating = [...document.querySelectorAll('[class]')]
+      .filter((el) => (el.getAttribute('class') || '').includes('z-[240]'))
+    expect(floating).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: 'Push sim' })).toBeNull()
+    expect(sessionStorage.getItem('pulse2-sim-handle')).toBeNull()
   })
 })
 

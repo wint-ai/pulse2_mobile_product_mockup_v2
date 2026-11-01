@@ -30,38 +30,55 @@
  * useConcealedLongPress.js, and this app applies none anywhere else either.
  *
  * ──────────────────────────────────────────────────────────────────────────
- * THE TWO DEV AIDS AT THE BOTTOM OF THIS FILE, and why a concealed feature
- * has any visible surface at all.
+ * REMOVED 2026-11-01 — THE VISIBLE "PUSH SIM" HANDLE. Read this before
+ * adding another one.
  *
- * The gesture shipped listening to touch events only and was therefore dead
- * under a mouse, which is how the owner found it broken. The input path is
- * fixed in the hook; these two aids exist so that the NEXT time it does not
- * work, nobody has to guess:
+ * Gone from this file: the pill itself, its `×`, the `?simhandle` param, its
+ * `sessionStorage` key `pulse2-sim-handle`, the generic three-state
+ * `readDevFlag` that existed so that pill could be dismissed against an
+ * always-on default, and the eight tests that pinned all of it.
  *
- *   the handle — a small labelled pill that opens the sheet on a plain tap or
- *                 click. No gesture, no timing, no geometry. OFF by default
- *                 and reached with `?simhandle=1`; it was on by default for
- *                 one day, 2026-10-31 to 2026-11-01, and the whole of that
- *                 story — why it went on and why it came back off — is at
- *                 DEV_FLAGS.handle below. Turned off again with
- *                 `?simhandle=0` or the `×` on the pill.
- *   ?simdebug=1 — outlines the hit zone and shows a live readout of what the
- *                 gesture saw: whether a press arrived at all, its pointer
- *                 type and coordinates, the zone's own rect, whether the
- *                 press was inside it, how long it was held, how far it
- *                 moved, and the exact condition that rejected it. OFF by
- *                 default and unreachable without its flag.
+ * Removed at the owner's explicit instruction — "I don't understand why do I
+ * need two different URLs for that. Why not only using one? When touching
+ * secret area in the app, just opens the push" — which is the Rule 0
+ * exception, and the only thing that licenses deleting working code here.
  *
- * Neither aid replaces anything. The concealed long press keeps working
- * exactly as it does, on every route, with the handle on screen.
+ * WHY IT WAS NEVER A FEATURE. It was scaffolding around a bug, not a design.
+ * The gesture shipped listening to `touchstart`/`touchmove`/`touchend` only,
+ * so it was dead under a mouse and the owner found it broken in seconds. The
+ * pill — and the `?sim=1` link beside it — went up to get a notification
+ * fired at all while that was true. The input path then moved to Pointer
+ * Events, one path over mouse, touch and pen, and the gesture has worked on
+ * both inputs since; which left the pill a second way in to a door that was
+ * no longer stuck. Two entrances for one concealed tool is exactly the "too
+ * much interface" the brief ruled out.
  *
- * Unlike `?sim=1`, both PERSIST for the session in `sessionStorage` — the
- * owner has to be able to reload and keep their choice, and the
- * DesktopFrame/MobileLayout remount race described below would otherwise eat
- * it on a handset exactly as it ate `?sim=1`. `sessionStorage` and not
- * `localStorage`: the decision dies with the tab, so a fresh tab (and anyone
- * the review link is pasted to) starts from the default rather than
- * inheriting a stale one in either direction.
+ * AND IT COST SOMETHING REAL. The pill was `absolute bottom-[72px]
+ * left-[12px] z-[240]` — x 12–113 / y 750–780 on a 393×852 frame — and the
+ * home screen's Water-events rows SCROLL UNDERNEATH IT. A tap on a row's left
+ * third opened this simulator instead of the row's event, and a tap at
+ * x 85–109 hit the `×`, which silently hid the pill and did nothing else:
+ * from the far side of the glass, indistinguishable from the app ignoring
+ * you. So this removes a defect as well as a path.
+ *
+ * IF THE GESTURE IS EVER HARD TO FIND AGAIN, the answer is to fix discovery —
+ * or to use the break-glass below — NOT to float a pill back over the
+ * content. A dev aid that eats taps on real content is worse than one nobody
+ * can find, and that is the trade a visible handle keeps proposing.
+ *
+ * WHAT IS LEFT, and neither of these is a second way in:
+ *
+ *   ?sim=1      — break-glass. It costs no interface and it is the only thing
+ *                 that worked while the gesture was broken. The full note is
+ *                 at readSimParam below: it is a fallback, not an
+ *                 alternative, and it does not grow a UI.
+ *   ?simdebug=1 — the diagnostic for the gesture: outlines the hit zone and
+ *                 reports what the gesture saw — whether a press arrived at
+ *                 all, its pointer type and coordinates, the zone's own rect,
+ *                 whether the press was inside it, how long it was held, how
+ *                 far it moved, and the exact condition that rejected it. OFF
+ *                 by default and unreachable without its flag. Unrelated to
+ *                 the handle, and untouched by its removal.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -78,7 +95,21 @@ import PushSimSheet from '@/v2/components/PushSimSheet'
 const SYSTEM_IN_PATH = /\/(?:system|alert|leak)\/([^/?#]+)/
 
 /**
- * `?sim=1`, read once and survived across ONE remount.
+ * `?sim=1` — BREAK-GLASS, NOT A SECOND WAY IN. Read once, and survived across
+ * ONE remount.
+ *
+ * THIS IS A FALLBACK, NOT AN ALTERNATIVE, AND IT MUST NOT GROW A UI. The
+ * concealed long press is the way into the simulator. This exists for the one
+ * case the gesture cannot cover itself: it misbehaves on an unfamiliar
+ * handset mid-demo and there is no time to find out why. It is also the only
+ * thing that worked through the whole period the gesture was dead under a
+ * mouse, which is the entire argument for keeping it. It costs nothing to
+ * keep because it draws NOTHING — no pill, no affordance, not a pixel on any
+ * screen. The moment anything visible is hung off it, it stops being
+ * break-glass and becomes the second entrance the owner asked us to remove
+ * (the removal note is in the file header). So the answer to "the gesture is
+ * hard to find" is to fix discovery, or to type this URL — never to render
+ * something.
  *
  * Phone.jsx:148-154 renders DesktopFrame on the first paint and swaps to
  * MobileLayout as soon as useIsMobile's effect has run. Those are different
@@ -95,9 +126,6 @@ const SYSTEM_IN_PATH = /\/(?:system|alert|leak)\/([^/?#]+)/
  * review link gets pasted around and a reviewer's session must not inherit an
  * open simulator. The window is bounded so that a layout flip a minute later
  * cannot resurrect a sheet the presenter already closed.
- *
- * (The two dev-aid flags below deliberately take the opposite decision, for
- * the reason given in the file header: they must survive a reload.)
  */
 const SIM_REMOUNT_WINDOW_MS = 1500
 let simArmedUntil = 0
@@ -111,76 +139,48 @@ function readSimParam() {
   return true
 }
 
-/* The dev-aid flags: URL param ➜ sessionStorage key. Named the way the rest
-   of the app names its query flags (`?theme=`, `?sim=1`, `?p=`). */
-const DEV_FLAGS = {
-  /**
-   * FLIPPED ON 2026-10-31 AND FLIPPED BACK ON 2026-11-01. Both halves are
-   * recorded here on purpose: the first reason is still a real reason, and
-   * without the second someone will re-flip this for it.
-   *
-   * 2026-10-31 — `defaultOn` set to `true` at the owner's explicit request,
-   * "make it always visible for now". The handle shipped flag-gated, the
-   * owner loaded the app without `?simhandle=1`, saw nothing, and asked where
-   * it was. Flag-gating is the right design for a concealed tool and it was
-   * costing them the only thing they actually needed that day — a reliable
-   * way to fire a notification mid-demo without depending on a gesture that
-   * had just been broken.
-   *
-   * 2026-11-01 — back to `false`, at the owner's ruling, because always-on
-   * was not free. The pill is `absolute bottom-[72px] left-[12px] z-[240]`,
-   * x 12–113 / y 750–780 on a 393×852 frame, and the home screen's
-   * Water-events rows SCROLL UNDERNEATH IT. A tap on a row's left third
-   * opened this simulator instead of the row's event, and a tap at x 85–109
-   * hit the `×`, which silently hid the handle and did nothing else — which
-   * from the far side of the glass is indistinguishable from "I tapped the
-   * row and the app ignored me". A dev aid that eats taps on real content is
-   * worse than one nobody can find.
-   *
-   * SO DO NOT FLIP THIS BACK WITHOUT MOVING THE PILL FIRST. If the owner
-   * cannot find the handle again, the fix is `?simhandle=1` (it latches for
-   * the tab, so one load is enough) — or a position that overlaps no
-   * scrolling content, which `bottom-[72px] left-[12px]` is not.
-   */
-  handle: { param: 'simhandle', key: 'pulse2-sim-handle', defaultOn: false },
-  debug: { param: 'simdebug', key: 'pulse2-sim-debug', defaultOn: false },
-}
+/* The gesture diagnostic's flag: URL param ➜ sessionStorage key. Named the
+   way the rest of the app names its query flags (`?theme=`, `?sim=1`, `?p=`).
+   Unlike `?sim=1` it PERSISTS for the session — the owner has to be able to
+   reload and keep it on, and the DesktopFrame/MobileLayout remount race
+   described above would otherwise eat it on a handset exactly as it ate
+   `?sim=1`. `sessionStorage` and not `localStorage`: the decision dies with
+   the tab, so a fresh tab — and anyone the review link is pasted to — starts
+   from off rather than inheriting someone else's readout. */
+const DEBUG_FLAG = { param: 'simdebug', key: 'pulse2-sim-debug' }
 
 /**
- * Read one dev-aid flag. THREE states, not two:
+ * Read the diagnostic flag. TWO states, because off is the default and
+ * "dismissed" and "never asked for" are therefore the same answer:
  *
- *   key absent  → `defaultOn` — a fresh tab gets the default, always
- *   key `'0'`   → dismissed in this tab, and it STAYS dismissed across a
- *                 reload, which is the whole point of storing it at all
- *   key `'1'`   → explicitly asked for, e.g. re-enabled after a dismissal
+ *   key present → asked for, and it STAYS on across a reload, which is the
+ *                 whole point of storing it at all
+ *   key absent  → off
  *
- * The third state was added when the handle's default was `on` (2026-10-31)
- * and is KEPT now that it is `off` again, because it is what makes a
- * dismissal stick either way: `?simhandle=1` latches `'1'`, so a store that
- * could only record "on" would have nowhere to put the `×` or `?simhandle=0`
- * and both would last exactly until the next reload.
- * `sessionStorage` and emphatically not `localStorage`: a dismissal must die
- * with the tab, so tomorrow — and anyone the review link is pasted to —
- * starts from the default rather than inheriting a stale decision.
+ * This used to be a generic three-state read (`'1'` / `'0'` / absent) shared
+ * with the visible handle, whose default was briefly ON — and only a flag
+ * that defaults ON needs a stored `'0'`, to tell a dismissal apart from its
+ * own default. With the handle gone (file header) nothing defaults on, so
+ * `?simdebug=0` and the `×` just clear the key. Identical observable
+ * behaviour for `?simdebug`, one state fewer.
  *
  * Called from a state initialiser, so it is written to be safe under a
- * StrictMode double-invoke: writing the same key twice is the same as writing
- * it once, and the answer does not depend on how many times it is asked.
+ * StrictMode double-invoke: writing or clearing the same key twice is the
+ * same as doing it once, and the answer does not depend on how many times it
+ * is asked.
  */
-function readDevFlag({ param, key, defaultOn = false }) {
+function readDebugFlag() {
   try {
-    const value = new URLSearchParams(window.location.search).get(param)
-    if (value === '1' || value === '0') sessionStorage.setItem(key, value)
-    const stored = sessionStorage.getItem(key)
-    if (stored === '1') return true
-    if (stored === '0') return false
-    return defaultOn
-  } catch { return defaultOn }
+    const value = new URLSearchParams(window.location.search).get(DEBUG_FLAG.param)
+    if (value === '1') sessionStorage.setItem(DEBUG_FLAG.key, '1')
+    else if (value === '0') sessionStorage.removeItem(DEBUG_FLAG.key)
+    return sessionStorage.getItem(DEBUG_FLAG.key) === '1'
+  } catch { return false }
 }
 
-/** The `×` on an aid: dismissed for this tab, and it survives a reload. */
-function dismissDevFlag({ key }) {
-  try { sessionStorage.setItem(key, '0') } catch { /* private mode */ }
+/** The `×` on the readout: dismissed for this tab, and it survives a reload. */
+function dismissDebugFlag() {
+  try { sessionStorage.removeItem(DEBUG_FLAG.key) } catch { /* private mode */ }
 }
 
 /** `1,2` and `—` rather than `undefined` — a readout with holes in it is noise. */
@@ -194,8 +194,7 @@ export default function PushSimTrigger() {
      pure, so a StrictMode double-invoke costs nothing, and the effect below
      is left doing only external-system work (rewriting the URL). */
   const [open, setOpen] = useState(readSimParam)
-  const [showHandle, setShowHandle] = useState(() => readDevFlag(DEV_FLAGS.handle))
-  const [debug, setDebug] = useState(() => readDevFlag(DEV_FLAGS.debug))
+  const [debug, setDebug] = useState(readDebugFlag)
   const { persona, visibleSystems = [] } = useUserContext() || {}
   const location = useLocation()
 
@@ -205,20 +204,19 @@ export default function PushSimTrigger() {
     return fromRoute || visibleSystems[0] || null
   }, [location.pathname, visibleSystems])
 
-  /* `?sim=1` — the escape hatch that predates the input fix, kept because it
-     is still the fastest way to get the sheet up on a laptop.
+  /* `?sim=1` — the break-glass described at readSimParam above.
      DELIBERATELY NOT PERSISTED, and stripped on arrival: a review link gets
      pasted around, and a reviewer's session must not inherit an open
-     simulator from someone else's URL. The two dev-aid flags are stripped in
-     the same pass — they have already been latched into sessionStorage by
-     then, so dropping them from the URL loses nothing and keeps a reloaded
-     or shared address clean. The strip mirrors LoginGate's `?p=` handling in
+     simulator from someone else's URL. `?simdebug` is stripped in the same
+     pass — it has already been latched into sessionStorage by then, so
+     dropping it from the URL loses nothing and keeps a reloaded or shared
+     address clean. The strip mirrors LoginGate's `?p=` handling in
      App.jsx:231-244 — history.replaceState, keep the path and every other
      param, drop only ours. */
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search)
-      const ours = ['sim', DEV_FLAGS.handle.param, DEV_FLAGS.debug.param]
+      const ours = ['sim', DEBUG_FLAG.param]
       if (!ours.some((p) => params.has(p))) return
       for (const p of ours) params.delete(p)
       const cleaned =
@@ -282,8 +280,7 @@ export default function PushSimTrigger() {
     fireDemoReset()
   }, [])
 
-  const hideHandle = useCallback(() => { dismissDevFlag(DEV_FLAGS.handle); setShowHandle(false) }, [])
-  const hideDebug = useCallback(() => { dismissDevFlag(DEV_FLAGS.debug); setDebug(false) }, [])
+  const hideDebug = useCallback(() => { dismissDebugFlag(); setDebug(false) }, [])
 
   return (
     <>
@@ -311,49 +308,6 @@ export default function PushSimTrigger() {
       {/* ── DEV AID: the readout. Fixed inside the phone box, never portalled
           (the house rule: ValveConfirmSheet.jsx:17-25). */}
       {debug && <GestureReadout diag={diag} liveHeldMs={liveHeldMs} onHide={hideDebug} />}
-
-      {/* ── DEV AID: the visible handle, opt-in via `?simhandle=1`
-          (DEV_FLAGS.handle). ABOVE THE TAB BAR, AND ON THE LEFT. Two
-          separate constraints:
-          - not bottom-RIGHT, because that is the concealed gesture's own
-            64x64 zone and the handle must never occlude it. The gesture
-            keeps working with this on screen; the handle is an addition,
-            not a replacement.
-          - not flush to the bottom, because at 393px the TabBar's first
-            label sits there and the pill clipped the corner of "Home", so
-            it clears the TabBar entirely.
-          IT DOES STILL SIT OVER SCROLLING CONTENT — the Home screen's
-          Water-events rows pass under x 12–113 / y 750–780, which is what
-          made always-on untenable (DEV_FLAGS.handle). Behind a flag that is
-          a fair trade: whoever typed `?simhandle=1` knows the pill is
-          there. It is not a fair trade for someone who did not ask.
-
-          SOLID PRIMARY, NOT A QUIET OUTLINE. It is deliberately the loudest
-          thing on the screen that is not content, because the owner also
-          could not tell a stale build from a build where they simply had not
-          found the handle. With `?simhandle=1` on the URL the pill is the
-          answer to both questions at once: see it and the flag took AND you
-          are on a build that has it. A subtle affordance would have left
-          them open. */}
-      {showHandle && !open && (
-        <div className="absolute bottom-[72px] left-[12px] z-[240] flex items-center overflow-hidden rounded-full border border-solid border-primary bg-primary shadow-sm">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="px-[12px] py-[6px] font-semibold text-[12px] leading-[16px] text-primary-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          >
-            Push sim
-          </button>
-          <button
-            type="button"
-            aria-label="Hide the push simulator handle"
-            onClick={hideHandle}
-            className="border-l border-solid border-primary-foreground/40 px-[9px] py-[6px] text-[12px] leading-[16px] text-primary-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          >
-            ×
-          </button>
-        </div>
-      )}
 
       <PushSimSheet
         open={open}
