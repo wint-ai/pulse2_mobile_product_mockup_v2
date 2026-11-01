@@ -61,13 +61,38 @@ export function buildActions(n, { investigating, ignored, tagged }) {
         { key: 'ignore',      label: 'Ignore' },
       ];
     case 'Ongoing':
-      // No Dismiss action - swipe-to-dismiss is native on iOS / Android - and
-      // View was the only other one, so this state now draws no row.
-      return [];
+      // RESTORED 2026-11-01 (owner: "why do I don't see any ignore or assign
+      // to me and view? ... I want to make sure all there. Only for the
+      // relevant stuff."). What they saw was an OL_* Ongoing push with an
+      // empty action row: View had been this state's ONLY action, so striking
+      // it left nothing behind. The fix is NOT to bring View back - it is that
+      // the two actions Warning offers were always relevant here as well. An
+      // Ongoing water event is live and unresolved: a person can still take
+      // it, and can still decide it is expected. There is no reason those are
+      // relevant at Warning and irrelevant thirty minutes later.
+      //
+      // Gated exactly as Warning is - the claim action hides once somebody
+      // holds the claim, leaving Ignore alone. Still no Dismiss action:
+      // swipe-to-dismiss is native on iOS / Android.
+      return [
+        ...(investigating ? [] : [{ key: 'investigate', label: 'Assign to me' }]),
+        { key: 'ignore',      label: 'Ignore' },
+      ];
     case 'Shutoff':
       // No Ignore on Critical state, so this is a SINGLE-action row. It renders
       // correctly as one: the buttons are flex-[1_1_0] with a min width, so one
       // action fills the row rather than leaving a gap where View used to be.
+      //
+      // ONCE CLAIMED, THE SET IS EMPTY - and stays that way, reviewed in the
+      // same 2026-11-01 pass that gave Ongoing its two actions back. Ongoing
+      // was empty because View had been struck out from under it; Shutoff +
+      // investigating is empty because both of its actions are genuinely
+      // spent. Ignore is withheld from Critical on purpose (the auto-shutoff
+      // has already fired - "this is expected" is not a thing left to say),
+      // and the claim is spent because this person already holds it. Filling
+      // the row would mean minting a label, and the vocabulary is the owner's
+      // to extend. An empty row is the honest answer; the body tap still opens
+      // the event, and the "On it - X" pill still says who has it.
       return [
         ...(investigating ? [] : [{ key: 'investigate', label: 'Assign to me' }]),
       ];

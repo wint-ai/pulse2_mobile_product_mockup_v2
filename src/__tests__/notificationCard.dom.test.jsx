@@ -138,9 +138,14 @@ describe('action labels are user-readable (never internal keys)', () => {
     expect(a.map(x => x.label)).not.toContain('View');
   });
 
-  it('Ongoing has no labels, because it has no actions', () => {
+  it('Ongoing labels are exactly Assign to me, Ignore', () => {
+    // Was "Ongoing has no labels, because it has no actions" - true only
+    // between the View removal and 2026-11-01, when the owner reported the
+    // empty row on an OL_* push and the state got Warning's two actions.
     const a = buildActions({ type: 'leak', state: 'Ongoing', systemId: SYS }, {});
-    expect(a.map(x => x.label)).toEqual([]);
+    expect(a.map(x => x.label)).toEqual(['Assign to me', 'Ignore']);
+    a.forEach(x => expect(x.label).not.toBe(x.key));
+    expect(a.map(x => x.label)).not.toContain('View');
   });
 
   it('End of Leak label is exactly Tag the cause (or ✓ Tagged)', () => {
