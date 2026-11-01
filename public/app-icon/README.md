@@ -1,92 +1,92 @@
 # Pulse 2 app icon
 
-Source: Figma *Pulse 2.0 Shadcn*, node `199768:86534` ("Group 1", 69x69) — the
-variant that carries the **"wint" wordmark over the wave**. Regenerated
-2026-10-31.
+Source: Figma *Pulse 2.0 Shadcn*, file `YEmjkKS4xaA827Zm8w3oXx`, node
+**`199761:86507`** ("Frame 2138883529", 69x69) — the node the owner's link
+points at. Re-fetched live and rebuilt 2026-10-31.
 
 ### Which node, and why this one
 
-There are two 69x69 marks side by side on that canvas:
+The owner's URL is
+`figma.com/design/YEmjkKS4xaA827Zm8w3oXx/Pulse-2.0-Shadcn?node-id=199761-86507`.
+That node contains **the wave only — there is no "wint" wordmark in it.** A
+fresh `get_design_context` on 2026-10-31 (after the previous rebuild) returns
+exactly the same two layers it did on 2026-10-29: the design did not change,
+the earlier read was correct.
+
+A previous pass substituted the sibling node `199768:86534` ("Group 1"), which
+*does* carry the wordmark, because the wordmark was assumed to be wanted. That
+substitution was rejected. **This build takes `199761:86507` literally.** If the
+wordmark is wanted, that is a request for a different node, and it should be
+said so explicitly — do not composite one in.
 
 | node | contents |
 | --- | --- |
-| `199761:86507` "Frame 2138883529" | wave only, **no wordmark** |
-| `199768:86534` "Group 1" | the same wave, shifted down 24u, **plus the wordmark** |
+| `199761:86507` "Frame 2138883529" | wave only, **no wordmark** — *this is the source* |
+| `199768:86534` "Group 1" | the same wave shifted down 24u, **plus the wordmark** |
 
-The icon was built from `199761:86507` on 2026-10-29 and the owner then asked
-why the wordmark was missing. `199761:86507` was re-read live on 2026-10-31 and
-still has no wordmark — it is not that the design changed. The owner's
-description ("the wint waves … with the blue wint") names `199768:86534`, so
-that is now the source of truth. Note the wave is **not** in the same place in
-the two nodes: `86507` puts the image box at y=-21, `86534` at y=3, i.e. the
-wave drops 24u to make room for the wordmark. Compositing the wordmark onto the
-old art would have been wrong.
+### Composition (69x69 frame) — straight from the node
 
-### Composition (69x69 frame)
+- ground `#ddf1ff`, corner radius `18` (26.1%), `overflow: clip`
+- one child, `199761:86508` "Screenshot 2026-08-19 at 23.50.31 1": a 1596x1030
+  **image fill**, box 183x118 at x=-57, y=-21 (i.e. horizontally centred,
+  vertically centre +3.5), `object-fit: cover`, `mix-blend-mode: multiply`
 
-- ground `#ddf1ff`, corner radius `18` (26.1%)
-- wave: a 1596x1030 **image fill** placed at x=-57, y=3, 183x118,
-  `object-fit: cover`, `mix-blend-mode: multiply`, `isolation: isolate`
-- wordmark: **vector**, at x=9, y=23, 52x29.25 (viewBox 51.8808x29.3038,
-  `preserveAspectRatio="none"`). Letters `#0D2363`; the droplet over the "t" is
-  white. This is *not* `public/wint-logo.svg`, which is a different colourway
-  (`#20294C` letters, `#0B95F8` droplet) — take the icon's colours from the node.
+The image box covers the whole frame, so `#ddf1ff` is only ever seen *through*
+the multiply — it tints the pale top-left of the wave and nothing else. There
+is no vector geometry and no text in this node.
 
-Scale linearly to the target size. Rendering this recipe at 69px matches
-Figma's own render of the node with a mean delta of **1.18/255**.
+Scale linearly to the target size: at size N, s = N/69.
+
+### A note on colour
+
+The assets are built from the node's own data: the `#ddf1ff` hex and the image
+fill's stored pixels, multiplied in sRGB. Figma's **screenshot export of the
+same node reads more saturated** (frame centre: export `25,129,255` vs node
+data `57,127,247`) — green matches to within 1/255 and blue clips at 255, which
+is the signature of a Display-P3 → sRGB conversion applied on export. The
+shipped assets therefore match the file's data and the rest of the app's sRGB
+palette, not Figma's P3 export. Baking the export's values instead is a
+deliberate colour-management choice and would need the owner to ask for it.
 
 ### Files
 
-- `pulse2-app-icon.svg` — master, square full-bleed. Use this for everything.
-- `pulse2-app-icon-1024-square.png` — 1024x1024, no rounding, opaque.
-  **iOS App Store / AppIcon source.**
-- `pulse2-app-icon-rounded.svg` / `pulse2-app-icon-1024.png` — pre-rounded
-  (r = 18/69 = 26.1%) for web, docs, marketing.
-- `pulse2-app-icon-512.png`, `pulse2-app-icon-192.png` — square, opaque;
-  `purpose: "any"` in `public/manifest.json`.
-- `pulse2-app-icon-512-maskable.png`, `pulse2-app-icon-192-maskable.png` —
-  square, opaque; `purpose: "maskable"`. See below.
-- `../apple-touch-icon.png` — 180x180, square, opaque; iOS "Add to Home Screen".
+- `pulse2-app-icon.svg` — master, square full-bleed.
+- `pulse2-app-icon-rounded.svg` — pre-rounded (r = 18/69 = 26.1%), via a vector
+  clip path so the corners stay crisp at any size.
 - `../favicon.svg` — byte-copy of `pulse2-app-icon-rounded.svg`; referenced by
-  `index.html` and the manifest.
+  `index.html` and `manifest.json`.
+- `pulse2-app-icon-1024-square.png` — 1024x1024, no rounding, **RGB, no alpha**.
+  iOS App Store / AppIcon source.
+- `pulse2-app-icon-1024.png` — pre-rounded, RGBA, for web/docs/marketing.
+- `pulse2-app-icon-512.png`, `pulse2-app-icon-192.png` — square, RGB, no alpha.
+- `../apple-touch-icon.png` — 180x180, square, RGB, no alpha.
 
-### "any" and "maskable" are now two different pictures — keep them that way
+### "any" and "maskable" are now one asset again
 
-A `maskable` icon is cropped by the platform; the only area guaranteed to
-survive is the centred circle of 80% diameter. The wordmark as designed spans
-x 9→61 of 69, so its corners sit at radius 27.97u against the 27.6u allowed —
-the ends of the "w" and the bar of the "t" get shaved. That is exactly why the
-wordmark was dropped in the previous pass.
+The mark is full-bleed abstract art with no text and no element that has to
+survive at a particular place. Every crop a platform can apply — the 80% safe
+circle, a full-diameter circle, the squircle — leaves a correct-looking icon,
+verified by rendering each crop. So the separate `-maskable` PNGs that the
+previous (wordmark-bearing) build needed **no longer serve a purpose and have
+been deleted**; `192` and `512` are declared `"any maskable"` in
+`public/manifest.json`. `1024-square` stays `"any"` only, as the iOS source.
 
-The fix is two assets, not one compromise:
-
-- **`any`** (192/512/1024-square, apple-touch, favicon) — the full mark at the
-  design's own geometry, wordmark 52u wide. Shown uncropped.
-- **`maskable`** (192/512) — wave still full-bleed (it is abstract and survives
-  any crop), wordmark scaled to **46.2u** and re-centred on the frame centre so
-  its corner radius is 26.51u, inside the 27.6u safe circle with ~4% margin.
-  Checked by rendering the circle and squircle crops at 192 and 512.
-
-`1024-square` is **no longer** declared `any maskable`. It is the iOS source and
-must stay un-padded; one asset cannot do both jobs now that there is text in the
-mark.
+If the wordmark ever comes back into the icon, the split has to come back with
+it: a wordmark 75% of the frame wide is clipped by the maskable safe circle.
 
 ### Small sizes
 
-The wordmark holds up at 512, 192 and 180. At a 32px browser tab it reads as a
-dark smudge rather than letters, and at 16px it is mud — unavoidable for a
-four-letter wordmark 75% of the icon wide. `favicon.svg` carries the full mark
-anyway, because the home-screen and manifest icons are what the owner is
-looking at. If the tab favicon matters more, the alternative is a wave-only
-`favicon-32.png` declared alongside it — that is a product call, not a
-technical one.
+With the wordmark gone the mark is legible all the way down: at 32px and 16px
+it reads as a blue rounded tile with a light-to-dark wave break. Nothing is lost
+at favicon size, which was not true of the wordmark build.
 
 ### Regenerating
 
-The wave is an image fill, so there is no vector for it and the SVGs embed a
-composited raster (256px ground+wave, smooth-scaled) with the wordmark laid
-over it as real paths. That keeps the wordmark crisp at any size while the
-gradient costs ~32 KB.
+The wave is an image fill, so there is no vector for it: the SVGs embed a
+composited 256px raster (ground + wave already multiplied) as a data URI,
+upscaled by the renderer; the rounding is a vector clip path on top. ~35 KB.
+The 1596x1030 source raster is downloaded from the node's asset URL (those URLs
+expire after 7 days — re-fetch the node rather than reusing an old link).
 
 `index.html` references `/favicon.svg`, `/apple-touch-icon.png` and
 `/manifest.json` at absolute root paths. That is **correct** — Vite rewrites
