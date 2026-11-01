@@ -139,6 +139,33 @@ const CHIP_RUN = String.raw`leading-3`
 
 const TOGGLE_LABEL = String.raw`[word-break:break-word] font-medium relative shrink-0 text-muted-foreground text-xs whitespace-nowrap leading-4`
 
+/* THE STATUS DOT OPENS THE DISCLOSURE IT SUMMARISES. Owner, 2026-11-01: "when
+   the edge device icon gets red or green ... he wants to understand why it's
+   red or why it's green ... once user click on this icon, it needs to open the
+   show more."
+
+   The control is a real <button> laid over the badge + halo, NOT an onClick on
+   the dot: the dot keeps its own `role="img"` name ("Alerting"), which is the
+   only thing that tells a screen reader this system is in trouble once the
+   carousel is gated (SystemPageV2Screen.jsx and v2ControlsWired expect it), so
+   the button is a SIBLING of the dot rather than its parent.
+
+   29px is the halo's own box, so nothing in the frame moves. The `after:`
+   pseudo takes the TAP area to 44px (29 + 7.5 either side) — the house
+   minimum — and that square stops 9px short of the device chip below it and
+   nowhere near the footer toggle, so it covers no other control. Same trick
+   BODY_TOGGLE already uses for its own hit box.
+
+   `z-[1]` IS LOAD-BEARING, and it is the bug this app just had in another
+   place: without it the 29px box hit-tests fine but the pseudo ring does
+   not. Positioned siblings paint in DOM order, so the pipe elbow BELOW the
+   badge and the "Supply" label to its RIGHT both land on top of the ring,
+   and elementFromPoint on those 7.5px returned the <svg> and the <p>, not
+   this button: a 44px target that was really 29px on two sides, with taps
+   in the margin silently doing nothing. Measured in the browser, all four
+   themes. Both things it now covers are decorative. */
+const STATUS_HIT = String.raw`absolute left-[-2px] top-[-3px] z-[1] size-[29px] rounded-full cursor-pointer bg-transparent border-0 p-0 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 after:absolute after:content-[''] after:inset-[-7.5px] after:rounded-full`
+
 /* The rule in the node is an exported 1px #e2e8f0 bitmap sitting in a zero-height
    box, so the line costs no vertical space and the stack's gap alone spaces it. */
 const RULE_FILL = String.raw`absolute inset-[-1px_0_0_0] bg-slate-200`
@@ -337,6 +364,11 @@ export default function SystemTypeCard({
   /* Both CLOSED frames say "Show more"; the open one says "Show less", in its
      own heading. `toggleLabel` still overrides the closed label. */
   const label = toggleLabel ?? 'Show more'
+  /* The dot's control performs EXACTLY the footer toggle's action, so it takes
+     the footer's copy rather than authoring a name of its own — this project's
+     strings come from the design, and "Show more"/"Show less" are the frame's.
+     `toggleLabel` therefore overrides this one too. */
+  const statusToggleLabel = isExpanded ? 'Show less' : label
 
   /* 199427:138748's five rows, against the system's real state.
      Power / Connectivity / Valve come straight off the dataset. METER DOES
@@ -387,6 +419,7 @@ export default function SystemTypeCard({
                 className={cn(BADGE, GLYPH_COLOR)}
                 data-name="Badge"
                 data-node-id={alert ? '199383:141532' : '199359:126810'}
+                aria-hidden="true"
               >
                 <div className="content-stretch flex flex-col items-start relative shrink-0" data-name="leftIcon">
                   <div
@@ -415,6 +448,17 @@ export default function SystemTypeCard({
               >
                 <div className="block size-full rounded-full" style={{ backgroundColor: dotColor }} />
               </div>
+              {/* Last in the group on purpose: later-painted positioned sibling,
+                  so elementFromPoint over the dot returns THIS, not the dot. */}
+              <button
+                type="button"
+                onClick={handleToggle}
+                aria-expanded={isExpanded}
+                aria-controls={bodyId}
+                aria-label={statusToggleLabel}
+                className={STATUS_HIT}
+                data-name="status-disclosure"
+              />
             </div>
             <div
               className="flex flex-row items-center self-stretch"
