@@ -4,7 +4,13 @@
    index.html, not here, along with Material Symbols (also v1-only). Loading
    either one from both places fetched the same stylesheet twice. */
 @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&display=swap');
+/* 600 was added 2026-11-01. The refetched hero (SystemsOverviewHero) spells
+   its chip numerals and the "Active" pill `lg/heading/leading-none/semibold`
+   -- Geist SemiBold -- and ControlPanel has been asking for `font-mono-label
+   font-semibold` for longer than that. With 600 absent from this list the CSS
+   font-matching algorithm looks UPWARDS first for a requested weight above
+   500, so every one of those slots was silently being painted Geist Bold. */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap');
 
 @import "tailwindcss";
 

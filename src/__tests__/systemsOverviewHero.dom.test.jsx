@@ -17,7 +17,7 @@ import SystemsOverviewHero from '@/v2/components/SystemsOverviewHero'
 
 afterEach(cleanup)
 
-const headline = (c) => c.querySelector('[data-node-id="199414:130118"]')
+const headline = (c) => c.querySelector('[data-node-id="199466:17471"]')
 const explainer = (c) => c.querySelector('[data-name="System type explainer"]')
 const chip = (c, re) =>
   [...c.querySelectorAll('button')].find((b) => re.test(b.getAttribute('aria-label')))
@@ -97,7 +97,58 @@ describe('SystemsOverviewHero — Figma class fidelity', () => {
     const chip = container.querySelector('[role="img"]')
     expect(chip.className).toContain('bg-[rgba(241,245,249,0.28)]')
     expect(chip.className).toContain('h-[32px]')
-    expect(chip.className).toContain('rounded-[18px]')
+    /* 2026-11-01 refetch: 18px -> 12px, and the node gives the chip a
+       hairline it did not have. The stroke is spelled `white` in Figma and
+       deliberately NOT written as `white` here -- a literal would freeze
+       across all four themes, so it is the same --ink-on-color the veil
+       already computes from. Asserting the token is asserting that. */
+    expect(chip.className).toContain('rounded-[12px]')
+    expect(chip.className).toContain('border-ink-on-color')
+    expect(chip.className, 'a literal white would freeze under contrast')
+      .not.toMatch(/border-white\b/)
+  })
+
+  it('isolates the wave group, so the new tint cannot reach the page ground', () => {
+    /* THE REFETCH PUT A TINT INSIDE THE WAVE: a flat #a0ccff at
+       mix-blend-multiply over the raster. That is safe only while the group
+       is isolated. The wrapper's own `mix-blend-multiply` isolates it for
+       free -- but the variant beside it turns the wrapper to
+       `mix-blend-normal` on every theme but light, and `normal` creates NO
+       stacking context. Without `isolate` the tint's multiply would then
+       escape and multiply against the dark app ground, which is exactly the
+       1.10:1 collapse the test below exists to prevent, re-entering through
+       the tint instead of through the wrapper. So `isolate` is part of that
+       fix, not decoration, and it is pinned here with it. */
+    const { container } = render(<SystemsOverviewHero total={244} />)
+    const layer = container.querySelector('[data-node-id="199466:17470"]')
+    expect(layer.className).toContain('isolate')
+
+    const tint = layer.querySelector('.mix-blend-multiply')
+    expect(tint, 'the tint layer').toBeTruthy()
+    expect(tint.className).toContain('bg-[#a0ccff]')
+  })
+
+  it('draws the "Active" pill the frame carries, as a label and not a control', () => {
+    /* NEW IN THE 2026-11-01 REFETCH (199531:80083). Transcribed, not
+       invented: the word is the frame's. It is NOT a button, because the
+       frame draws no menu, no open state and no second option -- a chevron
+       is not a menu, and a control that opens nothing reads as broken. If
+       the owner wants it to filter, that is a ruling and a prop, not a
+       guess. The chips must stay the only three buttons here. */
+    const { container } = render(
+      <SystemsOverviewHero total={244} systemTypes={{ topology: 156 }} onSelectType={() => {}} />,
+    )
+    const pill = container.querySelector('[data-node-id="199531:80083"]')
+    expect(pill, 'the Active pill').toBeTruthy()
+    expect(pill.textContent).toBe('Active')
+    expect(pill.tagName).not.toBe('BUTTON')
+    expect(pill.querySelector('button')).toBeNull()
+    expect(container.querySelectorAll('button')).toHaveLength(3)
+
+    // Same veiled chassis as a chip, right-anchored at the node's 2.38% inset.
+    expect(pill.className).toContain('bg-[rgba(241,245,249,0.28)]')
+    expect(pill.className).toContain('rounded-[12px]')
+    expect(pill.className).toContain('right-[9px]')
   })
 
   it('paints the wave UP on a dark ground instead of multiplying it away', () => {
@@ -112,22 +163,36 @@ describe('SystemsOverviewHero — Figma class fidelity', () => {
     // off. A document with no data-theme at all gets the light path, which is
     // what jsdom/happy-dom and SSR see.
     const { container } = render(<SystemsOverviewHero total={244} />)
-    const layer = container.querySelector('[data-node-id="199414:130117"]')
+    const layer = container.querySelector('[data-node-id="199466:17470"]')
     expect(layer, 'the wave layer').toBeTruthy()
     expect(layer.className).toContain('mix-blend-multiply')
     expect(layer.className).toContain('[[data-theme]:not([data-theme=light])_&]:mix-blend-normal')
   })
 
-  it('gives the chip numeral an on-colour ink off the light theme', () => {
+  it('gives the chip numeral an on-colour ink on every theme, not just off light', () => {
     // `text-background` resolved to #F4F6F9 in `light` by coincidence and to
     // the near-black app ground under `dark`, where the numeral disappeared
     // into its own chip (2.3:1). --ink-on-color is the token for ink on a
-    // coloured ground; `light` keeps --background only so this stays a
-    // zero-pixel change there.
+    // coloured ground. This used to be a light-keeps-`--background` variant
+    // pair, so that the fix was provably zero-pixel in light; the 2026-11-01
+    // refetch settles it, because the node now spells the numeral
+    // `var(--colors/white, white)` and --ink-on-color (#fafbfc) is nearer to
+    // white than --background (#F4F6F9) ever was. One token, four themes.
+    // What this still guards is the thing that mattered: --background must
+    // not paint ink that sits on the wave.
     const { container } = render(<SystemsOverviewHero total={244} systemTypes={{ topology: 103 }} />)
     const numeral = [...container.querySelectorAll('span')].find((n) => n.children.length === 0 && n.textContent === '103')
     expect(numeral, 'the chip numeral').toBeTruthy()
-    expect(numeral.className).toContain('[[data-theme]:not([data-theme=light])_&]:text-ink-on-color')
+    expect(numeral.className).toContain('text-ink-on-color')
+    expect(numeral.className, 'the app ground is not an ink for a coloured surface')
+      .not.toMatch(/(^|\s)text-background(\s|$)/)
+
+    // lg/heading/leading-none/semibold -- 18/18/-0.45, Geist via
+    // --font-mono-label. Size before leading, the repo's tailwind-merge trap.
+    expect(numeral.className).toContain('font-mono-label')
+    expect(numeral.className).toContain('text-[18px]')
+    expect(numeral.className).toContain('leading-[18px]')
+    expect(numeral.className).toContain('tracking-[-0.45px]')
   })
 
   it('spells leading- AFTER the size, so tailwind-merge keeps it', () => {
@@ -147,7 +212,7 @@ describe('SystemsOverviewHero — Figma class fidelity', () => {
 
   it('hides the wave from assistive tech — it is weather, not information', () => {
     const { container } = render(<SystemsOverviewHero total={244} />)
-    expect(container.querySelector('[data-node-id="199414:130117"]').getAttribute('aria-hidden'))
+    expect(container.querySelector('[data-node-id="199466:17470"]').getAttribute('aria-hidden'))
       .toBe('true')
   })
 })

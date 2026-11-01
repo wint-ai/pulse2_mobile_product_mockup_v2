@@ -195,11 +195,26 @@ describe('the wave', () => {
   })
 
   it('still runs past the copy, so the cards below overlap it', () => {
-    /* 291px of wave under 158px of copy is what puts it behind the first
-       cards exactly as the frame draws it. Clipping it to the content height
-       would flatten the page. */
+    /* Wave under copy is what puts it behind the first cards exactly as the
+       frame draws it. Clipping it to the content height would flatten the
+       page, so what is guarded here is that the wave is TALLER than the copy
+       block it sits behind.
+
+       THE NUMBER IS NO LONGER WRITTEN AS A NUMBER (2026-11-01). It was
+       `h-[291px]`, which is the frame's height and only the frame's: the
+       raster box in 199703:31476 is spelled `aspect-[369/291]` on a 369-wide
+       card, so 291 is what 369 PRODUCES. 369/291 is also exactly the source
+       raster's own 738x582, i.e. Figma is fitting the art rather than
+       cropping it. Pinned at 291 on this page's 361px card, object-cover was
+       quietly taking 4px off each side and the blue ran 6.3px lower than a
+       faithful scale. So the aspect is the thing to pin, and a height in px
+       is the thing to keep out -- it is what would stop the art scaling with
+       the card on the next width this ships at. */
     const { container } = mount()
-    expect(waveBox(container).getAttribute('class')).toContain('h-[291px]')
+    const c = waveBox(container).getAttribute('class')
+    expect(c).toContain('aspect-[369/291]')
+    expect(c, 'a px height would stop the art scaling with the card')
+      .not.toMatch(/\bh-\[\d/)
   })
 
   it('is hidden from assistive tech — it is weather, not information', () => {

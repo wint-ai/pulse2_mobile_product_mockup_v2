@@ -10,6 +10,56 @@
  * copy block, the wave and most of sysB's header are new nodes). Where a line
  * below cites an id, it is the fresh one.
  *
+ * ── "IT LOOKS VERY HIGH" — MEASURED 2026-11-01 ────────────────────────
+ * Owner, on the phone: "it looks very high … it takes too much space. I want
+ * to make sure it [is] exactly as in Figma, and maybe we just need to find a
+ * better solution for that."
+ *
+ * IT IS ALREADY EXACTLY AS IN FIGMA. Refetched 199703:31475 live and measured
+ * both sides rather than eyeballing them. The frame is 402 wide with a root
+ * of px-[16px] py-[8px] and — the number that decides this — `gap-[182px]`
+ * between its only two flow children, "Header mobile" and "Content". The hero
+ * (199703:31476) is NOT one of them: it is an absolute 369x291 box at
+ * top-[129px], parked in the hole that gap leaves.
+ *
+ *                              frame (402)      ours (393, measured)
+ *     tab row bottom              113              109
+ *     gap, tabs -> hero            16               16
+ *     hero copy height            158              158
+ *     hero bottom                 287              283
+ *     gap, hero -> first card      18               16
+ *     first card top              305              299
+ *     wave bottom                 420              416
+ *
+ * So the hero's own height is 158px on both sides, to the pixel, and the four
+ * remaining pixels of lead are the TAB ROW being 32 tall here against the
+ * frame's 36 — i.e. we are SHORTER above the hero, not taller. The 2px at the
+ * bottom is the deliberate choice recorded in SystemPageV2Screen: one scroller
+ * gap cannot spell both of the frame's 16 and 18.
+ *
+ * WHAT IS ACTUALLY TALL IS THE BLUE, NOT THE BOX. This element costs 158px of
+ * layout; the wave behind it is 291 and runs to y=416 — 49% of an 852pt
+ * viewport — before the first card covers it. The frame does exactly the same
+ * thing, but the frame is a 402x1897 artboard: the designer never saw it
+ * against 852pt of screen, where header + tabs + hero already spend 283px
+ * (33%) before any content. So this reads as a tall hero while measuring as a
+ * short one, and that is a DESIGN question, not a transcription bug.
+ *
+ * TWO THINGS THE OWNER MAY WANT TO RULE ON, neither applied here:
+ *   1. The wave's 291px overhang. In the frame the first card beneath it is
+ *      one opaque full-width card ("System type"), so the blue simply stops.
+ *      On a system with a live event this page puts a HORIZONTALLY SCROLLING
+ *      event carousel there instead, and the wave shows through the gap
+ *      between its cards as a blue sliver running to y=416. The designer
+ *      never drew that state. Clipping the wave to the hero's height plus the
+ *      first card's radius would end it; so would an opaque backdrop on the
+ *      carousel row.
+ *   2. The 158px itself is 17px of padding over a 141px column: a two-line
+ *      caption at 24/24, a 13px gap, and a fixed h-[80px] figure slot holding
+ *      a 42.222/58.056 numeral. The slot is tight, not padded, so there is
+ *      nothing to reclaim without changing the type scale — which is the
+ *      design's, not ours.
+ *
  * STRUCTURAL CHANGE, and the reason this file shrank.
  * This component used to own the Mobile Header Bar and draw it ON the wave, so
  * the page read:
@@ -257,7 +307,23 @@ export default function SystemHeroCard({
         aria-hidden="true"
         className={cn(
           'absolute mix-blend-multiply [[data-theme]:not([data-theme=light])_&]:mix-blend-normal pointer-events-none rounded-[20px] top-0',
-          'inset-x-0 h-[291px]',
+          /* THE ART SCALES WITH THE CARD, 2026-11-01. This was a flat
+             `h-[291px]`, which is the frame's number and only the frame's
+             number: 199703:31476 is 369 wide and its raster box is spelled
+             `aspect-[369/291]`, i.e. 291 is what 369 PRODUCES, not an
+             independent value. 369/291 is also exactly the source raster's
+             own 738x582, so Figma is fitting the art, not cropping it.
+             Pinned at 291 on this page's 361px card the box went 1.241:1
+             against the art's 1.268:1, so object-cover quietly cropped 4px
+             off each side and the blue ran 6.3px lower than a faithful
+             scale. The aspect reproduces both: the art fits exactly and the
+             wave scales with the card on any width.
+
+             This is 6px of ARTWORK and 0px of LAYOUT -- the wave is absolute
+             and aria-hidden, so it has never contributed to this element's
+             height. It is not an answer to "the hero is too tall"; see the
+             height note at the top of this file. */
+          'inset-x-0 aspect-[369/291]',
         )}
         data-node-id={alert ? '199703:31476' : '199703:32478'}
       >

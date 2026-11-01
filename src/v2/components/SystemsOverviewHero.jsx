@@ -2,6 +2,27 @@
  * SystemsOverviewHero — the blue wave at the top of the Location screen, with
  * the fleet count on it and the system-type chips under that.
  *
+ * ── REFETCHED 2026-11-01 ─────────────────────────────────────────────
+ * Owner: "I feel like we are not working with the latest version of the hero."
+ * He was right, and the reason is structural: the design has been
+ * COMPONENTISED since the October read. The hero is now "Main header"
+ * (199531:81213) inside an "Account Main header" component (199531:81214)
+ * that also carries the health card, and the owner's link 199532:87418 is an
+ * INSTANCE of that component. Read through the instance, so the variables
+ * resolve in its own mode rather than the file default. Fresh ids:
+ *   199531:81213  Main header (this component)
+ *   199466:17470  the wave group        199466:17471  the headline
+ *   199531:80031  the chip row          199531:80032/:80035/:80038  the chips
+ *   199531:80083  the "Active" pill — NEW, see its own block below
+ * Five things moved: the wave crop, a blue tint layer that did not exist
+ * before, the chip radius and border, the chip numeral's type, and the
+ * headline/chip positions. NOTHING was removed from the frame, so nothing is
+ * removed here — Rule 0 never had to fire.
+ *
+ * The October read below is kept because its REASONING still holds (the
+ * overlap, the single asset, the token pass). Only the ids and the numbers it
+ * quotes are superseded by the list above.
+ *
  * Figma, fetched 2026-10-20 from the four "Accont / location" variants the
  * owner sent as the latest:
  *   199417:131529  all clear
@@ -46,6 +67,13 @@
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { useEffect, useId, useRef, useState } from 'react'
+/* The node's glyph is "Tabler Icons / chevron-down", exported on an 18.2095
+   viewBox as M4.55238 6.82857 / 9.10476 11.381 / 13.6571 6.82857 at stroke
+   1.51367. Normalised to a 24 grid that is exactly `m6 9 6 6 6-6` at stroke
+   2 — lucide's ChevronDown, path for path. So this is the real glyph and not
+   one of the lookalikes src/v2/icons/index.js warns about; no new asset is
+   owed, and that index already says to take Lucide's from lucide-react. */
+import { ChevronDown } from 'lucide-react'
 
 import { BrandDrops, FloodLine, PhotoSensor3 } from '@/v2/icons'
 import { SYSTEM_TYPE, SYSTEM_TYPE_BLURB } from '@/data/systemType'
@@ -53,7 +81,7 @@ import { cn } from '@/lib/utils'
 import wave from '@/assets/system-hero-wave.png'
 
 
-/* 199414:130120 / :130123 / :130126 — all three identical but for width, which
+/* 199531:80032 / :80035 / :80038 — all three identical but for width, which
    the node sizes to its own numeral. Here they size to content, so a four-digit
    count does not clip. */
 /* The plate is a translucent veil of the hero's own ink, not a surface in
@@ -61,20 +89,43 @@ import wave from '@/assets/system-hero-wave.png'
    veil lifts. `light` keeps the literal byte for byte (pixel parity);
    every other theme computes the same 28% veil from --ink-on-color, so
    the value is no longer frozen. Under `contrast` --ink-on-color is dark,
-   so the veil goes dark there too and the pair stays coherent. */
-const CHIP = String.raw`content-stretch flex gap-[8px] h-[32px] items-center justify-between px-[9px] relative rounded-[18px] bg-[rgba(241,245,249,0.28)] [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)]`
-/* `text-background` IS THE WRONG TOKEN AND ALWAYS WAS. This numeral is ink
-   sitting on a coloured ground, which is precisely the case src/index.css
-   keeps --ink-on-color for; --background happens to be #F4F6F9 in `light`
-   and so resolved to the right pixels by coincidence. On `dark` it
-   resolves to the near-black app ground and the numerals vanish into the
-   veil behind them -- 2.3:1, measured.
-   `light` keeps --background so this change is provably zero-pixel there;
-   the two differ by (6,5,3) in sRGB, which is why the bug was invisible
-   until a theme moved one of them. Reconciling `light` onto
-   --ink-on-color is a one-line follow-up for a change that is allowed to
-   move light pixels. */
-const CHIP_NUM = String.raw`[word-break:break-word] font-['Geist:Medium','Geist','Inter',sans-serif] font-medium leading-[22.762px] relative shrink-0 text-[15.933px] text-background [[data-theme]:not([data-theme=light])_&]:text-ink-on-color whitespace-nowrap`
+   so the veil goes dark there too and the pair stays coherent.
+
+   THE REFETCH ADDS A HAIRLINE and tightens the radius (18px -> 12px). The
+   node spells the stroke `var(--colors/white, white)`, but a literal `white`
+   would freeze across all four themes the way `text-background` once did
+   below — under `contrast` the ink inverts to a dark blue and a white hairline
+   would be the one thing left on the hero still shouting the light theme. So
+   the border is the SAME token the veil already computes from. In `light`
+   --ink-on-color is #fafbfc, i.e. the node's white to within (5,4,3) in sRGB
+   and invisible at 1px; everywhere else it moves with the ink it belongs to.
+   box-sizing is border-box repo-wide, so the hairline sits inside the 32px
+   and the chip does not grow. */
+const CHIP = String.raw`content-stretch flex gap-[8px] h-[32px] items-center justify-between px-[9px] relative rounded-[12px] border border-solid border-ink-on-color bg-[rgba(241,245,249,0.28)] [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)]`
+/* The chip numeral — and, since the refetch, the word in the "Active" pill,
+   which the node gives the identical type atom.
+
+   THE TYPE MOVED. 15.933px/22.762 Medium became the design system's
+   `lg/heading/leading-none/semibold`: 18px, 18px leading, -0.45px tracking,
+   font/family/heading. That family is Geist, which this repo owns as
+   --font-mono-label (src/index.css); the old literal
+   `'Geist:Medium','Geist',...` led with an unmatchable Figma STYLE name and
+   resolved to plain 'Geist' anyway, so the utility is the same pixels and one
+   fewer private spelling. Size is written BEFORE leading on purpose — the
+   repo's standing tailwind-merge trap.
+
+   THE INK. `text-background` WAS THE WRONG TOKEN AND ALWAYS WAS: this is ink
+   on a coloured ground, which is precisely what --ink-on-color exists for.
+   --background merely happened to be #F4F6F9 in `light` and so resolved to
+   the right pixels by coincidence, while on `dark` it resolved to the
+   near-black app ground and the numerals vanished into the veil behind them
+   (2.3:1, measured). The old note here called reconciling `light` onto
+   --ink-on-color "a one-line follow-up for a change that is allowed to move
+   light pixels" — this is that change, and the node settles it: the numeral
+   is now spelled `var(--colors/white, white)`, which --ink-on-color (#fafbfc)
+   is nearer to than --background (#F4F6F9) ever was. So the variant pair is
+   gone and one token paints all four themes. */
+const CHIP_NUM = String.raw`[word-break:break-word] font-mono-label font-semibold relative shrink-0 text-[18px] leading-[18px] tracking-[-0.45px] text-ink-on-color whitespace-nowrap`
 
 const fmt = (n) => Number(n ?? 0).toLocaleString('en-US')
 
@@ -190,10 +241,10 @@ export default function SystemsOverviewHero({
   return (
     <div
       className={cn('relative shrink-0 w-full h-[189px]', className)}
-      data-node-id="199414:130115"
+      data-node-id="199531:81213"
       data-name="Systems overview hero"
     >
-      {/* 199414:130117. aria-hidden: weather, not information.
+      {/* 199466:17470. aria-hidden: weather, not information.
 
           THE BLEND MODE IS THEME-CONDITIONAL, AND IT HAS TO BE.
           `multiply` is `result = backdrop x source`. In `light` the backdrop
@@ -228,44 +279,124 @@ export default function SystemsOverviewHero({
           light" rather than naming dark/sand/contrast, so a theme added later
           is handled without editing this file — and a document with no
           data-theme at all (SSR, jsdom) still gets the `light` path. */}
+      {/* THE REFETCH CHANGES THE ART IN TWO WAYS, and the second is the whole
+          reason `isolate` is on the wrapper.
+
+          ONE: the crop. 180.61/-17.03/-65.08/143.88 became
+          211.03/-27.92/-77.24/168.12 — the same raster, pushed in and up. The
+          October finding survives it: the visible region is still ENTIRELY
+          wave, with no white ground inside the box for `multiply` to knock
+          out, which is what made turning the blend off safe in the first
+          place.
+
+          TWO: a tint layer that did not exist before. The October node had
+          none, and this file said so in as many words ("here the node has no
+          tint layer at all, so the raster's own blue comes through"). It has
+          one now — a flat #a0ccff at `mix-blend-multiply` over the raster —
+          and it is most of what the owner was seeing as "not the latest": it
+          is what turns the washed grey-blue band into the saturated one. Raw
+          hex, like SystemHeroCard's #ff7b7d and SystemsHealthCard's #ff8904:
+          this is a filter over artwork, not a surface a theme re-grounds, and
+          the token set has no entry for it.
+
+          `isolate` IS LOAD-BEARING, NOT TIDINESS. A non-normal mix-blend-mode
+          already makes an element an isolated group, so under `light` the
+          tint could only ever have reached the raster. But the variant below
+          turns this wrapper to `mix-blend-normal` on every other theme — and
+          `normal` creates NO stacking context, so without `isolate` the
+          tint's own multiply would escape the group and multiply against the
+          page ground instead. That is precisely the 1.10:1 collapse the block
+          above was written to kill, re-entering through the tint rather than
+          through the wrapper. SystemsHealthCard:252 made the same call for
+          the same reason. `isolation: isolate` pins the tint to the raster on
+          every theme and changes nothing under `light`, which already had the
+          grouping from the multiply.
+
+          What the group composites to, for the record: the tint is opaque, so
+          the wrapper now resolves to an opaque tinted band rather than a 90%
+          raster letting the ground through. On the non-light themes that is a
+          strict improvement — the hero stops borrowing the near-black ground
+          and paints its own blue, with the ink on it unchanged. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 mix-blend-multiply [[data-theme]:not([data-theme=light])_&]:mix-blend-normal pointer-events-none rounded-[17px] overflow-hidden"
-        data-node-id="199414:130117"
+        className="absolute inset-0 isolate mix-blend-multiply [[data-theme]:not([data-theme=light])_&]:mix-blend-normal pointer-events-none rounded-[17px] overflow-hidden"
+        data-node-id="199466:17470"
       >
         <img
           alt=""
           src={wave}
-          className="absolute h-[180.61%] left-[-17.03%] max-w-none top-[-65.08%] w-[143.88%] opacity-90"
+          className="absolute h-[211.03%] left-[-27.92%] max-w-none top-[-77.24%] w-[168.12%] opacity-90"
+        />
+        <div className="absolute inset-0 rounded-[17px] bg-[#a0ccff] mix-blend-multiply" />
+      </div>
+
+      {/* 199531:80083 — THE "ACTIVE" PILL, NEW IN THIS REFETCH. The frame now
+          draws a pill in the hero's top right carrying the word "Active" and a
+          chevron, on the same veiled chassis as the chips: inset 4.76% top and
+          2.38% right of the 370x189 box, i.e. 9px and 8.8px, 32px tall,
+          rounded-12, gap-4. Right-anchored here rather than left, because this
+          page's px-4 gutter gives 361px against the frame's 370 and the right
+          inset is the one that has to hold.
+
+          IT IS A LABEL, NOT A CONTROL, and that is the frame's ruling rather
+          than mine. The chevron is the only hint of a menu; the node has no
+          menu, no open state, no second option, and no other value of this
+          word anywhere on the page. Drawing a dropdown would be drawing a
+          state the frame lacks; making it a <button> that opens nothing would
+          be a control that reads as broken. So it renders as text, with the
+          chevron aria-hidden as the decoration it currently is. WHAT IT SHOULD
+          FILTER IS THE OWNER'S CALL — systems by lifecycle state is the
+          obvious reading, but this component is not told about one, and
+          inventing the other options would be inventing copy. */}
+      <div
+        className={cn(CHIP, 'absolute right-[9px] top-[9px] z-[2] gap-[4px] justify-start')}
+        data-node-id="199531:80083"
+      >
+        <span className={CHIP_NUM} dir="auto" data-node-id="199531:80085">Active</span>
+        <ChevronDown
+          aria-hidden="true"
+          size={18.21}
+          className="relative shrink-0 text-ink-on-color"
+          data-node-id="199531:80084"
         />
       </div>
 
-      {/* 199414:130118. The node pins this at `left-[calc(50%-64px)]` with a
-          -50% translate, which resolves to a left edge of about 36px on its own
-          370px box. Expressed as a plain left inset instead: the frame is 402
-          wide and ours is 393, so anything tied to 50% lands somewhere the
-          design never showed, and the chips below it are left-anchored anyway. */}
+      {/* 199466:17471. THE HEADLINE MOVED. The October node pinned it at
+          `left-[calc(50%-64px)]` with a -50% translate, resolving to a left
+          edge of about 36px; the refetch gives a plain inset of
+          5.68% x 370 = 21px — flush with the chip row beneath it, which it
+          never was before — and a top of 27.51% x 189 = 52px, down from 41.
+          Still written as a left-anchored px inset rather than a percentage:
+          the frame is 402 wide and this page's px-4 gutter gives 361, so
+          anything tied to 50% lands somewhere the design never showed. */}
       <p
         className={cn(
-          '[word-break:break-word] absolute left-[36px] top-[41px] whitespace-nowrap text-ink-on-color text-[34.646px]',
+          '[word-break:break-word] absolute left-[21px] top-[52px] whitespace-nowrap text-ink-on-color text-[34.646px]',
           'font-sans',
           String.raw`font-semibold`,
         )}
         dir="auto"
-        data-node-id="199414:130118"
+        data-node-id="199466:17471"
       >
         <span className="leading-[39.37px]">{`${fmt(total)} `}</span>
         <span className={cn('font-sans', 'font-normal leading-[39.37px]')}>{unit}</span>
       </p>
 
-      {/* 199417:131528 — the three chips, left-anchored at the node's own 21px
-          inset. They are a row rather than three absolutes at left-21/111/199,
-          because those offsets were measured against the node's own numerals;
-          a four-digit count would overlap its neighbour. */}
+      {/* 199531:80031 — the three chips, left-anchored at the node's own 21px
+          inset. They are a row rather than three absolutes, because the node's
+          offsets were measured against the node's own numerals and a
+          four-digit count would overlap its neighbour.
+
+          THE REFETCH MOVES THE ROW. It drops 10px (56.08% x 189 = 106, was 96)
+          and closes up: the node's chips now sit at 21/105/187 against widths
+          79/77/79, i.e. 5px apart where they were 11. The chips themselves
+          stay content-sized for the reason above, so with real numerals the
+          row reads a little narrower than the frame's fixed-width boxes — the
+          same trade this component has made since it was written. */}
       <div
         ref={rowRef}
-        className="absolute flex gap-[11px] items-center left-[21px] top-[96px] z-[2]"
-        data-node-id="199417:131528"
+        className="absolute flex gap-[5px] items-center left-[21px] top-[106px] z-[2]"
+        data-node-id="199531:80031"
       >
         {TYPES.map(({ key, name, type, glyph, size }) => {
           const count = Number(counts[key]) || 0
