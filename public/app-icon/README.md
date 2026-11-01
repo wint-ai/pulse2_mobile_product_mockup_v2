@@ -2,7 +2,8 @@
 
 Source: Figma *Pulse 2.0 Shadcn*, file `YEmjkKS4xaA827Zm8w3oXx`, node
 **`199761:86507`** ("Frame 2138883529", 69x69) — the node the owner's link
-points at. Re-fetched live and rebuilt 2026-10-31.
+points at. Re-fetched live and rebuilt 2026-10-31; re-verified live again
+2026-11-01 — unchanged, so the assets were left as built.
 
 ### Which node, and why this one
 
@@ -12,6 +13,29 @@ That node contains **the wave only — there is no "wint" wordmark in it.** A
 fresh `get_design_context` on 2026-10-31 (after the previous rebuild) returns
 exactly the same two layers it did on 2026-10-29: the design did not change,
 the earlier read was correct.
+
+Checked a **third** time on 2026-11-01, prompted by an owner screenshot showing
+a white "wint" wordmark on this frame. It is still not there. The live
+`get_screenshot` came back **byte-identical (same MD5)** to the 2026-10-31 one,
+and `get_metadata` confirms the frame's full child list:
+
+```
+<frame id="199761:86507" name="Frame 2138883529" width="69" height="69">
+  <rounded-rectangle id="199761:86508" name="Screenshot 2026-08-19 at 23.50.31 1"
+                     x="-57" y="-21" width="183" height="118" />
+  <instance id="199761:86509" name="Tabler Icons / photo-sensor-3"
+            x="9" y="9" width="51" height="51" hidden="true" />
+</frame>
+```
+
+The second child is new information but changes nothing: it is a **hidden**
+Tabler icon placeholder, it does not render, and it is not a wordmark. There is
+still **no text layer and no vector layer** in this node.
+
+Note also that the pale `#ddf1ff` ground is *not* what the node looks like —
+the image fill covers the frame, so the node renders as a **saturated blue**
+wave. A render that looks saturated blue is therefore not evidence that the
+node changed.
 
 A previous pass substituted the sibling node `199768:86534` ("Group 1"), which
 *does* carry the wordmark, because the wordmark was assumed to be wanted. That
