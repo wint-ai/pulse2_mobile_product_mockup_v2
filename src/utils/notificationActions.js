@@ -1,3 +1,12 @@
+// NOTE FOR THE OWNER (2026-11-01): removing the View BUTTON exposed that the
+// notification body was never tappable on any of the four surfaces - View was
+// the only thing that dispatched 'view'. So the tap was wired in the same pass
+// on the three surfaces that carried the button (shade, in-app banner,
+// other-app heads-up); without it, striking View would have left no path at
+// all from a notification into the app. The lock card is deliberately not
+// tappable-to-navigate: it expands, and its expanded state says "Unlock to
+// take action", which is the lock-screen idiom and what it did before.
+//
 // Pure function: given a notification payload + the persisted action state
 // (investigating, ignored, tagged), return the action button set to render
 // on a notification card. Extracted from PushNotifications.jsx so it can be
@@ -9,50 +18,68 @@
 // Specific states layer additional actions on top (Tag, Ignore, On it, etc.)
 // but View is the constant - the user always has a way out of the notification
 // into the source system.
+//
+// OVERRULED (owner, 2026-11-01): "remove the 'view' it is obvious / keep only
+// the ignore and assign to me". Rami's rule above is kept, not deleted, so the
+// next reader can see what was traded away and by whom.
+//
+// Apple's HIG arrives at the same place independently: "Avoid providing an
+// action that merely opens your app... When people tap a notification or its
+// preview, they expect your app to display related content, so presenting an
+// action button that does the same thing clutters the detail view and can be
+// confusing." Tapping the notification body is the navigation path - which is
+// exactly the owner's "it is obvious" - so the BUTTON goes and the 'view'
+// action key stays: PushNotifications.jsx still handles it, now dispatched by
+// the body tap rather than by a button.
+//
+// The set is now at most TWO actions, which is the only count that is safe on
+// both platforms: Apple's HIG says up to four but its own UNNotificationCategory
+// reference says at most two when space is constrained, and Android caps at three.
 // LABEL, NOT IDENTITY (owner, 2026-10-31): the claim action reads "Assign to
 // me" wherever a user sees it. The action key stays 'investigate' and the
 // timeline step id stays 'on-it' -- PushNotifications.jsx:644 and the timeline
 // config switch on those, and renaming them would be churn with a real chance
 // of breaking a switch.
 export function buildActions(n, { investigating, ignored, tagged }) {
-  // Non-water notifications: just View. Specific non-water alert types
-  // (valve error, power lost, offline, etc.) don't have actionable
-  // states beyond navigating to the system to investigate.
-  if (n.type !== 'leak') {
-    return [{ key: 'view', label: 'View', primary: true }];
-  }
-  // Once ignored, every action collapses to View. Subsequent pushes for the
-  // SAME event respect this (a NEW Warning push clears the ignored flag via
-  // applyPushEvent).
-  if (ignored) return [{ key: 'view', label: 'View', primary: true }];
+  // Non-water notifications: NO actions. These alert types (valve error,
+  // power lost, offline, etc.) never had an actionable state beyond
+  // navigating, and navigating is now the body tap. NotifActions returns null
+  // on an empty set, so the card draws no action row at all rather than an
+  // empty strip.
+  if (n.type !== 'leak') return [];
+  // Once ignored, every action collapses - and with View gone that is an
+  // EMPTY set, not an orphaned single control. The "Ignored" status pill on
+  // the card is what still says so; re-opening is the body tap. Subsequent
+  // pushes for the SAME event respect this (a NEW Warning push clears the
+  // ignored flag via applyPushEvent).
+  if (ignored) return [];
   switch (n.state) {
     case 'Warning':
+      // The owner's set, exactly: "keep only the ignore and assign to me".
       return [
-        { key: 'view',        label: 'View',  primary: true },
         ...(investigating ? [] : [{ key: 'investigate', label: 'Assign to me' }]),
         { key: 'ignore',      label: 'Ignore' },
       ];
     case 'Ongoing':
-      // No Dismiss action - swipe-to-dismiss is native on iOS / Android.
-      return [
-        { key: 'view',    label: 'View', primary: true },
-      ];
+      // No Dismiss action - swipe-to-dismiss is native on iOS / Android - and
+      // View was the only other one, so this state now draws no row.
+      return [];
     case 'Shutoff':
-      // No Ignore on Critical state.
+      // No Ignore on Critical state, so this is a SINGLE-action row. It renders
+      // correctly as one: the buttons are flex-[1_1_0] with a min width, so one
+      // action fills the row rather than leaving a gap where View used to be.
       return [
-        { key: 'view',        label: 'View',  primary: true },
         ...(investigating ? [] : [{ key: 'investigate', label: 'Assign to me' }]),
       ];
     case 'End of Leak':
       // PRD 15 § 7.1 - readable label, no Dismiss (swipe-to-dismiss native).
       // 'tagCta' flag marks this as the Wint-blue primary CTA on the push.
-      // Tag is the primary action; View stays available as the secondary
-      // path into the system page.
+      // Tag survives the View removal: the owner struck View, not the Tag CTA,
+      // and Tag is not a "merely opens your app" action.
       return [
         { key: 'tag',  label: tagged ? '✓ Tagged' : 'Tag the cause', primary: !tagged, done: tagged, tagCta: !tagged },
-        { key: 'view', label: 'View' },
       ];
     default:
-      return [{ key: 'view', label: 'View', primary: true }];
+      return [];
   }
 }

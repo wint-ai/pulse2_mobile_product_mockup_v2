@@ -53,29 +53,37 @@ describe('action set reflects persisted state per system', () => {
   const N_WARNING = { type: 'leak', state: 'Warning', systemId: SYS };
   const N_END_OF_LEAK = { type: 'leak', state: 'End of Leak', systemId: SYS };
 
-  it('fresh Warning: View · Assign to me · Ignore', () => {
+  /* VIEW REMOVED 2026-11-01 (owner: "remove the 'view' it is obvious / keep
+     only the ignore and assign to me"). These blocks still guard exactly what
+     they always did — that the rendered set tracks the PERSISTED per-system
+     state — only the expected sets lost their leading 'view'. */
+  it('fresh Warning: Assign to me · Ignore', () => {
     const a = buildFor(N_WARNING, SYS);
-    expect(a.map(x => x.key)).toEqual(['view', 'investigate', 'ignore']);
+    expect(a.map(x => x.key)).toEqual(['investigate', 'ignore']);
   });
 
   it('after claiming: the claim button is hidden on next render', () => {
     startInvestigating(SYS, { actor: 'Sarah' });
     const a = buildFor(N_WARNING, SYS);
     expect(a.find(x => x.key === 'investigate')).toBeUndefined();
-    expect(a.map(x => x.key)).toEqual(['view', 'ignore']);
+    expect(a.map(x => x.key)).toEqual(['ignore']);
   });
 
-  it('after Ignore: action set collapses to View only', () => {
+  it('after Ignore: the action set is EMPTY, not a lone orphaned button', () => {
+    // View used to be what an ignored card collapsed to. With View gone the
+    // honest set is empty — NotifActions returns null on an empty set, so the
+    // card draws no action strip. The "Ignored · X" pill is what still says
+    // so, and the body tap is still the way back in.
     ignoreIncident(SYS, { ignoredBy: 'Sarah' });
     const a = buildFor(N_WARNING, SYS);
-    expect(a.map(x => x.key)).toEqual(['view']);
+    expect(a.map(x => x.key)).toEqual([]);
   });
 
-  it('after Ignore + Investigating: still View only (ignore wins)', () => {
+  it('after Ignore + Investigating: still empty (ignore wins)', () => {
     startInvestigating(SYS, { actor: 'Sarah' });
     ignoreIncident(SYS, { ignoredBy: 'Sarah' });
     const a = buildFor(N_WARNING, SYS);
-    expect(a.map(x => x.key)).toEqual(['view']);
+    expect(a.map(x => x.key)).toEqual([]);
   });
 
   it('End of Leak untagged: Tag the cause primary CTA', () => {
@@ -121,16 +129,18 @@ describe('action set reflects persisted state per system', () => {
 
 describe('action labels are user-readable (never internal keys)', () => {
   const SYS = APT_WITH_EVENT;
-  it('Warning labels are exactly View, Assign to me, Ignore', () => {
+  it('Warning labels are exactly Assign to me, Ignore', () => {
     const a = buildActions({ type: 'leak', state: 'Warning', systemId: SYS }, { investigating: false, ignored: false, tagged: false });
-    expect(a.map(x => x.label)).toEqual(['View', 'Assign to me', 'Ignore']);
+    expect(a.map(x => x.label)).toEqual(['Assign to me', 'Ignore']);
     // No raw keys leaking through as labels
     a.forEach(x => expect(x.label).not.toBe(x.key));
+    // And the struck button cannot come back under its old label.
+    expect(a.map(x => x.label)).not.toContain('View');
   });
 
-  it('Ongoing label is exactly View', () => {
+  it('Ongoing has no labels, because it has no actions', () => {
     const a = buildActions({ type: 'leak', state: 'Ongoing', systemId: SYS }, {});
-    expect(a.map(x => x.label)).toEqual(['View']);
+    expect(a.map(x => x.label)).toEqual([]);
   });
 
   it('End of Leak label is exactly Tag the cause (or ✓ Tagged)', () => {

@@ -132,7 +132,14 @@ const OS_CARD_INSET = 'px-[14px] py-[12px]';   // tighter than the app's card in
 const APP_CARD_INSET = 'px-[12px] py-[10px]';  // the in-app banner, a Wint surface
 const CARD_STACK_GAP = 'mb-[8px]';             // tighter than a card list's stack
 const TITLE_GAP = 'gap-[10px]';                // already matches the app's title gap
-const HEADER_GAP = 'gap-[8px]';
+const HEADER_GAP = 'gap-[8px]';                // title <-> timestamp, and the pill row
+// Where the text column starts, measured from the card's edge: the OS inset
+// (14) + the app icon (36) + TITLE_GAP (10). The lock card's expanded section
+// is a SIBLING of that column rather than a child of it, so it has to be told
+// the same left edge or its body sits under the icon while the title above it
+// is indented — which is what it did until 2026-11-01, invisibly, because the
+// 24px severity disc made the ragged edge only 34px wide instead of 46.
+const TEXT_COLUMN_INSET = 'pl-[60px]';
 
 // Status pills ("On it · Dana", "Ignored"). borderRadius: 4 was the loudest
 // "different app" tell in the file after the typeface — the house badge is
@@ -399,13 +406,69 @@ function StatusPills({ investigating, ignored, investigatingInfo, ignoredInfo, d
   );
 }
 
-function WintMark({ size = 22, dark }) {
+/**
+ * The leading app-icon chip on every notification surface.
+ *
+ * This drew `wint-logo.svg` — the navy *wordmark* — inset 2px on a hardcoded
+ * white chip. That is the brand lockup, not the app icon, and no phone shows
+ * it beside a notification: the OS shows the launcher icon. So the chip read
+ * as "white sticker with a logo on it" rather than "the Wint app".
+ *
+ * WHICH ASSET. `app-icon/pulse2-app-icon-rounded.svg`, not the 192px raster
+ * and not the square master:
+ *   - In the SVG only the *wave* is an embedded raster; the wordmark is real
+ *     vector paths (see public/app-icon/README.md). At 36px the wordmark is
+ *     ~27px wide with hairline strokes, and that is exactly what a 192 -> 36
+ *     raster downscale eats first. The one element that has to survive is the
+ *     one the SVG keeps resolution independent.
+ *   - `-rounded.svg` carries its corner as a vector clipPath at r = 18/69 =
+ *     26.1%, so the radius tracks the size (~9.4px at 36px) and stays crisp,
+ *     instead of a CSS corner laid over a square bitmap.
+ *   - `pulse2-app-icon.svg` is square full-bleed, so it would need that CSS
+ *     corner back. `favicon.svg` is a byte-copy of `-rounded.svg`, but its job
+ *     is the browser tab; pointing UI at it would couple this chip to a change
+ *     made for the favicon's sake. `app-icon/` is the canonical home.
+ *
+ * NOT CROPPED TO A CIRCLE. The owner's iOS reference photo shows a circular
+ * icon, but that is that app's own artwork: iOS masks a notification icon to
+ * the same rounded square it uses on the home screen. Ours is already that
+ * shape, so its own corner radius stands and no CSS mask is applied.
+ *
+ * NO CHIP OF OUR OWN. The asset is a rounded tile with its own ground, so the
+ * old `rounded-[6px]`, the `p-[2px]` inset and the `bg-card`/`bg-accent` ground
+ * are all gone — kept, they would stack a rounded tile inside a rounded tile
+ * and ring the icon in a light halo. That also retires the `dark` prop: the
+ * icon has one appearance on every surface, as a launcher icon does.
+ *
+ * Referenced through `BASE` (= import.meta.env.BASE_URL) like every other
+ * public/ asset here. Vite only rewrites paths it parses, and this one is
+ * built at runtime, so a bare "/app-icon/..." would 404 under the deployed
+ * base path `/pulse2_mobile_product_mockup_v2/` while working locally.
+ */
+const APP_ICON_SIZE = 36;  // iOS draws ~2.5x the title's type size; title is 14px
+
+function AppIcon({ size = APP_ICON_SIZE }) {
   return (
-    <img src={`${BASE}wint-logo.svg`} alt=""
-      className={cn('shrink-0 rounded-[6px] p-[2px]', dark ? 'bg-card' : 'bg-accent')}
+    <img src={`${BASE}app-icon/pulse2-app-icon-rounded.svg`} alt=""
+      className="shrink-0"
       style={{ width: size, height: size }} />
   );
 }
+
+/**
+ * The severity disc is OFF.
+ *
+ * 2026-11-01 — the owner: "i only wants to see the the app icon centered on the
+ * left side / wo the issue icon there / maybe we will add it next".
+ *
+ * So this is a removal from the *layout*, not from the codebase.
+ * `CategoryCircle` and `getNotificationCategory` are deliberately left intact
+ * and still wired at all four call sites behind this flag: flipping it to true
+ * is the whole way back. Note the cards were restructured to the iOS anatomy in
+ * the same pass, so the disc returns *into that* layout — immediately after the
+ * app icon in the leading column — not to the pre-2026-11-01 title row.
+ */
+const SHOW_CATEGORY_DISC = false;
 
 // ─── Lock screen card (glance only — no action buttons) ─────────────────────
 
@@ -426,24 +489,35 @@ function LockCard({ notification: n, expanded, onToggleExpand }) {
       'overflow-hidden rounded-os-notification border border-solid border-os-chrome-ink/8 bg-os-chrome-ink/12 backdrop-blur-[16px]',
       CARD_STACK_GAP,
     )}>
-      {/* Top accent bar removed (Option A) - category circle carries severity. */}
+      {/* iOS anatomy (2026-11-01, owner's reference photo): app icon, then
+          title + time on one line, then body. No app-name row — the HIG's
+          "avoid including your app name or icon" in practice. */}
       <div onClick={onToggleExpand} className={cn('cursor-pointer', OS_CARD_INSET)}>
-        <div className={cn('mb-[6px] flex items-center', HEADER_GAP)}>
-          <WintMark dark />
-          <span className="text-[13px] leading-[18px] font-semibold text-os-chrome-ink">Wint</span>
-          <StatusPills dark {...{ investigating, ignored, investigatingInfo, ignoredInfo }} />
-          <span className="ml-auto text-[11px] leading-[16px] text-os-chrome-ink/55">{timeStr}</span>
-        </div>
-        <div className={cn('flex items-start', TITLE_GAP)}>
-          <CategoryCircle notification={n} />
+        <div className={cn('flex items-center', TITLE_GAP)}>
+          <AppIcon />
+          {SHOW_CATEGORY_DISC && <CategoryCircle notification={n} />}
           <div className="min-w-0 flex-1">
-            <div className="text-[14px] leading-[18px] font-semibold text-os-chrome-ink/90">{stripLeadingEmoji(n.title)}</div>
-            {!expanded && <div className="mt-[3px] truncate text-[13px] leading-[18px] text-os-chrome-ink/70">{n.body}</div>}
+            <div className={cn('flex items-baseline', HEADER_GAP)}>
+              <div className="min-w-0 flex-1 truncate text-[14px] leading-[18px] font-semibold text-os-chrome-ink/90">{stripLeadingEmoji(n.title)}</div>
+              <span className="shrink-0 text-[11px] leading-[16px] text-os-chrome-ink/55">{timeStr}</span>
+            </div>
+            {/* Clamped in CSS, never in the string: Apple's "don't truncate
+                your message, the system does this automatically". The V11 copy
+                in pushText.js stays byte-identical. */}
+            {!expanded && <div className="mt-[3px] line-clamp-3 text-[13px] leading-[18px] text-os-chrome-ink/70">{n.body}</div>}
+            {(investigating || ignored) && (
+              /* The pills used to ride the app-name row. That row is gone and
+                 they are real state, so they moved below the body rather than
+                 being dropped with it. */
+              <div className={cn('mt-[6px] flex flex-wrap items-center', HEADER_GAP)}>
+                <StatusPills dark {...{ investigating, ignored, investigatingInfo, ignoredInfo }} />
+              </div>
+            )}
           </div>
         </div>
       </div>
       {expanded && (
-        <div className="px-[14px] pb-[12px]">
+        <div className={cn('pr-[14px] pb-[12px]', TEXT_COLUMN_INSET)}>
           <div className="mb-[6px] text-[14px] leading-[20px] text-os-chrome-ink/80">{n.body}</div>
           {isLeak && (n.flowRate || n.volume || n.duration) && (
             <div className="flex gap-[6px]">
@@ -535,22 +609,26 @@ function ShadeCard({ notification: n, onAction, version }) {
       'overflow-hidden rounded-os-notification border border-solid border-os-chrome-ink/6 bg-os-shade-card backdrop-blur-[20px]',
       CARD_STACK_GAP,
     )}>
-      {/* Top accent bar removed (Option A) - category circle carries severity. */}
-      <div className={OS_CARD_INSET}>
-        <div className={cn('mb-[6px] flex items-center', HEADER_GAP)}>
-          <WintMark dark />
-          <span className="text-[13px] leading-[18px] font-semibold text-os-chrome-ink">Wint</span>
-          {/* This surface shows the bare state, with no actor — so it does not
-              read getInvestigatingInfo / getIgnoredInfo at all. It used to
-              call both and discard the results. */}
-          <StatusPills dark investigating={investigating} ignored={ignored} />
-          <span className="ml-auto text-[11px] leading-[16px] text-os-chrome-ink/55">{timeStr}</span>
-        </div>
-        <div className={cn('flex items-start', TITLE_GAP)}>
-          <CategoryCircle notification={n} />
+      {/* iOS anatomy — see LockCard. The body tap is the navigation path now
+          that the View button is gone (notificationActions.js); NotifActions'
+          buttons stopPropagation, so they are unaffected. */}
+      <div onClick={() => onAction('view', n)} className={cn('cursor-pointer', OS_CARD_INSET)}>
+        <div className={cn('flex items-center', TITLE_GAP)}>
+          <AppIcon />
+          {SHOW_CATEGORY_DISC && <CategoryCircle notification={n} />}
           <div className="min-w-0 flex-1">
-            <div className="text-[14px] leading-[18px] font-semibold text-os-chrome-ink">{stripLeadingEmoji(n.title)}</div>
-            <div className="mt-[4px] text-[13px] leading-[18px] text-os-chrome-ink/70">{n.body}</div>
+            <div className={cn('flex items-baseline', HEADER_GAP)}>
+              <div className="min-w-0 flex-1 truncate text-[14px] leading-[18px] font-semibold text-os-chrome-ink">{stripLeadingEmoji(n.title)}</div>
+              <span className="shrink-0 text-[11px] leading-[16px] text-os-chrome-ink/55">{timeStr}</span>
+            </div>
+            <div className="mt-[4px] line-clamp-3 text-[13px] leading-[18px] text-os-chrome-ink/70">{n.body}</div>
+            {(investigating || ignored) && (
+              /* This surface shows the bare state, with no actor — so it does
+                 not read getInvestigatingInfo / getIgnoredInfo at all. */
+              <div className={cn('mt-[6px] flex flex-wrap items-center', HEADER_GAP)}>
+                <StatusPills dark investigating={investigating} ignored={ignored} />
+              </div>
+            )}
           </div>
         </div>
         <NotifActions notification={n} onAction={onAction} dark />
@@ -593,6 +671,10 @@ function PhoneShade({ notifications, onAction, onClose, version }) {
 
 function InAppBanner({ notification: n, onAction, onDismiss, version }) {
   const [startY, setStartY] = useState(null);
+  // A swipe-up to dismiss also produces a click, and this surface became
+  // tappable when the View button was removed. Without this latch, flicking
+  // the banner away would navigate into the system page on the way out.
+  const swipedRef = useRef(false);
   useEffect(() => { const t = setTimeout(onDismiss, 8000); return () => clearTimeout(t); }, [n, onDismiss]);
   void version;
 
@@ -608,29 +690,37 @@ function InAppBanner({ notification: n, onAction, onDismiss, version }) {
     // never mounts at the same time as this component — had no entrance at
     // all. It lives in index.css now and both surfaces slide.
     <div onTouchStart={(e) => setStartY(e.touches[0].clientY)}
-      onTouchEnd={(e) => { if (startY !== null && e.changedTouches[0].clientY < startY - 30) onDismiss(); setStartY(null); }}
+      onTouchEnd={(e) => { if (startY !== null && e.changedTouches[0].clientY < startY - 30) { swipedRef.current = true; onDismiss(); } setStartY(null); }}
       className="absolute top-[6px] right-[6px] left-[6px] z-[250] animate-[bannerIn_0.3s_ease]">
       {/* --shadow-overlay, the house's float tier. An OS-grade notification
           sits higher than a card, and that is the token that says so. */}
       <div className="overflow-hidden rounded-[18px] bg-card [box-shadow:var(--shadow-overlay)]">
-        {/* Top accent bar removed (Option A) - category circle carries severity. */}
-        <div className={APP_CARD_INSET}>
-          {/* Top row: Wint logo + name + status pill + timestamp. */}
-          <div className={cn('mb-[6px] flex flex-wrap items-center', HEADER_GAP)}>
-            <WintMark />
-            <span className="text-[12px] leading-[16px] font-semibold text-foreground">Wint</span>
-            <StatusPills {...{ investigating, ignored, investigatingInfo, ignoredInfo }} />
-            <span className="ml-auto text-[11px] leading-[16px] text-muted-foreground">now</span>
-          </div>
-          {/* Title row: category circle + title text, mirroring timeline rows. */}
-          <div className={cn('flex items-start', TITLE_GAP)}>
-            <CategoryCircle notification={n} />
+        {/* iOS anatomy — see LockCard. Body tap navigates; see ShadeCard. */}
+        <div
+          onClick={() => { if (swipedRef.current) { swipedRef.current = false; return; } onAction('view', n); }}
+          className={cn('cursor-pointer', APP_CARD_INSET)}>
+          <div className={cn('flex items-center', TITLE_GAP)}>
+            <AppIcon />
+            {SHOW_CATEGORY_DISC && <CategoryCircle notification={n} />}
             <div className="min-w-0 flex-1">
-              <div className="text-[14px] leading-[18px] font-semibold text-foreground">{stripLeadingEmoji(n.title)}</div>
-              {/* Full V11 body shown - no line clamp, no truncation. Banner
-                  grows to fit. Auto-dismisses after 8s so the user has time to
-                  read flow rate / volume / shutoff threshold. */}
-              <div className="mt-[4px] text-[13px] leading-[18px] break-words whitespace-normal text-muted-foreground">{n.body}</div>
+              <div className={cn('flex items-baseline', HEADER_GAP)}>
+                <div className="min-w-0 flex-1 truncate text-[14px] leading-[18px] font-semibold text-foreground">{stripLeadingEmoji(n.title)}</div>
+                <span className="shrink-0 text-[11px] leading-[16px] text-muted-foreground">now</span>
+              </div>
+              {/* HEADS UP, OWNER: this body used to carry an explicit "no line
+                  clamp, no truncation — banner grows to fit", because the
+                  banner auto-dismisses after 8s and the V11 string is where the
+                  flow rate / volume / shutoff threshold are. Matching the iOS
+                  reference clamps it to three lines, so on a long water-event
+                  body some of those numbers now sit behind the ellipsis on this
+                  surface. Flagged, not silently reverted — say the word and
+                  this one line goes back to unclamped. */}
+              <div className="mt-[4px] line-clamp-3 text-[13px] leading-[18px] break-words whitespace-normal text-muted-foreground">{n.body}</div>
+              {(investigating || ignored) && (
+                <div className={cn('mt-[6px] flex flex-wrap items-center', HEADER_GAP)}>
+                  <StatusPills {...{ investigating, ignored, investigatingInfo, ignoredInfo }} />
+                </div>
+              )}
             </div>
           </div>
           <NotifActions notification={n} onAction={onAction} />
@@ -662,21 +752,22 @@ function HeadsUpNotification({ notification: n, onAction, version }) {
   return (
     <div className="absolute top-[30px] right-[8px] left-[8px] z-[350] animate-[bannerIn_0.3s_ease]">
       <div className="overflow-hidden rounded-[18px] bg-card [box-shadow:var(--shadow-overlay)]">
-        {/* Top accent bar removed - category circle below carries the
-            severity signal (Option A — mirrors timeline anatomy). */}
-        <div className={OS_CARD_INSET}>
-          <div className={cn('mb-[6px] flex flex-wrap items-center', HEADER_GAP)}>
-            <WintMark size={20} />
-            <span className="text-[12px] leading-[16px] font-semibold text-foreground">Wint</span>
-            <StatusPills {...{ investigating, ignored, investigatingInfo, ignoredInfo }} />
-            <span className="ml-auto text-[11px] leading-[16px] text-muted-foreground">now</span>
-          </div>
-          {/* Title row: category circle + title text, mirroring timeline rows. */}
-          <div className={cn('flex items-start', TITLE_GAP)}>
-            <CategoryCircle notification={n} />
+        {/* iOS anatomy — see LockCard. Body tap navigates; see ShadeCard. */}
+        <div onClick={() => onAction('view', n)} className={cn('cursor-pointer', OS_CARD_INSET)}>
+          <div className={cn('flex items-center', TITLE_GAP)}>
+            <AppIcon />
+            {SHOW_CATEGORY_DISC && <CategoryCircle notification={n} />}
             <div className="min-w-0 flex-1">
-              <div className="text-[14px] leading-[18px] font-semibold text-foreground">{stripLeadingEmoji(n.title)}</div>
-              <div className="mt-[4px] text-[13px] leading-[18px] text-muted-foreground">{n.body}</div>
+              <div className={cn('flex items-baseline', HEADER_GAP)}>
+                <div className="min-w-0 flex-1 truncate text-[14px] leading-[18px] font-semibold text-foreground">{stripLeadingEmoji(n.title)}</div>
+                <span className="shrink-0 text-[11px] leading-[16px] text-muted-foreground">now</span>
+              </div>
+              <div className="mt-[4px] line-clamp-3 text-[13px] leading-[18px] text-muted-foreground">{n.body}</div>
+              {(investigating || ignored) && (
+                <div className={cn('mt-[6px] flex flex-wrap items-center', HEADER_GAP)}>
+                  <StatusPills {...{ investigating, ignored, investigatingInfo, ignoredInfo }} />
+                </div>
+              )}
             </div>
           </div>
           <NotifActions notification={n} onAction={onAction} />
