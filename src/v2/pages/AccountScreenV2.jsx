@@ -158,6 +158,7 @@ import {
   Ruler,
   Smartphone,
   User,
+  Wallpaper,
   X,
 } from 'lucide-react'
 
@@ -169,9 +170,11 @@ import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import TabBar from '@/components/TabBar'
+import BackgroundPicker from '@/v2/components/BackgroundPicker'
 import { useUserContext } from '@/context/UserContext'
 import { SUPPORTED_LANGUAGES } from '@/i18n'
 import { SELECTABLE_THEMES, getTheme, setTheme } from '@/theme'
+import { SUPPORTED_BACKGROUNDS, getBackground, setBackground } from '@/theme/background'
 
 /* The em dash v1 used for every empty field. Written as an escape so the file
    stays ASCII and cannot be mangled by a CRLF/encoding round-trip. */
@@ -337,6 +340,19 @@ export default function AccountScreenV2() {
      only via ?theme=contrast. */
   const [themeKey, setThemeKey] = useState(getTheme)
   const themeOptions = SELECTABLE_THEMES.map((th) => ({ value: th.key, label: t(th.labelKey) }))
+
+  /* The app background is the SECOND axis and is held exactly the same way:
+     a stable key, never a colour. data-bg on <html> is orthogonal to
+     data-theme — nine grounds across four themes is 36 cells, not 36 colour
+     systems, because every option re-tints the theme's own wash rather than
+     replacing it. `swatchVar` rides along because the picker paints each
+     swatch with the very property the page root reads under that option. */
+  const [backgroundKey, setBackgroundKey] = useState(getBackground)
+  const backgroundOptions = SUPPORTED_BACKGROUNDS.map((bg) => ({
+    value: bg.key,
+    label: t(bg.labelKey),
+    swatchVar: bg.swatchVar,
+  }))
 
   function switchProfile() {
     setPersona(null)
@@ -648,6 +664,30 @@ export default function AccountScreenV2() {
                     value={themeKey}
                     options={themeOptions}
                     onChange={(key) => { setThemeKey(setTheme(key)) }}
+                  />
+                </div>
+
+                <Separator />
+
+                {/* App background. The SAME argument against a dropdown applies
+                    here and then some — nine options would be nine portalled
+                    rows escaping the phone frame — but the segmented row the
+                    three rows above use is out too: nine equal columns inside
+                    this card is 38px each and every label truncates to two
+                    characters. It is a swatch grid instead, and the long form
+                    of that reasoning is at the top of BackgroundPicker.jsx.
+                    The short form: the thing being chosen is a colour, so the
+                    control shows the colours. */}
+                <div className="pt-[10px]">
+                  <div className="mb-2 flex items-center gap-[10px]">
+                    <Wallpaper className={ROW_ICON} aria-hidden="true" />
+                    <span className={ROW_LABEL}>{t('more.background')}</span>
+                  </div>
+                  <BackgroundPicker
+                    label={t('more.background')}
+                    value={backgroundKey}
+                    options={backgroundOptions}
+                    onChange={(key) => { setBackgroundKey(setBackground(key)) }}
                   />
                 </div>
               </div>

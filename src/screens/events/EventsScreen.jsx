@@ -238,6 +238,18 @@ export default function EventsScreen() {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: GLOW_PAGE_BG,
+      /* GLOW_PAGE_BG IS var(--app-bg) NOW — see src/components/PipesHeader.jsx.
+         This screen's ground therefore follows the theme and the app-background
+         selector, which it never did while the recipe was a frozen pale-blue
+         literal. Its INK did not follow on its own: ScopeHeader carries v1
+         literals (#14151A / #4A4F5A) that are invisible on a dark ground. These
+         two custom properties are the opt-in — ScopeHeader reads them with
+         those same literals as the fallback, so the two other screens that
+         mount it and did NOT move are untouched. The v1 tabs and pills below
+         keep their own literals: measured against every ground, the worst is
+         the inactive tab at 3.6:1, which is legible. */
+      '--v1-scope-ink': 'var(--foreground)',
+      '--v1-scope-ink-dim': 'var(--muted-foreground)',
       animation: cameFromDrillDown ? 'alerts-slide-in 0.42s cubic-bezier(0.32, 0.72, 0, 1)' : 'none',
       willChange: cameFromDrillDown ? 'transform' : 'auto',
     }}>

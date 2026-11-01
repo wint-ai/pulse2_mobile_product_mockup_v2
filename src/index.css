@@ -1586,6 +1586,398 @@ button {
   --tile-bg: var(--chip-bg);
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════
+   APP BACKGROUND — the second axis: `data-bg` on <html>
+   ══════════════════════════════════════════════════════════════════════
+
+   NINE GROUNDS, NOT NINE THEMES. Every option below RE-TINTS the Wint wash
+   declared above rather than replacing it. Nine fully distinct grounds would
+   be eight more themes in disguise: each would need its own foreground,
+   border, chip and chart answers under each of the four themes — 36 colour
+   systems, not 36 cells. A tint composes. The theme keeps every colour in
+   the UI layer; the ground is the only thing that moves.
+
+   WHY THIS BLOCK IS HERE AND NOT ABOVE. `[data-bg='x']` and
+   `[data-theme='dark']` are BOTH specificity (0,1,0) and both match <html>,
+   so when they declare the same token source order is the entire tie-break.
+   This block therefore sits AFTER the theme blocks, and the recipes are
+   written THEME-AGNOSTICALLY — they declare --app-bg and --drawer-plate and
+   nothing else — so the two axes never declare the same token in the first
+   place. Do not move this block above the theme blocks, and do not put a
+   --wash-*, a --background or a --foreground in it.
+
+   THE DEFAULT DECLARES NOTHING. `wint` matches no rule in this block: the
+   switch is guarded `[data-bg]:not([data-bg='wint'])`. Under the default,
+   --app-bg keeps exactly the declaration :root (or the theme block above)
+   made for it. Byte-identical BY CONSTRUCTION rather than by re-derivation
+   — there is no second copy of `light`'s literal stop list that could drift
+   from the first.
+
+   READ THE WARNING AT line 1546 BEFORE EDITING ANY RECIPE BELOW. One
+   invalid custom property invalidates the whole color-mix(), which
+   invalidates the whole background-image, and an invalid background-image
+   on the page root is a BLANK SCREEN — no partial render, no console
+   warning, no half-painted anything. The specific trap here: `light`
+   declares NO --wash-* tokens at all (Ruling B — it keeps its Figma
+   literals while dark/sand/contrast compute), so a recipe that reaches for
+   --wash-3 looks perfect in three themes and BRICKS THE DEFAULT ONE. Every
+   token every recipe touches is declared in all four blocks below. Load all
+   36 cells before believing any of them — the test suite checks structure,
+   not colour, and never imports this file at all.
+
+   NOT TOUCHED, DELIBERATELY: --chip-bg-stops, --panel-bg-stops and
+   --app-bg-stops. Nine components bind those lists to paint the same Figma
+   wash at nine different angles (AlertCard, PillTabs, ValveStatusCard,
+   SystemsHealthCard, EventOverlay, EventOverlayV2, WintSidebarV2 …), and
+   three of them — AlertCard's sheen, PillTabs' badge, ValveStatusCard's
+   strip — paint the PAGE-ROOT set specifically. The ground owns --app-bg
+   and the drawer plate. The cards keep the wash they were measured against.
+
+   VERIFIED, because the design pass could not: every page root in the app
+   paints var(--app-bg) and NOT a stop list — Phone.jsx's .mobile-shell via
+   ThemeContext's bgSolid/phoneBg, HomeAllAccounts:1369,
+   HomeAccountOverview:91, SystemPage:189/208, SystemPageV2Screen:1473,
+   AccountScreenV2:402, and src/components/PipesHeader.jsx's GLOW_PAGE_BG
+   (repointed there from a frozen literal so the v1 /alerts tab follows).
+
+   NOTHING ANIMATES. Every layer below is static. The visual gain is at the
+   static layer and motion costs a continuously composited layer on a phone.
+
+   THE THREE COPIES. The option keys live here, in src/theme/background.js,
+   and in the blocking boot script in index.html. That script cannot import
+   — see the note beside it — so the duplication is deliberate and the three
+   have to be kept in step. */
+
+/* ── 1. DECORATION HUES — declared by all four themes ──────────────────
+   These exist because --primary cannot do this job: in `sand` --primary is
+   near-black (line 1304), so an option tinting with var(--primary) DARKENS
+   sand instead of colouring it.
+
+   DECORATION ONLY. Nothing in the UI layer may consume these — not
+   buttons, not links, not focus rings, not borders, not chart series. They
+   name a ground, and the ground is the one surface whose colour has been
+   measured against the text that sits on it.
+
+   ACCENT IS INVARIANT. The Wint azure and every severity token stay exactly
+   where they are under every option. No hue below sits within ~40 degrees
+   of the severity oranges and reds (--severity-high is oklch hue 7.537,
+   --severity-low is 38.766, so the forbidden arc is roughly 327..79). A
+   ground inside that arc would compress the orange/red distinction a user
+   reads under time pressure. `sand`'s --bg-weave is hueless for exactly
+   that reason, where the theme would otherwise have wanted a warm grey. */
+:root {
+  /* The Wint azure, LIGHTENED. The hue is light's own --primary (255.339);
+     the lightness is not, and that difference was measured, not chosen.
+     --primary against this theme's ground clears AA-large by a hair at
+     baseline — 3.31:1 — so a ground tinted with the accent's own LUMINANCE
+     walks straight through the floor: at the accent's L=0.613 the five
+     gradient options measured between 1.95 and 2.73. Same hue at L=0.855
+     and the ground stays pale while the accent keeps its distance.
+     ACCENT IS INVARIANT is a rule about --primary; this is what obeying it
+     costs the ground. */
+  --bg-tint:     oklch(0.855 0.085 255.339);
+  /* The cool second hue — Aurora's far bloom and Opal's cross band. */
+  --bg-tint-2:   oklch(0.875 0.06 196);
+  /* Frosted's glass plane. A LIFT in dark, white paper in the light themes. */
+  --bg-veil:     oklch(1 0 0);
+  /* Linen's thread. */
+  --bg-weave:    oklch(0.55 0.03 255);
+  /* Signal's band. Its own token, not --bg-tint, so the bold option can be
+     balanced per theme without moving the eight quiet ones — which is
+     exactly what this needed.
+     AT THE GROUND'S OWN LIGHTNESS, DELIBERATELY. CHROMA is what makes a band
+     visible; LIGHTNESS is what it costs the ink standing on it. Measured:
+     a darker, less saturated blue at 33% alpha put --primary at 2.92:1,
+     under its floor, while THIS one at 62% is both bolder to the eye and
+     3.03:1 — because it barely moves the ground's luminance at all. If a
+     cell ever fails, lower the first stop; do not recolour the text. */
+  --bg-signal:   oklch(0.925 0.125 255.339);
+  /* Depth's corner darkness. A LITERAL BLACK, on --scrim's documented
+     precedent at line 513: receding is darker in every theme that has ever
+     shipped, and a ramp-derived value would invert under `dark` and LIGHTEN
+     the corners it is there to sink. */
+  --bg-vignette: rgba(0, 0, 0, 0.07);
+}
+
+[data-theme='dark'],
+.dark {
+  /* DARKER than dark's blue-500, the mirror image of light's reason: the
+     ground here is near-black (L=0.141), so any tint LIFTS it and every
+     light-on-ground pair loses contrast. At the accent's own L=0.623 this
+     theme's options cost --muted-foreground up to 1.84; at L=0.42 the worst
+     is 1.63 and every cell clears 4.5:1. Measured. */
+  --bg-tint:     oklch(0.42 0.145 259.815);
+  --bg-tint-2:   oklch(0.40 0.085 200);
+  /* NOT white: a white veil over a near-black app is a grey fog, not glass.
+     Frosted in dark is a LIFT of the ground toward the card plane. */
+  --bg-veil:     oklch(0.34 0.012 285);
+  --bg-weave:    oklch(0.74 0.02 285);        /* a light thread on a dark cloth */
+  /* Lower again than --bg-tint, and for the same reason as light's --bg-signal
+     is HIGHER than light's --bg-tint: the bold band sits at the ground's own
+     lightness so that chroma, not luminance, is what the eye sees. Measured —
+     at L=0.50 this cell read 4.15:1 for --muted-foreground and 2.90:1 for
+     --primary, both under their floors; at L=0.235 it is 6.47 and 4.51. */
+  --bg-signal:   oklch(0.235 0.10 262);
+  --bg-vignette: rgba(0, 0, 0, 0.32);
+}
+
+[data-theme='sand'] {
+  /* NOT var(--primary): sand's is oklch(0.216 ...), near-black. Light for
+     the same measured reason as `light`'s — sand's ground is stone-50, so a
+     mid-lightness tint darkens it and every ink on it loses ground. */
+  --bg-tint:     oklch(0.855 0.055 248);
+  --bg-tint-2:   oklch(0.875 0.04 150);       /* sage — the warm theme's cool companion */
+  --bg-veil:     oklch(1 0 0);
+  /* HUELESS. The warm grey this theme wants lands near hue 60, which is
+     inside the severity arc. Chroma 0 has no hue to compress. */
+  --bg-weave:    oklch(0.52 0 0);
+  --bg-signal:   oklch(0.915 0.085 248);
+  --bg-vignette: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme='contrast'] {
+  /* The diagnostic instrument stays loud here too: an option that is subtle
+     under `contrast` is an option whose failure mode is invisible. */
+  --bg-tint:     oklch(0.85 0.25 110);
+  --bg-tint-2:   oklch(0.9 0.2 195);
+  --bg-veil:     oklch(0.72 0.24 150);
+  --bg-weave:    oklch(0.2 0.3 300);
+  --bg-signal:   oklch(0.85 0.25 110);
+  --bg-vignette: rgba(0, 0, 0, 0.45);
+}
+
+/* ── 2. THE TWO GROUNDS, NAMED ─────────────────────────────────────────
+   --app-bg-wint and --drawer-plate-wint are the ground and the drawer plate
+   AS THEY ARE TODAY, written once so an option can layer over them and the
+   picker can paint a swatch from the same source the page paints from.
+
+   These are mirrors, not the default's source of truth: under the default
+   the page still renders the --app-bg that :root and the theme block
+   declare, which this block never touches. The verification script asserts
+   the two agree in all four themes, which is what keeps the mirror honest. */
+:root {
+  /* The flat plane under both washes. index.css maps it to --card by
+     identity: it was #ffffff in :root, which is exactly `light`'s --card. */
+  --app-bg-base: linear-gradient(90deg, var(--card) 0%, var(--card) 100%);
+
+  /* The page ground, at the frame-root angle. */
+  --app-bg-wint: linear-gradient(101.4227deg, var(--app-bg-stops)), var(--app-bg-base);
+
+  /* The drawer plate. 198378:74013 — Figma's angle, the theme's colour and
+     the five-stop list, copied verbatim from the constant in
+     src/v2/components/WintSidebarV2.jsx that now reads var(--drawer-plate). */
+  --drawer-plate-wint:
+    linear-gradient(125.34006894835755deg, var(--panel-bg-stops)),
+    var(--app-bg-base);
+
+  /* What the drawer paints when no option is selected: today's plate. */
+  --drawer-plate: var(--drawer-plate-wint);
+}
+
+/* ── 3. THE NINE RECIPES ───────────────────────────────────────────────
+   Each --bg-layers-* is a list of TRANSLUCENT layers that composite over
+   the Wint wash. That is what makes every option a re-tint rather than a
+   replacement, and it is also why the same list works for the page ground
+   and for the drawer plate: the layers do not care what is under them.
+
+   Each --app-bg-* is that list over the wash, and it is the ONE source the
+   page and the picker swatch both read, so a swatch cannot drift from the
+   ground it advertises. */
+:root {
+
+  /* 2 · SOLID — near-flat. The theme's own card plane at 86%, which calms
+     the wash to a seventh of itself without erasing it. --card and not
+     --bg-veil, because `dark`'s veil is a lift and would turn a near-black
+     app mid-grey. */
+  --bg-layers-solid:
+    linear-gradient(90deg,
+      color-mix(in oklab, var(--card) 86%, transparent) 0%,
+      color-mix(in oklab, var(--card) 86%, transparent) 100%);
+
+  /* 3 · HORIZON — one vertical tint, strongest at the top edge and gone by
+     the time it reaches the tab bar. */
+  --bg-layers-horizon:
+    linear-gradient(180deg,
+      color-mix(in oklab, var(--bg-tint) 22%, transparent) 0%,
+      color-mix(in oklab, var(--bg-tint) 7%, transparent) 38%,
+      transparent 82%);
+
+  /* 4 · AURORA — three soft blooms, two hues, no edges. */
+  --bg-layers-aurora:
+    radial-gradient(ellipse 128% 62% at 8% -6%,
+      color-mix(in oklab, var(--bg-tint) 26%, transparent) 0%,
+      transparent 64%),
+    radial-gradient(ellipse 108% 54% at 96% 22%,
+      color-mix(in oklab, var(--bg-tint-2) 22%, transparent) 0%,
+      transparent 58%),
+    radial-gradient(ellipse 140% 48% at 50% 108%,
+      color-mix(in oklab, var(--bg-tint) 12%, transparent) 0%,
+      transparent 70%);
+
+  /* 5 · OPAL — two crossing bands at low alpha. The hues shift against each
+     other down the screen without either one ever becoming a block. */
+  --bg-layers-opal:
+    linear-gradient(138deg,
+      color-mix(in oklab, var(--bg-tint-2) 20%, transparent) 0%,
+      transparent 34%,
+      color-mix(in oklab, var(--bg-tint) 16%, transparent) 62%,
+      transparent 88%),
+    linear-gradient(26deg,
+      transparent 18%,
+      color-mix(in oklab, var(--bg-tint) 14%, transparent) 46%,
+      transparent 74%);
+
+  /* 6 · LINEN — texture. Two repeating hairline sets at near-perpendicular
+     angles over a veil that quiets the wash so the weave can be seen. The
+     4px and 5px periods differ so the two sets do not lock into a moire. */
+  --bg-layers-linen:
+    repeating-linear-gradient(94deg,
+      color-mix(in oklab, var(--bg-weave) 5%, transparent) 0px,
+      color-mix(in oklab, var(--bg-weave) 5%, transparent) 1px,
+      transparent 1px,
+      transparent 4px),
+    repeating-linear-gradient(4deg,
+      color-mix(in oklab, var(--bg-weave) 4%, transparent) 0px,
+      color-mix(in oklab, var(--bg-weave) 4%, transparent) 1px,
+      transparent 1px,
+      transparent 5px),
+    linear-gradient(90deg,
+      color-mix(in oklab, var(--card) 62%, transparent) 0%,
+      color-mix(in oklab, var(--card) 62%, transparent) 100%);
+
+  /* 7 · FROSTED — a glass plane with a tint bloom behind it. The BLUR is
+     not here; see section 5. */
+  --bg-layers-frosted:
+    linear-gradient(168deg,
+      color-mix(in oklab, var(--bg-veil) 62%, transparent) 0%,
+      color-mix(in oklab, var(--bg-veil) 34%, transparent) 55%,
+      color-mix(in oklab, var(--bg-veil) 52%, transparent) 100%),
+    radial-gradient(ellipse 120% 52% at 50% 0%,
+      color-mix(in oklab, var(--bg-tint) 14%, transparent) 0%,
+      transparent 72%);
+
+  /* 8 · DEPTH — the page sinks into its bottom corners and lifts at the
+     top. The vignette sits BEHIND the tab bar, which is an opaque bg-muted
+     flex sibling and not a transparent overlay, so no tab label is ever
+     read against it — measured in dark, the worst cell, not assumed. */
+  --bg-layers-depth:
+    radial-gradient(ellipse 78% 40% at 0% 104%,
+      var(--bg-vignette) 0%,
+      transparent 72%),
+    radial-gradient(ellipse 78% 40% at 100% 104%,
+      var(--bg-vignette) 0%,
+      transparent 72%),
+    radial-gradient(ellipse 120% 44% at 50% -8%,
+      color-mix(in oklab, var(--bg-tint) 14%, transparent) 0%,
+      transparent 74%);
+
+  /* 9 · SIGNAL — the bold entry, and the one that spends contrast budget.
+     The band is strongest at the very top and is down to a seventh of
+     itself by 54%, because --muted-foreground is what fails first on a
+     tinted ground and the top third is where the hero band puts it. If a
+     cell fails, LOWER THE FIRST STOP — do not recolour the text. */
+  --bg-layers-signal:
+    linear-gradient(174deg,
+      color-mix(in oklab, var(--bg-signal) 62%, transparent) 0%,
+      color-mix(in oklab, var(--bg-signal) 30%, transparent) 26%,
+      color-mix(in oklab, var(--bg-signal) 9%, transparent) 54%,
+      transparent 78%),
+    radial-gradient(ellipse 92% 36% at 88% 4%,
+      color-mix(in oklab, var(--bg-tint-2) 22%, transparent) 0%,
+      transparent 62%);
+
+  /* The nine grounds, by name. The picker paints its swatches from these,
+     so a swatch IS the ground rather than a picture of one. */
+  --app-bg-option-wint: var(--app-bg-wint);
+  --app-bg-option-solid:   var(--bg-layers-solid),   var(--app-bg-wint);
+  --app-bg-option-horizon: var(--bg-layers-horizon), var(--app-bg-wint);
+  --app-bg-option-aurora:  var(--bg-layers-aurora),  var(--app-bg-wint);
+  --app-bg-option-opal:    var(--bg-layers-opal),    var(--app-bg-wint);
+  --app-bg-option-linen:   var(--bg-layers-linen),   var(--app-bg-wint);
+  --app-bg-option-frosted: var(--bg-layers-frosted), var(--app-bg-wint);
+  --app-bg-option-depth:   var(--bg-layers-depth),   var(--app-bg-wint);
+  --app-bg-option-signal:  var(--bg-layers-signal),  var(--app-bg-wint);
+}
+
+/* ── 4. THE SWITCH ─────────────────────────────────────────────────────
+   `wint` is excluded by :not(), so the default matches NOTHING here and
+   --app-bg keeps the declaration the theme layer made for it.
+
+   THE FALLBACK IS NOT DECORATION. An unknown data-bg value — a stale
+   localStorage entry, a typo in a review link, a key added to one of the
+   three copies and not the other two — would leave --bg-layers undeclared,
+   which makes var(--bg-layers) invalid, which makes --app-bg invalid, which
+   is the blank screen. The transparent no-op layer makes that case render
+   today's ground instead. src/theme/background.js and the boot script also
+   validate the key; this is the third net, and the cheapest. */
+[data-bg]:not([data-bg='wint']) {
+  --app-bg:
+    var(--bg-layers, linear-gradient(transparent, transparent)),
+    var(--app-bg-wint);
+  --drawer-plate:
+    var(--bg-layers, linear-gradient(transparent, transparent)),
+    var(--drawer-plate-wint);
+}
+
+[data-bg='solid']   { --bg-layers: var(--bg-layers-solid); }
+[data-bg='horizon'] { --bg-layers: var(--bg-layers-horizon); }
+[data-bg='aurora']  { --bg-layers: var(--bg-layers-aurora); }
+[data-bg='opal']    { --bg-layers: var(--bg-layers-opal); }
+[data-bg='linen']   { --bg-layers: var(--bg-layers-linen); }
+[data-bg='frosted'] { --bg-layers: var(--bg-layers-frosted); }
+[data-bg='depth']   { --bg-layers: var(--bg-layers-depth); }
+[data-bg='signal']  { --bg-layers: var(--bg-layers-signal); }
+
+/* ── 5. FROSTED'S BLUR — ONE SURFACE, AND WHICH ONE MATTERS ────────────
+   backdrop-filter blurs what is BEHIND an element, so it earns its cost
+   only on chrome that OVERLAPS content. In this shell exactly one surface
+   does: the navigation drawer, which slides over the page. The tab bar and
+   the header bar are flex siblings of the scroll container — they overlap
+   nothing, so blurring them would buy a composited layer and no pixels.
+
+   NEVER on cards, rows or chips, and NEVER on a sticky element inside the
+   scroll container: a WebKit defect blanks the ENTIRE scroll container on
+   iOS 26+ for that combination. The drawer is neither — it is an absolutely
+   positioned sibling of the scroller, and this app has no position:sticky
+   in src/v2 at all. ONE blurred surface, blur 16px: both inside the stated
+   caps of three surfaces and 20px.
+
+   SPECIFICITY, deliberately: `:root[data-bg='frosted']` is (0,2,0), which
+   is what it takes to beat the `[data-bg]:not(...)` block above — also
+   (0,2,0) — on source order. A bare `[data-bg='frosted']` here would be
+   (0,1,0), would silently lose, and would leave an opaque plate with a blur
+   behind it that nothing could ever see through.
+
+   IF IT JANKS ON A REAL PHONE, CUT THIS OPTION AND NOT THE OTHERS: remove
+   the `frosted` entry from the three key lists and delete this section.
+   Nothing else depends on it. */
+@supports (backdrop-filter: blur(2px)) {
+  :root[data-bg='frosted'] {
+    /* The plate goes translucent ONLY where a blur can stand behind it.
+       --panel-bg-stops is READ here, never redeclared. */
+    --drawer-plate:
+      linear-gradient(125.34006894835755deg, var(--panel-bg-stops)),
+      linear-gradient(90deg,
+        color-mix(in oklab, var(--card) 70%, transparent) 0%,
+        color-mix(in oklab, var(--card) 70%, transparent) 100%);
+  }
+  [data-bg='frosted'] [data-chrome='drawer'] {
+    backdrop-filter: blur(16px) saturate(1.2);
+  }
+}
+
+/* Where the user has asked for less transparency, Frosted IS Solid — the
+   same near-flat plane, no blur, nothing translucent over the drawer. */
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-bg='frosted'] {
+    --bg-layers: var(--bg-layers-solid);
+    --drawer-plate: var(--bg-layers-solid), var(--drawer-plate-wint);
+  }
+  [data-bg='frosted'] [data-chrome='drawer'] {
+    backdrop-filter: none;
+  }
+}
 /* ── Notification entrance ────────────────────────────────────────────
    This lived in an inline <style> inside InAppBanner, which meant the
    rule existed only while the in-app banner was mounted.

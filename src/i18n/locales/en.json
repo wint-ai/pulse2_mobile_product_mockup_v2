@@ -156,6 +156,18 @@
     },
     "theme": "Theme",
     "themes": { "light": "Light", "dark": "Dark", "sand": "Sand" },
+    "background": "App Background",
+    "backgrounds": {
+      "wint": "Wint Wash",
+      "solid": "Solid",
+      "horizon": "Horizon",
+      "aurora": "Aurora",
+      "opal": "Opal",
+      "linen": "Linen",
+      "frosted": "Frosted",
+      "depth": "Depth",
+      "signal": "Signal"
+    },
     "notifications": "Notifications",
     "push_notifications_section": "Push Notifications",
     "sms_notifications_section": "SMS Notifications",

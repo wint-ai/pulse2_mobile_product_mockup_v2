@@ -10,20 +10,29 @@
 import { useTheme } from '../context/ThemeContext';
 
 /**
- * C3 Glow page background (locked 2026-06-09, contrast boosted 2026-06-09).
- * Used by multi-system pages (Home, Alerts, Account, TenantPropertiesList).
- * Single-system pages (System Detail, Leak Detail) intentionally use a
- * different treatment to signal "you're looking at one thing now."
+ * C3 Glow page background — NOW THE APP GROUND, not a frozen literal.
+ * Used by the multi-system v1 pages: /alerts (EventsScreen) and
+ * TenantPropertiesList. Single-system pages (System Detail, Leak Detail)
+ * intentionally use a different treatment — MESH_PAGE_BG below — to signal
+ * "you're looking at one thing now", and that one is untouched.
  *
- * Recipe: single large radial glow from upper-right corner (brand-blue
- * 0.32 alpha → 0.12 → 0) + a more saturated pale-blue vertical gradient
- * underneath. Bumped from the original 0.18 / #E4ECF4-#F0F2F5 because the
- * original was barely visible on a real phone display.
- * See public/reviews/header-background-options.html#opt-glow.
+ * WHAT THIS WAS, AND WHY IT MOVED. It was a hardcoded recipe (locked
+ * 2026-06-09, contrast boosted the same day): one large radial glow from the
+ * upper-right corner, brand-blue 0.32 → 0.12 → 0, over a pale-blue vertical
+ * gradient #CDDDEB → #DCE6EF → #E5ECF1 → #E9EEF3. See
+ * public/reviews/header-background-options.html#opt-glow for the original.
+ *
+ * Being a literal, it already ignored the v2 theme switch: /alerts stayed pale
+ * blue under `dark`, `sand` and `contrast` alike. Pointing it at --app-bg
+ * fixes that AND makes the tab follow the app-background selector, which is
+ * the point — the ground is the largest painted area in the app and a tab
+ * that does not move with it reads as a different product.
+ *
+ * THIS MOVES PIXELS ON A LIVE V1 SCREEN. That is approved and deliberate, not
+ * a side effect: under the default theme and the default ground it goes from
+ * the pale-blue glow above to the Figma wash every v2 page already paints.
  */
-export const GLOW_PAGE_BG =
-  'radial-gradient(ellipse 95% 60% at 85% 0%, rgba(11,149,248,0.32) 0%, rgba(11,149,248,0.12) 35%, rgba(11,149,248,0) 70%), ' +
-  'linear-gradient(180deg, #CDDDEB 0%, #DCE6EF 40%, #E5ECF1 75%, #E9EEF3 100%)';
+export const GLOW_PAGE_BG = 'var(--app-bg)';
 
 /**
  * N4 Mesh page background (single-system pages, locked 2026-06-09).

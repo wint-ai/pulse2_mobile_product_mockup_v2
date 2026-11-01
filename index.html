@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#f4f6f9" /><!-- the light theme's background token; the boot script below rewrites this per theme -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <!-- Theme boot — BLOCKING AND INLINE ON PURPOSE.
+    <!-- Theme + background boot — BLOCKING AND INLINE ON PURPOSE.
          This runs before the module script below is even requested, which is
          the whole point: the token set is stamped on <html> before the first
          paint, so there is no flash of the previous theme on reload or on a
@@ -25,24 +25,48 @@
          pre-bundle script cannot import — and it is the only copy: keep the
          two in step when adding a theme.
          The key is 'pulse2-v2-theme', NOT 'pulse2-theme' — the v1 engine
-         src/context/ThemeContext.jsx already owns that one. -->
+         src/context/ThemeContext.jsx already owns that one.
+
+         data-bg IS THE SECOND AXIS, and it is stamped here for a stronger
+         reason than the theme is. The ground is the largest painted area in
+         the app, so a flash of the wrong one on every reload is worse than a
+         flash of the wrong theme — it is the whole screen, not the chrome.
+         Its nine keys are the third copy of the list in src/theme/background.js
+         and in the `data-bg` block at the foot of src/index.css; the same
+         cannot-import rule applies, and all three have to move together.
+         It does NOT touch <meta name="theme-color">: that tag colours the
+         browser's own chrome, which follows the THEME. The ground re-tints the
+         theme's wash and does not redefine it.
+         An unrecognised key resolves to the default rather than being written
+         through, because an unknown data-bg leaves --bg-layers undeclared,
+         and an undeclared var() inside --app-bg is a blank page root. The CSS
+         carries a transparent no-op fallback for the same reason. -->
     <script>
       (function () {
         var THEMES = { light: '#f4f6f9', dark: '#09090b', sand: '#ffffff', contrast: '#be00c0' };
-        var key = null;
-        try {
-          var q = new URLSearchParams(window.location.search).get('theme');
-          if (q && THEMES[q]) key = q;
-        } catch (e) { /* no URLSearchParams */ }
-        if (!key) {
+        var BACKGROUNDS = {
+          wint: 1, solid: 1, horizon: 1, aurora: 1, opal: 1,
+          linen: 1, frosted: 1, depth: 1, signal: 1
+        };
+        var query = null;
+        try { query = new URLSearchParams(window.location.search); } catch (e) { /* no URLSearchParams */ }
+
+        function resolve(param, storageKey, allowed, fallback) {
+          var fromUrl = query && query.get(param);
+          if (fromUrl && allowed[fromUrl]) return fromUrl;
           try {
-            var saved = localStorage.getItem('pulse2-v2-theme');
-            if (saved && THEMES[saved]) key = saved;
+            var saved = localStorage.getItem(storageKey);
+            if (saved && allowed[saved]) return saved;
           } catch (e) { /* localStorage unavailable */ }
+          return fallback;
         }
-        if (!key) key = 'light';
+
+        var key = resolve('theme', 'pulse2-v2-theme', THEMES, 'light');
+        var bg = resolve('bg', 'pulse2-v2-bg', BACKGROUNDS, 'wint');
+
         var root = document.documentElement;
         root.setAttribute('data-theme', key);
+        root.setAttribute('data-bg', bg);
         if (key === 'dark') root.classList.add('dark');
         var meta = document.querySelector('meta[name="theme-color"]');
         if (meta) meta.setAttribute('content', THEMES[key]);

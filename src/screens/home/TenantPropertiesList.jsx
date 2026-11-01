@@ -44,7 +44,19 @@ export default function TenantPropertiesList() {
   const firstName = (persona?.name || '').split(' ')[0] || 'there';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: GLOW_PAGE_BG }}>
+    /* GLOW_PAGE_BG IS var(--app-bg) NOW — see src/components/PipesHeader.jsx.
+       This screen's ground follows the theme and the app-background selector,
+       which it never did while the recipe was a frozen pale-blue literal.
+       Its INK did not follow on its own: the four strings below sit DIRECTLY on
+       the ground and carried v1 literals, which are invisible on a dark one.
+       The rows do not need this — they sit on theme.card. Same two custom
+       properties EventsScreen declares, and ScopeHeader reads, so the one
+       pattern covers both screens whose ground moved. */
+    <div style={{
+      display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: GLOW_PAGE_BG,
+      '--v1-scope-ink': 'var(--foreground)',
+      '--v1-scope-ink-dim': 'var(--muted-foreground)',
+    }}>
       <PipesHeader glow={true}>
         <div style={{ display: 'flex', alignItems: 'center', padding: '12px 14px 16px', gap: 10 }}>
           <div style={{
@@ -56,10 +68,10 @@ export default function TenantPropertiesList() {
             <MIcon name="home_work" size={22} color="#036AB5" fill />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#14151A', letterSpacing: '-0.3px' }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--v1-scope-ink, #14151A)', letterSpacing: '-0.3px' }}>
               My properties
             </div>
-            <div style={{ fontSize: 13, color: '#4A4F5A' }}>
+            <div style={{ fontSize: 13, color: 'var(--v1-scope-ink-dim, #4A4F5A)' }}>
               {visibleSystems.length} apartment{visibleSystems.length !== 1 ? 's' : ''}
             </div>
           </div>
@@ -68,10 +80,10 @@ export default function TenantPropertiesList() {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 24px' }}>
         <div style={{ padding: '0 4px 12px' }}>
-          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.3px', color: theme.text }}>
+          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.3px', color: `var(--v1-scope-ink, ${theme.text})` }}>
             Hi {firstName}
           </div>
-          <div style={{ fontSize: 12, color: theme.textTertiary, marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: `var(--v1-scope-ink-dim, ${theme.textTertiary})`, marginTop: 2 }}>
             {issuesCount === 0
               ? 'Everything looks fine'
               : `${issuesCount} apartment${issuesCount !== 1 ? 's' : ''} need${issuesCount === 1 ? 's' : ''} your attention`}

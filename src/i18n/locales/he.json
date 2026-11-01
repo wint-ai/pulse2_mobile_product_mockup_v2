@@ -156,6 +156,18 @@
     },
     "theme": "ערכת נושא",
     "themes": { "light": "בהיר", "dark": "כהה", "sand": "חול" },
+    "background": "רקע האפליקציה",
+    "backgrounds": {
+      "wint": "גוון Wint",
+      "solid": "אחיד",
+      "horizon": "אופק",
+      "aurora": "זוהר",
+      "opal": "פנינה",
+      "linen": "פשתן",
+      "frosted": "חלבית",
+      "depth": "עומק",
+      "signal": "איתות"
+    },
     "notifications": "התראות",
     "push_notifications_section": "התראות באפליקציה",
     "sms_notifications_section": "התראות SMS",

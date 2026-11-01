@@ -124,13 +124,24 @@ import { computeSystemHealth } from '@/utils/systemHealth'
  * of the panel by up to 17/255 under `light` — measured. --panel-bg-stops is
  * that five-stop list, so `light` is byte-exact rather than merely close.
  */
-/* The flat layer under the wash. index.css maps it to --card by identity: it
-   was #ffffff, which is exactly `light`'s --card. */
-const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
-
-/** 198378:74013. Figma's angle, the theme's colour. */
-const PANEL_BG =
-  `linear-gradient(125.34006894835755deg, var(--panel-bg-stops)), ${WASH_BASE}`
+/** 198378:74013. Figma's angle, the theme's colour.
+ *
+ * THE VALUE MOVED TO A TOKEN, IT DID NOT CHANGE. --drawer-plate is declared at
+ * the foot of src/index.css as exactly the string this constant used to be:
+ *
+ *     linear-gradient(125.34006894835755deg, var(--panel-bg-stops)),
+ *     linear-gradient(90deg, var(--card) 0%, var(--card) 100%)
+ *
+ * — the same angle, the same five-stop list, and the same flat layer under it
+ * (index.css maps that layer to --card by identity: it was #ffffff, which is
+ * exactly `light`'s --card). Every theme is byte-identical; the local
+ * WASH_BASE constant went with it, since nothing else here used it.
+ *
+ * What the token buys is the SECOND AXIS. The app-background options
+ * (`data-bg`) re-tint the drawer plate along with the page ground, and they do
+ * that by redeclaring --drawer-plate — NEVER by touching --panel-bg-stops,
+ * which this plate shares with EventOverlayV2 and which is measured. */
+const PANEL_BG = 'var(--drawer-plate)'
 
 /** Panel is 357 of the frame's 402 — 88.8%, capped so it never exceeds 357. */
 const PANEL_WIDTH_PCT = '88.8%'
@@ -644,6 +655,14 @@ export default function WintSidebarV2({ open, onClose }) {
         aria-label="Locations menu"
         aria-hidden={!open}
         inert={!open}
+        /* The one chrome surface the `frosted` background blurs. It is the
+           only one that OVERLAPS content — the tab bar and the header bar are
+           flex siblings of the scroller and overlap nothing, so a blur there
+           would cost a composited layer and buy no pixels. It is also not a
+           sticky element inside the scroll container, which is the
+           combination that blanks the whole scroller on iOS 26+. See section
+           5 of the data-bg block in src/index.css. */
+        data-chrome="drawer"
         className="absolute inset-y-0 left-0 z-[11] flex flex-col overflow-hidden transition-transform duration-[250ms]"
         style={{
           width: PANEL_WIDTH_PCT,

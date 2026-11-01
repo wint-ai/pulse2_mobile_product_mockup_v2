@@ -78,16 +78,28 @@ export default function ScopeHeader({
           <div style={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
             <span style={{
               fontSize: 18, fontWeight: 700,
-              color: '#14151A',
+              /* THE LITERAL IS THE FALLBACK, AND THAT IS THE WHOLE DESIGN.
+                 Three v1 screens mount this header and they do NOT share a
+                 ground: SystemDetail keeps MESH_PAGE_BG, HomeUnified keeps its
+                 own, and EventsScreen's GLOW_PAGE_BG now resolves to
+                 var(--app-bg) and therefore follows the theme AND the app
+                 background selector. Dark ink on a dark ground is invisible,
+                 so the one screen whose ground moved declares
+                 --v1-scope-ink on its root and this follows it; the two that
+                 did not move declare nothing and get the literal they always
+                 had, byte for byte. Do NOT point this straight at
+                 --foreground: that would invert the title to white on the two
+                 pale grounds that never asked to change. */
+              color: 'var(--v1-scope-ink, #14151A)',
               letterSpacing: '-0.3px',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{pageTitle}</span>
-            <MIcon name="expand_more" size={22} color="#4A4F5A" style={{ flexShrink: 0, marginLeft: 2 }} />
+            <MIcon name="expand_more" size={22} color="var(--v1-scope-ink-dim, #4A4F5A)" style={{ flexShrink: 0, marginLeft: 2 }} />
           </div>
 
           {/* Sub-line - page-specific content (counts, attention, etc.) */}
           {subLine && (
-            <div style={{ fontSize: 13, color: '#4A4F5A' }}>
+            <div style={{ fontSize: 13, color: 'var(--v1-scope-ink-dim, #4A4F5A)' }}>
               {subLine}
             </div>
           )}
