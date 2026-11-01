@@ -332,13 +332,24 @@ describe('one press is one fire', () => {
 })
 
 /**
- * THE VISIBLE HANDLE, on by default since 2026-10-31 at the owner's request
- * and intended to go back to being concealed (DEV_FLAGS.handle). Because the
- * default is now `on`, the two off-switches are the only way to be rid of it
- * and are pinned here individually - and so is the fact that a dismissal
- * SURVIVES A RELOAD, which a store that could only record "on" could not do.
+ * THE VISIBLE HANDLE, opt-in behind `?simhandle=1` (DEV_FLAGS.handle).
+ *
+ * It was on by default for exactly one day, 2026-10-31 to 2026-11-01. The
+ * default is back to off because the pill sits at z-240 over the Home
+ * screen's Water-events rows, which scroll underneath it: a tap on a row's
+ * left third opened this simulator, and a tap on the `×` silently hid the
+ * handle and did nothing else. So the DEFAULT IS PINNED OFF below, together
+ * with the fact that nothing is drawn at all without the flag - which is the
+ * part that actually keeps the rows tappable - and `?simhandle=1` as the way
+ * back in.
+ *
+ * The two off-switches are still pinned individually, and so is the fact that
+ * a dismissal SURVIVES A RELOAD. That is not free with the default back at
+ * off: `?simhandle=1` latches `'1'` in sessionStorage, so a store that could
+ * only record "on" would have nowhere to put the `×` and the dismissal would
+ * last until the next load. Hence the three-state store, and hence these.
  */
-describe('the visible handle - on by default, temporarily', () => {
+describe('the visible handle - off by default, reached with ?simhandle=1', () => {
   beforeEach(() => { localStorage.setItem('pulse2-persona-id', 'wint-admin') })
   afterEach(() => {
     cleanup()
@@ -349,15 +360,46 @@ describe('the visible handle - on by default, temporarily', () => {
 
   const handle = () => screen.queryByRole('button', { name: 'Push sim' })
   const dismiss = () => screen.getByRole('button', { name: 'Hide the push simulator handle' })
+  const dismissIfAny = () => screen.queryByRole('button', { name: 'Hide the push simulator handle' })
+  /** The only way the pill appears now. Mount with the flag, as a load would. */
+  const mountEnabled = () => {
+    window.history.replaceState({}, '', '/?simhandle=1')
+    return mount()
+  }
 
-  it('is on screen with no flag at all - this is the flipped default', () => {
+  /* THE OCCLUSION FIX, pinned. Not just "the button is not findable": the
+     pill is not in the DOM at all, so there is nothing at z-240 left over
+     the Water-events rows to swallow a tap meant for a row. */
+  it('draws nothing at all with no flag - this is the default', () => {
     mount()
+    expect(handle()).toBeNull()
+    expect(dismissIfAny()).toBeNull()
+    const overlays = [...document.querySelectorAll('[class]')]
+      .filter((el) => (el.getAttribute('class') || '').includes('z-[240]'))
+    expect(overlays).toHaveLength(0)
+  })
+
+  it('appears on ?simhandle=1, which is then stripped from the URL', () => {
+    mountEnabled()
     expect(handle()).not.toBeNull()
     expect(dismiss()).not.toBeNull()
+    expect(window.location.search).not.toContain('simhandle')
+  })
+
+  /* The flag is typed once. It latches for the tab so a reload keeps it -
+     the owner must not have to re-type it mid-demo. */
+  it('latches for the tab, so a reload keeps it without the flag', () => {
+    const first = mountEnabled()
+    expect(handle()).not.toBeNull()
+    expect(sessionStorage.getItem('pulse2-sim-handle')).toBe('1')
+
+    first.unmount()
+    mount() // a reload: the URL no longer says simhandle
+    expect(handle()).not.toBeNull()
   })
 
   it('opens the sheet on a plain click - no gesture, no timing', () => {
-    mount()
+    mountEnabled()
     expect(sheet()).toBeNull()
     fireEvent.click(handle())
     expect(sheet()).not.toBeNull()
@@ -368,7 +410,7 @@ describe('the visible handle - on by default, temporarily', () => {
   it('does not replace the concealed gesture', () => {
     vi.useFakeTimers()
     try {
-      mount()
+      mountEnabled()
       expect(handle()).not.toBeNull()
       stubAnchor()
       hold(IN_ZONE, { pointerType: 'mouse' })
@@ -376,22 +418,39 @@ describe('the visible handle - on by default, temporarily', () => {
     } finally { vi.useRealTimers() }
   })
 
+  /* And with the default off, the gesture is the ONLY way in on a plain
+     load - which is the end state the handle was always meant to return to. */
+  it('leaves the concealed gesture working as the only way in with no flag', () => {
+    vi.useFakeTimers()
+    try {
+      mount()
+      expect(handle()).toBeNull()
+      stubAnchor()
+      hold(IN_ZONE, { pointerType: 'touch' })
+      expect(sheet()).not.toBeNull()
+    } finally { vi.useRealTimers() }
+  })
+
   it('is turned off by ?simhandle=0, and STAYS off across a reload', () => {
+    // Start from on, so the '0' has something to actually turn off.
+    mountEnabled().unmount()
+
     window.history.replaceState({}, '', '/?simhandle=0&theme=contrast')
-    const first = mount()
+    const second = mount()
     expect(handle()).toBeNull()
     // Ours is stripped; anything else in the query survives.
     expect(window.location.search).not.toContain('simhandle')
     expect(window.location.search).toContain('theme=contrast')
 
-    // A plain reload must not resurrect it - that is what the '0' is for.
-    first.unmount()
+    // A plain reload must not resurrect it - that is what the '0' is for,
+    // and the latched '1' is exactly what it has to beat.
+    second.unmount()
     mount()
     expect(handle()).toBeNull()
   })
 
   it('is turned off by its own ×, and that also survives a reload', () => {
-    const first = mount()
+    const first = mountEnabled()
     fireEvent.click(dismiss())
     expect(handle()).toBeNull()
     expect(sessionStorage.getItem('pulse2-sim-handle')).toBe('0')
@@ -402,7 +461,7 @@ describe('the visible handle - on by default, temporarily', () => {
   })
 
   it('comes back on ?simhandle=1 after it has been dismissed', () => {
-    const first = mount()
+    const first = mountEnabled()
     fireEvent.click(dismiss())
     first.unmount()
 
@@ -411,34 +470,32 @@ describe('the visible handle - on by default, temporarily', () => {
     expect(handle()).not.toBeNull()
   })
 
-  /* The dismissal is a decision about THIS tab, not a setting. A new tab
-     starts from the default, and so does whoever the link is pasted to. */
-  it('a fresh tab returns to the default rather than inheriting a dismissal', () => {
-    const first = mount()
-    fireEvent.click(dismiss())
-    first.unmount()
+  /* The latch is a decision about THIS tab, not a setting. A new tab starts
+     from the default - now off - and so does whoever the link is pasted to,
+     who never asked for a pill over their Water-events rows. */
+  it('a fresh tab returns to the default rather than inheriting the flag', () => {
+    mountEnabled().unmount()
 
     sessionStorage.clear() // what a new tab actually gets
     mount()
-    expect(handle()).not.toBeNull()
+    expect(handle()).toBeNull()
   })
 
   it('never outlives the tab - it is sessionStorage, not localStorage', () => {
-    const first = mount()
-    fireEvent.click(dismiss())
-    expect(localStorage.getItem('pulse2-sim-handle')).toBeNull()
-    first.unmount()
-
-    window.history.replaceState({}, '', '/?simhandle=1')
-    mount()
+    const first = mountEnabled()
     expect(sessionStorage.getItem('pulse2-sim-handle')).toBe('1')
     expect(localStorage.getItem('pulse2-sim-handle')).toBeNull()
+
+    fireEvent.click(dismiss())
+    expect(sessionStorage.getItem('pulse2-sim-handle')).toBe('0')
+    expect(localStorage.getItem('pulse2-sim-handle')).toBeNull()
+    first.unmount()
   })
 
   /* It sits above the TabBar and on the LEFT: the bottom-right 64x64 is the
      concealed gesture's zone and the handle may not cover it. */
   it('is placed clear of both the TabBar and the gesture zone', () => {
-    mount()
+    mountEnabled()
     const pill = handle().parentElement
     expect(pill.className).toContain('left-[12px]')
     expect(pill.className).not.toContain('right-')

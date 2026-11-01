@@ -39,11 +39,12 @@
  * work, nobody has to guess:
  *
  *   the handle — a small labelled pill that opens the sheet on a plain tap or
- *                 click. No gesture, no timing, no geometry. ON BY DEFAULT
- *                 since 2026-10-31, temporarily and at the owner's request;
- *                 the full reasoning, and what reverting it costs, is at
- *                 DEV_FLAGS.handle below. Turned off with `?simhandle=0` or
- *                 the `×` on the pill, and back on with `?simhandle=1`.
+ *                 click. No gesture, no timing, no geometry. OFF by default
+ *                 and reached with `?simhandle=1`; it was on by default for
+ *                 one day, 2026-10-31 to 2026-11-01, and the whole of that
+ *                 story — why it went on and why it came back off — is at
+ *                 DEV_FLAGS.handle below. Turned off again with
+ *                 `?simhandle=0` or the `×` on the pill.
  *   ?simdebug=1 — outlines the hit zone and shows a live readout of what the
  *                 gesture saw: whether a press arrived at all, its pointer
  *                 type and coordinates, the zone's own rect, whether the
@@ -114,36 +115,50 @@ function readSimParam() {
    of the app names its query flags (`?theme=`, `?sim=1`, `?p=`). */
 const DEV_FLAGS = {
   /**
-   * ⚠ TEMPORARY. THE DEFAULT WAS FLIPPED TO `true` ON 2026-10-31, AT THE
-   * OWNER'S EXPLICIT REQUEST — "make it always visible for now".
+   * FLIPPED ON 2026-10-31 AND FLIPPED BACK ON 2026-11-01. Both halves are
+   * recorded here on purpose: the first reason is still a real reason, and
+   * without the second someone will re-flip this for it.
    *
-   * Why: the handle shipped flag-gated, the owner loaded the app without
-   * `?simhandle=1`, saw nothing, and asked where it was. Flag-gating is the
-   * right design for a concealed tool and it was costing them the only thing
-   * they actually needed that day — a reliable way to fire a notification
-   * mid-demo without depending on a gesture that had just been broken.
+   * 2026-10-31 — `defaultOn` set to `true` at the owner's explicit request,
+   * "make it always visible for now". The handle shipped flag-gated, the
+   * owner loaded the app without `?simhandle=1`, saw nothing, and asked where
+   * it was. Flag-gating is the right design for a concealed tool and it was
+   * costing them the only thing they actually needed that day — a reliable
+   * way to fire a notification mid-demo without depending on a gesture that
+   * had just been broken.
    *
-   * THE INTENDED END STATE IS CONCEALED. Setting `defaultOn` back to `false`
-   * is the whole revert: the gesture becomes the only way in again, and the
-   * handle goes back to needing `?simhandle=1`. Nothing else has to move.
-   * "For now" is exactly the kind of thing that quietly becomes permanent,
-   * so this note is the reminder that it was never meant to stay.
+   * 2026-11-01 — back to `false`, at the owner's ruling, because always-on
+   * was not free. The pill is `absolute bottom-[72px] left-[12px] z-[240]`,
+   * x 12–113 / y 750–780 on a 393×852 frame, and the home screen's
+   * Water-events rows SCROLL UNDERNEATH IT. A tap on a row's left third
+   * opened this simulator instead of the row's event, and a tap at x 85–109
+   * hit the `×`, which silently hid the handle and did nothing else — which
+   * from the far side of the glass is indistinguishable from "I tapped the
+   * row and the app ignored me". A dev aid that eats taps on real content is
+   * worse than one nobody can find.
+   *
+   * SO DO NOT FLIP THIS BACK WITHOUT MOVING THE PILL FIRST. If the owner
+   * cannot find the handle again, the fix is `?simhandle=1` (it latches for
+   * the tab, so one load is enough) — or a position that overlaps no
+   * scrolling content, which `bottom-[72px] left-[12px]` is not.
    */
-  handle: { param: 'simhandle', key: 'pulse2-sim-handle', defaultOn: true },
+  handle: { param: 'simhandle', key: 'pulse2-sim-handle', defaultOn: false },
   debug: { param: 'simdebug', key: 'pulse2-sim-debug', defaultOn: false },
 }
 
 /**
- * Read one dev-aid flag. THREE states, not two, which is what the flipped
- * default above forces:
+ * Read one dev-aid flag. THREE states, not two:
  *
  *   key absent  → `defaultOn` — a fresh tab gets the default, always
  *   key `'0'`   → dismissed in this tab, and it STAYS dismissed across a
  *                 reload, which is the whole point of storing it at all
  *   key `'1'`   → explicitly asked for, e.g. re-enabled after a dismissal
  *
- * With the handle's default now `on`, a store that could only record "on"
- * would make the `×` and `?simhandle=0` last exactly until the next reload.
+ * The third state was added when the handle's default was `on` (2026-10-31)
+ * and is KEPT now that it is `off` again, because it is what makes a
+ * dismissal stick either way: `?simhandle=1` latches `'1'`, so a store that
+ * could only record "on" would have nowhere to put the `×` or `?simhandle=0`
+ * and both would last exactly until the next reload.
  * `sessionStorage` and emphatically not `localStorage`: a dismissal must die
  * with the tab, so tomorrow — and anyone the review link is pasted to —
  * starts from the default rather than inheriting a stale decision.
@@ -297,23 +312,29 @@ export default function PushSimTrigger() {
           (the house rule: ValveConfirmSheet.jsx:17-25). */}
       {debug && <GestureReadout diag={diag} liveHeldMs={liveHeldMs} onHide={hideDebug} />}
 
-      {/* ── DEV AID: the visible handle, now on by default (DEV_FLAGS.handle).
-          ABOVE THE TAB BAR, AND ON THE LEFT. Two separate constraints:
+      {/* ── DEV AID: the visible handle, opt-in via `?simhandle=1`
+          (DEV_FLAGS.handle). ABOVE THE TAB BAR, AND ON THE LEFT. Two
+          separate constraints:
           - not bottom-RIGHT, because that is the concealed gesture's own
             64x64 zone and the handle must never occlude it. The gesture
             keeps working with this on screen; the handle is an addition,
             not a replacement.
           - not flush to the bottom, because at 393px the TabBar's first
-            label sits there and the pill clipped the corner of "Home".
-            That was tolerable for an opt-in aid and is not for one that is
-            always on screen, so it clears the TabBar entirely.
+            label sits there and the pill clipped the corner of "Home", so
+            it clears the TabBar entirely.
+          IT DOES STILL SIT OVER SCROLLING CONTENT — the Home screen's
+          Water-events rows pass under x 12–113 / y 750–780, which is what
+          made always-on untenable (DEV_FLAGS.handle). Behind a flag that is
+          a fair trade: whoever typed `?simhandle=1` knows the pill is
+          there. It is not a fair trade for someone who did not ask.
 
           SOLID PRIMARY, NOT A QUIET OUTLINE. It is deliberately the loudest
           thing on the screen that is not content, because the owner also
           could not tell a stale build from a build where they simply had not
-          found the handle. The previous deployed build has no handle at all,
-          so the pill IS the build signal: see it and you are on this build.
-          A subtle affordance would have left both questions open. */}
+          found the handle. With `?simhandle=1` on the URL the pill is the
+          answer to both questions at once: see it and the flag took AND you
+          are on a build that has it. A subtle affordance would have left
+          them open. */}
       {showHandle && !open && (
         <div className="absolute bottom-[72px] left-[12px] z-[240] flex items-center overflow-hidden rounded-full border border-solid border-primary bg-primary shadow-sm">
           <button
