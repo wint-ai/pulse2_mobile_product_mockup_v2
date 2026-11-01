@@ -50,7 +50,7 @@ import { subscribe as bridgeSubscribe, publish as bridgePublish } from '../lib/p
 import { applyPushEvent, applyDemoReset } from '../lib/pushEvents';
 import { useUserContext } from '../context/UserContext';
 import { SYSTEMS } from '../data/systems';
-import { CloseFill, Droplets, Warning } from '../v2/icons';
+import { CloseFill, Droplets, Warning, Waves } from '../v2/icons';
 import { cn } from '../lib/utils';
 
 // Build the payload the desktop /push-panel uses to scope its system picker
@@ -266,10 +266,24 @@ function getNotificationCategory(n) {
   const severeValveErr = /^V_ER_(01|02|03|05)$/.test(variantId);
 
   // Water event family (leak). Severe shutoff variants get the warning
-  // triangle instead of the droplet, mirroring V11's ⚠ vs 💧 distinction.
+  // triangle instead of the waves, mirroring V11's ⚠ vs 💧 distinction.
+  //
+  // BUG FIX: this drew `Droplets`, and that was the complaint. A water event
+  // is `Waves` EVERYWHERE ELSE in this app — AlertCard, EventsTimelineCard,
+  // TriageBand, ActiveWaterEventsCard, SystemPage, HomeAccountOverview — and
+  // FilterOptionIcon.jsx, the canonical filter-value → glyph table, says so in
+  // its own provenance note: "water events  Waves, which carries Wint's leak
+  // meaning across the app." `Droplets` is NOT a spare leak glyph: InsightsCard
+  // uses it as the FLAT entry of its consumption-trend triple (DropletDown /
+  // DropletShare / Droplets), so the push was borrowing a glyph that means
+  // "consumption is steady" to announce a leak. Fired in-app, the banner drew
+  // a droplet directly above the home screen's own Water events row drawing
+  // waves — the same event, two glyphs, one screen.
   if (n?.type === 'leak' || /^(WA|OL|SO|LE)_/.test(variantId)) {
     const tone = sev === 'Low Flow' ? 'severity-low' : 'severity-high';
-    return { Icon: severeShutoff ? Warning : Droplets, tone };
+    return severeShutoff
+      ? { Icon: Warning, tone }
+      : { Icon: Waves, tone, glyphClass: WAVES_WEIGHT };
   }
   // Valve errors.
   //
@@ -318,6 +332,14 @@ function getNotificationCategory(n) {
 // --ink-on-color: the token that exists for "near-white ink on a ground that
 // stays coloured under every theme".
 // Literal strings only — see the note on ACCENT above.
+
+// src/v2/icons/Waves exports into a 21-unit box at stroke 1.08063, which is
+// too thin wherever the glyph is drawn small inside a filled disc. AlertCard
+// (:232-237) and EventsTimelineCard (:619) both correct it to 1.74563 via CSS,
+// which outranks the per-path stroke-width attribute. Same glyph, same disc,
+// same correction — stated here rather than invented.
+const WAVES_WEIGHT = '[&_path]:[stroke-width:1.74563]';
+
 const TONE = {
   'severity-high':     'bg-severity-high text-severity-high-foreground',
   'severity-low':      'bg-severity-low text-severity-low-foreground',
@@ -329,12 +351,12 @@ const TONE = {
 };
 
 function CategoryCircle({ notification, size = 24, glyphSize = 14 }) {
-  const { Icon, tone } = getNotificationCategory(notification);
+  const { Icon, tone, glyphClass } = getNotificationCategory(notification);
   return (
     <div
       className={cn('inline-flex shrink-0 items-center justify-center rounded-full', TONE[tone])}
       style={{ width: size, height: size }}>
-      <Icon size={glyphSize} />
+      <Icon size={glyphSize} className={glyphClass} />
     </div>
   );
 }
