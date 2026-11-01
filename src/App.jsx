@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronRight, Info, Link2, QrCode, X } from 'lucide-react';
+import { ChevronRight, Eye, EyeOff, Info, Link2, QrCode, X } from 'lucide-react';
 import Phone from './components/Phone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { PersonaPickerList } from './components/PersonaPicker';
 import { UserProvider, useUserContext } from './context/UserContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -123,23 +125,77 @@ function AppRoutes() {
   );
 }
 
-function WintLogo({ white = false, width = 120 }) {
-  const src = white
-    ? `${import.meta.env.BASE_URL}wint-logo-white.svg`
-    : `${import.meta.env.BASE_URL}wint-logo.svg`;
-  return <img src={src} alt="WINT" style={{ width, height: 'auto' }} />;
-}
-
 // Shared demo password. Cleared to sessionStorage after a correct entry so the
 // user isn't re-challenged on every navigation within the session.
 const DEMO_PASSWORD = 'WINT2026';
 const PASSWORD_SESSION_KEY = 'pulse2-demo-pw-ok';
 
+/**
+ * THE DEMO PASSWORD GATE.
+ *
+ * REBUILT 2026-11-01 onto the v2 token layer and onto src/components/ui/.
+ * The owner's complaint was that it "looks like completely from a different
+ * app", and that was literally true rather than a matter of taste: this
+ * screen renders BEFORE LoginGate and outside every v2 page, so it was never
+ * in scope for the tokenisation — docs/TOKENIZATION-PLAN.md:4 scopes each
+ * phase to src/v2/ + src/components/ui/, and this is in neither. Everything
+ * below was one inline style object full of frozen literals:
+ * `background:'#fff'`, #14151A ink, a #DEE0E3 rule, a #0B95F8 fill. The
+ * screen therefore rendered byte-identically under light, dark, sand AND
+ * ?theme=contrast. Four themes, one picture.
+ *
+ * THE BACKGROUND WAS MOST OF THE COMPLAINT. `background:'#fff'` painted a
+ * flat white sheet over the app wash. Phone.jsx hands this subtree
+ * var(--app-bg) (src/context/ThemeContext.jsx:172 — WINT's `phoneBg`), and
+ * index.html's blocking boot script stamps data-theme AND data-bg on <html>
+ * before the module bundle is even requested, so the tokens resolve here even
+ * though this renders ahead of the app gate. No background is declared now:
+ * the ground shows through, the way it does on the sign-in screen below and
+ * on every screen after it, and the nine data-bg options re-tint it for free.
+ *
+ * The chrome is the house kit — <Card>, <Input>, <Button>, <Separator> — and
+ * the field carries a reveal toggle (the owner's second ask). That toggle is
+ * a real <button type="button"> so it cannot submit the form, its aria-label
+ * flips with state, and its mousedown is prevented so tapping it does not
+ * pull the caret out of the field you are typing in.
+ *
+ * NOT TOUCHED, deliberately: DEMO_PASSWORD, the sessionStorage key, the
+ * disabled-until-input Continue button, the wrong-password error state, and
+ * every string. The copy is still the five password_gate.* keys — this file
+ * has always read them through useTranslation, so nothing new is translated
+ * here and no untranslated file is dragged in.
+ *
+ * THE WORDMARK, AND THE ONE JUDGEMENT CALL IN THIS CHANGE. The instruction
+ * was to keep the wint logo exactly as it is. Two facts decided how to read
+ * that. First, there is no animation to preserve: public/wint-logo.svg is a
+ * static path set — no <animate>, no SMIL, no CSS keyframes anywhere that
+ * touch it — so "keep the animation" cannot be the operative constraint.
+ * Second, public/wint-logo-white.svg is the SAME geometry, byte-for-byte,
+ * with the fills changed; it is the shipped second cut of one mark, not a
+ * different mark.
+ *
+ * The old `background:'#fff'` is what made the navy #20294C cut legible here,
+ * and removing it is the entire point of this change. Measured on `dark`
+ * after the removal, the navy mark is all but gone against --app-bg — the
+ * ~1.3:1 the LoginWintLogo note below documents. Leaving it would have traded
+ * one "looks like a different app" for a wordmark you cannot see on two of
+ * four themes, and it would have been the one element on the screen that does
+ * NOT move under ?theme=contrast, which is the check this repo uses to find
+ * exactly this bug.
+ *
+ * So this screen now draws <LoginWintLogo />, the CSS-at-paint swap the
+ * sign-in screen directly below already uses. Same mark, same 110px, same
+ * asset pair, no re-timing and nothing restyled; on `light` and `sand` it is
+ * pixel-identical to what was here. If the owner meant the instruction more
+ * literally than that, the revert is one line — put `<WintLogo width={110} />`
+ * back and restore the helper this change deleted (it had no other caller).
+ */
 function PasswordGate({ children }) {
   const { t } = useTranslation();
   const [ok, setOk] = useState(() => sessionStorage.getItem(PASSWORD_SESSION_KEY) === '1');
   const [entered, setEntered] = useState('');
   const [error, setError] = useState(false);
+  const [reveal, setReveal] = useState(false);
 
   function submit() {
     if (entered === DEMO_PASSWORD) {
@@ -152,63 +208,110 @@ function PasswordGate({ children }) {
 
   if (ok) return children;
 
+  /* SHELL CONTRACT. The root is flex-1 / min-h-0 / flex-col and declares no
+     height of its own — no min-h-screen, no h-screen; Phone.jsx owns the
+     393x852 box. The single scroll body under it is flex-1 + overflow-y-auto
+     + min-h-0, and the card is centred with `m-auto` rather than
+     `justify-center`. That distinction is the software-keyboard case: a
+     centred flex LINE clips its own top once the content outgrows the box, so
+     when the keyboard halves the viewport the wordmark would be cut off and
+     unreachable. Auto margins collapse to zero instead and the card simply
+     scrolls. Verified at 393x430. */
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0,
-      background: '#fff',
-      fontFamily: 'Inter, -apple-system, sans-serif',
-      maxWidth: 500, width: '100%', margin: '0 auto',
-      alignItems: 'center', justifyContent: 'center',
-      padding: '32px 24px',
-    }}>
-      <div style={{ marginBottom: 16 }}>
-        <WintLogo width={110} />
-      </div>
-      <div style={{ height: 3, width: 90, background: 'linear-gradient(90deg, #0B95F8, #4CC9F0)', borderRadius: 2, marginBottom: 28 }} />
+    <div className="mx-auto flex min-h-0 w-full max-w-[500px] flex-1 flex-col font-sans">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-6">
+        <div className="m-auto w-full max-w-[340px]">
+          {/* WINT wordmark + brand rule. The rule is the same
+              primary -> primary/40 gradient the sign-in screen draws, in
+              place of the frozen #0B95F8 -> #4CC9F0 pair that was here. */}
+          <div className="flex justify-center">
+            <LoginWintLogo />
+          </div>
+          <div className="mx-auto mt-[14px] h-[3px] w-[90px] rounded-[2px] bg-gradient-to-r from-primary to-primary/40" />
 
-      <div style={{ fontSize: 18, fontWeight: 700, color: '#14151A', letterSpacing: '-0.3px', marginBottom: 6 }}>
-        {t('password_gate.title')}
-      </div>
-      <div style={{ fontSize: 13, color: '#717684', marginBottom: 22, textAlign: 'center', lineHeight: 1.45 }}>
-        {t('password_gate.subline')}
-      </div>
+          <Card className="mt-6">
+            <CardHeader className="text-center">
+              <CardTitle className="font-bold tracking-[-0.3px] text-[18px] leading-[24px]">
+                {t('password_gate.title')}
+              </CardTitle>
+              <CardDescription className="text-[13px] leading-[1.45]">
+                {t('password_gate.subline')}
+              </CardDescription>
+            </CardHeader>
 
-      <input
-        type="password"
-        autoFocus
-        value={entered}
-        onChange={(e) => { setEntered(e.target.value); setError(false); }}
-        onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-        placeholder={t('password_gate.placeholder')}
-        style={{
-          width: '100%', maxWidth: 320,
-          padding: '13px 16px', fontSize: 16, fontFamily: 'inherit',
-          border: `1.5px solid ${error ? '#DB4670' : '#DEE0E3'}`,
-          borderRadius: 10, outline: 'none',
-          color: '#14151A', background: '#fff',
-          textAlign: 'center', letterSpacing: 2,
-          boxSizing: 'border-box',
-        }}
-      />
-      {error && (
-        <div style={{ marginTop: 10, fontSize: 13, color: '#DB4670', fontWeight: 500 }}>
-          {t('password_gate.error')}
+            <Separator />
+
+            <CardContent>
+              {/* A real <form>, so Enter still submits — that used to be an
+                  onKeyDown handler on the bare input. */}
+              <form onSubmit={(e) => { e.preventDefault(); submit(); }}>
+                <label htmlFor="demo-password" className="sr-only">
+                  {t('password_gate.placeholder')}
+                </label>
+                <div className="relative">
+                  <Input
+                    id="demo-password"
+                    type={reveal ? 'text' : 'password'}
+                    autoFocus
+                    autoComplete="current-password"
+                    value={entered}
+                    onChange={(e) => { setEntered(e.target.value); setError(false); }}
+                    placeholder={t('password_gate.placeholder')}
+                    aria-invalid={error || undefined}
+                    aria-describedby={error ? 'demo-password-error' : undefined}
+                    /* Both side paddings clear the toggle so the centred,
+                       letter-spaced value stays optically centred. */
+                    className="h-auto rounded-[10px] border-[1.5px] border-border-strong px-[44px] py-3 text-center text-slate-900 text-[16px] tracking-[2px] placeholder:tracking-[2px] md:text-[16px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setReveal((v) => !v)}
+                    /* Keeps the caret in the field on tap. Keyboard users
+                       still land on the button normally. */
+                    onMouseDown={(e) => e.preventDefault()}
+                    /* LITERAL, and the only literal string on this screen.
+                       There is no password_gate.show / .hide key and adding
+                       one means authoring copy in en.json AND he.json, which
+                       is the owner's call, not this change's. The nearest
+                       existing pair is timeline.show / timeline.hide — right
+                       words, wrong namespace, and borrowing it would break
+                       this control the next time the timeline copy is
+                       renamed. Flagged for the owner. */
+                    aria-label={reveal ? 'Hide password' : 'Show password'}
+                    aria-pressed={reveal}
+                    aria-controls="demo-password"
+                    /* `end-0` / `rounded-e-` are logical, not left/right — the
+                       app ships a Hebrew RTL locale. */
+                    className="absolute inset-y-0 end-0 flex w-11 cursor-pointer items-center justify-center rounded-e-[10px] text-slate-500 outline-none hover:text-slate-900 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  >
+                    {reveal
+                      ? <EyeOff className="size-[18px]" aria-hidden="true" />
+                      : <Eye className="size-[18px]" aria-hidden="true" />}
+                  </button>
+                </div>
+
+                {error && (
+                  <p
+                    id="demo-password-error"
+                    role="alert"
+                    className="mt-[10px] text-center font-medium text-destructive text-[13px] leading-[18px]"
+                  >
+                    {t('password_gate.error')}
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={!entered}
+                  className="mt-4 h-auto w-full cursor-pointer rounded-[10px] py-3 font-bold text-[15px] disabled:cursor-not-allowed"
+                >
+                  {t('password_gate.submit')}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </div>
-      )}
-
-      <button
-        onClick={submit}
-        disabled={!entered}
-        style={{
-          marginTop: 18, width: '100%', maxWidth: 320,
-          padding: 13, borderRadius: 10,
-          background: entered ? '#0B95F8' : '#E8EAED',
-          color: entered ? '#fff' : '#9DA3AE',
-          border: 'none',
-          fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
-          cursor: entered ? 'pointer' : 'not-allowed',
-        }}
-      >{t('password_gate.submit')}</button>
+      </div>
     </div>
   );
 }
@@ -429,9 +532,13 @@ function LoginGate({ children }) {
  * mark.
  *
  * currentColor is not an option: an external SVG loaded through <img> has no
- * CSS context into the file. The plain WintLogo above is deliberately left
- * alone — PasswordGate still paints a literal white panel, so a white mark
- * there would vanish.
+ * CSS context into the file.
+ *
+ * This is now the ONLY wordmark in the file. There used to be a plain
+ * `WintLogo` beside it, kept on the navy cut because PasswordGate painted a
+ * literal white panel under it and a white mark there would have vanished.
+ * PasswordGate stopped painting that panel on 2026-11-01 and moved onto this
+ * component, which removed the last caller; the helper went with it.
  */
 function LoginWintLogo() {
   return (
