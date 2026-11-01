@@ -848,23 +848,62 @@ describe('the overlay chrome', () => {
     expect(panel.className).not.toContain('rounded-t-')
   })
 
-  it('dismisses on the scrim, which is named apart from the ×', () => {
+  it('dismisses on the scrim, which is named apart from the header control', () => {
     let closed = 0
     renderOverlay({ onClose: () => { closed += 1 } })
     const scrim = screen.getByRole('button', { name: 'Close event' })
-    expect(scrim).not.toBe(screen.getByRole('button', { name: 'Close' }))
+    /* "Close event" vs the header's "Back" — the scrim has its own accessible
+       name so the two never collide, which matters more now that the header
+       is down to a single disc. */
+    expect(scrim).not.toBe(screen.getByRole('button', { name: 'Back' }))
     fireEvent.click(scrim)
     expect(closed).toBe(1)
   })
 })
 
-describe('there is a way out', () => {
-  it('offers BOTH the back and the close control, separately named', () => {
+/* ── ONE WAY OUT IN THE HEADER — the 2026-10-31 ruling ────────────────────
+   Owner, on a screenshot of this row carrying a back arrow AND an ×: "x and
+   back can't live in parallel, only one exists. It needs to be back. If back
+   is an option, and x if not."
+
+   These replace 'offers BOTH the back and the close control', which recorded
+   the 2026-10-17 instruction that has now been overruled. What the old tests
+   GUARANTEED is not lost: there is still a way out of the header, it is still
+   named, it still calls onClose, and it still does not scroll away. What is
+   gone is the assertion that there are two of them.
+
+   The count assertions are the point. "A back control exists" passed against
+   the buggy code too — only "and nothing else dismisses from this row" fails
+   against it. */
+describe('there is exactly one way out in the header', () => {
+  /* Every button in the header bar, by accessible name. The scrim is a
+     sibling of the panel, not of the header, so it is not in here. */
+  const headerButtonNames = () =>
+    [...screen.getByRole('dialog').querySelectorAll('header button')].map((b) =>
+      b.getAttribute('aria-label'),
+    )
+
+  it('draws the BACK arrow, and no ×, when back is an option', () => {
     renderOverlay()
-    // The owner asked for both (2026-10-17). Distinct accessible names, so a
-    // screen reader — and this test — can tell them apart.
-    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument()
+    expect(headerButtonNames()).toEqual(['Back'])
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+  })
+
+  it('draws the ×, and no back arrow, when back is NOT an option', () => {
+    renderOverlay({ canGoBack: false })
+    expect(headerButtonNames()).toEqual(['Close'])
+    expect(screen.queryByRole('button', { name: 'Back' })).toBeNull()
+  })
+
+  it('defaults to back, because every mount that exists has a page behind it', () => {
+    /* Both mounts open this overlay from a tap on a surface that stays
+       mounted underneath (SystemPageV2Screen's alert card, HomeAllAccounts'
+       TriageBand row) and dismiss by flipping a useState — they never
+       navigate. So the default is the truthful answer, and a mount only
+       passes canGoBack={false} if it PRESENTS this overlay with nothing of
+       the user's own behind it. */
+    renderOverlay()
+    expect(headerButtonNames()).toEqual(['Back'])
   })
 
   it('dismisses on the back control', () => {
@@ -874,11 +913,44 @@ describe('there is a way out', () => {
     expect(closed).toBe(1)
   })
 
-  it('dismisses on the close control', () => {
+  it('dismisses on the × just the same — one handler, two faces', () => {
     let closed = 0
-    renderOverlay({ onClose: () => { closed += 1 } })
+    renderOverlay({ canGoBack: false, onClose: () => { closed += 1 } })
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(closed).toBe(1)
+  })
+
+  it('keeps the disc in the LEADING slot in both branches', () => {
+    /* M3 gives the top app bar one leading button; Flutter swaps a
+       CloseButton in for the BackButton "instead of", in the same slot. So
+       the × does not inherit the old right-hand position — it inherits the
+       back arrow's. First child of the header in both branches, and never
+       inside a justify-end wrapper. */
+    renderOverlay()
+    const back = screen.getByRole('button', { name: 'Back' })
+    const header = screen.getByRole('dialog').querySelector('header')
+    expect(header.firstElementChild).toBe(back)
+    expect(back.closest('.justify-end')).toBeNull()
+
+    cleanup()
+    renderOverlay({ canGoBack: false })
+    const x = screen.getByRole('button', { name: 'Close' })
+    expect(screen.getByRole('dialog').querySelector('header').firstElementChild).toBe(x)
+    expect(x.closest('.justify-end')).toBeNull()
+  })
+
+  it('keeps the escape hatches that were never in the header', () => {
+    /* Collapsing two discs into one must not reduce the number of ways out
+       of the overlay, only the number drawn on that row. The scrim and
+       Escape are the other two, in BOTH branches. */
+    for (const canGoBack of [true, false]) {
+      let closed = 0
+      renderOverlay({ canGoBack, onClose: () => { closed += 1 } })
+      fireEvent.click(screen.getByRole('button', { name: 'Close event' }))
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(closed, `scrim + Escape with canGoBack=${canGoBack}`).toBe(2)
+      cleanup()
+    }
   })
 
   it('dismisses on Escape', () => {
@@ -1162,14 +1234,20 @@ describe('the red wave collapses with the content', () => {
 
   it('the way out does NOT scroll away with it', () => {
     /* The half of the pattern that is a safety property rather than a visual
-       one: the band collapses, the dismiss controls do not. Both discs are
-       outside the scroller, so scrolling cannot remove them. */
-    renderOverlay()
-    scrollTo(3000)
-    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy()
-    // And they are genuinely outside the scrolling region, not just present.
-    expect(scroller().contains(screen.getByRole('button', { name: 'Back' }))).toBe(false)
+       one: the band collapses, the dismiss control does not. The disc is
+       outside the scroller, so scrolling cannot remove it.
+
+       Asserted in BOTH branches now that the header draws one control: the
+       pinned bar is what keeps the ONLY header way out reachable, so a
+       regression here is worse than it was when two discs shared the row. */
+    for (const [canGoBack, name] of [[true, 'Back'], [false, 'Close']]) {
+      renderOverlay({ canGoBack })
+      scrollTo(3000)
+      expect(screen.getByRole('button', { name })).toBeTruthy()
+      // And it is genuinely outside the scrolling region, not just present.
+      expect(scroller().contains(screen.getByRole('button', { name }))).toBe(false)
+      cleanup()
+    }
   })
 })
 

@@ -1164,14 +1164,41 @@ function FindSystemPanel({ sys, sysId }) {
  * @param {string}   [props.systemId]  Falls back to `system.id`.
  * @param {object}   [props.system]    The system record; looked up by id if omitted.
  * @param {object}   [props.alert]     The event; falls back to `system.alert`.
- * @param {Function} props.onClose     Back, ×  and Escape all call this. They are
- *   separate controls with separate names ("Back", "Close") because the owner
- *   asked for both; they are the same ACTION today because this overlay has one
- *   level — it opens from a row and closes back onto the page it opened over,
- *   so "back" and "dismiss" land in the same place. They would diverge the
- *   moment this surface pushes a second level inside itself (a recipient
- *   detail, a step detail): back would pop that level and × would still close
- *   the whole overlay. Keep them separate so that change is a handler swap.
+ * @param {Function} props.onClose     The ONE header control, the scrim and
+ *   Escape all call this. There is exactly one header control as of
+ *   2026-10-31 — see `canGoBack` for which one it is and why the pair is gone.
+ *   It is still one ACTION because this overlay has one level: it opens from a
+ *   row and closes back onto the page it opened over, so "back" and "dismiss"
+ *   land in the same place. They would diverge the moment this surface pushes
+ *   a second level inside itself (a recipient detail, a step detail): back
+ *   would pop that level and × would still close the whole overlay. At that
+ *   point this prop splits in two — it does NOT grow a second disc beside the
+ *   first, because the owner's 2026-10-31 ruling is about the row carrying one
+ *   control at a time, not about which control it is.
+ * @param {boolean}  [props.canGoBack=true]  IS "BACK" AN OPTION? Picks the
+ *   header control: the back arrow (aria-label "Back") when true, the × (
+ *   aria-label "Close") when false. NEVER BOTH — see the header for the
+ *   owner's ruling and the platform guidance behind it.
+ *
+ *   It defaults to TRUE and both of today's mounts take the default, because
+ *   both are telling the truth: this overlay is only ever opened by a tap on a
+ *   surface that stays mounted underneath it (SystemPageV2Screen's alert card,
+ *   HomeAllAccounts' TriageBand row), and dismissing returns the user to that
+ *   surface. "Back" is therefore an option on every path that exists today,
+ *   including a cold deep-link to /system/:id — the user still arrives on the
+ *   system page and still opens this overlay from it, so the page behind it is
+ *   there to go back to no matter how empty the router's history is.
+ *
+ *   DO NOT WIRE THIS TO ROUTER HISTORY. Dismissing this overlay does not
+ *   navigate — both mounts just flip a `useState` — so history length says
+ *   nothing about whether there is somewhere to go back to, and reading it
+ *   would draw an × on a deep-link where back is perfectly meaningful. Only
+ *   the MOUNT knows what is underneath, which is why this is its call to make.
+ *
+ *   Pass `false` from a mount that PRESENTS this overlay rather than pushing
+ *   it — a notification that opens the event as the first surface of the
+ *   session, with no page of the user's own behind it. No such mount exists
+ *   yet; this is the seam for when one does.
  * @param {Function} [props.onIgnore]  (systemId) => void. THE SEAM for the
  *   one-question feedback flow (WaterEventFeedbackSheet) that replaces the tag
  *   taxonomy. This overlay deliberately does NOT write to ignoredIncidents and
@@ -1199,6 +1226,7 @@ export default function EventFocusOverlay({
   system,
   alert,
   onClose,
+  canGoBack = true,
   onIgnore,
   onClaim,
   onStandDown,
@@ -1541,8 +1569,11 @@ export default function EventFocusOverlay({
     >
       {/* Scrim — the page stays visible above the sheet, which is the whole
           point of the 2026-10-17 chrome change. Tapping it dismisses, same as
-          ×. Its own accessible name, so the two do not collide (the pattern
-          SystemsFilterSheet.jsx:99 sets). */}
+          the header control. Its own accessible name ("Close event", not
+          "Close"), so the two do not collide (the pattern
+          SystemsFilterSheet.jsx:99 sets) — which matters more since
+          2026-10-31, because the header's single disc is labelled "Close"
+          outright whenever `canGoBack` is false. */}
       <button
         type="button"
         aria-label="Close event"
@@ -1554,10 +1585,10 @@ export default function EventFocusOverlay({
           rather than `max-h-[85%]`: it owns the frame. The rounded top corners
           go with the sheet — a full-height panel has nothing to round against. */}
       <div className="relative flex h-full flex-col overflow-hidden bg-background">
-      {/* Header — the event, the system it is on, and BOTH ways out the owner
-          asked for. They carry distinct names so a screen reader (and a test)
-          can tell them apart; see the `onClose` prop note for when they would
-          diverge. */}
+      {/* Header — the event, the system it is on, and THE way out. One
+          control since 2026-10-31 ("x and back can't live in parallel, only
+          one exists"); it is the back arrow or the ×, never both, and
+          `canGoBack` decides. See the prop note and the header itself. */}
       {/* ── The hero ──────────────────────────────────────────────────────
           199683:24850. Owner: "missing visualisation on header, the waves
           component" — meaning THIS, not the small glyph beside the title that
@@ -1621,14 +1652,16 @@ export default function EventFocusOverlay({
         </div>
       </div>
 
-      {/* The PINNED bar. It stays `shrink-0` outside the scroller, so the two
-          ways out never scroll away — see the HERO_H note.
+      {/* The PINNED bar. It stays `shrink-0` outside the scroller, so the
+          header's way out never scrolls away — see the HERO_H note. Since
+          2026-10-31 that is a single disc, so this is the only thing keeping
+          it reachable at the foot of a long event.
 
           `data-solid` is written by onBodyScroll, not by React, and flips once
           the wave's bottom edge has passed this row. Background only, no
           border: a border-b would add a pixel to a 59px row the frame
           specifies exactly, and would shift every card under it by 1px at the
-          moment it appeared. --background is #F4F6F9 and the discs are
+          moment it appeared. --background is #F4F6F9 and the disc is
           --surface-card #fafbfc on a white hairline, so they keep their edge
           against the solid bar as well as against the wave. */}
       <div
@@ -1643,40 +1676,83 @@ export default function EventFocusOverlay({
             owner's own 2026-10-18 requirement ("Apartment 5 alone does not say
             which building") answered a different way rather than dropped. */}
         <header className="relative flex h-[59px] shrink-0 items-center gap-[8px] px-[16px]">
-          {/* 199683:24856 — the node's 30px disc, surface-card on a white
-              hairline, which is what makes it read on the wave. */}
+          {/* ── ONE CONTROL, NEVER TWO — 2026-10-31 ────────────────────────
+              Owner, on a screenshot of this row carrying both a back arrow
+              and an ×: "x and back can't live in parallel, only one exists.
+              It needs to be back. If back is an option, and x if not. Use
+              best practices for that."
+
+              So this is the node's own 30px disc (199683:24856) — surface-card
+              on a white hairline, which is what makes it read on the wave —
+              rendered ONCE, in the LEADING slot, wearing whichever glyph the
+              surface has earned. The × that used to sit in a `flex-1
+              justify-end` wrapper on the right is gone; it did not take a
+              destination with it, which is the only reason this is a one-line
+              change rather than a Rule 0 conversation. Back and × both called
+              `onClose`, and so do the scrim and Escape: three ways out
+              survive, and the row that drew two of them now draws one.
+
+              199683:24853 drew only the back control all along. The × was
+              added on 2026-10-17 on the reasoning that "a redundant way out
+              is a small deviation, a missing one is discovered by a user who
+              is stuck" — the owner has now overruled that, and the redundancy
+              was never free: two discs on one row ask the user which one is
+              the way out.
+
+              WHY LEADING, AND WHY ONE. The platforms agree on the shape even
+              where they disagree on the vocabulary:
+
+              • Material 3, top app bar (m3.material.io/components/app-bars/
+                guidelines, content rev. 2026-07-22): "The leading button
+                should be used for navigating the product. It typically is one
+                of the following: A menu icon … A back arrow, which returns to
+                the previous screen." ONE leading slot. M3's app-bar guidance
+                never puts a close glyph in it at all.
+              • Flutter, Google's own Material implementation (api.flutter.dev
+                CloseButton): "Use a CloseButton instead of a BackButton on
+                fullscreen dialogs or pages that may solicit additional actions
+                to close." *Instead of* — the choice this prop makes, made for
+                you by how the route was presented.
+              • Apple HIG, Sheets (developer.apple.com/design/
+                human-interface-guidelines/sheets, rev. 2026-03-24): the Back
+                button "lets people navigate to a previous step in a multi-step
+                flow or to a parent view in a hierarchy. It isn't intended to
+                dismiss a sheet", and on a multi-step sheet "the Back button
+                REPLACES the Cancel button". Replaces — not joins.
+              • Apple HIG, Modality: "avoid including buttons that people might
+                mistake for the button that dismisses the modal view", and
+                "Always give people an obvious way to dismiss" — singular.
+              • Material 1 (m1.material.io/components/dialogs.html) is the
+                clearest on the semantics: the × "differs from an up arrow,
+                which indicates the view's state is constantly being saved".
+                THIS SURFACE COMMITS LIVE — claim, ignore and the valve all
+                write on tap, there is no Save and nothing is discarded on the
+                way out — which is M1's own test for the arrow rather than the
+                ×, and is a second reason `canGoBack` defaults to true here.
+
+              HONEST ABOUT THE EVIDENCE: no guideline we found says in so many
+              words that a back arrow and an × together in one bar is wrong,
+              and M3's modal side sheet documents an optional back icon beside
+              a close icon. The case for one control is the convergence above
+              plus the owner's ruling, not a citable prohibition — and where
+              the two documented ways out DO coexist they sit on opposite
+              edges or in a replace relationship, never adjacent as a pair of
+              matching discs.
+
+              The glyph is the only thing that changes. Same disc, same slot,
+              same 30px, same hairline, same handler, and both aria-labels are
+              the ones these controls already carried — no new copy. `pr-[2px]`
+              optically centres the arrow's stem and belongs to the arrow
+              alone; the × is already centred. */}
           <Button
             type="button"
             variant="ghost"
-            aria-label="Back"
+            aria-label={canGoBack ? 'Back' : 'Close'}
             onClick={onClose}
-            className="flex size-[30px] shrink-0 items-center justify-center rounded-full border border-solid border-white bg-surface-card pr-[2px] text-slate-900 hover:bg-card"
+            className={`flex size-[30px] shrink-0 items-center justify-center rounded-full border border-solid border-white bg-surface-card text-slate-900 hover:bg-card${canGoBack ? ' pr-[2px]' : ''}`}
           >
-            <ArrowLeft size={18} />
+            {canGoBack ? <ArrowLeft size={18} /> : <X size={18} />}
           </Button>
-
-          {/* THE × STAYS, on the right of the same row and as the same 30px
-              disc, so the pair reads as one piece of chrome.
-
-              199683:24853 draws ONLY the back control, and matching it
-              exactly would mean deleting this — but the owner asked for both
-              on 2026-10-17, and eventFocusOverlay.dom.test.jsx records that
-              in so many words ("the owner asked for both"). A frame that
-              omits a control is not the same as an instruction to remove one,
-              and the cost is asymmetric: a redundant way out is a small
-              deviation, a missing one is discovered by a user who is stuck.
-              Say the word and it is one line. */}
-          <div className="flex flex-1 justify-end">
-            <Button
-              type="button"
-              variant="ghost"
-              aria-label="Close"
-              onClick={onClose}
-              className="flex size-[30px] shrink-0 items-center justify-center rounded-full border border-solid border-white bg-surface-card text-slate-900 hover:bg-card"
-            >
-              <X size={18} />
-            </Button>
-          </div>
 
           {/* ── THE SYSTEM'S NAME IS BACK, CENTRED — 199703:42952 ───────────
               2026-10-28. The name was removed from this row on the reading

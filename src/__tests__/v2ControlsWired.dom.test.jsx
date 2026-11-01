@@ -141,11 +141,25 @@ describe('water event rows open the event', () => {
     // It opened IN PLACE: the overlay is on screen...
     const dialog = screen.getByRole('dialog')
     expect(dialog.getAttribute('aria-modal')).toBe('true')
-    /* The header carries BOTH ways out — a back control and an × — and both
-       call onClose. Named individually because "the close control" is no
-       longer a single element. */
+    /* ONE way out in the header, and it is the back control — 2026-10-31.
+       Owner, on a screenshot of this row carrying a back arrow AND an ×: "x
+       and back can't live in parallel, only one exists. It needs to be back.
+       If back is an option, and x if not."
+
+       This used to assert BOTH ('Back' and 'Close'), per a 2026-10-17
+       instruction that the ruling above overrules. DO NOT RESTORE THE PAIR —
+       the × did not take a destination with it when it went (both discs
+       always called the same onClose, and so do the scrim and Escape), so
+       what follows still checks a real, reachable way out. See
+       EventFocusOverlay's `canGoBack` prop for which disc renders when, and
+       eventFocusOverlay.dom.test.jsx for the two-branch coverage.
+
+       The count is asserted as well as the name: "a back control exists"
+       alone would pass against the two-disc version this replaced, and the
+       `getByRole` below still fails if the control vanishes altogether. */
+    const headerWaysOut = within(dialog).getAllByRole('button', { name: /^(Back|Close)$/ })
+    expect(headerWaysOut, 'the header should carry exactly one way out').toHaveLength(1)
     expect(within(dialog).getByRole('button', { name: 'Back' })).toBeTruthy()
-    expect(within(dialog).getByRole('button', { name: 'Close' })).toBeTruthy()
     expect(within(dialog).getAllByRole('heading', { level: 2 })[0].textContent).toBeTruthy()
     expect(dialog.textContent).toContain(rowName)
 
@@ -160,8 +174,8 @@ describe('water event rows open the event', () => {
     // ...and the row did NOT navigate to the v1 screen.
     expect(landedOn, 'row tap still navigates to /alert/:systemId').toBeNull()
 
-    // The close control returns to the list.
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+    // ...and the header's one way out returns to the list.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Back' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
