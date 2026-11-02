@@ -1469,3 +1469,109 @@ describe('reached from the location view, not mounted directly', () => {
     expect(screen.getByRole('button', { name: /^assign to me$/i })).toBeInTheDocument()
   })
 })
+
+/* ── THE HERO WAVE SITS BEHIND THE CARDS — 2026-11-02 ──────────────────────
+   Owner, on the ignored frame: "the card and the high flow event card needs
+   to be above the waves, not below as we show here."
+
+   It was never a z-index fault: the wave band is z-0, the scroller is z-10,
+   and both resolve in the overlay root's stacking context, so the paint order
+   was already right. It was ALPHA. The scroller carried `opacity: 0.7` while
+   the event is ignored, which flattens it and composites the whole thing —
+   the opaque alert card included — at 70% over whatever is behind, and for
+   the card's first ~80px that is the wave.
+
+   THIS SURFACE HAS HIT IT ONCE BEFORE: the "Event Ignored" strip read maroon
+   over the red hero for exactly this reason and was moved out of the scroller
+   (see 'draws the strip OUTSIDE the dimmed body'). The alert card was the one
+   child left that overlaps the hero.
+
+   WHAT THESE TESTS CAN AND CANNOT DO. happy-dom computes no layout and does
+   no compositing, so NOTHING here proves what the screen looks like. What it
+   pins is the structure the fix rests on: the wave is a sibling that precedes
+   the scroller and keeps its z-0, the scroller keeps its z-10, no element-
+   level alpha is applied to the box that contains the card, and the card
+   itself opts out of the ignored dim. A human still has to look. */
+describe('the ignored dim never makes the alert card translucent', () => {
+  const wave = () => document.querySelector('[data-node-id="199431:138924"]')
+  const scroller = () => document.querySelector('[data-ignored]')
+
+  it('keeps the wave a z-0 sibling painted before the z-10 scroller', () => {
+    renderOverlay()
+    expect(wave(), 'the hero wave band is gone — Rule 0').toBeTruthy()
+    expect(wave().className).toMatch(/\bz-0\b/)
+    expect(scroller().className).toMatch(/\bz-10\b/)
+    expect(wave().parentElement).toBe(scroller().parentElement)
+    // DOCUMENT_POSITION_FOLLOWING === 4
+    expect(wave().compareDocumentPosition(scroller()) & 4).toBe(4)
+  })
+
+  it('puts no alpha on the scroller itself, in any branch', () => {
+    renderOverlay()
+    expect(scroller().style.opacity, 'a live event must not be dimmed').toBe('')
+    expect(scroller().className, 'box-level alpha is what let the wave through')
+      .not.toMatch(/(^|\s)opacity-\d/)
+
+    cleanup()
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    renderOverlay({ onIgnore: () => {} })
+    expect(scroller().style.opacity).toBe('')
+    expect(scroller().className, 'the ignored dim is no longer on this box')
+      .not.toMatch(/(^|\s)opacity-\d/)
+  })
+
+  it('dims the ignored body child by child, with the alert card opted out', () => {
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    renderOverlay({ onIgnore: () => {} })
+    /* The dim is still THERE — this is not a quiet removal of the muted
+       ignored body, only a move off the box and onto its children. */
+    expect(scroller().className, 'the ignored body stopped being muted')
+      .toMatch(/\[&>\*\]:opacity-70/)
+    const card = scroller().firstElementChild
+    expect(card, 'the alert card is no longer the first child').toBeTruthy()
+    expect(card.className, 'the one child that overlaps the wave must stay opaque')
+      .toMatch(/\bopacity-100!/)
+  })
+
+  it('emits no dim at all when the event is not ignored', () => {
+    renderOverlay()
+    expect(scroller().className).not.toMatch(/\[&>\*\]:opacity-70/)
+  })
+})
+
+/* ── A TILE'S CAPTION HAS TO AGREE WITH ITS FIGURE — 2026-11-02 ────────────
+   Owner, on a Valve malfunction card: "[r]ate is missing here. For this
+   alert," — the first tile read a VOLUME under the literal caption "Flow
+   Rate", because `alertRowFor` fell back to `alert.volume` whenever the event
+   was not a leak, and AlertCard drew that tile unconditionally.
+
+   A fault genuinely has no flow rate: buildTree.js's `buildAlert` fabricates
+   `flowRate`/`volume` only in its leak branch and gives every fault
+   `volume: null`, and the record pushEvents.js writes for a valve-error
+   carries neither. So there is no figure to show and no caption is invented
+   for one — the tile is dropped, which is the rule the Total tile beside it
+   has always followed. */
+describe('the figure tiles name what they actually hold', () => {
+  const row = () => document.querySelector('[data-node-id="199703:42970"]')
+  const flowTile = () => document.querySelector('[data-node-id="199703:42971"]')
+  const totalTile = () => document.querySelector('[data-node-id="199703:42976"]')
+
+  it('draws no Flow Rate tile on a fault, rather than a volume under it', () => {
+    expect(faultSys, 'no non-leak fault in the dataset').toBeTruthy()
+    renderOverlay({ system: faultSys, systemId: faultSys.id })
+    expect(flowTile(), 'a fault has no flow rate — the tile must not be drawn').toBeNull()
+    expect(totalTile()).toBeNull()
+    expect(row(), 'an empty 57px tile row is still an empty tile row').toBeNull()
+    expect(screen.queryByText('Flow Rate'), 'a caption with nothing under it').toBeNull()
+  })
+
+  it('leaves a leak card reading rate beside total, unchanged', () => {
+    expect(leakSys.alert.flowRate, 'fixture carries no rate').toBeTruthy()
+    expect(leakSys.alert.volume, 'fixture carries no volume').toBeTruthy()
+    renderOverlay()
+    expect(row(), 'the leak tile row disappeared').toBeTruthy()
+    const digits = s => String(s).replace(/[^\d,.]/g, '')
+    expect(flowTile().textContent).toBe(`${digits(leakSys.alert.flowRate)}L/HFlow Rate`)
+    expect(totalTile().textContent).toBe(`${digits(leakSys.alert.volume)}LTotal`)
+  })
+})

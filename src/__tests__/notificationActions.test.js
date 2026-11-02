@@ -85,13 +85,15 @@ describe('notification action set per state', () => {
 
   /* THE TWO-BUTTON STATE. End of Leak is the only state with a second CTA, and
      the order is part of the contract: the tag CTA is the primary and leads. */
-  it('End of Leak (untagged): Tell us more · View, in that order', () => {
+  it('End of Leak: Tell us more · View, in that order', () => {
     const a = buildActions({ type: 'leak', state: 'End of Leak' }, { investigating: false, ignored: false, tagged: false });
     expect(keys(a)).toEqual(['tag', 'view']);
     expect(labels(a)).toEqual(['Tell us more', 'View']);
     expect(a[0].primary).toBe(true);
     expect(a[0].tagCta).toBe(true); // drives the Wint-blue button styling
-    expect(a[0].done).toBe(false);
+    // `done` is no longer EMITTED at all, not merely false (owner, 2026-11-02
+    // — see the next test). It used to be `done: tagged`.
+    expect(a[0].done).toBeUndefined();
   });
 
   /* RELABELLED 2026-11-02: 'Tell us more' replaces 'Tag the cause'. This
@@ -107,15 +109,39 @@ describe('notification action set per state', () => {
     expect(labels(a)).not.toContain('Tag the cause');
   });
 
-  it('End of Leak (tagged): first button shows "✓ Tagged" done state, View stays second', () => {
-    const a = buildActions({ type: 'leak', state: 'End of Leak' }, { investigating: false, ignored: false, tagged: true });
-    expect(keys(a)).toEqual(['tag', 'view']);
-    expect(a[0].label).toBe('✓ Tagged');
-    expect(a[0].done).toBe(true);
-    expect(a[0].primary).toBe(false);
-    expect(a[0].tagCta).toBeFalsy();
-    // Tagging spends the tag CTA; it does not spend the way into the app.
-    expect(a[1]).toEqual({ key: 'view', label: 'View' });
+  /* THE REGRESSION GUARD FOR WHAT THE OWNER REPORTED (2026-11-02).
+     REPLACES 'End of Leak (tagged): first button shows "✓ Tagged" done state',
+     which pinned exactly the behaviour being removed.
+
+     Verbatim: "the targeted [tagged] option on the push doesn't make sense,
+     because push send to everyone at the same time. So on the sending, we
+     don't know if someone already targeted [tagged]." One notification goes to
+     every recipient on the account at once, so there is no single answer to
+     "has this been tagged" at send time and a done-state on a broadcast is
+     incoherent.
+
+     The second reason, which the owner did not name: hasTagFeedback is keyed
+     by SYSTEM (`${systemId}:event-ended`), not by event, so one old answer
+     flipped EVERY later End-of-Leak push on that system to the done-state
+     forever — and this button is the event-ended flow's only entry point in
+     the app, so the done-state permanently closed it. (The keying is NOT fixed
+     here; see notificationActions.js. Removing the done-state is what stops it
+     doing damage today.)
+
+     Asserted as IDENTITY rather than as "label is 'Tell us more'" on purpose:
+     it fails for any future divergence between the two, not just a relabel. */
+  it('End of Leak: the CTA is IDENTICAL for tagged:true and tagged:false', () => {
+    const untagged = buildActions({ type: 'leak', state: 'End of Leak' }, { investigating: false, ignored: false, tagged: false });
+    const tagged   = buildActions({ type: 'leak', state: 'End of Leak' }, { investigating: false, ignored: false, tagged: true });
+    expect(tagged).toEqual(untagged);
+    expect(keys(tagged)).toEqual(['tag', 'view']);
+    expect(tagged[0].label).toBe('Tell us more');
+    expect(tagged[0].primary).toBe(true);   // always the Wint-blue primary
+    expect(tagged[0].tagCta).toBe(true);
+    expect(tagged[0].done).toBeUndefined(); // no done-state on a broadcast
+    expect(labels(tagged)).not.toContain('✓ Tagged');
+    // Tagging never spent the way into the app, and still does not.
+    expect(tagged[1]).toEqual({ key: 'view', label: 'View' });
   });
 
   it('End of Leak keeps BOTH buttons in every flag combination', () => {
@@ -255,10 +281,12 @@ describe('the full state x flag table', () => {
 
   it('every non-empty set is drawn from the existing vocabulary only', () => {
     // The guard against a future hole being filled with INVENTED copy: no
-    // label may appear on a push that is not already one of these three.
+    // label may appear on a push that is not already one of these two.
     // Narrowed 2026-11-02 — 'Assign to me' and 'Ignore' left the push, and
-    // 'Tag the cause' became 'Tell us more'.
-    const ALLOWED = new Set(['Tell us more', '✓ Tagged', 'View']);
+    // 'Tag the cause' became 'Tell us more'. Narrowed AGAIN later the same day:
+    // '✓ Tagged' left too, because a broadcast cannot carry a per-recipient
+    // done-state (owner). The push vocabulary is now exactly two strings.
+    const ALLOWED = new Set(['Tell us more', 'View']);
     for (const [type, state, investigating, ignored] of TABLE) {
       for (const tagged of [false, true]) {
         const a = buildActions({ type, state }, { investigating, ignored, tagged });
@@ -267,7 +295,7 @@ describe('the full state x flag table', () => {
     }
   });
 
-  it('the whitelist is EXACTLY those three — no fourth label exists anywhere', () => {
+  it('the whitelist is EXACTLY those two — no third label exists anywhere', () => {
     // Swept rather than spot-checked: collect every label the function can
     // emit across the whole input space and compare the SET.
     const seen = new Set();
@@ -282,7 +310,7 @@ describe('the full state x flag table', () => {
         }
       }
     }
-    expect([...seen].sort()).toEqual(['Tell us more', 'View', '✓ Tagged'].sort());
+    expect([...seen].sort()).toEqual(['Tell us more', 'View'].sort());
   });
 });
 

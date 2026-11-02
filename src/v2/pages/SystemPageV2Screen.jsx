@@ -1224,21 +1224,28 @@ export default function SystemPageV2Screen() {
        last-command line, the power line off ALERT_META) and draws no footer
        on a fault, which is the correct answer there rather than a missing one.
 
-       IT IS GATED ON THERE BEING AN EVENT AT ALL. EventFocusOverlay resolves
-       `alert ?? system.alert ?? null` and returns null outright when that is
-       empty (EventFocusOverlay.jsx:1298-1300) — it has NO concluded-event
-       layout. This matters because ?focus=event arrives on the End-of-Leak
-       push too, which lands AFTER the event ended and may find
-       `system.alert` already null — the same timing the tag guard above is
-       written around. Opening on that would set `eventFocusOpen` true over a
-       component that paints nothing: the user taps View, the app navigates,
-       and the screen does not visibly change. Landing on the system page,
-       which does show the ended event in its own timeline, is strictly
-       better than an invisible overlay. Verified by mounting the overlay on
-       an alert-free system, not assumed — see focusEventDeepLink.dom.test.jsx.
-       If the overlay ever grows a concluded-event layout, drop the second
-       half of this condition and this comment with it. */
-    if (focus === 'event' && Boolean(system.alert)) setEventFocusOpen(true)
+       NOT GATED ON `system.alert` EITHER, SINCE 2026-11-02. It used to be.
+       The guard read `focus === 'event' && Boolean(system.alert)` and existed
+       for one measured reason: EventFocusOverlay resolved `alert ??
+       system.alert ?? null` and returned null when that was empty, so opening
+       it on an ended event set `eventFocusOpen` true over a component that
+       painted nothing — the user tapped View, the app navigated, and the
+       screen did not visibly change. That mattered because ?focus=event
+       arrives on the End-of-Leak push too, which lands AFTER the event ended
+       and finds `system.alert` already tombstoned — the same timing the tag
+       guard above is written around.
+
+       The overlay now HAS a concluded-event layout (EventFocusOverlay.jsx,
+       search `const concluded =`): it reads the ended event out of the
+       pusher's own tombstoned record, or the system's closed incident, and
+       draws the card, the flow trace, the recipients and the timeline with
+       the live-only controls suppressed. So the reason for the second half of
+       this condition is gone, and the comment that stood here said to drop
+       both when it was — which is what this is. An event that genuinely has
+       no record on either side still resolves to null and the overlay still
+       paints nothing, exactly as before; the difference is that the ended
+       event now has one. */
+    if (focus === 'event') setEventFocusOpen(true)
     /* §PRD 06 asks for a 2-second accent pulse on the card the push referred
        to — Slack's scroll-to-message highlight, not a badge. */
     if (wantsPulse) setPulse(true)
@@ -1339,10 +1346,19 @@ export default function SystemPageV2Screen() {
      timestamp on the way out, so "the one that just ended" cannot be picked
      from it reliably. A stable key beats a plausible-looking wrong one.
 
-     THE STRING ITSELF LIVES IN THE STORE (`tagEventKey`). PushNotifications
-     reads this same key back to flip LE_01's Tag CTA to "✓ Tagged", so the
-     write and the read must agree; spelling the template literal here as well
-     is exactly how they would drift. */
+     THE STRING ITSELF LIVES IN THE STORE (`tagEventKey`). Spelling the
+     template literal here as well is exactly how a write and a read drift
+     apart, so this file never does.
+
+     WHAT READS IT BACK CHANGED ON 2026-11-02. PushNotifications used to read
+     this key to flip LE_01's Tag CTA to a "✓ Tagged" done state; the owner
+     struck that, and the component's hasTagFeedback import went with it. A
+     push is a broadcast — it reaches everyone on the account at once, so no
+     per-recipient done-state is knowable at send time — and because this key
+     carries a systemId and NO event id, one answer closed every later
+     End-of-Leak push on the system, permanently, on the one button that opens
+     this flow. See src/utils/notificationActions.js. The write below is
+     unchanged; only the push-side read is gone. */
   const eventEndedKey = tagEventKey(system.id)
   /* The nodes' order, and it no longer forks on state: 199383:141499 (alert)
      and 199359:126785 (calm) draw System type, Valve status, Active policy,

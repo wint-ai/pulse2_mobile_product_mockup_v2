@@ -774,10 +774,26 @@ export default function AlertCard({
             className="content-stretch flex flex-col gap-[12px] relative shrink-0 w-full"
             data-node-id="199703:42969"
           >
+            {/* THE TILE ROW ITSELF IS CONDITIONAL — 2026-11-02. An event with
+                neither figure (a valve malfunction, an offline device, a lost
+                AC feed: none of them report water) was still spending 57px on
+                a row holding one empty tile. Nothing is drawn for a row with
+                nothing in it; Duration below keeps its own line either way. */}
+            {data.value || data.total ? (
             <div
               className="content-stretch flex gap-[12px] h-[57px] items-center relative shrink-0 w-full"
               data-node-id="199703:42970"
             >
+              {/* FLOW RATE, and — since 2026-11-02 — drawn only when there IS
+                  one, which is the rule the Total tile below has always
+                  followed ("hides the tile rather than drawing a zero").
+                  Owner, on a Valve malfunction card: "[r]ate is missing here."
+                  It was: a fault carries no flow rate, so this tile drew an
+                  empty figure under the literal caption "Flow Rate", and with
+                  Total gated off beside it the empty tile took the full width.
+                  A caption has to agree with its own figure, and the only
+                  honest shape for a figure that does not exist is no tile. */}
+              {data.value ? (
               <div className={FIG_TILE} style={FIG_TILE_WASH} data-node-id="199703:42971">
                 <div
                   className="content-stretch flex gap-[5px] items-center relative shrink-0"
@@ -788,6 +804,7 @@ export default function AlertCard({
                 </div>
                 <p className={FIG_LABEL}>{data.flowLabel}</p>
               </div>
+              ) : null}
 
               {/* TOTAL, and it is drawn only when there IS one. `volume` is
                   the event's accumulated litres; a leak detected a minute ago
@@ -807,6 +824,7 @@ export default function AlertCard({
                 </div>
               ) : null}
             </div>
+            ) : null}
 
             {/* gap-[2px], FIG_TILE's own, with no override on top. This row
                 carried `gap-[6px]` — a transcription slip, not a decision:

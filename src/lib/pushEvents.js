@@ -138,6 +138,15 @@ function updateActiveAlert(p, ts) {
         label: existing?.label || label,
         flowRate, volume,
         startedAt: existing?.startedAt || ts,
+        // How long it ran. The End-of-Leak push has always CARRIED this
+        // (pushCatalog LE_01's `duration` param, default "2 h 14 m") and this
+        // record has always dropped it, which was invisible while nothing
+        // read a concluded event back. EventFocusOverlay's concluded-event
+        // layout does, and `age` is the field the live alert shape already
+        // carries an elapsed span in - and the field alertRowFor reads for
+        // the card's Duration row - so it goes in that one rather than a new
+        // one. Nothing else reads this record.
+        age: p.duration || existing?.age,
         resolved: true, resolvedAt: ts,
       });
       return true;

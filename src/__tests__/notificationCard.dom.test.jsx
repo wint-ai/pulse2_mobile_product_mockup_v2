@@ -2,7 +2,12 @@
 //
 // Renders the actual InAppBanner component for various notification states
 // and asserts what's visible in the DOM: action buttons, "On it · X" pill,
-// "Ignored · X" pill, "✓ Tagged" state on Tag CTA, etc.
+// "Ignored · X" pill, the End-of-Leak Tag CTA, etc.
+//
+// The "✓ Tagged" done state this file used to pin is GONE (owner, 2026-11-02):
+// a push is a broadcast, so no per-recipient done-state can be known at send
+// time, and the system-keyed hasTagFeedback was closing the feedback flow's
+// only entry point forever. See src/utils/notificationActions.js.
 //
 // PushNotifications.jsx wraps InAppBanner privately, so we render the
 // whole PushNotifications component with a manually injected banner state.
@@ -28,9 +33,14 @@ beforeEach(() => {
 // Helper that runs buildActions with the persisted state for a given system.
 //
 // This MIRRORS NotifActions in PushNotifications.jsx and must keep mirroring
-// it. `tagged` in particular reads eventFeedbackStore via hasTagFeedback(),
-// because the push's Tag CTA opens WaterEventFeedbackSheet, which persists
-// there — not to tagsStore, which only v1 surfaces still write.
+// it.
+//
+// `tagged` LEFT THE MIRROR on 2026-11-02, because it left NotifActions: that
+// component's `hasTagFeedback(sysId)` read and its eventFeedbackStore import
+// were both removed when the '✓ Tagged' done state was struck, so there is
+// nothing left for it to feed. hasTagFeedback is still imported by this file,
+// deliberately — the store tests below still pin the keying and still prove an
+// ignore cannot masquerade as a tag.
 //
 // `investigating` and `ignored` are still read from their stores and still
 // passed, exactly as PushNotifications.jsx does. Since 2026-11-02 neither one
@@ -40,7 +50,6 @@ function buildFor(n, sysId) {
   return buildActions(n, {
     investigating: isInvestigating(sysId),
     ignored: isIgnored(sysId),
-    tagged: hasTagFeedback(sysId),
   });
 }
 
@@ -127,7 +136,7 @@ describe('action set reflects persisted state per system', () => {
     expect(buildFor(N_WARNING, SYS).map(x => x.key)).toEqual(during);
   });
 
-  it('End of Leak untagged: Tell us more primary CTA, then View', () => {
+  it('End of Leak: Tell us more primary CTA, then View', () => {
     const a = buildFor(N_END_OF_LEAK, SYS);
     expect(a.map(x => x.key)).toEqual(['tag', 'view']);
     expect(a[0].label).toBe('Tell us more');
@@ -135,22 +144,41 @@ describe('action set reflects persisted state per system', () => {
     expect(a[1].label).toBe('View');
   });
 
-  // REGRESSION PIN (2026-10-17). ?action=tag was repointed from TagBottomSheet
-  // (tagsStore) to WaterEventFeedbackSheet (eventFeedbackStore). The done-state
-  // must follow the store the flow actually writes, or the push offers "Tell us
-  // more" forever however many times the user answers it. (The label in that
-  // sentence changed on 2026-11-02; the trap it describes did not.)
-  it('End of Leak after a completed feedback answer: shows ✓ Tagged done state', () => {
+  /* WAS 'End of Leak after a completed feedback answer: shows ✓ Tagged done
+     state' — the 2026-10-17 regression pin for ?action=tag being repointed
+     from TagBottomSheet (tagsStore) to WaterEventFeedbackSheet
+     (eventFeedbackStore). INVERTED 2026-11-02 by the owner: a push goes to
+     everyone at once, so no done-state can be known at send time, and the old
+     pin's premise (that the push should reflect one person's answer) is the
+     thing that was wrong.
+
+     Kept as its opposite, and still driven through the REAL store write, so it
+     stays the live guard against the done-state creeping back in by any route
+     — including the one that caused the damage: hasTagFeedback is keyed by
+     SYSTEM, not by event, so an answer about one leak used to close the CTA on
+     every later End-of-Leak push for that system, permanently, and this button
+     is the flow's only entry point. */
+  it('End of Leak after a completed feedback answer: the CTA is UNCHANGED', () => {
+    const before = buildFor(N_END_OF_LEAK, SYS);
     expect(completeTagFeedback(SYS)).not.toBeNull();
+    expect(hasTagFeedback(SYS)).toBe(true); // the answer really did persist
     const a = buildFor(N_END_OF_LEAK, SYS);
-    expect(a[0].label).toBe('✓ Tagged');
-    expect(a[0].done).toBe(true);
-    expect(a[0].tagCta).toBeFalsy();
-    // Tagging spends the tag CTA; View is untouched by it.
+    expect(a).toEqual(before);
+    expect(a[0].label).toBe('Tell us more');
+    expect(a[0].primary).toBe(true);
+    expect(a[0].tagCta).toBe(true);
+    expect(a[0].done).toBeUndefined();
+    // View was never spent by tagging, and still is not.
     expect(a[1]).toEqual({ key: 'view', label: 'View' });
   });
 
-  // The done-state reads the SAME key SystemPageV2Screen writes under.
+  // The push no longer READS this key at all, but the key itself is still the
+  // contract between the sheet's write and every other reader, so it stays
+  // pinned. It is also the evidence for the second half of the 2026-11-02
+  // ruling: the key carries a systemId and no event id, which is exactly why
+  // the old done-state could never expire. PRD 15 § 10.4 calls this "a v0
+  // simplification" that "production must" replace with event-id keying; it is
+  // still the v0 form, and re-keying it is NOT this pass's change.
   it('tag feedback is keyed `<systemId>:event-ended`, as the v2 page writes it', () => {
     completeTagFeedback(SYS);
     const raw = JSON.parse(localStorage.getItem('pulse2-event-feedback'));
@@ -159,11 +187,13 @@ describe('action set reflects persisted state per system', () => {
   });
 
   // And NOT the bare system id, which is the ignore flow's key. An ignore must
-  // never dress the push up as tagged.
-  it('an Ignore-path answer does not flip the Tag CTA to its done state', () => {
+  // never be readable as a tag answer. The CTA is unconditional since
+  // 2026-11-02 so it could not move either way, but the STORE distinction is
+  // still load-bearing for every other reader, so it is asserted directly.
+  it('an Ignore-path answer is not readable as tag feedback', () => {
     addFeedback(SYS, { trigger: 'ignore', answer: 'no', systemId: SYS });
     expect(hasTagFeedback(SYS)).toBe(false);
-    const a = buildActions(N_END_OF_LEAK, { tagged: hasTagFeedback(SYS), ignored: false });
+    const a = buildActions(N_END_OF_LEAK, { ignored: false });
     expect(a[0].label).toBe('Tell us more');
   });
 
@@ -219,10 +249,13 @@ describe('action labels are user-readable (never internal keys)', () => {
     expect(a.map(x => x.label)).toEqual(['View']);
   });
 
-  it('End of Leak labels are exactly Tell us more (or ✓ Tagged), then View', () => {
+  // WAS "exactly Tell us more (or ✓ Tagged), then View". The parenthesis is
+  // gone: there is one End-of-Leak label now, whatever anyone has answered
+  // (owner, 2026-11-02 — a push is a broadcast).
+  it('End of Leak labels are exactly Tell us more, then View — in both flag states', () => {
     const a1 = buildActions({ type: 'leak', state: 'End of Leak', systemId: SYS }, { tagged: false });
     expect(a1.map(x => x.label)).toEqual(['Tell us more', 'View']);
     const a2 = buildActions({ type: 'leak', state: 'End of Leak', systemId: SYS }, { tagged: true });
-    expect(a2.map(x => x.label)).toEqual(['✓ Tagged', 'View']);
+    expect(a2.map(x => x.label)).toEqual(['Tell us more', 'View']);
   });
 });

@@ -45,7 +45,6 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown, CircleAlert, LockOpen, Plug, PowerOff, Unlink, Wifi, WifiOff } from 'lucide-react';
 import { isInvestigating, getInvestigatingInfo, startInvestigating } from '../data/investigatingStore';
 import { isIgnored, getIgnoredInfo } from '../data/ignoredIncidents';
-import { hasTagFeedback } from '../data/eventFeedbackStore';
 import { getCurrentActor, setCurrentActor } from '../data/currentUser';
 import { subscribe as bridgeSubscribe, publish as bridgePublish } from '../lib/pushBridge';
 import { applyPushEvent, applyDemoReset } from '../lib/pushEvents';
@@ -193,11 +192,17 @@ function NotifActions({ notification: n, onAction, dark = false }) {
   const sysId = n.systemId;
   const investigating = sysId ? isInvestigating(sysId) : false;
   const ignored = sysId ? isIgnored(sysId) : false;
-  // The Tag CTA opens WaterEventFeedbackSheet (?action=tag -> SystemPageV2Screen),
-  // which persists to eventFeedbackStore under its own namespaced key — not to
-  // tagsStore, and not under the bare system id the ignore flow uses. Reading
-  // anything else here leaves the push offering "Tag the cause" forever.
-  const tagged = sysId ? hasTagFeedback(sysId) : false;
+  // THE `tagged` READ IS GONE (owner, 2026-11-02 — see the ruling in
+  // notificationActions.js). It called hasTagFeedback(sysId) to flip the
+  // End-of-Leak CTA to a "✓ Tagged" done state. That CTA is now unconditional,
+  // so nothing here consumes the answer: a push is a broadcast and cannot
+  // carry a per-recipient done-state, and hasTagFeedback is keyed by SYSTEM
+  // (`${systemId}:event-ended`), so one old answer closed every later
+  // End-of-Leak push on that system — permanently shutting the feedback flow's
+  // only entry point. The import of hasTagFeedback went with the read; this
+  // component no longer touches eventFeedbackStore at all.
+  // (The Tag CTA itself still opens WaterEventFeedbackSheet via
+  // ?action=tag -> SystemPageV2Screen, which is where the answer is written.)
 
   // BUG FIX: this read n.severity without first asking whether the event IS a
   // water event, so EVERY non-leak push — valve error, power lost, sensor
@@ -209,7 +214,7 @@ function NotifActions({ notification: n, onAction, dark = false }) {
     ? 'primary'
     : n.severity === 'High Flow' ? 'severity-high' : 'severity-low'];
 
-  const actions = buildActions(n, { investigating, ignored, tagged });
+  const actions = buildActions(n, { investigating, ignored });
   if (actions.length === 0) return null;
 
   // The Tag CTA on the Water Event ended push (PRD 15 § 7.1) gets a special
@@ -258,6 +263,13 @@ function NotifActions({ notification: n, onAction, dark = false }) {
               a.tagCta
                 ? 'text-ink-on-color [box-shadow:0_4px_10px_color-mix(in_oklab,var(--primary)_30%,transparent)]'
                 : a.primary ? accent.onSolid
+                // CURRENTLY UNREACHABLE, AND KEPT ANYWAY — same reasoning as
+                // the `a.primary && !a.tagCta` arm in the light branch below.
+                // `done` was only ever set by the End-of-Leak '✓ Tagged' state,
+                // which the owner removed on 2026-11-02 (a push is a broadcast;
+                // see notificationActions.js). No action sets `done` today. It
+                // stays because the ignore flow and future actions may want it,
+                // and because this area has been reversed twice in two days.
                 : a.done ? 'text-os-chrome-ink/60' : 'text-os-chrome-ink',
             )}>{a.label}</div>
         ))}
@@ -314,6 +326,15 @@ function NotifActions({ notification: n, onAction, dark = false }) {
               // control. It also separates better: in `contrast` the two are
               // 0.45 L (muted) vs 0.70 L (secondary) under 0.85 L success ink.
               // The ink stays --success, as it was.
+              //
+              // ALSO CURRENTLY UNREACHABLE, AND KEPT ANYWAY, for the same
+              // reason as the arm above it. `done` was only ever set by the
+              // End-of-Leak '✓ Tagged' state, which the owner removed on
+              // 2026-11-02 (a push is a broadcast and cannot carry a
+              // per-recipient done-state — see notificationActions.js). No
+              // action sets `done` today. Not dead weight to delete: the
+              // ignore flow and future actions may use it, and this area has
+              // been reversed twice in two days.
               : a.done ? 'bg-muted text-success'
               // The real ground View was missing. --secondary is #f2f6ff with
               // --primary as its ink in light, so View reads as the same blue
@@ -1064,9 +1085,27 @@ export default function PushNotifications({ children }) {
     }
 
     if (action === 'tag') {
-      // Open System page with ?action=tag so the Tag bottom sheet auto-opens
-      // on arrival (PRD 15 § 7.1).
-      if (sysId) enterAppAndNavigate(`/system/${sysId}?action=tag&pulse=1`);
+      // Open System page with ?action=tag so the feedback sheet auto-opens on
+      // arrival (PRD 15 § 7.1).
+      //
+      // `&focus=event` RIDES ALONG, 2026-11-02. The owner asked for "a new
+      // flow similar to ignore but with different options as discussed, an
+      // overlay on the event screen" — and the ignore flow it is modelled on
+      // opens over EventFocusOverlay, because that is the surface its Ignore
+      // tile is tapped from. This link had no event under it at all: it
+      // landed on the bare System page and the sheet covered that. There was
+      // no third param to invent — ?focus=event is the View button's own
+      // param, SystemPageV2Screen reads the two independently in one arrival,
+      // and WaterEventFeedbackSheet is `absolute inset-0 z-50` mounted at
+      // page level AFTER the frame root that holds the overlay (z-40), so it
+      // already draws on top without either side knowing about the other.
+      //
+      // IT WORKS ON THIS PUSH BECAUSE THE OVERLAY LEARNED TO DRAW AN ENDED
+      // EVENT. 'tag' is offered on exactly one push, LE_01 / End of Leak
+      // (notificationActions.js:47), which lands after the event is over and
+      // its alert tombstoned. Adding this param before EventFocusOverlay had
+      // a concluded-event layout would have opened nothing underneath.
+      if (sysId) enterAppAndNavigate(`/system/${sysId}?action=tag&focus=event&pulse=1`);
       return;
     }
 

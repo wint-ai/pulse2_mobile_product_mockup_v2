@@ -187,6 +187,16 @@
  *     reference: the first is not a concept in this product, the second is the
  *     valve card above.
  *
+ * ── THREE BRANCHES, NOT TWO — 2026-11-02 ─────────────────────────────────
+ * A live water event, a fault, and now an event that has ENDED. The third was
+ * added because an ended water event is tombstoned (`system.alert` -> null,
+ * systems.js:191-194) and this component used to return null for it, which is
+ * what made the End-of-Leak push's View button appear to do nothing. Where a
+ * concluded event's data is read from, and what the branch shows and
+ * suppresses, is written at the gate itself (search `const concluded =`) and
+ * in `concludedEventFor` below. The live and fault branches are untouched:
+ * `concluded` is only ever resolved when there is no current alert at all.
+ *
  * ── WHY NOT THE SHADCN <Sheet> / ANY RADIX PORTAL ────────────────────────
  * This app draws inside a fixed 393x852 frame (src/components/Phone.jsx). Radix
  * portals to document.body, which escapes that frame by design — a Sheet here
@@ -269,7 +279,15 @@ import {
 } from '@/v2/components/eventFlowSeries'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
 import { getSystemById } from '@/data/systems'
-import { getActiveIncident, getLeakState, getNotification } from '@/data/incidents'
+import {
+  getActiveIncident,
+  getIncidentsForSystem,
+  getLeakState,
+  getNotification,
+} from '@/data/incidents'
+import { HISTORY_EVENTS } from '@/data/events'
+import { getSimulatedAlert } from '@/data/simulatedAlerts'
+import { getSimulatedEvents } from '@/data/simulatedEvents'
 import { getActivePolicy, getFindingNotes, getSystemUnits } from '@/data/systemDetails'
 import { getSystemInfo, getSystemSpecs } from '@/data/systemsInfo'
 import {
@@ -417,7 +435,26 @@ function alertRowFor(alert, systemId) {
     status: leak ? (getLeakState(getActiveIncident(systemId)) ?? 'Ongoing') : 'Ongoing',
     ignored: isIgnored(systemId),
     leak,
-    value: rate ?? alert.volume ?? '',
+    /* THE FIRST TILE IS A FLOW RATE OR IT IS NOTHING — 2026-11-02.
+       Owner, on a Valve malfunction card: "[r]ate is missing here."
+
+       It used to read `rate ?? alert.volume ?? ''`, so on anything that is
+       not a leak the tile fell back to the event's VOLUME while the caption
+       below it still said "Flow Rate" — litres presented as litres-per-hour.
+       A caption that misnames its own figure is worse than no tile, and the
+       fallback was never reachable with honest data anyway: buildTree.js's
+       `buildAlert` fabricates `flowRate`/`volume` ONLY in its leak branch
+       (:94-124) and gives every fault `volume: null`, and the pushed record
+       pushEvents.js writes for a valve-error / offline / power-lost carries
+       neither field (:176-186). A fault has no water figures at all, which
+       is the dataset saying a device condition does not report flow.
+
+       So the `leak &&` guard on `rate` is NOT hiding a real rate, and the
+       volume fallback goes. On a leak nothing moves: a flow rate tiles as
+       "127 L/H" exactly as before, with the volume beside it as "Total".
+       The empty-string spelling is kept rather than null because it is also
+       what gates the tile in AlertCard. */
+    value: rate ?? '',
     /* Just the unit. The tile below it is captioned "Flow Rate", so
        "L/H flow rate" said it twice and overflowed the 161px tile. */
     unit: rate ? 'L/H' : '',
@@ -449,6 +486,117 @@ function deterministicId(seed, prefix) {
   let h = 0
   for (const c of seed || '') h = (h * 31 + c.charCodeAt(0)) % 10000
   return `${prefix}-${h.toString().padStart(4, '0')}`
+}
+
+/* ── WHERE A CONCLUDED EVENT'S DATA LIVES — 2026-11-02 ────────────────────
+   An ended water event has NO `system.alert`: applyPushEvent writes
+   `{ phase:'ended', resolved:true }` (pushEvents.js:132-144) and
+   applySimOverlay then TOMBSTONES it to null (systems.js:191-194). The record
+   itself is not destroyed — only the overlay that projects it onto the system
+   is. So the data is still there to read, in two places, and which one is
+   authoritative is already decided for us by the "pusher owns truth" rule
+   (incidents.js:14-21, hasSimActivity): once the pusher has touched a system
+   the static fixtures are suppressed, and before that they are all there is.
+   This helper reads them in that same order, so a concluded event can never
+   show the pusher's event and the fixture's event at the same time.
+
+     1. THE TOMBSTONED SIM ALERT (simulatedAlerts.js). The End-of-Leak push's
+        own record, with the event's type, label, flow rate, volume and the
+        clock it was raised at. It is what the live branch was reading one
+        push earlier, so the concluded card is built from the same fields the
+        live card was — nothing is re-derived and nothing can disagree.
+        It carries no `steps`; the lifecycle is in the append-only
+        simulatedEvents log instead, which is what `simEventsToTimelineEvents`
+        below reads.
+
+     2. THE STATIC CLOSED INCIDENT. generateIncidents.js builds one resolved
+        incident for EVERY system (its header says so), and generateEvents.js
+        builds the matching HISTORY_EVENTS row off the same `resolvedVariant`
+        seed — same title, severity, flow, volume and duration. The incident
+        carries the STEPS (detected / alert-sent / continues / resolved), the
+        history row carries the FIGURES and the display Event ID, and because
+        both come from one seed they describe one event. This is also the row
+        the /events/system/:systemId history screen lists, so the reader who
+        taps a past event there has somewhere to land.
+
+   WHY NOT the timeline rows alone (getEventsForSystem): they are already the
+   HISTORY_EVENTS row, flattened to title/detail/timestamp with the metadata
+   dropped — so they carry less of the same thing. The row is read directly.
+
+   Returns null when there is genuinely nothing — which is the honest answer
+   for a system the demo has been Cleared on (isMockSuppressed suppresses the
+   fixtures through hasSimActivity, and there is no sim record left either).
+   The overlay then renders nothing, exactly as it did before this existed. */
+function concludedEventFor(systemId) {
+  if (!systemId) return null
+
+  const sim = getSimulatedAlert(systemId)
+  if (sim && sim.resolved && (sim.type === 'leak-high' || sim.type === 'leak-low')) {
+    return {
+      /* The same field names `alertRowFor` already reads off a live alert, so
+         the concluded card goes through the untouched helper. */
+      alert: {
+        type: sim.type,
+        label: sim.label,
+        flowRate: sim.flowRate,
+        volume: sim.volume,
+        startedAt: sim.startedAt,
+        /* The push's own duration, which pushEvents.js records on the ended
+           record. Absent on a record written before that did, in which case
+           the card's Duration row is left empty rather than filled with a
+           figure nothing measured. */
+        age: sim.age,
+      },
+      incident: null,
+      /* No incident, so `toLeakId` has nothing to hash — which is already the
+         case on the LIVE branch of a pushed event (getActiveIncident returns
+         null under sim activity). AlertCard drops the chip rather than drawing
+         an empty one, and no id is invented to fill it. */
+      eventId: null,
+      durationMin: null,
+    }
+  }
+
+  const incident = getIncidentsForSystem(systemId).find(inc => inc.status === 'resolved')
+  if (!incident) return null
+  const row = HISTORY_EVENTS.find(e => e.system === systemId)
+  if (!row) return null
+  return {
+    alert: {
+      type: row.type,
+      label: row.title,
+      /* generateEvents.js:147-152 — the row's own metadata, spelled exactly as
+         it stores it. `alertRowFor` strips each to digits the same way it does
+         for a live alert, so "120 L/h" tiles as "120 L/H". */
+      flowRate: row.metadata?.['Flow Rate'],
+      volume: row.metadata?.['Volume Lost'],
+      startedAt: incident.startedAt,
+      /* `age` is the field a live alert carries its elapsed span in and the
+         one `alertRowFor` reads for the Duration row. A finished event knows
+         its real span, so it goes in the same slot. */
+      age: row.metadata?.Duration,
+    },
+    incident,
+    eventId: row.eventId ?? null,
+    durationMin: row.durationSec ? Math.round(row.durationSec / 60) : null,
+  }
+}
+
+/* The pusher's append-only events log -> EventsTimelineCard rows.
+   `stepsToTimelineEvents` below maps INCIDENT steps, which a pushed event has
+   none of; this maps the rows pushEvents.js `buildEventRow` wrote instead.
+   Same slots, same newest-first order, and every title and detail is the
+   string buildEventRow already authored — nothing new is written here. `kind`
+   is derived exactly as SystemPageV2Screen derives it for the same card
+   (:663-674): a leak-* row is water, anything else is network. */
+function simEventsToTimelineEvents(rows) {
+  return [...rows].reverse().map((row, i) => ({
+    id: `${row.type}-${i}`,
+    kind: String(row.type ?? '').startsWith('leak') ? 'water' : 'network',
+    title: row.title,
+    description: row.detail || '',
+    timestamp: row.timestamp || '',
+  }))
 }
 
 function initialsFor(name) {
@@ -1295,19 +1443,63 @@ export default function EventFocusOverlay({
 
   const sys = system ?? (systemId ? getSystemById(systemId) : null)
   const sysId = systemId ?? sys?.id ?? null
-  const evt = alert ?? sys?.alert ?? null
+  const liveEvt = alert ?? sys?.alert ?? null
+
+  /* THE THIRD BRANCH: AN EVENT THAT IS OVER - 2026-11-02 -------------------
+     This component had two branches, a live water event and a fault, and
+     returned null outright when there was no CURRENT alert. That is what made
+     the End-of-Leak push's View button appear to do nothing: the push lands
+     after the event ended, `system.alert` is already tombstoned, and an
+     "open" overlay painted an empty container - so SystemPageV2Screen gated
+     ?focus=event on `Boolean(system.alert)` rather than navigate the user to
+     a screen that does not change.
+
+     A concluded event is now the third branch. It is NOT a fourth layout: it
+     reuses the same alert card, the same system-details card, the same event
+     graph, the same recipients and device sections and the same timeline
+     card, and it SUPPRESSES what is live-only - the advice ("close the valve
+     now"), the valve control and its auto-close countdown, the Manage-event
+     tiles (Ignore is a Warning-state action, and assigning a finished event
+     claims nothing), the Assigned-to strip with its Remove control, and the
+     ignored frame's promise about what the valve will do next.
+
+     THE LIVE EVENT ALWAYS WINS. `concluded` is only ever read when there is
+     no current alert at all, so neither the live water branch nor the fault
+     branch can reach any of it. */
+  /* `!open` first, and not merely for tidiness: this component is mounted
+     UNCONDITIONALLY by SystemPageV2Screen with open={false}, so it re-renders
+     with every render of that page. Resolving a concluded event reads
+     localStorage and scans the incident + history tables, and none of it is
+     wanted until the overlay is actually on screen. The live branch pays
+     nothing either way, since `liveEvt` short-circuits first. */
+  const concluded = !open || liveEvt ? null : concludedEventFor(sysId)
+  const evt = liveEvt ?? concluded?.alert ?? null
 
   if (!open || !sys || !evt) return null
 
+  /* The one flag the concluded branch is written on. A fault never sets it:
+     `concludedEventFor` only ever returns a water event. */
+  const isEnded = Boolean(concluded)
+
   const isWater = evt.type === 'leak-high' || evt.type === 'leak-low'
-  const incident = isWater ? getActiveIncident(sysId) : null
+  /* A concluded event's steps come from its own closed incident, never from
+     getActiveIncident - which returns null for it by definition. */
+  const incident = isEnded ? concluded.incident : isWater ? getActiveIncident(sysId) : null
   const steps = incident?.steps ?? []
   const isLowFlow = evt.type === 'leak-low' || sys.leak === 'low' || incident?.type === 'leak-low'
   /* Not memoised. An incident carries 3-5 steps, so the map is cheaper than the
      dependency array it would need — and `steps` is a fresh array identity on
      every read of the store, which makes a useMemo here a no-op the React
      compiler correctly refuses to preserve. */
-  const timelineEvents = stepsToTimelineEvents(steps, isLowFlow)
+  /* A PUSHED concluded event has no incident and therefore no steps - the
+     pusher writes its lifecycle to the append-only events log instead, which
+     is the same record the Activity timeline is built from. Read that when
+     there is no incident to read, so the card is fed either way rather than
+     drawn empty. */
+  const timelineEvents =
+    isEnded && !incident
+      ? simEventsToTimelineEvents(getSimulatedEvents(sysId))
+      : stepsToTimelineEvents(steps, isLowFlow)
 
   const titleId = `event-focus-title-${sysId}`
 
@@ -1339,16 +1531,41 @@ export default function EventFocusOverlay({
     { label: evt.label || 'Alert', severity: 'Warning', sevColor: TOKEN.low }
   const FaultIcon = FAULT_ICON[evt.type] ?? PowerOff
 
-  const eventId = isWater
-    ? toLeakId(incident)
-    : deterministicId(sysId + evt.type, ID_PREFIX[evt.type] || 'evt')
+  const eventId = isEnded
+    ? /* The history row's own display id (generateEvents.js:145), which is
+         what /events/system/:systemId already shows for this event. Null on a
+         pushed one - see concludedEventFor. */
+      concluded.eventId
+    : isWater
+      ? toLeakId(incident)
+      : deterministicId(sysId + evt.type, ID_PREFIX[evt.type] || 'evt')
 
   /* The summary card — the System page's own AlertCard, from the same row. */
   /* 199683:24892 puts the Event ID inside the card, on the meta row opposite
      "Detected". `eventId` is computed just above, so the card and the fault
      section's own row cannot disagree — and only one ever renders, since that
      section is !isWater. */
-  const alertRow = { ...alertRowFor(evt, sysId), eventId }
+  /* "Ended" is NOT a new string. It is the badge SystemPageV2Screen builds
+     for a resolved row on this very card (:669, { label: 'Ended', tone:
+     'ended' }), the label EventsTimelineCard's own BADGE_TONE.ended carries,
+     and the word three of its frame rows draw. The status pill is the only
+     thing on the card that would otherwise still read "Ongoing" about an
+     event that is over, because `getLeakState` only knows the three ACTIVE
+     states ("Resolved goes to history", incidents.js:46).
+
+     FLAGGED, NOT INVENTED AROUND: the `overlay` variant paints that pill
+     `destructive` red whatever the label, so a concluded event reads "Ended"
+     in red. There is no frame for a concluded event and AlertCard's one muted
+     pill is hard-wired to the literal "Ignored", so giving this its own tone
+     would be designing a variant rather than reusing one. The hero band is
+     already desaturated below for the same reason the ignored frame
+     desaturates it. One line in AlertCard if the owner wants the pill muted
+     too. */
+  const alertRow = {
+    ...alertRowFor(evt, sysId),
+    eventId,
+    ...(isEnded ? { status: 'Ended' } : null),
+  }
 
   /* VALVE. The system's devices, filtered on `d.valve`, exactly as
      SystemPageV2Screen does it. The enriched page object already carries
@@ -1401,14 +1618,23 @@ export default function EventFocusOverlay({
   const flowSeed = `${sysId}|${evt.type ?? 'event'}`
   const seedInt = [...flowSeed].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)
   const detectLagMin = 2 + (seedInt % 5)
-  const eventDurationMin = 45
+  /* A finished event knows how long it actually ran (generateEvents.js:127),
+     so the trace spans the real event rather than the live branch's nominal
+     45 minutes. A pushed one carries no span and keeps the constant. */
+  const eventDurationMin = concluded?.durationMin ?? 45
   /* How long until auto-close fires on an event still running. Same 1-4
      minute seeded response the closed case uses, so the two states tell one
      consistent story about this system. It feeds the countdown only — the
      response strip that also used it was removed on 2026-10-26. */
   const autoCloseInMin = 1 + ((seedInt >> 3) % 4)
+  /* `valveState` is the valve's state NOW. On a live event that is evidence
+     about this event; on an event that ended hours ago it is not, so the
+     milestone is not drawn there rather than inferred from an unrelated
+     close. */
   const shutoffAfterDetectMin =
-    hasValve && autoShutoffOn && valveState === 'closed' ? 1 + ((seedInt >> 3) % 4) : null
+    !isEnded && hasValve && autoShutoffOn && valveState === 'closed'
+      ? 1 + ((seedInt >> 3) % 4)
+      : null
 
   /* THE EVENT GRAPH. For a WATER EVENT this is now the incident's own trace
      at one point a MINUTE — owner, 2026-10-26: "granularity needs to be
@@ -1436,10 +1662,17 @@ export default function EventFocusOverlay({
     ? Math.max(...eventFlow.points.map(p => p.lph))
     : peakFlowRate(flowPoints)
 
-  const adviceSteps = advice(evt.type, {
-    hasValve,
-    autoShutoff: policy?.autoShutoff,
-  })
+  /* LIVE-ONLY, SUPPRESSED. Every bullet `advice` returns for a water event is
+     an instruction about water that is still running - close the valve, check
+     the risers, tap On it, Ignore it so it stops alerting. None of it is
+     actionable once the event is over, and the section is dropped entirely
+     rather than reworded, because a rewording would be new copy. */
+  const adviceSteps = isEnded
+    ? []
+    : advice(evt.type, {
+        hasValve,
+        autoShutoff: policy?.autoShutoff,
+      })
 
   const recipients = isWater
     ? (notification?.recipients ?? []).map(name => ({
@@ -1488,7 +1721,10 @@ export default function EventFocusOverlay({
      requirement. So on an ignored event: valve primary YES, Ignore NO (it is
      irreversible and already done — PRD 14 has no un-ignore), On it / Stand
      down NO. The muted body and the "Ignored by {name}" pill are unchanged. */
-  const showClaimActions = isWater && !ignored
+  /* `!isEnded`: a finished event has nothing to claim and nothing to stand
+     down from, and the store these write to is about who is HANDLING an event
+     now. The timeline still records who held it while it ran. */
+  const showClaimActions = isWater && !ignored && !isEnded
   /* ── THE IGNORE TILE NO LONGER DRAWS ON A SHUT-OFF EVENT — 2026-10-31 ───
      WHAT WAS REMOVED, PLAINLY: on a water event whose valve has closed
      (getLeakState -> 'ShutOff') this tile used to render, and it no longer
@@ -1518,7 +1754,12 @@ export default function EventFocusOverlay({
      Warning-state action. 'Ongoing' stays
      ignorable — only a closed valve takes it away. */
   const ignorableNow = acceptsIgnore(eventStateFor(incident))
-  const showIgnore = isWater && !ignored && Boolean(onIgnore) && ignorableNow
+  /* `!isEnded` for the same reason the shut-off case above is excluded: PRD
+     06 + 14 make Ignore a WARNING-state action, so an event that has already
+     ended is past the state that accepts it, and the sheet behind the tile
+     would be asking the user to suppress alerting for an event that is not
+     alerting. */
+  const showIgnore = isWater && !ignored && Boolean(onIgnore) && ignorableNow && !isEnded
   /* The Assign tile carries exactly the gate the sticky footer carried: a
      water event, not ignored, not already held. A claim does not withdraw the
      right to ignore, so `showIgnore` is deliberately NOT gated on
@@ -1641,7 +1882,14 @@ export default function EventFocusOverlay({
               card bleeding red, and it is the band that is wrong there, not
               the card. The art, the geometry and the blend modes are
               untouched; only the tint changes. */}
-          {ignored ? (
+          {/* A CONCLUDED EVENT TAKES THE SAME GREY BAND, and for the reason
+              the ignored one does rather than by analogy: the note above
+              records that a red band over a card that is not alerting was
+              reported as the card bleeding red, and that it is the band that
+              is wrong there, not the card. An event that has ENDED is not
+              alerting either. Same one tint, same blend, same geometry - the
+              existing drawing is reused, not a new one. */}
+          {ignored || isEnded ? (
             <div className="absolute inset-0 bg-slate-500 mix-blend-color" />
           ) : (
             <>
@@ -1857,8 +2105,33 @@ export default function EventFocusOverlay({
            one whatever the DOM order. Without this the hero covers the top
            of the scroller instead of sitting behind it. */
         onScroll={onBodyScroll}
-        className="relative z-10 flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[12px] pb-[12px] pt-[10px] transition-opacity duration-200"
-        style={{ opacity: ignored ? 0.7 : 1 }}
+        /* THE IGNORED DIM IS ON THE CHILDREN, NOT ON THIS BOX — 2026-11-02.
+           Owner, on the ignored frame: "the card and the high flow event card
+           needs to be above the waves, not below as we show here."
+
+           It is NOT a stacking-order fault. The wave is z-0, this scroller is
+           z-10, and both resolve in the overlay root's context, so the paint
+           order is already right and no z-index moves here. What was wrong is
+           ALPHA: `opacity: 0.7` on this box flattens the whole scroller and
+           composites it at 70% over its backdrop, and for the first ~90px of
+           it that backdrop is the hero wave. An opaque bg-surface-card alert
+           card at 70% lets the wave straight through, which is exactly what
+           "the card is below the waves" looks like.
+
+           This is the SECOND time this surface has hit it: the "Event
+           Ignored" strip read maroon over the red hero for the same reason
+           and was moved out of this box (see 199755:33270 and its test). The
+           alert card was the last child left that overlaps the wave — the
+           hero runs to y=207 and nothing below the card reaches it.
+
+           So the dim moves to `[&>*]`, and the card alone opts out with
+           `opacity-100!`. Every other child dims exactly as before (none of
+           them overlap, so per-child alpha and group alpha are identical),
+           the wave still bleeds behind this scroller and still shows in the
+           12px gutters the frame draws it in, and NOTHING changes in the
+           live, fault or concluded branches, where `ignored` is false and no
+           dim is emitted at all. */
+        className={`relative z-10 flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[12px] pb-[12px] pt-[10px] [&>*]:transition-opacity [&>*]:duration-200${ignored ? ' [&>*]:opacity-70' : ''}`}
         data-ignored={ignored ? 'true' : 'false'}
       >
         {/* ── The event summary ─────────────────────────────────────────────
@@ -1893,7 +2166,16 @@ export default function EventFocusOverlay({
             variant={alertRow.ignored ? 'ignored-overlay' : 'overlay'}
             event={alertRow}
             actions={false}
-            className="w-full! shrink-0"
+            /* `opacity-100!` — the one child that opts out of the ignored
+               dim, because it is the one child that overlaps the hero wave.
+               See the scroller's note above: at 70% the wave shows THROUGH
+               this card. It loses nothing by opting out — `ignored-overlay`
+               is already the frame's own muted drawing (slate/500 border,
+               slate avatar and chips, an `Ignored` pill), so the alpha on top
+               of it was a second mute on the only card that could not afford
+               one. `!` because the dim is emitted as `[&>*]:opacity-70` on
+               the parent and the two rules are otherwise same-specificity. */
+            className="w-full! shrink-0 opacity-100!"
           />
         ) : null}
 
@@ -1931,7 +2213,13 @@ export default function EventFocusOverlay({
             the state — and it is measured, not assumed: it lands well below
             the 207px hero band, on flat --background, where 0.7 leaves it
             comfortably past AA in all four themes. */}
-        {isWater && ignored ? (
+        {/* `!isEnded`: this sentence is a promise about what the valve WILL
+            do for the rest of this event ("will not be automatically
+            closed"). Once the event is over there is no rest of it, and the
+            sentence would be describing a future that cannot happen. The
+            "Event Ignored" strip in the header still draws - that one states
+            a fact about the event, which stays true. */}
+        {isWater && ignored && !isEnded ? (
           <p
             className="w-full shrink-0 text-[14px] leading-[20px] text-foreground"
             data-node-id="199768:87266"
@@ -1967,7 +2255,11 @@ export default function EventFocusOverlay({
             told you your own name would be answering a question nobody asked.
             Someone else's claim still names them, which is the whole point of
             the row on a shared event. */}
-        {isWater && investigating && investigatingInfo ? (
+        {/* `!isEnded`: this card is who is handling the event and the way to
+            hand it back, and both are live acts. A claim left over from while
+            the event ran is recorded in the timeline below as an "Assigned"
+            step, which is where a finished event's history belongs. */}
+        {isWater && investigating && investigatingInfo && !isEnded ? (
           <div
             className="flex w-full shrink-0 items-center justify-between gap-[12px] rounded-[18px] bg-surface-card p-[18px]"
             data-node-id="199703:43519"
@@ -2202,7 +2494,16 @@ export default function EventFocusOverlay({
             why it was swapped for a hand copy in the first place. It is
             mounted with interactive={false}, so the face is the design's and
             the only valve control on this surface is still the footer's. */}
-        {hasValve ? (
+        {/* `!isEnded` - THE WHOLE VALVE SECTION, not just its control. The
+            card carries the live auto-close countdown and an interactive
+            open/close toggle, and both belong to an event in progress: the
+            countdown would be counting down to nothing, and operating the
+            building's water from inside a finished event's review screen is
+            an action with no relationship to what is on screen. The valve is
+            still operable from the System page, which owns its state - the
+            seam this surface reads from. Nothing that worked stopped
+            working; it stopped being offered where it means nothing. */}
+        {hasValve && !isEnded ? (
           /* The landmark came from the hand copy this replaced and is kept:
              the state is a named region a screen reader can jump to, which the
              card's own plain <div> would have silently removed. */
@@ -2455,8 +2756,17 @@ export default function EventFocusOverlay({
             THIS INCIDENT's steps (LeakDetail.jsx:407-483), drawn by the card
             the System page already uses. See TIMELINE in the header for the one
             thing the card cannot carry. */}
+        {/* `tone` is the card's own public prop and SystemPageV2Screen
+            already switches it on whether the system is alerting
+            (`tone={system.alert ? 'alert' : 'calm'}`). A concluded event is
+            not alerting, so it takes the same 'calm' head the page gives a
+            quiet system - the component is unchanged. */}
         {isWater ? (
-          <EventsTimelineCard tone="alert" events={timelineEvents} className="shrink-0" />
+          <EventsTimelineCard
+            tone={isEnded ? 'calm' : 'alert'}
+            events={timelineEvents}
+            className="shrink-0"
+          />
         ) : null}
       </div>
 

@@ -21,17 +21,25 @@
 //      EventFocusOverlay has a dedicated fault layout for this; what it must
 //      NOT do is reach the water-event sheets on the way in.
 //
-//   3. IT DOES NOT OPEN WHEN THERE IS NO EVENT, because the overlay would
-//      paint nothing. This was measured rather than assumed — the first test
-//      below mounts the overlay directly on an alert-free system and reads
-//      what comes out. EventFocusOverlay resolves `alert ?? system.alert ??
-//      null` and returns null when that is empty (EventFocusOverlay.jsx:1300):
-//      it has no concluded-event layout. It matters because the End-of-Leak
-//      push carries ?focus=event like every other push and arrives AFTER the
-//      event ended, when `system.alert` can already be null — the same timing
-//      the ?action=tag guard is written around. Opening there would navigate
-//      the user to a screen that does not visibly change. Landing on the
-//      system page instead is strictly better, and that is what is asserted.
+//   3. IT OPENS ON AN EVENT THAT HAS ALREADY ENDED. *** INVERTED 2026-11-02,
+//      AND THE INVERSION IS THE POINT OF THE CHANGE. *** This file used to
+//      assert the opposite, for a reason that was true when it was written:
+//      EventFocusOverlay resolved `alert ?? system.alert ?? null`, returned
+//      null when that was empty, and so had no concluded-event layout — the
+//      deep link refused to open an overlay that would paint nothing, and the
+//      first test below measured that emptiness rather than assuming it.
+//
+//      It matters because the End-of-Leak push carries ?focus=event like every
+//      other push and arrives AFTER the event ended, when `system.alert` is
+//      already tombstoned — the same timing the ?action=tag guard is written
+//      around. That was precisely the symptom: the user tapped View, the app
+//      navigated, and the screen did not change.
+//
+//      The overlay now HAS that layout, so both halves move together: the
+//      measurement below now reads back a rendered concluded event instead of
+//      an empty container, and the deep link opens. Neither assertion was
+//      deleted — each is pinned on the new behaviour, so a regression in
+//      either direction still fails here.
 //
 // Fixtures come OUT of the live dataset, never hard-coded, so a dataset
 // refresh cannot make these vacuous.
@@ -76,22 +84,33 @@ describe('the fixtures exist', () => {
   })
 })
 
-describe('what EventFocusOverlay does with no event behind it', () => {
-  it('renders NOTHING — it has no concluded-event layout', () => {
-    /* THE MEASUREMENT THE GUARD IS BUILT ON. Not "renders an empty shell" and
-       not "throws": `evt` resolves to null and the component returns null
-       before it paints, so the host gets an empty container. An overlay that
-       is "open" over this would be invisible, which is why the deep link
-       refuses to open it. If this test ever fails because the overlay grew a
-       real concluded-event view, the right fix is to DROP the `system.alert`
-       half of the ?focus=event guard — not to patch this expectation. */
+describe('what EventFocusOverlay does with no CURRENT event behind it', () => {
+  it('draws the concluded event — the layout the guard was waiting for', () => {
+    /* THE MEASUREMENT, RE-TAKEN. It used to read back an empty container and
+       that is what the ?focus=event guard was built on; it now reads back a
+       rendered event. Still measured and not assumed: the overlay is mounted
+       directly, with no page and no deep link in the way, and the DOM is read.
+
+       A system with no live alert still HAS an event to show — its own closed
+       incident (generateIncidents.js builds one for every system) and the
+       matching HISTORY_EVENTS row. "Ended" is the status the card reports,
+       and it is the word SystemPageV2Screen:669 and EventsTimelineCard's
+       BADGE_TONE already use for a finished event. */
     const { container } = render(
       <MemoryRouter>
         <EventFocusOverlay open systemId={unalerted.id} onClose={() => {}} />
       </MemoryRouter>,
     )
-    expect(container.innerHTML, 'the overlay paints nothing without an event').toBe('')
-    expect(overlayIsOpen()).toBe(false)
+    expect(container.innerHTML, 'the overlay draws the concluded event').not.toBe('')
+    expect(overlayIsOpen()).toBe(true)
+    expect(
+      within(container).queryByText('Ended'),
+      'the card reports the event as ended, not as ongoing',
+    ).toBeTruthy()
+    expect(
+      within(container).queryByText('Ongoing'),
+      'nothing on a finished event may still read Ongoing',
+    ).toBeNull()
   })
 })
 
@@ -119,19 +138,26 @@ describe('?focus=event opens the event itself', () => {
       within(document.body).queryByText('Ignore this water event?'),
       'a device fault is not a water event to ignore',
     ).toBeNull()
+    /* 2026-11-02: the event-ended flow's question is retired; its first
+       screen is the five verdicts. The guard is the same guard — the water
+       sheet must not reach a device fault — pinned on what it now draws. */
     expect(
-      within(document.body).queryByText('Was this worth alerting about?'),
-      'the water question must not be asked about a device fault',
+      within(document.body).queryByText('Unusual, no issue'),
+      'the water-event sheet must not open on a device fault',
     ).toBeNull()
   })
 
-  it('does NOT open when the event is already over — it lands on the page', () => {
-    /* The End-of-Leak case. `system.alert` is null by the time the push is
-       tapped, the overlay would paint nothing, so the user lands on the
-       system page — which does still show the ended event in its own
-       timeline. Strictly better than an invisible overlay. */
+  it('opens when the event is already over — the End-of-Leak case', () => {
+    /* INVERTED, NOT DELETED — see item 3 in the header. `system.alert` is null
+       by the time this push is tapped, which is exactly when View used to do
+       nothing visible. The overlay now draws the concluded event, so the
+       second half of the ?focus=event guard came off with the reason for it.
+
+       Its sibling is kept word for word: the page itself must still render
+       underneath, because a broken overlay that takes the page with it is the
+       failure neither version of this test would otherwise catch. */
     const { container } = mount(unalerted, '?focus=event')
-    expect(overlayIsOpen(), 'an empty overlay must not be opened').toBe(false)
+    expect(overlayIsOpen(), 'View must land inside the ended event').toBe(true)
     expect(container.firstChild, 'the system page should still render').toBeTruthy()
   })
 
@@ -154,16 +180,18 @@ describe('?focus=event opens the event itself', () => {
 
 describe('?focus=event leaves the existing deep links alone', () => {
   it('still opens the feedback question when tag rides along with it', () => {
-    /* Rule 0. The two params are independent: the End-of-Leak push may carry
-       both, and adding focus must not have swallowed the tag branch. On an
-       alert-free system tag still opens (that is its narrower guard, written
-       for exactly this push) and focus still declines. */
+    /* Rule 0. The two params are independent and must both be honoured in one
+       arrival: the End-of-Leak push now sends BOTH (PushNotifications'
+       'tag' branch), so the sheet lands on top of the event rather than on a
+       bare System page. The overlay's half of that is asserted here; the
+       layering itself is not something happy-dom can see, so what is pinned
+       is that both are mounted and in the owner's required order. */
     mount(unalerted, '?action=tag&focus=event')
     expect(
-      within(document.body).queryByText('Was this worth alerting about?'),
+      within(document.body).queryByText('Unusual, no issue'),
       'the end-of-leak tag link must still land',
     ).toBeTruthy()
-    expect(overlayIsOpen()).toBe(false)
+    expect(overlayIsOpen(), 'and the event is now open underneath it').toBe(true)
   })
 
   it('still opens the ignore flow when ignore rides along with it', () => {

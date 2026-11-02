@@ -9,6 +9,9 @@
 //     flowRate: string,
 //     volume:   string,
 //     startedAt: 'HH:MM',
+//     age:       string  (how long it ran; written on the ENDED record from
+//                         the End-of-Leak push's own `duration` param, and
+//                         read back by EventFocusOverlay's concluded layout),
 //     resolved:  boolean,
 //     resolvedAt: 'HH:MM',
 //     valveOverride: 'closing' | 'closed' (optional, drives sys.valve overlay),

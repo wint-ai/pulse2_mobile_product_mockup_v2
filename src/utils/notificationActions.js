@@ -98,16 +98,74 @@
 // So nothing a user could do yesterday is unreachable today. The push simply
 // stops being a shortcut.
 //
+// =====================================================================
+// THE END-OF-LEAK CTA IS NOW UNCONDITIONAL (owner, 2026-11-02)
+// =====================================================================
+// Verbatim: "the targeted [tagged] option on the push doesn't make sense,
+// because push send to everyone at the same time. So on the sending, we don't
+// know if someone already targeted [tagged]."
+//
+// So the End-of-Leak action is always 'Tell us more', always the primary
+// Wint-blue CTA. '✓ Tagged' and the `done` flag leave this action entirely.
+// View beside it is unchanged. TWO independent reasons, both of which have to
+// hold for the done-state to come back:
+//
+//   (1) A BROADCAST CANNOT CARRY A PER-RECIPIENT DONE-STATE. One End-of-Leak
+//       notification goes to everyone on the account at the same moment.
+//       "✓ Tagged" asserts a completion that has no single answer at send
+//       time - it is true for whoever answered and false for everyone else on
+//       the same push. A done-state on a broadcast is incoherent by
+//       construction, not merely mistimed. The CTA has to be a neutral
+//       invitation that reads the same no matter what anyone has done.
+//
+//   (2) IT WAS PERMANENTLY CLOSING THE FLOW'S ONLY ENTRY POINT. `hasTagFeedback`
+//       is keyed by SYSTEM, not by event: eventFeedbackStore's `tagEventKey` is
+//       the constant `${systemId}:event-ended`. So the first answer anyone gave
+//       for a system flipped EVERY future End-of-Leak push on that system to
+//       the done-state, forever - a leak six months later still rendered
+//       "✓ Tagged" from an answer about a different leak. The event-ended
+//       feedback flow has exactly one real entry point in the whole app, and it
+//       is this button, so that stuck done-state did not merely mislabel the
+//       button: it closed the flow.
+//
+//       THE KEYING ITSELF IS NOT FIXED IN THIS PASS - it is a larger change
+//       across eventFeedbackStore and its callers. PRD 15 § 10.4 locked
+//       event-id keying back in June and called the system-keyed form "a v0
+//       simplification" that "production must" replace; it is still the v0
+//       form. It is recorded here because removing the done-state is what
+//       stops it doing damage TODAY: nothing in the push now reads that key,
+//       so a stale answer can no longer close the button. Whoever re-keys it
+//       should not read this entry as permission to put the done-state back -
+//       reason (1) survives the fix and rules it out on its own.
+//
+// THE LABEL IS NOT UP FOR SUBSTITUTION. 'Tell us more' is the owner's own
+// string, given verbatim earlier today (see the two-CTA block above). The
+// "help us improve or something like that" in the quote was an EXAMPLE of a
+// neutral label, not an instruction to use that wording - and 'Help us
+// improve' is already spoken for as the feedback sheet's own heading. Do not
+// swap the button's string without asking.
+//
 // SIGNATURE IS DELIBERATELY UNCHANGED: `investigating` and `ignored` no longer
 // select anything, but PushNotifications.jsx passes all three, and narrowing
 // the destructure would churn a file other work is touching. They stay named
 // and unused. `tagged` is still read - it is what flips 'Tell us more' to its
 // '✓ Tagged' done state.
+//   ^ NO LONGER TRUE as of the 2026-11-02 ruling directly above: `tagged`
+//     selects nothing either now, and joins the other two as a named, unused
+//     parameter under the same disable. The sentence is struck in words rather
+//     than deleted so the next reader can see what the third argument used to
+//     do, and why it stopped.
+//     PushNotifications.jsx now passes only TWO of the three - its
+//     hasTagFeedback() read and import were removed in the same pass, because
+//     with the done-state gone the read fed nothing. `tagged` stays in the
+//     destructure anyway: the test suite still passes it (deliberately - the
+//     regression guard asserts the CTA is identical for true and false), and
+//     re-adding it to a caller must not mean re-adding it to the signature.
 //
 // The disable below is the cost of keeping them: no-unused-vars has no
 // argsIgnorePattern in eslint.config.js, and that config is not this change's
-// to edit. Remove the two names and the disable together, if a later pass gets
-// PushNotifications.jsx to stop passing them.
+// to edit. Remove the three names and the disable together, if a later pass
+// gets PushNotifications.jsx to stop passing them.
 // eslint-disable-next-line no-unused-vars
 export function buildActions(n, { investigating, ignored, tagged }) {
   // The universal action, and now the ONLY one outside End of Leak. Every
@@ -118,10 +176,12 @@ export function buildActions(n, { investigating, ignored, tagged }) {
 
   // End of Leak is the one state with a second CTA: the tag flow. The order is
   // fixed - the tag CTA first (it is the primary, Wint-blue button), View
-  // second. `tagCta` drives that styling and drops once the answer is in.
+  // second. `tagCta` drives that styling and is now UNCONDITIONAL: it no
+  // longer "drops once the answer is in", because a push has many recipients
+  // and there is no single answer to drop on (owner, 2026-11-02, above).
   if (n?.type === 'leak' && n?.state === 'End of Leak') {
     return [
-      { key: 'tag',  label: tagged ? '✓ Tagged' : 'Tell us more', primary: !tagged, done: tagged, tagCta: !tagged },
+      { key: 'tag',  label: 'Tell us more', primary: true, tagCta: true },
       view(),
     ];
   }

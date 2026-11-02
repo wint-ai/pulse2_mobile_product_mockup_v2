@@ -29,8 +29,13 @@
  * with no heading and no entry control, and the only way to fill the hole is to
  * author copy — which the owner has forbidden in the same breath ("transcribe
  * the frame; never write a string the frame does not contain"). So the
- * event-ended flow below is UNCHANGED, question and reward included, and the
- * collision is reported rather than resolved here.
+ * event-ended flow below was left UNCHANGED, question and reward included, and
+ * the collision reported rather than resolved here.
+ *
+ * THE COLLISION WAS RESOLVED ON 2026-11-02, BY THE OWNER, NOT BY A FRAME —
+ * see the block below. The event-ended flow is no longer "unchanged"; what is
+ * still true is that no Figma node covers it, so its copy comes from the
+ * owner's own words instead of from a transcription.
  *
  * ── 2026-10-31: THREE OWNER RULINGS DIVERGE FROM 199748:26265 ─────────────
  * The owner ruled on 2026-10-31 on the documentation step, and the ruling
@@ -42,10 +47,11 @@
  *   1. The final button reads "Done", not the frame's "Ignore anyway". See
  *      IGNORE_DONE_LABEL.
  *   2. The six chips are CAUSES of the water, not reasons for ignoring. See
- *      IGNORE_CAUSES.
+ *      IGNORE_CAUSES.  ← BOTH SUPERSEDED 2026-11-02: the owner replaced the
  *   3. "Unnecessary Alert" is no longer one of those six. It sits BELOW them
  *      as its own control, because it is a verdict on the alert and not a
- *      cause. See UNNECESSARY_ALERT.
+ *      cause. See UNNECESSARY_ALERT.  ← six causes AND this control with four
+ *      verdicts. See IGNORE_VERDICT_OPTIONS in eventFeedbackStore.
  *
  * A DIFF AGAINST 199748:26265 WILL FLAG ALL THREE, FOREVER. The node is
  * unchanged — verified in the Figma cache on 2026-10-31: it still draws the
@@ -59,6 +65,182 @@
  * what caused the water. The ignored-incident badge that reads "Plumber
  * scheduled" today will read "Stuck or running toilet". That is the trade.
  *
+ * ── 2026-11-02: THE EVENT-ENDED QUESTION IS GONE. ONE STEP, FOUR OPTIONS ──
+ * The owner ruled the primary question out of the END-OF-EVENT flow too, and
+ * this time with a replacement of his own: "i want to remove the yse no step /
+ * wht its needed?", then the sketch — "end of Leak , Water Waste , UNique
+ * usage-maintenece or somthing, UNencassery alert" — then his own rename of
+ * the third, "Unique usage / maintenance >>> Unusual, no issue".
+ *
+ * WHAT RETIRED FROM `event-ended`, and ONLY this:
+ *
+ *   • PRIMARY_QUESTION ("Was this worth alerting about?"), its Yes/No pair
+ *     and PRIMARY_HINT
+ *   • the yes/no BRANCH — so the two per-branch headings ("What was it?" /
+ *     "What was it really?") and their twelve cause chips no longer render
+ *
+ * WHAT REPLACED IT: one step, five single-select options, rendered from
+ * VERDICT_OPTIONS in eventFeedbackStore. ONE TAP COMMITS AND THE SHEET
+ * CLOSES. Not multi-select, and that is the evidence-led half of the ruling
+ * rather than a style choice: a randomised Pew experiment (n=4,581) measured
+ * select-all-that-apply at ~8 percentage points LOWER endorsement than forced
+ * choice, with a 3pp response-order effect that forced choice does not carry
+ * at all. Users stop scanning once the question feels answered. If this is
+ * ever turned back into a toggle row, that is the number it costs.
+ *
+ * THE FIVE ARE A VERDICT AXIS, NOT A CAUSE AXIS — the full table, the strings
+ * themselves and the "did water actually run?" test that separates the third
+ * from the fourth all live with the data, in eventFeedbackStore's VERDICTS
+ * block. They are NOT spelled again here: the store's gate has to recognise
+ * them, and one literal in two files is how a write and a read drift apart.
+ *
+ * NO SUPPORT COPY WAS WRITTEN FOR THE THIRD/FOURTH PAIR. It is the pair most
+ * at risk of being confused and the likeliest source of bad data in the set,
+ * so the need is real — but helper text is user-visible copy and the house
+ * rule stands: it comes from the owner or from a transcribed source, never
+ * from here. Flagged, not filled.
+ *
+ * "WAS IT FIXED?" SURVIVED AS A CONDITIONAL SECOND STEP FOR ONE AFTERNOON,
+ * AND THE OWNER KILLED IT THE SAME DAY. See the ruling below.
+ *
+ * THE CHASSIS IS THE IGNORE STEP'S — owner, 2026-11-02, asked what "Tell us
+ * more" should open: "a new flow similar to ignore but with different options
+ * as discussed, an overlay on the event screen". So the verdict step is built
+ * out of 199748:26265's parts rather than a second set of its own: the same
+ * floating close button, the same 34px gutter, a status banner, a heading
+ * under it, and ONE wrapped chip row in the same chip treatment. The chip
+ * class is literally shared (CHIP_BASE_CLASS) rather than forked, so the two
+ * steps cannot drift apart visually.
+ *
+ * WHAT IS DELIBERATELY NOT CARRIED OVER: the ignore step's
+ * "+ Add note (optional)" opener and its full-width Done. One tap on one
+ * verdict commits and closes, so a Done would be a second control for an
+ * action already taken, and a note opener on a step that closes under the
+ * user's finger cannot be typed into. The note survives on the FAULT second
+ * step, where there is time to use it. Reported.
+ *
+ * THE TWO STRINGS THE CHASSIS NEEDS WERE REUSED, NOT AUTHORED — and this is
+ * the one judgement call in the change that wants the owner's eye:
+ *
+ *   banner  → `flow.context`, "Water event ended". Already this flow's own
+ *             transcribed string; it is what the header line has always said.
+ *   heading → IGNORE_HEADING, "Help us improve". The owner's OWN string,
+ *             authored by him for the ignore step's documentation screen so
+ *             the user "feels he is helping to improve". The event-ended step
+ *             asks the user for exactly the same favour, so the same string
+ *             is the only candidate that is not newly minted.
+ *
+ * Neither is invented and neither is a transcription of a frame that covers
+ * this flow — no frame does. If the owner wants different words here, they
+ * are his to give; nothing is authored in the meantime.
+ *
+ * "AN OVERLAY ON THE EVENT SCREEN" IS NOT THIS FILE'S HALF. That needs
+ * EventFocusOverlay to render for a CONCLUDED event, which it currently
+ * refuses to do, and it lives in another file. This sheet is `absolute
+ * inset-0` inside the phone frame and assumes nothing about what is painted
+ * behind it, so it works over the overlay or over the bare page alike.
+ *
+ * NO PROGRESS INDICATOR, AND DELIBERATELY. Two of the five verdicts open a
+ * second step and three do not, so there is no honest "Step 1 of 2" to draw —
+ * and progress indicators measure null-to-negative on completion regardless.
+ *
+ * THE SIX `no`-BRANCH CAUSE CHIPS ARE ORPHANED, AND LEFT DEFINED. See FLOWS.
+ *
+ * ── 2026-11-02, LATER THE SAME DAY: ONE STEP. FULL STOP. ──────────────────
+ * The owner was shown the FAULT follow-up — the "+5" chip, the green check,
+ * "Thanks — Wint learned from this.", "Was it fixed?" with its three options,
+ * "+ Add note (optional)" and a full-width Done — and ruled on all of it at
+ * once: "dont want too much steps / dont want this".
+ *
+ * So `event-ended` is ONE step. What came out of this flow, and only this
+ * flow:
+ *
+ *   • the whole `detail` step
+ *   • "Was it fixed?" — FIXED_OPTIONS, the ToggleGroup, the `fixed` state and
+ *     chooseFixed. `fixed` is no longer WRITTEN by this component at all; the
+ *     store still accepts it, still validates it and still defaults it to
+ *     null, and FIXED_STATES / FIXED_STATE_LABEL stay exported there for the
+ *     records that already carry one. SEE THE REPORT: nothing in the app
+ *     writes a `fixed` value now, so the field is vestigial, not merely
+ *     unused here.
+ *   • the Done button AS AN UNCONDITIONAL STEP — see the note below, which is
+ *     where it came back, and on what terms
+ *   • FAULT_VERDICTS and the branch it drove
+ *
+ * AND THE POINTS, FROM THIS FLOW ONLY. The owner pointed at a screen with
+ * "+5" on it and said "dont want this". The evidence agrees and makes it
+ * easy: the best work on points / levels / leaderboards finds they neither
+ * help nor hurt intrinsic motivation, so there is no upside to defend — while
+ * hanging a score on a professional's judgement call hands them a reason to
+ * label that is not "this is what happened", which is the one thing this data
+ * must not acquire. The award on the verdict tap and the "+N" badge in the
+ * chassis are gone. THE MACHINERY IS LEFT STANDING AND IS NOW DEAD: the
+ * report lists every unreachable piece. It was not deleted here because this
+ * is a removal from one flow, not a refactor of the file.
+ *
+ * ── THE NOTE, AND WHERE IT ENDED UP — owner, same day, twice ─────────────
+ *
+ * He sent the "+ Add note (optional)" opener and said "and i want this on the
+ * first step". Built that way, it forced a choice nobody liked: a text field
+ * cannot sit on a step whose first tap dismisses the sheet, so the chip had
+ * to stop committing once the note was open, and a Done had to appear to
+ * commit instead — which is visually the exact control he had just rejected.
+ * He was shown both options with that warning stated, and CHOSE THE OTHER:
+ *
+ *   THE NOTE LIVES ON THE ACKNOWLEDGEMENT PANEL.
+ *
+ * It is the better shape and not only the safer one. The panel is already up,
+ * already auto-closing, and already AFTER the answer is banked, so:
+ *
+ *   • a chip tap always means one thing — commit and close. It never changes
+ *     meaning depending on what else the user has touched, and the fast path
+ *     that almost everyone takes is still exactly one tap.
+ *   • the expensive control sits strictly after the cheap answer. A free-text
+ *     field roughly DOUBLES median completion time in a micro-survey, so it
+ *     must never be able to slow down the answer itself. Here it cannot:
+ *     by the time it is on screen the record is already on disk.
+ *   • there is no commit button at all. Opening the note cancels the panel's
+ *     auto-close — that tap IS the user asking for time — and the note saves
+ *     on dismissal, which the sheet already had three paths for.
+ *
+ * WHAT IT BUYS, given the cost: when `Something else` starts taking more than
+ * ~15% of answers, these notes are the only evidence of what the missing
+ * option should have been. It is the diagnostic that tells the owner his four
+ * chips are wrong.
+ *
+ * THE NOTE IS AN UPDATE, NOT A SECOND RECORD — and this is the part that
+ * would have broken quietly. The row is written at the chip tap; the note
+ * arrives afterwards. eventFeedbackStore APPENDS per eventKey, so a second
+ * addFeedback would have left TWO rows for one answer, double-counted every
+ * reader of getFeedbackCount / getLearnedCount, and put a noted copy in front
+ * of a bare copy with nothing on disk to say which was real. `close` patches
+ * the committed row by its `id` through setFeedbackNote instead, which is an
+ * update by construction — see that function.
+ *
+ * THE ACKNOWLEDGEMENT STAYED, AND THE OWNER HAS SINCE ASKED FOR MORE OF IT.
+ * Unprompted, pointing at the green check and "Thanks — Wint learned from
+ * this.": "i realy like the positive energy from this / we need more like
+ * this, because we want people to react and to tag this data". So the warmth
+ * is wanted; it was the SCORE that was rejected, and the two are not the same
+ * thing. The argument was already on its side — informational feedback
+ * supports competence exactly where a controlling reward undermines autonomy,
+ * and this one costs no tap and closes itself.
+ *
+ * The `done` panel is that acknowledgement: the reward pop and the microcopy
+ * the owner kept from the step he rejected, the count of what Wint has
+ * learned, and now the note opener. What it lost is "+N points" — the points
+ * line — and the bare "Thanks!" heading above it, which said the same word
+ * twice once the microcopy moved into its place. REPORTED.
+ *
+ * THE FULL-SCREEN CELEBRATION IS KEPT, AND ITS TRIGGER MOVED WITH THE NOTE.
+ * The rule has always been "the screen-wide burst is for the users who went
+ * deep enough to type something"; a bare chip tap gets the small burst only.
+ * That used to fire at Done, which no longer exists. It now fires on the
+ * FIRST typed character, in changeNote — the same rule, at the only moment
+ * the user is still on screen to see it. Firing it at save instead would
+ * play the whole animation into a sheet that is already closing, which is
+ * the same as deleting it. It is pointer-events-none and plays once.
+ *
  * ── THE SUPERSEDED REASONING (kept for the record) ────────────────────────
  * The HTML mockup replaced the v1 tag taxonomy (20 chips across two groups,
  * every tag a chip, no primary question — PRD 15 § 5.4) with ONE primary
@@ -68,9 +250,11 @@
  * with one flat chip set instead of a branch.
  *
  * TWO TRIGGERS
- *   trigger="event-ended"  fires after a water event ends. Opens straight on
- *                          the question. Yes adds a "Was it fixed?" toggle.
- *                          Governed by the HTML mockup. Unchanged.
+ *   trigger="event-ended"  fires after a water event ends. ONE step: the
+ *                          five verdicts (2026-11-02). A chip tap writes the
+ *                          record and hands over to the acknowledgement,
+ *                          which offers an optional note and closes itself.
+ *                          No second step, no commit button, no points.
  *   trigger="ignore"       fires when the user taps Ignore on a LIVE event.
  *                          Opens on the consequences (199745:20202); "Ignore
  *                          anyway" commits the ignore and moves to the
@@ -84,26 +268,35 @@
  * optional, and closing without touching a chip records nothing rather than
  * recording an empty answer.
  *
- * THE DERIVED `answer`, AND WHY IT IS A SHIM — REPORTED, NOT FIXED.
- * `eventFeedbackStore.addFeedback` hard-rejects any record whose `answer` is
- * not 'yes' or 'no' (eventFeedbackStore.js:176, "if (answer !== 'yes' &&
- * answer !== 'no') return null"). That gate is UNCONDITIONAL and SILENT: an
- * `answer` of undefined makes addFeedback return null for every ignore
- * record, onComplete fires with null, the ignored-incident summary is null
- * and the badge never appears again — no error, no warning, nothing in the
- * console. The ignore flow no longer ASKS that question, so a faithful
- * transcription would write exactly that undefined and quietly destroy every
- * record the step exists to capture.
+ * ── THE DERIVED-`answer` SHIM IS RETIRED, 2026-11-02 ─────────────────────
+ * For three days this block flagged a shim: the ignore flow asked no yes/no,
+ * `addFeedback` rejected any record without one — unconditionally and
+ * SILENTLY — so `answer` was DERIVED, first from `chips.includes('Unnecessary
+ * Alert')` and then from an "Unnecessary Alert" toggle. It was honest, it was
+ * documented, and it was load-bearing: an `answer` of undefined made
+ * addFeedback return null for every ignore record, onComplete fired with
+ * null, the ignored-incident summary was null and the badge never appeared
+ * again, with no error and nothing in the console.
  *
- * Until the store's gate is revisited (that file is not this change's to
- * edit), the answer is DERIVED. Since 2026-10-31 it is derived from the
- * "Unnecessary Alert" CONTROL below the causes rather than from the `chips`
- * array — the control is the only thing on the step that is a verdict on the
- * alert, and it is precisely the old "No, not worth alerting about". The
- * expression is total by construction: on → 'no', off → 'yes', with no third
- * arm and no lookup that can miss, so `answer` cannot reach the store as
- * undefined. If this is ever re-pointed again, keep that property. This is a
- * mapping, not invented copy — but it is a shim, and it is flagged.
+ * IT IS GONE. Both halves of it went in one pass:
+ *   • the store's gate now admits a record carrying a valid `verdict`
+ *   • the ignore step now HAS a verdict — the owner replaced its six causes
+ *     with four, and the third of those, "Not a real alert", is exactly the
+ *     false-positive report the toggle used to carry
+ *
+ * So `answer` is no longer derived from a UI control that was not a verdict.
+ * It is derived from a verdict, by the store, through the same total
+ * `answerForVerdict` the event-ended flow uses. No shim, one mechanism, two
+ * vocabularies. The old note is deleted rather than kept-and-marked because
+ * it described machinery that no longer exists, and a superseded note about
+ * live-looking machinery is worse than no note.
+ *
+ * ONE DERIVATION REMAINS AND IT IS NOT THAT ONE. If the user opens the note,
+ * types, and presses Done WITHOUT picking a chip, there is no verdict to
+ * write — and that path records a row today, with the note on it, which the
+ * ignored-incident badge then shows. commitIgnore passes `answer: 'yes'` for
+ * that case alone, rather than silently dropping a note the user typed. It is
+ * one branch, scoped to one state, not the flow's answer mechanism. REPORTED.
  *
  * WHY NOT THE SHADCN <Sheet>
  * shadcn's Sheet is a Radix dialog that portals to document.body, and this app
@@ -170,20 +363,19 @@ import {
   Droplets,
   MessageSquareOff,
   RefreshCwOff,
-  Smile,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { Toggle } from '@/components/ui/toggle'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import ValveStatus from '@/v2/components/ValveStatus'
 import {
   addFeedback,
+  answerForVerdict,
   getLearnedCount,
-  FIXED_STATES,
-  FIXED_STATE_LABEL,
+  setFeedbackNote,
+  IGNORE_VERDICT_OPTIONS,
+  VERDICTS,
+  VERDICT_OPTIONS,
 } from '@/data/eventFeedbackStore'
 import { getCurrentActor } from '@/data/currentUser'
 /* The ignore gate lives in its own module, not here, because this file
@@ -196,82 +388,80 @@ import { acceptsIgnore } from '@/v2/components/ignoreGate'
    test (or a future rewrite) can assert against the list rather than retyping
    it. Nothing here is authored. */
 
-/* event-ended only. SUPERSEDED for `ignore` — see the header. */
-const PRIMARY_QUESTION = 'Was this worth alerting about?'
-const PRIMARY_HINT = 'Your answer helps Wint learn. Nothing is mandatory.'
-const SOMETHING_ELSE = 'Something else'
+/**
+ * RETIRED ON BOTH FLOWS NOW.
+ *
+ * PRIMARY_QUESTION ("Was this worth alerting about?") and PRIMARY_HINT ("Your
+ * answer helps Wint learn. Nothing is mandatory.") went from `ignore` on
+ * 2026-10-29 and from `event-ended` on 2026-11-02. They are DELETED rather
+ * than kept-and-unused, because nothing renders them any more and a dead
+ * exported string is how retired copy creeps back onto a screen. The strings
+ * themselves are preserved in the header's two ruling blocks, which is where
+ * a reader looking for "what did this used to say" will go.
+ *
+ * Three suites still pin the question's ABSENCE by its literal text
+ * (focusEventDeepLink, journeyDeepLinks, waterEventFeedback). That is the
+ * right place for it: a test asserting a string is gone needs the string.
+ */
+
+/**
+ * The catch-all, unchanged in value and still shared by every chip set in
+ * this file — the ignore causes and the two orphaned branch sets below — and
+ * now ALSO the fifth and LAST verdict.
+ *
+ * The literal moved to eventFeedbackStore (VERDICTS.SOMETHING_ELSE) because
+ * `addFeedback`'s gate has to recognise it to admit the record. This is an
+ * alias, not a second definition: one string, one home. Nothing is minted.
+ */
+const SOMETHING_ELSE = VERDICTS.SOMETHING_ELSE
 const NOTE_MAX = 140
+
+/* FAULT_VERDICTS lived here — [Leak, Water Waste], the two verdicts that
+   opened the "Was it fixed?" step. The owner removed the step on 2026-11-02
+   and with it the only reason to tell a fault verdict from any other: all
+   five now do exactly the same thing, which is to be the whole answer. */
 
 /** Demo gamification. The mockup's own numbers. event-ended only — the Figma
  *  frames score nothing, so the ignore flow never awards. */
 const POINTS = { PRIMARY: 5, CHIP: 5, NOTE: 10 }
 
-const FIXED_OPTIONS = [
-  FIXED_STATES.FIXED,
-  FIXED_STATES.NOT_YET,
-  // "Resolved on its own" means auto-shutoff or self-stop — the mockup's
-  // commentary is explicit, and it is why this is not a two-state toggle.
-  FIXED_STATES.SELF_RESOLVED,
-]
+/* FIXED_OPTIONS lived here — Fixed / Not yet / Resolved on its own, the
+   mockup's three states. The owner removed "Was it fixed?" from the only flow
+   that asked it ("dont want too much steps / dont want this", 2026-11-02), so
+   this component asks nothing about it and writes no `fixed` value.
+
+   THE FIELD IS NOT DELETED FROM THE DATA. eventFeedbackStore still accepts
+   `fixed`, still validates it against FIXED_STATES and still defaults it to
+   null, because records written before today carry one. But nothing in the
+   app writes one any more — the ignore flow never did, by design, since the
+   event is still running there. The field is VESTIGIAL, and that is reported
+   rather than resolved here: whether it comes back as a question, or goes, is
+   the owner's call. */
 
 /* ── The ignore flow, from Figma ───────────────────────────────────────────
    199748:26265 draws ONE flat chip set, not a branch, and that shape is
    unchanged. What the six chips SAY is the owner's, not the frame's — see the
    2026-10-31 block in the header. */
 
-/**
- * 199761:25771 — the verdict on the alert, NOT a cause of the water.
- *
- * 2026-10-31: the owner ruled this out of the chip row and under it, as its
- * own control: "Keep it, below the chips." Listing a verdict among causes is
- * a category error, and this is the only false-positive report anywhere in
- * the v2 app — the last trace of the retired "Was this worth alerting about?"
- * question. It is kept, moved, and NOT deleted.
- *
- * Its own selected state lives in `unnecessary`, not in `chips`, which is why
- * it never reaches the record's `chips` array and so never reaches the
- * ignored-incident badge. It reaches the record as the derived `answer`
- * instead — that IS what it means. See commitIgnore.
- *
- * It keeps 199761:25771's own Huge Icons / smile leftIcon; the frame gives a
- * leftIcon to this label and to no other.
- */
-const UNNECESSARY_ALERT = 'Unnecessary Alert'
+/* ── RETIRED 2026-11-02, BOTH OF THEM ─────────────────────────────────────
+   UNNECESSARY_ALERT ('Unnecessary Alert', 199761:25771) was the verdict on
+   the alert, kept out of the chip row and below it as its own control by the
+   2026-10-31 ruling. IGNORE_CAUSES were the six causes of the water that the
+   same ruling put in that row: Stuck or running toilet, Broken pipe, Tap or
+   hose left on, Irrigation, Cooling or HVAC, Something else.
 
-/**
- * The six causes, in the owner's own DOM order — ruled 2026-10-31, replacing
- * the frame's six ignore REASONS ('Already fixing it', 'Plumber scheduled',
- * 'Known ongoing issue', 'Water shut off manually', 'Something else',
- * 'Unnecessary Alert'). The frame still draws those; see the header.
- *
- * THE LAYOUT IS DELIBERATELY UNCHANGED. 199748:26646's x/y is a wrapped row —
- * 24px chips on a 34px pitch, i.e. a 10px gap — so a plain
- * `flex flex-wrap gap-[10px]` reproduces the frame's layout exactly while
- * staying safe at 393px, which absolute placement would not be. These six
- * wrap 2/2/2 at 393px, exactly as the frame's six did, so the step's height
- * is unchanged by the relabel. That wrap was CONFIRMED BY RENDERING at 393px
- * in all four themes, not by measuring the strings — a 325px content box
- * (px-[34px] inside the 393px frame) leaves little margin and the arithmetic
- * is not the thing to trust.
- *
- * SECOND CONSUMER, WHEN THERE IS A RULING FOR IT. `FLOWS['event-ended'].yes`
- * below carries six near-identical cause labels of its own. It is the natural
- * place for this list to be shared, and sharing it is then a one-line change
- * (`chips: IGNORE_CAUSES`) rather than a refactor. It is NOT done here: the
- * owner's ruling is scoped to the ignore flow, that scope is forced (:25-33),
- * and the event-ended chips are governed by the HTML mockup. Do it once the
- * owner rules on that flow, not before.
- */
-const IGNORE_CAUSES = [
-  'Stuck or running toilet',
-  'Broken pipe',
-  'Tap or hose left on',
-  'Irrigation',
-  'Cooling or HVAC',
-  SOMETHING_ELSE,
-]
+   The owner retired both at once, looking at the step: "And so this one shows
+   the wrong options, not what is discussed before." They are replaced by ONE
+   row of four verdicts — IGNORE_VERDICT_OPTIONS, which lives in
+   eventFeedbackStore because the gate has to recognise it. The strings, their
+   provenance (DRAFTED and adopted, NOT the owner's own words, unlike the
+   event-ended four) and the axis they sit on are all documented there.
 
-/** 199748:27414 — the green banner above the heading. */
+   WHAT THIS KILLED THAT WAS NOT A STRING: UNNECESSARY_ALERT was where the
+   ignore flow's `answer` came from. "Not a real alert" is where it comes from
+   now, through the store's own answerForVerdict — see the header. */
+
+/** 199748:27414 — the green banner above the heading. *//** 199748:27414 — the green banner above the heading. */
 const IGNORED_BANNER = 'Event marked as ignored'
 /**
  * 199748:26645 — THE ONE DELIBERATE DIVERGENCE FROM THE FRAME, 2026-10-31.
@@ -306,6 +496,20 @@ const IGNORED_BANNER = 'Event marked as ignored'
  * This component reads no i18n at all, so nothing there needed updating.
  */
 const IGNORE_HEADING = 'Help us improve'
+
+/**
+ * SHARED WITH `event-ended` SINCE 2026-11-02 — the name is now narrower than
+ * the use, and that is on purpose rather than worth a rename.
+ *
+ * The owner asked for the new verdict step to be "similar to ignore", which
+ * means a heading under the banner. This is the only heading in the file that
+ * says what that step is for, it is the OWNER'S own authored string, and it
+ * is true of both flows word for word — the alternative was to author a
+ * second one, which the house rule forbids. The constant keeps its name so
+ * the 2026-10-31 ruling that produced it stays findable; this note is how a
+ * reader learns it has two call sites.
+ */
+
 /** 199745:21420 */
 const WARNING_TITLE = 'Ignore this water event?'
 
@@ -337,6 +541,31 @@ const WARNING_TITLE = 'Ignore this water event?'
  */
 const IGNORE_DONE_LABEL = 'Done'
 
+/* IT IS THE IGNORE FLOW'S ALONE AGAIN. For part of 2026-11-02 the verdict
+   step borrowed this button to commit a note; the owner then moved the note
+   to the acknowledgement panel, where nothing needs committing — opening the
+   note holds the panel and dismissal saves. The event-ended flow has no
+   commit control of any kind now, which is the point of a one-tap step. */
+
+/**
+ * ORPHANED ON 2026-11-02, AND LEFT DEFINED ON PURPOSE.
+ *
+ * `context` is live — it is the sheet's header line and its accessible name.
+ * `yes.microcopy` and `no.microcopy` are live: the reward panel on the second
+ * step picks one by the verdict's DERIVED answer, so the two strings still do
+ * the job they always did.
+ *
+ * `yes.heading` / `no.heading` and the TWELVE cause chips under them render
+ * NOWHERE now. The owner's ruling replaced the question those branches hung
+ * off, and it is scoped to that question: the cause chips were explicitly NOT
+ * part of it, and relabelling or rehoming them here would be this file
+ * deciding something the owner has not. So they stay exactly as they are,
+ * unrendered, until there is a ruling on whether CAUSE comes back as an
+ * optional second question. REPORTED, not resolved.
+ *
+ * `askFixed` is dead outright: the step it gated was removed on 2026-11-02
+ * and no verdict opens a second step any more.
+ */
 const FLOWS = {
   'event-ended': {
     context: 'Water event ended',
@@ -425,10 +654,6 @@ const SHEET_CSS = `
 }
 `
 
-/** Yes and No are the same control twice; only the glyph differs. */
-const CHOICE_CLASS =
-  'h-auto flex-col gap-[8px] rounded-[14px] border-[1.5px] border-border bg-card px-[12px] py-[20px] text-[17px] font-bold text-slate-800'
-
 /**
  * The frame's Badge, as a selectable control.
  *
@@ -443,24 +668,46 @@ const CHOICE_CLASS =
  * rules below are therefore carried over UNCHANGED from the treatment this
  * file already shipped; nothing about them is newly invented here. Flagged.
  */
-const IGNORE_CHIP_CLASS =
-  'h-[24px] min-w-0 gap-[4px] rounded-full border border-background bg-muted px-[8px] py-[2px] text-[12px] font-medium text-slate-700 leading-[16px] ' +
+const CHIP_BASE_CLASS =
+  'h-[24px] min-w-0 gap-[4px] rounded-full border border-background bg-muted px-[8px] py-[2px] text-[12px] font-medium text-slate-700 leading-[16px]'
+
+/** The pressed treatment, split out on 2026-11-02 so the verdict row can take
+ *  the chip WITHOUT it. Nothing about the value changed. */
+const CHIP_PRESSED_CLASS =
   'data-[state=on]:border-primary data-[state=on]:bg-primary/8 data-[state=on]:text-primary'
 
+const IGNORE_CHIP_CLASS = `${CHIP_BASE_CLASS} ${CHIP_PRESSED_CLASS}`
+
 /**
- * The "Unnecessary Alert" control, below the cause row — 2026-10-31.
+ * The five verdicts — 2026-11-02. THE IGNORE STEP'S CHIP, not a second style:
+ * the owner asked for a step "similar to ignore", and a near-miss chip row is
+ * worse than either an identical one or an obviously different one. Same base,
+ * same pressed treatment, so the two rows cannot drift.
  *
- * Same metrics as a chip, so the two rows sit on one rhythm, but an outlined
- * ground and muted ink instead of a filled one: the owner asked for it to be
- * visually SUBORDINATE to the causes, and this is a small structural addition
- * rather than a new section. It carries NO heading and NO helper copy — none
- * was ruled on, and authoring one would be exactly the drift :28-33 forbids.
- * `self-start` keeps it hugging its label instead of stretching to the column
- * width it now lives in. The pressed treatment is the chips' own, unchanged.
+ * WITHOUT `data-[state=on]`, AND THAT HAS NOW FLIPPED TWICE — so here is the
+ * reasoning rather than the conclusion, because it will flip again if the
+ * step's behaviour does.
+ *
+ * A pressed look and an `aria-pressed` are honest exactly when a chip can be
+ * seen "on". Under one-tap-commits it never can: the row unmounts in the same
+ * tick as the tap, so a Toggle would publish `aria-pressed="false"` on all
+ * five options forever and tell a screen-reader user they are looking at five
+ * unselected toggles when they are looking at five actions. They were
+ * Buttons; when the note briefly made a chip a SELECTION they became Toggles,
+ * correctly; and with the note moved to the acknowledgement panel the
+ * selection is gone again, so they are Buttons again.
+ *
+ * THE TEST: can a user ever see one of these chips in a selected state? No →
+ * Button, no pressed rules. Yes → Toggle with `pressed=`, and CHIP_PRESSED_
+ * CLASS back on the end. Nothing else about the chip changes either way.
  */
-const UNNECESSARY_CONTROL_CLASS =
-  'h-[24px] min-w-0 shrink-0 gap-[4px] self-start rounded-full border border-border bg-transparent px-[8px] py-[2px] text-[12px] font-medium text-muted-foreground leading-[16px] ' +
-  'data-[state=on]:border-primary data-[state=on]:bg-primary/8 data-[state=on]:text-primary'
+const VERDICT_CHIP_CLASS = CHIP_BASE_CLASS
+
+/* UNNECESSARY_CONTROL_CLASS lived here — the outlined, subordinate variant
+   of the chip, for the "Unnecessary Alert" control that sat below the cause
+   row. That control was retired on 2026-11-02 and the verdict it carried is
+   now the third chip in the row itself, so there is nothing left to make
+   subordinate. The row uses IGNORE_CHIP_CLASS throughout. */
 
 /** 199745:21423 / 199748:26654 — the dark navy confirm. See the header's token
  *  map for why the ground is `bg-foreground` and not a literal `bg-slate-900`. */
@@ -571,7 +818,9 @@ function WarnPoint(props) {
  * @param {string} [props.systemName]      context line — event-ended only now
  * @param {string} [props.eventLabel]      context line — event-ended only now
  * @param {'warning'|'shutoff'} [props.eventState]  Ignore is refused on 'shutoff'
- * @param {'warning'|'question'|'yes'|'no'|'done'} [props.initialStep]  review/test driver
+ * @param {'warning'|'question'|'verdict'|'detail'|'done'} [props.initialStep]
+ *        review / test driver. On `ignore`: 'warning', else the documentation
+ *        step. On `event-ended`: 'detail' or 'done', else the verdict step.
  * @param {() => void} [props.onCancel]
  * @param {() => void} [props.onIgnoreConfirmed]
  * @param {(record: object|null) => void} [props.onComplete]
@@ -604,32 +853,43 @@ function FeedbackSheet({
   const storageKey = eventKey || systemId
 
   /* Where the sheet opens. The ignore flow always opens on the consequences
-     and has exactly two steps now, so any other `initialStep` resolves to the
-     documentation step. `initialStep` is the review / test driver — the
-     mockup's own "Jump to" controls, expressed as a prop. */
-  const jump = initialStep || (isIgnore ? 'warning' : 'question')
-  const jumpBranch = !isIgnore && (jump === 'yes' || jump === 'no') ? jump : null
+     and has exactly two steps, so any other `initialStep` resolves to the
+     documentation step. The event-ended flow opens on the verdicts, and the
+     only other states it HAS are the optional-detail step and the Thanks
+     panel. `initialStep` is the review / test driver — the mockup's own
+     "Jump to" controls, expressed as a prop.
+
+     Anything unrecognised — including the retired 'question' / 'yes' / 'no'
+     and the 'detail' step that existed for one afternoon — falls back to the
+     verdict step rather than rendering an empty sheet. */
+  const jump = initialStep || (isIgnore ? 'warning' : 'verdict')
 
   const [step, setStep] = useState(() => {
     if (isIgnore) return jump === 'warning' ? 'warning' : 'question'
-    if (jumpBranch) return 'branch'
-    return jump === 'warning' ? 'question' : jump
+    return jump === 'done' ? 'done' : 'verdict'
   })
-  const [answer, setAnswer] = useState(jumpBranch)
+  /* The chosen verdict IS the answer now — `answer` is derived from it by the
+     store (answerForVerdict) and never held here. */
+  const [verdict, setVerdict] = useState(null)
   const [chips, setChips] = useState([])
-  const [fixed, setFixed] = useState(null)
+  /* `fixed` is gone with "Was it fixed?" — this component writes no value
+     for it now. The store still has the field. See FIXED_OPTIONS above. */
   const [note, setNote] = useState('')
   const [noteOpen, setNoteOpen] = useState(false)
-  /* The "Unnecessary Alert" verdict — ignore flow only, and deliberately NOT
-     a member of `chips`: it is not a cause, it does not belong on the
-     ignored-incident badge, and it is the sole source of the derived answer. */
-  const [unnecessary, setUnnecessary] = useState(false)
-  // Landing on a branch counts as having tapped the primary answer, so the
-  // score reads the same as it would for a user who got there by hand.
-  const [points, setPoints] = useState(
-    !isIgnore && (jumpBranch || jump === 'done') ? POINTS.PRIMARY : 0,
-  )
+  /* `unnecessary` lived here — the "Unnecessary Alert" toggle's own state,
+     kept out of `chips` because it was a verdict and not a cause. Both the
+     control and the state went on 2026-11-02; the ignore flow now holds its
+     choice in `verdict`, the same field the event-ended flow uses. */
+  /* DEAD SINCE 2026-11-02 and deliberately left standing — the owner removed
+     the points from this flow and the ignore flow never awarded any, so this
+     is 0 for the whole life of the sheet. `setPoints` survives only inside
+     `!isIgnore` arms that are themselves unreachable now. It still reaches
+     the record, as a 0, which is what every new row will carry. REPORTED
+     rather than torn out: this change is a removal from one flow. */
+  const points = 0
   const [ignoreConfirmed, setIgnoreConfirmed] = useState(isIgnore ? jump !== 'warning' : false)
+  /* Permanently empty now that `award` is gone — nothing fills it. Left
+     standing with the rest of the points machinery. */
   const [floats, setFloats] = useState([])
   const [celebrate, setCelebrate] = useState(false)
   const [learned, setLearned] = useState(() => getLearnedCount())
@@ -638,56 +898,60 @@ function FeedbackSheet({
   const noteRef = useRef(null)
   const committed = useRef(null)
   const closed = useRef(false)
-  const floatId = useRef(0)
 
   useEffect(() => {
     if (noteOpen) noteRef.current?.focus()
   }, [noteOpen])
 
-  /** Persist once. Called on Done and on any dismissal that happens after the
-      primary question has been answered — "nothing is mandatory" only works if
-      a single tap survives the user walking away. */
+  /** Persist once. Called on Done, on the verdict tap that finishes the flow
+      outright, and on any dismissal that happens after a verdict was chosen —
+      "nothing is mandatory" only works if a single tap survives the user
+      walking away.
+
+      `fields` carries EITHER `{ verdict }` (event-ended, since 2026-11-02) or
+      `{ answer }` (the ignore shim). The store takes either and derives the
+      other; passing the two through one positional argument is what let the
+      ignore flow's 'yes'/'no' and a verdict string be confused for each
+      other, so they are named at the call site instead. */
   const commit = useCallback(
-    (ans, score) => {
-      if (committed.current || !ans) return committed.current
+    (fields, score) => {
+      if (committed.current || !fields) return committed.current
       committed.current = addFeedback(storageKey, {
         trigger: isIgnore ? 'ignore' : 'event-ended',
-        answer: ans,
+        ...fields,
         chips,
         note,
-        fixed,
+        /* No `fixed`: the question that produced one is gone and the ignore
+           flow never asked it. The store defaults the field to null. */
         points: score,
         systemId,
         actor: getCurrentActor(),
       })
       return committed.current
     },
-    [storageKey, isIgnore, chips, note, fixed, systemId],
+    [storageKey, isIgnore, chips, note, systemId],
   )
 
-  /* The ignore flow captures no yes/no. See the header: addFeedback rejects a
-     record without one — unconditionally and silently — so the answer is
-     DERIVED, and nothing is written at all when the user gave no detail to
-     write.
+  /* THE IGNORE FLOW HAS A VERDICT NOW, so there is nothing left to shim. Its
+     four chips are single select and the chosen one goes to the store as
+     `verdict`; the store derives `answer` from it with the same total
+     `answerForVerdict` the event-ended flow uses, and "Not a real alert" is
+     the one that means 'no'. See the header for what this replaced.
 
-     SINCE 2026-10-31 IT IS DERIVED FROM `unnecessary`, NOT FROM `chips`. The
-     chips are causes now and none of them is a verdict on the alert, so the
-     old `chips.includes(UNNECESSARY_ALERT)` would have gone permanently false
-     the moment the labels changed — every ignore record silently recorded as
-     'yes'. Re-pointed, not deleted. Keep this expression TOTAL: two arms, no
-     lookup, so `answer` can never arrive at the store as undefined.
-
-     The verdict also counts as detail. Toggling it on with no cause picked is
-     still something the user said, and a record that exists only to carry
-     answer:'no' is the whole point of keeping the control. */
-  const ignoreDetail = unnecessary || chips.length > 0 || note.trim().length > 0
+     THE ONE REMAINING DERIVATION, and its whole scope: a user who opens the
+     note, types, and presses Done WITHOUT picking a chip has given detail but
+     no verdict. That path writes a row today — the ignored-incident badge
+     shows the note — so it keeps writing one, with `answer: 'yes'` because
+     nothing was said about the alert being wrong. Dropping it instead would
+     silently bin a sentence the user typed. One branch, one state. */
+  const ignoreDetail = Boolean(verdict) || note.trim().length > 0
   const commitIgnore = useCallback(() => {
     if (!ignoreDetail) return null
-    return commit(unnecessary ? 'no' : 'yes', 0)
-  }, [ignoreDetail, commit, unnecessary])
+    return commit(verdict ? { verdict } : { answer: 'yes' }, 0)
+  }, [ignoreDetail, commit, verdict])
 
   const close = useCallback(
-    (reason) => {
+    () => {
       if (closed.current) return
       closed.current = true
       if (isIgnore) {
@@ -698,31 +962,48 @@ function FeedbackSheet({
         onComplete?.(commitIgnore())
         return
       }
-      if (answer) {
-        onComplete?.(commit(answer, points))
-      } else if (reason === 'cancel' || !answer) {
+      if (verdict) {
+        /* The row went to disk the moment the chip was tapped. A note typed
+           on the acknowledgement panel afterwards is an EDIT to that row, so
+           it is PATCHED BY ID and never written again — addFeedback appends,
+           and a second append would mean two rows for one answer, every
+           count doubled, and no way to tell the noted copy from the bare one.
+           `commit` is idempotent here and just hands back the stored row. */
+        const row = commit({ verdict }, points)
+        const noted = note.trim() && row?.id ? setFeedbackNote(storageKey, row.id, note) : null
+        onComplete?.(noted || row)
+      } else {
         onCancel?.()
       }
     },
-    [answer, points, commit, isIgnore, ignoreConfirmed, commitIgnore, onCancel, onComplete],
+    [
+      verdict, points, commit, note, storageKey,
+      isIgnore, ignoreConfirmed, commitIgnore, onCancel, onComplete,
+    ],
   )
 
   /* Escape closes. Radix gave this for free; an in-frame overlay says so
      itself. On the warning step Escape is a Cancel — nothing has committed. */
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') close(step === 'warning' ? 'cancel' : 'dismiss') }
+    const onKey = (e) => { if (e.key === 'Escape') close() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [step, close])
+  }, [close])
 
   /* The Thanks panel holds, then hands back. Longer when the user went deep
      enough to earn the celebration. event-ended only — the ignore frames draw
      no Thanks panel, so the ignore flow never reaches this step. */
   useEffect(() => {
     if (step !== 'done') return
-    const t = setTimeout(() => close('done'), celebrate ? 2400 : 2000)
+    /* OPENING THE NOTE CANCELS THE AUTO-CLOSE. That tap is the user asking
+       for time, and a panel that walked out from under a half-typed sentence
+       would be the whole reason not to put a text field here. `noteOpen` is
+       in the deps, so flipping it clears the pending timer; from then on the
+       panel waits for a dismissal, which is what saves the note. */
+    if (noteOpen) return
+    const t = setTimeout(() => close(), celebrate ? 2400 : 2000)
     return () => clearTimeout(t)
-  }, [step, celebrate, close])
+  }, [step, noteOpen, celebrate, close])
 
   /* Floating "+N" badges clean themselves up. */
   useEffect(() => {
@@ -731,62 +1012,103 @@ function FeedbackSheet({
     return () => clearTimeout(t)
   }, [floats])
 
-  const award = useCallback((n, el) => {
-    setPoints((p) => p + n)
-    if (n <= 0) return
-    const host = hostRef.current
-    const r = el?.getBoundingClientRect?.()
-    const hr = host?.getBoundingClientRect?.()
-    const id = ++floatId.current
-    setFloats((f) => [
-      ...f,
-      {
-        id,
-        n,
-        x: r && hr ? r.left - hr.left + r.width / 2 : null,
-        y: r && hr ? r.top - hr.top + 10 : null,
-      },
-    ])
-  }, [])
+  /* `award` lived here — it bumped the score and launched a floating "+N"
+     from the tapped control toward the points chip. Its last caller was
+     `toggleChip`, which went when the ignore row stopped being multi-select
+     on 2026-11-02; the points themselves had already gone from the
+     event-ended flow. It is DELETED rather than left standing like the rest
+     of the machinery only because eslint will not keep an unreferenced
+     binding — the floats state, the floats render block and the .wef-float /
+     .wef-pulse keyframes below ARE still standing, and the points may yet
+     come back. `floatId` went with it for the same reason. */
 
-  const chooseAnswer = (value, el) => {
-    if (answer) return
-    setAnswer(value)
-    setStep('branch')
-    award(POINTS.PRIMARY, el)
+  /**
+   * A TAP MEANS ONE THING, ALWAYS: commit and close.
+   *
+   * It does not depend on what else the user has touched, there is nothing to
+   * confirm afterwards, and no verdict opens a second step ("dont want too
+   * much steps", 2026-11-02). The record goes to disk, the acknowledgement
+   * takes over, and that panel hands back on its own. One tap.
+   *
+   * For a few hours the note sat on this step and a tap had to SELECT instead
+   * of committing once the field was open. That is gone with the note; see
+   * the header for why the panel is the better home and not merely the safer
+   * one. If a chip is ever made to select again, VERDICT_CHIP_CLASS and the
+   * Button/Toggle choice have to move back with it.
+   *
+   * `Something else` is no different from the other four here, which IS
+   * different from the ignore step, where it opens the note by itself. There
+   * is no note on this step to open.
+   *
+   * CONTRAST WITH chooseIgnoreVerdict BELOW, because the two are now the
+   * closest thing this file has to a pair and they behave differently: that
+   * one SELECTS and waits for Done, this one commits outright. The reason is
+   * the flow, not the control — see the report's note on the two screens
+   * having different interaction models.
+   *
+   * The verdict is passed to finishStep rather than read back off state:
+   * setVerdict will not have landed by the time this function commits.
+   */
+  const chooseVerdict = (value) => {
+    if (verdict) return
+    setVerdict(value)
+    finishStep(value)
   }
 
-  const toggleChip = (label, el) => {
-    if (chips.includes(label)) {
-      setChips((prev) => prev.filter((c) => c !== label))
-      if (!isIgnore) setPoints((p) => p - POINTS.CHIP)
-      return
-    }
-    setChips((prev) => [...prev, label])
-    if (!isIgnore) award(POINTS.CHIP, el)
+  /**
+   * The ignore step's chip — SINGLE SELECT since 2026-11-02, and that was
+   * forced rather than chosen.
+   *
+   * The old six were CAUSES and multi-select: a stuck toilet and a running
+   * tap can both be true. The new four are VERDICTS on one event and are
+   * mutually exclusive — "Expected usage" and "Not a real alert" cannot both
+   * be the reason it is acceptable to leave this running. A verdict is
+   * singular by definition, which is what lets the store derive one `answer`
+   * from it; multi-select would put us straight back to picking one member
+   * out of an array, which is the shim this change just retired.
+   *
+   * It also happens to settle a disagreement between the two flows. The
+   * event-ended step is single select on the strongest evidence in the
+   * research behind it — a randomised Pew experiment (n=4,581) measured
+   * select-all-that-apply ~8 percentage points below forced choice on
+   * endorsement, with a 3pp response-order effect forced choice does not
+   * carry. A per-event label is exactly the case where multi-select is
+   * strictly worse, so the two flows now agree.
+   *
+   * `chips` IS STILL WRITTEN, AS A ONE-ELEMENT ARRAY, AND THAT IS NOT
+   * REDUNDANCY. Two surfaces outside this component read `record.chips` to
+   * caption the ignored incident — SystemPageV2Screen:2283 and
+   * HomeAllAccounts:1742, both `[record.chips?.join(', '), record.note]`.
+   * Writing only `verdict` would leave both badges blank for every ignore
+   * with no note, silently. This keeps them reading, now as "Expected usage"
+   * rather than "Stuck or running toilet". REPORTED: once those two read
+   * `verdict`, this line goes.
+   */
+  const chooseIgnoreVerdict = (label) => {
+    setVerdict(label)
+    setChips([label])
     // "Something else" is the only chip that opens the note by itself.
     if (label === SOMETHING_ELSE) setNoteOpen(true)
-  }
-
-  const chooseFixed = (value, el) => {
-    // Radix hands back '' when the pressed item is pressed again.
-    if (!value) { setFixed(null); setPoints((p) => p - POINTS.CHIP); return }
-    // Switching between the three is one decision, scored once — the mockup
-    // re-awards on every tap, which turns the toggle into a points faucet.
-    if (!fixed) award(POINTS.CHIP, el)
-    setFixed(value)
   }
 
   const changeNote = (raw) => {
     // Clipped here as well as by maxLength: a paste, an IME commit or a
     // programmatic set all beat the attribute.
+    /* The `!isIgnore` arm here used to award POINTS.NOTE alongside this. It
+       is DELETED rather than left dormant: the note moved twice on
+       2026-11-02 and each move made it reachable again, so leaving it would
+       have quietly re-introduced the points the owner removed on exactly
+       this screen. */
     const next = raw.slice(0, NOTE_MAX)
-    const had = note.trim().length > 0
-    const has = next.trim().length > 0
-    if (!isIgnore) {
-      if (!had && has) award(POINTS.NOTE, noteRef.current)
-      if (had && !has) setPoints((p) => p - POINTS.NOTE)
-    }
+    /* THE CELEBRATION, ON ITS NEW TRIGGER. The rule is unchanged — the
+       screen-wide burst is for the users who went deep enough to type
+       something, and a bare chip tap gets the small burst only. It used to
+       fire at Done; there is no Done. It fires on the first character
+       instead, which is the only moment the user is still on screen to see
+       it: firing at save would play it into a sheet already closing. Once
+       only, and only on this flow — the ignore step never reaches 'done',
+       which is the only step that renders it. */
+    if (!isIgnore && !celebrate && next.trim().length > 0) setCelebrate(true)
     setNote(next)
   }
 
@@ -798,21 +1120,35 @@ function FeedbackSheet({
 
   /* 199748:26654. The frame ends here — there is no Thanks panel after it — so
      this writes whatever documentation was given and hands back. */
-  const finishIgnore = () => close('done')
+  const finishIgnore = () => close()
 
-  const finish = () => {
-    // The screen-wide celebration is reserved for the users who went deep
-    // enough to type something; a chip tap gets the small burst only.
-    setCelebrate(note.trim().length > 0)
-    commit(answer, points)
+  /** Write the record and hand over to the acknowledgement. Takes the
+      verdict explicitly, because the only caller reaches it from the same
+      tick as setVerdict and that state will not have landed yet.
+
+      No `setCelebrate` here any more. It used to read `note.trim()`, and the
+      note now arrives AFTER this runs — it would have been false every time.
+      changeNote owns that trigger; see there. */
+  const finishStep = (v) => {
+    commit({ verdict: v }, points)
     // Read AFTER the commit, so "Wint has learned N times" counts this one.
     setLearned(getLearnedCount())
     setStep('done')
   }
 
-  const branch = answer ? flow[answer] : null
-  const title =
-    step === 'warning' ? WARNING_TITLE : isIgnore ? IGNORE_HEADING : PRIMARY_QUESTION
+  /* The derived answer, from the store's own total mapping — never spelled
+     here, so the reward tone and what lands on disk cannot disagree. */
+  const derived = verdict ? answerForVerdict(verdict) : null
+  const branch = derived ? flow[derived] : null
+  /* The verdict step wears the ignore documentation step's chrome — floating
+     close button, 34px gutter, no context line — because it wears its chassis
+     (owner, 2026-11-02: "similar to ignore"). The steps after it go back to
+     the event-ended header row, which is where the points chip lives. */
+  const chassisIsIgnore = isIgnore || step === 'verdict'
+
+  /* Both flows now headline the same owner-authored string on the step the
+     user acts on; `warning` keeps its own. */
+  const title = step === 'warning' ? WARNING_TITLE : IGNORE_HEADING
 
   return (
     <div
@@ -824,13 +1160,14 @@ function FeedbackSheet({
     >
       <style>{SHEET_CSS}</style>
 
-      {/* Scrim. On the warning step a tap outside is a Cancel — Ignore never
-          commits by accident. Afterwards it is a dismissal, and whatever was
-          answered is kept. */}
+      {/* Scrim. On the warning step a tap outside is still a Cancel and
+          Ignore never commits by accident — `ignoreConfirmed` is what makes
+          it so, not the argument this used to pass. Afterwards it is a
+          dismissal, and whatever was answered is kept. */}
       <button
         type="button"
         aria-label="Dismiss"
-        onClick={() => close(step === 'warning' ? 'cancel' : 'dismiss')}
+        onClick={() => close()}
         className="absolute inset-0 cursor-default bg-foreground/45"
       />
 
@@ -839,11 +1176,18 @@ function FeedbackSheet({
         <div aria-hidden="true" className="mx-auto mb-[6px] mt-[11px] h-[4px] w-[34px] shrink-0 rounded-[10px] bg-slate-300" />
 
         {/* The ignore frames draw NO context line and NO points chip — only the
-            handle and the close button. The header row below is therefore
-            event-ended's alone. REPORTED: `systemName` and `eventLabel` are
-            still passed by both SystemPageV2Screen call sites, so on the
-            ignore flow they now arrive and go unrendered. */}
-        {isIgnore ? (
+            handle and the close button. REPORTED: `systemName` and
+            `eventLabel` are still passed by both SystemPageV2Screen call
+            sites, so on the ignore flow they arrive and go unrendered.
+
+            SINCE 2026-11-02 THE VERDICT STEP TAKES THE SAME CHROME, because
+            the owner asked for a step "similar to ignore" and its own banner
+            would otherwise repeat the context line word for word. NOTHING IS
+            LOST BY IT: `points` is 0 until the verdict is tapped and the
+            badge only renders above 0, so the chip never had anything to draw
+            on this step. The context line and the points chip both come back
+            on the steps that follow. */}
+        {chassisIsIgnore ? (
           /* 199745:24605 / 199748:26655 — left-[362px] in a 402px frame, i.e.
              10px from the right edge, floating over the content. */
           <Button
@@ -851,7 +1195,7 @@ function FeedbackSheet({
             variant="ghost"
             size="icon-sm"
             aria-label="Close"
-            onClick={() => close(step === 'warning' ? 'cancel' : 'dismiss')}
+            onClick={() => close()}
             className="absolute right-[10px] top-[10px] z-10 size-[30px] rounded-full border border-background bg-muted text-slate-700 hover:bg-muted"
           >
             <X size={18} strokeWidth={2} />
@@ -862,28 +1206,17 @@ function FeedbackSheet({
               {[flow.context, systemName, eventLabel].filter(Boolean).join(' · ')}
             </p>
 
+            {/* The "+N" points badge stood here. The owner saw it on the
+                step he rejected and ruled it out with the rest: "dont want
+                this". Gone from this flow only — nothing else in the app
+                drew one. */}
             <div className="flex items-center gap-[10px]">
-              {points > 0 ? (
-                <Badge
-                  key={points}
-                  aria-label={`${points} points earned`}
-                  className={cn(
-                    'wef-pulse border-transparent px-[10px] py-[4px] text-[12px] font-bold',
-                    points >= POINTS.NOTE
-                      ? 'bg-[linear-gradient(135deg,rgba(255,184,0,.22),rgba(245,158,11,.28))] text-[#b45309]'
-                      : 'bg-primary/10 text-primary',
-                  )}
-                >
-                  +{points}
-                </Badge>
-              ) : null}
-
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Close"
-                onClick={() => close('dismiss')}
+                onClick={() => close()}
                 className="rounded-full text-muted-foreground"
               >
                 <X size={16} strokeWidth={2.2} />
@@ -896,7 +1229,7 @@ function FeedbackSheet({
           className={cn(
             'min-h-0 flex-1 overflow-y-auto',
             // 199745:21416 / 199748:26640 — pl-34 pr-35 pb-30 on a 402px frame.
-            isIgnore ? 'px-[34px] pb-[30px] pt-[13px]' : 'px-[18px] pb-[24px] pt-[8px]',
+            chassisIsIgnore ? 'px-[34px] pb-[30px] pt-[13px]' : 'px-[18px] pb-[24px] pt-[8px]',
           )}
         >
           {/* ── Ignore step 1: the consequences — 199745:20202 ────────────── */}
@@ -955,7 +1288,7 @@ function FeedbackSheet({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => close('cancel')}
+                  onClick={() => close()}
                   className="h-auto flex-1 rounded-full border border-foreground bg-transparent px-[10px] py-[12px] text-[16px] font-semibold text-foreground leading-[24px]"
                 >
                   Cancel
@@ -994,38 +1327,28 @@ function FeedbackSheet({
                     {IGNORE_HEADING}
                   </h2>
 
-                  {/* 199748:26646 — one flat set, no branch, no heading above
-                      it beyond the one already rendered. The labels are the
-                      owner's causes since 2026-10-31; the layout is the
-                      frame's, unchanged, and still wraps 2/2/2 at 393px. */}
-                  <div className="flex flex-col gap-[10px]">
-                    <div className="flex flex-wrap gap-[10px]">
-                      {IGNORE_CAUSES.map((label) => (
-                        <Toggle
-                          key={label}
-                          variant="outline"
-                          pressed={chips.includes(label)}
-                          onClick={(e) => toggleChip(label, e.currentTarget)}
-                          className={IGNORE_CHIP_CLASS}
-                        >
-                          {label}
-                        </Toggle>
-                      ))}
-                    </div>
+                  {/* 199748:26646 — one flat set, no branch, no heading
+                      above it beyond the one already rendered. The LABELS are
+                      the owner's four verdicts since 2026-11-02 ("this one
+                      shows the wrong options"); the LAYOUT is the frame's,
+                      unchanged. Four chips where six used to wrap 2/2/2.
 
-                    {/* The alert verdict, under the causes — 2026-10-31. Its
-                        own control, outside the wrap and outside `chips`,
-                        because it is not a cause. No heading and no helper
-                        copy: none was ruled on. See UNNECESSARY_ALERT. */}
-                    <Toggle
-                      variant="outline"
-                      pressed={unnecessary}
-                      onClick={() => setUnnecessary((v) => !v)}
-                      className={UNNECESSARY_CONTROL_CLASS}
-                    >
-                      <Smile aria-hidden="true" size={16} strokeWidth={1.8} className="shrink-0" />
-                      {UNNECESSARY_ALERT}
-                    </Toggle>
+                      Single select, and the pressed treatment is honest here
+                      in a way it is not on the event-ended row: this step
+                      stays open until Done, so a chosen chip really is seen
+                      "on" and its aria-pressed really is true. */}
+                  <div className="flex flex-wrap gap-[10px]">
+                    {IGNORE_VERDICT_OPTIONS.map((label) => (
+                      <Toggle
+                        key={label}
+                        variant="outline"
+                        pressed={verdict === label}
+                        onClick={() => chooseIgnoreVerdict(label)}
+                        className={IGNORE_CHIP_CLASS}
+                      >
+                        {label}
+                      </Toggle>
+                    ))}
                   </div>
                 </div>
 
@@ -1074,118 +1397,108 @@ function FeedbackSheet({
             </section>
           ) : null}
 
-          {/* ── event-ended: the one primary question ─────────────────────── */}
-          {step === 'question' && !isIgnore ? (
-            <section>
-              <h2 className="mx-[4px] mb-[20px] mt-[10px] text-[20px] font-bold tracking-[-0.3px] text-foreground leading-[26px]">
-                {PRIMARY_QUESTION}
-              </h2>
-
-              <div className="grid grid-cols-2 gap-[12px]">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={(e) => chooseAnswer('yes', e.currentTarget)}
-                  className={CHOICE_CLASS}
+          {/* ── event-ended: the one step, five verdicts — 2026-11-02 ──────
+              Built from the ignore documentation step's parts, because the
+              owner asked for "a new flow similar to ignore but with different
+              options". Banner, heading, one wrapped chip row — and nothing
+              else of substance. No note opener and no Done: one tap on one
+              chip is the whole answer and it closes the sheet. */}
+          {step === 'verdict' && !isIgnore ? (
+            <section className="flex flex-col gap-[20px]">
+              {/* The ignore step's banner, with this flow's own context
+                  string. 'Water event ended' is what the header line has said
+                  on this flow since the mockup; nothing is authored here. */}
+              <div className="flex items-center gap-[7px] rounded-[12px] bg-alert-surface-success px-[5px] py-[5px]">
+                <span
+                  aria-hidden="true"
+                  className="flex size-[32px] shrink-0 items-center justify-center rounded-full bg-surface-card text-success"
                 >
-                  <span aria-hidden="true" className="flex size-[36px] items-center justify-center rounded-full bg-success/14 text-success">
-                    <Check size={20} strokeWidth={2.4} />
-                  </span>
-                  Yes
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={(e) => chooseAnswer('no', e.currentTarget)}
-                  className={CHOICE_CLASS}
-                >
-                  <span aria-hidden="true" className="flex size-[36px] items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <X size={20} strokeWidth={2.4} />
-                  </span>
-                  No
-                </Button>
-              </div>
-
-              <p className="mt-[12px] text-center text-[11px] text-muted-foreground leading-[15px]">
-                {PRIMARY_HINT}
-              </p>
-            </section>
-          ) : null}
-
-          {/* ── event-ended: reward, then the scoped follow-up ────────────── */}
-          {step === 'branch' && branch ? (
-            <section>
-              <div className="flex flex-col items-center gap-[6px] pb-[14px] pt-[10px]">
-                <span className="relative flex size-[88px] items-center justify-center">
-                  <Particles tone={answer} />
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      'wef-pop flex size-[56px] items-center justify-center rounded-full',
-                      answer === 'yes'
-                        ? 'bg-success/15 text-success'
-                        : 'bg-primary/15 text-primary',
-                    )}
-                  >
-                    <Check size={26} strokeWidth={2.6} />
-                  </span>
+                  <Check size={20} strokeWidth={2.6} />
                 </span>
-                <p className="text-[13px] font-semibold text-slate-700 leading-[18px]">
-                  {branch.microcopy}
+                <p className="min-w-0 flex-1 text-[18px] font-semibold tracking-[-0.45px] text-slate-800 leading-[22px]">
+                  {flow.context}
                 </p>
               </div>
 
-              <div className="wef-reveal">
-                <h3 className="mx-[2px] mb-[10px] mt-[14px] text-[15px] font-bold text-foreground leading-[20px]">
-                  {branch.heading}
-                </h3>
+              {/* The owner's own heading, shared with the ignore step — see
+                  the note on IGNORE_HEADING for why it is not a new string. */}
+              <h2 className="text-[20px] font-bold text-slate-800 leading-[26px]">
+                {IGNORE_HEADING}
+              </h2>
 
-                <div className="flex flex-wrap gap-[8px]">
-                  {branch.chips.map((label) => (
-                    <Toggle
-                      key={label}
-                      variant="outline"
-                      pressed={chips.includes(label)}
-                      onClick={(e) => toggleChip(label, e.currentTarget)}
-                      className="h-auto rounded-full border-[1.5px] border-border bg-card px-[12px] py-[7px] text-[12.5px] font-semibold text-slate-700 data-[state=on]:border-primary data-[state=on]:bg-primary/8 data-[state=on]:text-primary leading-[16px]"
-                    >
-                      {label}
-                    </Toggle>
-                  ))}
-                </div>
+              {/* A wrapped row, not a grid: the five labels are very different
+                  lengths and a grid would set every cell to the widest of
+                  them. Same 10px gap as 199748:26646, so the two steps' chip
+                  rows sit on one rhythm. */}
+              <div className="flex flex-wrap gap-[10px]">
+                {VERDICT_OPTIONS.map((label) => (
+                  <Button
+                    key={label}
+                    type="button"
+                    variant="outline"
+                    onClick={() => chooseVerdict(label)}
+                    className={VERDICT_CHIP_CLASS}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-                {/* Yes branch of the end-of-event flow only. Never on Ignore —
-                    the event is still running, so "Was it fixed?" has no
-                    answer yet. */}
-                {branch.askFixed ? (
-                  <>
-                    <h3 className="mx-[2px] mb-[10px] mt-[14px] text-[15px] font-bold text-foreground leading-[20px]">
-                      Was it fixed?
-                    </h3>
-                    <ToggleGroup
-                      type="single"
-                      variant="outline"
-                      spacing={1.5}
-                      value={fixed || ''}
-                      onValueChange={(v) => chooseFixed(v, null)}
-                      aria-label="Was it fixed?"
-                      className="flex-wrap"
-                    >
-                      {FIXED_OPTIONS.map((value) => (
-                        <ToggleGroupItem
-                          key={value}
-                          value={value}
-                          className="h-auto rounded-full border-[1.5px] border-border bg-card px-[12px] py-[7px] text-[12.5px] font-semibold text-slate-700 data-[state=on]:border-primary data-[state=on]:bg-primary/8 data-[state=on]:text-primary leading-[16px]"
-                        >
-                          {FIXED_STATE_LABEL[value]}
-                        </ToggleGroupItem>
-                      ))}
-                    </ToggleGroup>
-                  </>
-                ) : null}
+          {/* ── event-ended: the acknowledgement ──────────────────────────
+              The tap (or Done) wrote the record and landed here; this panel
+              closes itself. It is the reward pop and the microcopy the owner
+              KEPT from the step he rejected, over the learned count that was
+              already on the old Thanks panel.
 
+              WHAT IT LOST: the "+N points" line, with the points; and the
+              bare "Thanks!" heading, which said the same word twice once
+              "Thanks — Wint learned from this." moved up into its place.
+              Both reported rather than assumed.
+
+              The microcopy is still picked by the verdict's DERIVED answer,
+              so "Unnecessary alert" gets "Thanks — Wint will be quieter
+              here." — the one acknowledgement that is true of it. */}
+          {step === 'done' && branch ? (
+            <section className="flex flex-col items-center gap-[10px] px-[24px] pb-[32px] pt-[30px] text-center">
+              <span className="relative flex size-[88px] items-center justify-center">
+                <Particles tone={derived} />
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'wef-pop flex size-[56px] items-center justify-center rounded-full',
+                    derived === 'yes'
+                      ? 'bg-success/15 text-success'
+                      : 'bg-primary/15 text-primary',
+                  )}
+                >
+                  <Check size={26} strokeWidth={2.6} />
+                </span>
+              </span>
+              <p className="text-[15px] font-bold text-foreground leading-[20px]">
+                {branch.microcopy}
+              </p>
+              <p className="text-[13px] text-muted-foreground leading-[18px]">
+                Wint has learned <strong>{learned}</strong> times from your feedback.
+              </p>
+
+              {/* THE NOTE. It is here and not on the verdict step because the
+                  owner chose this shape over that one: the answer is already
+                  on disk by the time this is on screen, so the most expensive
+                  control in the sheet cannot slow down the cheapest one.
+
+                  No commit button. Opening it cancels this panel's
+                  auto-close (see the effect above) and dismissal saves — the
+                  sheet already had three paths that dismiss, and `close`
+                  patches the committed row by id rather than writing a
+                  second one.
+
+                  `text-left` inside a centred column: the opener and the
+                  counter are reading controls, not a caption. */}
+              <div className="w-full text-left">
                 {noteOpen ? (
-                  <div className="mt-[10px]">
+                  <div>
                     <textarea
                       ref={noteRef}
                       value={note}
@@ -1204,42 +1517,12 @@ function FeedbackSheet({
                     type="button"
                     variant="link"
                     onClick={() => setNoteOpen(true)}
-                    className="h-auto justify-start px-0 py-[10px] text-[13px] font-semibold text-primary no-underline hover:no-underline"
+                    className="h-auto justify-start px-0 py-0 text-[13px] font-semibold text-primary no-underline hover:no-underline"
                   >
                     + Add note (optional)
                   </Button>
                 )}
-
-                <Separator className="mt-[16px] bg-slate-100" />
-                <Button
-                  type="button"
-                  onClick={finish}
-                  className="mt-[12px] h-[46px] w-full rounded-[12px] bg-primary text-[14px] font-bold"
-                >
-                  Done
-                </Button>
               </div>
-            </section>
-          ) : null}
-
-          {/* ── event-ended: Thanks ───────────────────────────────────────── */}
-          {step === 'done' ? (
-            <section className="flex flex-col items-center gap-[14px] px-[24px] pb-[32px] pt-[36px] text-center">
-              <span
-                aria-hidden="true"
-                className="wef-pop flex size-[72px] items-center justify-center rounded-full bg-success/14 text-success"
-              >
-                <Check size={34} strokeWidth={2.6} />
-              </span>
-              <h2 className="text-[18px] font-bold tracking-[-0.3px] text-foreground leading-[24px]">
-                Thanks!
-              </h2>
-              <p className="text-[32px] font-extrabold tracking-[-0.8px] text-primary leading-[36px]">
-                +{points} points
-              </p>
-              <p className="mt-[4px] text-[13px] text-muted-foreground leading-[18px]">
-                Wint has learned <strong>{learned}</strong> times from your feedback.
-              </p>
             </section>
           ) : null}
         </div>

@@ -77,9 +77,14 @@ describe('the push deep-link contract (PRD 06)', () => {
        action they never took. Hence the three assertions: the question is up,
        the gate is not, and the v1 taxonomy is gone from this page. */
     mountSystem('?action=tag')
+    /* 2026-11-02: the first screen is the five verdicts, not a question —
+       the owner removed "Was this worth alerting about?" from this flow. The
+       deep link still has to LAND on the sheet, so the assertion moved to the
+       new first screen rather than being dropped. 'Unusual, no issue' is
+       unique across both flows and across the page behind the sheet. */
     expect(
-      within(document.body).queryByText('Was this worth alerting about?'),
-      'the feedback question should open on arrival',
+      within(document.body).queryByText('Unusual, no issue'),
+      'the feedback sheet should open on arrival',
     ).toBeTruthy()
     expect(
       within(document.body).queryByText('Ignore this water event?'),
@@ -162,8 +167,8 @@ describe('the push deep link does not cross into system health', () => {
        the water question must never be asked about. */
     mountFault('?action=tag')
     expect(
-      within(document.body).queryByText('Was this worth alerting about?'),
-      'the water-event question must not be asked about a device fault',
+      within(document.body).queryByText('Unusual, no issue'),
+      'the water-event sheet must not open on a device fault',
     ).toBeNull()
   })
 
@@ -179,7 +184,7 @@ describe('the push deep link does not cross into system health', () => {
       </MemoryRouter>,
     )
     expect(
-      within(document.body).queryByText('Was this worth alerting about?'),
+      within(document.body).queryByText('Unusual, no issue'),
       'the end-of-leak tag link must still land',
     ).toBeTruthy()
   })

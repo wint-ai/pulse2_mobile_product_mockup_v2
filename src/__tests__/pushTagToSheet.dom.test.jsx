@@ -39,7 +39,21 @@ globalThis.EventSource = globalThis.EventSource || InertEventSource
 const LE_01 = PUSH_CATALOG.find(c => c.id === 'LE_01')
 const sys = SYSTEMS.find(s => s.alert?.type === 'leak-high' || s.alert?.type === 'leak-low')
 
-const QUESTION = 'Was this worth alerting about?'
+/* THE PROOF THE SHEET OPENED — repointed 2026-11-02, NOT deleted.
+   This used to be 'Was this worth alerting about?'. The owner removed that
+   question from the event-ended flow ("i want to remove the yse no step") and
+   replaced it with one step of five verdicts, so the sheet's first screen has
+   no heading at all and the old literal can never appear again. The path this
+   suite pins is unchanged and must stay pinned — it is the regression test
+   for the "Tell us more" break — so the assertion moves to the new first
+   screen instead.
+
+   'Unusual, no issue' is the marker because it is unique across BOTH flows
+   and across the System page behind the sheet. 'Leak' would match the page's
+   own alert copy; 'Unnecessary alert' differs from the ignore step's
+   'Unnecessary Alert' only by one letter's case, which is a real distinction
+   but a brittle thing to hang a regression test on. */
+const FIRST_SCREEN = 'Unusual, no issue'
 
 /* The surface events are the bridge's own vocabulary (pushBridge.js:126-127).
    A channel never receives what it sent, so the test needs its own instance —
@@ -114,7 +128,7 @@ describe('the End-of-Leak CTA reaches the feedback sheet, from every surface', (
       await deliver(surface)
       await tapTellUsMore()
       expect(
-        within(document.body).queryByText(QUESTION),
+        within(document.body).queryByText(FIRST_SCREEN),
         'Tell us more must open the feedback sheet, not merely land on the System page',
       ).toBeTruthy()
     })
@@ -152,7 +166,7 @@ describe('a tap that misses the pills must not navigate', () => {
         'a miss on the action row must not dispatch the body tap',
       ).toEqual([])
       expect(
-        within(document.body).queryByText(QUESTION),
+        within(document.body).queryByText(FIRST_SCREEN),
         'and it must not open the sheet either — a miss does nothing',
       ).toBeNull()
     })
