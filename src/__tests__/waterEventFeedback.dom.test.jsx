@@ -413,8 +413,14 @@ describe('trigger: event-ended', () => {
 
      As chips these were `h-[24px]` with `py-[2px]`: a 24px target. Apple's
      HIG asks 44x44pt and Android's 48dp; WCAG 2.2's Target Size (Minimum)
-     asks 24 CSS px, which they met EXACTLY and by accident. They are now
-     full-width rows at `min-h-[48px]`, which clears all three.
+     asks 24 CSS px, which they met EXACTLY and by accident.
+
+     They were briefly full-width rows at `min-h-[48px]`; the owner rejected
+     the LIST FORM on sight ("get back to chips") on 2026-11-02 and they are
+     chips again — but at CHIP_BASE_CLASS's `min-h-[44px]` / `py-[12px]`,
+     NOT back at 24px. The form was the taste call; the size was not. This
+     test is the thing that stops the 24px target coming back with the chip,
+     so it pins the size and no longer pins the form.
 
      Pinned by class rather than by measured geometry because happy-dom does
      no layout — there are no real box sizes to read here, which is also why
@@ -423,23 +429,48 @@ describe('trigger: event-ended', () => {
     const { view } = open()
     for (const option of VERDICT_OPTIONS) {
       const el = btn(view, option)
-      expect(el.className, option).toContain('min-h-[48px]')
-      expect(el.className, option).toContain('w-full')
+      expect(el.className, option).toContain('min-h-[44px]')
+      expect(el.className, option).toContain('py-[12px]')
+      expect(el.className, option).not.toContain('h-[24px]')
+      expect(el.className, option).not.toContain('py-[2px]')
+    }
+  })
+
+  /* The verdict row is the ignore row's chip, WITHOUT its pressed rules: a
+     tap here commits and closes in the same tick, so no chip can ever be
+     seen "on" and `data-[state=on]:…` would have nothing to act on. */
+  it('dresses the options as chips, with no pressed treatment', () => {
+    const { view } = open()
+    for (const option of VERDICT_OPTIONS) {
+      const el = btn(view, option)
+      expect(el.className, option).toContain('rounded-full')
+      expect(el.className, option).not.toContain('data-[state=on]')
+      expect(el.getAttribute('aria-pressed'), option).toBeNull()
     }
   })
 
   /* THE ORDER IS PRINCIPLED: real and serious, real and wasteful, real and
-     fine, not real, escape. The extra space before "Unnecessary alert" falls
-     on the DID WATER ACTUALLY RUN boundary — the one distinction that
-     separates it from "Unusual, no issue", which is where this kind of
-     taxonomy concentrates its errors. The sentence itself is NOT on the
-     screen: it is copy, and copy is the owner's. The gap is structure. */
-  it('separates the did-it-run boundary with space, and with no words', () => {
+     fine, not real, escape. The DID WATER ACTUALLY RUN boundary falls
+     between "Unusual, no issue" and "Unnecessary alert", which is where this
+     kind of taxonomy concentrates its errors.
+
+     IT USED TO BE MARKED WITH `mt-[10px]` on the fourth row, back when the
+     options were a stacked list. In a wrapped chip row a top margin on one
+     item does not read as a grouping break — it reads as a misaligned pill —
+     so it came off with the revert to chips on 2026-11-02 and the boundary
+     is carried by NOTHING today. That is the owner's to solve with copy if
+     he wants it solved. What this test still guards is the half that is not
+     his: the order, and the fact that no helper copy was authored here. The
+     per-item margin is asserted ABSENT so it cannot creep back into a
+     wrapped row by hand. */
+  it('keeps the did-it-run boundary in the order, and writes no words for it', () => {
     const { view } = open()
 
-    expect(btn(view, 'Unnecessary alert').className).toContain('mt-[10px]')
-    for (const earlier of ['Leak', 'Water Waste', 'Unusual, no issue']) {
-      expect(btn(view, earlier).className, earlier).not.toContain('mt-[10px]')
+    const order = VERDICT_OPTIONS.indexOf.bind(VERDICT_OPTIONS)
+    expect(order('Unusual, no issue')).toBe(order('Unnecessary alert') - 1)
+
+    for (const option of VERDICT_OPTIONS) {
+      expect(btn(view, option).className, option).not.toContain('mt-[10px]')
     }
 
     // No helper copy was authored for the pair, here or anywhere.

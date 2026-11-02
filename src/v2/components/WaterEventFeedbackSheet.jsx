@@ -704,7 +704,13 @@ const CHIP_PRESSED_CLASS =
 
 const IGNORE_CHIP_CLASS = `${CHIP_BASE_CLASS} ${CHIP_PRESSED_CLASS}`
 
-/**
+/* VERDICT_OPTION_CLASS lived here — the full-width 48px list row that dressed
+   the five verdicts for part of 2026-11-02. The constant is retired; the row
+   is a wrapped chip row again and takes CHIP_BASE_CLASS above, so this is
+   where its reasoning stays. THE ARGUMENT IS KEPT VERBATIM BELOW and the
+   reversal is appended under it — deleting a superseded argument is how it
+   gets re-derived by the next session.
+
  * THE FIVE VERDICTS ARE A STACKED LIST OF FULL-WIDTH OPTIONS, NOT A WRAPPED
  * CHIP ROW — redesigned 2026-11-02 on "and to make it better".
  *
@@ -752,9 +758,47 @@ const IGNORE_CHIP_CLASS = `${CHIP_BASE_CLASS} ${CHIP_PRESSED_CLASS}`
  * and a control that looks identical while doing something different is the
  * worse failure. The forms now match the behaviours. If the owner unifies
  * the interaction models, these should re-unify with them.
+ *
+ * ── 2026-11-02, LATER: REVERSED BY THE OWNER, ON SIGHT ───────────────────
+ * He was shown the list rendered and rejected it outright: "get back to
+ * chips. Hate this one." No part of the argument above was contested and
+ * none of it is withdrawn — it simply lost. The row is a wrapped chip row
+ * again, `flex flex-wrap gap-[10px]` with CHIP_BASE_CLASS, which is the
+ * ignore step's own container and the ignore step's own chip. The two steps
+ * read as siblings again, which is the one cost the block above booked and
+ * the one thing the revert buys back.
+ *
+ * WHAT WAS KEPT OUT OF THE REVERT, DELIBERATELY: THE TAP TARGET. The chips
+ * were `h-[24px]` / `py-[2px]` before the list pass — 24 CSS px, meeting
+ * WCAG 2.2 SC 2.5.8 exactly and by accident, failing Apple's 44pt and
+ * Android's 48dp. CHIP_BASE_CLASS now carries `min-h-[44px]` and
+ * `py-[12px]` and KEEPS them here. The owner rejected the LIST FORM; the
+ * target size was never the thing on screen he was reacting to, and it is
+ * the one piece of that pass that was measurement rather than taste. Do not
+ * shrink it back without a ruling that names the size.
+ *
+ * CHIP_BASE_CLASS WITHOUT CHIP_PRESSED_CLASS, which is why that split
+ * exists. A tap here commits and closes in the same tick, so no chip can
+ * ever be seen "on"; `data-[state=on]:…` would have nothing to act on and
+ * the control stays a Button, not a Toggle. The ignore row, which waits for
+ * Done, keeps IGNORE_CHIP_CLASS and its pressed rules.
+ *
+ * THE BOUNDARY GAP IS GONE, AND NOTHING CARRIES IT NOW. `mt-[10px]` sat on
+ * "Unnecessary alert" to mark the DID WATER ACTUALLY RUN line between it and
+ * "Unusual, no issue" — the pair this kind of taxonomy concentrates its
+ * misclassifications on. A top margin on ONE item of a flex-wrap row does
+ * not read as a grouping break; it reads as a misaligned pill, because the
+ * item it is meant to separate from may not even be on the row above it.
+ * The alternative considered was a zero-height `basis-full` spacer to force
+ * a line break before it. That was declined: it pins a wrap position nobody
+ * in this session can look at (no browser here; happy-dom has no layout
+ * engine, so `getBoundingClientRect()` is zeros and wrap behaviour is
+ * unobservable), and a forced break is a worse bet than none when it cannot
+ * be seen. So the boundary is carried by NOTHING at present. It is the
+ * owner's to solve with copy if he wants it solved — helper text under the
+ * pair is the honest fix and copy is his; nothing is authored here. The
+ * order itself still encodes the progression. REPORTED.
  */
-const VERDICT_OPTION_CLASS =
-  'h-auto min-h-[48px] w-full justify-start whitespace-normal rounded-[14px] border border-border bg-card px-[16px] py-[12px] text-left text-[15px] font-semibold text-slate-800 leading-[20px]'
 
 /* UNNECESSARY_CONTROL_CLASS lived here — the outlined, subordinate variant
    of the chip, for the "Unnecessary Alert" control that sat below the cause
@@ -1093,8 +1137,12 @@ function FeedbackSheet({
    * For a few hours the note sat on this step and a tap had to SELECT instead
    * of committing once the field was open. That is gone with the note; see
    * the header for why the panel is the better home and not merely the safer
-   * one. If an option is ever made to select again, VERDICT_OPTION_CLASS and
-   * the Button/Toggle choice have to move back with it.
+   * one. If an option is ever made to select again, CHIP_PRESSED_CLASS and
+   * the Button/Toggle choice have to move back with it — the row takes
+   * CHIP_BASE_CLASS WITHOUT the pressed rules precisely because it cannot
+   * select today. (This sentence named VERDICT_OPTION_CLASS while the row
+   * was a stacked list; that constant was retired 2026-11-02 with the
+   * revert to chips and only the pointer changed here.)
    *
    * `Something else` is no different from the other four here, which IS
    * different from the ignore step, where it opens the note by itself. There
@@ -1507,18 +1555,32 @@ function FeedbackSheet({
                   must not be written here — it is copy, and copy is the
                   owner's. The gap is structure, which is mine. REPORTED: if
                   he judges that only words can fix this pair, the words are
-                  his to give and there is a place for them. */}
-              <div className="flex flex-col gap-[8px]">
+                  his to give and there is a place for them.
+
+                  ── SUPERSEDED 2026-11-02, LATER THE SAME DAY ──────────────
+                  The owner saw the list and rejected it: "get back to chips.
+                  Hate this one." This is a wrapped chip row again — the
+                  ignore step's own `flex flex-wrap gap-[10px]` and
+                  CHIP_BASE_CLASS, so the two steps sit on one rhythm. A
+                  wrapped row and not a grid, because the five labels are
+                  very different lengths and a grid would set every cell to
+                  the widest of them.
+
+                  THE ORDER STILL STANDS, unchanged and for the reason above.
+                  THE GAP DOES NOT: `mt-[10px]` on one item of a wrapped row
+                  reads as a misaligned pill, not as a grouping break, so it
+                  is gone and the did-it-run boundary is carried by nothing.
+                  The retired VERDICT_OPTION_CLASS tombstone above holds the
+                  full account, including the forced-line-break option that
+                  was declined and why. */}
+              <div className="flex flex-wrap gap-[10px]">
                 {VERDICT_OPTIONS.map((label) => (
                   <Button
                     key={label}
                     type="button"
                     variant="outline"
                     onClick={() => chooseVerdict(label)}
-                    className={cn(
-                      VERDICT_OPTION_CLASS,
-                      label === VERDICTS.UNNECESSARY_ALERT && 'mt-[10px]',
-                    )}
+                    className={CHIP_BASE_CLASS}
                   >
                     {label}
                   </Button>
