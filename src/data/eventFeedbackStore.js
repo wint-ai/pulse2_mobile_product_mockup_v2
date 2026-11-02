@@ -469,6 +469,24 @@ export function addFeedback(eventKey, {
 /**
  * Set the note on a row that is ALREADY stored. Update only — never append.
  *
+ * -- NO CALLER TODAY, 2026-11-02, AND KEPT ON PURPOSE --------------------
+ * It had one for a few hours, while the note lived on the acknowledgement
+ * panel: the row existed by then, so the note had to be patched in. The owner
+ * moved the note back onto the verdict step, where it is typed BEFORE the
+ * answer, so it goes in with the verdict in a single `addFeedback` call and
+ * there is nothing left to patch. The sheet no longer imports this.
+ *
+ * It is kept rather than deleted for one specific reason, not sentiment. The
+ * note placement has flipped three times now, and the NEXT person who needs
+ * to attach something to a row that already exists will reach for
+ * `addFeedback` -- which APPENDS, and would silently produce two rows for one
+ * answer, double every count that reads them, and leave a noted copy in front
+ * of a bare one with nothing on disk saying which is real. That is the exact
+ * bug this function exists to make unavailable, and its tests still run.
+ *
+ * Delete it, with its tests and with the `id` field it patches by, if the
+ * placement ever settles for good.
+ *
  * WHY THIS EXISTS AND WHY IT IS NOT `addFeedback` AGAIN. The event-ended flow
  * writes its record the instant a verdict chip is tapped — that is the whole
  * point of the one-tap step — and only then offers a note, on the

@@ -178,44 +178,51 @@
  * report lists every unreachable piece. It was not deleted here because this
  * is a removal from one flow, not a refactor of the file.
  *
- * ── THE NOTE, AND WHERE IT ENDED UP — owner, same day, twice ─────────────
+ * ── THE NOTE: ON THE FIRST STEP, AND IT TOOK THREE GOES ──────────────────
  *
- * He sent the "+ Add note (optional)" opener and said "and i want this on the
- * first step". Built that way, it forced a choice nobody liked: a text field
- * cannot sit on a step whose first tap dismisses the sheet, so the chip had
- * to stop committing once the note was open, and a Done had to appear to
- * commit instead — which is visually the exact control he had just rejected.
- * He was shown both options with that warning stated, and CHOSE THE OTHER:
+ * He asked for it on the verdict step ("and i want this on the first step").
+ * Built that way it forced the chip to stop committing once the field was
+ * open and a Done to appear — visually the control he had just thrown out.
+ * Shown that cost he moved it to the acknowledgement panel; shown the built
+ * result he reversed again: "still not updated / i want the add note on first
+ * step". His call, and it is the one the file implements.
  *
- *   THE NOTE LIVES ON THE ACKNOWLEDGEMENT PANEL.
+ * THE SHAPE THAT MAKES IT WORK, AND WHY IT IS NOT THE FIRST ATTEMPT:
+ * THE CHIP TAP IS ALWAYS THE COMMIT, AND IT COMMITS THE NOTE WITH IT.
  *
- * It is the better shape and not only the safer one. The panel is already up,
- * already auto-closing, and already AFTER the answer is banked, so:
+ *   • note untouched → tap an option, record written, sheet closes. One tap.
+ *   • note opened    → the field sits below the options; an option tap STILL
+ *                      commits and closes, and carries the typed note into
+ *                      the same record.
  *
- *   • a chip tap always means one thing — commit and close. It never changes
- *     meaning depending on what else the user has touched, and the fast path
- *     that almost everyone takes is still exactly one tap.
- *   • the expensive control sits strictly after the cheap answer. A free-text
- *     field roughly DOUBLES median completion time in a micro-survey, so it
- *     must never be able to slow down the answer itself. Here it cannot:
- *     by the time it is on screen the record is already on disk.
- *   • there is no commit button at all. Opening the note cancels the panel's
- *     auto-close — that tap IS the user asking for time — and the note saves
- *     on dismissal, which the sheet already had three paths for.
+ * No Done. No select-mode. AN OPTION NEVER CHANGES WHAT IT DOES — which is
+ * the property both earlier attempts gave up, and the reason this one costs
+ * nothing: the fast path is untouched and the tap means one thing on every
+ * screen it appears on.
  *
- * WHAT IT BUYS, given the cost: when `Something else` starts taking more than
- * ~15% of answers, these notes are the only evidence of what the missing
- * option should have been. It is the diagnostic that tells the owner his four
- * chips are wrong.
+ * The note is therefore filled in BEFORE the answer rather than after it.
+ * Unusual ordering, and worth nothing to argue about: the field is optional,
+ * the answer is one tap away at all times, and nobody is made to pass the
+ * expensive control to reach the cheap one.
  *
- * THE NOTE IS AN UPDATE, NOT A SECOND RECORD — and this is the part that
- * would have broken quietly. The row is written at the chip tap; the note
- * arrives afterwards. eventFeedbackStore APPENDS per eventKey, so a second
- * addFeedback would have left TWO rows for one answer, double-counted every
- * reader of getFeedbackCount / getLearnedCount, and put a noted copy in front
- * of a bare copy with nothing on disk to say which was real. `close` patches
- * the committed row by its `id` through setFeedbackNote instead, which is an
- * update by construction — see that function.
+ * A NOTE WITH NO OPTION, THEN DISMISSAL, WRITES A ROW. There is no verdict to
+ * derive an `answer` from, so it goes in with answer 'yes' — nothing was said
+ * about the alert being wrong — exactly as the ignore flow's equivalent case
+ * already did. The alternative was to bin a sentence the user typed, which is
+ * never the right side of this trade. One branch, in `close`.
+ *
+ * WHY THERE IS NO LONGER A setFeedbackNote CALL HERE. When the note lived on
+ * the panel the row already existed, so the note had to be PATCHED in by id —
+ * writing it with addFeedback would have appended a second row for one
+ * answer. The note is written in the same addFeedback call as the verdict
+ * now, so there is nothing to patch. `setFeedbackNote` is still exported and
+ * still tested; it has NO CALLER TODAY. See its own comment.
+ *
+ * WHAT IT BUYS, given a free-text field is the single most expensive element
+ * in a micro-survey — one open-text question roughly DOUBLES median
+ * completion time: when `Something else` starts taking more than ~15% of
+ * answers, these notes are the only evidence of what the missing option
+ * should have been.
  *
  * THE ACKNOWLEDGEMENT STAYED, AND THE OWNER HAS SINCE ASKED FOR MORE OF IT.
  * Unprompted, pointing at the green check and "Thanks — Wint learned from
@@ -232,14 +239,17 @@
  * line — and the bare "Thanks!" heading above it, which said the same word
  * twice once the microcopy moved into its place. REPORTED.
  *
- * THE FULL-SCREEN CELEBRATION IS KEPT, AND ITS TRIGGER MOVED WITH THE NOTE.
+ * THE FULL-SCREEN CELEBRATION IS KEPT, AND ITS TRIGGER WENT HOME.
  * The rule has always been "the screen-wide burst is for the users who went
- * deep enough to type something"; a bare chip tap gets the small burst only.
- * That used to fire at Done, which no longer exists. It now fires on the
- * FIRST typed character, in changeNote — the same rule, at the only moment
- * the user is still on screen to see it. Firing it at save instead would
- * play the whole animation into a sheet that is already closing, which is
- * the same as deleting it. It is pointer-events-none and plays once.
+ * deep enough to type something"; a bare option tap gets the small burst
+ * only. It fires at COMMIT, in finishStep, reading the note that by then has
+ * already been typed — which is the original formulation, correct again now
+ * that the note precedes the answer. For the hours the note lived on the
+ * acknowledgement panel that read was always false (the note arrived after
+ * the commit) and the trigger had to sit on the first keystroke instead;
+ * that version is gone. It plays on the panel, which holds 2400ms rather
+ * than 2000 when it fires, so it is seen rather than played into a closing
+ * sheet. It is pointer-events-none and plays once.
  *
  * ── THE SUPERSEDED REASONING (kept for the record) ────────────────────────
  * The HTML mockup replaced the v1 tag taxonomy (20 chips across two groups,
@@ -251,9 +261,9 @@
  *
  * TWO TRIGGERS
  *   trigger="event-ended"  fires after a water event ends. ONE step: the
- *                          five verdicts (2026-11-02). A chip tap writes the
- *                          record and hands over to the acknowledgement,
- *                          which offers an optional note and closes itself.
+ *                          five verdicts and an optional note below them
+ *                          (2026-11-02). An option tap writes both and hands
+ *                          over to the acknowledgement, which closes itself.
  *                          No second step, no commit button, no points.
  *   trigger="ignore"       fires when the user taps Ignore on a LIVE event.
  *                          Opens on the consequences (199745:20202); "Ignore
@@ -372,7 +382,6 @@ import {
   addFeedback,
   answerForVerdict,
   getLearnedCount,
-  setFeedbackNote,
   IGNORE_VERDICT_OPTIONS,
   VERDICTS,
   VERDICT_OPTIONS,
@@ -668,8 +677,25 @@ const SHEET_CSS = `
  * rules below are therefore carried over UNCHANGED from the treatment this
  * file already shipped; nothing about them is newly invented here. Flagged.
  */
+/**
+ * 2026-11-02: THE TAP TARGET IS A DELIBERATE DIVERGENCE FROM 199748:26647.
+ *
+ * The frame draws these at h-24 with py-2 and 12/16 Medium, and this file
+ * transcribed that faithfully. Measured against the platforms it ships on,
+ * a 24px target fails Apple's 44x44pt and Android's 48dp, and meets WCAG
+ * 2.2's Target Size (Minimum) of 24 CSS px only exactly. That is an
+ * accessibility defect rather than a style preference, so the height moved
+ * to `min-h-[44px]` and the padding and ink size with it. Nothing else
+ * changed: same pill, same ground, same wrapped row, same 10px gap.
+ *
+ * THIS REACHES THE IGNORE STEP, which is the only row still using it, and
+ * that is the point — the defect was identical on both and fixing one would
+ * have left the other broken AND made them look unrelated for no reason. A
+ * diff against 199748:26647 will flag the metrics forever; the reason is
+ * here. Revert is one line if the owner would rather have the frame.
+ */
 const CHIP_BASE_CLASS =
-  'h-[24px] min-w-0 gap-[4px] rounded-full border border-background bg-muted px-[8px] py-[2px] text-[12px] font-medium text-slate-700 leading-[16px]'
+  'min-h-[44px] min-w-0 gap-[4px] rounded-full border border-background bg-muted px-[14px] py-[12px] text-[13px] font-medium text-slate-700 leading-[18px]'
 
 /** The pressed treatment, split out on 2026-11-02 so the verdict row can take
  *  the chip WITHOUT it. Nothing about the value changed. */
@@ -679,29 +705,56 @@ const CHIP_PRESSED_CLASS =
 const IGNORE_CHIP_CLASS = `${CHIP_BASE_CLASS} ${CHIP_PRESSED_CLASS}`
 
 /**
- * The five verdicts — 2026-11-02. THE IGNORE STEP'S CHIP, not a second style:
- * the owner asked for a step "similar to ignore", and a near-miss chip row is
- * worse than either an identical one or an obviously different one. Same base,
- * same pressed treatment, so the two rows cannot drift.
+ * THE FIVE VERDICTS ARE A STACKED LIST OF FULL-WIDTH OPTIONS, NOT A WRAPPED
+ * CHIP ROW — redesigned 2026-11-02 on "and to make it better".
  *
- * WITHOUT `data-[state=on]`, AND THAT HAS NOW FLIPPED TWICE — so here is the
- * reasoning rather than the conclusion, because it will flip again if the
- * step's behaviour does.
+ * WHAT WAS WRONG, measured rather than felt. As chips they were
+ * `h-[24px]` with `py-[2px]` and 12px text: a 24px tap target. Apple's HIG
+ * asks 44x44pt, Android's 48dp; WCAG 2.2's Target Size (Minimum) asks 24
+ * CSS px, which they met EXACTLY and by accident. That is an accessibility
+ * defect, not a matter of taste, and it was the single most defensible thing
+ * to fix on the screen. These are now `min-h-[48px]` and full width, which
+ * clears all three.
  *
- * A pressed look and an `aria-pressed` are honest exactly when a chip can be
- * seen "on". Under one-tap-commits it never can: the row unmounts in the same
- * tick as the tap, so a Toggle would publish `aria-pressed="false"` on all
- * five options forever and tell a screen-reader user they are looking at five
- * unselected toggles when they are looking at five actions. They were
- * Buttons; when the note briefly made a chip a SELECTION they became Toggles,
- * correctly; and with the note moved to the acknowledgement panel the
- * selection is gone again, so they are Buttons again.
+ * AND IT FIXED THE HIERARCHY WITHOUT REMOVING ANYTHING. The complaint was
+ * that the only interactive thing on the sheet did not look like the point:
+ * five small pills sat low-left under a banner and a heading that took all
+ * the visual weight. Five 48px rows plus their gaps come to ~280px against
+ * the banner's ~42px and the heading's ~26px, so the controls now outweigh
+ * the prose by roughly four to one. NOTHING WAS DELETED OR ADDED to achieve
+ * that — the banner and the heading are untouched, because both are copy and
+ * copy is the owner's. Making the control the right size was enough.
  *
- * THE TEST: can a user ever see one of these chips in a selected state? No →
- * Button, no pressed rules. Yes → Toggle with `pressed=`, and CHIP_PRESSED_
- * CLASS back on the end. Nothing else about the chip changes either way.
+ * FULL WIDTH IS ALSO THE ONLY LAYOUT I CAN BE SURE OF. Nobody has rendered
+ * either chip row at 393px. A wrapped row of five variable-length labels has
+ * a wrap I can only guess at; a stacked list has none — every row is
+ * `w-full`, and the longest label is ~116px of text in a 325px box, so no
+ * row can wrap internally either. Given no browser in this session, a layout
+ * with no free variables is worth more than a prettier one I cannot check.
+ *
+ * NO PER-OPTION ICONS. The ignore frame gives a leftIcon to exactly one chip,
+ * so glyphs are not foreign here — but five where the frame used one is a
+ * decision, and three of these five ("Unusual, no issue", "Unnecessary
+ * alert", "Something else") have no unambiguous glyph. A drawn guess beside
+ * an abstract verdict biases the choice it illustrates, and this list must
+ * not acquire a steer. Declined deliberately.
+ *
+ * NO TONAL DIFFERENCE BETWEEN THE OPTIONS EITHER, and that is deliberate for
+ * one of them in particular: "Unnecessary alert" is the only false-positive
+ * report in the app. Anything that made it read as the lesser or regrettable
+ * answer would suppress exactly the signal it exists to collect. All five
+ * get the same weight; only SPACING separates them. See the render.
+ *
+ * WHY IT NO LONGER MATCHES THE IGNORE ROW, which is a real cost. The two
+ * steps are meant to read as siblings and now they do not: this is a list,
+ * that is a wrapped pill row. But they no longer BEHAVE alike either — here
+ * an option tap commits and closes, there it selects and waits for Done —
+ * and a control that looks identical while doing something different is the
+ * worse failure. The forms now match the behaviours. If the owner unifies
+ * the interaction models, these should re-unify with them.
  */
-const VERDICT_CHIP_CLASS = CHIP_BASE_CLASS
+const VERDICT_OPTION_CLASS =
+  'h-auto min-h-[48px] w-full justify-start whitespace-normal rounded-[14px] border border-border bg-card px-[16px] py-[12px] text-left text-[15px] font-semibold text-slate-800 leading-[20px]'
 
 /* UNNECESSARY_CONTROL_CLASS lived here — the outlined, subordinate variant
    of the chip, for the "Unnecessary Alert" control that sat below the cause
@@ -963,21 +1016,25 @@ function FeedbackSheet({
         return
       }
       if (verdict) {
-        /* The row went to disk the moment the chip was tapped. A note typed
-           on the acknowledgement panel afterwards is an EDIT to that row, so
-           it is PATCHED BY ID and never written again — addFeedback appends,
-           and a second append would mean two rows for one answer, every
-           count doubled, and no way to tell the noted copy from the bare one.
-           `commit` is idempotent here and just hands back the stored row. */
-        const row = commit({ verdict }, points)
-        const noted = note.trim() && row?.id ? setFeedbackNote(storageKey, row.id, note) : null
-        onComplete?.(noted || row)
+        /* Already written — the option tap commits, note and all, and
+           `commit` is idempotent, so this just hands back the stored row.
+           Nothing is PATCHED here any more: the note precedes the answer, so
+           it goes in with it in one addFeedback call. */
+        onComplete?.(commit({ verdict }, points))
+      } else if (note.trim()) {
+        /* A NOTE WITH NO OPTION. There is no verdict to derive an `answer`
+           from, so it goes in as 'yes' — nothing was said about the alert
+           being wrong — exactly as the ignore flow's equivalent case already
+           does. The alternative is to silently bin a sentence the user
+           typed, which is never the right side of this trade. It is a
+           complete outcome, not a cancel. */
+        onComplete?.(commit({ answer: 'yes' }, points))
       } else {
         onCancel?.()
       }
     },
     [
-      verdict, points, commit, note, storageKey,
+      verdict, points, commit, note,
       isIgnore, ignoreConfirmed, commitIgnore, onCancel, onComplete,
     ],
   )
@@ -995,15 +1052,18 @@ function FeedbackSheet({
      no Thanks panel, so the ignore flow never reaches this step. */
   useEffect(() => {
     if (step !== 'done') return
-    /* OPENING THE NOTE CANCELS THE AUTO-CLOSE. That tap is the user asking
-       for time, and a panel that walked out from under a half-typed sentence
-       would be the whole reason not to put a text field here. `noteOpen` is
-       in the deps, so flipping it clears the pending timer; from then on the
-       panel waits for a dismissal, which is what saves the note. */
-    if (noteOpen) return
+    /* THE `noteOpen` HOLD IS GONE, and removing it was not optional. While
+       the note lived on this panel, opening it cancelled the auto-close so
+       the panel could not walk out from under a half-typed sentence. The
+       note is on the verdict step now, so `noteOpen` is routinely ALREADY
+       true by the time this panel mounts — a user who typed a note then
+       tapped an option arrives here with it set, and the stale guard would
+       have left the sheet open forever with no control on it to close it.
+       Nothing on this panel takes input now, so it holds its moment and
+       hands back. */
     const t = setTimeout(() => close(), celebrate ? 2400 : 2000)
     return () => clearTimeout(t)
-  }, [step, noteOpen, celebrate, close])
+  }, [step, celebrate, close])
 
   /* Floating "+N" badges clean themselves up. */
   useEffect(() => {
@@ -1033,8 +1093,8 @@ function FeedbackSheet({
    * For a few hours the note sat on this step and a tap had to SELECT instead
    * of committing once the field was open. That is gone with the note; see
    * the header for why the panel is the better home and not merely the safer
-   * one. If a chip is ever made to select again, VERDICT_CHIP_CLASS and the
-   * Button/Toggle choice have to move back with it.
+   * one. If an option is ever made to select again, VERDICT_OPTION_CLASS and
+   * the Button/Toggle choice have to move back with it.
    *
    * `Something else` is no different from the other four here, which IS
    * different from the ignore step, where it opens the note by itself. There
@@ -1099,16 +1159,13 @@ function FeedbackSheet({
        2026-11-02 and each move made it reachable again, so leaving it would
        have quietly re-introduced the points the owner removed on exactly
        this screen. */
+    /* THE CELEBRATION TRIGGER IS NOT HERE ANY MORE. It sat on the first
+       typed character for the hours the note lived on the acknowledgement
+       panel — the only moment a user was still on screen to see it, because
+       by then the record was already written. With the note back on the
+       verdict step the note PRECEDES the commit, so finishStep can read it
+       directly again, which is where it belongs and where it started. */
     const next = raw.slice(0, NOTE_MAX)
-    /* THE CELEBRATION, ON ITS NEW TRIGGER. The rule is unchanged — the
-       screen-wide burst is for the users who went deep enough to type
-       something, and a bare chip tap gets the small burst only. It used to
-       fire at Done; there is no Done. It fires on the first character
-       instead, which is the only moment the user is still on screen to see
-       it: firing at save would play it into a sheet already closing. Once
-       only, and only on this flow — the ignore step never reaches 'done',
-       which is the only step that renders it. */
-    if (!isIgnore && !celebrate && next.trim().length > 0) setCelebrate(true)
     setNote(next)
   }
 
@@ -1122,14 +1179,17 @@ function FeedbackSheet({
      this writes whatever documentation was given and hands back. */
   const finishIgnore = () => close()
 
-  /** Write the record and hand over to the acknowledgement. Takes the
-      verdict explicitly, because the only caller reaches it from the same
-      tick as setVerdict and that state will not have landed yet.
-
-      No `setCelebrate` here any more. It used to read `note.trim()`, and the
-      note now arrives AFTER this runs — it would have been false every time.
-      changeNote owns that trigger; see there. */
+  /** Write the record — verdict AND note, in one addFeedback call — and
+      hand over to the acknowledgement. Takes the verdict explicitly, because
+      the only caller reaches it from the same tick as setVerdict and that
+      state will not have landed yet. `note` is read off state and IS current:
+      it was typed before the option was tapped. */
   const finishStep = (v) => {
+    /* The screen-wide burst is for the users who went deep enough to type
+       something; a bare option tap gets the small burst only. Reading `note`
+       here is correct again now that it is typed BEFORE the answer, and the
+       panel holds 2400ms rather than 2000 when it fires so it is seen. */
+    setCelebrate(note.trim().length > 0)
     commit({ verdict: v }, points)
     // Read AFTER the commit, so "Wint has learned N times" counts this one.
     setLearned(getLearnedCount())
@@ -1426,24 +1486,81 @@ function FeedbackSheet({
                 {IGNORE_HEADING}
               </h2>
 
-              {/* A wrapped row, not a grid: the five labels are very different
-                  lengths and a grid would set every cell to the widest of
-                  them. Same 10px gap as 199748:26646, so the two steps' chip
-                  rows sit on one rhythm. */}
-              <div className="flex flex-wrap gap-[10px]">
+              {/* THE OPTIONS. Stacked and full-width since 2026-11-02 — see
+                  VERDICT_OPTION_CLASS for the measurement that forced it and
+                  for what was deliberately NOT added.
+
+                  THE ORDER IS PRINCIPLED AND MUST NOT BE DISTURBED: real and
+                  serious, real and wasteful, real and fine, not real, escape.
+                  A user can perceive that progression, which is what makes
+                  the list scannable; the escape belongs last.
+
+                  THE EXTRA SPACE BEFORE "Unnecessary alert" IS THE ONE PIECE
+                  OF DESIGN DOING SEMANTIC WORK. It and "Unusual, no issue"
+                  are adjacent, mean opposite things, and are where this kind
+                  of taxonomy concentrates its errors — in the one large
+                  published study of the pattern, ~99% of misclassifications
+                  landed on exactly that middle class. They separate on one
+                  question, DID WATER ACTUALLY RUN, and the gap falls on that
+                  boundary: above it the water ran, below it there is nothing
+                  to report. THE SENTENCE ITSELF IS NOT ON THE SCREEN and
+                  must not be written here — it is copy, and copy is the
+                  owner's. The gap is structure, which is mine. REPORTED: if
+                  he judges that only words can fix this pair, the words are
+                  his to give and there is a place for them. */}
+              <div className="flex flex-col gap-[8px]">
                 {VERDICT_OPTIONS.map((label) => (
                   <Button
                     key={label}
                     type="button"
                     variant="outline"
                     onClick={() => chooseVerdict(label)}
-                    className={VERDICT_CHIP_CLASS}
+                    className={cn(
+                      VERDICT_OPTION_CLASS,
+                      label === VERDICTS.UNNECESSARY_ALERT && 'mt-[10px]',
+                    )}
                   >
                     {label}
                   </Button>
                 ))}
               </div>
+
+              {/* THE NOTE, BELOW THE OPTIONS — owner, 2026-11-02: "i want the
+                  add note on first step", twice. Opening it changes NOTHING
+                  about what an option does: a tap still commits and closes,
+                  and carries whatever has been typed into the same record.
+                  That is what lets the field live here at all. The opener and
+                  the field are the ignore step's own, because this step is
+                  the ignore step's chassis. */}
+              {noteOpen ? (
+                <div>
+                  <textarea
+                    ref={noteRef}
+                    value={note}
+                    maxLength={NOTE_MAX}
+                    aria-label="Note (optional)"
+                    placeholder="Describe briefly..."
+                    onChange={(e) => changeNote(e.target.value)}
+                    className="h-[72px] w-full resize-none rounded-[10px] border-[1.5px] border-border bg-card px-[12px] py-[10px] text-[13px] text-foreground outline-none focus:border-primary leading-[18px]"
+                  />
+                  <p className="mt-[4px] text-right text-[11px] text-slate-400 leading-[15px]">
+                    {note.length}/{NOTE_MAX}
+                  </p>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={() => setNoteOpen(true)}
+                  className="h-auto justify-start px-0 py-0 text-[16px] font-bold tracking-[-0.4px] text-slate-800 no-underline leading-[26px] hover:no-underline"
+                >
+                  + Add note (optional)
+                </Button>
+              )}
             </section>
+          ) : null}
+
+          {/* ── event-ended: the acknowledgement ──────────────────────────            </section>
           ) : null}
 
           {/* ── event-ended: the acknowledgement ──────────────────────────
@@ -1483,46 +1600,15 @@ function FeedbackSheet({
                 Wint has learned <strong>{learned}</strong> times from your feedback.
               </p>
 
-              {/* THE NOTE. It is here and not on the verdict step because the
-                  owner chose this shape over that one: the answer is already
-                  on disk by the time this is on screen, so the most expensive
-                  control in the sheet cannot slow down the cheapest one.
+              {/* THE NOTE LIVED HERE for part of 2026-11-02, after the
+                  owner chose this over the verdict step. He reversed it on
+                  seeing it built — "i want the add note on first step" — so
+                  there is ONE home for it and this is not it.
 
-                  No commit button. Opening it cancels this panel's
-                  auto-close (see the effect above) and dismissal saves — the
-                  sheet already had three paths that dismiss, and `close`
-                  patches the committed row by id rather than writing a
-                  second one.
-
-                  `text-left` inside a centred column: the opener and the
-                  counter are reading controls, not a caption. */}
-              <div className="w-full text-left">
-                {noteOpen ? (
-                  <div>
-                    <textarea
-                      ref={noteRef}
-                      value={note}
-                      maxLength={NOTE_MAX}
-                      aria-label="Note (optional)"
-                      placeholder="Describe briefly..."
-                      onChange={(e) => changeNote(e.target.value)}
-                      className="h-[72px] w-full resize-none rounded-[10px] border-[1.5px] border-border bg-card px-[12px] py-[10px] text-[13px] text-foreground outline-none focus:border-primary leading-[18px]"
-                    />
-                    <p className="mt-[4px] text-right text-[11px] text-slate-400 leading-[15px]">
-                      {note.length}/{NOTE_MAX}
-                    </p>
-                  </div>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="link"
-                    onClick={() => setNoteOpen(true)}
-                    className="h-auto justify-start px-0 py-0 text-[13px] font-semibold text-primary no-underline hover:no-underline"
-                  >
-                    + Add note (optional)
-                  </Button>
-                )}
-              </div>
+                  EVERYTHING ELSE ABOUT THIS PANEL IS UNTOUCHED, and that is
+                  on his instruction: the pop, the microcopy, the learned
+                  count and the auto-close are the part he has twice said he
+                  likes and wants more of. */}
             </section>
           ) : null}
         </div>

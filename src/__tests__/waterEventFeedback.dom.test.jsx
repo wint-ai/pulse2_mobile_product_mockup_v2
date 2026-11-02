@@ -165,10 +165,16 @@ describe('trigger: event-ended', () => {
     expect(view.queryByRole('button', { name: 'Yes' })).toBeNull()
     expect(view.queryByRole('button', { name: 'No' })).toBeNull()
 
-    /* NOTHING ELSE ON THE STEP. The note is on the panel after it, and there
-       is no commit control of any kind — a chip tap is the commit. */
-    expect(view.queryByText('+ Add note (optional)')).toBeNull()
+    /* THE NOTE IS HERE, offered and not open — owner, 2026-11-02, twice:
+       "i want the add note on first step". A free-text field roughly doubles
+       median completion time in a micro-survey, so it stays behind a
+       deliberate tap and out of the default path. */
+    expect(view.getByText('+ Add note (optional)')).toBeTruthy()
     expect(view.queryByRole('textbox', { name: 'Note (optional)' })).toBeNull()
+
+    /* AND NO COMMIT CONTROL OF ANY KIND. An option tap is the commit,
+       whether or not the note is open — that is what lets the field live on
+       this step without reviving the Done the owner threw out. */
     expect(view.queryByRole('button', { name: 'Done' })).toBeNull()
 
     // No points chip — "dont want this" — and no progress indicator.
@@ -211,73 +217,94 @@ describe('trigger: event-ended', () => {
     }
   })
 
-  it('the acknowledgement offers the note, and the verdict step never did', () => {
+  it('the note is on the verdict step, and NOT on the acknowledgement', () => {
     const { view } = open()
-    expect(view.queryByText('+ Add note (optional)')).toBeNull()
+    expect(view.getByText('+ Add note (optional)')).toBeTruthy()
 
     fireEvent.click(btn(view, 'Leak'))
 
-    expect(view.getByText('+ Add note (optional)')).toBeTruthy()
-    // Offered, not open — the field itself still costs a deliberate tap.
+    // One home for it, not two.
+    expect(view.queryByText('+ Add note (optional)')).toBeNull()
     expect(view.queryByRole('textbox', { name: 'Note (optional)' })).toBeNull()
-    // And still nothing to press: dismissal is what saves.
-    expect(view.queryByRole('button', { name: 'Done' })).toBeNull()
+    // The panel the owner said he likes is otherwise untouched.
+    expect(view.getByText('Thanks — Wint learned from this.')).toBeTruthy()
+    expect(view.getByText(/Wint has learned/)).toBeTruthy()
   })
 
-  /* OPENING THE NOTE CANCELS THE AUTO-CLOSE. A panel that walked out from
-     under a half-typed sentence is the whole reason not to put a text field
-     on a timed screen. */
-  it('opening the note holds the panel open indefinitely', () => {
+  /* OPENING THE NOTE CHANGES NOTHING ABOUT WHAT AN OPTION DOES. This is the
+     whole reason the field can live on this step: both earlier attempts made
+     a tap mean one thing with the note shut and another with it open — the
+     first needed a Done to commit, which is the control the owner threw out.
+     Here the tap is always the commit and simply carries the note with it. */
+  it('an option tap still commits and closes with the note open', () => {
     vi.useFakeTimers()
     try {
       const { view, calls } = open()
-      fireEvent.click(btn(view, 'Leak'))
       fireEvent.click(btn(view, '+ Add note (optional)'))
-
-      vi.advanceTimersByTime(60000)
-
-      expect(calls.complete).toEqual([])
       expect(view.getByRole('textbox', { name: 'Note (optional)' })).toBeTruthy()
+      // Still no commit control, even now.
+      expect(view.queryByRole('button', { name: 'Done' })).toBeNull()
+
+      fireEvent.click(btn(view, 'Leak'))
+
+      // Committed and gone, in one tap, exactly as with the note shut.
+      expect(getFeedback(SYS.systemId)).toHaveLength(1)
+      expect(view.queryByRole('button', { name: 'Water Waste' })).toBeNull()
       expect(view.getByText('Thanks — Wint learned from this.')).toBeTruthy()
+
+      // And the panel still closes itself — it takes no input any more, so
+      // nothing holds it open.
+      expect(calls.complete).toEqual([])
+      vi.advanceTimersByTime(2400)
+      expect(calls.complete).toHaveLength(1)
     } finally {
       vi.useRealTimers()
     }
   })
 
-  /* THE RECORD ALREADY EXISTS BY THEN, SO THE NOTE IS AN UPDATE. The store
-     APPENDS per eventKey, so a second write here would leave two rows for one
-     answer, double every count that reads them, and put a noted copy in front
-     of a bare copy with nothing on disk to say which was real. */
-  it('a note typed on the panel updates the committed record, creating no second one', () => {
+  it('writes the verdict and the note in ONE record', () => {
     const { view, calls } = open()
-    fireEvent.click(btn(view, 'Leak'))
-
-    const first = getLatestFeedback(SYS.systemId)
-    expect(getFeedback(SYS.systemId)).toHaveLength(1)
-    expect(first.id).toBeTruthy()
-    expect(first.note).toBeNull()
-
     fireEvent.click(btn(view, '+ Add note (optional)'))
     fireEvent.change(view.getByRole('textbox', { name: 'Note (optional)' }), {
       target: { value: '  valve seat worn, plumber booked  ' },
     })
-    fireEvent.click(btn(view, 'Close'))
+    fireEvent.click(btn(view, 'Leak'))
 
+    /* ONE row, not two. The note precedes the answer now, so it goes in with
+       the verdict in a single addFeedback call — there is nothing to patch
+       afterwards and nothing that could append a second row. */
     const all = getFeedback(SYS.systemId)
-    expect(all, 'the note must patch the row, not append one').toHaveLength(1)
+    expect(all).toHaveLength(1)
     expect(getFeedbackCount()).toBe(1)
-    expect(all[0].id).toBe(first.id)
-    expect(all[0].note).toBe('valve seat worn, plumber booked')
-    // Everything else on the row is untouched by the patch.
     expect(all[0].verdict).toBe('Leak')
     expect(all[0].answer).toBe('yes')
-    expect(all[0].at).toBe(first.at)
-    // And the caller gets the NOTED row, not the bare one it already had.
-    expect(calls.complete).toHaveLength(1)
-    expect(calls.complete[0].note).toBe('valve seat worn, plumber booked')
+    expect(all[0].note).toBe('valve seat worn, plumber booked')
+    expect(calls.complete).toEqual([])
   })
 
-  it('a panel dismissed without touching the note leaves the record exactly as it was', () => {
+  /* A NOTE WITH NO OPTION, THEN DISMISSAL. There is no verdict to derive an
+     `answer` from, so it goes in as 'yes' — nothing was said about the alert
+     being wrong — exactly as the ignore flow's equivalent case already does.
+     What must not happen is silently binning something the user typed. */
+  it('writes a note-only row when the sheet is dismissed without an option', () => {
+    const { view, calls } = open()
+    fireEvent.click(btn(view, '+ Add note (optional)'))
+    fireEvent.change(view.getByRole('textbox', { name: 'Note (optional)' }), {
+      target: { value: 'not sure what this was' },
+    })
+    fireEvent.click(btn(view, 'Close'))
+
+    const saved = getLatestFeedback(SYS.systemId)
+    expect(saved, 'a typed note must never be silently discarded').toBeTruthy()
+    expect(saved.note).toBe('not sure what this was')
+    expect(saved.verdict).toBeNull()
+    expect(saved.answer).toBe('yes')
+    // It is a complete outcome, not a cancel.
+    expect(calls.complete).toHaveLength(1)
+    expect(calls.cancel).toEqual([])
+  })
+
+  it('a dismissal after an option leaves the committed record exactly as it was', () => {
     const { view, calls } = open()
     fireEvent.click(btn(view, 'Water Waste'))
     const before = getLatestFeedback(SYS.systemId)
@@ -290,19 +317,17 @@ describe('trigger: event-ended', () => {
     expect(calls.complete[0]).toEqual(before)
   })
 
-  it('opening the note and typing nothing also leaves the record alone', () => {
-    const { view } = open()
-    fireEvent.click(btn(view, 'Leak'))
-    const before = getLatestFeedback(SYS.systemId)
-
+  it('opening the note and typing nothing still records nothing, and cancels', () => {
+    const { view, calls } = open()
     fireEvent.click(btn(view, '+ Add note (optional)'))
     fireEvent.change(view.getByRole('textbox', { name: 'Note (optional)' }), {
       target: { value: '   ' },
     })
     fireEvent.click(btn(view, 'Close'))
 
-    expect(getFeedback(SYS.systemId)).toHaveLength(1)
-    expect(getLatestFeedback(SYS.systemId)).toEqual(before)
+    expect(getFeedback(SYS.systemId)).toEqual([])
+    expect(calls.cancel).toHaveLength(1)
+    expect(calls.complete).toEqual([])
   })
 
   /* THE MAPPING, ALL FIVE ARMS. `verdict` is the first-class field and
@@ -383,6 +408,45 @@ describe('trigger: event-ended', () => {
     }
   })
 
+  /* THE TAP TARGET — an accessibility defect, not a preference, and the
+     most defensible thing that was wrong with this screen.
+
+     As chips these were `h-[24px]` with `py-[2px]`: a 24px target. Apple's
+     HIG asks 44x44pt and Android's 48dp; WCAG 2.2's Target Size (Minimum)
+     asks 24 CSS px, which they met EXACTLY and by accident. They are now
+     full-width rows at `min-h-[48px]`, which clears all three.
+
+     Pinned by class rather than by measured geometry because happy-dom does
+     no layout — there are no real box sizes to read here, which is also why
+     nobody can confirm the rendering from a test. */
+  it('gives every option a real tap target', () => {
+    const { view } = open()
+    for (const option of VERDICT_OPTIONS) {
+      const el = btn(view, option)
+      expect(el.className, option).toContain('min-h-[48px]')
+      expect(el.className, option).toContain('w-full')
+    }
+  })
+
+  /* THE ORDER IS PRINCIPLED: real and serious, real and wasteful, real and
+     fine, not real, escape. The extra space before "Unnecessary alert" falls
+     on the DID WATER ACTUALLY RUN boundary — the one distinction that
+     separates it from "Unusual, no issue", which is where this kind of
+     taxonomy concentrates its errors. The sentence itself is NOT on the
+     screen: it is copy, and copy is the owner's. The gap is structure. */
+  it('separates the did-it-run boundary with space, and with no words', () => {
+    const { view } = open()
+
+    expect(btn(view, 'Unnecessary alert').className).toContain('mt-[10px]')
+    for (const earlier of ['Leak', 'Water Waste', 'Unusual, no issue']) {
+      expect(btn(view, earlier).className, earlier).not.toContain('mt-[10px]')
+    }
+
+    // No helper copy was authored for the pair, here or anywhere.
+    expect(view.queryByText(/did water/i)).toBeNull()
+    expect(view.queryByText(/actually run/i)).toBeNull()
+  })
+
   it('records nothing, and cancels, when it is dismissed before a verdict', () => {
     const { view, calls } = open()
 
@@ -395,11 +459,12 @@ describe('trigger: event-ended', () => {
 })
 
 describe('the optional note', () => {
-  /* IT LIVES ON THE ACKNOWLEDGEMENT PANEL — the owner picked that over the
-     verdict step. A free-text field is the single most expensive element in a
-     micro-survey (one open-text question roughly doubles median completion
-     time), so it must never be able to slow the answer down. Here it cannot:
-     the record is already on disk by the time it is on screen.
+  /* IT LIVES ON THE VERDICT STEP, BELOW THE OPTIONS — the owner asked for
+     that twice and reversed the panel placement to get it. A free-text field
+     is the single most expensive element in a micro-survey (one open-text
+     question roughly doubles median completion time), so it stays behind a
+     deliberate tap and out of the default path; what makes it affordable
+     HERE is that opening it does not change what an option tap does.
 
      What it buys, at that price: when "Something else" starts taking more
      than ~15% of answers, these notes are the only evidence of what the
@@ -407,7 +472,6 @@ describe('the optional note', () => {
 
   it('caps at 140 characters, in the field and in the counter', () => {
     const { view } = open()
-    fireEvent.click(btn(view, 'Leak'))
     fireEvent.click(btn(view, '+ Add note (optional)'))
 
     const field = view.getByRole('textbox', { name: 'Note (optional)' })
@@ -422,8 +486,8 @@ describe('the optional note', () => {
     expect(field.getAttribute('maxlength')).toBe('140')
     expect(view.getByText('140/140')).toBeTruthy()
 
-    // And it survives the patch at the cap, not one character over.
-    fireEvent.click(btn(view, 'Close'))
+    // And it reaches the store at the cap, not one character over.
+    fireEvent.click(btn(view, 'Leak'))
     expect(getLatestFeedback(SYS.systemId).note).toHaveLength(140)
   })
 
@@ -436,20 +500,16 @@ describe('the optional note', () => {
 
     expect(getLatestFeedback(SYS.systemId).verdict).toBe('Something else')
     expect(view.getByText('Thanks — Wint learned from this.')).toBeTruthy()
-    // It lands on the panel like every other verdict, note offered not open.
-    expect(view.getByText('+ Add note (optional)')).toBeTruthy()
-    expect(view.queryByRole('textbox', { name: 'Note (optional)' })).toBeNull()
   })
 
   it('persists the note alongside the verdict, trimmed', () => {
     const { view } = open()
 
-    fireEvent.click(btn(view, 'Leak'))
     fireEvent.click(btn(view, '+ Add note (optional)'))
     fireEvent.change(view.getByRole('textbox', { name: 'Note (optional)' }), {
       target: { value: '  under the sink  ' },
     })
-    fireEvent.click(btn(view, 'Close'))
+    fireEvent.click(btn(view, 'Leak'))
 
     const saved = getLatestFeedback(SYS.systemId)
     expect(saved.verdict).toBe('Leak')
@@ -467,42 +527,61 @@ describe('the optional note', () => {
     expect(saved.points).toBe(0)
   })
 
-  /* THE CELEBRATION, ON ITS NEW TRIGGER. The rule is unchanged — the
+  /* THE CELEBRATION. The rule is unchanged and as old as the flow — the
      screen-wide burst is for the users who went deep enough to TYPE
-     something, and a bare chip tap gets the small burst only. It used to fire
-     at a Done that no longer exists, so it fires on the first character
-     instead: the only moment the user is still on screen to see it.
+     something, and a bare option tap gets the small burst only. Its trigger
+     went home to the commit when the note did: `finishStep` reads the note,
+     which by then has already been typed. For the hours the note lived on
+     the acknowledgement panel that read was always false and the trigger had
+     to sit on the first keystroke instead.
 
      The owner asked for this, unprompted and after the points came out: "i
      realy like the positive energy from this / we need more like this,
      because we want people to react and to tag this data". The warmth was
      never what he rejected; the SCORE was. */
-  it('fires the full-screen celebration on the first typed character, not before', () => {
+  it('fires the full-screen celebration for an answer that carries a note', () => {
     const { view, container } = open()
-    fireEvent.click(btn(view, 'Leak'))
-    expect(container.querySelectorAll('.wef-burst')).toHaveLength(0)
-
     fireEvent.click(btn(view, '+ Add note (optional)'))
+    fireEvent.change(view.getByRole('textbox', { name: 'Note (optional)' }), {
+      target: { value: 'cooling tower makeup' },
+    })
+    // Not while typing — it would play on a step nobody is leaving yet.
     expect(container.querySelectorAll('.wef-burst')).toHaveLength(0)
 
-    fireEvent.change(view.getByRole('textbox', { name: 'Note (optional)' }), {
-      target: { value: 'a' },
-    })
+    fireEvent.click(btn(view, 'Leak'))
     expect(container.querySelectorAll('.wef-burst').length).toBeGreaterThan(0)
   })
 
-  it('does not re-fire the celebration on every keystroke', () => {
+  it('does not fire it for a bare option tap', () => {
     const { view, container } = open()
     fireEvent.click(btn(view, 'Leak'))
-    fireEvent.click(btn(view, '+ Add note (optional)'))
-    const field = view.getByRole('textbox', { name: 'Note (optional)' })
+    expect(container.querySelectorAll('.wef-burst')).toHaveLength(0)
+    // The small burst is still there — Particles on the acknowledgement.
+    expect(container.querySelectorAll('.wef-particle').length).toBeGreaterThan(0)
+  })
 
-    fireEvent.change(field, { target: { value: 'a' } })
-    const first = container.querySelectorAll('.wef-burst').length
-    fireEvent.change(field, { target: { value: 'ab' } })
-    fireEvent.change(field, { target: { value: 'abc' } })
+  /* THE PANEL MUST STILL CLOSE ITSELF. While the note lived on the panel,
+     `noteOpen` cancelled the auto-close so it could not walk out from under a
+     half-typed sentence. With the note on the verdict step `noteOpen` is
+     routinely ALREADY true when the panel mounts, so that guard would have
+     hung the sheet open forever with no control on it to close. */
+  it('auto-closes even when the note was opened on the step before', () => {
+    vi.useFakeTimers()
+    try {
+      const { view, calls } = open()
+      fireEvent.click(btn(view, '+ Add note (optional)'))
+      fireEvent.change(view.getByRole('textbox', { name: 'Note (optional)' }), {
+        target: { value: 'typed, then answered' },
+      })
+      fireEvent.click(btn(view, 'Leak'))
 
-    expect(container.querySelectorAll('.wef-burst')).toHaveLength(first)
+      expect(calls.complete).toEqual([])
+      vi.advanceTimersByTime(2400)
+      expect(calls.complete, 'the panel must hand back on its own').toHaveLength(1)
+      expect(calls.complete[0].note).toBe('typed, then answered')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 
@@ -865,8 +944,11 @@ describe('driving the sheet to a state', () => {
 
   it('reopening on a different trigger starts clean', () => {
     const { view, rerender, container } = open({ initialStep: 'verdict' })
-    fireEvent.click(btn(view, 'Leak'))
+    // Half-answered: note open and typed, no option tapped yet.
     fireEvent.click(btn(view, '+ Add note (optional)'))
+    fireEvent.change(view.getByRole('textbox', { name: 'Note (optional)' }), {
+      target: { value: 'half typed' },
+    })
 
     rerender(<WaterEventFeedbackSheet open {...SYS} trigger="ignore" initialStep="warning" />)
     const next = within(container)
@@ -881,11 +963,11 @@ describe('driving the sheet to a state', () => {
     expect(calls.ignoreConfirmed).toEqual([])
   })
 
-  it('Escape on the acknowledgement saves a typed note', () => {
-    // Three dismissal paths, one behaviour: the X, the scrim and Escape all
-    // run the same `close`, and that is what patches the note in.
+  it('Escape on the verdict step saves a typed note', () => {
+    /* Three dismissal paths, one behaviour: the X, the scrim and Escape all
+       run the same `close`, and that is what writes a note the user typed
+       without going on to pick an option. */
     const { view } = open()
-    fireEvent.click(btn(view, 'Leak'))
     fireEvent.click(btn(view, '+ Add note (optional)'))
     fireEvent.change(view.getByRole('textbox', { name: 'Note (optional)' }), {
       target: { value: 'escaped out' },
@@ -894,6 +976,23 @@ describe('driving the sheet to a state', () => {
 
     expect(getFeedback(SYS.systemId)).toHaveLength(1)
     expect(getLatestFeedback(SYS.systemId).note).toBe('escaped out')
+    expect(getLatestFeedback(SYS.systemId).verdict).toBeNull()
+  })
+
+  it('Escape during the acknowledgement keeps the record it already wrote', () => {
+    const { view, calls } = open()
+    fireEvent.click(btn(view, '+ Add note (optional)'))
+    fireEvent.change(view.getByRole('textbox', { name: 'Note (optional)' }), {
+      target: { value: 'answered then escaped' },
+    })
+    fireEvent.click(btn(view, 'Leak'))
+    fireEvent.keyDown(window, { key: 'Escape' })
+
+    // ONE row — the option tap wrote it, and dismissing cannot write another.
+    expect(getFeedback(SYS.systemId)).toHaveLength(1)
+    expect(getLatestFeedback(SYS.systemId).note).toBe('answered then escaped')
+    expect(getLatestFeedback(SYS.systemId).verdict).toBe('Leak')
+    expect(calls.complete).toHaveLength(1)
   })
 
   it('hands back after the acknowledgement has had its moment', () => {
