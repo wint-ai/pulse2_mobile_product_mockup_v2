@@ -1,246 +1,293 @@
 /**
- * ValveManagementCard — a READ-ONLY donut readout of valve states across a
- * scope, plus the way in to the screen that manages them. Mounted at the
- * LOCATION level and the ACCOUNT level.
+ * ValveManagementCard — a READ-ONLY readout of valve states across a scope,
+ * plus the way in to the screen that manages them. Mounted at the LOCATION
+ * level and the ACCOUNT level (`HomeAllAccounts.jsx:1358`).
  *
- * ── WHAT WAS REMOVED FROM THIS FILE, BY WHOM, AND WHERE IT WENT ──────────
- * THIS CARD USED TO ACT. It carried per-category tick boxes, an action bar,
- * `BulkValveConfirmSheet`, a result panel and a retry, and it wrote through
- * `recordBulkValveCommand`. ALL OF THAT IS GONE FROM HERE — removed
- * 2026-11-02 on the owner's explicit instruction, quoted verbatim so the next
- * reader does not see a gutted card and "restore" it:
+ * ══ 2026-11-02 — THE REDESIGN. READ THIS BEFORE CHANGING ANYTHING BELOW. ══
  *
+ * The owner, 2026-11-02, verbatim:
+ *   "the widget for valves looks too messy. Too much information, it's not
+ *    organized well, it's too big... It doesn't feel like the ShadCN
+ *    components... It needs to be much more clear, much more easy to
+ *    understand to open, close the valves, to see statuses."
+ *
+ * He authorised implementation without further permission. What that bought,
+ * measured rather than asserted:
+ *   · the card was ~520px of the 808px usable frame — 64% of it;
+ *   · it used ONE shadcn component in 906 lines;
+ *   · 6 distinct `text-[Npx]` sizes and 12 distinct arbitrary spacing values.
+ * It is now ~317px (the arithmetic is at the foot of this header), four shadcn
+ * primitives deep, and on the 4px spacing scale.
+ *
+ * ── 1. THE DONUT IS GONE. THIS REVERSES AN EXPLICIT REQUEST BY THE OWNER. ──
+ *
+ * THE OWNER ASKED FOR A PIE CHART BY NAME. This file's previous header said so
+ * — "The owner asked for a pie chart and gets one" — and the donut was built
+ * to that instruction. Removing it is a DELIBERATE REVERSAL of an explicit
+ * earlier request, taken under the "implement without permission"
+ * authorisation above, and it is recorded here rather than quietly done so he
+ * can overrule it cheaply. THE EVIDENCE, all of it from this file's own
+ * measurements before the change:
+ *
+ *   a. IT WAS 162px — 31% OF A CARD WHOSE HEADLINE DEFECT IS ITS HEIGHT. The
+ *      single biggest object on the card, spent on four numbers.
+ *   b. IT WAS NOT TO SCALE, and the file admitted it: "below MIN_SWEEP_DEG/360
+ *      = 1.7% THE DONUT IS NO LONGER TO SCALE. A 1-system Error slice and a
+ *      5-system Error slice in a 400-system scope draw at the same width."
+ *      Its own conclusion was "THE COUNT IN THE ROW IS THE AUTHORITY" — which
+ *      is Few's degeneration argument in the file's own words: a donut that
+ *      has to print its counts beside it has become "an awkwardly arranged
+ *      equivalent of a table of labels and values". The table was already
+ *      there. The donut was the decoration on top of it.
+ *   c. IT WAS NOT TAPPABLE, and could not be made so. Measured here: at a
+ *      361px card the ring band is ~28px, so NO arc reaches a 44px target
+ *      radially at ANY share, and along the arc a slice needs >=11.5% before
+ *      its length reaches 44px. Every arc therefore carried
+ *      `pointer-events-none` + `aria-hidden`. 162px of pixels that could not
+ *      be touched and said nothing to a screen reader.
+ *   d. IT DID NOT ENCODE OFFLINE AT ALL — the one dimension this whole feature
+ *      exists to surface ("we have a kind of an offline devices that Valve
+ *      cannot be shut off", below). Offline is orthogonal to open/closed/error
+ *      and cannot be a fifth wedge without lying about the total.
+ *   e. SHRINKING IT WAS THE WORST AVAILABLE OPTION. A thinner ring is the
+ *      geometry measured as materially harder to read, and smaller slices are
+ *      both less discriminable AND less tappable. There was no smaller donut
+ *      that fixed (b), (c) or (d).
+ *
+ * The replacement is warranted by the same sources the repo already follows:
+ * the FT's visual vocabulary — "If the reader's interest is solely in the size
+ * of the components, consider a magnitude-type chart instead"; the UK Analysis
+ * Function — "Do not use a key, label the categories themselves" and "Aim for
+ * a maximum of four categories within each stack", with the attention
+ * categories at the ENDS because first and last are easiest to compare.
+ *
+ * HOW TO GET A RING BACK, IF HE WANTS ONE. Everything the donut needed is
+ * still here: `slices` below is the same `[{key, count}]` array it consumed.
+ * Restore `arcPath` / `sweepsFor` / `<Donut>` from git history
+ * (`git log -p -- src/v2/components/ValveManagementCard.jsx`, the revision
+ * before this one) and render `<Donut slices={slices} centreCount={total}
+ * label={chartLabel} />` where `<SegmentedBar>` is rendered now. Nothing else
+ * has to change — the stat tiles, the deep links and the denominator are
+ * independent of the chart. Expect the card back at ~480px, and expect (b)
+ * through (d) back with it.
+ *
+ * ── 2. WHAT REPLACED IT, AND WHY THE CHART IS NOW A CONTROL ───────────────
+ *
+ * ONE SEGMENTED BAR + A STAT ROW.
+ *
+ *   · `<SegmentedBar>` — full width, 10px tall, four segments, in
+ *     VALVE_CATEGORIES order so the attention category (`error`) is at one end
+ *     and the not-a-state category (`none`) at the other. NO LEGEND: the stat
+ *     tiles under it carry the same chips in the same order, which is the
+ *     "label the categories themselves" rule. It is DECORATIVE and says so —
+ *     `aria-hidden`, `pointer-events-none`, no text of its own. Whatever
+ *     replaces a chart here must not LOOK like a control unless it IS one;
+ *     this one is not, so it does not.
+ *   · `<StatTile>` x4 — the count as a large numeral, a colour chip, the
+ *     category word, and the per-category offline sub-count. EACH ONE IS A
+ *     BUTTON that opens the management screen already filtered to that
+ *     category. Apple Home does exactly this ("Lights · 3 on"), where the
+ *     count is both the readout and the filter entry.
+ *
+ * THAT IS THE WHOLE POINT: the chart is a CONTROL now instead of a decoration
+ * — the single thing the donut could never be, at any size, for the geometric
+ * reason in (c) above.
+ *
+ * THE BAR IS NOT EXACTLY TO SCALE EITHER, AND THIS IS CHEAPER AND HONEST. A
+ * non-zero segment is floored at `min-w-1` (4px) so a 1-of-400 count cannot
+ * round to invisible. The floor is applied by FLEXBOX, not by 25 lines of
+ * sweep arithmetic: each segment is `basis-0` with `flexGrow: count`, so the
+ * widths are exactly proportional and the min-width is taken out of the
+ * others by the layout engine. The old `sweepsFor()` debt-redistribution
+ * algorithm is deleted along with the geometry it served.
+ *
+ * ── 3. ONE STATE, ONE COLOUR CUE ──────────────────────────────────────────
+ * Every row used to draw a `--valve-*` swatch ~6px from a `ValveStatus` glyph,
+ * and for the SAME state they disagreed: open = green dot + BLUE glyph;
+ * closed = blue dot + GREY glyph; error = pink dot + RED glyph. Worse,
+ * `index.css:376-381` explicitly REJECTED that red (#fb2c36) as the valve
+ * error colour — against the open green it measures dE 2.3 under deuteranopia
+ * — so the palette's accessibility argument was being defeated six pixels from
+ * where it was made.
+ *
+ * `<ValveStateReadout>` / `<ValveSwatch>` (`ValveStateReadout.jsx`) now carry
+ * the one cue, and the WORD is the secondary encoding that keeps the palette
+ * legal under `index.css:358-367` (dE 7.6, "legal ONLY WITH SECONDARY
+ * ENCODING"). The word is not optional and there is no prop that removes it.
+ * `ValveStatus.jsx` IS NOT TOUCHED — it is still the per-system card's
+ * artwork and is out of this redesign's scope.
+ *
+ * DELETED FROM THIS FILE AND IMPORTED INSTEAD: the local `FILL`, `GLYPH`,
+ * `LABEL_OF` and `Swatch` (the old `:424-452`). The old `Swatch` painted with
+ * an inline `style={{backgroundColor}}`, which no theme can reach; the atom
+ * uses the `bg-valve-*` token utilities (`index.css:866-868`) and therefore
+ * follows all four.
+ *
+ * ── 4. THE SHADCN TELLS, SO THIS READS NATIVE ─────────────────────────────
+ * `text-sm` body, `text-2xl` for the stat numerals only (shadcn's own stat
+ * blocks do exactly that), and NO `text-[Npx]` anywhere. Secondary text is
+ * always `text-muted-foreground` — never an opacity hack, never a grey
+ * literal. The 4px scale: `gap-1 / gap-1.5 / gap-2 / px-6 / py-3 / pt-4`.
+ * `rounded-md` on the tiles and the button, `rounded-full` on the chips and
+ * the bar segments. `data-slot` on every part, inherited from the primitives.
+ *
+ * FOUR shadcn primitives now, where there was one:
+ *   `<Item asChild size="sm">`   the stat tile's chassis — radius, border box,
+ *                                `transition-colors`, `text-sm` and the
+ *                                house focus ring, none of it hand-rolled.
+ *                                Only the SIZE variant is overridden
+ *                                (`flex-col items-start gap-1 px-2 py-1`),
+ *                                because a stat tile stacks where a list row
+ *                                does not.
+ *   `<Separator>`                the rule above the entry bar, replacing a
+ *                                hand-rolled `border-t`.
+ *   `<Button>`                   unchanged, and still the DEFAULT variant.
+ *   `<ValveStateReadout>` / `<ValveSwatch>`  the state atom.
+ *
+ * WHY NOT `<ItemGroup>` AND `<ItemSeparator>`. They are the right wrapper for
+ * a vertical LIST of rows, and this card no longer has one: four stacked rows
+ * is 195px where a 2x2 grid of tiles is 132px, and height is the defect under
+ * repair. `ItemGroup` is `role="list" flex flex-col`; forcing a grid through
+ * it would mean overriding both of its two declarations AND putting a
+ * `<button>` directly inside a `role="list"`, which is invalid. A plain
+ * `<ul>/<li>` grid with `<Item asChild>` on the tile keeps the semantics
+ * correct and still takes the chassis from the primitive. The management
+ * SCREEN is where `ItemGroup` + `ItemSeparator` belong; that file is not this
+ * one's to write.
+ *
+ * WHY THE CHASSIS IS NOT `<Card>`. `card.jsx:40-68` settled this already and
+ * the reasoning is unchanged: this app has TWO card surfaces — `<Card>` is
+ * `--card` (white) with `rounded-2xl` and a two-layer shadow, the house
+ * chassis is `--surface-card` (#fafbfc) with `rounded-[18px]` and no shadow.
+ * Every one of this card's five stack neighbours is the house chassis.
+ * Switching one of six would repaint it against the other five and move
+ * pixels, which is a worse "doesn't feel like the ShadCN components" than the
+ * radius it would fix. `rounded-[18px]` and the absent shadow are therefore
+ * the two arbitrary values that stay, deliberately, and only on the shell.
+ *
+ * ── THE CHEVRON, THIRD TIME ───────────────────────────────────────────────
+ * It was removed once (rows toggled a tick box, so a `>` promised a drill-down
+ * that did not exist), restored when the rows became navigation, and it STAYS
+ * now for the same reason it was restored: the tiles navigate, there is a
+ * destination, and a tappable number with no affordance is the one way the
+ * "chart is a control" win above could be lost. It is on exactly the three
+ * tiles that navigate.
+ *
+ * ══ WHAT CAME INTO THE REDESIGN UNCHANGED (Rule 0) ═══════════════════════
+ *
+ * ── THIS CARD DOES NOT ACT, AND THAT IS THE OWNER'S INSTRUCTION ───────────
  *   "i dont like the way its built. the widget needs to be display only for
  *    managing valve i want to open a dedicated screen so user can
  *    select/deselect specific valves can filter per location / etc. main
  *    widget is display only"
- *
- * `.claude/skills/v2-page-parity/SKILL.md:12-21` (Rule 0) forbids removing
- * working functionality WITHOUT the owner's explicit permission. That message
- * is the permission, for this card only. THE FUNCTION IS NOT DELETED FROM THE
- * PRODUCT: selection, per-location filtering, the confirm sheet and the
- * command write live on the dedicated screen, `src/v2/pages/ValveManagementScreen.jsx`,
- * reached by the routes this card links to:
+ * Tick boxes, action bar, `BulkValveConfirmSheet`, result panel, retry and
+ * `recordBulkValveCommand` left on 2026-11-02 for
+ * `src/v2/pages/ValveManagementScreen.jsx`, reached by the routes this card
+ * links to:
  *     /valves                 fleet / unscoped
  *     /valves/:locationName   scoped, mirroring /location/:locationName
  * If those routes are dead, THAT is the regression — not this card.
+ * `.claude/skills/v2-page-parity/SKILL.md:12-21` (Rule 0) forbids removing
+ * working functionality without the owner's explicit permission; the message
+ * above is the permission, for this card only.
  *
- * Everything that SHOWS state survived untouched: the donut (including the
- * two-circle evenodd annulus for the full ring), the four category rows with
- * their swatch / glyph / label / count / offline sub-count, the honest
- * denominator line, every empty and degenerate state, `effectiveValveState`
- * resolution, and the repaint wiring.
- *
- * DESIGN SOURCE: none. A survey walked every page of the Figma file and found
- * no valve-management, bulk-action or status-breakdown frame to transcribe.
- * This component is net-new from the design system, structurally like
- * `AccountScreenV2.jsx:4`. EVERY VISIBLE STRING BELOW IS NEW COPY AWAITING THE
- * OWNER'S APPROVAL and is marked `NEW COPY` at its site — including the entry
- * button's "Manage valves". The four STATE words are the exception: they come
- * from `VALVE_CATEGORIES` (`valveScope.js:82`), which takes them verbatim from
- * Figma board 199535:96542 — `Valve Error`, `Open`, `Closed`,
- * `No valve installed`. Do not reword those four here.
+ * ── THE OFFLINE REQUIREMENT, WHICH IS WHY A BUTTONLESS READOUT EARNS ITS SEAT
+ *   "we have a kind of an offline devices that Valve cannot be shut off. So we
+ *    need to explain the user this situation somehow and to not let him think
+ *    that this Valve will take place on this operation that he wants to."
+ * Two of its three sites went to the screen with the action. THE THIRD IS HERE
+ * AND IS NOT NEGOTIABLE:
+ *   · the TILE count INCLUDES offline systems and says so beside itself
+ *     ("5 · 1 offline") — an offline system is still at its last-known state
+ *     and still part of the scope;
+ *   · the DENOMINATOR LINE states, side by side, how many systems carry a
+ *     valve, how many can actually be commanded, and how many are offline. The
+ *     gap between the first two numbers is the whole warning.
+ * OFFLINE IS DELIBERATELY OUTSIDE THE FOUR BAR SEGMENTS. It is an orthogonal
+ * dimension — an offline system is ALSO open, closed or in error — so folding
+ * it in as a fifth segment would double-count the scope and is a dishonest
+ * merge. It is a muted line instead, which is the only honest place for it.
  *
  * ── WHAT THIS COMPONENT IS NOT ALLOWED TO KNOW ───────────────────────────
  * It derives NOTHING about valves. `valveScope.js` is the single source of
  * what a state means; this file calls `summariseValves` and renders the
  * answer. A second copy of that rule living in a component is the exact defect
- * that module was extracted to prevent (`valveScope.js:12-18`). It no longer
- * calls `targetsFor` at all — nothing here is sized against an action any
- * more; the screen owns that.
- *
- * ── THE OWNER'S OTHER REQUIREMENT SURVIVES THE STRIP ─────────────────────
- * "we have a kind of an offline devices that Valve cannot be shut off. So we
- * need to explain the user this situation somehow and to not let him think
- * that this Valve will take place on this operation that he wants to."
- *
- * Two of its three sites were the action bar and the result panel, and both
- * went to the screen with the action. THE THIRD IS HERE AND IS NOT NEGOTIABLE:
- *   · the ROW count INCLUDES offline systems and says so beside itself
- *     ("5 · 1 offline") — an offline system is still at its last-known state
- *     and still part of the scope;
- *   · the DENOMINATOR LINE states, side by side, how many systems carry a
- *     valve, how many can actually be commanded, and how many are offline. The
- *     gap between the first two numbers is the whole warning, and it is the
- *     reason this readout is still worth drawing with no buttons on it.
- *
- * ── THE ARCS ARE NOT CONTROLS. THE ROWS ARE — AND NOW THEY NAVIGATE. ─────
- * The owner asked for a pie chart and gets one — a donut with the total in
- * the hole — but nothing is wired to a wedge, and this is measured, not
- * preferred. At the real fleet mix in this dataset (74 open / 7 closed /
- * 2 error) the Error arc is about 4 degrees. The card is 361px inside the
- * 393px frame, so the ring band is ~28px (the band `DonutPlots` draws at
- * `HomeAllAccounts.jsx:276`, r 75 -> 46.85): NO arc reaches a 44px touch
- * target in the radial direction at ANY share, and along the arc a slice needs
- * >=11.5% before its length reaches 44px. Closed and Error never get there.
- * So every arc carries `pointer-events-none` + `aria-hidden`, the svg carries
- * `role="img"` with the whole readout in its label, and every interactive
- * element is a row at a guaranteed 48px.
- *
- * ── THE CHEVRON LEFT, AND THE CHEVRON IS BACK ────────────────────────────
- * This file's previous author removed the `>` on every row, with this
- * reasoning, which was RIGHT AT THE TIME:
- *   "A `>` promises a drill-down; pressing the row toggles a tick box. A
- *    control that looks like navigation and behaves like a checkbox is a worse
- *    defect than a missing affordance, and there is no drill-down destination
- *    to offer."
- * Both halves of that objection are now gone: the rows DO navigate, and there
- * IS a destination. The chevron is therefore restored — on the three rows that
- * navigate and on no others. It is recorded here rather than silently
- * re-added so the reversal reads as a decision and not as drift.
- *
- * "No valve installed" KEEPS NO CHEVRON and does not navigate: there is
- * nothing to manage there and the dedicated screen cannot act on it. It stays
- * `aria-disabled="true"` — never the `disabled` attribute, which some
- * assistive tech skips outright so the user never learns WHY — with the reason
- * inside its accessible name.
+ * that module was extracted to prevent (`valveScope.js:12-18`).
  *
  * ── THE DEEP LINK, AND A CAVEAT ──────────────────────────────────────────
- * Tapping a category row opens the screen ALREADY FILTERED to that category,
+ * Tapping a stat tile opens the screen ALREADY FILTERED to that category,
  * passed as `?state=<VALVE_CATEGORIES key>` — `error` | `open` | `closed`.
  * The key, not the label: the label is Figma's English and the key is the
  * contract `valveScope.js` already publishes to every other caller.
  *
- * OPEN, AND NEEDS RECONCILING — DO NOT READ THIS AS DONE. This card was
- * written while `ValveManagementScreen.jsx` did not yet exist on disk, so the
- * param name is DEFINED here rather than matched against it. The screen has
- * since landed, and as of 2026-11-02 IT DOES NOT READ THE QUERY STRING AT ALL:
- * it imports `useLocation` only for `key` (`:767`) and never touches
- * `location.search`. Checked in a browser, not inferred —
- * `/valves/320%20Summit%20Blvd` and `/valves/320%20Summit%20Blvd?state=open`
- * render the identical list with its "All" chip still selected.
+ * RECONCILED 2026-11-02, AND THE RECORD OF WHAT WAS WRONG IS KEPT. This card
+ * was written while `ValveManagementScreen.jsx` did not exist on disk, so
+ * `STATE_PARAM` was DEFINED here rather than matched against it. When the
+ * screen first landed it imported `useLocation` for `key` only and never read
+ * `location.search`, so the deep link arrived at the right SCOPE and the wrong
+ * FILTER — `/valves/320%20Summit%20Blvd?state=open` rendered the identical
+ * list with its "All" chip still selected. The screen's redesign closed that
+ * in the same pass as this one: it now reads the param
+ * (`ValveManagementScreen.jsx:408`, `new URLSearchParams(search).get('state')`)
+ * and re-seeds on every change of `location.search`. The two ends of this
+ * contract are therefore agreed as of this commit and NOT BY INFERENCE — the
+ * read was checked in the file, and `valveWidgetMount.dom.test.jsx` drives the
+ * press and asserts the resulting URL.
+ * IF THE SCREEN EVER PICKS A DIFFERENT KEY, change `STATE_PARAM` below — never
+ * the four category keys, which are `valveScope.js`'s published contract.
  *
- * So the deep link currently lands on the right SCOPE and the wrong FILTER.
- * The names line up, which is the easy half: the screen's own filter group is
- * `id: 'state'` (`:840`) and its options are keyed by the same
- * VALVE_CATEGORIES keys. What is missing is one read of `?state=` into that
- * group's initial value, and it belongs in the screen, not here. If that
- * reconciliation picks a different key, change `STATE_PARAM` below — never the
- * four category keys, which are `valveScope.js`'s contract.
- *
- * ── WHY A HAND-ROLLED ARC GENERATOR AND NOT RECHARTS ─────────────────────
- * `recharts@3.8.0` is installed and `PieChart`/`Pie`/`Cell` are exported;
- * this would have been the repo's first `PieChart`. It was not taken, for
- * four reasons specific to this card:
- *   1. THE BOX NEVER CHANGES SIZE. The donut is a fixed 150x150 inside a card
- *      that is `w-full` by contract (`homeWidgetWidth.dom.test.jsx:80-82`).
- *      `ResponsiveContainer` exists to measure a box that moves; here it would
- *      install a ResizeObserver, measure 0x0 under happy-dom, and need
- *      `initialDimension` propped past it to render at all.
- *   2. THE MINIMUM-ARC FLOOR REWRITES THE VALUES BEFORE LAYOUT. recharts would
- *      receive values already massaged by `sweepsFor()` below, so its layout
- *      pass buys nothing that is not already computed.
- *   3. MAKING THE WEDGES INERT IS WORK, NOT A PROP. recharts v3 renders its
- *      own `<Surface>`/`<Sector>` tree with its own event wiring; stripping
- *      that back to `pointer-events: none` + `aria-hidden` is more code than
- *      the four `<path>` elements it would be stripping.
- *   4. THE COLOUR CONTRACT IS SIMPLER WITHOUT IT. `chart.jsx:4-26` is directly
- *      on point: this repo deliberately does not use recharts' `theme:` key,
- *      because that knows two modes while this app ships four, so a config
- *      entry names a TOKEN and the token is re-derived per theme. Honoured
- *      here in its shortest possible form — `fill="var(--valve-open)"` on the
- *      path, resolved by whichever theme is set on an ancestor, with no
- *      `ChartStyle` block and no `chart-N` indirection in between.
- * The cost is that this file owns the arc maths. It is ~25 lines, below.
- * `arcPath` and `sweepsFor` are deliberately NOT exported: a second export
- * beside the component costs the file its fast-refresh boundary
- * (`react-refresh/only-export-components`, which is an ERROR in this config —
- * `ValveStatus.jsx:108-110` records the same decision). They are therefore
- * tested through the rendered `d` attributes, not called directly.
- *
- * `DonutPlots` (`HomeAllAccounts.jsx:276`) is deliberately NOT reused: its
- * only prop is `className`, its five arcs are hardcoded path geometry with
- * five hardcoded hexes, and it cannot show different numbers. It is a picture.
- *
- * ── THE MINIMUM-ARC FLOOR, AND WHAT IT COSTS ─────────────────────────────
- * A 1.3% slice at this radius is a hairline nobody sees, and rounding a
- * non-zero count to zero area is the one thing a status chart may never do.
- * So any non-zero slice is clamped to MIN_SWEEP_DEG and the debt is taken
- * proportionally from the slices that have room above the floor.
- *
- * THE HONESTY COST, PLAINLY: below MIN_SWEEP_DEG/360 = 1.7% THE DONUT IS NO
- * LONGER TO SCALE. A 1-system Error slice and a 5-system Error slice in a
- * 400-system scope draw at the same width, and the slices that paid for them
- * draw slightly narrower than they are. That is a deliberate trade —
- * visible-but-not-to-scale beats invisible-and-exact for a state whose whole
- * job is to be noticed — and it is precisely why THE COUNT IN THE ROW IS THE
- * AUTHORITY and is always rendered as text, never encoded in area alone.
- *
- * ── THE SWATCH IS NEVER THE ONLY CUE, AND THIS IS NOT OPTIONAL ───────────
- * `index.css:358-367` records a standing accessibility WARN on this palette:
- * `--valve-error` against `--valve-open` is dE 7.6 under deuteranopia, inside
- * the 6-8 floor band rather than above it, which is legal ONLY WITH SECONDARY
- * ENCODING. The `<ValveStatus>` glyph and the text label beside every swatch
- * are therefore MANDATORY and must never be dropped to tighten this layout:
- * the palette's compliance is carried by them, not by the colour. Removing
- * either one makes this widget non-compliant, not merely plainer. The strip
- * above took the tick box and nothing else off the row — the glyph and the
- * label were deliberately left exactly where they were.
- *
- * (In the `contrast` theme the pair that actually bites is a different one:
- * --valve-open `oklch(0.85 0.25 140)` and --valve-closed `oklch(0.85 0.25 110)`
- * share lightness AND chroma and sit 30deg apart, so ON THE RING they read as
- * two greens. The glyph and the label carry it, which is exactly what they are
- * for, but the hue gap wants widening in `index.css` — which is not this
- * file's to change.)
+ * ── "No valve installed" IS PRESENT, NOT ABSENT ──────────────────────────
+ * It gets a tile, no chevron and no navigation: there is nothing to manage
+ * there and the dedicated screen cannot act on it. It stays
+ * `aria-disabled="true"` — never the `disabled` attribute, which some
+ * assistive tech skips outright so the user never learns WHY — with the reason
+ * inside its accessible name.
  *
  * ── TOKENS, AND THE TRAP ─────────────────────────────────────────────────
  * A Tailwind colour utility naming a token this repo does not define falls
  * through to STOCK Tailwind and then freezes across all four themes — there is
  * no `--green-*` token at all, which is how >=3 invisible-in-dark defects got
- * in. Every colour used here was checked against all four blocks of
- * `src/index.css`: `:root`, `[data-theme='dark'], .dark`, `[data-theme='sand']`
- * and `[data-theme='contrast']`.
- *   --valve-open / --valve-closed / --valve-error  declared at :390-392,
- *     :1265-1267, :1430-1432, :1565-1567 and registered as Tailwind colours in
- *     `@theme inline` at :866-868, so `bg-valve-open` would resolve in all
- *     four. The arcs name the raw token instead, via a `fill` attribute, for
- *     reason 4 above; the swatches do the same so the two can never drift.
+ * in. Every colour here was checked against all four blocks of `src/index.css`:
+ * `:root`, `[data-theme='dark'], .dark`, `[data-theme='sand']`,
+ * `[data-theme='contrast']`.
+ *   --valve-open / --valve-closed / --valve-error  :390-392, :1265-1267,
+ *     :1430-1432, :1565-1567, registered in `@theme inline` at :866-868, so
+ *     `bg-valve-*` resolves in all four. The CHIPS get theirs from
+ *     `ValveStateReadout`; the BAR SEGMENTS name the same three utilities
+ *     locally (see `SEGMENT_FILL`).
  *   --border, --foreground, --muted-foreground, --surface-card, --card,
- *     --primary, --ring  all four blocks, all pre-existing.
- * "No valve installed" gets NO FILL — a transparent wedge with a 1px --border
- * ring. Deliberate twice over: there is no themed neutral in this repo that
- * passes the chart validator's lightness band and chroma floor, and more
- * importantly "no valve" is a property of SYSTEMS while open/closed/error is a
- * property of VALVES. Offline likewise gets no fill: --muted-foreground ink
- * plus a glyph.
+ *     --primary, --accent, --ring  all four blocks, all pre-existing.
+ * `none` GETS NO FILL anywhere — a hollow chip and a 1px `--border` outline on
+ * the bar. Deliberate twice over: there is no themed neutral that passes the
+ * chart validator's lightness band and chroma floor (under `contrast` every
+ * neutral is saturated, so a filled `bg-border` chip came out orange), and
+ * "no valve" is a property of SYSTEMS while open/closed/error is a property of
+ * VALVES.
  *
  * ── HOUSE RULES OBSERVED ─────────────────────────────────────────────────
- * NO PORTAL. There is nothing left in this card that could portal — the
- * confirm sheet went with the action — but the rule stands and is restated so
- * it is not rediscovered: `ValveConfirmSheet.jsx:17-25`. This app draws in a
- * fixed 393x852 frame with `overflow: hidden` (`src/components/Phone.jsx`) and
- * a Radix portal escapes it by design, painting across the whole browser
- * window with the phone in the middle of it.
+ * NO PORTAL. `ValveConfirmSheet.jsx:17-25`: this app draws in a fixed 393x852
+ * frame with `overflow: hidden` (`src/components/Phone.jsx`) and a Radix
+ * portal escapes it by design. Nothing here portals — `<Separator>` is Radix
+ * `Separator.Root`, which is inline, and `<Item asChild>` is `Slot.Root`.
+ * NO `t()`. Only 2 of 36 v2 components use i18n and no v2 valve surface does.
+ * NO NEW DEPENDENCIES.
  *
- * NO `t()`. Only 2 of 36 v2 components use i18n and no v2 valve surface does;
- * a translated string here would be the only one in the stack.
- *
- * ── REPAINT — THE SAME THREE PATHS, FACING THE OTHER WAY ─────────────────
- * This card used to be the WRITER, so it PUBLISHED: `channel.postMessage` for
- * this tab, `pushBridge.publish` for other devices, and a local `setTick`
- * because a BroadcastChannel does not deliver a message to the object that
- * sent it (`PushNotifications.jsx:102`).
- *
- * IT IS NOT THE WRITER ANY MORE, so it cannot publish a change it does not
- * make; a surviving `publish()` call here would announce a write that never
- * happened. The three paths are therefore kept and INVERTED — this card is now
- * the LISTENER on the same three channels, which is what "the readout updates
- * after the dedicated screen commits" actually requires:
+ * ── REPAINT — THREE INBOUND PATHS ────────────────────────────────────────
+ * This card used to be the WRITER and PUBLISHED on three channels. It is the
+ * LISTENER on the same three now, which is what "the readout updates after the
+ * dedicated screen commits" actually requires:
  *   - `channel` message on `BroadcastChannel('pulse2-push')` — the same-tab /
- *     same-machine wake. The screen's own channel object is a DIFFERENT object,
- *     so its `postMessage` does reach this one. Precedent:
- *     `useDataRefresh.js:7,30-33`, `pushSimFire.js:50-53`, `UserContext.jsx:47`.
+ *     same-machine wake. The screen's channel object is a DIFFERENT object, so
+ *     its `postMessage` does reach this one (`PushNotifications.jsx:102`).
+ *     Precedent: `useDataRefresh.js:7,30-33`, `UserContext.jsx:47`.
  *   - the `storage` event — the CROSS-TAB wake, and the one that carries a
- *     cross-DEVICE push home: `pushBridge.publish` POSTs an envelope to ntfy.sh
- *     over HTTP (`pushBridge.js:130`) and never touches the local channel, so
- *     a relayed command lands as a store write that this listener hears.
- *     `useDataRefresh.js:15-18` is the same filter.
- *   - `setTick` — this card's OWN state, and it is not ceremony: `resolved`
- *     below is a `useMemo` keyed on `[systems, tick]`, and a bare re-render
- *     would hand back the cached, pre-command resolution. This is also why
- *     `useDataRefresh()` is not simply called instead: its tick is private to
- *     the hook, so it re-renders this card without invalidating that memo.
+ *     cross-DEVICE push home: `pushBridge.publish` POSTs to ntfy.sh
+ *     (`pushBridge.js:130`) and never touches the local channel, so a relayed
+ *     command lands as a store write this listener hears.
+ *   - `setTick` — this card's OWN state. `resolved` is a `useMemo` keyed on
+ *     `[systems, tick]`, and a bare re-render would hand back the cached,
+ *     pre-command resolution. `useDataRefresh()` cannot substitute: its tick is
+ *     private to the hook, so it re-renders without invalidating that memo.
  *
  * ── PROPS ────────────────────────────────────────────────────────────────
  *   systems     Array of scoped systems. READ-ONLY — never mutated. Each is
@@ -249,26 +296,45 @@
  *   scopeLabel  What the user sees in the header, e.g. "320 Summit Blvd" /
  *               "Acme Corp" / "All Accounts".
  *   className   Appended to the card shell.
- *
  *   scopeKind   ACCEPTED AND DELIBERATELY UNREAD. `HomeAllAccounts.jsx:589`
- *               derives it ('location' | 'account') from which half of the
- *               name match actually hit, and it existed for one consumer: the
- *               confirm sheet's "Every system at this location" / "...in this
- *               account" sentence. That sheet moved to the dedicated screen,
- *               which derives the same thing from the same route. The prop is
- *               left on the mount rather than ripped out of the page, because
- *               the derivation is correct, is covered by the page's own tests,
- *               and the screen may yet want it handed down. It is not
- *               destructured below so that it cannot be mistaken for live
- *               input.
+ *               derives it ('location' | 'account') and it existed for one
+ *               consumer: the confirm sheet's "Every system at this location"
+ *               sentence. That sheet moved to the dedicated screen, which
+ *               derives the same thing from the same route. It is not
+ *               destructured below so it cannot be mistaken for live input.
+ *
+ * ── THE HEIGHT, AS ARITHMETIC. NOT MEASURED — THERE IS NO BROWSER HERE. ───
+ * Summed from the class values below, worst case (all four categories present,
+ * so the stat grid is two rows, and the denominator line wrapping to two):
+ *     card border (1 top + 1 bottom)                            2
+ *     header      pt-4 16 + text-sm leading-5 20 + pb-2  8     44
+ *     bar         h-2.5                                        10
+ *     stat grid   mt-3 12 + 2 rows x min-h-14 56 + gap-2  8   132
+ *     denominator mt-3 12 + 2 x leading-5 20                   52
+ *     body        pb-4                                         16
+ *     separator                                                 1
+ *     entry bar   py-3 12 + Button h-9 36 + py-3 12            60
+ *                                                            ----
+ *                                                             317px
+ * Against the ~520px measured before this change, in an 808px usable frame:
+ * 64% -> 39%, a 39% cut. The brief asked for "roughly half"; the remaining
+ * ~55px of difference is the full-width "Manage valves" CTA, and demoting it
+ * to a small header action would reach ~257px. That is a product decision
+ * about the card's one control, not a layout decision, so it is the owner's
+ * and it is not taken here.
+ * happy-dom has no layout engine — `getBoundingClientRect()` returns zeros —
+ * so NOTHING in the tests asserts this number and nothing here claims it was
+ * seen. It is arithmetic over class values and should be checked in a browser.
  */
 
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronRight, WifiOff } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import ValveStatus from '@/v2/components/ValveStatus'
+import { Item } from '@/components/ui/item'
+import { Separator } from '@/components/ui/separator'
+import { ValveStateReadout, ValveSwatch } from '@/v2/components/ValveStateReadout'
 import { VALVE_CATEGORIES, summariseValves } from '@/v2/components/valveScope'
 import { effectiveValveState } from '@/data/valveCommandStore'
 
@@ -287,10 +353,41 @@ const REFRESH_TYPES = new Set(['data-changed', 'push', 'demo-reset', 'actor-chan
 
 /* ── The deep link ────────────────────────────────────────────────────────
    The query key the dedicated screen is expected to read. See THE DEEP LINK
-   in the header: defined here because the screen did not exist when this was
-   written, and the one line to change if it disagrees. */
+   in the header: the one line to change if the screen disagrees. */
 const STATE_PARAM = 'state'
 const VALVES_ROUTE = '/valves'
+
+/* The design's word for a category key. NOT a second `LABEL_OF` map — the old
+   one was deleted with the rest of the local palette; this is a lookup into
+   `VALVE_CATEGORIES`, which owns the vocabulary verbatim from Figma board
+   199535:96542 (`Valve Error`, `Open`, `Closed`, `No valve installed`). The
+   CHIP+WORD pair always comes from `<ValveStateReadout>`; this exists only for
+   the two places that need the bare word inside a sentence. */
+const labelOf = (key) => VALVE_CATEGORIES.find((c) => c.key === key)?.label ?? ''
+
+/* Singular / plural without a formatter — there is no i18n on this surface and
+   `Intl.PluralRules` for two English forms is ceremony. */
+const plural = (n, one, many) => (n === 1 ? one : many)
+
+/* Fill per BAR SEGMENT, as TOKEN UTILITIES — never an inline `style`, which is
+   the defect the old local `FILL` map had (no theme can reach a style
+   attribute). Three keys, not four: `none` falls through to the hollow
+   outline, which is the same treatment `<ValveSwatch>` gives it and the same
+   one the deleted donut gave its `none` wedge.
+
+   WHY THIS IS NOT IMPORTED FROM `ValveStateReadout`: that atom owns the CHIP,
+   which is fixed at `size-[10px]` and forwards no `style`, so it cannot be
+   stretched into a proportional bar segment. Its class map is private on
+   purpose. These are the same three `bg-valve-*` utilities from the same
+   `@theme inline` registration (`index.css:866-868`), so the two cannot drift
+   in COLOUR; if a fourth surface ever needs them, export the map from the atom
+   rather than writing a third copy. */
+const SEGMENT_FILL = {
+  error: 'bg-valve-error',
+  open: 'bg-valve-open',
+  closed: 'bg-valve-closed',
+}
+const SEGMENT_HOLLOW = 'border border-solid border-border bg-transparent'
 
 /* react-router v6+ hands `useParams()` values back ALREADY DECODED, and
    `HomeAllAccounts.jsx:545` decodes again on top of that — harmless for every
@@ -321,238 +418,179 @@ function valvesHref(locationParam, categoryKey) {
   return categoryKey ? `${base}?${STATE_PARAM}=${encodeURIComponent(categoryKey)}` : base
 }
 
-/* ── Donut geometry ───────────────────────────────────────────────────────
-   150x150 with the ring running outer r=75 to inner r=46.85 — the band the
-   Figma donut on Home already draws (`HomeAllAccounts.jsx:276`), so the two
-   rings read as the same object at the same size. */
-const DONUT_PX = 150
-const C = DONUT_PX / 2
-const R_OUT = 75
-const R_IN = 46.85
+/* ── The segmented bar ────────────────────────────────────────────────────
+   DECORATIVE, AND SAYS SO. `aria-hidden` because the stat tiles below carry
+   every number and every word it could announce, and a screen reader that read
+   both would read the whole scope twice. `pointer-events-none` because it is
+   not the control — the tiles are, which is the point of the redesign.
 
-/* The floor, in degrees of the 360 ring. 6deg = 1.67% of the scope; at the
-   band's mean radius (60.9px) that is ~6.4px of arc — small, but a shape
-   rather than a hairline. See THE MINIMUM-ARC FLOOR in the header for what it
-   costs and why the row count, not the arc, is the authority. */
-const MIN_SWEEP_DEG = 6
+   Proportions are `flexGrow: count` over `basis-0`, so the widths are exactly
+   proportional with no percentage arithmetic and no sweep algorithm. `min-w-1`
+   (4px) is the visibility floor: a non-zero count may never round to zero
+   width, and flexbox takes the difference out of the segments that have room.
+   The bar is therefore NOT exactly to scale below ~1.3% of a 313px span —
+   stated plainly here because the donut's version of this was its central
+   dishonesty. THE TILE COUNT IS THE AUTHORITY and is always text.
 
-/** Degrees clockwise from 12 o'clock -> a point on the circle. */
-function polar(r, deg) {
-  const rad = ((deg - 90) * Math.PI) / 180
-  return [C + r * Math.cos(rad), C + r * Math.sin(rad)]
-}
-
-const f = (n) => Number(n.toFixed(3))
-
-/**
- * One ring segment as a closed path: outer arc clockwise, straight in, inner
- * arc back, close.
- *
- * A 360deg sweep is the special case every hand-rolled donut gets wrong — the
- * start and end points coincide, the arc degenerates, and the path collapses
- * to nothing, which is a BLANK CHART for the "every valve open" state, i.e.
- * the single most common state this card will ever draw. A full ring is drawn
- * instead as two circles under `fill-rule: evenodd`, which is the annulus.
- */
-function arcPath(startDeg, sweepDeg) {
-  if (sweepDeg >= 359.999) {
-    return (
-      `M ${C} ${f(C - R_OUT)} A ${R_OUT} ${R_OUT} 0 1 1 ${C} ${f(C + R_OUT)}` +
-      ` A ${R_OUT} ${R_OUT} 0 1 1 ${C} ${f(C - R_OUT)} Z` +
-      ` M ${C} ${f(C - R_IN)} A ${R_IN} ${R_IN} 0 1 0 ${C} ${f(C + R_IN)}` +
-      ` A ${R_IN} ${R_IN} 0 1 0 ${C} ${f(C - R_IN)} Z`
-    )
-  }
-  const end = startDeg + sweepDeg
-  const large = sweepDeg > 180 ? 1 : 0
-  const [x0, y0] = polar(R_OUT, startDeg)
-  const [x1, y1] = polar(R_OUT, end)
-  const [x2, y2] = polar(R_IN, end)
-  const [x3, y3] = polar(R_IN, startDeg)
+   `none` draws hollow rather than filled: it is the absence of hardware, not a
+   fourth state, and under `contrast` every neutral token is saturated so a
+   filled neutral reads as a state of its own. */
+function SegmentedBar({ slices }) {
   return (
-    `M ${f(x0)} ${f(y0)} A ${R_OUT} ${R_OUT} 0 ${large} 1 ${f(x1)} ${f(y1)}` +
-    ` L ${f(x2)} ${f(y2)} A ${R_IN} ${R_IN} 0 ${large} 0 ${f(x3)} ${f(y3)} Z`
-  )
-}
-
-/**
- * Counts -> sweeps in degrees, with the floor applied.
- *
- * Every non-zero count is lifted to MIN_SWEEP_DEG and the total debt is taken
- * from the slices that sit above the floor, in proportion to how far above it
- * they sit — so paying for a small slice can never push a payer below the
- * floor in turn. A ZERO count gets zero degrees and is not drawn at all: the
- * floor exists to stop a 1 from vanishing, never to invent a slice for a 0.
- *
- * `pay` is clamped to the pool. With four categories and a 6deg floor the pool
- * is at worst 360 - 4*6 = 336 against a debt of at most 3*6 = 18, so the clamp
- * cannot bind here; it is kept because a fifth category would tighten the
- * arithmetic and a ring that silently fails to close is worse than one that is
- * slightly off scale.
- */
-function sweepsFor(counts) {
-  const total = counts.reduce((a, b) => a + b, 0)
-  if (total <= 0) return counts.map(() => 0)
-
-  const out = counts.map((v) => (v / total) * 360)
-  const lifted = out.map((d) => d > 0 && d < MIN_SWEEP_DEG)
-  if (!lifted.some(Boolean)) return out
-
-  let debt = 0
-  for (let i = 0; i < out.length; i += 1) {
-    if (lifted[i]) {
-      debt += MIN_SWEEP_DEG - out[i]
-      out[i] = MIN_SWEEP_DEG
-    }
-  }
-  const excess = out.map((d, i) => (lifted[i] ? 0 : Math.max(0, d - MIN_SWEEP_DEG)))
-  const pool = excess.reduce((a, b) => a + b, 0)
-  if (pool <= 0) return out
-  const pay = Math.min(debt, pool)
-  for (let i = 0; i < out.length; i += 1) {
-    if (excess[i] > 0) out[i] -= pay * (excess[i] / pool)
-  }
-  return out
-}
-
-/* Fill per category. `none` is the deliberate hole — see the TOKENS note. */
-const FILL = {
-  error: 'var(--valve-error)',
-  open: 'var(--valve-open)',
-  closed: 'var(--valve-closed)',
-  none: 'none',
-}
-
-/* The glyph beside each swatch. `ValveStatus.jsx:112` is the product's own
-   valve artwork, already drawn to Figma 197639:253443 for exactly these
-   states, so this widget introduces no new iconography; its `no-valve` variant
-   is the fourth key. These glyphs ARE the secondary encoding the palette's
-   compliance depends on (index.css:358). */
-const GLYPH = { error: 'error', open: 'open', closed: 'closed', none: 'no-valve' }
-
-const LABEL_OF = Object.fromEntries(VALVE_CATEGORIES.map((c) => [c.key, c.label]))
-
-/* Singular / plural without a formatter — there is no i18n on this surface and
-   `Intl.PluralRules` for two English forms is ceremony. */
-const plural = (n, one, many) => (n === 1 ? one : many)
-
-/* The colour chip. `aria-hidden` because it says nothing the label beside it
-   does not already say — and it is never the only cue (index.css:358). */
-function Swatch({ categoryKey }) {
-  return (
-    <span
+    <div
+      data-name="valve-bar"
       aria-hidden="true"
-      className={cn(
-        'size-[10px] shrink-0 rounded-full',
-        categoryKey === 'none' && 'border border-solid border-border',
-      )}
-      style={categoryKey === 'none' ? undefined : { backgroundColor: FILL[categoryKey] }}
-    />
-  )
-}
-
-/* ── The donut ────────────────────────────────────────────────────────────
-   `role="img"` with the whole readout in its label, and every path inert. The
-   centre figure is NOT `tabular-nums`: tabular figures are for columns a
-   reader scans down, and this is one centred number — proportional spacing
-   reads better and is the design system's default. */
-function Donut({ slices, centreCount, label }) {
-  const sweeps = sweepsFor(slices.map((s) => s.count))
-  /* Prefix sum without a running `let`: `react-hooks/immutability` treats a
-     variable reassigned inside a render's map callback as an error, and with
-     four slices the quadratic scan is free. */
-  const drawn = slices.map((s, i) => ({
-    ...s,
-    start: sweeps.slice(0, i).reduce((a, b) => a + b, 0),
-    sweep: sweeps[i],
-  }))
-
-  return (
-    <div className="flex w-full shrink-0 items-center justify-center py-[6px]">
-      <div className="relative" style={{ width: DONUT_PX, height: DONUT_PX }}>
-        <svg
-          width={DONUT_PX}
-          height={DONUT_PX}
-          viewBox={`0 0 ${DONUT_PX} ${DONUT_PX}`}
-          fill="none"
-          role="img"
-          aria-label={label}
-          focusable="false"
-          className="block"
-          data-name="valve-donut"
-        >
-          {drawn.map((s) =>
-            s.sweep > 0 ? (
-              <path
-                key={s.key}
-                d={arcPath(s.start, s.sweep)}
-                fill={FILL[s.key]}
-                fillRule="evenodd"
-                stroke={s.key === 'none' ? 'var(--border)' : undefined}
-                strokeWidth={s.key === 'none' ? 1 : undefined}
-                /* Inert twice over: no hit target, and nothing for a reader to
-                   land on. The svg's own label is the whole readout, and the
-                   row below is the control. */
-                className="pointer-events-none"
-                aria-hidden="true"
-                focusable="false"
-                data-valve-slice={s.key}
-              />
-            ) : null,
+      className="pointer-events-none flex h-2.5 w-full items-stretch gap-0.5"
+    >
+      {slices.map((s) => (
+        <span
+          key={s.key}
+          data-valve-segment={s.key}
+          style={{ flexGrow: s.count }}
+          className={cn(
+            'min-w-1 basis-0 rounded-full',
+            SEGMENT_FILL[s.key] ?? SEGMENT_HOLLOW,
           )}
-        </svg>
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
-        >
-          <span className="font-sans text-[28px] font-semibold leading-[32px] text-foreground">
-            {centreCount}
-          </span>
-          {/* NEW COPY. "systems", not "valves" — `valveScope.js:63-70` is
-              explicit that one system can carry two valves, so every count on
-              this card counts systems and says so. */}
-          <span className="font-sans text-[12px] leading-[16px] text-muted-foreground">
-            {plural(centreCount, 'system', 'systems')}
-          </span>
-        </div>
-      </div>
+        />
+      ))}
     </div>
   )
 }
 
+/* ── One stat tile ────────────────────────────────────────────────────────
+   The count as a large numeral, the chip and the word under it, and the
+   per-category offline sub-count beside the numeral. THE WHOLE TILE IS THE
+   TARGET and it navigates: "Valve Error 2" lands on the two faulted ones
+   rather than on a list to hunt through.
+
+   `min-h-14` is 56px, comfortably over the 44px floor, and it is a SCALE step
+   rather than the old `min-h-[48px]` literal. happy-dom cannot measure a
+   target, so the class is what the test pins — as a rule ("at least 44px"),
+   not as a string.
+
+   THE COUNT INCLUDES THE OFFLINE SYSTEMS, by design: an offline system holds
+   its last-known state and is genuinely part of the scope
+   (`valveScope.js:53-59`). Only the denominator line's "can be commanded"
+   excludes them. "How many of the OPEN valves are offline" is a cross-tab: a
+   2-D encoding would make the reader integrate it by eye, and as text beside
+   the numeral it costs no height at all.
+
+   `<Item asChild size="sm">` gives the chassis — `rounded-md`, the transparent
+   border box, `transition-colors`, `text-sm` and the house focus ring. Only
+   the size variant is overridden, because a stat tile stacks where a list row
+   does not. See WHY NOT ItemGroup in the header. */
+function StatTile({ categoryKey, bucket, onOpen }) {
+  const navigable = categoryKey !== 'none'
+  const label = labelOf(categoryKey)
+  const count = `${bucket.total} ${plural(bucket.total, 'system', 'systems')}`
+
+  const shell = cn(
+    'h-full w-full min-h-14 flex-col items-start gap-1 px-2 py-1 text-left',
+    navigable
+      ? 'cursor-pointer hover:bg-accent/50 active:bg-accent'
+      : 'cursor-default',
+  )
+
+  return (
+    <li className="min-w-0">
+      <Item asChild size="sm" className={shell}>
+        <button
+          type="button"
+          data-valve-row={categoryKey}
+          /* `aria-disabled`, NOT the `disabled` attribute. A disabled control
+             is skipped outright by some assistive tech, so the user never
+             learns WHY it cannot be used — which on this tile is the single
+             most useful thing it has to say. It stays focusable and announced,
+             with the reason inside its accessible name; the press handler is
+             simply not wired. */
+          aria-disabled={navigable ? undefined : 'true'}
+          onClick={navigable ? () => onOpen(categoryKey) : undefined}
+          /* NEW COPY, both forms. The destination is named, because a chevron
+             is a sighted-only promise, and the count stays in the name so the
+             tile still answers "how many" when it is read rather than seen. */
+          aria-label={
+            navigable
+              ? `${label}: ${count}${bucket.offline > 0 ? `, ${bucket.offline} offline` : ''}. Manage these valves.`
+              : `${label}, ${count}. Nothing to manage — there is no valve here to command.`
+          }
+        >
+          <span className="flex w-full items-center gap-1.5">
+            {/* `tabular-nums` here and NOT on the old donut centre: these are
+                four figures a reader scans DOWN a grid, which is exactly what
+                tabular figures are for. */}
+            <span
+              className={cn(
+                'text-2xl font-semibold leading-none tabular-nums',
+                navigable ? 'text-foreground' : 'text-muted-foreground',
+              )}
+            >
+              {bucket.total}
+            </span>
+            {bucket.offline > 0 ? (
+              /* Offline gets NO COLOUR of its own — muted ink, on the same
+                 line as the numeral so it costs no height. It is a
+                 reachability fact, not a valve state, and giving it a hue
+                 would file it under the same visual system as the three
+                 states. NEW COPY: "· {n} offline". */
+              <span className="min-w-0 truncate text-sm leading-none text-muted-foreground">
+                {`· ${bucket.offline} offline`}
+              </span>
+            ) : null}
+            {navigable ? (
+              <ChevronRight
+                className="ml-auto size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+                data-valve-chevron={categoryKey}
+              />
+            ) : null}
+          </span>
+          {/* THE ONE COLOUR CUE AND ITS MANDATORY WORD — `ValveStateReadout`,
+              never a local swatch and never a second glyph. index.css:358-367:
+              --valve-error against --valve-open is dE 7.6 under deuteranopia,
+              legal ONLY WITH SECONDARY ENCODING, and the WORD is that
+              encoding. There is no prop that removes it. */}
+          <ValveStateReadout
+            categoryKey={categoryKey}
+            className="w-full text-muted-foreground"
+          />
+        </button>
+      </Item>
+    </li>
+  )
+}
+
 /* ── Chassis ──────────────────────────────────────────────────────────────
-   The house card shell, copied from its siblings (`ActiveWaterEventsCard.jsx`
-   :501, `EventsTimelineCard.jsx:296`, `InfoAccordion.jsx:139`).
+   The house card shell, shared verbatim with every sibling in the Home stack
+   (`ActiveWaterEventsCard.jsx:501`, `EventsTimelineCard.jsx:296`,
+   `InfoAccordion.jsx:139`). See WHY THE CHASSIS IS NOT `<Card>` in the header:
+   `rounded-[18px]` and the absent shadow are the two arbitrary values kept on
+   purpose, and only here.
 
    `w-full` AND NO INTRINSIC WIDTH, both pinned by
    `homeWidgetWidth.dom.test.jsx:80-82`: the Home stack is
    `flex flex-col items-start`, where a child without `w-full` sizes to its own
    content — which is how the consumption card came to RESIZE when the user
-   changed its segment. A `w-[...]` here would beat `w-full` and reintroduce
-   it.
+   changed its segment. A `w-[...]` here would beat `w-full` and reintroduce it.
 
-   `px-6` — 24px, Tailwind step 6 — on the header AND on every body box, the
-   equal inset `homeWidgetWidth.dom.test.jsx:106` exists to protect. A 16/24
-   mix is the "positions look broken" report. */
+   `px-6` — 24px, scale step 6 — on the header, the body AND the entry bar.
+   That is the inset every sibling card uses, so the six cards' titles line up
+   down the stack; a 16/24 mix is the "positions look broken" report. The stat
+   tiles sit INSIDE that inset and carry their own `px-2`, which is the tile's
+   padding, not a card inset. */
 const CARD = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col items-start overflow-hidden relative rounded-[18px] shrink-0 w-full`
-
-const FOCUS = 'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
 
 function Header({ scopeLabel }) {
   return (
     <div
-      className="flex w-full shrink-0 items-baseline justify-between gap-[12px] px-6 pb-[10px] pt-[16px]"
+      className="flex w-full shrink-0 items-baseline justify-between gap-2 px-6 pb-2 pt-4"
       data-name="valve-header"
     >
       {/* NEW COPY. "Valve status" is the phrase this product already uses for
           a valve readout (`ValveStatusCard`'s own title), kept so the widget
-          and the System page name the same thing the same way. It is also now
-          literally true of this card and of nothing else about it. */}
-      <h3 className="font-sans text-[16px] font-semibold leading-[22px] text-foreground">
-        Valve status
-      </h3>
+          and the System page name the same thing the same way. */}
+      <h3 className="text-sm font-semibold leading-5 text-foreground">Valve status</h3>
       {scopeLabel ? (
-        <span className="min-w-0 truncate font-sans text-[13px] leading-[18px] text-muted-foreground">
+        <span className="min-w-0 truncate text-sm leading-5 text-muted-foreground">
           {scopeLabel}
         </span>
       ) : null}
@@ -560,182 +598,60 @@ function Header({ scopeLabel }) {
   )
 }
 
-/* ── One category row ─────────────────────────────────────────────────────
-   48px minimum, and the ROW is the control — nothing smaller than the row is
-   ever the hit target. The row NAVIGATES: it opens the dedicated management
-   screen already filtered to this category, so "Valve Error · 2" lands on the
-   two faulted ones rather than on a list to hunt through. See THE CHEVRON LEFT,
-   AND THE CHEVRON IS BACK in the header for why the `>` is here again.
-
-   EVERY ROW CARRIES ITS OWN OFFLINE SUB-COUNT. "How many of the OPEN valves
-   are offline" is a cross-tab: a 2-D encoding would make the reader integrate
-   it by eye, and as text beside the count it is free.
-
-   The count INCLUDES the offline systems, by design: an offline system holds
-   its last-known state and is genuinely part of the scope
-   (`valveScope.js:53-59`). Only the DENOMINATOR line's "can be commanded"
-   excludes them. */
-function CategoryRow({ categoryKey, label, bucket, onOpen }) {
-  const navigable = categoryKey !== 'none'
-
-  const common = cn(
-    'flex w-full items-center gap-[10px] px-0 text-left',
-    FOCUS,
-    navigable ? 'min-h-[48px] cursor-pointer' : 'min-h-[40px] cursor-default',
-  )
-
-  const body = (
-    <>
-      <Swatch categoryKey={categoryKey} />
-      {/* MANDATORY SECONDARY ENCODING — index.css:358. Neither this glyph nor
-          the label beside it may be dropped to tighten the row: --valve-error
-          against --valve-open is dE 7.6 under deuteranopia, which is legal
-          only with them. The tick box that used to sit left of this swatch is
-          gone; the glyph and the label are not going anywhere. */}
-      <ValveStatus state={GLYPH[categoryKey]} size={16} className="shrink-0" />
-      <span
-        className={cn(
-          'min-w-0 flex-1 truncate font-sans text-[14px] leading-[20px]',
-          navigable ? 'text-foreground' : 'text-muted-foreground',
-        )}
-      >
-        {label}
-      </span>
-      <span
-        className={cn(
-          'shrink-0 font-sans text-[14px] font-semibold leading-[20px]',
-          navigable ? 'text-foreground' : 'text-muted-foreground',
-        )}
-      >
-        {bucket.total}
-      </span>
-      {bucket.offline > 0 ? (
-        /* Offline gets NO FILL — --muted-foreground ink plus a glyph. It is a
-           reachability fact, not a valve state, and giving it a colour of its
-           own would file it under the same visual system as the three states.
-           NEW COPY: "{n} offline". */
-        <span className="flex shrink-0 items-center gap-[3px] font-sans text-[12px] leading-[16px] text-muted-foreground">
-          <WifiOff size={12} aria-hidden="true" />
-          {`${bucket.offline} offline`}
-        </span>
-      ) : null}
-      {navigable ? (
-        <ChevronRight
-          size={16}
-          aria-hidden="true"
-          className="shrink-0 text-muted-foreground"
-          data-valve-chevron={categoryKey}
-        />
-      ) : null}
-    </>
-  )
-
-  if (!navigable) {
-    /* `aria-disabled`, NOT the `disabled` attribute. A disabled control is
-       skipped outright by some assistive tech, so the user never learns WHY it
-       cannot be used — which on this row is the single most useful thing it
-       has to say. This stays focusable and announced, with the reason inside
-       its accessible name; the press handler is simply not wired, and it gets
-       NO CHEVRON because it has nowhere to go. */
-    return (
-      <li className="border-b border-solid border-border last:border-b-0">
-        <button
-          type="button"
-          aria-disabled="true"
-          /* NEW COPY. The reason rides in the accessible NAME, because the
-             name is the only thing a screen-reader user gets before deciding
-             whether to press. */
-          aria-label={`${label}, ${bucket.total} ${plural(bucket.total, 'system', 'systems')}. Nothing to manage — there is no valve here to command.`}
-          className={common}
-          data-valve-row={categoryKey}
-        >
-          {body}
-        </button>
-      </li>
-    )
-  }
-
-  return (
-    <li className="border-b border-solid border-border last:border-b-0">
-      <button
-        type="button"
-        onClick={() => onOpen(categoryKey)}
-        /* NEW COPY. The destination is named in the accessible name, because a
-           chevron is a sighted-only promise. The count stays in it so the row
-           still answers "how many" when it is read rather than seen. */
-        aria-label={`${label}: ${bucket.total} ${plural(bucket.total, 'system', 'systems')}${
-          bucket.offline > 0 ? `, ${bucket.offline} offline` : ''
-        }. Manage these valves.`}
-        className={common}
-        data-valve-row={categoryKey}
-      >
-        {body}
-      </button>
-    </li>
-  )
-}
-
 /* ── One category, whole scope ────────────────────────────────────────────
-   Every system in the same state. One series needs no legend — the headline
-   names it — so there is nothing to choose between. The donut above is a full
-   ring and the sentence carries the readout.
+   Every system in the same state. One series needs no legend — the sentence
+   names it — so the tiles collapse to a line of prose and the grid is not
+   drawn at all.
 
    The whole-scope-offline case lands here when it is also single-state, and it
    is drawn AT FULL COLOUR: last-known state is real information, and greying
    it out to signal unreachability is the bigger lie. The reachability line
    below says so in words instead.
 
-   No action and no deep link here: with one category the entry control at the
-   foot of the card already lands on the only filter there is. */
+   No deep link here: with one category the entry control at the foot of the
+   card already lands on the only filter there is. `<ValveSwatch>` rather than
+   `<ValveStateReadout>` because the word is already in the sentence beside it,
+   which is exactly the condition that atom documents for exporting the chip
+   alone. */
 function SoloBody({ categoryKey, count, offline }) {
   return (
-    <div className="mt-[6px] w-full border-t border-solid border-border pt-[12px]">
-      <div className="flex items-center gap-[10px]">
-        <Swatch categoryKey={categoryKey} />
-        <ValveStatus state={GLYPH[categoryKey]} size={16} className="shrink-0" />
+    <>
+      <div className="mt-3 flex w-full items-center gap-2">
+        <ValveSwatch categoryKey={categoryKey} />
         {/* NEW COPY. The headline as a SENTENCE, because with one series there
             is no legend to read a label against. */}
-        <p className="min-w-0 flex-1 font-sans text-[15px] leading-[20px] text-foreground">
+        <p className="min-w-0 flex-1 text-sm leading-5 text-foreground">
           {categoryKey === 'none'
             ? `All ${count} ${plural(count, 'system is', 'systems are')} metering-only.`
-            : `All ${count} ${plural(count, 'system is', 'systems are')} ${LABEL_OF[categoryKey]}.`}
+            : `All ${count} ${plural(count, 'system is', 'systems are')} ${labelOf(categoryKey)}.`}
         </p>
       </div>
       {offline > 0 ? (
         /* NEW COPY. Says the colour above is last-known, not live. */
-        <p className="mt-[6px] flex items-center gap-[4px] font-sans text-[12px] leading-[16px] text-muted-foreground">
-          <WifiOff size={12} aria-hidden="true" />
+        <p className="mt-2 text-sm leading-5 text-muted-foreground">
           {`${offline} of ${plural(count, 'it is', 'them are')} offline · last-known state shown`}
         </p>
       ) : null}
-    </div>
+    </>
   )
 }
 
 /* ── The way in ───────────────────────────────────────────────────────────
-   The card's one control, and the only thing on it that is not a readout. It
-   lives under its own rule at the foot of the card, on the same px-6 inset as
-   the header and the body.
+   The card's one control, and the only thing on it that is not a readout.
 
-   `<Button>` with the DEFAULT variant. It is navigation now, not an actuation:
-   `destructive` is reserved for the control that actually shuts water off, and
-   that control is on the screen this opens. A destructive-red button that only
-   changes route would habituate the user to the colour that matters.
+   `<Button>` with the DEFAULT variant and the DEFAULT size — `h-9 px-4
+   rounded-md`, straight off `button.jsx:49`, with nothing added but `w-full`.
+   It is navigation now, not an actuation: `destructive` is reserved for the
+   control that actually shuts water off, and that control is on the screen
+   this opens. A destructive-red button that only changes route would habituate
+   the user to the colour that matters.
 
    NEW COPY: "Manage valves" — awaiting the owner's approval like every other
    string on this card. */
 function EntryBar({ onOpen }) {
   return (
-    <div
-      className="w-full shrink-0 border-t border-solid border-border px-6 py-[12px]"
-      data-name="valve-entry"
-    >
-      <Button
-        type="button"
-        onClick={() => onOpen(null)}
-        className="h-[44px] w-full rounded-xl text-sm font-semibold"
-        data-valve-entry="true"
-      >
+    <div className="w-full shrink-0 px-6 py-3" data-name="valve-entry">
+      <Button type="button" onClick={() => onOpen(null)} className="w-full" data-valve-entry="true">
         Manage valves
       </Button>
     </div>
@@ -746,16 +662,15 @@ export default function ValveManagementCard({ systems = [], scopeLabel = '', cla
   const navigate = useNavigate()
   /* THE ROUTE IS THE SCOPE — `HomeAllAccounts.jsx:502-515` states that model
      for this whole page, so the card reads the scope off the route exactly as
-     the page does rather than taking a handler prop. That keeps the page's
-     mount untouched and keeps one answer to "what scope am I in".
-     `scopeLabel` is deliberately NOT used to build the URL: on the unscoped
-     routes it is the display string "All Accounts", which is not a location. */
+     the page does rather than taking a handler prop. `scopeLabel` is
+     deliberately NOT used to build the URL: on the unscoped routes it is the
+     display string "All Accounts", which is not a location. */
   const { locationName } = useParams()
 
   const [tick, setTick] = useState(0)
 
-  /* Repaint. See REPAINT in the header: three paths, all of them inbound now,
-     and the tick is what invalidates the memo below. */
+  /* Repaint. See REPAINT in the header: three paths, all inbound now, and the
+     tick is what invalidates the memo below. */
   useEffect(() => {
     const bump = () => setTick((n) => n + 1)
     const onMessage = (ev) => {
@@ -777,12 +692,11 @@ export default function ValveManagementCard({ systems = [], scopeLabel = '', cla
   /* Commanded state wins over the system's own `valve`, resolved HERE rather
      than relied on from the caller: `valveScope.js:21-25` says in as many words
      that a caller wanting commanded state honoured resolves it FIRST and hands
-     the resolved systems in — this is that call site. It matters MORE now than
-     it did when this card did the writing: the write happens on another screen,
-     so without this the readout would report pre-command state after the user
-     came back. `systems` is never mutated: every entry is a fresh object.
-     `tick` is in the deps so a write elsewhere re-resolves, and is read for no
-     other reason. */
+     the resolved systems in — this is that call site. It matters MORE now that
+     the write happens on another screen, or the readout would report
+     pre-command state after the user came back. `systems` is never mutated:
+     every entry is a fresh object. `tick` is in the deps so a write elsewhere
+     re-resolves, and is read for no other reason. */
   const resolved = useMemo(() => {
     void tick
     return (Array.isArray(systems) ? systems : [])
@@ -803,18 +717,16 @@ export default function ValveManagementCard({ systems = [], scopeLabel = '', cla
     return (
       <div className={cn(CARD, className)} data-name="valve-management">
         <Header scopeLabel={scopeLabel} />
-        <div className="w-full px-6 pb-[18px]" data-name="valve-body">
+        <div className="w-full px-6 pb-4" data-name="valve-body">
           {/* NEW COPY, both lines. One honest sentence and its denominator —
-              no donut of a single empty category, no rows, AND NO ENTRY
+              no bar of a single empty category, no tiles, AND NO ENTRY
               CONTROL: there is nothing on the management screen for this scope
               to manage, so offering a way in would be a dead end with a
               chevron on it. Reachable from the live drawer today (Southbridge
               Health; 45 Cedarline Way, 510 Lakeview Dr, 30 Dogwood Dr), not an
               edge case. */}
-          <p className="font-sans text-[15px] leading-[20px] text-foreground">
-            No valves in this scope.
-          </p>
-          <p className="mt-[4px] font-sans text-[13px] leading-[18px] text-muted-foreground">
+          <p className="text-sm leading-5 text-foreground">No valves in this scope.</p>
+          <p className="mt-1 text-sm leading-5 text-muted-foreground">
             {`All ${total} ${plural(total, 'system is', 'systems are')} metering-only.`}
           </p>
         </div>
@@ -822,38 +734,27 @@ export default function ValveManagementCard({ systems = [], scopeLabel = '', cla
     )
   }
 
-  const slices = VALVE_CATEGORIES.map((c) => ({ key: c.key, count: byCategory[c.key].total }))
-  /* The donut's whole readout, as text, for the one `role="img"` that carries
-     it. The arcs say nothing; this does. */
-  const donutLabel =
-    `Valve status across ${total} ${plural(total, 'system', 'systems')}: ` +
-    rows
-      .map((c) => {
-        const b = byCategory[c.key]
-        return b.offline > 0
-          ? `${b.total} ${c.label}, ${b.offline} of them offline`
-          : `${b.total} ${c.label}`
-      })
-      .join('. ') +
-    '.'
+  /* Every category, zero counts included — a zero-count segment renders with
+     `flexGrow: 0` and `min-w-1`, which is 4px of nothing, so the bar is
+     filtered to the non-empty ones for the same reason the tiles are: the
+     floor exists to stop a 1 from vanishing, never to invent a mark for a 0. */
+  const slices = rows.map((c) => ({ key: c.key, count: byCategory[c.key].total }))
 
-  /* n = 1. A part-to-whole of one is a full ring that says nothing the single
-     row does not say better, so the donut is dropped and the row stands alone.
-     (A lone VALVE among valveless systems is a different case and keeps its
-     donut: "1 with a valve, 9 without" is a real proportion, and `total > 1`
-     is exactly that distinction.) */
-  const drawDonut = total > 1
+  /* n = 1. A part-to-whole of one says nothing the single sentence does not
+     say better, so the bar is dropped. (A lone VALVE among valveless systems
+     is a different case and keeps its bar: "1 with a valve, 9 without" is a
+     real proportion, and `total > 1` is exactly that distinction.) */
+  const drawBar = total > 1
 
-  /* Exactly one non-empty category: one series needs no legend — the headline
-     names it — so the rows collapse to a sentence. */
+  /* Exactly one non-empty category: one series needs no legend. */
   const soloKey = rows.length === 1 ? rows[0].key : null
 
   return (
     <div className={cn(CARD, className)} data-name="valve-management">
       <Header scopeLabel={scopeLabel} />
 
-      <div className="w-full px-6 pb-[18px]" data-name="valve-body">
-        {drawDonut ? <Donut slices={slices} centreCount={total} label={donutLabel} /> : null}
+      <div className="w-full px-6 pb-4" data-name="valve-body">
+        {drawBar ? <SegmentedBar slices={slices} /> : null}
 
         {soloKey ? (
           <SoloBody
@@ -863,29 +764,37 @@ export default function ValveManagementCard({ systems = [], scopeLabel = '', cla
           />
         ) : (
           <>
-            <div className="mt-[6px] w-full border-t border-solid border-border" />
-            <ul className="w-full">
+            {/* THE CHART IS THE CONTROL. Two columns rather than four: at a
+                361px card four columns leave ~78px per tile, and
+                "No valve installed" is 18 characters — it would truncate to
+                "No valve in…" on the one tile whose whole job is to say that
+                nothing can be done there. Two columns give ~153px, where every
+                one of the four design words fits on one line.
+
+                A <ul>/<li> grid rather than <ItemGroup>: that primitive is
+                `role="list" flex flex-col`, and a <button> directly inside a
+                role="list" is invalid. See WHY NOT ItemGroup in the header. */}
+            <ul className="mt-3 grid w-full grid-cols-2 gap-2" data-name="valve-stats">
               {rows.map((c) => (
-                <CategoryRow
+                <StatTile
                   key={c.key}
                   categoryKey={c.key}
-                  label={c.label}
                   bucket={byCategory[c.key]}
                   onOpen={openScreen}
                 />
               ))}
             </ul>
-            <div className="w-full border-t border-solid border-border" />
 
-            {/* THE HONEST DENOMINATOR. NEW COPY. Three numbers that are
-                routinely confused with each other and with the centre total,
-                stated side by side so none of them can stand in for another.
-                This line is the last survivor of the owner's offline
-                requirement on this card, and it is why a readout with no
-                buttons is still worth drawing. */}
+            {/* THE HONEST DENOMINATOR, AND THE PLACE OFFLINE LIVES. NEW COPY.
+                Three numbers that are routinely confused with each other,
+                stated side by side so none can stand in for another. The
+                offline total is HERE and not in the bar: an offline system is
+                also open, closed or in error, so a fifth segment would
+                double-count the scope. This line is the last survivor of the
+                owner's offline requirement on this card. */}
             <p
-              className="mt-[10px] font-sans text-[12px] leading-[16px] text-muted-foreground"
-              /* Addressable, because the row counts abut it in `textContent`:
+              className="mt-3 text-sm leading-5 text-muted-foreground"
+              /* Addressable, because the tile counts abut it in `textContent`:
                  a "No valve installed" count of 2 immediately followed by
                  "3 systems with a valve" reads as "23 systems with a valve" to
                  any regex run over the card as a whole, and a test that parses
@@ -900,6 +809,9 @@ export default function ValveManagementCard({ systems = [], scopeLabel = '', cla
         )}
       </div>
 
+      {/* The house `<Separator>` — Radix `Separator.Root`, inline, no portal —
+          rather than a hand-rolled `border-t` div. */}
+      <Separator />
       <EntryBar onOpen={openScreen} />
     </div>
   )

@@ -1557,13 +1557,50 @@ button {
      in `light` and blue-500 in `dark`. Written out rather than var()'d
      for the same reason the other three blocks are: the triplet is
      validated as a set and must not silently follow a semantic token.
-     Checked for the one thing this theme still owes a donut — the three
-     resolve to #61f239, #dbd800 and #ff00c8, which are three colours.
      Its --accent was the other candidate for closed and is not used: it
      resolves to #ff62f7, a magenta all but identical to the #ff00c8
-     above it. */
+     above it.
+
+     ── CLOSED NO LONGER TRACKS --primary, AND WHY (2026-11-02) ──
+     The check this comment used to record — "the three resolve to
+     #61f239, #dbd800 and #ff00c8, which are three colours" — WAS DONE
+     ON HUE ALONE, and that is the one axis it could not be done on.
+     open oklch(0.85 0.25 140) and closed oklch(0.85 0.25 110) had
+     IDENTICAL LIGHTNESS, IDENTICAL CHROMA and 30 degrees of hue between
+     them. Measured: sRGB #61f239 and #dbd800, WCAG relative luminance
+     0.6634 and 0.6417, a ratio of 1.03:1 — effectively no lightness cue
+     at all. What remained was a green-to-yellow hue step, which is the
+     deuteranopia confusion axis: Vienot-1999 + CIEDE2000 puts the pair
+     at delta-E 3.66 simulated, i.e. ONE COLOUR to a deuteranope, and
+     below the 6-8 floor band this file's own :358 note calls the
+     minimum. Three hexes is not three colours.
+
+     THE FIX IS LIGHTNESS, NOT HUE. Hue 110 is kept — re-hueing closed
+     would have walked it into the error magenta or back onto open — and
+     L drops 0.85 -> 0.45, which is the axis a deuteranope still has.
+     Measured after the change: #635800, luminance 0.0963, so
+       open : closed   = 4.88:1   (was 1.03:1)
+       deuteranope dE  = 40.67    (was 3.66)
+     and, as a bonus this theme badly needed, the swatch now clears its
+     own lime --card (#00cb45, luminance 0.4314) at 3.29:1 where open
+     manages 1.48:1. closed vs error (#ff00c8) stays distinct at
+     deuteranope dE 53.06.
+
+     SO closed IS NO LONGER "= its --primary". That equivalence was the
+     SOURCE of the defect — --primary is this block's acid yellow at the
+     same L and C as its --success — and the rule one line up ("must not
+     silently follow a semantic token") is exactly the licence to break
+     it. The instrument's contract is that every token MOVES under
+     ?theme=contrast, which oklch(0.45 0.25 110) still does.
+
+     NOT TOUCHED, and named so it is not re-filed as the same bug: this
+     block's --muted-foreground (cyan on orange, 1.53:1). This theme is
+     documented at :1466-1473 as a deliberately garish diagnostic that
+     "ships to nobody", so a garish pair is arguably by construction.
+     The valve pair was different in kind: the file CLAIMED a check it
+     had not done. */
   --valve-open: oklch(0.85 0.25 140);   /* = its --success */
-  --valve-closed: oklch(0.85 0.25 110); /* = its --primary */
+  --valve-closed: oklch(0.45 0.25 110); /* --primary's hue, 0.40 darker */
   --valve-error: oklch(0.7 0.3 345);    /* = its --severity-high */
 
   --bar-fill-risk: oklch(0.6 0.3 15);

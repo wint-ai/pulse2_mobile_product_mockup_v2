@@ -28,8 +28,11 @@
  * `getBoundingClientRect()` is all zeros, no stylesheet is applied and nothing
  * is painted. So nothing below asserts, or may be read as asserting:
  *   · that the card is visible, or where on the screen it lands;
- *   · that the donut draws, or that its arcs are the right size;
- *   · that any row meets a 44/48px touch target;
+ *   · that the segmented bar draws, or that its segments are the right width;
+ *   · that any tile meets a 44/56px touch target;
+ *   · that the card is ~317px tall (the component's header sums it from its
+ *     class values, down from ~520px before the 2026-11-02 redesign — that is
+ *     arithmetic, not a measurement, and nothing here pretends otherwise);
  *   · that any colour token resolves in any of the four themes.
  * Those are screenshot questions and were checked in a browser instead. What
  * IS assertable here is structure — which element is inside which, in what
@@ -387,6 +390,56 @@ describe('the widget is display only, and offers the way in instead', () => {
     expect(where()).toBe(`/valves/${encodeURIComponent(SUMMIT)}?state=open`)
   })
 
+  /* THE 2026-11-02 REDESIGN, ON THE LIVE PAGE RATHER THAN IN ISOLATION. The
+     donut was replaced by a decorative segmented bar plus a grid of tappable
+     stat tiles; `valveManagementCard.dom.test.jsx` argues that change and
+     proves it against fixtures. What is proved HERE is the part a fixture
+     cannot reach: that against the REAL dataset the bar still never carries a
+     segment for a dimension it cannot hold. Offline is orthogonal — an offline
+     system is also open, closed or in error — so folding it into the bar would
+     make the chart sum to more than the scope it is drawn over. */
+  it('draws a decorative bar whose segments are only the four valve categories', () => {
+    const { container } = renderAt(at(SUMMIT))
+    const card = cardIn(container)
+
+    const bar = card.querySelector('[data-name="valve-bar"]')
+    expect(bar, 'no segmented bar on the live page').toBeTruthy()
+    expect(bar.getAttribute('aria-hidden')).toBe('true')
+    expect(String(bar.className)).toContain('pointer-events-none')
+    expect(within(bar).queryAllByRole('button')).toHaveLength(0)
+
+    const keys = [...bar.querySelectorAll('[data-valve-segment]')].map((s) =>
+      s.getAttribute('data-valve-segment'),
+    )
+    expect(keys.length, 'an empty bar').toBeGreaterThan(0)
+    for (const key of keys) {
+      expect(['error', 'open', 'closed', 'none'], `segment "${key}"`).toContain(key)
+    }
+
+    // The control is the tile, not the chart.
+    const tiles = [...card.querySelectorAll('[data-valve-row]')]
+    expect(tiles.length).toBeGreaterThan(0)
+
+    /* The segments weigh exactly what the tiles count. If offline ever became
+       a fifth segment, or a segment were weighted by anything but its own
+       category count, these two totals would part company. */
+    const segmentSum = [...bar.querySelectorAll('[data-valve-segment]')].reduce(
+      (a, s) => a + Number(s.style.flexGrow),
+      0,
+    )
+    const tileSum = tiles.reduce(
+      (a, t) => a + Number((t.getAttribute('aria-label') ?? '').match(/(\d+)\s+systems?/)?.[1] ?? 0),
+      0,
+    )
+    expect(tileSum, 'no tile states a count').toBeGreaterThan(0)
+    expect(segmentSum, 'the bar and the tiles describe different sets').toBe(tileSum)
+
+    for (const tile of tiles) {
+      expect(tile.tagName.toLowerCase()).toBe('button')
+      expect(bar.contains(tile)).toBe(false)
+    }
+  })
+
   /* Nothing to manage, so no link and no chevron — but still announced, with
      the reason in its name, and NOT the `disabled` attribute. */
   it('leaves the "No valve installed" row inert at every scope it appears in', () => {
@@ -413,14 +466,15 @@ describe('a scope with systems but no valves', () => {
     expect(card.textContent).toMatch(/All \d+ systems? (?:is|are) metering-only\./)
 
     /* NOTHING TO DO, in any of its forms: no bulk bar, no open/close button,
-       no category rows, no donut of a single empty category — and NO WAY IN
+       no category tiles, no bar of a single empty category — and NO WAY IN
        either, because the management screen has nothing here to manage and a
        live-looking button onto an empty screen is a dead end with a chevron
        on it. */
     expect(card.querySelector('[data-name="valve-action-bar"]')).toBeNull()
     expect(card.querySelector('[data-valve-action]')).toBeNull()
     expect(card.querySelector('[data-valve-row]')).toBeNull()
-    expect(card.querySelector('[data-name="valve-donut"]')).toBeNull()
+    expect(card.querySelector('[data-name="valve-bar"]')).toBeNull()
+    expect(card.querySelector('[data-name="valve-stats"]')).toBeNull()
     expect(card.querySelector('[data-valve-entry]')).toBeNull()
 
     expectCleanConsole(at(ZERO_VALVE))

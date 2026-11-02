@@ -46,6 +46,7 @@ import ValveManagementScreen from '@/v2/pages/ValveManagementScreen'
 import { SYSTEMS } from '@/data/systems'
 import { clearValveCommands, getBulkValveHistory } from '@/data/valveCommandStore'
 import {
+  VALVE_CATEGORIES,
   canActuate,
   isReachable,
   summariseValves,
@@ -73,6 +74,11 @@ const SCOPED = inScope(SCOPE)
 const OFFLINE_SYS = SCOPED.find((s) => !isReachable(s) && valveCategoryOf(s) !== 'none')
 const NO_VALVE_SYS = SCOPED.find((s) => valveCategoryOf(s) === 'none')
 const ACTIONABLE_SYS = SCOPED.find((s) => canActuate(s) && s.valve === 'open')
+const ERROR_SYS = SCOPED.find((s) => valveCategoryOf(s) === 'error')
+/** The connectivity the scope's ONE Valve Error system is NOT, so that
+ *  `state=error` plus this connectivity is guaranteed to match zero rows.
+ *  Derived, never hardcoded — see the fixture note at the top of this file. */
+const EMPTY_COMBO_CONNECTIVITY = isReachable(ERROR_SYS) ? 'Offline' : 'Online'
 
 /** A scope with systems but ZERO valves. Picked by predicate, not by name, so
  *  it survives the catalog moving under this file. */
@@ -161,6 +167,33 @@ const boxFor = (container, id) =>
 const actionBar = (container) => container.querySelector('[data-name="valve-action-bar"]')
 const selectAllBar = (container) => container.querySelector('[data-name="valve-select-all"]')
 
+/** Drive the confirm sheet all the way to DISPATCH, on fake timers.
+ *
+ *  The sheet's commit button no longer dispatches on click (2026-11-02): the
+ *  click STARTS a cancel window — WCAG G164, "the user may amend or cancel a
+ *  request" — and `onConfirm` fires when that countdown reaches zero, 8s at
+ *  the small tier. THE SCREEN IS UNCHANGED by that and deliberately so: it
+ *  still hands the sheet `onConfirm={commit}`, and it passes neither
+ *  `skipArmingDelay` nor `skipHold`, for the same reason it never passed the
+ *  first one — the delay IS the feature on the one control in this app that
+ *  shuts water off in occupied buildings.
+ *
+ *  Advanced in ONE-SECOND STEPS rather than one big jump: the countdown
+ *  schedules each next tick from an effect, and effects only flush at the end
+ *  of an `act()`, so a single `advanceTimersByTime(9000)` would fire the first
+ *  tick and then find nothing else scheduled. Stops as soon as the dispatch
+ *  lands, and is bounded so a sheet that never dispatches fails the assertion
+ *  rather than hanging. The sheet's tier constants are ITS business; this
+ *  helper does not name them. */
+function spendTheCancelWindow(container) {
+  for (let i = 0; i < 40; i += 1) {
+    if (container.querySelector('[data-name="valve-result"]')) return
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+  }
+}
+
 describe('ValveManagementScreen — routing and scope', () => {
   it('renders at /valves over the whole fleet', () => {
     const { container } = renderAt('/valves')
@@ -195,18 +228,50 @@ describe('ValveManagementScreen — routing and scope', () => {
 })
 
 describe('ValveManagementScreen — one row per system, with its context', () => {
-  it('draws one row per system, each carrying the name AND the location path', () => {
+  /* THE CONTEXT MOVED, 2026-11-02; IT WAS NOT DROPPED. The old row repeated
+     `path · last known: X · Last seen Y` on a wrapping second line — 61px for
+     EVERY row, with the same address restated for every system at it. The path
+     is now drawn ONCE in a sticky header above the run of rows it describes
+     (redesign point 4), which is what lets the row be one line and is most of
+     why the list went from ~4.9 visible rows to ~11.
+     The owner's requirement is unchanged and is asserted on both routes below:
+     "We need to understand the context of systems." A sighted user reads the
+     path off the sticky header; someone tabbing between checkboxes never sees
+     that header, so it is ALSO spelled into each row's accessible name. */
+  it('draws one row per system; the name is on the row and the location path is on its group header AND in its accessible name', () => {
     const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
     expect(rows(container).length).toBe(SCOPED.length)
 
     for (const s of SCOPED) {
       const row = rowFor(container, s.id)
       expect(within(row).getByText(s.name)).toBeTruthy()
-      // THE CONTEXT. A row that is only a name is not enough to decide
-      // whether to cut its water.
-      expect(row.textContent).toContain(s.l4Name)
-      expect(row.textContent).toContain(s.l2Name)
+
+      // THE HEADER ABOVE THE RUN carries the path, once.
+      const header = row.closest('section')?.querySelector('h2')
+      expect(header).toBeTruthy()
+      expect(header.textContent).toContain(s.l4Name)
+      expect(header.textContent).toContain(s.l2Name)
+
+      // AND THE ROW'S OWN ACCESSIBLE NAME still carries it, for the user who
+      // never sees that header.
+      const name = boxFor(container, s.id).getAttribute('aria-label')
+      expect(name).toContain(s.name)
+      expect(name).toContain(s.l4Name)
+      expect(name).toContain(s.l2Name)
     }
+    expectNoReactError()
+  })
+
+  /* THE HEADER IS STICKY AND IT IS NOT `fixed`. `position: fixed` would escape
+     Phone.jsx's 393x852 overflow:hidden frame, which is the same prohibition
+     that keeps both sheets off Radix portals. happy-dom has no layout engine,
+     so what is assertable is the CLASS that decides it. */
+  it('the group header is sticky inside the scroller, never fixed', () => {
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    const header = container.querySelector('[data-name="valve-rows"] section h2')
+    expect(header).toBeTruthy()
+    expect(String(header.className)).toMatch(/\bsticky\b/)
+    expect(String(header.className)).not.toMatch(/\bfixed\b/)
     expectNoReactError()
   })
 
@@ -241,12 +306,31 @@ describe('ValveManagementScreen — one row per system, with its context', () =>
     const row = rowFor(container, OFFLINE_SYS.id)
 
     expect(row.textContent).toContain('Offline')
-    expect(row.textContent).toMatch(/last known:/)
+    /* Case-insensitive since 2026-11-02: the qualifier is `ValveStateReadout`'s
+       now, and it spells it sentence-case at the head of its own phrase —
+       "Last known: Open" — rather than mid-sentence on a context line. The
+       BEHAVIOUR pinned here is unchanged and is the point: an offline row
+       states a last-known reading AS last-known, never as a live one. */
+    expect(row.textContent).toMatch(/[Ll]ast known:/)
     // the state word itself is VALVE_CATEGORIES', not a local invention
     expect(row.textContent).toContain('Open')
     expect(row.textContent).toMatch(/Last seen/)
     // the product never says "Unreachable"
     expect(row.textContent).not.toMatch(/unreachable/i)
+
+    /* THE ENCODING BUG THAT THIS REDESIGN FIXED, pinned so it cannot come
+       back. The old row drew `{reachable ? <StateBadge/> : <OfflineBadge/>}` —
+       ONE slot — so an offline row showed NO VALVE STATE AT ALL, and tapping
+       the "Open" filter produced rows badged "Offline", contradicting the
+       filter that produced them. The two dimensions are now orthogonal and
+       both are always present: position owns hue and the word, connectivity
+       owns the word "Offline", the age, and the row's ink step. */
+    const readout = row.querySelector('[data-slot="valve-state"]')
+    expect(readout).toBeTruthy()
+    expect(readout.getAttribute('data-state')).toBe(valveCategoryOf(OFFLINE_SYS))
+    expect(readout.getAttribute('data-certainty')).toBe('last-known')
+    // connectivity is NOT a second coloured dot: exactly one swatch in the row
+    expect(row.querySelectorAll('[data-slot="valve-swatch"]').length).toBe(1)
 
     // Still selectable — the user may legitimately want it in the set.
     const box = boxFor(container, OFFLINE_SYS.id)
@@ -319,6 +403,7 @@ describe('ValveManagementScreen — the number rule', () => {
     })
     const sheet = screen.getByRole('alertdialog')
     fireEvent.click(within(sheet).getByRole('button', { name: /^Close 1 valve/ }))
+    spendTheCancelWindow(container)
 
     const banner = container.querySelector('[data-name="valve-result"]')
     expect(banner).toBeTruthy()
@@ -497,11 +582,23 @@ describe('ValveManagementScreen — empty states and chrome', () => {
     expectNoReactError()
   })
 
-  it('every valve swatch keeps its glyph and its text label — the secondary encoding is mandatory', () => {
-    // index.css:358-367: --valve-error against --valve-open is dE 7.6 under
-    // deuteranopia, legal ONLY with secondary encoding; under `contrast`
-    // --valve-open and --valve-closed are two greens. The glyph and the label
-    // are what carry the distinction, so they are pinned here.
+  it('every valve swatch keeps its text label — the secondary encoding is mandatory', () => {
+    /* index.css:358-367: --valve-error against --valve-open is dE 7.6 under
+       deuteranopia, legal ONLY with secondary encoding; under `contrast`
+       --valve-open and --valve-closed are two greens.
+
+       THE SECONDARY ENCODING IS THE WORD, AND SINCE 2026-11-02 IT IS THE WORD
+       ALONE. The `<ValveStatus>` glyph was dropped rather than recoloured,
+       because it was CONTRADICTING the swatch it sat 6px from: that component
+       is deliberately non-themeable (26 frozen paint attributes, the Figma
+       export verbatim), and for the same state the two disagreed — blue glyph
+       for Open beside a green swatch, and the error glyph was the
+       `--destructive` red that index.css:376-381 explicitly rejected for this
+       palette as dE 2.3 from the open green under deuteranopia. Two encodings
+       of one fact that disagree are worse than one encoding. The word is also
+       the only cue that survives at 6px, in every theme, and in a screen
+       reader — so `ValveStateReadout` has no prop and no variant that removes
+       it, and that is what is pinned here. See that file's header in full. */
     const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
     for (const s of SCOPED) {
       if (!isReachable(s)) continue
@@ -510,8 +607,12 @@ describe('ValveManagementScreen — empty states and chrome', () => {
       const label = { error: 'Valve Error', open: 'Open', closed: 'Closed', none: 'No valve installed' }[key]
       // the WORD is present…
       expect(row.textContent).toContain(label)
-      // …and so is the glyph beside it (ValveStatus renders an <svg>)
-      expect(row.querySelectorAll('svg').length).toBeGreaterThan(0)
+      // …beside exactly one swatch, which carries the key as data
+      const readout = row.querySelector('[data-slot="valve-state"]')
+      expect(readout).toBeTruthy()
+      expect(readout.getAttribute('data-state')).toBe(key)
+      expect(readout.getAttribute('data-certainty')).toBe(key === 'none' ? 'not-applicable' : 'live')
+      expect(row.querySelectorAll('[data-slot="valve-swatch"]').length).toBe(1)
     }
     expectNoReactError()
   })
@@ -569,6 +670,188 @@ describe('ValveManagementScreen - the select-all control says exactly what it se
     })
     fireEvent.click(selectAll)
     expect(actionBar(container).textContent).toContain(`${selectable.length} selected`)
+    expectNoReactError()
+  })
+})
+
+/* ── THE 2026-11-02 REDESIGN ─────────────────────────────────────────────
+   The owner: "once someone wants to manage valves, the UI looks very odd...
+   It needs to be much more clear, much more easy to understand to open, close
+   the valves, to see statuses. Currently it's kind of a mess. It needs to be
+   much more simple."
+
+   The measured problem was 509px of fixed chrome in 808px of usable frame —
+   ~4.9 visible rows for a 103-system fleet, i.e. 60% of the screen was
+   furniture. The assertions below pin the structural decisions that bought
+   the rows back, so none of them can be undone by a later tightening. They
+   are all STRUCTURE, never geometry: happy-dom has no layout engine and
+   `getBoundingClientRect()` is all zeros, so this file cannot and does not
+   assert a single pixel. */
+describe('ValveManagementScreen - the counts and the filter are one control', () => {
+  it('each state chip carries its own count, and the summary card that drew them twice is gone', () => {
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    const summary = summariseValves(SCOPED)
+
+    /* The category list used to be drawn THREE times before the user reached a
+       row: the summary card's legend, the chip row, and the filter sheet's
+       "Valve state" group. UK Analysis Function: "Do not use a key, label the
+       categories themselves." So the chip IS the readout and IS the filter. */
+    for (const c of VALVE_CATEGORIES) {
+      const total = summary.byCategory[c.key].total
+      if (total === 0) continue
+      const el = screen.getByRole('radio', { name: c.label })
+      expect(el.textContent).toContain(String(total))
+      /* THE COUNT IS A DESCRIPTION, NOT PART OF THE NAME. A control whose
+         accessible name changes every time the fleet does is a control nothing
+         can address — and every name-based assertion in this file would churn
+         with the catalog. */
+      expect(el.getAttribute('aria-describedby')).toBeTruthy()
+    }
+    // "All" carries the scope total the same way.
+    expect(screen.getByRole('radio', { name: 'All' }).textContent).toContain(
+      String(summary.total),
+    )
+
+    // The 166px card — the single largest piece of chrome — is gone.
+    expect(container.querySelector('[data-name="valve-summary"]')).toBeNull()
+    expectNoReactError()
+  })
+
+  it('the filter sheet no longer draws the valve states a third time', () => {
+    renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }))
+    const sheet = screen.getByRole('dialog', { name: 'Filter valves' })
+
+    // The two axes the chips do NOT cover are still first-class here.
+    expect(within(sheet).getByText('Location')).toBeTruthy()
+    expect(within(sheet).getByText('Connectivity')).toBeTruthy()
+    // The third drawing of the four category words is not.
+    expect(within(sheet).queryByText('Valve state')).toBeNull()
+    expectNoReactError()
+  })
+})
+
+describe('ValveManagementScreen - the "No valve installed" dead end', () => {
+  /* THE DECISION, recorded here as well as in the screen: the CHIP stays, the
+     DEAD END goes. The chip row is now the part-to-whole breakdown as well as
+     the filter, and a breakdown missing a part is a lie about the whole — so
+     the count has to be there. What used to be wrong was the DESTINATION: a
+     list where every row is inert, under a "Select all 0 matching" with a
+     disabled checkbox and a note restating the filter just applied. */
+  it('offers no select-all at all when nothing in the filtered set can be selected, and says why', () => {
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    fireEvent.click(screen.getByRole('radio', { name: 'No valve installed' }))
+
+    const noValve = SCOPED.filter((s) => valveCategoryOf(s) === 'none')
+    expect(noValve.length).toBeGreaterThan(0)
+    expect(rows(container).length).toBe(noValve.length)
+
+    // No disabled control that could never do anything.
+    expect(screen.queryByRole('checkbox', { name: /^Select all/ })).toBeNull()
+    expect(selectAllBar(container)).toBeNull()
+
+    // One sentence instead, naming the reason in VALVE_CATEGORIES' own words.
+    const note = container.querySelector('[data-name="valve-none-selectable"]')
+    expect(note).toBeTruthy()
+    expect(note.textContent).toContain('No valve installed')
+    expect(note.textContent).toContain(String(noValve.length))
+    // and the copy stays literal: never "No valve", never "Fault"
+    expect(note.textContent).not.toMatch(/No valve(?! installed)/)
+
+    // The rows themselves are unchanged: still drawn, still aria-disabled.
+    for (const s of noValve) {
+      expect(rowFor(container, s.id).getAttribute('data-selectable')).toBe('false')
+    }
+    expectNoReactError()
+  })
+})
+
+describe('ValveManagementScreen - the selection strip', () => {
+  /* THE CASE NAIVE IMPLEMENTATIONS DROP. Filter down to nothing with a
+     selection live and the bulk bar unmounts, taking the only route to acting
+     on that selection with it. The action half is keyed on the SELECTION,
+     which no filter touches. */
+  it('stays mounted and actionable when the filter matches nothing but a selection exists', () => {
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    fireEvent.click(rowFor(container, ACTIONABLE_SYS.id))
+    expect(actionBar(container).textContent).toContain('1 selected')
+
+    // state=error AND the connectivity that system is not — zero rows, by
+    // construction rather than by a hardcoded count.
+    fireEvent.click(screen.getByRole('radio', { name: 'Valve Error' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+    const sheet = screen.getByRole('dialog', { name: 'Filter valves' })
+    fireEvent.click(
+      within(sheet).getByRole('checkbox', {
+        name: new RegExp(`^${EMPTY_COMBO_CONNECTIVITY},`),
+      }),
+    )
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Apply filter' }))
+
+    expect(rows(container).length).toBe(0)
+    expect(screen.getByText('No systems match this filter.')).toBeTruthy()
+
+    // THE BAR IS STILL THERE AND STILL ACTS.
+    const bar = actionBar(container)
+    expect(bar).toBeTruthy()
+    expect(bar.textContent).toContain('1 selected')
+    expect(bar.textContent).toContain('1 hidden by the filter')
+    expect(within(bar).getByRole('button', { name: 'Close 1 valve' }).disabled).toBe(false)
+    // and no select-all, because there is nothing matching to select
+    expect(screen.queryByRole('checkbox', { name: /^Select all/ })).toBeNull()
+    expectNoReactError()
+  })
+
+  it('the hidden count is itself the control that clears the filter', () => {
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    fireEvent.click(rowFor(container, ACTIONABLE_SYS.id))
+    fireEvent.click(screen.getByRole('radio', { name: 'Valve Error' }))
+    expect(rowFor(container, ACTIONABLE_SYS.id)).toBeNull()
+
+    /* A number that reports a problem and offers no way out of it makes the
+       user hunt for the filter that caused it. */
+    const unhide = within(actionBar(container)).getByRole('button', {
+      name: '1 hidden by the filter',
+    })
+    fireEvent.click(unhide)
+
+    expect(rows(container).length).toBe(SCOPED.length)
+    expect(rowFor(container, ACTIONABLE_SYS.id)).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'All' }).getAttribute('aria-checked')).toBe('true')
+    const bar = actionBar(container)
+    // the selection was never touched — only what was hiding it
+    expect(bar.textContent).toContain('1 selected')
+    expect(bar.textContent).not.toMatch(/hidden by the filter/)
+    expectNoReactError()
+  })
+
+  it('says why the tri-state box is empty while a selection is live', () => {
+    /* `toggleAllMatching` only ever touches the FILTERED selectable set, so
+       with a selection outside the filter the box reads unchecked while the
+       half below reads "1 selected". Separately correct, together baffling. */
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    fireEvent.click(rowFor(container, ACTIONABLE_SYS.id))
+    fireEvent.click(screen.getByRole('radio', { name: 'Valve Error' }))
+
+    const bar = selectAllBar(container)
+    expect(bar).toBeTruthy()
+    expect(within(bar).getByRole('checkbox').getAttribute('aria-checked')).toBe('false')
+    expect(bar.textContent).toMatch(/None of the 1 you have selected is in this filter/)
+    expect(actionBar(container).textContent).toContain('1 selected')
+    expectNoReactError()
+  })
+
+  it('is ONE surface: select-all and the actions are halves of the same strip', () => {
+    /* They used to be two separately-bordered hand-rolled cards at a radius no
+       real <Card> in this app uses, 48px apart, costing 140px of chrome
+       between them. */
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    fireEvent.click(rowFor(container, ACTIONABLE_SYS.id))
+
+    const strip = container.querySelector('[data-name="valve-selection-strip"]')
+    expect(strip).toBeTruthy()
+    expect(strip.contains(selectAllBar(container))).toBe(true)
+    expect(strip.contains(actionBar(container))).toBe(true)
     expectNoReactError()
   })
 })
@@ -664,6 +947,7 @@ describe('ValveManagementScreen - the sheet is told it is acting over a SELECTIO
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', { name: /^Close 1 valve/ }),
     )
+    spendTheCancelWindow(container)
 
     const [batch] = getBulkValveHistory()
     expect(batch).toBeTruthy()

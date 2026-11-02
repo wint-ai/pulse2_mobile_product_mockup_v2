@@ -112,6 +112,27 @@ export function valveCategoryOf(system) {
 }
 
 /**
+ * May the user put this system in a SELECTION at all? Distinct from
+ * `canActuate`: an offline system stays selectable (it may come back, and the
+ * user may legitimately want it in the set — see `targetsForSelection`), but a
+ * system with no valve never is, because there is nothing there to command.
+ *
+ * MOVED HERE 2026-11-02 from `ValveManagementScreen.jsx:315-317`, unchanged
+ * line for line. It had become a FIFTH eligibility concept living outside this
+ * module, beside `valveCategoryOf` / `isReachable` / `blockedReasonOf` /
+ * `canActuate` — exactly the drift the header's `ignoreGate.js` note is about.
+ * The redesign rebuilds all three valve surfaces; a concept that lives in one
+ * of them is a concept the other two will re-invent slightly differently.
+ *
+ * Asked of `valveCategoryOf` rather than of `system.valve`, so the 'none'
+ * answer is decided in exactly one place (including the absent-system and
+ * `undefined` cases that `valveCategoryOf` already folds into 'none').
+ */
+export function isSelectable(system) {
+  return valveCategoryOf(system) !== 'none'
+}
+
+/**
  * Can a command reach this device at all? `comm` is the field; `offline` is
  * its mirror (`buildTree.js:525,548`), and both are read because a caller may
  * hand us a system assembled somewhere other than buildTree.
@@ -123,6 +144,63 @@ export function valveCategoryOf(system) {
 export function isReachable(system) {
   if (!system) return false
   return system.comm !== 'offline' && system.offline !== true
+}
+
+/**
+ * HOW MUCH WE ACTUALLY KNOW about this valve's state. Added 2026-11-02 for the
+ * redesign; no existing semantics change.
+ *
+ *   'live'           we are talking to the device; `valveCategoryOf` is now.
+ *   'last-known'     the device is unreachable. The category is the LAST value
+ *                    it reported (`buildTree.js:525` keeps it), not a reading.
+ *   'not-applicable' there is no valve. Not unknown — known to be absent.
+ *
+ * WHY A THIRD TOKEN AND NOT A BOOLEAN. The header already states that an
+ * offline system keeps its last-known valve value and still counts in the
+ * chart. What no surface had was a way to SAY so: every row rendered "Open"
+ * for a system we have not heard from in 26 hours, which asserts a live
+ * reading we do not have. A dedicated token for "we cannot see this right now"
+ * is the established convention, not an invention — AWS `DescribeInstanceStatus`
+ * ships a `not-applicable` status alongside its real ones, and Datadog renders
+ * a literal `???` rather than a value when a monitor has no data.
+ *
+ * `not-applicable` beats `last-known` when both could apply: a system with no
+ * valve that is also offline has nothing to report a last-known state ABOUT.
+ * Same precedence as `blockedReasonOf`, which answers 'no-valve' before
+ * 'offline', and for the same reason — tell the user the fact that dominates.
+ *
+ * THIS IS THE CONNECTIVITY DIMENSION AND IT IS NOT A COLOUR. It belongs in the
+ * WORD ("Last known: Open") and in the row's lightness, never in a second
+ * coloured dot. See the Bertin note in `ValveStateReadout.jsx`.
+ */
+export function valveCertaintyOf(system) {
+  if (valveCategoryOf(system) === 'none') return 'not-applicable'
+  return isReachable(system) ? 'live' : 'last-known'
+}
+
+/**
+ * The two orthogonal dimensions of one system's valve, resolved together and
+ * NOT merged: WHAT state (`categoryKey`, the thing that owns hue and the word)
+ * and HOW SURE (`certainty`, the thing that owns the row's lightness and a
+ * qualifier on the word).
+ *
+ * This is the one call `ValveStateReadout` and the three valve surfaces make
+ * per row. `label` is `VALVE_CATEGORIES`' own word — the design's vocabulary,
+ * verbatim (see that constant's note) — and is returned here so no surface has
+ * to rebuild its own `LABEL_OF` map; `ValveManagementCard.jsx` and
+ * `ValveManagementScreen.jsx` had one each.
+ *
+ * `{ categoryKey, certainty, label }` is a plain object with no React in it,
+ * because this module is pure (see the header) and a plain unit test must be
+ * able to assert on it.
+ */
+export function valveReadingOf(system) {
+  const categoryKey = valveCategoryOf(system)
+  return {
+    categoryKey,
+    certainty: valveCertaintyOf(system),
+    label: VALVE_CATEGORIES.find((c) => c.key === categoryKey).label,
+  }
 }
 
 /**

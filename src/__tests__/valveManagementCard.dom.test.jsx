@@ -1,7 +1,31 @@
 // @vitest-environment happy-dom
 //
-// ValveManagementCard — a READ-ONLY donut of valve states across a location or
-// an account, and the way in to the screen that manages them.
+// ValveManagementCard — a READ-ONLY readout of valve states across a location
+// or an account, and the way in to the screen that manages them.
+//
+// ── THE DONUT IS GONE, AND SO ARE ITS CASES (2026-11-02) ─────────────────
+// The owner: "the widget for valves looks too messy. Too much information,
+// it's not organized well, it's too big... It doesn't feel like the ShadCN
+// components." The donut was 162px of a ~520px card — 31% — was not to scale
+// below 1.7%, could not be tapped at any share (no arc reaches 44px radially
+// in a ~28px ring band), and did not encode offline at all. It was replaced by
+// a segmented bar plus a grid of tappable stat tiles. The full argument, and
+// how to put a ring back if the owner overrules it, is in the component's
+// header; it is NOT restated here.
+//
+// THREE CASES DIED WITH IT and were REMOVED, not weakened:
+//   · "one <path data-valve-slice> per non-zero count" — there are no paths.
+//   · "a full ring is two paths under fill-rule evenodd" — there is no ring.
+//   · "no arc is focusable, pressable or exposed to a reader".
+// THE INTENT OF THE THIRD SURVIVES and is re-expressed below as
+// "the bar is decorative, the stat row is the control", because the thing it
+// actually protected is that a chart must not LOOK like a control unless it
+// IS one. The bar is not, so it is inert; the tiles are, so they are buttons.
+//
+// Two more were rewritten as INTENT rather than class strings: the row target
+// (`min-h-[48px]` literal -> "at least 44px, read off whatever class sets it")
+// and the card inset (-> "the three layout boxes share one inset", which is
+// the alignment rule the literal was standing in for).
 //
 // ── WHAT CHANGED, AND WHY THIS FILE LOST HALF ITS CASES ──────────────────
 // This card used to act: tick boxes, an action bar, a confirm sheet, a result
@@ -41,14 +65,22 @@
 // `offsetWidth` is 0, `getBoundingClientRect()` is all zeros, and
 // `fireEvent.click(row)` dispatches straight at the node — it never asks what
 // is painted on top of it or how big the node is. So NOTHING here can catch:
-//   · a 48px row that is actually 31px tall;
-//   · a donut arc that overlaps a row and swallows its taps;
-//   · the chevron being clipped off the end of a long row;
+//   · a 56px tile that is actually 31px tall;
+//   · a bar segment that overlaps a tile and swallows its taps;
+//   · "No valve installed" truncating inside a 153px tile;
 //   · the dE 7.6 deuteranopia pair (index.css:358) being legible in practice.
 // What IS assertable is the ATOM that decides each of those, so that is what
 // is pinned: the class that sets the height, `pointer-events-none` and
-// `aria-hidden` on every arc, and the fact that no arc is a button or
+// `aria-hidden` on the bar, and the fact that no segment is a button or
 // focusable. The real checks for the rest belong in a browser.
+//
+// AND THE CARD'S HEIGHT IS NOT ASSERTED ANYWHERE IN THIS FILE. The component's
+// header sums it to ~317px from its class values, down from the ~520px
+// measured before the redesign. That sum is ARITHMETIC, not a measurement:
+// with no layout engine there is no honest way to assert it here, and a test
+// that re-added the same numbers would only be checking that two files agree
+// about addition. It is left as a browser check and said so plainly, rather
+// than faked with a class-string proxy.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, cleanup, fireEvent, screen, within } from '@testing-library/react'
@@ -362,74 +394,131 @@ describe('ValveManagementCard — "No valve installed" is present, not absent', 
   })
 })
 
-describe('ValveManagementCard — the donut is a readout, never a control', () => {
-  /* Measured, not preferred: at a 361px card the ring band is ~28px, so no arc
-     reaches a 44px target radially at ANY share, and along the arc a slice
-     needs >=11.5% to get 44px of length. Closed and Error never do. So the
-     arcs are inert and every control is a row. */
-  it('draws no arc that is focusable, pressable, or exposed to a reader', () => {
+describe('ValveManagementCard — the bar is decorative, the stat row is the control', () => {
+  /* THE SURVIVING INTENT of the deleted arc case, re-expressed. The rule it
+     protected was never "arcs specifically": it was that a chart must not LOOK
+     like a control unless it IS one. The donut failed that from the other
+     side — it looked like a target and could not be one, because at a 361px
+     card the ring band is ~28px and no arc reaches 44px radially at ANY share.
+     The bar settles it by being honestly inert, and the tiles settle it by
+     being honestly buttons. */
+  it('exposes the bar to nothing — not a reader, not a pointer, not the tab order', () => {
     const { container } = mount(card())
-    const donut = container.querySelector('[data-name="valve-donut"]')
-    expect(donut).not.toBeNull()
+    const bar = container.querySelector('[data-name="valve-bar"]')
+    expect(bar, 'no segmented bar').not.toBeNull()
 
-    // The whole readout lives on the svg, as one image with a real label.
-    expect(donut.getAttribute('role')).toBe('img')
-    expect(donut.getAttribute('aria-label')).toMatch(/Valve status across 9 systems/)
-    expect(donut.getAttribute('aria-label')).toMatch(/5 Open, 1 of them offline/)
+    /* Inert twice over, and silent: every number and word it could announce is
+       already text in the stat tiles below it, so a reader that saw both would
+       read the whole scope twice. */
+    expect(bar.getAttribute('aria-hidden')).toBe('true')
+    expect(String(bar.className)).toContain('pointer-events-none')
+    expect(bar.textContent).toBe('')
 
-    const arcs = [...donut.querySelectorAll('path')]
-    expect(arcs.length).toBe(4)
-    for (const arc of arcs) {
-      expect(arc.getAttribute('aria-hidden')).toBe('true')
-      expect(String(arc.getAttribute('class'))).toContain('pointer-events-none')
-      expect(arc.hasAttribute('tabindex')).toBe(false)
-      expect(arc.getAttribute('focusable')).toBe('false')
-      expect(arc.tagName.toLowerCase()).not.toBe('button')
+    for (const seg of bar.querySelectorAll('[data-valve-segment]')) {
+      expect(seg.tagName.toLowerCase()).not.toBe('button')
+      expect(seg.hasAttribute('tabindex')).toBe(false)
+      expect(seg.hasAttribute('onclick')).toBe(false)
     }
-
-    // No button of any kind lives inside the chart.
-    expect(within(donut).queryAllByRole('button')).toHaveLength(0)
+    expect(within(bar).queryAllByRole('button')).toHaveLength(0)
     for (const btn of screen.queryAllByRole('button')) {
-      expect(donut.contains(btn)).toBe(false)
+      expect(bar.contains(btn), 'a control ended up inside the chart').toBe(false)
     }
   })
 
-  /* The minimum-arc floor: a non-zero count may never round to zero area. Here
-     the Error slice is 1 of 9 (40deg) so it is well clear, but the floor must
-     still never MANUFACTURE a slice — the two empty categories in a
-     single-state scope must draw nothing at all. */
-  it('draws a slice for every non-zero count and none for a zero one', () => {
+  /* THE OTHER HALF, and the thing the donut could never do at any size: the
+     chart is a CONTROL now. Every category the card draws is a button, and
+     pressing it filters the list. */
+  it('makes every drawn category a real button, and the bar their only decoration', () => {
     const { container } = mount(card())
-    const donut = container.querySelector('[data-name="valve-donut"]')
-    expect(
-      [...donut.querySelectorAll('path')].map((p) => p.getAttribute('data-valve-slice')),
-    ).toEqual(['error', 'open', 'closed', 'none'])
 
-    cleanup()
-    const solo = mount(
+    const tiles = [...container.querySelectorAll('[data-valve-row]')]
+    expect(tiles).toHaveLength(4)
+    for (const tile of tiles) {
+      expect(tile.tagName.toLowerCase(), tile.getAttribute('data-valve-row')).toBe('button')
+    }
+
+    /* Nothing else on the card is a control except the way in — so there is no
+       third thing competing with the tiles for the reader's attention. */
+    const buttons = screen.getAllByRole('button')
+    expect(buttons).toHaveLength(5)
+    expect(buttons.filter((b) => b.hasAttribute('data-valve-entry'))).toHaveLength(1)
+  })
+
+  /* The visibility floor is flexbox's (`min-w-1` on a `basis-0` segment with
+     `flexGrow: count`), not an arc algorithm's — but the rule it serves is the
+     same one the donut's MIN_SWEEP_DEG served: a non-zero count may never
+     round to nothing, and the floor must never MANUFACTURE a mark for a zero.
+     So the segments are exactly the non-empty categories, in the design's
+     order, each weighted by its own count. */
+  it('draws one segment per non-zero count, in order, weighted by that count', () => {
+    const { container } = mount(card())
+    const segments = [...container.querySelectorAll('[data-valve-segment]')]
+
+    expect(segments.map((s) => s.getAttribute('data-valve-segment'))).toEqual(
+      VALVE_CATEGORIES.map((c) => c.key),
+    )
+    // MIXED: error 1 · open 5 · closed 1 · none 2.
+    expect(segments.map((s) => s.style.flexGrow)).toEqual(['1', '5', '1', '2'])
+    for (const seg of segments) {
+      expect(String(seg.className), 'the visibility floor').toContain('min-w-1')
+    }
+  })
+
+  it('draws no segment at all for a category with a zero count', () => {
+    const { container } = mount(
       <ValveManagementCard
         systems={[on('a', 'A', 'open'), on('b', 'B', 'open'), on('c', 'C', 'open')]}
         scopeLabel="Tel Aviv HQ"
       />,
     )
-    const ring = solo.container.querySelector('[data-name="valve-donut"]')
-    const paths = [...ring.querySelectorAll('path')]
-    expect(paths).toHaveLength(1)
-    expect(paths[0].getAttribute('data-valve-slice')).toBe('open')
-    /* A 360deg sweep is the case a naive arc generator collapses to an empty
-       path — and it is the MOST COMMON state this card will ever draw, so a
-       blank chart there is not an edge case. It is drawn as an evenodd annulus
-       instead, so the full ring has to be non-trivial and carry the fill rule. */
-    expect(paths[0].getAttribute('fill-rule')).toBe('evenodd')
-    expect(paths[0].getAttribute('d').length).toBeGreaterThan(40)
+    const segments = [...container.querySelectorAll('[data-valve-segment]')]
+    expect(segments).toHaveLength(1)
+    expect(segments[0].getAttribute('data-valve-segment')).toBe('open')
   })
 
-  /* The row's 48px is the only target that matters, and happy-dom cannot
-     measure it — so the CLASS that sets it is what is pinned. */
-  it('gives every navigating row the full-size target class', () => {
+  /* OFFLINE IS NOT A SEGMENT, AND MUST NOT BECOME ONE. An offline system is
+     ALSO open, closed or in error — it is already inside one of the four
+     segments — so a fifth segment would count it twice and make the bar sum to
+     more than the scope. It belongs to the muted denominator line instead,
+     which is where this asserts it is. */
+  it('keeps the offline count outside the segmented bar', () => {
     const { container } = mount(card())
-    for (const key of ['error', 'open', 'closed']) {
-      expect(String(rowFor(container, key).className)).toContain('min-h-[48px]')
+
+    const keys = [...container.querySelectorAll('[data-valve-segment]')].map((s) =>
+      s.getAttribute('data-valve-segment'),
+    )
+    const known = VALVE_CATEGORIES.map((c) => c.key)
+    expect(keys.every((k) => known.includes(k)), `a segment outside the four: ${keys}`).toBe(true)
+    expect(keys).not.toContain('offline')
+
+    // The segments sum to the scope, not to the scope plus its offline systems.
+    const sum = [...container.querySelectorAll('[data-valve-segment]')].reduce(
+      (a, s) => a + Number(s.style.flexGrow),
+      0,
+    )
+    expect(sum, 'the bar double-counts if offline is folded in').toBe(9)
+
+    // And the count itself is stated — as a muted line, outside the chart.
+    const denominator = container.querySelector('[data-name="valve-denominator"]')
+    expect(denominator.textContent).toContain('1 offline')
+    expect(String(denominator.className)).toContain('text-muted-foreground')
+    expect(container.querySelector('[data-name="valve-bar"]').contains(denominator)).toBe(false)
+  })
+
+  /* THE TOUCH TARGET, AS A RULE RATHER THAN A STRING. The old case asserted the
+     literal `min-h-[48px]`, which pinned a spelling instead of a requirement
+     and would have failed a move onto the Tailwind scale that changed nothing
+     about the target. What matters is 44px (WCAG 2.5.5 / the house floor), so
+     that is what is read — off whichever `min-h-*` class sets it. */
+  it('gives every stat tile a touch target of at least 44px', () => {
+    const { container } = mount(card())
+    for (const key of ['error', 'open', 'closed', 'none']) {
+      const cls = String(rowFor(container, key).className)
+      const scaleStep = cls.match(/(?:^|\s)min-h-(\d+(?:\.\d+)?)(?:\s|$)/)?.[1]
+      const literal = cls.match(/(?:^|\s)min-h-\[(\d+)px\](?:\s|$)/)?.[1]
+      const px = scaleStep ? Number(scaleStep) * 4 : Number(literal)
+      expect(Number.isFinite(px), `${key} declares no minimum height: ${cls}`).toBe(true)
+      expect(px, `${key} tile is under the 44px floor`).toBeGreaterThanOrEqual(44)
     }
   })
 })
@@ -461,10 +550,11 @@ describe('ValveManagementCard — the states that must be real', () => {
     expect(container.textContent).toContain('No valves in this scope.')
     expect(container.textContent).toContain('All 3 systems are metering-only.')
 
-    // No donut of one empty category, no rows, and NO entry control: the
+    // No bar of one empty category, no tiles, and NO entry control: the
     // management screen has nothing here to manage, so a way in would be a
     // dead end with a chevron on it.
-    expect(container.querySelector('[data-name="valve-donut"]')).toBeNull()
+    expect(container.querySelector('[data-name="valve-bar"]')).toBeNull()
+    expect(container.querySelector('[data-name="valve-stats"]')).toBeNull()
     expect(container.querySelectorAll('[data-valve-row]')).toHaveLength(0)
     expect(entry(container)).toBeNull()
     expect(screen.queryAllByRole('button')).toHaveLength(0)
@@ -494,7 +584,7 @@ describe('ValveManagementCard — the states that must be real', () => {
     const { container } = mount(
       <ValveManagementCard systems={[on('solo', 'Solo', 'closed')]} scopeLabel="One Place" />,
     )
-    expect(container.querySelector('[data-name="valve-donut"]')).toBeNull()
+    expect(container.querySelector('[data-name="valve-bar"]')).toBeNull()
     expect(container.textContent).toContain('All 1 system is Closed.')
     expect(screen.getByRole('button').textContent).toBe('Manage valves')
   })
@@ -510,8 +600,8 @@ describe('ValveManagementCard — the states that must be real', () => {
       />,
     )
     // The chart is still drawn, at full colour, over both real states.
-    const donut = container.querySelector('[data-name="valve-donut"]')
-    expect([...donut.querySelectorAll('path')]).toHaveLength(2)
+    const segments = [...container.querySelectorAll('[data-valve-segment]')]
+    expect(segments.map((s) => s.getAttribute('data-valve-segment'))).toEqual(['open', 'closed'])
     expect(rowFor(container, 'open').textContent).toMatch(/2 offline/)
 
     // The rows count all three; the denominator says none of them is reachable.
@@ -543,8 +633,13 @@ describe('ValveManagementCard — the frame', () => {
      this card's OWN layout boxes: the header, the body and the entry bar must
      all sit on the same horizontal inset. (The scan is deliberately not
      "every element with a px-* class": the shadcn Button base carries px-4 of
-     its own, and the rows carry px-0 because the row IS the full-bleed target.
-     Neither is a card inset.) */
+     its own, and a stat tile carries px-2, which is the TILE's padding inside
+     the inset rather than a card inset. Neither is one.)
+
+     THE NUMBER IS NOT ARBITRARY AND IS NOT THIS CARD'S TO PICK: step 6 = 24px
+     is the inset every sibling in the Home stack uses, so the six cards' titles
+     line up down the column. A 16/24 mix is the "positions look broken"
+     report, and it is the alignment — not the spelling — that this pins. */
   it('keeps one inset for the header, the body and the entry bar', () => {
     const { container } = mount(card())
 
@@ -584,19 +679,51 @@ describe('ValveManagementCard — the frame', () => {
   })
 
   /* index.css:358-367 — --valve-error against --valve-open is dE 7.6 under
-     deuteranopia, which is legal ONLY WITH SECONDARY ENCODING. The glyph and
-     the text label beside each swatch ARE that encoding. The strip took the
-     tick box off these rows; this test exists to fail whoever lets it take one
-     of these two with it. */
-  it('never lets a swatch be the only cue on a row', () => {
+     deuteranopia, which is legal ONLY WITH SECONDARY ENCODING. WCAG 1.4.1.
+     This test exists to fail whoever drops that encoding to tighten the card.
+
+     WHAT CHANGED 2026-11-02, AND WHY IT IS STRONGER NOW. The old form demanded
+     a `<ValveStatus>` GLYPH beside the swatch as well as the word. That glyph
+     was removed, deliberately: it painted the same state in a DIFFERENT colour
+     from the swatch six pixels away (open = green dot + blue glyph; error =
+     pink dot + #FB2C36 red glyph — the exact red `index.css:376-381` rejected
+     as the valve error colour at dE 2.3 under deuteranopia). Two encodings of
+     one fact that disagree are worse than one. THE WORD IS THE SECONDARY
+     ENCODING and always was the half doing the work: it survives at 6px, in
+     every theme and in a screen reader, where a glyph does none of those. So
+     the assertion is now on the word, and on the ONE atom that is allowed to
+     emit a colour cue on this card. */
+  it('never lets a colour chip be the only cue on a tile', () => {
     const { container } = mount(card())
     for (const key of ['error', 'open', 'closed', 'none']) {
       const row = rowFor(container, key)
-      // The glyph (ValveStatus.jsx:112, the product's own valve artwork).
-      expect(row.querySelector('svg')).not.toBeNull()
-      // And the word, which is the other half of the encoding.
+
+      /* The one atom. If a second colour cue ever reappears beside it, this is
+         the line to extend — not the one to delete. */
+      const readout = row.querySelector('[data-slot="valve-state"]')
+      expect(readout, `${key} tile renders no ValveStateReadout`).not.toBeNull()
+      expect(readout.getAttribute('data-state')).toBe(key)
+      expect(readout.querySelector('[data-slot="valve-swatch"]')).not.toBeNull()
+
+      // And the word, which is what makes the palette legal.
       const label = VALVE_CATEGORIES.find((c) => c.key === key).label
-      expect(row.textContent).toContain(label)
+      expect(readout.textContent).toContain(label)
+    }
+  })
+
+  /* The glyph's REMOVAL, pinned — so it cannot drift back in beside the chip
+     and re-create the collision described above. `ValveStatus.jsx` itself is
+     untouched and still serves the per-system card; it is only this surface
+     that must not draw it. */
+  it('draws no second state glyph beside the chip', () => {
+    const { container } = mount(card())
+    const stats = container.querySelector('[data-name="valve-stats"]')
+    /* The only svg left inside the stat grid is the chevron, and it is on the
+       three navigating tiles. Anything else is a second encoding. */
+    const svgs = [...stats.querySelectorAll('svg')]
+    expect(svgs).toHaveLength(3)
+    for (const svg of svgs) {
+      expect(svg.hasAttribute('data-valve-chevron'), String(svg.getAttribute('class'))).toBe(true)
     }
   })
 })
