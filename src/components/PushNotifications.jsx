@@ -130,7 +130,32 @@ function applyDataLayerSideEffects(event) {
 // is tighter than a card list's. That density is one of the things that makes
 // the surface read as system chrome, so it is preserved — named, not scattered.
 const OS_CARD_INSET = 'px-[14px] py-[12px]';   // tighter than the app's card inset
-const APP_CARD_INSET = 'px-[12px] py-[10px]';  // the in-app banner, a Wint surface
+/* THE SAME TWO INSETS, SPLIT AT THE ACTION ROW (2026-11-02 — the owner's
+   "currently tell us more wired to system screen instead of the feedback
+   screen"). The three surfaces whose body tap NAVIGATES all drew the action
+   row INSIDE the element carrying that tap, so the row's own box — the gap
+   between the two pills, the 8px above it and the card's bottom inset below
+   it — dispatched 'view'. Only the pills call stopPropagation; everything
+   between and around them fell through, and on the End-of-Leak push 'view'
+   goes to ?focus=event, whose overlay has no concluded-event layout and so
+   leaves the user looking at the System page with nothing opened. That is the
+   report, exactly.
+
+   The tap region now ends where the text does, and the row sits beside it
+   rather than within it. The halves carry the inset between them — the top
+   half keeps the horizontal and top padding, the bottom half the horizontal
+   and bottom — so every surface renders to the same pixels it did before, and
+   NOTHING is removed: the body tap, the View button and the second path into
+   the app all stay exactly as the owner settled them earlier today.
+
+   The app half has no undivided twin left — the in-app banner was its only
+   caller — so APP_CARD_INSET is gone rather than kept as a dead name. The OS
+   one stays: LockCard still takes it whole, because its body tap EXPANDS
+   instead of navigating and so has nothing to fall through to. */
+const OS_CARD_INSET_BODY = 'px-[14px] pt-[12px]';
+const OS_CARD_INSET_ACTIONS = 'px-[14px] pb-[12px]';
+const APP_CARD_INSET_BODY = 'px-[12px] pt-[10px]';
+const APP_CARD_INSET_ACTIONS = 'px-[12px] pb-[10px]';
 const CARD_STACK_GAP = 'mb-[8px]';             // tighter than a card list's stack
 const TITLE_GAP = 'gap-[10px]';                // already matches the app's title gap
 const HEADER_GAP = 'gap-[8px]';                // title <-> timestamp, and the pill row
@@ -211,7 +236,7 @@ function NotifActions({ notification: n, onAction, dark = false }) {
   // leaves 16 of the 17 catalogue cards pixel-identical to what the owner has
   // already seen. It is also the density these surfaces are built on: an OS
   // notification is denser than an app card, which is why OS_CARD_INSET is
-  // tighter than APP_CARD_INSET and CARD_STACK_GAP is tighter than a card
+  // tighter than the APP_CARD_INSET_* pair and CARD_STACK_GAP is tighter than a card
   // list's. So this row is 32px while the in-app banner's is 34px, and
   // px-[6px] / gap-[6px] stay tighter than the banner's 8px. THAT GAP IS
   // DELIBERATE PLATFORM MIMICRY, NOT DRIFT — do not "align" it later.
@@ -680,8 +705,9 @@ function ShadeCard({ notification: n, onAction, version }) {
       {/* iOS anatomy — see LockCard. The body tap dispatches 'view' AND the
           View button does too: the owner chose to keep both (2026-11-02, see
           handleAction). NotifActions' buttons stopPropagation, so a button tap
-          fires once, not twice. */}
-      <div onClick={() => onAction('view', n)} className={cn('cursor-pointer', OS_CARD_INSET)}>
+          fires once, not twice — but only the BUTTONS do, which is why the row
+          is no longer inside this element. See OS_CARD_INSET_BODY. */}
+      <div onClick={() => onAction('view', n)} className={cn('cursor-pointer', OS_CARD_INSET_BODY)}>
         <div className={cn('flex items-center', TITLE_GAP)}>
           <AppIcon />
           {SHOW_CATEGORY_DISC && <CategoryCircle notification={n} />}
@@ -700,6 +726,8 @@ function ShadeCard({ notification: n, onAction, version }) {
             )}
           </div>
         </div>
+      </div>
+      <div className={OS_CARD_INSET_ACTIONS}>
         <NotifActions notification={n} onAction={onAction} dark />
       </div>
     </div>
@@ -768,7 +796,7 @@ function InAppBanner({ notification: n, onAction, onDismiss, version }) {
         {/* iOS anatomy — see LockCard. Body tap navigates; see ShadeCard. */}
         <div
           onClick={() => { if (swipedRef.current) { swipedRef.current = false; return; } onAction('view', n); }}
-          className={cn('cursor-pointer', APP_CARD_INSET)}>
+          className={cn('cursor-pointer', APP_CARD_INSET_BODY)}>
           <div className={cn('flex items-center', TITLE_GAP)}>
             <AppIcon />
             {SHOW_CATEGORY_DISC && <CategoryCircle notification={n} />}
@@ -793,6 +821,8 @@ function InAppBanner({ notification: n, onAction, onDismiss, version }) {
               )}
             </div>
           </div>
+        </div>
+        <div className={APP_CARD_INSET_ACTIONS}>
           <NotifActions notification={n} onAction={onAction} />
         </div>
       </div>
@@ -823,7 +853,7 @@ function HeadsUpNotification({ notification: n, onAction, version }) {
     <div className="absolute top-[30px] right-[8px] left-[8px] z-[350] animate-[bannerIn_0.3s_ease]">
       <div className="overflow-hidden rounded-[18px] bg-card [box-shadow:var(--shadow-overlay)]">
         {/* iOS anatomy — see LockCard. Body tap navigates; see ShadeCard. */}
-        <div onClick={() => onAction('view', n)} className={cn('cursor-pointer', OS_CARD_INSET)}>
+        <div onClick={() => onAction('view', n)} className={cn('cursor-pointer', OS_CARD_INSET_BODY)}>
           <div className={cn('flex items-center', TITLE_GAP)}>
             <AppIcon />
             {SHOW_CATEGORY_DISC && <CategoryCircle notification={n} />}
@@ -840,6 +870,8 @@ function HeadsUpNotification({ notification: n, onAction, version }) {
               )}
             </div>
           </div>
+        </div>
+        <div className={OS_CARD_INSET_ACTIONS}>
           <NotifActions notification={n} onAction={onAction} />
         </div>
       </div>
