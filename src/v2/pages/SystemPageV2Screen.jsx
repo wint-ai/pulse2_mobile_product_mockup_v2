@@ -138,7 +138,7 @@ import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import AlertCard from '@/v2/components/AlertCard'
 import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
-import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
+import EventsTimelineCard, { TAG_CHIP_LABEL } from '@/v2/components/EventsTimelineCard'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import SystemTypeCard from '@/v2/components/SystemTypeCard'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
@@ -660,17 +660,60 @@ export default function SystemPageV2Screen() {
        current + history events; they are mapped into the shape the card reads.
        kind drives the avatar tint (KIND_TONE has water | network), and the
        badge is derived from `resolved` rather than invented per row. */
-    const timeline = (getEventsForSystem(sys.id) ?? []).map(ev => ({
-      id: ev.id,
-      kind: String(ev.type ?? '').startsWith('leak') ? 'water' : 'network',
-      title: ev.title,
-      description: ev.detail,
-      timestamp: ev.timestamp,
-      notifications: ev.notifications,
-      badge: ev.resolved
-        ? { label: 'Ended', tone: 'ended' }
-        : { label: 'Ongoing', tone: 'warning' },
-    }))
+    const timeline = (getEventsForSystem(sys.id) ?? []).map(ev => {
+      const kind = String(ev.type ?? '').startsWith('leak') ? 'water' : 'network'
+      return {
+        id: ev.id,
+        kind,
+        title: ev.title,
+        description: ev.detail,
+        timestamp: ev.timestamp,
+        notifications: ev.notifications,
+        badge: ev.resolved
+          ? { label: 'Ended', tone: 'ended' }
+          : { label: 'Ongoing', tone: 'warning' },
+        /* THE TAG CHIP'S PREDICATE — owner, 2026-11-02:
+             "Okay, now we need to add another flow. Same flow as tell us more
+              from the push notification. Needs to be exists on the events
+              timeline on the events that calls like high flow or low flow
+              ended. So user can get to the same flow even the event is ended.
+              Just add it there."
+           He described the rows by their TITLES ("high flow or low flow
+           ended"). This matches on TYPE + `resolved` instead, because a title
+           is display text and classifyEvent.js already carries the scar of the
+           naive title match (/low/ matched the 'flow' in 'high flow' and
+           relabelled every high-flow event as low).
+
+           THE PREDICATE: kind === 'water' && ev.resolved — the same two facts
+           that already decide the avatar tint and the 'Ended' badge one line
+           up, so the chip cannot disagree with the badge beside it.
+
+           WHAT IT MATCHES, exactly. getEventsForSystem runs every row through
+           events.js `_toLifeEventType`, which rewrites a RESOLVED 'leak-high' |
+           'leak-low' to 'leak-resolved' and a resolved non-water row to
+           'valve-resolved' | 'power-restored' | 'device-online'. Only
+           'leak-resolved' both starts with 'leak' and is resolved, so this
+           predicate is exactly `type === 'leak-resolved'` on today's data —
+           written as the two facts rather than the one string so it keeps
+           holding if upstream adds 'leak-resolved-we' (classifyEvent.js already
+           knows that type) or any other ended water variant.
+
+           WHY NOT THE NON-WATER ENDED ROWS. The sheet's five verdicts are all
+           about water; "Leak" / "Water Waste" are nonsense against a
+           connectivity-restored or power-restored row, so those keep no chip.
+
+           WHERE IT LANDS TODAY: generateEvents.js builds exactly one HISTORY
+           event per system and it is always a resolved leak-high / leak-low, so
+           EVERY system route has exactly one chipped row. CURRENT_EVENTS are
+           always `resolved: false`, so no ongoing row ever gets one.
+
+           THE LABEL comes from the card, which took it from Figma 199532:89945.
+           This file does not spell it — see TAG_CHIP_LABEL for the three-way
+           divergence between `Tag`, the push's "Tell us more" and PRD 15
+           §7.1's "Tag the cause". */
+        ...(kind === 'water' && ev.resolved ? { tag: TAG_CHIP_LABEL } : null),
+      }
+    })
 
     const insights = getSystemInsights(sys.id) ?? []
     const topology = getSystemTopology(sys.id, sys.name) ?? null
@@ -2172,11 +2215,41 @@ export default function SystemPageV2Screen() {
                          `events` is what stops the card falling back to
                          MOCK_EVENTS; [] is a legitimate state and the card
                          draws its own empty view for it. */
+                      /* THE SECOND WAY INTO THE EVENT-ENDED FLOW, 2026-11-02.
+                         The push's "Tell us more" CTA deep-links here with
+                         ?action=tag and this page answers it above with
+                         setShowTagFeedback(true). An ended water event sitting
+                         in the timeline now reaches THE SAME CALL — not a
+                         route, not a second sheet mount: the sheet is already
+                         mounted at the foot of this file and the timeline is
+                         already on its page.
+
+                         IT TAKES NO EVENT ID, and that is deliberate. The chip
+                         hands one over (`onTagEvent(eventId, event)`) and this
+                         closure drops it, because `eventEndedKey` is
+                         tagEventKey(system.id) — SYSTEM-keyed. PRD 15 §10.4
+                         called that wrong in June and locked event-ID keying;
+                         it was never done. Re-keying it HERE would silently
+                         split what the push path writes from what this one
+                         writes, which is an owner-level decision, not a side
+                         effect of adding a chip. So both paths keep writing
+                         under the one key and stay consistent.
+
+                         THE COST, stated plainly: tagging one ended event from
+                         the timeline is NOT distinguishable from tagging
+                         another on the same system — the answers stack under
+                         the one `<systemId>:event-ended` key. Nothing reads a
+                         done-state off that key any more (PushNotifications'
+                         hasTagFeedback read was struck earlier today and no
+                         live caller replaced it), so no surface goes stale and
+                         no chip closes itself; the only loss is per-event
+                         attribution inside the store. */
                       return (
                         <EventsTimelineCard
                           key={key}
                           events={system.timeline}
                           tone={alerting ? 'alert' : 'calm'}
+                          onTagEvent={() => setShowTagFeedback(true)}
                         />
                       )
                     }

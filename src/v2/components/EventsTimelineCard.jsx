@@ -430,6 +430,22 @@ const TEXT_BLOCK = String.raw`content-stretch flex flex-col gap-1.5 items-start 
 /** Footer "Unit wrapper" — I…;101006:7299;199383:141706. */
 const UNIT_WRAPPER = String.raw`content-stretch flex gap-0.5 items-center justify-between relative shrink-0 w-full`
 
+/**
+ * The Tag chip's label, 199532:89945, exported so the ONE caller that now puts
+ * the chip on real rows (SystemPageV2Screen's timeline mapper) does not retype
+ * it — the same argument eventFeedbackStore makes for `tagEventKey`: a
+ * duplicated literal is how a string and the frame it came from drift apart.
+ *
+ * THE LABEL IS THE FRAME'S, NOT THE PUSH'S, and the divergence is REPORTED, not
+ * resolved here. Three wordings exist for one destination as of 2026-11-02:
+ *   · `Tag`           — this chip, Figma 199532:89945, what the frame draws;
+ *   · `Tell us more`  — the LE_01 push CTA that reaches the same sheet;
+ *   · `Tag the cause` — PRD 15 §7.1's locked wording.
+ * This file never authors a user-facing string, so it keeps the frame's. One
+ * word is the owner's to change and this is where it would change.
+ */
+export const TAG_CHIP_LABEL = 'Tag'
+
 /** Filter menu. No node in the comp — see the `All` note on the component. */
 const MENU_SHELL = String.raw`absolute right-0 top-[calc(100%+6px)] z-20 bg-card border border-solid border-border content-stretch flex flex-col items-stretch min-w-[132px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
 const MENU_ITEM = String.raw`cursor-pointer flex gap-[8px] h-[32px] items-center justify-between px-[8px] rounded-[8px] text-neutral-900 text-sm text-left w-full hover:bg-slate-100`
@@ -543,7 +559,7 @@ function notificationCount(notifications) {
   return 0
 }
 
-function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
+function EventRow({ event, eventId, index, isLast, isOpen, onToggle, onTagEvent }) {
   const tone = BADGE_TONE[event.badge?.tone] ?? BADGE_TONE.warning
   const canExpand = Boolean(event.steps && event.steps.length)
   const sent = notificationCount(event.notifications)
@@ -741,7 +757,72 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
                 <p className="leading-3 overflow-hidden text-[12px] text-ellipsis">{event.timestamp}</p>
               </div>
 
-              {event.tag ? (
+              {event.tag && onTagEvent ? (
+                /* THE CHIP GOT A DESTINATION — owner, 2026-11-02:
+                     "Okay, now we need to add another flow. Same flow as tell
+                      us more from the push notification. Needs to be exists on
+                      the events timeline on the events that calls like high
+                      flow or low flow ended. So user can get to the same flow
+                      even the event is ended. Just add it there."
+                   PRD 15 §4.3 already named the Timeline the canonical surface
+                   for retrospective tagging, so this is the specified build,
+                   not an invented one. The destination is the caller's:
+                   SystemPageV2Screen hands `onTagEvent` and opens the
+                   WaterEventFeedbackSheet `trigger="event-ended"` mount it
+                   already owns for the push's "Tell us more" CTA. No route, no
+                   second sheet, no new string — see TAG_CHIP_LABEL for the
+                   three-way label divergence this does NOT resolve.
+
+                   WHY THE BRANCH, rather than always a button. v2-page-parity
+                   Rule 0: the OTHER mount of this card (EventFocusOverlay:2765,
+                   whose rows are one event's STEPS, not events) passes no
+                   handler, and neither does a bare mount. Both keep the inert
+                   span below, unchanged, down to the attribute. The chip never
+                   advertises a tap it cannot honour.
+
+                   THE TAP TARGET. BADGE_BASE is the frame's h-[24px] pill, and
+                   24 CSS px meets WCAG 2.2 SC 2.5.8 only exactly while failing
+                   Apple's 44pt and Android's 48dp — the same measurement that
+                   moved WaterEventFeedbackSheet's chips to min-h-[44px] earlier
+                   today. The PILL does not move: an `after:` pseudo takes the
+                   hit box to 24+10+10 = 44px, the house trick SystemTypeCard's
+                   STATUS_HIT already uses. `overflow-visible` is REQUIRED with
+                   it — BADGE_BASE carries `overflow-clip`, which would clip the
+                   pseudo away and silently leave a 24px target. It is visually
+                   inert here because BADGE_LABEL does its own `overflow-hidden
+                   text-ellipsis`. `z-[1]` is load-bearing for the same reason it
+                   is on STATUS_HIT: positioned siblings paint in DOM order and
+                   the pseudo must win the 10px it overhangs.
+
+                   THE EXPANSION BUG THIS CANNOT HAVE. A row's chevron is its
+                   own <button> (above) and the <li> carries NO onClick, so the
+                   chip is already outside the row's tap target — it is in the
+                   footer, a different subtree. stopPropagation is belt and
+                   braces so that a later ancestor handler cannot resurrect the
+                   near-miss that cost three rounds on the push card.
+
+                   THE ACCESSIBLE NAME is composed from two strings that already
+                   exist — the chip's own label and the row's title — so several
+                   ended rows are distinguishable to a screen reader without
+                   anyone authoring copy. Nothing new is spelled here. */
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation()
+                    onTagEvent(eventId, event)
+                  }}
+                  aria-label={event.title ? `${event.tag} ${event.title}` : undefined}
+                  className={cn(
+                    BADGE_BASE,
+                    String.raw`bg-slate-100 border-0 cursor-pointer overflow-visible z-[1] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 after:absolute after:content-[''] after:inset-x-0 after:inset-y-[-10px]`,
+                  )}
+                  data-node-id="199532:89945"
+                  data-name="Tag"
+                >
+                  <span className={cn(BADGE_LABEL, String.raw`text-slate-700`)}>{event.tag}</span>
+                  <PlusSign12 />
+                </button>
+              ) : event.tag ? (
                 /* Deliberately inert: the delivery canvas has no tag-picker node
                    and no handler is passed in, and v2-page-parity Rule 0 forbids
                    inventing a destination. Rendered as a plain element, not a
@@ -808,6 +889,15 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle }) {
  * @param {(next: string) => void} [onSelectPeriod]
  *   Supplied = the parent owns the filter value (the card still opens the menu
  *   and reports the pick). Omitted = the card owns it internally.
+ * @param {(eventId: string, event: object) => void} [onTagEvent]
+ *   Added 2026-11-02. Supplied = the parent owns the `tag` chip's destination
+ *   and the chip becomes a real, keyboard-reachable <button> with a 44px hit
+ *   box. OMITTED = the chip renders exactly as it always has, as an inert
+ *   aria-disabled span — which is what EventFocusOverlay's mount and every bare
+ *   mount keep getting. Same controlled/uncontrolled convention as
+ *   `onToggleExpanded` and `onSelectPeriod` above. Only rows that carry `tag`
+ *   can reach it; deciding WHICH rows carry it is the caller's job, not this
+ *   card's (SystemPageV2Screen's mapper states the predicate).
  */
 export default function EventsTimelineCard({
   events = MOCK_EVENTS,
@@ -817,6 +907,7 @@ export default function EventsTimelineCard({
   tone = 'calm',
   period = ALL,
   onSelectPeriod,
+  onTagEvent,
 }) {
   const [internalExpanded, setInternalExpanded] = useState(() => resolveExpanded(expanded, events))
   const expandedId = onToggleExpanded ? resolveExpanded(expanded, events) : internalExpanded
@@ -1009,6 +1100,7 @@ export default function EventsTimelineCard({
                   isLast={i === visibleEvents.length - 1}
                   isOpen={expandedId === eventId}
                   onToggle={handleToggle}
+                  onTagEvent={onTagEvent}
                 />
               )
             })}
