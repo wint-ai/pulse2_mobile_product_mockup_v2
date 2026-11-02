@@ -217,7 +217,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
-import { CaretDown, Waves } from '@/v2/icons'
+import { CaretDown, ChevronRight16, Waves } from '@/v2/icons'
 import { cn } from '@/lib/utils'
 
 // ── Inlined Figma assets ─────────────────────────────────────────────────────
@@ -427,8 +427,127 @@ const AVATAR_COL = String.raw`content-stretch flex flex-col gap-1 items-center r
 const TEXT_COL = String.raw`content-stretch flex flex-[1_0_0] flex-col gap-[23px] items-start min-w-px relative`
 /** "Text" block — I…;101006:7299;199383:141688. */
 const TEXT_BLOCK = String.raw`content-stretch flex flex-col gap-1.5 items-start relative shrink-0 w-full`
-/** Footer "Unit wrapper" — I…;101006:7299;199383:141706. */
+/**
+ * Footer "Unit wrapper" — I…;101006:7299;199383:141706.
+ *
+ * ── THE FOOTER'S WIDTH BUDGET, 2026-11-02 ───────────────────────────────────
+ * Recorded because TWO changes landed on this one 24px-tall strip the same day
+ * — the chip's label grew (`Tag` → `Tell us more`, see TAG_CHIP_LABEL) and the
+ * row gained a trailing drill column (see ROW_DRILL) — and the second one takes
+ * width away from the first. THERE IS NO BROWSER IN THE SESSION THAT WROTE
+ * THIS: happy-dom has no layout engine and getBoundingClientRect() returns
+ * zeros, so every number below is arithmetic off the class chain, not a
+ * measurement. Treat it as a budget to re-check in a browser, not as proof.
+ *
+ * The chain, on the 393px frame (Phone.jsx):
+ *   393  phone
+ *  −32   the System page's root px-4 (SystemPageV2Screen.jsx:1577)
+ *  =361  card
+ *  −32   CARD_CONTENT px-4
+ *  =329  row
+ *  −24   avatar column          −12 row gap      = 293  text column, as shipped
+ *  −24   NEW drill column       −12 row gap      = 257  text column, after this
+ * UNIT_WRAPPER is w-full inside the text column, so the footer budget is 257px,
+ * less two gap-0.5 (4px) = 253px of content.
+ *
+ * What the widest real ended-water row puts in it, at 12px Figtree:
+ *   timestamp  "Apr 2, 14:35"  (events.js `_formatLifeEventTs`)      ~68px
+ *   the chip   px-2 + label + gap-1 + the 12px `+`  = 32 + ~68      ~100px
+ *   "2 sent"   px-[3px] + bell + gap + label + gap + chevron         ~73px
+ *                                                            total  ~241px
+ * — about 12px inside the budget. `Tag` was ~52px, so the label cost ~48px and
+ * the drill column ~36px: the row went from ~48px of slack to ~12px.
+ *
+ * NOTHING OVERFLOWS, WRAPS OR COLLIDES EVEN IF THAT ESTIMATE IS WRONG, and that
+ * is the point of writing it down rather than trimming anything:
+ *   · the chip is BADGE_BASE `shrink-0` + BADGE_LABEL `whitespace-nowrap`, so
+ *     it takes its full width or nothing — it never wraps to two lines;
+ *   · the timestamp is the ONLY `shrink` child and already carries
+ *     `min-w-px overflow-hidden text-ellipsis whitespace-nowrap`, so it is what
+ *     gives, by ellipsis, with no layout shift;
+ *   · this wrapper is a single-line flex row with no `flex-wrap`.
+ * So the failure mode is a shortened timestamp, not a broken row — and the `+`
+ * glyph is NOT dropped and the label is NOT truncated to buy the space back.
+ * If a browser pass shows the timestamp losing its clock, that is the thing to
+ * take back to the owner, since both halves of the squeeze are his.
+ */
 const UNIT_WRAPPER = String.raw`content-stretch flex gap-0.5 items-center justify-between relative shrink-0 w-full`
+
+/**
+ * ── THE ROW'S DRILL-DOWN — owner, 2026-11-02 ────────────────────────────────
+ *
+ *   "I want to add an option for users to go deep dive into any water events
+ *    from the timeline. To the event overlay or event screen, so once it's
+ *    done, so they can just get back to see what happened, so was notified,
+ *    and some stuff regarding the event. Maybe we can just do it clickable or
+ *    just show more or open, something that looks okay to add to events
+ *    timeline."
+ *
+ * "any water event" — ONGOING OR ENDED, not only ended. The destination is
+ * EventFocusOverlay, which already has a live branch and (since e7ac0ea, the
+ * same day) a concluded one. No route and no second overlay mount: the System
+ * page already mounts it and already opens it from ?focus=event, and this
+ * reuses that opener.
+ *
+ * WHY THE WHOLE ROW, AND WHY A CHEVRON — the affordance is settled, so nobody
+ * re-opens it:
+ *   · Apple's HIG is explicit that the disclosure indicator is THE control for
+ *     drilling into a row's subviews, and that an info button is for revealing
+ *     information ABOUT a row rather than navigating. Oracle's mobile pattern
+ *     library lists tap-row-to-drill-down as the core activity-feed behaviour.
+ *   · Berkeley's accessibility guidance notes that a large click target
+ *     specifically benefits touch users and users with tremors, and recommends
+ *     a chevron so the row READS as navigable.
+ *   · A chevron is an ICON, so it adds no user-facing string. That matters
+ *     here: this file does not author copy, and the one label it does carry is
+ *     the owner's (TAG_CHIP_LABEL).
+ *   · REJECTED: a "View details" / "Show more" text link. UCLA's component
+ *     guidance and Liberogic both make the same point — when every row in a
+ *     list carries the same generic link text, a screen-reader user running the
+ *     links list cannot tell the rows apart. It would also be a second authored
+ *     string, which is not this file's to write.
+ *
+ * SIBLINGS, NOT PARENT AND CHILD — THE REAL CONSTRAINT. The row already holds
+ * an interactive control (the `Tell us more` chip, and on a row with steps the
+ * expand chevron). Wrapping the <li> in a link or button would nest one
+ * interactive element inside another: an `axe-core` `nested-interactive`
+ * violation, and React Native issue #24515 documents iOS VoiceOver failing to
+ * REACH a nested control inside a tappable row while Android reaches it — so it
+ * breaks differently per platform instead of failing loudly. This is therefore
+ * ONE button, a sibling of the others, whose `::after` is stretched over the
+ * row: `position:absolute; inset:0` against the <li>, which already carries
+ * `relative`. The accessibility tree stays flat, there is exactly one
+ * navigation target per row, and the whole row is tappable.
+ *
+ * THE BUTTON MUST NOT BE `relative`. A positioned element is the containing
+ * block for its own pseudo-element, so a `relative` here would shrink the hit
+ * area back to the 24px glyph — silently, since it still LOOKS right. Same
+ * family as the trap the chip hit: BADGE_BASE carries `overflow-clip`, which
+ * clips such a pseudo away. Checked for this one: the <li> has no overflow
+ * atom, nor does the <ul>; CARD_CONTENT's `overflow-x-clip overflow-y-auto` is
+ * the scroller ABOVE the row and the pseudo never leaves its own row.
+ *
+ * `after:bottom-[24px]` ON EVERY ROW BUT THE LAST. TEXT_COL carries pb-[24px]
+ * as the resolved inter-row gap (deviation 1), so `inset-0` would make the
+ * empty 24px BETWEEN two rows open the upper one. The hit area stops at the
+ * content instead; it is still the full row, which is 100+px tall.
+ *
+ * `z-[1]` ON THE SIBLINGS, not on this. Positioned siblings paint in DOM order
+ * and this button is LAST, so its stretched pseudo would cover the chip and the
+ * expand chevron — a 44px chip that silently navigates instead of tagging. The
+ * chip already carries `z-[1]` (it needed it for its own pseudo); the expand
+ * chevron gets one, but ONLY when this control is present, so the
+ * handler-absent markup stays byte-identical.
+ *
+ * NAMED FROM THE ROW'S OWN STRINGS. `${title} ${badge.label}` — both already on
+ * screen, neither authored here. The title alone is NOT enough: a system with a
+ * live leak and its closed history event draws two rows that
+ * generateEvents.js gives the SAME title ("High Flow Water Event", :137 vs
+ * events.js TYPE_TITLE), and two identically-named navigation targets is the
+ * exact defect the rejected "View details" link has. The badge is what tells
+ * them apart, and it is the same word the row shows.
+ */
+const ROW_DRILL = String.raw`self-stretch flex items-center justify-center shrink-0 w-[24px] bg-transparent border-0 p-0 cursor-pointer rounded-[6px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 after:absolute after:content-[''] after:inset-x-0 after:top-0`
 
 /**
  * The Tag chip's label, 199532:89945, exported so the ONE caller that now puts
@@ -436,15 +555,40 @@ const UNIT_WRAPPER = String.raw`content-stretch flex gap-0.5 items-center justif
  * it — the same argument eventFeedbackStore makes for `tagEventKey`: a
  * duplicated literal is how a string and the frame it came from drift apart.
  *
- * THE LABEL IS THE FRAME'S, NOT THE PUSH'S, and the divergence is REPORTED, not
- * resolved here. Three wordings exist for one destination as of 2026-11-02:
+ * THE DIVERGENCE IS SETTLED — OWNER, 2026-11-02. Three wordings existed for one
+ * destination:
  *   · `Tag`           — this chip, Figma 199532:89945, what the frame draws;
  *   · `Tell us more`  — the LE_01 push CTA that reaches the same sheet;
  *   · `Tag the cause` — PRD 15 §7.1's locked wording.
- * This file never authors a user-facing string, so it keeps the frame's. One
- * word is the owner's to change and this is where it would change.
+ * Earlier today this file kept the frame's `Tag` and REPORTED the split, on the
+ * standing rule that it never authors a user-facing string. The owner, looking
+ * at the chip on the timeline the same day:
+ *
+ *   "now when you add the close tag, it just confusing because in other places
+ *    it calls tell us more"
+ *
+ * ("close tag" is dictation noise for this chip.) So the label is now the
+ * PUSH's, `Tell us more`, and the two doors into WaterEventFeedbackSheet's
+ * `trigger="event-ended"` question read the same on both.
+ *
+ * THIS IS A DELIBERATE DIVERGENCE FROM FIGMA AND FROM THE PRD, and it is the
+ * exception the rule allows, not a hole in it: Figma 199532:89945 still draws
+ * `Tag` and PRD 15 §7.1 still locks `Tag the cause`. Neither is wrong-in-the-
+ * file; both are now behind the owner's own word, recorded above with its date.
+ * Nobody may "fix" this back to the frame without a new quote. The same
+ * exception is recorded at the chip's call site and predicate,
+ * SystemPageV2Screen.jsx (search THE TAG CHIP'S PREDICATE).
+ *
+ * MOCK_EVENTS BELOW STILL SPELL `Tag`, DELIBERATELY. Rows 3 and 4 are the FRAME
+ * transcribed (199532:89945 draws `Tag`), they are fixtures for a bare mount,
+ * they never reach a user, and eventsTimelineCard.dom.test.jsx pins them as the
+ * proof that the fixture is frame-verbatim. The owner changed the product's
+ * label, not the drawing.
+ *
+ * THE FIT, measured off the classes rather than a browser — see THE FOOTER'S
+ * WIDTH BUDGET on UNIT_WRAPPER below.
  */
-export const TAG_CHIP_LABEL = 'Tag'
+export const TAG_CHIP_LABEL = 'Tell us more'
 
 /** Filter menu. No node in the comp — see the `All` note on the component. */
 const MENU_SHELL = String.raw`absolute right-0 top-[calc(100%+6px)] z-20 bg-card border border-solid border-border content-stretch flex flex-col items-stretch min-w-[132px] overflow-clip p-[4px] rounded-[12px] shadow-[0px_8px_24px_0px_rgba(15,23,43,0.12)]`
@@ -559,10 +703,17 @@ function notificationCount(notifications) {
   return 0
 }
 
-function EventRow({ event, eventId, index, isLast, isOpen, onToggle, onTagEvent }) {
+function EventRow({ event, eventId, index, isLast, isOpen, onToggle, onTagEvent, onOpenEvent }) {
   const tone = BADGE_TONE[event.badge?.tone] ?? BADGE_TONE.warning
   const canExpand = Boolean(event.steps && event.steps.length)
   const sent = notificationCount(event.notifications)
+  /* Both halves are the caller's, exactly as the chip's are: the handler says
+     this MOUNT has a destination, `event.drillable` says this ROW has one.
+     Deciding WHICH rows do is the caller's job — SystemPageV2Screen's mapper
+     states that predicate — because only the caller knows whether the overlay
+     will resolve anything for the row, and a chevron that navigates nowhere is
+     worse than no chevron. See ROW_DRILL above for the whole decision. */
+  const canDrill = Boolean(onOpenEvent && event.drillable)
 
   const title = (
     /* Figma has `shrink-0 whitespace-nowrap` here; see deviation 4.
@@ -680,6 +831,40 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle, onTagEvent 
                     isOpen
                       ? String.raw`bg-slate-200`
                       : String.raw`bg-slate-100`,
+                    /* ── WHAT HAPPENS IF A ROW IS BOTH EXPANDABLE AND DRILLABLE
+                       THE RULE: the ROW navigates; EXPANSION stays on this
+                       chevron. The two never share a gesture, so there is no
+                       race to resolve at tap time — which is the thing a
+                       component must have even for a state its data cannot
+                       reach today. (It cannot: real System-page rows carry no
+                       `steps`, so `canExpand` is false on every one of them.
+                       This chevron only ever fires on MOCK_EVENTS fixtures and
+                       inside EventFocusOverlay's own mount, which passes no
+                       drill handler at all.)
+
+                       WHY NOT "drill-down wins, drop the expansion". The
+                       overlay does show a superset of the step list, so that
+                       was the tempting read — but it would DELETE a working,
+                       labelled, aria-expanded control to do it, and
+                       v2-page-parity Rule 0 does not allow that without the
+                       owner's word. Keeping both costs nothing: the stretched
+                       hit area already has to raise its interactive siblings
+                       above itself, so expansion keeps working unaltered by
+                       the same line that makes the row navigable.
+
+                       THE ONE COSMETIC CONSEQUENCE, stated rather than hidden:
+                       such a row would draw TWO chevrons — this one in the
+                       title line and the drill one at the trailing edge. No
+                       real row can, and no Figma node draws the pair, so
+                       nothing is invented to reconcile them.
+
+                       `z-[1]` IS LOAD-BEARING and is why this is conditional:
+                       positioned siblings paint in DOM order, the drill
+                       button is last, and without this its stretched `::after`
+                       would sit on top of this chevron and swallow its taps.
+                       Applied only when the drill control exists, so the
+                       handler-absent markup is byte-identical to today. */
+                    canDrill && String.raw`z-[1]`,
                   )}
                 >
                   {isOpen ? <ChevronUp12 className="text-slate-500" /> : <ChevronDown12 className="text-slate-500" />}
@@ -857,6 +1042,34 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle, onTagEvent 
           </div>
         </div>
       </div>
+
+      {/* The drill-down — see ROW_DRILL above for the owner's words, the
+          affordance decision and the sources behind it. The glyph is the
+          project's own ChevronRight16 (Huge Icons / arrow-right-01-round),
+          already owned and already the disclosure chevron on the month
+          stepper; no new asset and no new string. `text-slate-400` is the
+          same muted weight SystemTypeCard gives its own row chevron, so the
+          indicator reads as navigation rather than as a fourth status colour.
+
+          The <li> is the positioning context (it carries `relative`), so this
+          button stays STATIC — see ROW_DRILL. It is the LAST child so that the
+          chip and the expand chevron precede it in the tab order: a row reads
+          title → chip → open, which is the order it is drawn in. */}
+      {canDrill ? (
+        <button
+          type="button"
+          onClick={() => onOpenEvent(eventId, event)}
+          aria-label={[event.title, event.badge?.label].filter(Boolean).join(' ') || undefined}
+          className={cn(
+            ROW_DRILL,
+            /* TEXT_COL's pb-[24px] is the inter-row gap, not the row. */
+            !isLast ? String.raw`pb-[24px] after:bottom-[24px]` : String.raw`after:bottom-0`,
+          )}
+          data-name="Open event"
+        >
+          <ChevronRight16 className="text-slate-400" />
+        </button>
+      ) : null}
     </li>
   )
 }
@@ -898,6 +1111,18 @@ function EventRow({ event, eventId, index, isLast, isOpen, onToggle, onTagEvent 
  *   `onToggleExpanded` and `onSelectPeriod` above. Only rows that carry `tag`
  *   can reach it; deciding WHICH rows carry it is the caller's job, not this
  *   card's (SystemPageV2Screen's mapper states the predicate).
+ * @param {(eventId: string, event: object) => void} [onOpenEvent]
+ *   Added 2026-11-02 — the row's DRILL-DOWN into the event screen. Supplied =
+ *   every row whose data carries `drillable: true` gains a trailing chevron
+ *   and becomes tappable across its whole area, through one <button> whose
+ *   stretched `::after` covers the row. OMITTED, or on a row without
+ *   `drillable` = nothing is rendered and the row is byte-identical to today,
+ *   which is what EventFocusOverlay's own mount and every bare mount keep
+ *   getting. Same controlled/uncontrolled convention as `onTagEvent` above,
+ *   and the same division of labour: the handler is the mount's, the
+ *   predicate is the caller's. See ROW_DRILL for the affordance decision, the
+ *   nested-interactive hazard it avoids and the both-expandable-and-drillable
+ *   rule.
  */
 export default function EventsTimelineCard({
   events = MOCK_EVENTS,
@@ -908,6 +1133,7 @@ export default function EventsTimelineCard({
   period = ALL,
   onSelectPeriod,
   onTagEvent,
+  onOpenEvent,
 }) {
   const [internalExpanded, setInternalExpanded] = useState(() => resolveExpanded(expanded, events))
   const expandedId = onToggleExpanded ? resolveExpanded(expanded, events) : internalExpanded
@@ -1101,6 +1327,7 @@ export default function EventsTimelineCard({
                   isOpen={expandedId === eventId}
                   onToggle={handleToggle}
                   onTagEvent={onTagEvent}
+                  onOpenEvent={onOpenEvent}
                 />
               )
             })}

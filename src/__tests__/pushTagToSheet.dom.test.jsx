@@ -115,8 +115,22 @@ async function deliver(surface) {
   return payload
 }
 
+/* THE PUSH'S CTA, NOT THE TIMELINE'S CHIP. Both read `Tell us more` as of
+   2026-11-02: the owner renamed the Events Timeline's Tag chip to match this
+   push ("now when you add the close tag, it just confusing because in other
+   places it calls tell us more"), and the System page behind the push card
+   draws that chip on its ended water row. A bare getByText therefore finds two
+   and throws. The chip is the only one inside the card's `data-name="Tag"`
+   button, so excluding it names the push's own pill without pinning a class. */
+async function pushCta() {
+  const hits = await screen.findAllByText('Tell us more')
+  const cta = hits.find(el => !el.closest('[data-name="Tag"]'))
+  if (!cta) throw new Error('the push card drew no "Tell us more" CTA')
+  return cta
+}
+
 async function tapTellUsMore() {
-  const cta = await screen.findByText('Tell us more')
+  const cta = await pushCta()
   await act(async () => { fireEvent.click(cta) })
   await flush()
 }
@@ -158,7 +172,7 @@ describe('a tap that misses the pills must not navigate', () => {
       mountPhone()
       await deliver(surface)
       /* The row, not a pill: exactly what the gap between the two pills is. */
-      const row = screen.getByText('Tell us more').parentElement
+      const row = (await pushCta()).parentElement
       await act(async () => { fireEvent.click(row) })
       await flush()
       expect(

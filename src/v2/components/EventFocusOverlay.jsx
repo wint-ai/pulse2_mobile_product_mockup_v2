@@ -279,14 +279,10 @@ import {
 } from '@/v2/components/eventFlowSeries'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
 import { getSystemById } from '@/data/systems'
-import {
-  getActiveIncident,
-  getIncidentsForSystem,
-  getLeakState,
-  getNotification,
-} from '@/data/incidents'
-import { HISTORY_EVENTS } from '@/data/events'
-import { getSimulatedAlert } from '@/data/simulatedAlerts'
+import { getActiveIncident, getLeakState, getNotification } from '@/data/incidents'
+/* `getIncidentsForSystem`, `HISTORY_EVENTS` and `getSimulatedAlert` left with
+   `concludedEventFor` — they were read by nothing else here. */
+import { concludedEventFor } from '@/v2/components/concludedEvent'
 import { getSimulatedEvents } from '@/data/simulatedEvents'
 import { getActivePolicy, getFindingNotes, getSystemUnits } from '@/data/systemDetails'
 import { getSystemInfo, getSystemSpecs } from '@/data/systemsInfo'
@@ -488,99 +484,11 @@ function deterministicId(seed, prefix) {
   return `${prefix}-${h.toString().padStart(4, '0')}`
 }
 
-/* ── WHERE A CONCLUDED EVENT'S DATA LIVES — 2026-11-02 ────────────────────
-   An ended water event has NO `system.alert`: applyPushEvent writes
-   `{ phase:'ended', resolved:true }` (pushEvents.js:132-144) and
-   applySimOverlay then TOMBSTONES it to null (systems.js:191-194). The record
-   itself is not destroyed — only the overlay that projects it onto the system
-   is. So the data is still there to read, in two places, and which one is
-   authoritative is already decided for us by the "pusher owns truth" rule
-   (incidents.js:14-21, hasSimActivity): once the pusher has touched a system
-   the static fixtures are suppressed, and before that they are all there is.
-   This helper reads them in that same order, so a concluded event can never
-   show the pusher's event and the fixture's event at the same time.
-
-     1. THE TOMBSTONED SIM ALERT (simulatedAlerts.js). The End-of-Leak push's
-        own record, with the event's type, label, flow rate, volume and the
-        clock it was raised at. It is what the live branch was reading one
-        push earlier, so the concluded card is built from the same fields the
-        live card was — nothing is re-derived and nothing can disagree.
-        It carries no `steps`; the lifecycle is in the append-only
-        simulatedEvents log instead, which is what `simEventsToTimelineEvents`
-        below reads.
-
-     2. THE STATIC CLOSED INCIDENT. generateIncidents.js builds one resolved
-        incident for EVERY system (its header says so), and generateEvents.js
-        builds the matching HISTORY_EVENTS row off the same `resolvedVariant`
-        seed — same title, severity, flow, volume and duration. The incident
-        carries the STEPS (detected / alert-sent / continues / resolved), the
-        history row carries the FIGURES and the display Event ID, and because
-        both come from one seed they describe one event. This is also the row
-        the /events/system/:systemId history screen lists, so the reader who
-        taps a past event there has somewhere to land.
-
-   WHY NOT the timeline rows alone (getEventsForSystem): they are already the
-   HISTORY_EVENTS row, flattened to title/detail/timestamp with the metadata
-   dropped — so they carry less of the same thing. The row is read directly.
-
-   Returns null when there is genuinely nothing — which is the honest answer
-   for a system the demo has been Cleared on (isMockSuppressed suppresses the
-   fixtures through hasSimActivity, and there is no sim record left either).
-   The overlay then renders nothing, exactly as it did before this existed. */
-function concludedEventFor(systemId) {
-  if (!systemId) return null
-
-  const sim = getSimulatedAlert(systemId)
-  if (sim && sim.resolved && (sim.type === 'leak-high' || sim.type === 'leak-low')) {
-    return {
-      /* The same field names `alertRowFor` already reads off a live alert, so
-         the concluded card goes through the untouched helper. */
-      alert: {
-        type: sim.type,
-        label: sim.label,
-        flowRate: sim.flowRate,
-        volume: sim.volume,
-        startedAt: sim.startedAt,
-        /* The push's own duration, which pushEvents.js records on the ended
-           record. Absent on a record written before that did, in which case
-           the card's Duration row is left empty rather than filled with a
-           figure nothing measured. */
-        age: sim.age,
-      },
-      incident: null,
-      /* No incident, so `toLeakId` has nothing to hash — which is already the
-         case on the LIVE branch of a pushed event (getActiveIncident returns
-         null under sim activity). AlertCard drops the chip rather than drawing
-         an empty one, and no id is invented to fill it. */
-      eventId: null,
-      durationMin: null,
-    }
-  }
-
-  const incident = getIncidentsForSystem(systemId).find(inc => inc.status === 'resolved')
-  if (!incident) return null
-  const row = HISTORY_EVENTS.find(e => e.system === systemId)
-  if (!row) return null
-  return {
-    alert: {
-      type: row.type,
-      label: row.title,
-      /* generateEvents.js:147-152 — the row's own metadata, spelled exactly as
-         it stores it. `alertRowFor` strips each to digits the same way it does
-         for a live alert, so "120 L/h" tiles as "120 L/H". */
-      flowRate: row.metadata?.['Flow Rate'],
-      volume: row.metadata?.['Volume Lost'],
-      startedAt: incident.startedAt,
-      /* `age` is the field a live alert carries its elapsed span in and the
-         one `alertRowFor` reads for the Duration row. A finished event knows
-         its real span, so it goes in the same slot. */
-      age: row.metadata?.Duration,
-    },
-    incident,
-    eventId: row.eventId ?? null,
-    durationMin: row.durationSec ? Math.round(row.durationSec / 60) : null,
-  }
-}
+/* `concludedEventFor` and `hasConcludedEvent` MOVED to ./concludedEvent.js on
+   2026-11-02 — see that file's header for why (the Events Timeline's row
+   drill-down has to ask the question before it draws a chevron, and this
+   file may not export a plain function). Imported above; nothing about what
+   it resolves changed. */
 
 /* The pusher's append-only events log -> EventsTimelineCard rows.
    `stepsToTimelineEvents` below maps INCIDENT steps, which a pushed event has
@@ -1367,6 +1275,36 @@ function FindSystemPanel({ sys, sysId }) {
  *   overlay knows. The valve card and the valve action are drawn whenever the
  *   SYSTEM has a valve, with or without this prop; a metering-only system
  *   draws neither.
+ * @param {'live'|'ended'} [props.focus]
+ *   WHICH OF THE SYSTEM'S TWO EVENTS TO SHOW — added 2026-11-02 for the Events
+ *   Timeline's new row drill-down, and named for exactly what it can do rather
+ *   than for what a caller might wish it did.
+ *
+ *   OMITTED (the default, and what every existing caller passes) = today's
+ *   precedence, unchanged to the byte: a live event if there is one, otherwise
+ *   the concluded one. That is what the ?focus=event deep link and the alert
+ *   card still get.
+ *
+ *   'ended' = IGNORE the live event for this mount and resolve the concluded
+ *   one. Nothing else moves: `isEnded` already gates every live-only thing in
+ *   this file (the advice, the valve section, the Manage tiles, the claim
+ *   strip, Ignore, the ignored-frame promise) and `concludedEventFor` never
+ *   reads the live alert, so the concluded branch was already self-contained —
+ *   it was simply unreachable while a live event existed.
+ *
+ *   'live' is accepted and is today's behaviour spelled out, so a caller that
+ *   knows which row was tapped can say so in both directions.
+ *
+ *   WHAT THIS IS NOT: an event ID. This overlay resolves content from the sim
+ *   record, the system's one resolved incident and the system's one HISTORY
+ *   row — all SYSTEM-keyed. It cannot be pointed at an arbitrary event, and a
+ *   prop named `eventId` would have promised that it could. It is enough for
+ *   the timeline because the data has exactly two water events per system to
+ *   point at: generateEvents.js builds at most one CURRENT event (`e-<sysId>`)
+ *   and exactly one HISTORY event (`h-<sysId>`) per system, so live/ended
+ *   distinguishes every row the timeline can draw. The day a system carries
+ *   two ended water events, this is the thing that has to grow an id — the
+ *   same per-system-vs-per-event defect PRD 15 §10.4 named for `tagEventKey`.
  */
 export default function EventFocusOverlay({
   open,
@@ -1379,6 +1317,7 @@ export default function EventFocusOverlay({
   onClaim,
   onStandDown,
   valve,
+  focus,
 }) {
   /* The stores are module-level and localStorage-backed, so a write does not
      re-render anything by itself. This is the repaint request, same device the
@@ -1443,7 +1382,18 @@ export default function EventFocusOverlay({
 
   const sys = system ?? (systemId ? getSystemById(systemId) : null)
   const sysId = systemId ?? sys?.id ?? null
-  const liveEvt = alert ?? sys?.alert ?? null
+  /* `focus === 'ended'` DROPS THE LIVE EVENT FOR THIS MOUNT — see the `focus`
+     prop in the header. This one line is the whole of the change: with `focus`
+     absent the expression is `alert ?? sys?.alert ?? null`, character for
+     character what it has always been, so every existing caller (the alert
+     card, the ?focus=event deep link, both tests) is untouched.
+
+     WHY IT WAS NEEDED. The Events Timeline on a system with a live leak draws
+     TWO water rows — the ongoing one and the closed history one — and both
+     tapped the same opener. Without this, drilling the ENDED row showed the
+     ONGOING event: a screen that disagrees with the row that opened it, which
+     is worse than no drill-down at all. */
+  const liveEvt = focus === 'ended' ? null : alert ?? sys?.alert ?? null
 
   /* THE THIRD BRANCH: AN EVENT THAT IS OVER - 2026-11-02 -------------------
      This component had two branches, a live water event and a fault, and

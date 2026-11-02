@@ -250,12 +250,26 @@ describe('?focus=event after the event has actually ended', () => {
 
 // ─── 3. THE FEEDBACK SHEET, OVER THE EVENT ──────────────────────────────────
 
+/* THE PUSH'S CTA, NOT THE TIMELINE'S CHIP. Both read `Tell us more` as of
+   2026-11-02: the owner renamed the Events Timeline's Tag chip to match this
+   push ("now when you add the close tag, it just confusing because in other
+   places it calls tell us more"), and the System page behind the push card
+   draws that chip on its ended water row. A bare findByText therefore finds two
+   and throws. The chip is the only one inside the card's `data-name="Tag"`
+   button, so excluding it names the push's own pill without pinning a class. */
+async function pushCta() {
+  const hits = await screen.findAllByText('Tell us more')
+  const cta = hits.find(el => !el.closest('[data-name="Tag"]'))
+  if (!cta) throw new Error('the push card drew no "Tell us more" CTA')
+  return cta
+}
+
 describe('?action=tag lands on the event, not on the bare System page', () => {
   it('the End-of-Leak push now sends focus=event with the tag link', async () => {
     mountPhone(leaky)
     await act(async () => { firePushCard(LE_01, leaky) })
     await flush()
-    const cta = await screen.findByText('Tell us more')
+    const cta = await pushCta()
     await act(async () => { fireEvent.click(cta) })
     await flush()
     const tagged = visited.filter(u => u.includes('action=tag'))
@@ -270,7 +284,7 @@ describe('?action=tag lands on the event, not on the bare System page', () => {
     mountPhone(leaky)
     await act(async () => { firePushCard(LE_01, leaky) })
     await flush()
-    const cta = await screen.findByText('Tell us more')
+    const cta = await pushCta()
     await act(async () => { fireEvent.click(cta) })
     await flush()
     expect(

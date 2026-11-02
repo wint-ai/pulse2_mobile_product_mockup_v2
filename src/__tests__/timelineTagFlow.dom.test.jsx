@@ -42,6 +42,16 @@ import { getEventsForSystem } from '@/data/events'
 
 afterEach(cleanup)
 
+/* THE LABEL CHANGED ON 2026-11-02, AFTER THIS FILE WAS WRITTEN. The owner,
+   looking at the chip on the timeline: "now when you add the close tag, it just
+   confusing because in other places it calls tell us more" — so TAG_CHIP_LABEL
+   is `Tell us more`, matching the LE_01 push CTA that reaches the same sheet,
+   and deliberately diverging from Figma 199532:89945 (`Tag`) and PRD 15 §7.1
+   (`Tag the cause`). Every assertion here reads the constant, so the rename
+   cost this file nothing — EXCEPT where the assertion is really about
+   MOCK_EVENTS, whose rows 3-4 still spell the FRAME's `Tag`. */
+const MOCK_FIXTURE_TAG = 'Tag'
+
 /** Every chip the card drew as a real control, by accessible name. */
 const tagButtons = (container) =>
   [...container.querySelectorAll('button')].filter((b) =>
@@ -136,12 +146,17 @@ describe('with NO handler the card is exactly what it was', () => {
      every bare mount in eventsTimelineCard.dom.test.jsx. Rule 0: working
      behaviour is not altered without the owner's word. */
   it('the bare mount still draws the inert, aria-disabled span', () => {
+    /* MOCK_FIXTURE_TAG, not TAG_CHIP_LABEL. The owner renamed the chip to
+       `Tell us more` on 2026-11-02; MOCK_EVENTS rows 3-4 still spell `Tag`
+       because they are Figma 199532:89945 transcribed, they never reach a
+       user, and eventsTimelineCard.dom.test.jsx pins them as frame-verbatim.
+       This test is about the inert SPAN, not about which word is in it. */
     const { container } = render(<EventsTimelineCard />)
-    expect(container.textContent).toContain(TAG_CHIP_LABEL)
+    expect(container.textContent).toContain(MOCK_FIXTURE_TAG)
     expect(tagButtons(container), 'the inert chip became tappable').toHaveLength(0)
 
     const inert = [...container.querySelectorAll('[aria-disabled="true"]')].filter((el) =>
-      (el.textContent || '').includes(TAG_CHIP_LABEL),
+      (el.textContent || '').includes(MOCK_FIXTURE_TAG),
     )
     expect(inert.length).toBeGreaterThan(0)
     expect(inert[0].tagName).not.toBe('BUTTON')

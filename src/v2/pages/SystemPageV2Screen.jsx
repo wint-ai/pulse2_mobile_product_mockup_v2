@@ -137,6 +137,11 @@ import TabBar from '@/components/TabBar'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import AlertCard from '@/v2/components/AlertCard'
 import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
+/* The overlay's OWN resolver for a concluded event, in its own module so this
+   page can ask the question before the timeline draws a drill-down chevron —
+   see the predicate in the timeline mapper below, and concludedEvent.js for
+   why it is not in the component file. */
+import { hasConcludedEvent } from '@/v2/components/concludedEvent'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import EventsTimelineCard, { TAG_CHIP_LABEL } from '@/v2/components/EventsTimelineCard'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
@@ -640,6 +645,14 @@ export default function SystemPageV2Screen() {
      alert card opens it (see the carousel below); the card's own On it /
      Ignore buttons are untouched and still go through handleAlertAction. */
   const [eventFocusOpen, setEventFocusOpen] = useState(false)
+  /* WHICH of the system's two water events the overlay should resolve —
+     'live' | 'ended' | null. null is the overlay's own precedence (live first,
+     then concluded), which is what the alert card and the ?focus=event deep
+     link have always got and still get. The timeline's row drill-down is the
+     one caller that knows which row was tapped, so it is the one caller that
+     sets this. See EventFocusOverlay's `focus` prop, and THE DRILL-DOWN at the
+     timeline mount below. */
+  const [eventFocus, setEventFocus] = useState(null)
   /* PRD 15 §7.1 / 02:325. PushNotifications.jsx:659 sends
      /system/{id}?action=tag&pulse=1 — and until 2026-10-17 this page answered
      it with v1's TagBottomSheet. It now opens WaterEventFeedbackSheet's
@@ -712,6 +725,58 @@ export default function SystemPageV2Screen() {
            divergence between `Tag`, the push's "Tell us more" and PRD 15
            §7.1's "Tag the cause". */
         ...(kind === 'water' && ev.resolved ? { tag: TAG_CHIP_LABEL } : null),
+        /* ── THE DRILL-DOWN'S PREDICATE — owner, 2026-11-02:
+             "I want to add an option for users to go deep dive into any water
+              events from the timeline. To the event overlay or event screen,
+              so once it's done, so they can just get back to see what
+              happened, so was notified, and some stuff regarding the event.
+              Maybe we can just do it clickable or just show more or open,
+              something that looks okay to add to events timeline."
+
+           "ANY WATER EVENT" — ONGOING OR ENDED, which is the one way this
+           predicate differs from the Tag chip's directly above it: that one is
+           `water && resolved`, this one is `water` alone. The card draws a
+           trailing chevron and makes the whole row tappable wherever this is
+           true; see ROW_DRILL in EventsTimelineCard for why it is the row and
+           a chevron rather than a "View details" link.
+
+           NON-WATER ROWS ARE EXCLUDED, and not for the Tag chip's reason (the
+           sheet's verdicts being water-only). They are excluded because the
+           DESTINATION cannot show them: EventFocusOverlay resolves a live
+           event from `sys.alert` and a concluded one from
+           `concludedEventFor`, which only ever returns a leak. A
+           connectivity-restored row has no record on either side, so it would
+           open an overlay about something else, or nothing at all.
+
+           AND THE ROW MUST BE ONE THE OVERLAY CAN ACTUALLY RESOLVE. This is
+           the half that is easy to miss, because the timeline and the overlay
+           read DIFFERENT tables:
+             · the ONGOING row comes from CURRENT_EVENTS, a module-level table
+               built once from the static fleet — but the overlay's live branch
+               reads `sys.alert`, which getSystemById has run through the sim
+               overlay. Clear a system in the pusher and the row survives while
+               the alert is gone, so `Boolean(sys.alert)` is the gate;
+             · the ENDED row comes from the static HISTORY_EVENTS table — but
+               the overlay's concluded branch reads `getIncidentsForSystem`,
+               which returns [] under sim activity (incidents.js:25). So the
+               gate is `hasConcludedEvent`, the overlay's OWN resolver,
+               imported rather than re-implemented so the two cannot drift.
+           Without both gates a chevron could sit on a row whose tap paints
+           nothing — the exact "tapped View and the screen did not change" bug
+           the ?focus=event guard was written around, re-created per row. */
+        ...(kind === 'water' && (ev.resolved ? hasConcludedEvent(sys.id) : Boolean(sys.alert))
+          ? {
+              /* The card reads this one and nothing else — it is what turns
+                 the row into a navigation target. */
+              drillable: true,
+              /* The card does NOT read this; it hands the whole event back to
+                 `onOpenEvent` and this page reads it there. It is the raw
+                 `resolved` fact restated as the overlay's `focus` vocabulary,
+                 decided HERE where that fact is in hand rather than
+                 re-derived at tap time from the badge's display text. */
+              drillFocus: ev.resolved ? 'ended' : 'live',
+            }
+          : null),
       }
     })
 
@@ -1288,7 +1353,13 @@ export default function SystemPageV2Screen() {
        no record on either side still resolves to null and the overlay still
        paints nothing, exactly as before; the difference is that the ended
        event now has one. */
-    if (focus === 'event') setEventFocusOpen(true)
+    /* `setEventFocus(null)` keeps the deep link on the overlay's own
+       precedence — a push's View button names a system, not a row, so it must
+       not inherit whichever row the user drilled last. */
+    if (focus === 'event') {
+      setEventFocus(null)
+      setEventFocusOpen(true)
+    }
     /* §PRD 06 asks for a 2-second accent pulse on the card the push referred
        to — Slack's scroll-to-message highlight, not a badge. */
     if (wantsPulse) setPulse(true)
@@ -1554,6 +1625,11 @@ export default function SystemPageV2Screen() {
     const SELF_HANDLED =
       'button, a, [role="button"], input, select, textarea, label, [data-status-pill]'
     if (e.target?.closest?.(SELF_HANDLED)) return
+    /* The alert card IS the live event, so this opener keeps the overlay's own
+       precedence. Reset rather than left alone: a previous drill-down into the
+       ENDED row would otherwise still be pinned and this tap would open the
+       wrong one. Same reset on the other two openers. */
+    setEventFocus(null)
     setEventFocusOpen(true)
   }
 
@@ -1926,7 +2002,11 @@ export default function SystemPageV2Screen() {
                             paint over its focus ring. */}
                         <button
                           type="button"
-                          onClick={() => setEventFocusOpen(true)}
+                          onClick={() => {
+                            // See openEventOnCardTap for why the reset.
+                            setEventFocus(null)
+                            setEventFocusOpen(true)
+                          }}
                           aria-label={`Open ${alert.title || 'event'}`}
                           className="absolute inset-0 z-10 pointer-events-none rounded-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                         />
@@ -2244,12 +2324,63 @@ export default function SystemPageV2Screen() {
                          live caller replaced it), so no surface goes stale and
                          no chip closes itself; the only loss is per-event
                          attribution inside the store. */
+                      /* ── THE ROW DRILL-DOWN, 2026-11-02 ────────────────
+                         Owner: "I want to add an option for users to go deep
+                         dive into any water events from the timeline. To the
+                         event overlay or event screen". The destination is
+                         the EventFocusOverlay already mounted at the foot of
+                         this file — no route, no second mount, and the same
+                         `setEventFocusOpen(true)` the ?focus=event deep link
+                         has used since this morning.
+
+                         UNLIKE THE TAG CHIP ABOVE, THIS ONE USES THE EVENT IT
+                         IS HANDED, and that is the whole difference between a
+                         working drill-down and a lying one. On a system with
+                         a live leak the timeline draws TWO water rows — the
+                         ongoing event and the closed history event — and the
+                         overlay's own precedence is live-first, so before
+                         this both rows opened the ONGOING event's screen.
+                         `focus` resolves that: the row says which of the two
+                         it is, by the one fact that already distinguishes
+                         them (`badge.label`, derived from `ev.resolved` in
+                         the mapper).
+
+                         WHY `focus` AND NOT AN EVENT ID. The overlay's
+                         content is SYSTEM-keyed — the sim record, the
+                         system's one resolved incident, its one HISTORY row —
+                         so it cannot be pointed at an arbitrary event, and a
+                         prop that took an id would have promised it could.
+                         live/ended is enough for every row this timeline can
+                         draw, because generateEvents.js builds at most one
+                         CURRENT event and exactly one HISTORY event per
+                         system. This is the SAME per-system-vs-per-event
+                         shape as the `tagEventKey` defect PRD 15 §10.4
+                         named — but where the chip had to accept it (the
+                         store genuinely has no per-event key and re-keying is
+                         the owner's call), here the two cases the data can
+                         produce are exactly distinguishable, so the
+                         drill-down is honest rather than approximate. The day
+                         a system carries two ENDED water events, this is what
+                         has to grow an id; the mapper's gate would need it
+                         too. */
                       return (
                         <EventsTimelineCard
                           key={key}
                           events={system.timeline}
                           tone={alerting ? 'alert' : 'calm'}
                           onTagEvent={() => setShowTagFeedback(true)}
+                          onOpenEvent={(id, event) => {
+                            /* `drillFocus` is the mapper's, written off
+                               `ev.resolved`. NOT read off `badge.label`:
+                               that is display text, and this file already
+                               carries the scar of deciding behaviour from
+                               display text (see the chip's predicate, and
+                               classifyEvent.js's naive /low/ match). The
+                               fallback is the overlay's own precedence, not
+                               a guess. */
+                            setEventFocus(event?.drillFocus ?? null)
+                            setEventFocusOpen(true)
+                          }}
                         />
                       )
                     }
@@ -2278,6 +2409,10 @@ export default function SystemPageV2Screen() {
         <EventFocusOverlay
           open={eventFocusOpen}
           systemId={system.id}
+          /* null = the overlay's own precedence, which is what every opener
+             but the timeline's row drill-down passes. See THE ROW DRILL-DOWN
+             at the timeline mount above. */
+          focus={eventFocus ?? undefined}
           onClose={() => setEventFocusOpen(false)}
           onIgnore={sysId => {
             if (!isIgnored(sysId)) setShowIgnoreFlow(true)
