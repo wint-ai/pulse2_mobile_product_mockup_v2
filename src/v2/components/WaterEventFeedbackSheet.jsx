@@ -798,13 +798,107 @@ const IGNORE_CHIP_CLASS = `${CHIP_BASE_CLASS} ${CHIP_PRESSED_CLASS}`
  * owner's to solve with copy if he wants it solved — helper text under the
  * pair is the honest fix and copy is his; nothing is authored here. The
  * order itself still encodes the progression. REPORTED.
+ *
+ * ── 2026-11-02, LATER STILL: THE ROW IS TWO EXPLICIT LINES ───────────────
+ * The chip row was finally seen on a real device, and the free wrap landed
+ * 2 / 2 / 1 — three lines, `Leak`·`Water Waste` / `Unusual, no issue`·
+ * `Unnecessary alert` / `Something else`. The owner: "make it 2 lines
+ * instead of 3".
+ *
+ * THE PAPER MEASUREMENT WAS WRONG AND IS NOT TO BE TRUSTED AGAIN. The first
+ * three labels come to roughly 312px of chip against roughly 325px of
+ * available width, which says they fit on one line; on the device they do
+ * not. Nothing here can measure a font, so the screenshot is the only
+ * ground truth this layout has ever had.
+ *
+ * SO THE LINES ARE DECLARED, NOT WRAPPED. VERDICT_LINES splits
+ * VERDICT_OPTIONS 3/2 and each line is its own non-wrapping flex row. Free
+ * `flex-wrap` has now been wrong once on real metrics; two rows cannot be
+ * wrong, whatever the font measures. The split is SLICED from VERDICT_OPTIONS
+ * rather than retyped, so the order stays single-sourced in the store.
+ *
+ * WHAT HAPPENS IF A LINE STILL DOES NOT FIT, because that is the cost of
+ * declaring it: the chip wraps its own text inside the pill and grows taller
+ * (`h-auto`, `shrink`, `whitespace-normal`, `min-w-0` — `shrink` is there to
+ * beat the Button's own `shrink-0`, without which the chips would overflow
+ * the sheet instead of giving way). A two-line-tall pill is uglier than a
+ * tidy wrap, but it is BOUNDED: the row count is the thing the owner
+ * rejected, and it can no longer move. `min-h-[44px]` and `py-[12px]` are
+ * untouched; a chip may only ever get taller than the tap target.
+ *
+ * AND HEADROOM WAS BOUGHT SO THAT STAYS HYPOTHETICAL: `px-[14px]` →
+ * `px-[12px]` on this row only, and the row gap `10px` → `8px`. That is
+ * ~12px of padding plus 4px of gap given back to line 1. The ignore row
+ * keeps the frame's 14px and 10px, because the ignore row is four chips, is
+ * a free wrap, and nobody has complained about it.
+ *
+ * THE BOUNDARY IS LOAD-BEARING AGAIN, AND BY ACCIDENT — READ THIS BEFORE
+ * RE-SPLITTING THE LINES. The 3/2 the owner asked for falls EXACTLY on the
+ * did-water-actually-run line: line 1 (`Leak`, `Water Waste`, `Unusual, no
+ * issue`) is every verdict where water ran; line 2 (`Unnecessary alert`,
+ * `Something else`) is where it did not, plus the escape. The gap this
+ * block recorded two paragraphs above as "carried by NOTHING" is carried by
+ * the line break, for free, as a side effect of a layout instruction and not
+ * by design. It is still structure and still wordless, so nothing is
+ * authored. But anyone who later moves the split — to 2/3, or back to a free
+ * wrap — silently destroys a semantic grouping. Move it only on purpose.
  */
+
+/* The event-ended chip, which is the ignore chip with the row's own metrics.
+   The CLASS stays shared (CHIP_BASE_CLASS) and only the deltas live here, so
+   the two steps still cannot drift on colour, radius, ink or tap target —
+   see the block above for why the containers are allowed to differ when the
+   chip is not. twMerge resolves px-[12px] over the base px-[14px]. */
+const VERDICT_CHIP_CLASS = cn(
+  CHIP_BASE_CLASS,
+  'h-auto shrink whitespace-normal px-[12px] text-center',
+)
+
+/* 3/2. Sliced, never retyped — the order lives in the store and the comment
+   above explains why this particular split is not arbitrary. */
+const VERDICT_LINE_BREAK = 3
+const VERDICT_LINES = [
+  VERDICT_OPTIONS.slice(0, VERDICT_LINE_BREAK),
+  VERDICT_OPTIONS.slice(VERDICT_LINE_BREAK),
+]
 
 /* UNNECESSARY_CONTROL_CLASS lived here — the outlined, subordinate variant
    of the chip, for the "Unnecessary Alert" control that sat below the cause
    row. That control was retired on 2026-11-02 and the verdict it carried is
    now the third chip in the row itself, so there is nothing left to make
    subordinate. The row uses IGNORE_CHIP_CLASS throughout. */
+
+/**
+ * THE "+ Add note (optional)" OPENER, ON BOTH STEPS — owner, 2026-11-02,
+ * sent with a screenshot of the current heavy one: "add note syyl in last
+ * version was better / but keep in same screens".
+ *
+ * TWO STYLES EXISTED AND THE SMALL ONE WAS LOST BY ACCIDENT. The event-ended
+ * panel's opener was `text-[13px] font-semibold text-primary` through e7ac0ea
+ * and went out in d862ab8, when the note moved onto the first step and
+ * inherited the ignore step's `text-[16px] font-bold text-slate-800`. The
+ * 13px one is the opener he was pointing at when he asked for the note on
+ * the first step at all; he got the placement and lost the style. This is
+ * that style, restored. `py-0` is taken from e7ac0ea rather than c0f9190's
+ * `py-[10px]`: the opener now sits in a flex column that supplies its own
+ * gap, so the padding would be doubled spacing rather than the spacing.
+ *
+ * ONE CONSTANT FOR BOTH STEPS — "but keep in same screens", read as apply it
+ * on both and keep them consistent, which is the same instinct as "get back
+ * to chips". The placement is not in question and nothing moves.
+ *
+ * THERE IS AN INDEPENDENT ARGUMENT, which is why it is comfortable: at 16px
+ * bold slate-800 the opener outweighed the 13px chips above it, so the
+ * optional secondary control was the loudest thing on the step. 13px
+ * semibold in the primary colour puts the primary controls back on top.
+ *
+ * A DELIBERATE DIVERGENCE FROM 199748:26652, which draws the heavy style —
+ * the same kind of divergence as the 44px tap target, recorded the same way.
+ * A diff against the frame will flag it forever; the reason is here, and the
+ * revert is this one class string.
+ */
+const NOTE_OPENER_CLASS =
+  'h-auto justify-start px-0 py-0 text-[13px] font-semibold text-primary no-underline hover:no-underline'
 
 /** 199745:21423 / 199748:26654 — the dark navy confirm. See the header's token
  *  map for why the ground is `bg-foreground` and not a literal `bg-slate-900`. */
@@ -1483,7 +1577,7 @@ function FeedbackSheet({
                     type="button"
                     variant="link"
                     onClick={() => setNoteOpen(true)}
-                    className="h-auto justify-start px-0 py-0 text-[16px] font-bold tracking-[-0.4px] text-slate-800 no-underline leading-[26px] hover:no-underline"
+                    className={NOTE_OPENER_CLASS}
                   >
                     + Add note (optional)
                   </Button>
@@ -1572,18 +1666,39 @@ function FeedbackSheet({
                   is gone and the did-it-run boundary is carried by nothing.
                   The retired VERDICT_OPTION_CLASS tombstone above holds the
                   full account, including the forced-line-break option that
-                  was declined and why. */}
-              <div className="flex flex-wrap gap-[10px]">
-                {VERDICT_OPTIONS.map((label) => (
-                  <Button
-                    key={label}
-                    type="button"
-                    variant="outline"
-                    onClick={() => chooseVerdict(label)}
-                    className={CHIP_BASE_CLASS}
-                  >
-                    {label}
-                  </Button>
+                  was declined and why.
+
+                  ── AMENDED 2026-11-02, FROM A DEVICE SCREENSHOT ───────────
+                  The free wrap landed 2/2/1 on a real phone and the owner
+                  asked for "2 lines instead of 3". These are now TWO
+                  DECLARED LINES (VERDICT_LINES, 3/2) rather than one wrapped
+                  row: the count cannot drift with the font. A line that
+                  still will not fit makes its own chip taller instead of
+                  pushing a sibling onto a third row.
+
+                  AND THE SPLIT IS NOW LOAD-BEARING. 3/2 puts the break
+                  exactly on the did-water-actually-run boundary — line 1 is
+                  the three verdicts where water ran, line 2 is the one where
+                  it did not plus the escape. The gap this comment records
+                  above as lost came back as the line break, by accident of
+                  the owner's instruction. DO NOT re-split these lines
+                  without reading the tombstone above. Still no copy: the
+                  sentence is not on the screen and is not ours to write. */}
+              <div className="flex flex-col gap-[8px]">
+                {VERDICT_LINES.map((line) => (
+                  <div key={line[0]} className="flex gap-[8px]">
+                    {line.map((label) => (
+                      <Button
+                        key={label}
+                        type="button"
+                        variant="outline"
+                        onClick={() => chooseVerdict(label)}
+                        className={VERDICT_CHIP_CLASS}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
                 ))}
               </div>
 
@@ -1614,7 +1729,7 @@ function FeedbackSheet({
                   type="button"
                   variant="link"
                   onClick={() => setNoteOpen(true)}
-                  className="h-auto justify-start px-0 py-0 text-[16px] font-bold tracking-[-0.4px] text-slate-800 no-underline leading-[26px] hover:no-underline"
+                  className={NOTE_OPENER_CLASS}
                 >
                   + Add note (optional)
                 </Button>

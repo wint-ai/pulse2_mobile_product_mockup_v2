@@ -150,8 +150,14 @@ describe('trigger: event-ended', () => {
        wrote it and which is NOT the ignore step's "Unnecessary Alert". The
        catch-all is LAST, which is the only position that keeps it a
        catch-all rather than an option competing with the named four. */
-    const row = btn(view, 'Leak').parentElement
-    expect([...row.children].map((c) => c.textContent)).toEqual([
+    /* Read across BOTH declared lines — the options are two flex rows since
+       2026-11-02 ("make it 2 lines instead of 3"), so the order is the
+       concatenation of them and not the children of one row. */
+    const group = btn(view, 'Leak').parentElement.parentElement
+    const inOrder = [...group.children].flatMap((line) =>
+      [...line.children].map((c) => c.textContent),
+    )
+    expect(inOrder).toEqual([
       'Leak',
       'Water Waste',
       'Unusual, no issue',
@@ -457,17 +463,30 @@ describe('trigger: event-ended', () => {
      IT USED TO BE MARKED WITH `mt-[10px]` on the fourth row, back when the
      options were a stacked list. In a wrapped chip row a top margin on one
      item does not read as a grouping break — it reads as a misaligned pill —
-     so it came off with the revert to chips on 2026-11-02 and the boundary
-     is carried by NOTHING today. That is the owner's to solve with copy if
-     he wants it solved. What this test still guards is the half that is not
-     his: the order, and the fact that no helper copy was authored here. The
-     per-item margin is asserted ABSENT so it cannot creep back into a
-     wrapped row by hand. */
-  it('keeps the did-it-run boundary in the order, and writes no words for it', () => {
+     so it came off with the revert to chips and for a few minutes the
+     boundary was carried by nothing at all.
+
+     IT IS NOW CARRIED BY THE LINE BREAK, BY ACCIDENT. The owner saw the free
+     wrap land 2/2/1 on a device and asked for "2 lines instead of 3"; the
+     3/2 that forces falls EXACTLY on the boundary — line 1 is every verdict
+     where water ran, line 2 is the one where it did not plus the escape. So
+     the split is load-bearing, and this test is what tells whoever re-splits
+     these rows that they are breaking a semantic grouping and not just
+     moving a chip. Still no words: the sentence is copy and copy is the
+     owner's. The per-item margin is asserted ABSENT so it cannot creep back
+     in by hand. */
+  it('breaks the two lines on the did-it-run boundary, and writes no words for it', () => {
     const { view } = open()
 
-    const order = VERDICT_OPTIONS.indexOf.bind(VERDICT_OPTIONS)
-    expect(order('Unusual, no issue')).toBe(order('Unnecessary alert') - 1)
+    const group = btn(view, 'Leak').parentElement.parentElement
+    const lines = [...group.children].map((line) =>
+      [...line.children].map((c) => c.textContent),
+    )
+
+    expect(lines).toEqual([
+      ['Leak', 'Water Waste', 'Unusual, no issue'],
+      ['Unnecessary alert', 'Something else'],
+    ])
 
     for (const option of VERDICT_OPTIONS) {
       expect(btn(view, option).className, option).not.toContain('mt-[10px]')
@@ -476,6 +495,41 @@ describe('trigger: event-ended', () => {
     // No helper copy was authored for the pair, here or anywhere.
     expect(view.queryByText(/did water/i)).toBeNull()
     expect(view.queryByText(/actually run/i)).toBeNull()
+  })
+
+  /* TWO LINES, DECLARED RATHER THAN WRAPPED — owner, 2026-11-02, from a
+     screenshot: "make it 2 lines instead of 3". The free `flex-wrap` landed
+     2/2/1 on a real phone against a paper estimate that said the first three
+     fit on one line, so the row count is no longer left to the font.
+
+     Nothing in this suite can measure a box — happy-dom does no layout — so
+     what is pinned here is the STRUCTURE that makes the count independent of
+     measurement: exactly two rows, neither of them wrapping, and chips that
+     give way by growing taller rather than by pushing a sibling onto a third
+     row (`shrink` beats the Button's own `shrink-0`; `whitespace-normal`
+     beats its `whitespace-nowrap`). */
+  it('declares exactly two option rows, and lets a chip wrap before the row does', () => {
+    const { view } = open()
+
+    const group = btn(view, 'Leak').parentElement.parentElement
+    expect(group.children).toHaveLength(2)
+
+    for (const line of group.children) {
+      expect(line.className).toContain('flex')
+      expect(line.className).not.toContain('flex-wrap')
+    }
+
+    /* Compared as TOKENS, not as a substring: the Button's base class also
+       carries `[&_svg]:shrink-0`, which is a child-selector variant and has
+       nothing to do with whether the chip itself gives way. */
+    for (const option of VERDICT_OPTIONS) {
+      const classes = btn(view, option).className.split(/\s+/)
+      expect(classes, option).toContain('h-auto')
+      expect(classes, option).toContain('shrink')
+      expect(classes, option).toContain('whitespace-normal')
+      expect(classes, option).not.toContain('shrink-0')
+      expect(classes, option).not.toContain('whitespace-nowrap')
+    }
   })
 
   it('records nothing, and cancels, when it is dismissed before a verdict', () => {
@@ -612,6 +666,36 @@ describe('the optional note', () => {
       expect(calls.complete[0].note).toBe('typed, then answered')
     } finally {
       vi.useRealTimers()
+    }
+  })
+
+  /* THE OPENER'S STYLE, AND WHY IT IS WORTH A TEST. There were two of these
+     in the file's history and the small one was lost by ACCIDENT in d862ab8,
+     when the note moved onto the first step and silently inherited the
+     ignore step's 16px bold slate-800. The owner noticed and sent it back:
+     "add note syyl in last version was better / but keep in same screens"
+     (2026-11-02). It is 13px semibold in the primary colour again, on BOTH
+     steps — read as "apply it on both and keep them consistent", the same
+     instinct as the chips instruction.
+
+     The independent argument, for whoever finds this: at 16px bold the
+     OPTIONAL secondary control outweighed the 13px chips it sits under, so
+     the loudest thing on the step was the one nobody has to touch.
+
+     This is a deliberate divergence from 199748:26652, which draws the heavy
+     style — pinned here so it cannot be lost by accident a second time. */
+  it('wears the light opener on both steps, not the heavy one', () => {
+    for (const props of [{}, { trigger: 'ignore' }]) {
+      const { view } = open(props)
+      if (props.trigger === 'ignore') fireEvent.click(btn(view, 'Ignore anyway'))
+
+      const opener = btn(view, '+ Add note (optional)')
+      expect(opener.className).toContain('text-[13px]')
+      expect(opener.className).toContain('font-semibold')
+      expect(opener.className).toContain('text-primary')
+      expect(opener.className).not.toContain('text-[16px]')
+      expect(opener.className).not.toContain('font-bold')
+      cleanup()
     }
   })
 })
