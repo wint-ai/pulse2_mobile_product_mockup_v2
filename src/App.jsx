@@ -29,7 +29,6 @@ import SystemPageV2 from './v2/pages/SystemPage';
 import HomeAllAccounts from './v2/pages/HomeAllAccounts';
 import SystemPageV2Screen from './v2/pages/SystemPageV2Screen';
 import HomeAccountOverview from './v2/pages/HomeAccountOverview';
-import ValveManagementScreen from './v2/pages/ValveManagementScreen';
 import LeakDetail from './screens/leak/LeakDetail';
 import EventHistory from './screens/EventHistory';
 import AccountScreenV2 from './v2/pages/AccountScreenV2';
@@ -88,19 +87,6 @@ function AppRoutes() {
         <Route path="/pixel/system/:systemId" element={<SystemPageV2Screen />} />
         {/* Figma "Location opt b" (198328:88654) — same screen, scoped title. */}
         <Route path="/location/:locationName" element={<HomeAllAccounts />} />
-
-        {/* ── Valve management ─────────────────────────────────────────────
-            ADDITIVE. The overview's valve widget is a READOUT; this is the
-            screen where valves are selected, filtered and commanded — the
-            owner's "i want to open a dedicated screen so user can
-            select/deselect specific valves can filter per location / etc".
-            No existing route is repointed: that is the functionality change
-            Rule 0 covers (.claude/skills/v2-page-parity/SKILL.md:12-21).
-            /valves/:locationName mirrors /location/:locationName exactly —
-            same param, same by-NAME scope resolution, same empty-scope rule
-            for a name that matches nothing. */}
-        <Route path="/valves" element={<ValveManagementScreen />} />
-        <Route path="/valves/:locationName" element={<ValveManagementScreen />} />
         <Route path="/home-clear" element={<HomeClear />} />
         <Route path="/tenant" element={<TenantHome />} />
         <Route path="/home-multi" element={<HomeMultiAccount />} />

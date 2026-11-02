@@ -327,70 +327,6 @@
      step, named by its step, so a theme can move it. */
   --blue-800: oklch(0.424 0.199 265.638);       /* #193cb8 — tw blue-800 */
 
-  /* ── VALVE STATE — A FOURTH DATA PALETTE, AND WHY IT HAS TO BE ──
-     The valve widget draws a donut of Open / Closed / Valve Error over a
-     scope of systems, and those three marks have to stay three marks in
-     every theme. Nothing already in this file does that:
-
-       --chart-1/2/3 are a GREYSCALE ramp under `sand` (stone-300/500/600
-       in that block), so a "closed" blue taken from the chart ramp comes
-       out a grey wedge there, next to two other grey wedges.
-       --primary — the brand blue both `light` (#0b81f8, :153) and `dark`
-       (blue-500) carry — is stone-900 under `sand`: a near-BLACK closed
-       wedge. --data-blue-* is a sequential ramp of ONE quantity, which
-       is the opposite of three categories.
-
-     NO EXISTING TOKEN IS A BLUE IN ALL FOUR THEMES. That is the same
-     hole --data-blue-* was opened for one case earlier ("--chart-1/2/3
-     are three blues, which is two short", :286) arriving from the other
-     direction, so this gets a triplet of its own, declared in all four
-     blocks rather than inherited — a theme that cannot see the token
-     cannot flatten it by accident either.
-
-     VALIDATED AS A SET, NOT PICKED. The three hexes are the output of
-     the dataviz skill's scripts/validate_palette.js and pass its six
-     checks in light, dark and sand (ALL CHECKS PASS, exit 0). Two of
-     them are deliberately the same hex a semantic token already carries
-     and are NOT aliased to it: var(--success) would hand the palette's
-     validity to whoever next retunes --success. Do not retune one of
-     these three without re-running the validator on all three.
-
-     THE ONE STANDING WARN, AND THE CONDITION IT CARRIES. --valve-error
-     against --valve-open is ΔE 7.6 under deuteranopia — inside the 6–8
-     floor band, not above it. That is legal ONLY WITH SECONDARY
-     ENCODING. The status icon and the text label beside each swatch are
-     therefore MANDATORY and must never be dropped to tighten a layout:
-     the compliance is carried by them, not by the colour. (An
-     independent Viénot-1999 + CIEDE2000 check run while writing this
-     measures 14.8 for the same pair. The two simulations disagree; the
-     stricter number is the one recorded, and the icon-and-label rule
-     holds under either.)
-
-     WHY ERROR IS #db4670 AND NOT --destructive. On that same check,
-     #5c9e1a against --destructive (= --red-500 #fb2c36, :163) is
-     ΔE 2.3 under deuteranopia — to a deuteranope they are ONE colour,
-     which is the worst available pairing for "this one is broken" vs
-     "this one is fine". #db4670 is --severity-high's hex (:215) and
-     clears the same green by 7.6.
-
-     NOT TAKEN, AND NAMED HERE SO IT IS NOT RE-DISCOVERED AS A FIX:
-     --danger (:217) is commented "valve errors" and is #A5455E. It is
-     not the validated value and this palette does not use it. Moving
-     the widget onto it is a re-run, not an edit.
-
-     PLAIN HEX, DELIBERATELY, in a file that is otherwise all oklch.
-     These three are a validator's output and get compared back against
-     it byte for byte; this file's own oklch round-trip has already
-     moved a value by one level once (the #dcfce7 / #dbfce7 note at
-     :277-281), and a palette that must survive a re-run cannot afford
-     that. Plain hex is also the safest thing to add here — see the
-     color-mix() warning at the foot of this file: one invalid custom
-     property takes the whole --wash-* chain with it and blanks the page
-     root with no console warning. Nothing here is wrapped in a mix. */
-  --valve-open: #5c9e1a;
-  --valve-closed: #0b81f8;
-  --valve-error: #db4670;
-
   /* ── FLEET HEALTH BAR — A FILL IS NOT AN INK ──────────────────
      The bar's red was `bg-red-700`, and --red-700 has to LIGHTEN under
      dark because its other job is ink on a dark card. That is correct
@@ -854,19 +790,6 @@
   --color-data-blue-5: var(--data-blue-5);
   --color-blue-800: var(--blue-800);
 
-  /* Registered here, and in `inline` rather than plain @theme, on exactly
-     the rule the two blocks above state: `inline` writes var(--valve-*)
-     into the utility, so `bg-valve-open` on a card follows whichever
-     theme is set on an ancestor. A theme-dependent COLOUR always wants
-     `inline`; only the font and the radius wanted the other block.
-     Without these three lines `bg-valve-open` binds to nothing at all
-     (there is no stock Tailwind `valve-open`), which is a silently
-     uncoloured wedge rather than an error — the same trap the
-     --color-orange-100 note above records. */
-  --color-valve-open: var(--valve-open);
-  --color-valve-closed: var(--valve-closed);
-  --color-valve-error: var(--valve-error);
-
   --color-bar-fill-risk: var(--bar-fill-risk);
   --color-bar-fill-ok-from: var(--bar-fill-ok-from);
   --color-bar-fill-ok-to: var(--bar-fill-ok-to);
@@ -1255,17 +1178,6 @@ button {
      the four swatches stay four colours. */
   --blue-800: oklch(0.707 0.165 254.624);         /* blue-400 */
 
-  /* Valve palette — see the :root block for why the triplet exists and
-     why it is literals rather than aliases. Only CLOSED moves here: this
-     theme's brand blue is blue-500 (--primary above) and the validator
-     was run against that, so the closed wedge takes the theme's own blue
-     instead of carrying light's #0b81f8 onto a dark card. Open and error
-     are product semantics, which `dark` inherits unchanged everywhere
-     else in this block, and they are unchanged here too. */
-  --valve-open: #5c9e1a;
-  --valve-closed: #2b7fff;
-  --valve-error: #db4670;
-
   /* A fill, not an ink — see :root. --red-600's own dark value is the
      alert ink, so the step is written out rather than aliased. */
   --bar-fill-risk: oklch(0.58304 0.23867 28.476); /* #e7000b */
@@ -1420,17 +1332,6 @@ button {
   --chart-2: oklch(0.553 0.013 58.071);
   --chart-3: oklch(0.444 0.011 73.639);
 
-  /* Valve palette — see :root. THIS THEME IS THE REASON THE TRIPLET
-     EXISTS: the chart ramp immediately above is stone-300/500/600, i.e.
-     greyscale, and this block's --primary is stone-900, so every token
-     the valve donut could plausibly have reused collapses to a grey or a
-     black right here. The values are :root's, unchanged — restated and
-     not inherited so that the set is visible in the block that would
-     otherwise have broken it. */
-  --valve-open: #5c9e1a;
-  --valve-closed: #0b81f8;
-  --valve-error: #db4670;
-
   /* --chart-grid comes free off --neutral-200 (stone-200). The axis
      does not: :root's is the literal #d4d4d4, a true grey, which is the
      one thing a warm theme must not inherit. */
@@ -1546,25 +1447,6 @@ button {
   --data-blue-4: oklch(0.6 0.3 305);
   --data-blue-5: oklch(0.5 0.3 340);
   --blue-800: oklch(0.55 0.3 255);
-
-  /* Valve palette — the instrument has to move these too, per this
-     block's own rule above: a token `contrast` does not move is a token
-     `contrast` can no longer find. NOT the validated hexes — those are a
-     shipped palette and this theme ships to nobody. Each takes this
-     block's existing analogue of what the token IS elsewhere: open = its
-     --success, error = its --severity-high, closed = its --primary,
-     which is the token that carries #0b81f8 ("wint-blue-accent", :153)
-     in `light` and blue-500 in `dark`. Written out rather than var()'d
-     for the same reason the other three blocks are: the triplet is
-     validated as a set and must not silently follow a semantic token.
-     Checked for the one thing this theme still owes a donut — the three
-     resolve to #61f239, #dbd800 and #ff00c8, which are three colours.
-     Its --accent was the other candidate for closed and is not used: it
-     resolves to #ff62f7, a magenta all but identical to the #ff00c8
-     above it. */
-  --valve-open: oklch(0.85 0.25 140);   /* = its --success */
-  --valve-closed: oklch(0.85 0.25 110); /* = its --primary */
-  --valve-error: oklch(0.7 0.3 345);    /* = its --severity-high */
 
   --bar-fill-risk: oklch(0.6 0.3 15);
   --bar-fill-ok-from: oklch(0.9 0.24 125);
