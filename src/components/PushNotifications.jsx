@@ -1,14 +1,15 @@
 // Push notification system — simulates Android/iOS notifications
-// Lock screen: glance only, no action buttons (per agreed taxonomy).
+// Lock screen: glance, and — expanded — the same action strip (2026-11-02).
 // Shade: pulled-down notification tray with actions.
 // Other-app heads-up: card with inline actions.
 // In-app banner: top banner with actions.
 //
-// Action taxonomy by leak state:
-//   Warning      → View · I'm on it · Ignore
-//   Ongoing      → View · Dismiss
-//   Shutoff (SO) → View · I'm on it
-//   End of Leak  → Tag what it was · Dismiss
+// Action taxonomy (owner, 2026-11-02 — "the only CTAs i want to have is 2"):
+//   End of Leak  → Tell us more · View
+//   everything else, including non-leak types and ignored → View
+// The set itself lives in src/utils/notificationActions.js; every label this
+// file renders comes from there. Older taxonomies described in the comments
+// below are history, not the current set.
 //
 // Resolved-state reflection: investigating/ignored/tagged status is read from
 // the same persistence stores LeakDetail uses — so an action taken on one
@@ -196,15 +197,36 @@ function NotifActions({ notification: n, onAction, dark = false }) {
   const TAG_GRADIENT =
     'bg-[linear-gradient(135deg,var(--primary)_0%,color-mix(in_oklab,var(--primary),black_28%)_100%)]';
 
+  // ONE GEOMETRY PER ROW HERE TOO (2026-11-02). This branch looked right
+  // because the pills are equal WIDTH — flex-[1_1_0] + min-w-[80px] — but it
+  // had the same defect the owner named on the banner: the tag CTA was
+  // py-[11px] text-[13px]/18 (40px tall) beside py-[8px] text-[12px]/16 (32px),
+  // and the row was flex-wrap. On End of Leak the shade and the lock card drew
+  // two pills eight pixels apart in height. Both are resolved to the SMALLER
+  // pair, and flex-wrap is gone.
+  //
+  // WHY THE SMALL PAIR, AND WHY THIS BRANCH STAYS TIGHTER THAN THE LIGHT ONE.
+  // py-[8px] text-[12px] leading-[16px] is already what these surfaces render
+  // for every push but one — it was measured on the glass, and keeping it
+  // leaves 16 of the 17 catalogue cards pixel-identical to what the owner has
+  // already seen. It is also the density these surfaces are built on: an OS
+  // notification is denser than an app card, which is why OS_CARD_INSET is
+  // tighter than APP_CARD_INSET and CARD_STACK_GAP is tighter than a card
+  // list's. So this row is 32px while the in-app banner's is 34px, and
+  // px-[6px] / gap-[6px] stay tighter than the banner's 8px. THAT GAP IS
+  // DELIBERATE PLATFORM MIMICRY, NOT DRIFT — do not "align" it later.
+  //
+  // What carries the tag CTA's priority is its GROUND, not its size: the
+  // gradient and its shadow against frosted glass. Same principle as the light
+  // branch — roles differ in ground, never in geometry.
   if (dark) {
     return (
-      <div className="mt-[8px] flex flex-wrap gap-[6px]">
+      <div className="mt-[8px] flex gap-[6px]">
         {actions.map(a => (
           <div key={a.key}
             onClick={(e) => { e.stopPropagation(); onAction(a.key, n); }}
             className={cn(
-              'min-w-[80px] flex-[1_1_0] cursor-pointer rounded-md px-[6px] text-center font-medium',
-              a.tagCta ? 'py-[11px] text-[13px] leading-[18px]' : 'py-[8px] text-[12px] leading-[16px]',
+              'min-w-[80px] flex-[1_1_0] cursor-pointer rounded-md px-[6px] py-[8px] text-center text-[12px] leading-[16px] font-medium',
               // The glass button ground is the chrome ink at 12%, same family
               // as every other frosted fill on these two surfaces.
               a.tagCta ? TAG_GRADIENT : a.primary ? accent.solid : 'bg-os-chrome-ink/12',
@@ -218,22 +240,61 @@ function NotifActions({ notification: n, onAction, dark = false }) {
     );
   }
 
+  // THE SAME ONE-GEOMETRY ROW AS THE DARK BRANCH ABOVE, on house grounds
+  // instead of glass (owner, 2026-11-02: "i dont like the way buttons are
+  // located / Try better"). The two branches differ in GROUND and in density —
+  // 34px here against the OS surfaces' 32px — and in nothing else.
+  //
+  // What they were looking at: this row was `flex-wrap`, the tag CTA had
+  // py-[8px] and everything else py-[4px], and a non-primary action had NO
+  // GROUND — just `text-muted-foreground`. So an End-of-Leak banner drew one
+  // tall filled pill beside a short grey caption, two different heights,
+  // huddled against the left edge with dead space to the right.
+  //
+  // The worse case, which is most of the catalogue: with the two-CTA set,
+  // nearly every push returns [view] ALONE. On the old light branch that was a
+  // single --muted-foreground string with no fill and no border — the lowest
+  // ink in the system — standing in as the primary way into the app. It read
+  // as a disabled caption.
+  //
+  // So the four surfaces now differ only in GROUND, never in layout: one row,
+  // equal-width pills, ONE vertical padding for every role so two buttons are
+  // the same height. No flex-wrap — the set is at most two actions, and
+  // wrapping is what let the row look accidental instead of composed. A single
+  // action therefore FILLS the row, which is this component's decided
+  // behaviour, not a gap left by a removal (see the Shutoff note in
+  // notificationActions.js).
   return (
-    <div className={cn('mt-[8px] flex flex-wrap', HEADER_GAP)}>
+    <div className={cn('mt-[8px] flex', HEADER_GAP)}>
       {actions.map(a => (
         <span key={a.key}
           onClick={(e) => { e.stopPropagation(); onAction(a.key, n); }}
           className={cn(
-            'cursor-pointer text-[13px] leading-[18px] font-medium',
+            'min-w-[80px] flex-[1_1_0] cursor-pointer rounded-md px-[8px] py-[8px] text-center text-[13px] leading-[18px] font-medium',
             a.tagCta
-              ? cn('rounded-md px-[14px] py-[8px] text-ink-on-color', TAG_GRADIENT,
+              ? cn('text-ink-on-color', TAG_GRADIENT,
                    // ${tagBlue}33 — string-concatenated hex alpha, which cannot
                    // take a var(). 0x33/0xff = 20%.
                    '[box-shadow:0_3px_8px_color-mix(in_oklab,var(--primary)_20%,transparent)]')
-              : cn('rounded-md px-[8px] py-[4px]',
-                   // ${accentColor}14 — the same hex-alpha problem. 0x14/0xff ≈ 8%.
-                   a.primary ? cn(accent.wash, accent.ink)
-                   : a.done ? 'text-success' : 'text-muted-foreground'),
+              // CURRENTLY UNREACHABLE, AND KEPT ANYWAY. The only action that
+              // carries `primary` is the tag CTA while untagged, and that one
+              // is `tagCta` too, so it never reaches here. Not a bug to debug:
+              // the owner has reversed this area twice in two days, and
+              // `accent` stays live for the card chrome either way.
+              // ${accentColor}14 — hex alpha that cannot take a var(). ≈ 8%.
+              : a.primary ? cn(accent.wash, accent.ink)
+              // SPENT, NOT INVITING. --muted is the inert ground; --secondary
+              // is the ground of the live View button sitting next to it, and
+              // reusing it would make a finished action look like another
+              // control. It also separates better: in `contrast` the two are
+              // 0.45 L (muted) vs 0.70 L (secondary) under 0.85 L success ink.
+              // The ink stays --success, as it was.
+              : a.done ? 'bg-muted text-success'
+              // The real ground View was missing. --secondary is #f2f6ff with
+              // --primary as its ink in light, so View reads as the same blue
+              // family as the tag CTA and plainly subordinate to it, and all
+              // four theme blocks define both halves, so it moves with them.
+              : 'bg-secondary text-secondary-foreground',
           )}>{a.label}</span>
       ))}
     </div>
@@ -470,9 +531,9 @@ function AppIcon({ size = APP_ICON_SIZE }) {
  */
 const SHOW_CATEGORY_DISC = false;
 
-// ─── Lock screen card (glance only — no action buttons) ─────────────────────
+// ─── Lock screen card (glance; actions when expanded) ───────────────────────
 
-function LockCard({ notification: n, expanded, onToggleExpand }) {
+function LockCard({ notification: n, expanded, onToggleExpand, onAction }) {
   const isLeak = n.type === 'leak';
   const timeStr = new Date(n.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const sysId = n.systemId;
@@ -534,6 +595,13 @@ function LockCard({ notification: n, expanded, onToggleExpand }) {
           <div className="mt-[10px] text-center text-[11px] leading-[16px] text-os-chrome-ink/55">
             Unlock to take action
           </div>
+          {/* View reaches the lock screen too (owner, 2026-11-02). The line
+              above STAYS and is still true: on a real lock screen, acting means
+              unlocking first, and View is the control that triggers it. The
+              body tap above is unchanged — it toggles expand, it does not
+              navigate, because that is the lock-screen idiom and the owner did
+              not ask for it to change. */}
+          <NotifActions notification={n} onAction={onAction} dark />
         </div>
       )}
     </div>
@@ -542,7 +610,7 @@ function LockCard({ notification: n, expanded, onToggleExpand }) {
 
 // ─── Lock Screen ────────────────────────────────────────────────────────────
 
-function PhoneLockScreen({ notifications, onUnlock, onPullShade }) {
+function PhoneLockScreen({ notifications, onAction, onUnlock, onPullShade }) {
   const [expandedIdx, setExpandedIdx] = useState(null);
   const now = new Date();
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -571,7 +639,7 @@ function PhoneLockScreen({ notifications, onUnlock, onPullShade }) {
       <div className="flex-1 overflow-y-auto px-[12px]">
         {notifications.length === 0 && <div className="mt-[40px] text-center text-[13px] leading-[18px] text-os-chrome-ink/55">No notifications</div>}
         {notifications.map((n, i) => (
-          <LockCard key={i} notification={n} expanded={expandedIdx === i}
+          <LockCard key={i} notification={n} expanded={expandedIdx === i} onAction={onAction}
             onToggleExpand={() => setExpandedIdx(expandedIdx === i ? null : i)} />
         ))}
       </div>
@@ -609,9 +677,10 @@ function ShadeCard({ notification: n, onAction, version }) {
       'overflow-hidden rounded-os-notification border border-solid border-os-chrome-ink/6 bg-os-shade-card backdrop-blur-[20px]',
       CARD_STACK_GAP,
     )}>
-      {/* iOS anatomy — see LockCard. The body tap is the navigation path now
-          that the View button is gone (notificationActions.js); NotifActions'
-          buttons stopPropagation, so they are unaffected. */}
+      {/* iOS anatomy — see LockCard. The body tap dispatches 'view' AND the
+          View button does too: the owner chose to keep both (2026-11-02, see
+          handleAction). NotifActions' buttons stopPropagation, so a button tap
+          fires once, not twice. */}
       <div onClick={() => onAction('view', n)} className={cn('cursor-pointer', OS_CARD_INSET)}>
         <div className={cn('flex items-center', TITLE_GAP)}>
           <AppIcon />
@@ -671,9 +740,10 @@ function PhoneShade({ notifications, onAction, onClose, version }) {
 
 function InAppBanner({ notification: n, onAction, onDismiss, version }) {
   const [startY, setStartY] = useState(null);
-  // A swipe-up to dismiss also produces a click, and this surface became
-  // tappable when the View button was removed. Without this latch, flicking
-  // the banner away would navigate into the system page on the way out.
+  // A swipe-up to dismiss also produces a click, and this surface's body is
+  // tappable-to-navigate. Without this latch, flicking the banner away would
+  // navigate into the event on the way out. Still needed now that the View
+  // button is back alongside the body tap — the swipe lands on the body.
   const swipedRef = useRef(false);
   useEffect(() => { const t = setTimeout(onDismiss, 8000); return () => clearTimeout(t); }, [n, onDismiss]);
   void version;
@@ -894,16 +964,45 @@ export default function PushNotifications({ children }) {
   const handleAction = useCallback((action, n) => {
     const sysId = n.systemId;
 
-    // Water-event lifecycle pushes all land on the System page (Overview).
-    // The Water Event card + Valve widget there show the current state.
-    // `?pulse=1` triggers a 2-second arrival pulse on the Water Event card so
-    // the user immediately sees what their push referred to.
+    // Pushes land on their own EVENT, not merely on the page that contains
+    // it (owner, 2026-11-02: View "redirect the user to the push content").
+    // `?focus=event` is read by SystemPageV2Screen, which opens
+    // EventFocusOverlay — the event's own view: flow trace, event facts,
+    // advice, recipients — and which already handles faults as well as water
+    // events, so this one param serves every push type.
+    //
+    // WHAT `?pulse=1` WAS, AND WHY IT IS GONE. The comment that stood here
+    // claimed it triggered "a 2-second arrival pulse on the Water Event card".
+    // It did not, and had not for some time: SystemPageV2Screen sets a `pulse`
+    // state that NOTHING RENDERS — the only reader is its own 2-second cleanup
+    // timer that clears it again. The old pulse never drew anything on screen.
+    //
+    // THE DOUBLE PATH INTO 'view' IS DELIBERATE (owner, 2026-11-02). This
+    // action is dispatched BOTH by the View button in NotifActions and by the
+    // body tap on ShadeCard, InAppBanner and HeadsUpNotification. The owner was
+    // asked directly and chose to keep the body tap alongside the button, so
+    // the two paths are not a duplication to be tidied away. Comments elsewhere
+    // in this file (and in notificationActions.js) argue the HIG's opposite
+    // case — "avoid an action that merely opens your app" — because they were
+    // written when View was being REMOVED. They record that older decision;
+    // this one supersedes it. Do not delete either path without asking.
     if (action === 'view') {
-      if (sysId) enterAppAndNavigate(`/system/${sysId}?pulse=1`);
+      if (sysId) enterAppAndNavigate(`/system/${sysId}?focus=event`);
       return;
     }
 
     if (action === 'investigate') {
+      // NO BUTTON DISPATCHES THIS as of 2026-11-02: the owner cut the push CTA
+      // set to exactly two — "Tell us more" on End of Leak, and View — so
+      // buildActions no longer emits an 'investigate' action and the Assign to
+      // me button is gone from every surface.
+      //
+      // THE BRANCH IS KEPT ON PURPOSE, NOT OVERLOOKED. The owner has reversed
+      // this exact decision twice in two days, and the claim guard below is a
+      // documented bug fix (see it) that would be lost and re-broken if this
+      // had to be written again from scratch. Restoring the button is a change
+      // in notificationActions.js alone; deleting this makes that a rewrite.
+      //
       // Mark investigating in the shared store. Stay on current surface; bump
       // version so visible cards re-read state and reflect the change.
       //
@@ -919,6 +1018,12 @@ export default function PushNotifications({ children }) {
     }
 
     if (action === 'ignore') {
+      // NO BUTTON DISPATCHES THIS as of 2026-11-02 either — same owner call,
+      // same two-CTA set — and it is kept for the same reason: the decision has
+      // already been reversed twice this week, and the deep link below (the
+      // ?action=ignore contract SystemPageV2Screen answers) is the part that is
+      // expensive to reconstruct. Left unchanged in this pass.
+      //
       // Ignore is irreversible + fires an IoT-device command. Open the System
       // page with ?action=ignore so the Water Event card's chip-based Ignore
       // bottom sheet auto-opens on arrival.
@@ -951,7 +1056,7 @@ export default function PushNotifications({ children }) {
       {children}
 
       {phoneState === 'locked' && (
-        <PhoneLockScreen notifications={notifications}
+        <PhoneLockScreen notifications={notifications} onAction={handleAction}
           onUnlock={() => { setPhoneState('inapp'); setNotifications([]); }}
           onPullShade={() => setPhoneState('shade')} />
       )}

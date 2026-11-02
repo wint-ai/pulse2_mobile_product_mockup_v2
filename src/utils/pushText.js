@@ -5,6 +5,11 @@
 // these strings - if copy looks wrong, fix it in the spreadsheet and
 // re-extract.
 //
+// ONE DOCUMENTED EXCEPTION, 2026-11-02: LE_01's body. The owner cut its final
+// sentence on sight of the new push; see the note on LE_01 itself. It is the
+// only string in this file that no longer matches the spreadsheet, and it is
+// flagged there rather than here so a re-extract cannot silently restore it.
+//
 // Glyph conventions:
 //   💧  Standard water event variants
 //   ⚠   Severe / "manual intervention required" variants (SO_04, SO_06,
@@ -124,9 +129,25 @@ export const V11_TEMPLATES = {
   },
 
   // === Water Event - Ended (LE_01) ===
+  //
+  // DIVERGES FROM V11 DELIBERATELY, 2026-11-02. The body ended with one more
+  // sentence - " Please share feedback on this event in the app." - and the
+  // owner struck it: "remove the pls share feedbak in the app".
+  //
+  // THIS IS NOT THE SAME KIND OF EDIT AS THE CTA RELABEL BELOW. That label is
+  // a mockup convention this file invented. THIS sentence is V11 spec text out
+  // of docs/Notification IDs -V11.0.xlsx, which the rest of this file is
+  // copied from byte-for-byte - so the push body now knowingly departs from
+  // the spreadsheet, on the owner's instruction, and the spreadsheet is the
+  // thing that is now out of date.
+  //
+  // WHY IT GOES: it had become the same instruction twice. The sentence asked
+  // the user to go and share feedback in the app; the push now carries a
+  // "Tell us more" button directly beneath it that opens the tag flow and
+  // does exactly that. The control replaced the request.
   LE_01: {
     title: 'Water event ended - {{water_system_name}}',
-    body:  'The water event detected by {{water_system_name}} at {{site_name}} has ended. Please share feedback on this event in the app.',
+    body:  'The water event detected by {{water_system_name}} at {{site_name}} has ended.',
   },
 
   // === Valve closure (VC_*) ===
@@ -255,8 +276,19 @@ export function buildPushText(card, variantId, sys, paramValues, opts = {}) {
     title: interpolate(template.title, vars),
     body:  interpolate(template.body, vars),
   };
-  // LE_01 surfaces a "Tag the cause" CTA on the in-app notification (mockup
-  // convention - not part of the V11 push body text itself).
-  if (id === 'LE_01') result.action = 'Tag the cause';
+  // LE_01 surfaces a "Tell us more" CTA on the in-app notification (mockup
+  // convention - not part of the V11 push body text itself, so renaming it
+  // breaks no spec). RENAMED by the owner on 2026-11-02, from "Tag the
+  // cause", as part of cutting the push CTA set to exactly two: "Tell us
+  // more" on the ended water event, and View on every push.
+  //
+  // WHAT ACTUALLY DRAWS THE BUTTON IS NOT THIS FIELD. buildActions() in
+  // src/utils/notificationActions.js builds the push's CTA row and carries
+  // its own label; this `action` travels into the push payload
+  // (pushSimFire.js:118, ControlPanel.jsx:347) where NOTHING reads it back.
+  // It is kept because it is the mockup's record of the label and the V11
+  // text test asserts on it - but a change here alone does not move a pixel,
+  // and the two must be renamed together or they drift.
+  if (id === 'LE_01') result.action = 'Tell us more';
   return result;
 }

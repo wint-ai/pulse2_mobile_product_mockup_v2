@@ -1179,8 +1179,9 @@ export default function SystemPageV2Screen() {
      this; the param vocabulary is PRD 02's URL contract. */
   useEffect(() => {
     const action = searchParams.get('action')
+    const focus = searchParams.get('focus')
     const wantsPulse = searchParams.get('pulse') === '1'
-    if (!action && !wantsPulse) return
+    if (!action && !focus && !wantsPulse) return
 
     /* WATER EVENTS ONLY — this effect was the one place in the file that did
        not consult `isWaterEvent` (:293), the line the owner has insisted on:
@@ -1207,12 +1208,44 @@ export default function SystemPageV2Screen() {
        question, as it always did. */
     const faultNow = Boolean(system.alert) && !waterNow
     if (action === 'tag' && !faultNow) setShowTagFeedback(true)
+    /* ?focus=event — THE VIEW BUTTON, on EVERY push. Owner, 2026-11-02: View
+       "redirect the user to the push content", so a push lands on its own
+       EVENT and not merely on the page that contains it. The link is built at
+       PushNotifications.jsx:930 and opens EventFocusOverlay, mounted at the
+       foot of this file — until now that overlay was reachable only by tapping
+       an alert card, never by URL.
+
+       DELIBERATELY NOT GATED ON isWaterEvent, AND THAT IS THE WHOLE POINT.
+       `action=ignore` above is water-only because ignoring a device fault was
+       never a feature. View is the opposite: "any push notification" has no
+       exceptions, so a valve error, a lost AC feed, an offline device and a
+       sensor push must all open here. The overlay has a dedicated fault
+       branch for exactly this (its header, item 7 — the severity pill, the
+       last-command line, the power line off ALERT_META) and draws no footer
+       on a fault, which is the correct answer there rather than a missing one.
+
+       IT IS GATED ON THERE BEING AN EVENT AT ALL. EventFocusOverlay resolves
+       `alert ?? system.alert ?? null` and returns null outright when that is
+       empty (EventFocusOverlay.jsx:1298-1300) — it has NO concluded-event
+       layout. This matters because ?focus=event arrives on the End-of-Leak
+       push too, which lands AFTER the event ended and may find
+       `system.alert` already null — the same timing the tag guard above is
+       written around. Opening on that would set `eventFocusOpen` true over a
+       component that paints nothing: the user taps View, the app navigates,
+       and the screen does not visibly change. Landing on the system page,
+       which does show the ended event in its own timeline, is strictly
+       better than an invisible overlay. Verified by mounting the overlay on
+       an alert-free system, not assumed — see focusEventDeepLink.dom.test.jsx.
+       If the overlay ever grows a concluded-event layout, drop the second
+       half of this condition and this comment with it. */
+    if (focus === 'event' && Boolean(system.alert)) setEventFocusOpen(true)
     /* §PRD 06 asks for a 2-second accent pulse on the card the push referred
        to — Slack's scroll-to-message highlight, not a badge. */
     if (wantsPulse) setPulse(true)
 
     const next = new URLSearchParams(searchParams)
     next.delete('action')
+    next.delete('focus')
     next.delete('pulse')
     setSearchParams(next, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2293,7 +2326,12 @@ export default function SystemPageV2Screen() {
           question. It is also the honest reading of where this link comes
           from: `tag` is offered on exactly one push, LE_01 / "End of Leak"
           (notificationActions.js:47), whose body is "The water event ... has
-          ended. Please share feedback on this event in the app."
+          ended." That body used to end "Please share feedback on this event
+          in the app", and this comment quoted it as the evidence that the
+          push means to ask a question. The owner struck the sentence on
+          2026-11-02 (pushText.js, LE_01) because the push's own "Tell us
+          more" button had made it redundant — so the evidence moved from the
+          body to the button, and the reading is unchanged.
 
           NOTHING TO COMMIT. The ignore flow above owns ignoredIncidents;
           this path owns no store of its own. The sheet persists the answer

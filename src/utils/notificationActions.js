@@ -40,71 +40,95 @@
 // timeline step id stays 'on-it' -- PushNotifications.jsx:644 and the timeline
 // config switch on those, and renaming them would be churn with a real chance
 // of breaking a switch.
+//
+// =====================================================================
+// REVERSED AGAIN (owner, 2026-11-02) - THE WHOLE SYSTEM IS NOW TWO CTAs
+// =====================================================================
+// Verbatim: "the only CTAs i want to have is 2 - Tel us more, when water event
+// is ended, and than it redirect the user into the tag leak flow; and to any
+// push notification View button and then it redirect the user to the push
+// content".
+//
+// Read the three dated decisions above in order, because the owner has now
+// reversed two of them in two days:
+//   2026-11-01 (a) the View BUTTON was struck ("remove the 'view' it is
+//       obvious") and the body tap was wired on three surfaces to replace it;
+//   2026-11-01 (b) a later pass RESTORED Assign to me + Ignore onto Ongoing,
+//       after an OL_* push arrived with an empty action row;
+//   2026-11-02 (c) this change: the whole system collapses to TWO CTAs.
+//
+// What (c) means concretely:
+//   * View comes back AS A BUTTON, on every push of every type and state -
+//     including the states that previously returned nothing, including an
+//     ignored card, and including an unknown/future state. That universality
+//     is the point: "any push notification" has no exceptions, so the default
+//     branch of the switch is no longer empty. It is View that makes the
+//     guarantee, and Rami's 2026-06-06 rule is in force again by a different
+//     route.
+//   * View appears on the LOCK-SCREEN card too (owner's follow-up answer),
+//     which is the one surface that never carried it.
+//   * The body tap STAYS, in addition to the button - the owner was asked and
+//     said so explicitly. A notification therefore now has TWO paths into the
+//     app on purpose. That deliberately overrides the Apple HIG argument
+//     recorded above ("presenting an action button that does the same thing
+//     clutters the detail view"); the HIG note is kept, not deleted, so the
+//     next reader can see it was weighed and overridden rather than missed.
+//   * 'Tell us more' REPLACES 'Tag the cause' as the End-of-Leak label. This
+//     breaks no specification: src/utils/pushText.js:258 records that the
+//     label was a "mockup convention - not part of the V11 push body text
+//     itself". (pushText.js and en.json are another agent's in this pass.)
+//   * Assign to me and Ignore leave the push ENTIRELY. 'investigate',
+//     'ignore' and 'dismiss' are never returned again, from any branch.
+//
+// WHY THAT IS SAFE: removing those two actions from the push removes NO
+// capability. The push was only ever a shortcut into them, and both flows keep
+// their own homes:
+//   * Claiming ("Assign to me" / 'on-it') lives at
+//       src/v2/components/EventFocusOverlay.jsx:1460
+//       src/v2/pages/SystemPageV2Screen.jsx:1390   (case 'on-it')
+//       src/components/WaterEventDetailsWidget.jsx:159  (claimOnIt)
+//     (The brief for this change cited :1432 / :1388 / :155; those are the
+//     enclosing blocks or stale offsets - the actual startInvestigating calls
+//     are at the lines above. Verified 2026-11-02.)
+//   * Ignore keeps its own sheet on the Water Event card -
+//       src/v2/pages/SystemPageV2Screen.jsx:2231 / :2246
+//       src/v2/pages/HomeAllAccounts.jsx:1731 / :1745
+//     which is the flow that collects the "why" summary; the push button never
+//     did that.
+// So nothing a user could do yesterday is unreachable today. The push simply
+// stops being a shortcut.
+//
+// SIGNATURE IS DELIBERATELY UNCHANGED: `investigating` and `ignored` no longer
+// select anything, but PushNotifications.jsx passes all three, and narrowing
+// the destructure would churn a file other work is touching. They stay named
+// and unused. `tagged` is still read - it is what flips 'Tell us more' to its
+// '✓ Tagged' done state.
+//
+// The disable below is the cost of keeping them: no-unused-vars has no
+// argsIgnorePattern in eslint.config.js, and that config is not this change's
+// to edit. Remove the two names and the disable together, if a later pass gets
+// PushNotifications.jsx to stop passing them.
+// eslint-disable-next-line no-unused-vars
 export function buildActions(n, { investigating, ignored, tagged }) {
-  // Non-water notifications: NO actions. These alert types (valve error,
-  // power lost, offline, etc.) never had an actionable state beyond
-  // navigating, and navigating is now the body tap. NotifActions returns null
-  // on an empty set, so the card draws no action row at all rather than an
-  // empty strip.
-  if (n.type !== 'leak') return [];
-  // Once ignored, every action collapses - and with View gone that is an
-  // EMPTY set, not an orphaned single control. The "Ignored" status pill on
-  // the card is what still says so; re-opening is the body tap. Subsequent
-  // pushes for the SAME event respect this (a NEW Warning push clears the
-  // ignored flag via applyPushEvent).
-  if (ignored) return [];
-  switch (n.state) {
-    case 'Warning':
-      // The owner's set, exactly: "keep only the ignore and assign to me".
-      return [
-        ...(investigating ? [] : [{ key: 'investigate', label: 'Assign to me' }]),
-        { key: 'ignore',      label: 'Ignore' },
-      ];
-    case 'Ongoing':
-      // RESTORED 2026-11-01 (owner: "why do I don't see any ignore or assign
-      // to me and view? ... I want to make sure all there. Only for the
-      // relevant stuff."). What they saw was an OL_* Ongoing push with an
-      // empty action row: View had been this state's ONLY action, so striking
-      // it left nothing behind. The fix is NOT to bring View back - it is that
-      // the two actions Warning offers were always relevant here as well. An
-      // Ongoing water event is live and unresolved: a person can still take
-      // it, and can still decide it is expected. There is no reason those are
-      // relevant at Warning and irrelevant thirty minutes later.
-      //
-      // Gated exactly as Warning is - the claim action hides once somebody
-      // holds the claim, leaving Ignore alone. Still no Dismiss action:
-      // swipe-to-dismiss is native on iOS / Android.
-      return [
-        ...(investigating ? [] : [{ key: 'investigate', label: 'Assign to me' }]),
-        { key: 'ignore',      label: 'Ignore' },
-      ];
-    case 'Shutoff':
-      // No Ignore on Critical state, so this is a SINGLE-action row. It renders
-      // correctly as one: the buttons are flex-[1_1_0] with a min width, so one
-      // action fills the row rather than leaving a gap where View used to be.
-      //
-      // ONCE CLAIMED, THE SET IS EMPTY - and stays that way, reviewed in the
-      // same 2026-11-01 pass that gave Ongoing its two actions back. Ongoing
-      // was empty because View had been struck out from under it; Shutoff +
-      // investigating is empty because both of its actions are genuinely
-      // spent. Ignore is withheld from Critical on purpose (the auto-shutoff
-      // has already fired - "this is expected" is not a thing left to say),
-      // and the claim is spent because this person already holds it. Filling
-      // the row would mean minting a label, and the vocabulary is the owner's
-      // to extend. An empty row is the honest answer; the body tap still opens
-      // the event, and the "On it - X" pill still says who has it.
-      return [
-        ...(investigating ? [] : [{ key: 'investigate', label: 'Assign to me' }]),
-      ];
-    case 'End of Leak':
-      // PRD 15 § 7.1 - readable label, no Dismiss (swipe-to-dismiss native).
-      // 'tagCta' flag marks this as the Wint-blue primary CTA on the push.
-      // Tag survives the View removal: the owner struck View, not the Tag CTA,
-      // and Tag is not a "merely opens your app" action.
-      return [
-        { key: 'tag',  label: tagged ? '✓ Tagged' : 'Tag the cause', primary: !tagged, done: tagged, tagCta: !tagged },
-      ];
-    default:
-      return [];
+  // The universal action, and now the ONLY one outside End of Leak. Every
+  // type (leak and non-leak alike), every state, ignored or not, known or
+  // unknown: a push always offers View. Built fresh on each call so a caller
+  // that mutates an action object cannot poison the next card.
+  const view = () => ({ key: 'view', label: 'View' });
+
+  // End of Leak is the one state with a second CTA: the tag flow. The order is
+  // fixed - the tag CTA first (it is the primary, Wint-blue button), View
+  // second. `tagCta` drives that styling and drops once the answer is in.
+  if (n?.type === 'leak' && n?.state === 'End of Leak') {
+    return [
+      { key: 'tag',  label: tagged ? '✓ Tagged' : 'Tell us more', primary: !tagged, done: tagged, tagCta: !tagged },
+      view(),
+    ];
   }
+
+  // Everything else - including ignored cards, non-leak faults (valve error,
+  // power lost, offline...), and any state this switch has never heard of.
+  // This branch used to be three separate empty returns; it is now the
+  // guarantee behind "any push notification".
+  return [view()];
 }

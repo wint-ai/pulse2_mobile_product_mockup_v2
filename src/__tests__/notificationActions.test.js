@@ -11,180 +11,226 @@ function labels(actions) {
   return actions.map(a => a.label);
 }
 
-/* VIEW WAS REMOVED 2026-11-01 (owner: "remove the 'view' it is obvious / keep
-   only the ignore and assign to me"). This suite used to pin Rami's 2026-06-06
-   rule that every notification offers at least a View action; it now pins the
-   opposite, because the owner overruled it. The rule's own comment is still in
-   notificationActions.js, dated, so the trade is legible.
+/* TWO CTAs, AND ONLY TWO (owner, 2026-11-02): "the only CTAs i want to have is
+   2 — Tel us more, when water event is ended, and than it redirect the user
+   into the tag leak flow; and to any push notification View button and then it
+   redirect the user to the push content". Follow-up answers: End of Leak shows
+   BOTH buttons; View is on the lock-screen card too; the body tap stays in
+   addition to the button.
 
-   What the suite is still guarding is unchanged: that each state produces
-   exactly its set, in order; that Dismiss is never returned; that the Tag CTA
-   is End-of-Leak-only; and that the claim action's LABEL and KEY cannot drift
-   apart. The 'view' KEY is deliberately still handled in PushNotifications.jsx
-   — it is what the notification body tap dispatches — so these assertions are
-   about the BUTTON, not the code path. */
+   This suite has now pinned three different contracts in three days, so read
+   the dates:
+     — it used to pin Rami's 2026-06-06 rule that every notification offers at
+       least View;
+     — on 2026-11-01 the owner struck the View BUTTON and it pinned the
+       opposite, plus Assign to me / Ignore per state;
+     — from 2026-11-02 it pins the set below. View is universal again, by a
+       different route, and Assign to me / Ignore have left the push entirely.
+
+   Everything deleted from this file was deleted because the owner removed the
+   behaviour it pinned, never because it became inconvenient; each deletion
+   says which behaviour, where it used to sit.
+
+   What the suite still guards is unchanged in spirit: that each state produces
+   exactly its set, in order; that no action outside the vocabulary can appear;
+   and that a struck action cannot drift back. */
+
+const VIEW_ONLY = ['view'];
 
 describe('notification action set per state', () => {
-  /* LABEL STANDARDISED 2026-10-31 (owner: "Assign to me"). The claim action
-     used to read "On it" on the push, "Assign to me" in the v2 overlay and
-     "Claim alert" on its tile. The KEY is deliberately unchanged: the label is
-     what the user reads, 'investigate' is what PushNotifications.jsx
-     dispatches on. Both assertions below are here so a future relabel cannot
-     quietly take the key with it. */
-  it('Warning: Assign to me · Ignore', () => {
+  /* DELETED 2026-11-02 — "Warning: Assign to me · Ignore", "Warning + already
+     investigating: the claim action is HIDDEN", "Ongoing: Assign to me ·
+     Ignore, the same set Warning offers", "Ongoing + already investigating",
+     "Warning and Ongoing offer the SAME set in both claim states", "Shutoff:
+     Assign to me alone (no Ignore on Critical)" and "Shutoff + investigating:
+     the claim action is hidden, leaving no actions".
+     All seven pinned the Assign to me / Ignore vocabulary and its
+     `investigating` gate on the push. The owner removed both actions from the
+     push outright, so there is no gate and no per-state difference left to
+     pin: Warning, Ongoing and Shutoff are now the same single-View row as
+     everything else, covered by the cases below and by the full table.
+     Claiming and ignoring are untouched on their own surfaces (overlay, v2
+     system page, Water Event card) and their tests there still stand. */
+
+  it('Warning: View alone', () => {
     const a = buildActions({ type: 'leak', state: 'Warning' }, { investigating: false, ignored: false, tagged: false });
-    expect(keys(a)).toEqual(['investigate', 'ignore']);
-    expect(labels(a)).toEqual(['Assign to me', 'Ignore']);
+    expect(keys(a)).toEqual(VIEW_ONLY);
+    expect(labels(a)).toEqual(['View']);
   });
 
-  it('Warning + already investigating: the claim action is HIDDEN', () => {
-    const a = buildActions({ type: 'leak', state: 'Warning' }, { investigating: true, ignored: false, tagged: false });
-    expect(keys(a)).toEqual(['ignore']); // no investigate
-  });
-
-  /* ONGOING RESTORED 2026-11-01. Removing View emptied this state outright -
-     View had been its only action - and the owner reported the empty row on an
-     OL_* push: "why do I don't see any ignore or assign to me". It now carries
-     the SAME two actions as Warning, gated the same way: a live, unresolved
-     water event is still claimable and still ignorable. No new label was
-     minted to fill the row; both of these already existed. */
-  it('Ongoing: Assign to me · Ignore, the same set Warning offers', () => {
+  it('Ongoing: View alone', () => {
     const a = buildActions({ type: 'leak', state: 'Ongoing' }, { investigating: false, ignored: false, tagged: false });
-    expect(keys(a)).toEqual(['investigate', 'ignore']);
-    expect(labels(a)).toEqual(['Assign to me', 'Ignore']);
-    // Dismiss is still never offered - swipe-to-dismiss is native.
-    expect(a.find(x => x.key === 'dismiss')).toBeUndefined();
+    expect(keys(a)).toEqual(VIEW_ONLY);
+    expect(labels(a)).toEqual(['View']);
   });
 
-  it('Ongoing + already investigating: the claim action is HIDDEN, Ignore stays', () => {
-    // The gate is Warning's, verbatim: claiming spends the claim button and
-    // does not withdraw the right to ignore.
-    const a = buildActions({ type: 'leak', state: 'Ongoing' }, { investigating: true, ignored: false, tagged: false });
-    expect(keys(a)).toEqual(['ignore']);
-  });
-
-  it('Warning and Ongoing offer the SAME set in both claim states', () => {
-    // The point of the fix stated as one assertion: nothing about an event
-    // being thirty minutes old changes which actions are relevant to it.
-    for (const investigating of [false, true]) {
-      const w = buildActions({ type: 'leak', state: 'Warning' }, { investigating, ignored: false, tagged: false });
-      const o = buildActions({ type: 'leak', state: 'Ongoing' }, { investigating, ignored: false, tagged: false });
-      expect(keys(o)).toEqual(keys(w));
-      expect(labels(o)).toEqual(labels(w));
-    }
-  });
-
-  it('Shutoff: Assign to me alone (no Ignore on Critical)', () => {
+  it('Shutoff: View alone', () => {
     const a = buildActions({ type: 'leak', state: 'Shutoff' }, { investigating: false, ignored: false, tagged: false });
-    expect(keys(a)).toEqual(['investigate']);
-    // The second of the two claim-label sites, pinned alongside Warning above.
-    expect(labels(a)).toEqual(['Assign to me']);
-    expect(a.find(x => x.key === 'ignore')).toBeUndefined();
+    expect(keys(a)).toEqual(VIEW_ONLY);
+    expect(labels(a)).toEqual(['View']);
   });
 
-  /* REVIEWED AND KEPT EMPTY 2026-11-01, in the pass that refilled Ongoing.
-     The two holes are not the same hole: Ongoing was empty because View had
-     been struck out from under it, while this set is empty because both of its
-     actions are genuinely spent - Ignore is withheld from Critical by the
-     decision above, and the claim is spent because this person already holds
-     it. Filling the row would mean minting a label, which is the owner's call.
-     The body tap still opens the event and the "On it · X" pill still says who
-     has it, so an empty row here is honest rather than a regression. */
-  it('Shutoff + investigating: the claim action is hidden, leaving no actions', () => {
-    const a = buildActions({ type: 'leak', state: 'Shutoff' }, { investigating: true, ignored: false, tagged: false });
-    expect(keys(a)).toEqual([]);
+  it('the claim flag no longer changes ANY set', () => {
+    // The `investigating` argument survives in the signature only because
+    // PushNotifications.jsx passes it. Nothing reads it for action selection
+    // any more, and this is the assertion that says so out loud.
+    const states = ['Warning', 'Ongoing', 'Shutoff', 'End of Leak', 'Future-state'];
+    states.forEach(state => {
+      const off = buildActions({ type: 'leak', state }, { investigating: false, ignored: false, tagged: false });
+      const on  = buildActions({ type: 'leak', state }, { investigating: true,  ignored: false, tagged: false });
+      expect(keys(on)).toEqual(keys(off));
+      expect(labels(on)).toEqual(labels(off));
+    });
   });
 
-  it('End of Leak (untagged): Tag CTA alone, and it stays primary', () => {
+  /* THE TWO-BUTTON STATE. End of Leak is the only state with a second CTA, and
+     the order is part of the contract: the tag CTA is the primary and leads. */
+  it('End of Leak (untagged): Tell us more · View, in that order', () => {
     const a = buildActions({ type: 'leak', state: 'End of Leak' }, { investigating: false, ignored: false, tagged: false });
-    // Tag survived the View removal: the owner struck View, and Tag is not a
-    // "merely opens your app" action.
-    expect(keys(a)).toEqual(['tag']);
-    expect(a[0].label).toBe('Tag the cause');
+    expect(keys(a)).toEqual(['tag', 'view']);
+    expect(labels(a)).toEqual(['Tell us more', 'View']);
     expect(a[0].primary).toBe(true);
     expect(a[0].tagCta).toBe(true); // drives the Wint-blue button styling
+    expect(a[0].done).toBe(false);
   });
 
-  it('End of Leak (tagged): Tag button shows "✓ Tagged" done state', () => {
+  /* RELABELLED 2026-11-02: 'Tell us more' replaces 'Tag the cause'. This
+     breaks no specification — src/utils/pushText.js:258 records that the old
+     label was a "mockup convention - not part of the V11 push body text
+     itself". The KEY is deliberately unchanged at 'tag', because
+     PushNotifications.jsx dispatches on it and it is what opens the tag leak
+     flow; the assertion below is here so a future relabel cannot take the key
+     with it. */
+  it("the tag CTA is relabelled, NOT re-keyed — key stays 'tag'", () => {
+    const a = buildActions({ type: 'leak', state: 'End of Leak' }, { tagged: false });
+    expect(a[0].key).toBe('tag');
+    expect(labels(a)).not.toContain('Tag the cause');
+  });
+
+  it('End of Leak (tagged): first button shows "✓ Tagged" done state, View stays second', () => {
     const a = buildActions({ type: 'leak', state: 'End of Leak' }, { investigating: false, ignored: false, tagged: true });
-    expect(keys(a)).toEqual(['tag']);
+    expect(keys(a)).toEqual(['tag', 'view']);
     expect(a[0].label).toBe('✓ Tagged');
     expect(a[0].done).toBe(true);
     expect(a[0].primary).toBe(false);
     expect(a[0].tagCta).toBeFalsy();
+    // Tagging spends the tag CTA; it does not spend the way into the app.
+    expect(a[1]).toEqual({ key: 'view', label: 'View' });
   });
 
-  it('Any state + ignored: NO actions (an empty row, not an orphaned control)', () => {
-    // This is the hole View used to paper over: ignoring collapsed the set to
-    // View alone, so with View gone the honest answer is an empty set. The
-    // card still shows the "Ignored" status pill, and the body tap still
-    // navigates — NotifActions returns null on an empty set, so no strip is
-    // drawn at all.
-    const states = ['Warning', 'Ongoing', 'Shutoff', 'End of Leak'];
+  it('End of Leak keeps BOTH buttons in every flag combination', () => {
+    // Including ignored — see the ignored block below for why that is not an
+    // oversight. The owner answered the question directly: End of Leak shows
+    // both.
+    for (const investigating of [false, true]) {
+      for (const ignored of [false, true]) {
+        for (const tagged of [false, true]) {
+          const a = buildActions({ type: 'leak', state: 'End of Leak' }, { investigating, ignored, tagged });
+          expect(keys(a)).toEqual(['tag', 'view']);
+        }
+      }
+    }
+  });
+
+  /* WAS "Any state + ignored: NO actions". DELETED AND INVERTED 2026-11-02.
+     The empty set was a consequence of striking View on 2026-11-01 — an
+     ignored card collapsed to View alone, so with View gone it collapsed to
+     nothing. View is back on every push without exception, so an ignored card
+     now carries it like any other. The "Ignored · X" pill still carries the
+     state; it is the actions that no longer vanish. */
+  it('ignored === true: View, NOT an empty set', () => {
+    const states = ['Warning', 'Ongoing', 'Shutoff', 'Future-state'];
     states.forEach(state => {
       const a = buildActions({ type: 'leak', state }, { investigating: false, ignored: true, tagged: false });
-      expect(keys(a)).toEqual([]);
+      expect(keys(a), `ignored ${state}`).toEqual(VIEW_ONLY);
+    });
+    // And on a non-leak type, where it was doubly empty before.
+    expect(keys(buildActions({ type: 'offline' }, { investigating: false, ignored: true, tagged: false }))).toEqual(VIEW_ONLY);
+  });
+
+  it('the ignored flag no longer changes ANY set', () => {
+    const states = ['Warning', 'Ongoing', 'Shutoff', 'End of Leak', 'Future-state'];
+    states.forEach(state => {
+      const off = buildActions({ type: 'leak', state }, { investigating: false, ignored: false, tagged: false });
+      const on  = buildActions({ type: 'leak', state }, { investigating: false, ignored: true,  tagged: false });
+      expect(keys(on)).toEqual(keys(off));
     });
   });
 
-  it('non-leak notification type: no actions', () => {
+  /* WAS "non-leak notification type: no actions". DELETED AND INVERTED
+     2026-11-02. "any push notification" is the owner's own phrase and it has
+     no type carve-out: a valve error, a power loss and an offline device each
+     offer View now. This also closes the OPEN QUESTION the old table recorded
+     — faults were empty as a side effect of the type short-circuit, never by
+     anyone's decision. They are no longer empty. */
+  it('every non-leak type gets exactly [view], where it previously got []', () => {
     const types = ['valve-error', 'valve-error-cleared', 'power-lost', 'power-restored',
                    'offline', 'online', 'valve-closed-by-user', 'meter-disconnected'];
     types.forEach(type => {
       const a = buildActions({ type }, { investigating: false, ignored: false, tagged: false });
-      expect(keys(a)).toEqual([]);
+      expect(keys(a), type).toEqual(VIEW_ONLY);
+      expect(labels(a), type).toEqual(['View']);
     });
   });
 
-  it('unknown leak state defaults to no actions', () => {
-    const a = buildActions({ type: 'leak', state: 'Future-state' }, { investigating: false, ignored: false, tagged: false });
-    expect(keys(a)).toEqual([]);
+  it('a non-leak type never gets the tag CTA, however tagged reads', () => {
+    // 'End of Leak' is meaningless off a leak; the state guard is on the TYPE
+    // as well as the state, and this pins that it stays that way.
+    const a = buildActions({ type: 'offline', state: 'End of Leak' }, { tagged: false });
+    expect(keys(a)).toEqual(VIEW_ONLY);
+  });
+
+  /* WAS "unknown leak state defaults to no actions". DELETED AND INVERTED
+     2026-11-02. The default branch being empty is exactly what would have let
+     a future state ship with no way into the app; now it is the branch that
+     delivers the guarantee. */
+  it('an unknown state still yields [view] — the default branch is no longer empty', () => {
+    for (const state of ['Future-state', 'ShutOff', '', undefined, null]) {
+      const a = buildActions({ type: 'leak', state }, { investigating: false, ignored: false, tagged: false });
+      expect(keys(a), `state=${String(state)}`).toEqual(VIEW_ONLY);
+    }
   });
 });
 
-/* THE WHOLE TABLE, 2026-11-01. The owner asked to "make sure all there. Only
-   for the relevant stuff." after an OL_* Ongoing push arrived with an empty
-   action row. The individual cases above each pin one cell; this pins the GRID,
-   so a future change to one state cannot quietly empty another the way striking
-   View emptied three at once. Every cell is spelled out - including the ones
-   that are deliberately empty, which are the ones worth being explicit about. */
+/* THE WHOLE TABLE. The individual cases above each pin one cell; this pins the
+   GRID, so a future change to one state cannot quietly empty another the way
+   striking View emptied three at once on 2026-11-01. Every cell is spelled
+   out. Since 2026-11-02 there are no deliberately-empty cells left to be
+   explicit about: NO cell is empty, which is itself the thing to guard. */
 describe('the full state x flag table', () => {
-  const CLAIM = ['investigate', 'ignore'];
+  const EOL = ['tag', 'view'];
   const TABLE = [
     // [ type,        state,         investigating, ignored, expected keys ]
-    ['leak',  'Warning',      false, false, CLAIM],
-    ['leak',  'Warning',      true,  false, ['ignore']],
-    ['leak',  'Ongoing',      false, false, CLAIM],
-    ['leak',  'Ongoing',      true,  false, ['ignore']],
-    // Critical: Ignore is withheld by decision, so claiming spends the row.
-    ['leak',  'Shutoff',      false, false, ['investigate']],
-    ['leak',  'Shutoff',      true,  false, []],
-    // End of Leak is the Tag CTA alone in both claim states - the event is
-    // over, so neither claiming nor ignoring it means anything any more.
-    ['leak',  'End of Leak',  false, false, ['tag']],
-    ['leak',  'End of Leak',  true,  false, ['tag']],
-    // Ignored collapses EVERY leak state to nothing. Deliberate: the
-    // "Ignored - X" pill carries the state and the body tap still reopens it.
-    ['leak',  'Warning',      false, true,  []],
-    ['leak',  'Ongoing',      false, true,  []],
-    ['leak',  'Ongoing',      true,  true,  []],
-    ['leak',  'Shutoff',      false, true,  []],
-    ['leak',  'End of Leak',  false, true,  []],
-    // An unknown future state falls through the switch to nothing rather than
-    // guessing - and 'ShutOff', capital O, is exactly that case (pushPayload.js
-    // documents the casing trap).
-    ['leak',  'ShutOff',      false, false, []],
-    ['leak',  'Future-state', false, false, []],
-    // Faults. OPEN QUESTION, NOT A SETTLED EMPTY: these are empty because
-    // buildActions short-circuits non-leak types, and removing View emptied
-    // them as a side effect rather than by anyone deciding it. Whether a fault
-    // should offer the claim action is the owner's call - Ignore is a
-    // water-event concept and eventFocusOverlay.dom.test.jsx already pins that
-    // a fault surface offers neither. Left as found; this row records it.
-    ['power-lost',           null, false, false, []],
-    ['offline',              null, false, false, []],
-    ['valve-error',          null, false, false, []],
-    ['valve-closed-by-user', null, false, false, []],
+    ['leak',  'Warning',      false, false, VIEW_ONLY],
+    ['leak',  'Warning',      true,  false, VIEW_ONLY],
+    ['leak',  'Ongoing',      false, false, VIEW_ONLY],
+    ['leak',  'Ongoing',      true,  false, VIEW_ONLY],
+    ['leak',  'Shutoff',      false, false, VIEW_ONLY],
+    ['leak',  'Shutoff',      true,  false, VIEW_ONLY],
+    // End of Leak is the only two-button cell in the grid, in both claim states.
+    ['leak',  'End of Leak',  false, false, EOL],
+    ['leak',  'End of Leak',  true,  false, EOL],
+    // Ignored no longer collapses anything. It used to empty every leak state.
+    ['leak',  'Warning',      false, true,  VIEW_ONLY],
+    ['leak',  'Ongoing',      false, true,  VIEW_ONLY],
+    ['leak',  'Ongoing',      true,  true,  VIEW_ONLY],
+    ['leak',  'Shutoff',      false, true,  VIEW_ONLY],
+    ['leak',  'End of Leak',  false, true,  EOL],
+    // An unknown future state falls through to View rather than to nothing -
+    // and 'ShutOff', capital O, is exactly that case (pushPayload.js documents
+    // the casing trap). It used to land on an empty row; now the trap is
+    // survivable, because the fall-through still offers a way in.
+    ['leak',  'ShutOff',      false, false, VIEW_ONLY],
+    ['leak',  'Future-state', false, false, VIEW_ONLY],
+    // Faults. The OPEN QUESTION recorded here on 2026-11-01 - whether an empty
+    // fault row was a decision or a side effect - is settled: the owner's "any
+    // push notification" covers them, so they carry View. Whether a fault
+    // should ALSO offer the claim action is moot now that claiming is off the
+    // push entirely.
+    ['power-lost',           null, false, false, VIEW_ONLY],
+    ['offline',              null, false, false, VIEW_ONLY],
+    ['valve-error',          null, false, false, VIEW_ONLY],
+    ['valve-closed-by-user', null, false, false, VIEW_ONLY],
   ];
 
   it.each(TABLE)('%s / %s / investigating=%s ignored=%s', (type, state, investigating, ignored, expected) => {
@@ -195,10 +241,24 @@ describe('the full state x flag table', () => {
     a.forEach(x => expect(x.label).toBeTruthy());
   });
 
+  it('NO cell in the table is empty — every push offers at least View', () => {
+    // The owner's "any push notification" stated as one assertion. This is the
+    // inverse of what this file pinned on 2026-11-01, deliberately.
+    for (const [type, state, investigating, ignored] of TABLE) {
+      for (const tagged of [false, true]) {
+        const a = buildActions({ type, state }, { investigating, ignored, tagged });
+        expect(a.length, `empty set on ${type}/${state}`).toBeGreaterThan(0);
+        expect(a.find(x => x.key === 'view'), `no view on ${type}/${state}`).toBeTruthy();
+      }
+    }
+  });
+
   it('every non-empty set is drawn from the existing vocabulary only', () => {
     // The guard against a future hole being filled with INVENTED copy: no
     // label may appear on a push that is not already one of these three.
-    const ALLOWED = new Set(['Assign to me', 'Ignore', 'Tag the cause', '✓ Tagged']);
+    // Narrowed 2026-11-02 — 'Assign to me' and 'Ignore' left the push, and
+    // 'Tag the cause' became 'Tell us more'.
+    const ALLOWED = new Set(['Tell us more', '✓ Tagged', 'View']);
     for (const [type, state, investigating, ignored] of TABLE) {
       for (const tagged of [false, true]) {
         const a = buildActions({ type, state }, { investigating, ignored, tagged });
@@ -206,57 +266,89 @@ describe('the full state x flag table', () => {
       }
     }
   });
-});
 
-describe("the View BUTTON is never returned (owner, 2026-11-01)", () => {
-  /* The assertion that stops the rule drifting back. It sweeps every state and
-     every state-flag combination rather than spot-checking, because View used
-     to be the one constant and a partial revert would be easy to miss. */
-  const LEAK_STATES = ['Warning', 'Ongoing', 'Shutoff', 'End of Leak', 'Future-state'];
-  const NON_LEAK = ['valve-error', 'power-lost', 'offline', 'valve-closed-by-user'];
-  const FLAGS = [false, true];
-
-  it.each(LEAK_STATES)('leak state %s never offers View', (state) => {
-    for (const investigating of FLAGS) {
-      for (const ignored of FLAGS) {
-        for (const tagged of FLAGS) {
-          const a = buildActions({ type: 'leak', state }, { investigating, ignored, tagged });
-          expect(a.find(x => x.key === 'view')).toBeUndefined();
-          expect(labels(a)).not.toContain('View');
+  it('the whitelist is EXACTLY those three — no fourth label exists anywhere', () => {
+    // Swept rather than spot-checked: collect every label the function can
+    // emit across the whole input space and compare the SET.
+    const seen = new Set();
+    for (const type of ['leak', 'valve-error', 'power-lost', 'offline', 'online', 'meter-disconnected']) {
+      for (const state of ['Warning', 'Ongoing', 'Shutoff', 'End of Leak', 'ShutOff', 'Future-state', undefined]) {
+        for (const investigating of [false, true]) {
+          for (const ignored of [false, true]) {
+            for (const tagged of [false, true]) {
+              buildActions({ type, state }, { investigating, ignored, tagged }).forEach(x => seen.add(x.label));
+            }
+          }
         }
       }
     }
+    expect([...seen].sort()).toEqual(['Tell us more', 'View', '✓ Tagged'].sort());
   });
+});
 
-  it.each(NON_LEAK)('non-leak type %s never offers View', (type) => {
-    const a = buildActions({ type }, { investigating: false, ignored: false, tagged: false });
-    expect(a.find(x => x.key === 'view')).toBeUndefined();
+describe('the struck actions are NEVER returned (owner, 2026-11-02)', () => {
+  /* The assertion that stops the vocabulary drifting back. It sweeps every
+     type × state × flag combination rather than spot-checking, because
+     'investigate' and 'ignore' were the whole push vocabulary yesterday and a
+     partial revert would be easy to miss.
+
+     REPLACES the 2026-11-01 "the View BUTTON is never returned" block and the
+     separate "Dismiss action is NEVER returned" block, both deleted: the first
+     pinned the behaviour the owner has just reversed (View is a button again),
+     and the second is subsumed here, since 'dismiss' is one of the three keys
+     swept below. Dismiss has never been offered and still is not — swipe-to-
+     dismiss is native on iOS and Android. */
+  const STRUCK_KEYS = ['investigate', 'ignore', 'dismiss'];
+  const STRUCK_LABELS = ['Assign to me', 'Ignore', 'Dismiss', 'On it', 'Claim alert'];
+  const TYPES = ['leak', 'valve-error', 'power-lost', 'offline', 'valve-closed-by-user', 'meter-disconnected'];
+  const LEAK_STATES = ['Warning', 'Ongoing', 'Shutoff', 'End of Leak', 'ShutOff', 'Future-state'];
+  const FLAGS = [false, true];
+
+  it.each(TYPES)('type %s never offers investigate / ignore / dismiss in any state', (type) => {
+    for (const state of LEAK_STATES) {
+      for (const investigating of FLAGS) {
+        for (const ignored of FLAGS) {
+          for (const tagged of FLAGS) {
+            const a = buildActions({ type, state }, { investigating, ignored, tagged });
+            STRUCK_KEYS.forEach(k =>
+              expect(a.find(x => x.key === k), `${k} on ${type}/${state}`).toBeUndefined());
+            STRUCK_LABELS.forEach(l =>
+              expect(labels(a), `"${l}" on ${type}/${state}`).not.toContain(l));
+          }
+        }
+      }
+    }
   });
 
   it('never returns more than two actions (safe on iOS and Android alike)', () => {
     // Apple's HIG says up to four but UNNotificationCategory says at most two
-    // when space is constrained; Android caps at three. Two is safe everywhere.
-    for (const state of LEAK_STATES) {
-      for (const investigating of FLAGS) {
-        for (const ignored of FLAGS) {
-          const a = buildActions({ type: 'leak', state }, { investigating, ignored, tagged: false });
-          expect(a.length).toBeLessThanOrEqual(2);
+    // when space is constrained; Android caps at three. Two is safe everywhere,
+    // and End of Leak is now exactly at that ceiling.
+    for (const type of TYPES) {
+      for (const state of LEAK_STATES) {
+        for (const investigating of FLAGS) {
+          for (const ignored of FLAGS) {
+            for (const tagged of FLAGS) {
+              const a = buildActions({ type, state }, { investigating, ignored, tagged });
+              expect(a.length).toBeLessThanOrEqual(2);
+            }
+          }
         }
       }
     }
   });
-});
 
-describe('Dismiss action is NEVER returned by buildActions', () => {
-  it('Ongoing has no Dismiss', () => {
-    // Still true now that Ongoing has a two-action row again: the set is
-    // Assign to me · Ignore, and Dismiss is not in the vocabulary.
-    const a = buildActions({ type: 'leak', state: 'Ongoing' }, {});
-    expect(a.find(x => x.key === 'dismiss')).toBeUndefined();
-  });
-  it('End of Leak has no Dismiss', () => {
-    const a = buildActions({ type: 'leak', state: 'End of Leak' }, {});
-    expect(a.find(x => x.key === 'dismiss')).toBeUndefined();
+  it('no label is ever a raw key, and none is blank', () => {
+    for (const type of TYPES) {
+      for (const state of LEAK_STATES) {
+        for (const tagged of FLAGS) {
+          buildActions({ type, state }, { investigating: false, ignored: false, tagged }).forEach(x => {
+            expect(x.label).toBeTruthy();
+            expect(x.label).not.toBe(x.key);
+          });
+        }
+      }
+    }
   });
 });
 
@@ -275,6 +367,28 @@ describe('Tag CTA only on End of Leak', () => {
   });
   it('End of Leak has Tag action with primary+tagCta', () => {
     const a = buildActions({ type: 'leak', state: 'End of Leak' }, {});
-    expect(a.find(x => x.key === 'tag')).toBeTruthy();
+    const tag = a.find(x => x.key === 'tag');
+    expect(tag).toBeTruthy();
+    expect(tag.primary).toBe(true);
+    expect(tag.tagCta).toBe(true);
+  });
+});
+
+describe('the View action object itself', () => {
+  it("is exactly { key: 'view', label: 'View' } — no primary, no tagCta", () => {
+    // It is the plain secondary button on every surface, including the
+    // lock-screen card it now appears on for the first time (owner, 2026-11-02).
+    // If it ever acquired `primary`, it would fight the tag CTA on End of Leak.
+    const plain = buildActions({ type: 'leak', state: 'Warning' }, {})[0];
+    expect(plain).toEqual({ key: 'view', label: 'View' });
+    const onEol = buildActions({ type: 'leak', state: 'End of Leak' }, {})[1];
+    expect(onEol).toEqual({ key: 'view', label: 'View' });
+  });
+
+  it('each call returns a fresh object — a mutated action cannot poison the next card', () => {
+    const a = buildActions({ type: 'leak', state: 'Warning' }, {});
+    a[0].label = 'MUTATED';
+    const b = buildActions({ type: 'leak', state: 'Warning' }, {});
+    expect(b[0].label).toBe('View');
   });
 });

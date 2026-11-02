@@ -144,8 +144,12 @@ describe('V11.0 push text — title + body verbatim per spec', () => {
     const out = buildFor('LE_01');
     expect(out).toEqual({
       title: 'Water event ended - Cooling Tower #1',
-      body:  'The water event detected by Cooling Tower #1 at Henrietta House has ended. Please share feedback on this event in the app.',
-      action: 'Tag the cause',
+      // The trailing " Please share feedback on this event in the app." was
+      // struck by the owner on 2026-11-02 - the push's own "Tell us more"
+      // button says it now. See the note on LE_01 in pushText.js: this body
+      // deliberately no longer matches the V11 spreadsheet.
+      body:  'The water event detected by Cooling Tower #1 at Henrietta House has ended.',
+      action: 'Tell us more',
     });
   });
 
