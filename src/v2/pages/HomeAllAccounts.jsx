@@ -84,6 +84,11 @@ import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import SystemHealthCard from '@/v2/components/SystemHealthCard'
 import SystemsOverviewHero from '@/v2/components/SystemsOverviewHero'
 import TriageBand from '@/v2/components/TriageBand'
+/* The valve widget. It derives nothing about valves itself — valveScope.js is
+   the single source of what a state means and what may be commanded — so this
+   page hands it the SAME `scopedSystems` every other card on the screen reads
+   and nothing else. */
+import ValveManagementCard from '@/v2/components/ValveManagementCard'
 import WaterEventFeedbackSheet from '@/v2/components/WaterEventFeedbackSheet'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
@@ -473,6 +478,45 @@ function TopUsageCard({ data, onSelect, onPeriodChange }) {
   )
 }
 
+/* ── THE TWO HALVES OF "what does this route name mean" ───────────────────
+   Scope here resolves BY NAME, not by node id, and a name can land on either
+   of two different things: a level in the location tree, or an account. Both
+   halves used to live inline inside the `scopedSystems` filter, which was fine
+   while the only question was "is this system in scope". It is not any more:
+   ValveManagementCard needs to know WHICH half matched, so its confirm sheet
+   can say "Every system at this location" or "Every system in this account"
+   and be right.
+
+   That is one decision, and a decision made in two places is a decision made
+   twice — the rule valveScope.js was extracted to state. So the predicates are
+   named once here and both the filter and the `scopeKind` memo call them. The
+   filter's behaviour is byte-identical to the inline version it replaced,
+   including the `||` order. */
+
+/** The location tree: account > l1 (country) > l2 (Office / Residential) > l4
+ *  (building). All FOUR levels, l1 included — omitting l1Name made
+ *  /location/United%20States match nothing and render the empty-scope zeros
+ *  for a node the drawer itself labels 103. l3Name is matched too though it is
+ *  empty in this dataset: buildTree.js documents L3 as the level the MRG
+ *  export leaves unused, and a dataset that populates it should scope on it
+ *  rather than silently miss. */
+function matchesLocationName(s, name) {
+  return s.l4Name === name || s.l3Name === name || s.l2Name === name || s.l1Name === name
+}
+
+/** Accounts are routable by name too. s.account is a Salesforce id, but SFDC
+ *  carries the name alongside it and getAccountById resolves it — which is how
+ *  the drawer labels these rows "Meridian Realty Group (MRG)" in the first
+ *  place. A parent account rolls its children up, so scoping to MRG returns
+ *  its own 101 systems plus the 2 under Southbridge Health rather than only
+ *  the direct ones. */
+function matchesAccountName(s, name) {
+  const acct = getAccountById(s.account)
+  if (!acct) return false
+  if (acct.name === name) return true
+  return getAccountById(acct.parentId)?.name === name
+}
+
 // ── Screen ─────────────────────────────────────────────────────────────────
 
 /**
@@ -517,29 +561,44 @@ export default function HomeAllAccounts({ expanded = false }) {
     const all = SYSTEMS ?? []
     if (!locationName) return all
     const name = decodeURIComponent(locationName)
-    /* All FOUR levels, l1 included. The drawer's tree is
-       account > l1 (country) > l2 (Office / Residential) > l4 (building), and
-       omitting l1Name made /location/United%%20States match nothing and render
-       the empty-scope zeros for a node the drawer itself labels 103.
-       l3Name is matched too though it is empty in this dataset — buildTree.js
-       documents L3 as the level the MRG export leaves unused, and a dataset
-       that populates it should scope on it rather than silently miss. */
-    return all.filter(s => {
-      if (
-        s.l4Name === name || s.l3Name === name || s.l2Name === name || s.l1Name === name
-      ) return true
+    /* Both halves are the module-level predicates above; see the note there
+       for why they are named rather than inlined. The `||` order is the
+       original's and is load-bearing for `scopeKind` below. */
+    return all.filter(s => matchesLocationName(s, name) || matchesAccountName(s, name))
+  }, [locationName])
 
-      /* Accounts are routable by name too. s.account is a Salesforce id, but
-         SFDC carries the name alongside it and getAccountById resolves it —
-         which is how the drawer labels these rows "Meridian Realty Group
-         (MRG)" in the first place. A parent account rolls its children up, so
-         scoping to MRG returns its own 101 systems plus the 2 under
-         Southbridge Health rather than only the direct ones. */
-      const acct = getAccountById(s.account)
-      if (!acct) return false
-      if (acct.name === name) return true
-      return getAccountById(acct.parentId)?.name === name
-    })
+  /* WHICH HALF MATCHED — derived, never guessed from the string.
+
+     ValveManagementCard's confirm sheet states how wide a bulk open / close
+     reaches, and it has exactly two sentences for it: "Every system at this
+     location" and "Every system in this account". Picking between them by
+     eyeballing the name ("looks like a street address, must be a location")
+     is the kind of guess that is right until an account is called
+     "220 Harborview Ave" — which three of this dataset's seventeen accounts
+     already are. So it asks the same predicates the filter asks.
+
+     LOCATION WINS A TIE, because the filter's `||` puts it first and because
+     the drawer only ever routes LOCATION rows here (WintSidebarV2.activate:
+     systems go to /system/:id, account rows just expand). The three colliding
+     names above arrive from a location row, and a location is what they mean.
+
+     A NAME THAT MATCHES NEITHER keeps 'location' and costs nothing: the scope
+     is empty, summariseValves reports total 0 and the card renders null, so
+     no sentence is ever built from this value. The empty-scope rule below is
+     untouched — this derives a LABEL, never a set. */
+  const scopeKind = useMemo(() => {
+    /* Unscoped — / and /pixel, where scopeTitle is "All Accounts". 'account'
+       is the honest one of the two: every account in this dataset is a child
+       of Meridian Realty Group, so the fleet IS one account's hierarchy, and
+       "every system at this location" would be plainly false. It is still not
+       the sentence the fleet deserves; a third 'fleet' kind in
+       BulkValveConfirmSheet.jsx:253 would be, and that file is the owner's. */
+    if (!locationName) return 'account'
+    const name = decodeURIComponent(locationName)
+    const all = SYSTEMS ?? []
+    if (all.some(s => matchesLocationName(s, name))) return 'location'
+    if (all.some(s => matchesAccountName(s, name))) return 'account'
+    return 'location'
   }, [locationName])
 
   /* A name that matches nothing yields an empty scope, NOT the fleet. An empty
@@ -1296,7 +1355,67 @@ export default function HomeAllAccounts({ expanded = false }) {
         onShowPast={() => openOverlay('water', { tab: 'history' })}
       />
 
+      {/* NO DESIGN SOURCE. ValveManagementCard's own header records that a
+          survey of every page of the Figma file found no valve-management,
+          bulk-action or status-breakdown frame to transcribe, so this card —
+          and therefore its seat — is net-new and open to the owner.
 
+          WHY HERE, between the triage band and the consumption chart: the
+          three cards above answer "is anything wrong, and where" (hero ->
+          health -> worst events) and the three below answer "how much water,
+          and from what". This card is the only ACTION on the screen — it
+          stops or starts water across the whole scope — and an action belongs
+          after the user knows what is wrong and before the reporting. Putting
+          it directly under SystemHealthCard was the alternative, and would put
+          its "Valve Error" row next to that card's "Valve errors" tile, which
+          is a real benefit; it was not taken because it pushes the live water
+          events — the only thing on this screen that can be an emergency —
+          below an action card, and triage order is the stronger claim.
+
+          It takes the SAME `scopedSystems` every other card here reads, so it
+          cannot report on a different set than the health card above it, and
+          it inherits the stack's gap-[20px] and full width from the scroller;
+          no className is passed, because a `w-[...]` on this root would beat
+          its own `w-full` and reintroduce the resizing-widget bug
+          (homeWidgetWidth.dom.test.jsx:80-82).
+
+          BOTH SCOPES, ONE CARD. This file is the location screen AND the
+          account screen — /location/:locationName resolves either — so
+          `scopeKind` is derived above from which half of the name match
+          actually hit, not guessed from the string.
+
+          NO NAVIGATION HANDLER IS PASSED, AND THAT IS THE DECISION. The card
+          became display-only on 2026-11-02 ("main widget is display only")
+          and now carries a "Manage valves" button and three deep-linking
+          category rows onto /valves and /valves/:locationName. It routes
+          ITSELF — `useNavigate`, with the scope read off `useParams` — rather
+          than taking an `onOpen` prop from here, because THE ROUTE IS THE
+          SCOPE is this page's own model (:502-515): a card that reads the
+          same route the page reads cannot drift from it, while a handler
+          threaded through here would be a second place the same answer is
+          computed. So the mount below is unchanged by that work.
+
+          `scopeKind` is still passed and is still derived correctly above,
+          but the card no longer reads it: its one consumer was the confirm
+          sheet, which moved to the dedicated screen. It is left on the mount
+          rather than ripped out because the derivation is right, is covered
+          by this page's tests, and the screen may yet want it handed down.
+
+          EMPTY SCOPES ARE NOT HYPOTHETICAL and are the card's own business:
+          it renders null for a scope with no systems and its "No valves in
+          this scope" state for one with systems but no valves — three
+          locations (45 Cedarline Way, 510 Lakeview Dr, 30 Dogwood Dr) and the
+          Southbridge Health account are exactly that today. Nothing is
+          conditioned here. */}
+      <ValveManagementCard
+        systems={scopedSystems}
+        /* The SAME string the header bar draws at `label={scopeTitle}` — one
+           scope, one spelling, including "All Accounts" on the unscoped
+           routes. A second name for the same scope on one screen is the kind
+           of thing a reader reads as two scopes. */
+        scopeLabel={scopeTitle}
+        scopeKind={scopeKind}
+      />
 
       {/* 198314:73649 — the layer is named "Balance", a leftover shadcn
           template name; the card is Water consumption. It used to ship its own
