@@ -1,7 +1,18 @@
 // @vitest-environment happy-dom
 //
-// The v2 Account / "More" page (src/v2/pages/AccountScreenV2.jsx), which now
-// serves /account in place of src/screens/AccountScreen.jsx.
+// The v2 Profile page (src/v2/pages/AccountScreenV2.jsx), which serves
+// /account in place of src/screens/AccountScreen.jsx.
+//
+// IT WAS "Account / More" UNTIL 2026-11-04. It held two views in local state —
+// 'main', titled "More", and 'profile', titled "Personal Information", behind
+// a tap on the persona card — and the floating tab bar's Profile AND More
+// items both pointed at it. The owner, three times in one day: "Profile needs
+// to open the user profile. More doesn't need to open the user profile - they
+// are separate buttons... make the More navigate to / overlay a new screen
+// which hides everything, but writes there Coming soon." So More is /more
+// (moreComingSoon.dom.test.jsx) and this is Profile, one scroll, Personal
+// Information first. Three cases here changed with it: the title, the
+// Hebrew title, and the sub-view round-trip, which became a no-tap landing.
 //
 // Six things are pinned here, and each one is a bug this port either fixed or
 // could easily have introduced:
@@ -124,8 +135,8 @@ describe('AccountScreenV2 renders every v1 section', () => {
   it('renders the screen with its sections', () => {
     renderScreen()
 
-    // 'More' is also the TabBar label, so the title is picked by role.
-    expect(screen.getByRole('heading', { name: 'More' })).toBeInTheDocument()
+    // 'Profile' is also the TabBar label, so the title is picked by role.
+    expect(screen.getByRole('heading', { name: 'Profile' })).toBeInTheDocument()
     expect(screen.getByText('Switch profile')).toBeInTheDocument()
     expect(screen.getByText('My Scope')).toBeInTheDocument()
     expect(screen.getByText('Personal Settings')).toBeInTheDocument()
@@ -137,19 +148,64 @@ describe('AccountScreenV2 renders every v1 section', () => {
     expect(screen.getByText(/Pulse 2\.0/)).toBeInTheDocument()
   })
 
-  it('opens the Personal information sub-view and comes back', () => {
+  /* 2026-11-04. This used to read "opens the Personal information sub-view and
+     comes back": the screen held two views in local state and the persona card
+     was the only way into the second one. The owner, three times in one day —
+     "Profile needs to open the user profile. More doesn't need to open the
+     user profile - they are separate buttons" — so More moved to /more and
+     this screen is Profile, whole, with no sub-view and no back arrow.
+
+     THE TAP IS THE POINT. The complaint was literally about an extra tap, so
+     what is pinned is that Personal Information is on screen with NO events
+     fired at all, beside the rest of the surface rather than instead of it. */
+  it('lands on Personal Information with no tap, and keeps the rest of the screen', () => {
     renderScreen()
 
-    // The persona card is the entry point.
-    // The persona name also appears inside the Switch-profile copy, so the card
-    // is picked by the email it alone renders.
-    fireEvent.click(screen.getByText('rami.kletshevsky@wint.ai').closest('button'))
-    expect(screen.getAllByText('Personal Information').length).toBeGreaterThan(0)
+    expect(screen.getByText('Personal Information')).toBeInTheDocument()
     expect(screen.getByText('First Name')).toBeInTheDocument()
+    expect(screen.getByText('Last Name')).toBeInTheDocument()
+    expect(screen.getByText('Phone number')).toBeInTheDocument()
     expect(screen.getByText('Sign out')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByLabelText('Back'))
+    // Not an either/or any more: the old 'main' sections are on the same
+    // scroll, which is the Rule 0 half of this change.
     expect(screen.getByText('My Scope')).toBeInTheDocument()
+    expect(screen.getByText('Personal Settings')).toBeInTheDocument()
+
+    // No back arrow: a tab destination has nothing to go back to, and the
+    // button only ever existed to leave the sub-view.
+    expect(screen.queryByLabelText('Back')).toBeNull()
+  })
+
+  /* Rule 0 (.claude/skills/v2-page-parity/SKILL.md) applied to the one change
+     that could have dropped something silently. Users and Reports arrived here
+     this morning at the owner's request and are arguably MORE's surface; they
+     are deliberately not moved onto the placeholder, because /more "hides
+     everything" and would hide them. */
+  it('keeps every row the old More view carried, Users and Reports included', () => {
+    renderScreen()
+    for (const row of ['Users', 'Reports', 'Switch profile', 'Tutorial', 'My Scope']) {
+      expect(screen.getByText(row), `${row} went missing`).toBeInTheDocument()
+    }
+    expect(screen.getAllByText('Coming soon')).toHaveLength(2)
+  })
+
+  /* The whole point of the change: two tabs, two destinations, and the right
+     one lit. This screen used to pass activeTab="account", so the MORE tab lit
+     up even when you arrived by tapping Profile. */
+  it('lights the Profile tab, not More', () => {
+    renderScreen()
+    const labelled = (name) =>
+      [...document.querySelectorAll('button')].find(
+        (b) => b.querySelector('span')?.textContent === name,
+      )
+
+    const profile = labelled('Profile')
+    const more = labelled('More')
+    expect(profile, 'the Profile tab must be in the bar').not.toBeUndefined()
+    expect(more, 'the More tab must be in the bar').not.toBeUndefined()
+    expect(profile.className).toMatch(/\btext-primary\b/)
+    expect(more.className).toMatch(/\btext-muted-foreground\b/)
   })
 
   it('still carries a v1 capability that has no other entry point: replay onboarding', () => {
@@ -166,14 +222,22 @@ describe('every section renders its CONTENT, not just its header', () => {
   // scopes to the section's own card, so a header with nothing under it — the
   // exact way Push, SMS and Measurement Units presented — cannot pass.
 
-  it('the persona card carries name, email AND role', () => {
+  /* The persona card's DATA, after the card itself lost its job (its only
+     destination was the sub-view this card now is). Name, email and role all
+     have to survive the fold-in — role in particular appears nowhere else on
+     this screen except as a permission WORD inside My Scope. */
+  it('Personal Information carries name, email, phone AND role', () => {
     renderScreen()
     const card = screen.getByText('rami.kletshevsky@wint.ai').closest('[data-slot="card"]')
     expect(card).not.toBeNull()
+    expect(within(card).getByText('Personal Information')).toBeInTheDocument()
     expect(within(card).getByText('Rami Kletshevsky')).toBeInTheDocument()
     expect(within(card).getByText('Wint Admin')).toBeInTheDocument()
-    // It is the entry point to Personal information, so it must be a control.
-    expect(card.querySelector('button')).not.toBeNull()
+    // Sign out is the card's one control, and it is still a real button.
+    expect(within(card).getByText('Sign out').closest('button')).not.toBeNull()
+    // The email is printed ONCE: the identity row deliberately dropped its
+    // copy of it because the labelled field sits two rows below.
+    expect(screen.getAllByText('rami.kletshevsky@wint.ai')).toHaveLength(1)
   })
 
   it('Personal Settings carries BOTH pickers — Language and Measurement Units', () => {
@@ -264,11 +328,15 @@ describe('the scroll region cannot squash what is in it', () => {
     expect(region.children.length).toBeGreaterThan(5)
   })
 
-  it('forbids every child of the column from shrinking — Personal information view', () => {
+  /* There is one view now, so the former "Personal information view" case has
+     nothing separate to check. What replaced it is the thing the merge could
+     have broken: the Personal Information card is a direct child of the
+     column like every other section, so it is subject to the same squash. */
+  it('forbids every child of the column from shrinking — Personal Information included', () => {
     const { container } = renderScreen()
-    fireEvent.click(screen.getByText('rami.kletshevsky@wint.ai').closest('button'))
     const region = expectNothingCanShrink(container)
-    expect(region.children.length).toBeGreaterThan(0)
+    const card = screen.getByText('Personal Information').closest('[data-slot="card"]')
+    expect([...region.children]).toContain(card)
   })
 
   it('keeps the chrome and the TabBar out of the scroll region', () => {
@@ -283,7 +351,7 @@ describe('the scroll region cannot squash what is in it', () => {
     expect(root.className).not.toMatch(/\b(?:min-h-screen|h-screen)\b/)
 
     // The title bar is a shrink-0 sibling, not a scrolling child.
-    const title = screen.getByRole('heading', { name: 'More' })
+    const title = screen.getByRole('heading', { name: 'Profile' })
     expect(region.contains(title)).toBe(false)
     expect(title.parentElement.className).toMatch(/\bshrink-0\b/)
 
@@ -314,9 +382,10 @@ describe('the language picker still offers Hebrew', () => {
     fireEvent.click(within(picker).getByText('עברית'))
 
     expect(i18n.language).toBe('he')
-    // more.title and more.my_scope in he.json — the page itself, not just the
-    // picker, has to follow.
-    expect(await screen.findByRole('heading', { name: 'עוד' })).toBeInTheDocument()
+    // tabs.profile and more.my_scope in he.json — the page itself, not just
+    // the picker, has to follow. The title key changed from more.title ("עוד")
+    // to tabs.profile ("פרופיל") when More moved to its own route.
+    expect(await screen.findByRole('heading', { name: 'פרופיל' })).toBeInTheDocument()
     expect(screen.getByText('התחום שלי')).toBeInTheDocument()
   })
 })

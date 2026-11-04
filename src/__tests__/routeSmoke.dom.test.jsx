@@ -124,8 +124,21 @@ function reactFailures() {
   )
 }
 
-/** One route = one case. Mount, require real output, require a clean console. */
+/**
+ * One route = one case. Mount, require real output, require a clean console.
+ *
+ * `minText` is the "not silently blank" floor, 80 characters by default. It is
+ * a heuristic about SCREENS, and exactly one route in this app is deliberately
+ * not one: /more is a placeholder the owner asked for in those words - "a new
+ * screen which hides everything, but writes there Coming soon" - so it renders
+ * `more.coming_soon` plus the four tab labels and nothing else, 49 characters
+ * in English. Lowering the floor for that one route is honest; raising its word
+ * count to satisfy a regex would mean authoring copy nobody approved, which §0
+ * of .claude/skills/wint-ui-copy/SKILL.md forbids. The floor is still above
+ * zero, so a /more that renders NOTHING still fails here.
+ */
 function smoke(path, opts) {
+  const { minText = 80 } = opts || {}
   const { container } = mountAt(path, opts)
   const bad = reactFailures()
   if (bad.length) {
@@ -144,7 +157,7 @@ function smoke(path, opts) {
   }
   // Rendered, and rendered real content — a silently blank route is a failure too.
   expect(container.firstChild, `${path} rendered nothing at all`).toBeTruthy()
-  expect(text.length, `${path} rendered an essentially empty screen`).toBeGreaterThan(80)
+  expect(text.length, `${path} rendered an essentially empty screen`).toBeGreaterThan(minText)
   return text
 }
 
@@ -202,12 +215,15 @@ describe('every route in App.jsx mounts', () => {
     ['/alert/:systemId', () => `/alert/${LEAKY.id}`],
     ['/leak/:systemId', () => `/leak/${LEAKY.id}`],
     ['/account', () => '/account'],
+    /* The Coming-soon placeholder. See `minText` on smoke() for why this one
+       route is allowed to be two words. ADDED 2026-11-04 with the route. */
+    ['/more', () => '/more', { minText: 20 }],
     ['* (catch-all)', () => '/definitely-not-a-route'],
   ]
 
-  for (const [label, makePath] of CASES) {
+  for (const [label, makePath, opts] of CASES) {
     it(`renders ${label}`, () => {
-      smoke(makePath())
+      smoke(makePath(), opts)
     })
   }
 

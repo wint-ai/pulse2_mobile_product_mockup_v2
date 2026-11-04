@@ -10,6 +10,14 @@
  * copy block, the wave and most of sysB's header are new nodes). Where a line
  * below cites an id, it is the fresh one.
  *
+ * ── IT HAS TWO SHAPES NOW — 2026-11-04 ────────────────────────────────
+ * A CARD (the default, everything below describes it) and a BAND: the same
+ * copy, on artwork the PAGE paints full-bleed behind the header bar. The
+ * owner's current System-page frame, 199961:97440, draws the second —
+ * left=-4 / top=-11 / 406x293 inside a 402 frame, i.e. outside its parent on
+ * every axis. The whole of the difference, and why its three effects are one
+ * prop, is on `band` in the props below. Nothing in the card path moved.
+ *
  * ── "IT LOOKS VERY HIGH" — MEASURED 2026-11-01 ────────────────────────
  * Owner, on the phone: "it looks very high … it takes too much space. I want
  * to make sure it [is] exactly as in Figma, and maybe we just need to find a
@@ -202,6 +210,37 @@ export default function SystemHeroCard({
   compareLabel,
   rangeLabel,
   tone = 'calm',
+  /**
+   * ── BAND MODE — 2026-11-04, Figma 199961:97440 ───────────────────────────
+   * FALSE (the default) is this file as it has always been: a CARD, the same
+   * width as every card under it, painting its own wave inside its own
+   * rounded box. Nothing about that path changes.
+   *
+   * TRUE says "the page is already painting this artwork behind me, full
+   * bleed, and I am copy on it." The owner's System-page frame draws the hero
+   * at left=-4 / top=-11 / 406x293 inside a 402 frame — i.e. OUTSIDE its
+   * parent on every axis, the same move 199954:96290 makes on the Dashboard —
+   * so the wave stopped being this card's background and became the ground the
+   * header bar and this copy both sit on.
+   *
+   * ONE PROP, THREE EFFECTS, because they are one decision and a caller that
+   * could take two of the three would be able to build a broken hero:
+   *
+   *  1. NO WAVE OF ITS OWN. The page's HeroWaveArt band is already drawing
+   *     this exact raster behind this exact box; two copies would double the
+   *     multiply and draw a seam at the hero's top edge. Same reasoning, same
+   *     words, as SystemsOverviewHero's `artwork` prop.
+   *  2. NO `pt-[17px]`. That 17 is the node's padding inside a CARD whose top
+   *     edge is the wave's top edge. In band mode there is a 54px header bar
+   *     above this copy supplying the air, and keeping the 17 as well pushes
+   *     the delta row 15px past the band's 205 and onto page ground, where
+   *     white-on-page is illegible. Measured at 393x852: 158 -> 141.
+   *  3. NO `pl-[18px] pr-[17px]`. Those are the CARD's inner gutters. The
+   *     frame insets this copy 4.88% of 406 from a hero at x=-4, i.e. 15.8px
+   *     from the FRAME edge — the page's own 16px gutter, not 16+18. In card
+   *     mode the 18 is right and is kept.
+   */
+  band = false,
   /** Fires the jump to the consumption chart. See the control below. */
   onJumpToChart,
   className,
@@ -209,7 +248,7 @@ export default function SystemHeroCard({
   const alert = tone === 'alert'
 
   return (
-    <div className={cn('relative shrink-0 w-full overflow-x-clip', className)} data-hero-tone={tone}>
+    <div className={cn('relative shrink-0 w-full overflow-x-clip', className)} data-hero-tone={tone} data-hero-band={band ? 'true' : 'false'}>
       {/* The wave — 199383:141500 (alert) / 199394:79634 (calm). `top-0`
           rather than the node's top-[148px] because this element now BEGINS
           where the node puts the wave.
@@ -303,6 +342,11 @@ export default function SystemHeroCard({
           wave under 158px of copy — which is what puts it behind the first
           cards exactly as the frame draws it. Only the horizontal axis
           changed. */}
+      {/* SUPPRESSED IN BAND MODE — see the `band` prop. Not a style switch:
+          the layer only goes away when the CALLER is already painting this
+          exact raster behind this exact box. If you reach for this, check that
+          something above you is drawing HeroWaveArt at the same tone. */}
+      {band ? null : (
       <div
         aria-hidden="true"
         className={cn(
@@ -339,6 +383,7 @@ export default function SystemHeroCard({
           />
         </div>
       </div>
+      )}
 
       {/* ── THE COPY ROW — 199703:30816 (alert) / 199703:31382 (calm) ───────
           The 2026-10-26 redraw. The card is 369x291 and every offset below is
@@ -346,15 +391,37 @@ export default function SystemHeroCard({
           the same box the wave above already takes.
 
           `items-end` is the node's own alignment, not a choice: the copy block
-          runs y=17..158 and the "All stats" pill y=129..158, so the two share
-          a bottom edge and nothing else. Reading that as one bottom-aligned
-          row is what lets the pill keep its place when the figure wraps to a
-          different height, which absolute offsets would not survive.
+          and the "All stats" pill share a bottom edge and nothing else.
+          Reading that as one bottom-aligned row is what lets the pill keep its
+          place when the figure wraps to a different height, which absolute
+          offsets would not survive.
 
           pl-[18px] / pr-[17px] are the node's two gutters. They differ by a
-          pixel and that is the frame, not a rounding error on our side. */}
+          pixel and that is the frame, not a rounding error on our side.
+
+          ── pb-[7px], AND IT IS THE ANSWER TO "IT LOOKS CRAMPED" ────────────
+          Owner, on this hero as it rendered: "layout here needs to be improved
+          in terms of spacing, padding etc." Measured against 199961:97440 with
+          get_metadata rather than adjusted by eye, and the slack was real:
+
+            copy block            142.0 tall     content 48 + 7 + 80 = 135
+            -> 7px of it is EMPTY, at the BOTTOM
+
+          So the change line is not supposed to touch the block's lower edge,
+          and this row drew it touching. The 7 goes on the ROW rather than on
+          the copy column because the node bottom-aligns the pill with the
+          CONTENT (pill bottom y=142.045 against the block's own 148.086, i.e.
+          6.04px clear of it) — with `items-end` and the padding here, the two
+          columns and the pill all land on the same 135 and the row measures
+          the node's 142. Putting it on the column instead would have pushed
+          the pill down with it and kept the jam. */}
       <div
-        className="relative flex w-full items-end justify-between pl-[18px] pr-[17px] pt-[17px]"
+        className={cn(
+          'relative flex w-full items-end justify-between pb-[7px]',
+          /* The card's two gutters and its top padding, or neither — see the
+             `band` prop for why all three go together. */
+          band ? 'px-0 pt-0' : 'pl-[18px] pr-[17px] pt-[17px]',
+        )}
         data-node-id={alert ? '199703:30816' : '199703:31382'}
       >
         {/* The copy block — 145x141 at (18, 17).
@@ -369,8 +436,25 @@ export default function SystemHeroCard({
             run; pinning it would clip a longer range label, and this caption
             is fed real windows ("Nov 2025 - Oct 2026") rather than the frame's
             one example. */}
-        <div className="flex min-w-0 flex-col items-start gap-[13px]">
-          {/* Caption over date range — 145x48, two 24px lines, no gap. */}
+        {/* ── gap-[13px] -> gap-[7px], 2026-11-04 — MEASURED, NOT EYEBALLED ─
+            The designer re-spaced this copy block into a component of its own
+            (199820:58592) and get_metadata on it is unambiguous:
+
+              caption frame   y= 0   145x48   two 24px lines, no gap
+              figure frame    y=55   132x80
+              ------------------------------------------------------------
+              the gap is 7, not 13
+
+            The 13 was never measured off a node — it was the slack left over
+            when 48 + 80 was subtracted from a 141-tall block. The block's
+            TOTAL was right by coincidence (48+13+80 = 141 against the node's
+            142) and its DISTRIBUTION was wrong by 6px up here and 7px down at
+            the bottom, which is exactly what "cramped at the bottom, loose in
+            the middle" looks like and exactly why it had to be measured.
+            See the row's pb-[7px] above for the other half. */}
+        <div className="flex min-w-0 flex-col items-start gap-[7px]">
+          {/* Caption over date range — 145x48, two 24px lines, no gap.
+              199820:58505 y=0 h=24, 199820:58506 y=24 h=24. */}
           <div
             className="[word-break:break-word] flex flex-col items-start justify-center text-base text-white"
             data-node-id={alert ? 'I199703:30816;199703:30077' : 'I199703:31382;199703:32480'}
@@ -494,7 +578,20 @@ export default function SystemHeroCard({
             size={null}
             onClick={onJumpToChart}
             aria-label="All stats: go to the water consumption chart"
-            className="flex h-[29px] shrink-0 items-center gap-[6px] rounded-[12px] border border-solid border-white bg-[rgba(241,245,249,0.28)] px-[7px] text-ink-on-color hover:bg-card/30 hover:text-current [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)]"
+            /* ── THE TAP TARGET IS 40px; THE PAINT IS STILL THE NODE'S 29 ───
+               199961:97440 measures this frame at 90.22 x 29.199 and that is
+               what is drawn — the hero's one ACTION should not be resized away
+               from a frame the owner has just redrawn. But 29px is the bare
+               WCAG 2.5.8 floor (24) rather than a comfortable thumb, and it is
+               the only thing on this artwork you can press.
+
+               `after:` extends the hit area 5.5px above and below to 40 without
+               moving a pixel of paint: the pseudo-element is transparent,
+               inherits the button's own click, and cannot overlap anything —
+               the pill sits hard right of a copy column that ends ~150px away,
+               and the row's pb-[7px] absorbs the lower half. It needs
+               `relative`, which it now carries. */
+            className="relative flex h-[29px] shrink-0 items-center gap-[6px] rounded-[12px] border border-solid border-white bg-[rgba(241,245,249,0.28)] px-[7px] text-ink-on-color after:absolute after:inset-x-0 after:-inset-y-[5.5px] after:content-[''] hover:bg-card/30 hover:text-current [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)]"
             data-node-id={alert ? 'I199703:30816;199703:30091' : 'I199703:31382;199703:32494'}
           >
             <Chart03 className="size-[16px] shrink-0" aria-hidden="true" />

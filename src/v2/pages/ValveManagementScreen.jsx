@@ -401,9 +401,20 @@
  * ── CHROME: BACK, NOT X ──────────────────────────────────────────────────
  * The owner's standing rule: "x and back can't live in parallel, only one
  * exists. It needs to be back. If back is an option, and x if not." This
- * screen is PUSHED from the overview, so it gets back — `MobileHeaderBar`,
- * the same chrome `SystemPageV2Screen.jsx:1514` draws for a pushed screen,
- * which also carries the only door into the navigation drawer.
+ * screen is PUSHED from the overview, so it gets back — in `AppHeaderBar`,
+ * the app's one bar, the same chrome `SystemPageV2Screen.jsx` draws for a
+ * pushed screen. The DRAWER'S DOOR IS NOT THE TITLE: since 2026-11-04 this
+ * screen passes `onOpenNav`, which makes the title an inert readout and puts
+ * the drawer behind the 40x40 `PanelLeft` button — see the call site.
+ *
+ * ── THE FLOATING PILL COVERS THE BOTTOM 93px, AND THE STRIP IS DOWN THERE ─
+ * `TabBar`'s host reserves no column at all (`relative shrink-0 h-0`), so the
+ * page column runs to the frame's bottom edge and the pill floats over its
+ * last 93px. A scroll body pays for that with bottom padding; THIS screen
+ * also has a bottom-pinned control — the selection strip, with the two
+ * commit buttons in it — which is a different element and was missed in that
+ * pass. It shipped unreachable. Both are now handled, and between them the
+ * cost is zero rows: see the scroller and the strip for the measurements.
  *
  * ── REPAINT AFTER A WRITE — ALL THREE, FOR THREE REASONS ─────────────────
  * `pushBridge.publish` (`pushBridge.js:130`) POSTs to ntfy.sh over HTTP and
@@ -443,6 +454,15 @@ import {
 } from '@/components/ui/item'
 import { Separator } from '@/components/ui/separator'
 import TabBar from '@/components/TabBar'
+/* THE PILL'S FOOTPRINT, AS A NUMBER THIS FILE DOES NOT GET TO PICK.
+   `TAB_BAR_CLEARANCE` is 12 + 65 + 16 = 93: the inset the pill floats at, the
+   pill's own height, and this app's 16px gutter. It is imported rather than
+   written down because the SELECTION STRIP below is new ground - no other
+   screen puts a bottom-pinned control under the floating bar, so there is no
+   second site and no test holding a literal here honest. See the strip's own
+   note for what it is used for and the scroller's for why THAT one is still
+   spelled as a literal. */
+import { TAB_BAR_CLEARANCE } from '@/components/tabBarMetrics'
 /* THE header — one bar on every screen, 2026-11-04 (owner: "It always needs
    to be the same"). Replaces MobileHeaderBar, which is left on disk unused.
    This screen's `<h1>` is still the sr-only one below; the bar names the
@@ -1329,7 +1349,7 @@ export default function ValveManagementScreen() {
       data-name="valve-management-screen"
     >
       <div className="relative flex w-full flex-col gap-2 px-4 py-2" style={{ flex: 1, minHeight: 0 }}>
-        {/* THE PAGE'S ONE <h1>, SR-ONLY. `MobileHeaderBar` names the scope
+        {/* THE PAGE'S ONE <h1>, SR-ONLY. `AppHeaderBar` names the scope
             visually and the user arrived from a "Manage valves" button, so a
             second visible title was restatement — but the document still owes
             a heading, and a screen whose title has no heading role is a screen
@@ -1337,10 +1357,42 @@ export default function ValveManagementScreen() {
         <h1 className="sr-only">Valve management</h1>
 
         {/* FIXED CHROME — a shrink-0 sibling of the scroller, not a sticky
-            child. BACK, not X: this screen is pushed from the overview. The
-            chevron-down on the scope slot is the door into the navigation
-            drawer, which is how `SystemPageV2Screen.jsx:1514` satisfies the
-            shell contract's burger rule without drawing a burger. */}
+            child. BACK, not X: this screen is pushed from the overview.
+
+            ── THE NAV CONTROL, ADOPTED HERE 2026-11-04 ────────────────────
+            The owner, on a screenshot of /valves still drawing a back chevron
+            and a `100 Meridian Plaza ⌄` pill: "I see that we still have the
+            old version of header above in some places, so you need to make
+            sure we don't use the same navigation on the header."
+
+            WHAT WAS OLD ABOUT IT. This bar was already `AppHeaderBar`, so the
+            component was right and the SHAPE was not: without `onOpenNav` the
+            component draws its title slot as a bordered 44px `<button>` with a
+            chevron-down and hangs `Switch location` on it — v1's ScopeHeader
+            treatment, which the Dashboard and /system/:id left behind the same
+            day. ⚠ PASSING `onOpenNav` IS WHAT MOVES THE DOOR: AppHeaderBar
+            draws the title as a button only when no `onOpenNav` is given, so
+            this one prop makes the title an inert readout (no chassis, no
+            chevron, no handler, no role, no tabIndex) and puts the drawer
+            behind a 40x40 lucide `PanelLeft` instead.
+
+            STILL EXACTLY ONE DOOR. `scopeAriaLabel` follows it — AppHeaderBar
+            spells `Switch location` on whichever of the two is live and never
+            on both — so this route keeps the single element
+            `drawerLocationHighlight.dom.test.jsx:66` opens the drawer by.
+            Verified in the running app on /valves and /valves/:locationName,
+            light and dark: one match, and it is the PanelLeft button.
+
+            `onOpenDrawer` IS STILL PASSED, as it is on the other two surfaces:
+            it is what the component hangs the door on in the OTHER shape and
+            the two can never be live at once.
+
+            THE BACK CONTROL STAYS. The leading slot and the trailing slot are
+            different slots, and this screen is pushed from the overview — the
+            owner's standing rule is "if back is an option" it is back.
+
+            NO `onColor`. That prop is for a bar sitting on artwork; this one
+            sits on `--app-bg`, so its ink stays the page-ground token. */}
         <div className="w-full shrink-0">
           <AppHeaderBar
             /* No px of its own; the root's inset is the inset. */
@@ -1352,6 +1404,7 @@ export default function ValveManagementScreen() {
             onBack={goBack}
             backLabel="Back"
             onOpenDrawer={() => setDrawerOpen(true)}
+            onOpenNav={() => setDrawerOpen(true)}
           />
         </div>
 
@@ -1416,10 +1469,37 @@ export default function ValveManagementScreen() {
           </div>
         ) : null}
 
-        {/* ── THE ONE SCROLLING REGION ──────────────────────────────────── */}
+        {/* ── THE ONE SCROLLING REGION ────────────────────────────────────
+
+            THE CLEARANCE IS ONLY OWED WHEN THIS IS THE BOTTOM-MOST ELEMENT.
+            The pill covers the bottom 93px of the frame and every scroll body
+            in the app pays for that — but on THIS screen the selection strip
+            is mounted BELOW the scroller and is itself what clears the pill
+            (see its own note). When the strip is there the scroller's bottom
+            edge borders the STRIP, not the bar, so 93px of padding would be
+            93px of blank between the last row and the strip. It measured
+            exactly that: scroller 361x577 with 484px of usable column on
+            /valves, i.e. ~2 rows of a 44px list spent on nothing.
+
+            SO IT IS CONDITIONAL, AND THE NET COST OF FIXING THE OVERLAP IS
+            ZERO ROWS: the strip takes 93px of column for its clearance and
+            the scroller takes the same 93px back out of its own padding.
+            Measured before and after at 393x852 — 484px of usable scroll on
+            /valves both times.
+
+            ⚠ 93 IS SPELLED AS A LITERAL HERE AND THAT IS NOT AN OVERSIGHT.
+            `tabBarFloatingClearance.dom.test.jsx:195` greps the SOURCE of all
+            seventeen padded screens for `paddingBottom: 93` / `pb-[93px]` /
+            `padding: '... 93px'` — it is the only way one test can assert
+            something about seventeen files — so `TAB_BAR_CLEARANCE` here would
+            read as a screen that forgot its padding and fail. The literal
+            cannot silently rot either way: that regex is BUILT from
+            TAB_BAR_CLEARANCE, so moving the constant turns all seventeen red
+            at once. REPORTED: when that check learns to accept the identifier,
+            this becomes TAB_BAR_CLEARANCE like the strip below. */}
         <div
           className="w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: 93 }}
+          style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: showStrip ? 0 : 93 }}
           data-name="valve-rows"
         >
           {result ? <ResultBanner result={result} onDismiss={() => setResult(null)} /> : null}
@@ -1618,8 +1698,57 @@ export default function ValveManagementScreen() {
             so there is exactly ONE card treatment on this screen. `shadow-sm`
             goes with it: the house cards carry no shadow, and the strip is
             already separated from the scroller by the page's own `gap-2`. */}
+        {/* ── IT HAS TO CLEAR THE FLOATING PILL, AND IT DID NOT ─────────────
+            2026-11-04, the owner, on a screenshot of /valves/100 Meridian
+            Plaza: "I can't open and close the valve because it's overlapped.
+            So fix it. Currently it can't be used."
+
+            WHAT WAS ACTUALLY OVERLAPPING, MEASURED AT 393x852 BEFORE THE FIX:
+              pill          y 775 -> 840
+              strip         y 715 -> 844   (the column's py-2 is all that was
+                                            under it)
+              action bar    y 770 -> 843
+              Close button  y 803 -> 835   ENTIRELY inside the pill's band
+            `document.elementFromPoint` at the Close button's centre (98.7,
+            819) returned a tab-bar BUTTON, not this control. Playwright
+            refused to click it at all: "<button ...> from <div
+            data-name=tabbar-host> subtree intercepts pointer events". The one
+            thing this screen exists to do could not be done.
+
+            WHY IT HAPPENED. The strip is the last child of the page column and
+            the column runs to the frame's bottom edge, because TabBar's host
+            is `relative shrink-0 h-0` and reserves NOTHING (2026-11-04, the
+            owner: "and it needs to be completely floating"). Before that the
+            bar was a 77px full-bleed slab that held its own column and
+            anything sitting at the bottom of the page was automatically above
+            it. Every scroll body in the app was given `paddingBottom: 93` in
+            that pass; a bottom-pinned CONTROL is a different element and a
+            different problem, and this one was missed.
+
+            THE FIX IS THE SAME NUMBER ON THE RIGHT ELEMENT. `TAB_BAR_CLEARANCE`
+            of margin under the strip puts its bottom edge where a scroll body's
+            last row comes to rest. Measured after, both routes, both themes:
+            the strip ends at y 751 against a pill at 775, so 24px of daylight
+            (93 of margin over the column's own py-2, which is the same 101px
+            above the frame edge a padded scroller already rests at), and
+            `elementFromPoint` at the Close button's centre now returns the
+            Close button. Driven end to end with real pointer clicks: select
+            all -> Close N -> the sheet's escape hatch -> commit -> the result
+            banner, on /valves and /valves/100 Meridian Plaza.
+
+            NOT DONE, DELIBERATELY: z-index. Raising the strip over the pill
+            would make the button paintable and still leave it under the bar's
+            hit area, and the stacking order here is load-bearing in the other
+            direction - the drawer (10/11) and the two sheets (50/300) must
+            keep covering this strip. The bar is not in the strip's way because
+            it is above it; it is in the way because the strip was in ITS
+            band. Moving the strip out of that band is the fix. */}
         {showStrip ? (
-          <div className={cn(LOCATION_CARD, 'shrink-0')} data-name="valve-selection-strip">
+          <div
+            className={cn(LOCATION_CARD, 'shrink-0')}
+            style={{ marginBottom: TAB_BAR_CLEARANCE }}
+            data-name="valve-selection-strip"
+          >
             {showSelectAll ? (
               <div
                 className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 px-4 py-2"

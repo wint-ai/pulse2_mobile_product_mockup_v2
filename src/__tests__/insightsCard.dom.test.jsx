@@ -204,3 +204,57 @@ describe('the list layout is untouched', () => {
     expect(getByRole('button', { name: 'Open Floor 26' })).toBeTruthy()
   })
 })
+
+describe('the empty state (list layout)', () => {
+  const empty = () => render(<InsightsCard rows={[]} />)
+
+  it('draws the water-events tile instead of a bare line of text', () => {
+    const { container, queryByText } = empty()
+    // The line the owner called "not good enough" is gone.
+    expect(queryByText('No insights for this system')).toBeNull()
+    // The sibling's tile: the product's own wave raster, cropped and washed.
+    const img = container.querySelector('[data-name="Insights empty"] img')
+    expect(img).toBeTruthy()
+    expect(String(img.getAttribute('src'))).toMatch(/system-hero-wave/)
+    // ...and the ai-magic sparkles over it. The `d` is asserted because this
+    // path is a COPY of TriageBand's (a component file here may export only
+    // its component, so the two cannot share one). If that one is ever
+    // redrawn, this is the test that notices the two have drifted apart.
+    const spark = container.querySelector('[data-name="Huge Icons / ai-magic"] svg path')
+    expect(spark).toBeTruthy()
+    expect(spark.getAttribute('d').startsWith('M16.625 33.25')).toBe(true)
+  })
+
+  it('writes the transcribed copy, both lines', () => {
+    const { getByText } = empty()
+    // NEW COPY, awaiting the owner. Transcribed from web node 198424:73057
+    // rather than authored - wint-ui-copy section 0. If he picks the other
+    // option ("No active insights", parallel with the water-events card),
+    // these two strings are what change.
+    expect(getByText('Still gathering the drops')).toBeTruthy()
+    expect(getByText('Your first insights are coming soon.')).toBeTruthy()
+  })
+
+  it('keeps "View all" - an empty card does not drop a working control', () => {
+    // Rule 0: removing a live affordance needs the owner's word. On the
+    // Dashboard this one navigates to /kpi/insights and it survives the
+    // empty state untouched.
+    const { getByRole } = render(<InsightsCard rows={[]} onViewAll={() => {}} />)
+    expect(getByRole('button', { name: 'View all' })).toBeTruthy()
+  })
+
+  it('paints its type with tokens, so all four themes reach it', () => {
+    const { getByText } = empty()
+    // --slate-800 and --muted-foreground are redefined under [data-theme=
+    // 'dark'|'sand'|'contrast'] in index.css. A stock Tailwind colour would
+    // freeze identically across all four, which is the tell for a token that
+    // was never defined.
+    expect(String(getByText('Still gathering the drops').className)).toContain('text-slate-800')
+    expect(String(getByText('Your first insights are coming soon.').className)).toContain('text-muted-foreground')
+  })
+
+  it('is the list layout\'s alone - the metric card has no rows to be empty of', () => {
+    const { container } = render(<InsightsCard changePct={-1} changeLitres={-2} />)
+    expect(container.querySelector('[data-name="Insights empty"]')).toBeNull()
+  })
+})

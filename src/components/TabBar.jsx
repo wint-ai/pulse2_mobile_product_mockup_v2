@@ -84,45 +84,44 @@ import { homeTargetFor } from '../utils/homeTarget';
  * footer."* Asked to choose, he picked the footer. Order is his reference
  * image's: Dashboard · Alerts · Profile · More.
  *
- * ***ITS DESTINATION IS UNRESOLVED AND THE OWNER HAS TO RULE.*** Profile
- * navigates to /account, which is where the header avatars already go — but
- * the More tab goes there too, so this bar now has two tabs opening one
- * screen. That is reported, not hidden, and nothing was invented to paper
- * over it. The evidence, all of it already in this repo:
+ * ── THE COLLISION IS RESOLVED, 2026-11-04 ────────────────────────────────
  *
- *   1. /account is ONE route with TWO VIEWS held in local state
- *      (AccountScreenV2.jsx:313 `view`): 'main', titled "More", and 'profile',
- *      titled "Personal information", reached by tapping the persona card
- *      (:546). Profile is a SUB-VIEW, not a route. There is no URL for it.
- *   2. Both header avatars already navigate to /account and already call
- *      themselves `<name> - profile and More` (MobileHeaderBar.jsx:209,
- *      AlertsHeaderBar.jsx:216). The accessible name concedes the merge.
- *   3. The owner has already ruled on exactly this question once. Both those
- *      call sites carry his words - "why do we need two user profiles pages" -
- *      as the reason they open More itself rather than deep-linking past it to
- *      the profile sub-page.
- *   4. `login.switch_profile_hint` is live user-facing copy that reads "Press
- *      **More** in the bottom tab bar at any time to switch to a different
- *      profile." A Profile tab beside More makes that sentence ambiguous.
- *   5. WintSidebarV2.jsx:823-827 renders `Users` and `Reports` DELIBERATELY
- *      INERT - "no PRD and no designed screen. There is no route to send them
- *      to and inventing one would be a guess."
+ * Profile and More both navigated to /account for most of a day. The owner,
+ * having raised it three times:
  *
- * Read together with the owner's separate note that More should reach "the
- * reports, users, etc", the surface that does not exist yet is MORE's, not
- * Profile's: /account as it stands IS the profile surface. The resolution is
- * his to make - most likely More moves to a reports/users screen when one
- * exists and Profile keeps /account - and when he makes it, only this file's
- * `path` for one tab changes. Pointing Profile anywhere else today would mean
- * inventing a route, which rule 0 of wint-ui-copy and the sidebar's own note
- * both forbid.
+ *   "Profile needs to open the user profile. More doesn't need to open the
+ *    user profile - they are separate buttons. You can just grey out the More
+ *    for now... or you can just open a screen and say this is coming soon,
+ *    this is better. But don't use the same buttons for the same thing. So
+ *    make the More navigate to / overlay a new screen which hides everything,
+ *    but writes there Coming soon."
  *
- * SIDE EFFECT OF THE COLLISION, stated rather than fudged: AccountScreenV2
- * passes `activeTab="account"`, so on /account the MORE tab lights up and
- * Profile does not - including when you arrived by tapping Profile. That is
- * the duplication showing through, and it is not worth hiding with a second
- * key for one screen. It resolves itself the moment the two tabs have two
- * destinations.
+ * The split this file predicted is the one taken, and it is the only one the
+ * evidence supported:
+ *
+ *   PROFILE -> /account, AccountScreenV2, which IS the personal surface and
+ *     keeps every row it had. Its two local-state views ('main' titled "More"
+ *     and 'profile' titled "Personal Information") are now ONE scroll titled
+ *     "Profile", with Personal Information first - so the tab opens the user
+ *     profile with no extra tap, which was the complaint.
+ *   MORE -> /more, MoreComingSoonScreen, a full-cover placeholder carrying
+ *     `more.coming_soon` and nothing else. This is the "reports, users, etc"
+ *     surface the owner described separately; it has no PRD, no designed
+ *     screen and no content, and inventing one would be the guess that
+ *     WintSidebarV2's inert rows and rule 0 of wint-ui-copy both forbid.
+ *
+ * `login.switch_profile_hint` IS NOW STALE AND IS THE OWNER'S CALL. It is live
+ * copy reading "Press **More** in the bottom tab bar at any time to switch to
+ * a different profile." Switch profile lives on the PROFILE tab now. The fix
+ * is one word in en.json / he.json and it is not made here: §0 of
+ * .claude/skills/wint-ui-copy/SKILL.md says propose, do not pick. The same
+ * goes for WintSidebarV2.jsx:797's note that "/select is still reachable from
+ * More -> Switch profile" - true of the screen, wrong about the tab.
+ *
+ * THE ACTIVE INDICATOR IS FIXED BY THE SAME CHANGE. AccountScreenV2 used to
+ * pass `activeTab="account"`, so arriving by tapping Profile lit MORE. It
+ * passes "profile" now, /more passes "more", and the More tab's key moved
+ * from 'account' to 'more' so no key names the other tab's route.
  *
  * THE PROFILE GLYPH IS THE USER'S FACE, not an icon - PersonaAvatar at 21px,
  * the same box the other three glyphs occupy, so the row stays even. That
@@ -473,12 +472,19 @@ export default function TabBar({ activeTab }) {
   const alertScope = useAlertScope();
   const homeTarget = useMemo(() => homeTargetFor(alertScope.visibleIds), [alertScope]);
 
-  /* PROFILE IS IN ALL THREE PERSONA VARIANTS, not just the default one. Its
-     destination does not vary by persona the way Dashboard's does - every
-     persona has exactly one /account - so the entry is identical in each. See
-     the collision note at the top of this file for why that destination is
-     the same one `account` already uses. */
+  /* PROFILE AND MORE ARE IN ALL THREE PERSONA VARIANTS, not just the default
+     one. Neither destination varies by persona the way Dashboard's does -
+     every persona has exactly one /account and exactly one /more - so both
+     entries are identical in each, and they are declared once here rather
+     than retyped three times.
+
+     THE KEY IS `more`, NOT `account`, SINCE 2026-11-04. It used to be
+     'account' because this tab WAS /account; /account is the Profile screen
+     now, and a key naming the other tab's route is how the wrong tab lights
+     up. Nothing else in the repo passed `activeTab="account"` - only
+     AccountScreenV2, which passes "profile" now. */
   const PROFILE = { key: 'profile', label: t('tabs.profile'), path: '/account', Avatar: true };
+  const MORE = { key: 'more', label: t('tabs.more'), path: '/more', Icon: Menu };
 
   const TABS_FULL = [
     /* `path` WAS the literal '/'. It is the user's own top level now — the
@@ -499,13 +505,13 @@ export default function TabBar({ activeTab }) {
     },
     { key: 'events',  label: t('tabs.alerts'), path: '/alerts',  Icon: Bell },
     PROFILE,
-    { key: 'account', label: t('tabs.more'),   path: '/account', Icon: Menu },
+    MORE,
   ];
   const TABS_TENANT = [
     { key: 'home',    label: t('tabs.home'),   path: '/tenant',  Icon: LayoutGrid },
     { key: 'events',  label: t('tabs.alerts'), path: '/alerts',  Icon: Bell },
     PROFILE,
-    { key: 'account', label: t('tabs.more'),   path: '/account', Icon: Menu },
+    MORE,
   ];
 
   /* For single-system tenants, Dashboard tab points directly to their system.
@@ -525,7 +531,7 @@ export default function TabBar({ activeTab }) {
         { key: 'home',    label: t('tabs.home'),   path: `/system/${visibleSystems[0].id}`, Icon: LayoutGrid },
         { key: 'events',  label: t('tabs.alerts'), path: '/alerts',                          Icon: Bell },
         PROFILE,
-        { key: 'account', label: t('tabs.more'),   path: '/account',                         Icon: Menu },
+        MORE,
       ]
     : TABS_TENANT;
 

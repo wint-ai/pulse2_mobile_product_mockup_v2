@@ -2,6 +2,36 @@
  * SystemsOverviewHero — the blue wave at the top of the Location screen, with
  * the fleet count on it and the system-type chips under that.
  *
+ * ── RE-READ LIVE, 199954:96289 — 2026-11-04, LATER THE SAME DAY ──────
+ * The owner's Dashboard restructure link. Fetched live rather than from the
+ * cache, because the cache's staleness note only fires past 24h and this
+ * family is being edited RIGHT NOW: 199954:96290, the wave inside this block,
+ * reported three different boxes in twenty minutes (-29/-115/417x266, then
+ * -47/-210/673x409, then -74/-173/605x367, then -43/-173/538x294). Treat every
+ * number below as the 2026-11-04 evening reading, not as settled.
+ *
+ * SIX THINGS MOVE, and two of them REVERSE the 2026-11-04 morning read below:
+ *   1. THE BOX IS 130, not 150. "Main header" is 162 tall and its last 36 are
+ *      the TAB ROW, which the page draws as a sibling under this box. PillTabs
+ *      is 32 by its own owner ruling rather than the node's 36, so 130 + 32 is
+ *      the node's 162 block and nothing is short.
+ *      The chip chassis went 32 -> 34.56 with it: the whole group is scaled
+ *      1.08 in this frame (150->162, 32->34.56, 75->81, 25.4->27.43 all land
+ *      on x1.08 exactly), so the chips are genuinely taller than the pill the
+ *      October read measured, and drawing them at 32 is most of what the owner
+ *      saw as "the layout here is not as in Figma".
+ *   2. THE HEADLINE IS LEFT-ALIGNED AGAIN, at the chip row's inset. Reverses
+ *      item 2 of the morning read.
+ *   3. THE CHIPS ARE BUNCHED AGAIN, left at x=23 on a 5px gap. Reverses item 3.
+ *   4. THE INSET IS 23px, not 21.
+ *   5. A NEW EYEBROW — 199955:96839, "12 Locations" — above the headline. It
+ *      is DATA; see the `locations` prop.
+ *   6. THE HEALTH CARD LEFT THIS BLOCK. It is no longer pinned under the hero
+ *      at all: the frame puts the tab row here and the health card BELOW the
+ *      tabs, so the -37px overlap the caller used to apply is gone.
+ * The wave, the tint, the blend variant, the chip chassis and the numeral type
+ * are unchanged and are NOT re-derived.
+ *
  * ── THE ACCOUNT DASHBOARD HEADER, 199922:85244 — 2026-11-04 ──────────
  * The owner's new frame for this surface. Four things move, and the fourth
  * is a removal the owner asked for in words as well:
@@ -93,7 +123,13 @@ import { ArrowUpRight } from 'lucide-react'
 import { BrandDrops, FloodLine, PhotoSensor3 } from '@/v2/icons'
 import { SYSTEM_TYPE, SYSTEM_TYPE_BLURB } from '@/data/systemType'
 import { cn } from '@/lib/utils'
-import wave from '@/assets/system-hero-wave.png'
+/* The wave layer moved OUT of this file on 2026-11-04 and nothing about it
+   changed on the way — see HeroWaveArt's header. It left because the Dashboard
+   restructure gave it a second caller that paints the same raster full-bleed,
+   and two copies of one artwork is the drift PillTabs exists to record. The
+   REASONING for the blend variant, the `isolate` and the raw #a0ccff is still
+   below, where it was written against the node. */
+import HeroWaveArt from '@/v2/components/HeroWaveArt'
 
 
 /* 199531:80032 / :80035 / :80038 — all three identical but for width, which
@@ -116,7 +152,7 @@ import wave from '@/assets/system-hero-wave.png'
    and invisible at 1px; everywhere else it moves with the ink it belongs to.
    box-sizing is border-box repo-wide, so the hairline sits inside the 32px
    and the chip does not grow. */
-const CHIP = String.raw`content-stretch flex gap-[8px] h-[32px] items-center justify-between px-[9px] relative rounded-[12px] border border-solid border-ink-on-color bg-[rgba(241,245,249,0.28)] [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)]`
+const CHIP = String.raw`content-stretch flex gap-[8px] h-[34.56px] items-center justify-between px-[9px] relative rounded-[12px] border border-solid border-ink-on-color bg-[rgba(241,245,249,0.28)] [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)]`
 /* The chip numeral — and, since the refetch, the word in the "Active" pill,
    which the node gives the identical type atom.
 
@@ -203,11 +239,23 @@ const TYPES = [
 export default function SystemsOverviewHero({
   total = 0,
   unitLabel = 'systems',
+  /** 199955:96839, the eyebrow above the headline — the number of LOCATIONS in
+      the scope this hero is reporting on. null/undefined draws no eyebrow,
+      which is what every caller got before 2026-11-04. It is data: the frame's
+      `12` is an example value and must not be hard-coded. */
+  locations = null,
+  /** The eyebrow's noun, transcribed from 199955:96839 including its capital.
+      See the COPY warning at the eyebrow for the conflict with
+      `home.counts_locations_other`. */
+  locationsUnitLabel = 'Locations',
   /** { topology, humidity, flood } — the counts the page already derives. */
   systemTypes,
   /** Called with a SYSTEM_TYPE when a chip is tapped. Omit and the chips stay
       inert, which is what the frame draws. */
   onSelectType,
+  /** False ONLY when the caller paints HeroWaveArt behind this box itself.
+      See the note at the layer below before passing it. */
+  artwork = true,
   className,
 }) {
   const counts = systemTypes ?? {}
@@ -300,7 +348,7 @@ export default function SystemsOverviewHero({
 
   return (
     <div
-      className={cn('relative shrink-0 w-full h-[150px]', className)}
+      className={cn('relative shrink-0 w-full h-[130px]', className)}
       data-node-id="199922:85244"
       data-name="Systems overview hero"
     >
@@ -377,18 +425,23 @@ export default function SystemsOverviewHero({
           raster letting the ground through. On the non-light themes that is a
           strict improvement — the hero stops borrowing the near-black ground
           and paints its own blue, with the ink on it unchanged. */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 isolate mix-blend-multiply [[data-theme]:not([data-theme=light])_&]:mix-blend-normal pointer-events-none rounded-[17px] overflow-hidden"
-        data-node-id="199466:17470"
-      >
-        <img
-          alt=""
-          src={wave}
-          className="absolute h-[211.03%] left-[-27.92%] max-w-none top-[-77.24%] w-[168.12%] opacity-90"
+      {/* `artwork` IS NOT A STYLE SWITCH. The layer is suppressed only when the
+          CALLER is already painting this exact raster behind this exact box —
+          the Dashboard's full-bleed band, Figma 199954:96290, which runs the
+          wave from the top of the screen down to this card's bottom edge. Two
+          copies of it in one stack would double the #a0ccff multiply and read
+          as a seam at the hero's top edge.
+
+          It is NOT a way to get a transparent hero: there is no caller that
+          wants the headline and the chips on the page ground, and --ink-on-color
+          is illegible there. If you reach for this prop, check that something
+          above you is drawing HeroWaveArt. */}
+      {artwork ? (
+        <HeroWaveArt
+          className="absolute inset-0 rounded-[17px]"
+          data-node-id="199466:17470"
         />
-        <div className="absolute inset-0 rounded-[17px] bg-[#a0ccff] mix-blend-multiply" />
-      </div>
+      ) : null}
 
       {/* ── THE LIFECYCLE PILL IS REMOVED, 2026-11-04 ────────────────────────
           A pill reading "Active" with a chevron-down stood here
@@ -417,49 +470,119 @@ export default function SystemsOverviewHero({
           to lucide's ChevronDown path for path at stroke 2 on a 24 grid. The
           import went with the markup. */}
 
-      {/* 199466:17471. THE HEADLINE IS CENTRED, 2026-11-04. It was pinned to
-          the chip row's own 21px left inset; 199922:85244 centres it across the
-          box. Written as a full-width `text-center` run rather than a 50% left
-          with a -50% translate, for the reason the October note already gave:
-          the frame is wider than this page's px-4 gutter leaves, so anything
-          tied to 50% of the FRAME lands somewhere the design never showed,
-          while 50% of the BOX is what centred means and is what this is.
-          The type, the ink and the two-weight split are unchanged. */}
-      <p
-        className={cn(
-          '[word-break:break-word] absolute left-0 right-0 top-[20px] text-center whitespace-nowrap text-ink-on-color text-[34.646px]',
-          'font-sans',
-          String.raw`font-semibold`,
-        )}
-        dir="auto"
-        data-node-id="199466:17471"
+      {/* ── THE EYEBROW AND THE HEADLINE — 199954:96289, read live 2026-11-04 ─
+          THE HEADLINE IS LEFT-ALIGNED AGAIN, and this is the second reversal
+          of the same value in one day. 199922:85244 centred it across the box
+          and this file said so; 199954:96289 puts it back on the chip row's
+          own inset, which is 23px in the live read (it was 21px in October).
+          Both readings are of a frame that is being edited while it is read -
+          199954:96290 beside it moved three times in twenty minutes - so the
+          note that matters is not which value is right but that this one is
+          the LIVE one, fetched after the owner sent the link.
+
+          HOW `text-center` BECAME LEFT. The node still emits `text-center`, on
+          a 200px box pinned at x=23. A short string centred in a box that
+          starts at 23 lands at ~23 only while it is short: the eyebrow's "12
+          Locations" and the headline's "244 systems" both do, which is what
+          makes the frame LOOK left-anchored. It is not reproduced as
+          centre-in-a-200px-box, because this component's count is live and a
+          four-digit fleet would centre somewhere the design never showed. Left
+          at 23 is what the render means.
+
+          THE EYEBROW IS NEW — 199955:96839, "12 Locations", 15px, the count
+          semibold and the word regular, the same two-weight split the headline
+          has always used. It is DATA, not a label: `locations` is the count
+          for the scope this hero is already reporting on, and 12 is the
+          frame's example value.
+
+          ⚠ COPY: "Locations", capital L, is the FRAME's spelling, transcribed
+          per copy rule 0 (Figma copy is transcribed, never authored). It
+          CONFLICTS with the catalogue, which spells the same count
+          `home.counts_locations_other` = "{{count}} locations", lower case,
+          and with the everyday register's sentence-case rule. Neither was
+          silently picked over the other: the frame is what is drawn and the
+          conflict is reported. No new catalogue key was added, because adding
+          one would read as a ruling.
+
+          THE COLUMN. Eyebrow at leading-[18px] then headline at
+          leading-[39.37px] stacks to 2..59.4 inside this box, which puts the
+          chip row's 62 clear of the descenders; the node's own boxes are
+          -23.76..11.88 and 10.8..45.1, i.e. they overlap, because Figma
+          reports a text node's LINE box and both of these carry a 39.37px
+          line on 15px and 34.646px glyphs. A flow column is the honest
+          translation of two stacked lines and does not depend on reading that
+          overlap correctly. */}
+      <div
+        className="absolute left-[23px] right-[23px] top-[0px] z-[2] flex flex-col items-start"
+        data-node-id="199954:96294"
       >
-        <span className="leading-[39.37px]">{`${fmt(total)} `}</span>
-        <span className={cn('font-sans', 'font-normal leading-[39.37px]')}>{unit}</span>
-      </p>
+        {locations === null || locations === undefined ? null : (
+          <p
+            className={cn(
+              '[word-break:break-word] whitespace-nowrap text-ink-on-color text-[15px]',
+              'font-sans',
+            )}
+            dir="auto"
+            data-node-id="199955:96839"
+            data-name="hero-locations"
+          >
+            <span className="font-semibold leading-[26px]">{`${fmt(locations)} `}</span>
+            <span className="font-normal leading-[26px]">
+              {Number(locations) === 1 ? locationsUnitLabel.replace(/s$/, '') : locationsUnitLabel}
+            </span>
+          </p>
+        )}
+
+        <p
+          className={cn(
+            /* leading AFTER the size, and on the <p> as well as on the spans:
+               the paragraph's own strut is what sizes the line box, and without
+               it this ran to 52px (34.646 x the inherited normal) and the chip
+               row at 72 landed 6px INSIDE the headline. Measured in Chromium at
+               393x852, not reasoned about. */
+            '[word-break:break-word] whitespace-nowrap text-ink-on-color text-[34.646px] leading-[39.37px]',
+            'font-sans',
+            String.raw`font-semibold`,
+          )}
+          dir="auto"
+          data-node-id="199466:17471"
+        >
+          <span className="leading-[39.37px]">{`${fmt(total)} `}</span>
+          <span className={cn('font-sans', 'font-normal leading-[39.37px]')}>{unit}</span>
+        </p>
+      </div>
 
       {/* 199531:80031 — the three chips. They are a row rather than three
           absolutes, because the node's offsets were measured against the
           node's own numerals and a four-digit count would overlap its
           neighbour.
 
-          EVENLY SPREAD, 2026-11-04. 199922:85244 stops bunching them at the
-          left on a 5px gap and spreads them across the box, so the row now
-          spans gutter to gutter (the same 21px inset on BOTH sides) and
-          justifies between. That is also what makes the content-sized chips
-          this component has always drawn read correctly: a four-digit count
-          grows its own chip and the spread absorbs it, where a fixed gap used
-          to push the row's right edge wherever the data sent it.
+          EVENLY SPREAD, 2026-11-04 — REVERSED THE SAME DAY. 199922:85244
+          stopped bunching them at the left on a 5px gap and spread them across
+          the box; the live read of 199954:96289 bunches them again, at x=23,
+          107 and 189 on chips 79/77/79 wide — a 5px gap, left-anchored, 245 of
+          the block's 358. So the row is back to `gap-[5px]` with no right
+          anchor. Both readings are hours apart on a frame being edited live;
+          this one is the one the owner linked.
 
-          THE VERTICAL. The box is 150 tall and the health card below it
-          overlaps the bottom. MEASURED, not assumed: the page gives the card
-          `-mt-[37px]` inside a stack whose gap is 20px, so the net overlap is
-          17px and the card's top edge lands at 133 of this box's 150, not at
-          113. Headline 20..59, chips 68..100, 33px clear of that edge. If the
-          stack's gap ever changes, this clearance moves with it. */}
+          WHAT THE SPREAD WAS BUYING, and what is lost with it: the chips are
+          content-sized here, not fixed at the node's 79/77/79, so a four-digit
+          count grows its own chip. The spread absorbed that growth; a fixed
+          gap lets the row's right edge move with the data. It cannot overflow
+          the box — three chips at four digits is ~300 against 358 — but the
+          row is no longer optically balanced at every count, and that is the
+          node's design rather than an oversight here.
+
+          THE VERTICAL. The box is 130 tall — 199954:96289's "Main header" is
+          162 and its last 36 are the tab row, which the page draws as a
+          sibling immediately below. The health card is no longer in this block
+          at all and no longer overlaps this box; it sits below the tabs now.
+          Eyebrow 0..26, headline 26..65.4, chips 72..106.6, 23px of artwork
+          left below them — the node leaves 34, and the 9px between the headline’s
+          descenders and the chips is the node’s 12 measured the same way. */}
       <div
         ref={rowRef}
-        className="absolute flex items-center justify-between left-[21px] right-[21px] top-[68px] z-[2]"
+        className="absolute flex items-center gap-[5px] left-[23px] top-[72px] z-[2]"
         data-node-id="199531:80031"
       >
         {TYPES.map(({ key, name, type, glyph, size }) => {
@@ -637,7 +760,14 @@ export default function SystemsOverviewHero({
         <div
           data-name="System type explainer"
           data-zero={armedIsZero ? 'true' : undefined}
-          className="absolute left-[21px] right-[21px] top-[104px] z-[2] rounded-[14px] border border-border bg-card px-[14px] py-[10px] shadow-lg"
+          /* 23/23/98 since the 2026-11-04 live read, from 21/21/104: the chip
+             row moved to left-[23px] top-[62px] and this panel hangs 4px under
+             it, as it always has. It still OVERFLOWS the hero box on purpose -
+             nothing here clips but the artwork wrapper. What it overflows ONTO
+             changed: it used to land on the health card and now lands on the
+             tab row, which is why the page gives this hero a z-index above its
+             sibling. Without that the panel would paint UNDER the tabs. */
+          className="absolute left-[23px] right-[23px] top-[111px] z-[2] rounded-[14px] border border-border bg-card px-[14px] py-[10px] shadow-lg"
         >
           {/* THE aria-hidden MOVED INWARD, and it had to. It used to sit on
               the panel root, which was correct while the panel was only text

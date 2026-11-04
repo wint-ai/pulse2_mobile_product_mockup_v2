@@ -7,23 +7,127 @@
  * this bar on `/`, an inlined copy of v1's ScopeHeader rules on `/alerts`,
  * and MobileHeaderBar on `/system/:id` and `/valves`.
  *
- * THE SKELETON IS FIXED AND ONLY THE LEADING SLOT VARIES:
+ * THE SKELETON IS FIXED AND THE TWO OUTER SLOTS VARY:
  *
  *     [ leading ]  [ title, flex-1 ]  [ trailing ]
- *       back           scope pill        empty
+ *       back           scope pill        nav, or nothing
  *       or a badge     or entity name
  *       or nothing
  *
- *   /                 nothing -> the pill takes the whole width
- *   /location/:name   back    -> the account roll-up
+ *   /                 nothing -> the pill starts at the bar's left edge
+ *                     trailing: the nav control. Figma 199954:96275.
+ *   /location/:name   back    -> the account roll-up        + nav
  *   /system/:id       back    -> the parent location
  *   /valves           back    -> wherever the screen was pushed from
  *   /alerts           the bell badge, via `leading`. See that prop.
  *
  * The TITLE is always the same control: a readout that opens the navigation
  * drawer, named `Switch location`, because scope is picked "Only in the
- * drawer" (owner). TRAILING is empty everywhere - the avatar that used to
- * sit there moved to the tab bar.
+ * drawer" (owner).
+ *
+ * TRAILING WAS EMPTY EVERYWHERE until 2026-11-04 (the avatar that used to sit
+ * there moved to the tab bar). The Dashboard restructure put a control back in
+ * it — `onOpenNav`, a second door onto the same drawer, from the owner's new
+ * frame. It is OPT-IN: only the Dashboard passes a handler, so every other
+ * screen draws the bar it drew before.
+ *
+ * ⚠ THAT MAKES THE DASHBOARD'S BAR DIFFER FROM THE OTHER THREE, and the owner
+ *   is on record wanting one header everywhere ("Why on system page we have a
+ *   different header? It always needs to be the same."). The frame that asks
+ *   for this control is the Dashboard's and only the Dashboard's, so passing
+ *   it on /system/:id, /valves and /alerts is an owner decision, not one to
+ *   take by inference. REPORTED, NOT RESOLVED. If the answer is "everywhere",
+ *   it is one prop per page and dashboardHeaderBar's child counts.
+ *
+ * ── THE COLLAPSING HEADER — 2026-11-04, AND HOW A SECOND PAGE ADOPTS IT ──
+ * Owner, on a screenshot of the Dashboard scrolled a little way down, with
+ * this bar sitting on artwork whose own content had slid out from under it:
+ * "this is bad". Then, on the hero at rest: "keep this area stuck — don't
+ * move it with scroll at all." Then, on a location: "all these area needs to
+ * be fixed including the tabs."
+ *
+ * And then, shown that as a fully fixed block: "Currently it takes too much
+ * place when scrolling. I want only the — from the bottom, up to the header
+ * with all accounts and the icon — to be kind of scrolling up. And then only
+ * title, the open navigation and tabs are floating."
+ *
+ * So on a screen that paints artwork behind this bar, THE BAR IS NOT CHROME ON
+ * ITS OWN and the block it belongs to COLLAPSES. The hero copy scrolls up and
+ * fades; the title, the nav button and the tab row never move; the artwork
+ * stays behind them as a short slice all the way down. Every one of the
+ * owner's notes that day was the same complaint - the artwork and its own
+ * content doing different things - and this is what answers it without the
+ * 234px a fully fixed block cost.
+ *
+ * THE SHAPE, as src/v2/pages/HomeAllAccounts.jsx implements it. A second page
+ * copies this literally; the numbers are that file's THE COLLAPSING HEADER:
+ *
+ *   root          relative, flex column, flex:1 / minHeight:0, px-4 py-2
+ *                 ref, and the scroll handler writes --hdr-t on it
+ *     band        absolute inset-x-0 top-0 z-[1] h-[205px]
+ *                   clip-path: inset(0 0 calc(var(--hdr-t) * Npx) 0)
+ *                   HeroWaveArt  absolute inset-0
+ *                   the dim      absolute inset-x-0 top-0 h-[135px]
+ *     chrome      relative z-[2] shrink-0, rowGap 10, paddingBottom 12
+ *                   AppHeaderBar   (this file) - never moves
+ *                   block          h-[32px], the TAB ROW's height only
+ *                     hero window  absolute, top -rowGap, overflow-hidden
+ *                       hero       translateY(-t*C) + opacity 1-1.6t
+ *                     tab row      translateY((1-t)*C)
+ *     scroller    flex:1 / overflowY:auto / minHeight:0
+ *                 paddingTop: C      paddingBottom: 93
+ *                   the tab panel, and nothing else
+ *
+ * C is the collapse distance - the hero's height plus whatever the tab row
+ * gives back by being laid out above its resting place. The handler is one
+ * rAF-throttled passive listener writing ONE custom property; nothing
+ * re-renders and no layout property is animated.
+ *
+ * FOUR THINGS A SECOND PAGE MUST GET RIGHT, every one of which has already
+ * been got wrong once here:
+ *
+ *  1. THE BAND HANGS OFF THE ROOT, NOT THE SCROLLER. A scroller is
+ *     overflow-y:auto, which computes overflow-x to auto as well, so an
+ *     absolutely positioned child of it is clipped at its edge and can never
+ *     reach the bar. `absolute inset-x-0` resolves against the PADDING box, so
+ *     it ignores the root's px-4 and bleeds the full 393 with no negative
+ *     margin anywhere — check-shell-contract's bleed-needs-a-bleeding-scroller
+ *     rule exists because a negative RIGHT margin became scrollable width and
+ *     put a sideways scrollbar across this frame once already.
+ *
+ *  2. THE SCROLLER CARRIES NO z-index. It had `relative z-10` and that
+ *     DELETED THE FLOATING TAB BAR. TabBar's host is `relative shrink-0 h-0`
+ *     at z-index:auto on purpose (so the drawer at z-10/z-11 and the overlays
+ *     at z-50/z-[300] cover it), and CSS paints every positive z-index after
+ *     every auto one REGARDLESS OF DOM ORDER — so a scroller at z-10 paints
+ *     over a tab bar mounted after it. Nothing caught it: TabBar was still
+ *     mounted, the clearance padding was still applied, check-shell-contract
+ *     still passed and the suite was green. tabBarFloatingClearance now pins
+ *     it. Raising the host instead is the wrong fix — it would punch the pill
+ *     through the navigation drawer.
+ *
+ *  3. THE BAND IS z-[1] AND THE CHROME z-[2]. Both must beat the scroller,
+ *     because once the header has collapsed the content passes UNDERNEATH the
+ *     artwork; and both must lose to the drawer (scrim z-10, panel z-[11]),
+ *     EventFocusOverlay (z-50) and PushNotifications (z-[300]), which is why
+ *     they are 1 and 2 rather than 10 and 20. Neither ever overlaps the
+ *     floating pill, so outranking its host costs nothing HERE, where doing
+ *     it from the SCROLLER deleted the bar outright. Verified in the browser
+ *     in all four themes: the pill is hit-testable at every scroll position,
+ *     and an open drawer covers both it and this bar.
+ *
+ *  4. THE SCROLLER'S paddingTop IS THE COLLAPSE DISTANCE. Without it the
+ *     first card starts where the COLLAPSED header ends and jumps down by the
+ *     whole collapse the moment the scroll is touched. This is the one bug
+ *     this pattern reliably ships with; measure at scrollTop 0 and 1 and
+ *     prove the content moves by exactly 1px.
+ *
+ *  5. THE TAB ROW IS LAID OUT COLLAPSED AND PUSHED DOWN, never the reverse.
+ *     That is what keeps the chrome column a constant height, so the scroller
+ *     never resizes mid-scroll. A panel shorter than the collapse distance
+ *     simply cannot collapse fully - check it, and accept it rather than
+ *     clamping, since the clearance padding already makes every panel here
+ *     long enough.
  *
  * THIS FILE WAS AlertsHeaderBar until 2026-11-04. It was built for /alerts,
  * taken off it the same day, mounted on the Dashboard, and is now the app's
@@ -101,8 +205,12 @@
  *   white   -> bg-card            #0b81f8 -> ring/primary
  * No two-argument var() anywhere - a missing token must fail loudly.
  */
-/* `Home` left with the house on 2026-11-04 — see the header. */
-import { ChevronDown, ChevronLeft } from 'lucide-react'
+/* `Home` left with the house on 2026-11-04 — see the header.
+
+   `PanelLeft` arrived the same evening, in the slot the house used to hold.
+   It is NOT the house coming back: see THE TRAILING SLOT below for what the
+   two controls do and why the glyph is this one. */
+import { ChevronDown, ChevronLeft, PanelLeft } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -154,6 +262,52 @@ export default function AppHeaderBar({
       lapse because its neighbour did. */
   onBack,
   backLabel = 'Back',
+  /** ── THE TRAILING SLOT — 2026-11-04, Figma 199954:96276 ─────────────────
+      Opens the SAME NavigationDrawer the pill does. Drawn only when a caller
+      passes a handler; every screen but the Dashboard passes nothing and is
+      byte-identical to before.
+
+      THE OWNER ASKED FOR IT, in the frame and in words: "I want to replace the
+      home icon with kind of icon from the design system and shadcn [that]
+      explain[s] it's open and navigation." 199954:96275 puts a 40x40 button
+      back at x=340, hard right, with the title button moved to the left and
+      widened to 320 — the mirror of the bar before it.
+
+      THIS IS NOT THE HOUSE. The house was deleted on the owner's word the same
+      day and its behaviour ("go to the top of this user's hierarchy, clear the
+      drawer scope") is the Dashboard TAB's now, in src/components/TabBar.jsx.
+      Nothing here goes home. The frame still DRAWS a house in this slot and
+      that glyph is exactly what the owner asked to be replaced, so do not
+      transcribe it back off 199954:96277.
+
+      WHY `PanelLeft`. It is the glyph shadcn's own SidebarTrigger uses, so it
+      is the design system's word for "open the side navigation" rather than a
+      picked-by-eye icon, and WintSidebarV2 is literally a left sidebar — it is
+      `inset-y-0 left-0` and slides in from translateX(-100%)
+      (WintSidebarV2.jsx:635-640), so the left-panel family is the right one.
+      Two alternatives were weighed and rejected:
+        · `Menu`  — the footer's More tab already draws it. Two destinations
+                    behind one glyph is worse than an imperfect glyph.
+        · `PanelLeftOpen` — says "open" more literally, but it is the same
+                    panel plus a chevron, i.e. three more strokes inside a 21px
+                    box sitting on photographic artwork, and shadcn's own
+                    trigger is the plain panel. The "open" belongs in the
+                    accessible name, which carries it.
+
+      ⚠ IT IS THE ONLY DOOR, NOT A SECOND ONE — corrected hours after the
+      first version of this note, which said the opposite. Owner, on a
+      screenshot of the pill beside it: "remove this and the arrow — only the
+      icon open the nav bar." So the title stopped being a control and
+      `Switch location` moved HERE with the door. See THE TITLE below for what
+      is left of the pill and why the two branches exist. */
+  onOpenNav,
+  /** True when this bar sits ON artwork rather than on the page ground, which
+      changes what "legible ink" means - see THE INK at the title below. Only
+      the Dashboard passes it, and only because the wave now runs behind the
+      whole bar. NO NEW COPY was introduced for this slot: `navAriaLabel` was
+      proposed and deleted the same evening when the owner made the icon the
+      only door, which moved `scopeAriaLabel` onto it. */
+  onColor = false,
   /** An explicit leading node, which WINS over the back glyph.
       /alerts' bell badge is the one caller: it is that page's identity mark
       AND its drawer door, it is pinned by scopePersistsAcrossTabs, and it is
@@ -208,27 +362,154 @@ export default function AppHeaderBar({
           Dashboard-only. The drawer is unaffected — the pill below was
           already its only door here. */}
 
-      {/* The WHOLE pill is the target, not the 18px caret: a caret alone is a
-          worse target than the label beside it, and the caret is what announces
-          the label is changeable at all. */}
-      <button
-        type="button"
-        onClick={onOpenDrawer}
-        aria-label={scopeAriaLabel}
-        title={scopeAriaLabel}
-        aria-haspopup="dialog"
-        className="flex h-[44px] min-w-px flex-1 cursor-pointer items-center gap-[6px] rounded-[14px] border border-solid border-slate-300 pl-[14px] pr-[8px] outline-none transition-colors hover:bg-card/60 focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        data-node-id="199922:83961"
-        data-name="app-scope"
-      >
-        {/* `leading-` AFTER the size: tailwind-merge treats leading- as
-            conflicting with the font-size atom and drops whichever came first.
-            Same trap, same spelling, as MobileHeaderBar. */}
-        <p className="min-w-0 flex-1 truncate text-center font-sans font-bold text-slate-800 text-[15px] leading-[22.5px]" dir="auto">
+      {/* ── THE TITLE: A CONTROL, OR A READOUT ─────────────────────────────
+          Which one it is depends on whether this bar has a trailing nav
+          control, and there is exactly ONE door either way.
+
+          ⚠ ON THE DASHBOARD IT IS A READOUT, 2026-11-04. Owner, with a
+          screenshot of the `All Accounts ⌄` pill: "remove this and the arrow -
+          only the icon open the nav bar." So the chassis (border, radius,
+          padding), the chevron and the handler all go, and what is left is the
+          scope NAME - which he kept by name in the same breath as the earlier
+          ruling: "We still have title that shows what selected - for example,
+          'All accounts', specific location, specific system."
+
+          IT IS GENUINELY INERT, not flat-looking. No onClick, no role, no
+          tabIndex, no aria-haspopup, no hover or active state, not a <button>.
+          A scope name that still answers a tap is the worst outcome here,
+          because it looks settled and behaves like the thing he removed.
+
+          WHY IT IS CONDITIONAL AND NOT JUST DELETED. The door moves to the
+          icon, and the icon only exists where a caller passes `onOpenNav` -
+          today that is the Dashboard alone. /alerts, /system/:id and /valves
+          have no icon, so making the title inert there would leave those three
+          screens with NO route into the drawer at all. Rule 0, and three
+          drawer suites would go red. The rule this encodes is therefore
+          "the bar has exactly one drawer door": the icon when there is one,
+          the title when there is not.
+
+          `scopeAriaLabel` LIVES ON WHICHEVER OF THE TWO IS THE DOOR, and never
+          on both - two elements answering to `Switch location` would hand the
+          drawer suites a different control without failing anything.
+
+          THE INK. `text-slate-800` is themed, but it is themed for the PAGE
+          ground: #1d293d under light, zinc-100 under dark. On the Dashboard
+          this text now sits directly on the wave, where the ground does not
+          change with the theme and the ink does - measured at 393x852, the
+          near-white dark-theme ink on the artwork is the failure case, and it
+          is invisible in light. `--ink-on-color` is this repo's token for ink
+          on a coloured ground (SystemsOverviewHero's headline and chip
+          numerals already use it, and under `contrast` it inverts, "or it is
+          not an instrument"). `onColor` picks it, and only a caller whose bar
+          sits on artwork passes it.
+
+          ⚠ IT DEPARTS FROM THE FRAME IN LIGHT. 199954:96281 spells this text
+          #1e2a3b, i.e. dark, over the wave's pale top band. That literal is a
+          light-mode value with no themed counterpart, and a colour identical
+          in all four themes is not tokenised. REPORTED. */}
+      {/* ── LEFT, AND BIGGER — 2026-11-04 ─────────────────────────
+          Owner, on a screenshot of `All Accounts` centred in the bar: "take
+          the title left not centered and make it bigger."
+
+          ⚠ BOTH ATOMS DEPART FROM THE NODE. 199954:96279 emits `text-center`
+          at `text-[15px]`/`leading-[22.5px]`; this is deliberately neither. Do
+          not "restore" them from the frame — the owner is looking at the
+          running app, and he removed this slot's chassis the same evening,
+          which is what left a centred 15px line floating in a 311px void with
+          no box to be centred IN.
+
+          WHERE ITS LEFT EDGE SITS: x=16, the bar's own gutter, NOT the hero's
+          text column. Measured at 393x852, the two candidates are 23px apart,
+          so this is a choice between two CLEAR alignments rather than a near
+          miss:
+               x=16   the tab row, every card, the floating pill, and this
+                      bar's own leading slot (back, or /alerts' bell)
+               x=39   the hero's eyebrow, headline and chips — and nothing
+                      else on the page
+          16 wins because it is the page's STRUCTURAL edge and this bar is
+          chrome, like the tab row directly under the hero. The hero's 39 is
+          its own 23px internal padding, not a column: aligning the header to
+          another component's padding couples the two, and that inset has
+          already moved once. Both were rendered and compared at 393x852
+          before this was written down, and 39 does look better composed on
+          `/` — but the LEADING SLOT settles it:
+
+            ⚠ THE TITLE'S LEFT EDGE IS NOT A CONSTANT. It is flex-1 after
+            whatever the leading slot holds, so it starts at x=16 on `/` and
+            at x=66 on /location/:name, where the 40px back glyph and the 10px
+            gap come first. Measured, both routes.
+
+          There is therefore no shared column to join: the +23 that lines the
+          title up with the hero on `/` puts it at 89 on a location, where 66
+          already reads correctly as "after the back control" and 89 reads as
+          adrift. So the title goes as far left as its slot allows and nothing
+          is added — one rule, no route conditional, and the trade (on `/` the
+          hero copy sits 23px to its right) is reported rather than papered
+          over. If the owner wants the shared column it is a `pl-[23px]` here
+          plus a ruling on what a location route should do.
+
+          THE SIZE IS A SCALE STEP, NOT A PICKED NUMBER. 15px was the node's
+          literal and is not on this app's scale at all. `text-xl` is 20px, the
+          step the repo already uses (BulkValveConfirmSheet's sheet title,
+          EventFocusOverlay's figures), and it carries a second, measurable
+          argument: WCAG puts the large-text boundary at 18.66px BOLD, so 20px
+          bold drops this slot's requirement on the artwork from 4.5:1 to
+          3:1, while 18px would have stayed below the line and bought nothing.
+          The hero's headline under it is 39.4px, so 20 reads as a clear step
+          up from 15 without competing with it — a 2:1 gap, measured.
+
+          THE BAR DOES NOT GROW. The row is `items-center` and the 40px nav
+          button is still the tallest thing in it: 22.5 -> 28 of line box is
+          well inside 40, and the bar measures 54px before and after. That
+          matters because the artwork band's height is arithmetic off this bar.
+
+          IT IS STILL INERT. No chassis, no chevron, no handler, no role, no
+          tabIndex — see below. Bigger text is the one thing that could make it
+          read as tappable again, and nothing here makes it so.
+
+          ⚠ ONLY THIS BRANCH CHANGED. The <button> below is still the node's
+          centred 15px, because it is a different object: a bordered pill with
+          a chevron, where centring belongs to the chassis and enlarging the
+          label would reflow a control the owner has not been shown. He was
+          looking at the chassis-less readout. Every screen that passes
+          `onOpenNav` gets this treatment and CONVERGES, which is the direction
+          the one-header ruling points; restyling three screens that did not
+          ask would not be. REPORTED, NOT RESOLVED. */}
+      {onOpenNav ? (
+        <p
+          className={cn(
+            'min-w-0 flex-1 truncate text-left font-sans font-bold text-xl leading-[28px]',
+            onColor ? 'text-ink-on-color' : 'text-slate-800',
+          )}
+          dir="auto"
+          data-node-id="199954:96279"
+          data-name="app-scope"
+        >
           {label}
         </p>
-        <ChevronDown className="size-[18px] shrink-0 text-slate-800" aria-hidden="true" />
-      </button>
+      ) : (
+        /* The WHOLE pill is the target, not the 18px caret: a caret alone is a
+           worse target than the label beside it, and the caret is what
+           announces the label is changeable at all. */
+        <button
+          type="button"
+          onClick={onOpenDrawer}
+          aria-label={scopeAriaLabel}
+          title={scopeAriaLabel}
+          aria-haspopup="dialog"
+          className="flex h-[44px] min-w-px flex-1 cursor-pointer items-center gap-[6px] rounded-[14px] border border-solid border-slate-300 pl-[14px] pr-[8px] outline-none transition-colors hover:bg-card/60 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          data-node-id="199922:83961"
+          data-name="app-scope"
+        >
+          {/* `leading-` AFTER the size: tailwind-merge treats leading- as
+              conflicting with the font-size atom and drops whichever came first.
+              Same trap, same spelling, as MobileHeaderBar. */}
+          <p className="min-w-0 flex-1 truncate text-center font-sans font-bold text-slate-800 text-[15px] leading-[22.5px]" dir="auto">
+            {label}
+          </p>
+          <ChevronDown className="size-[18px] shrink-0 text-slate-800" aria-hidden="true" />
+        </button>
+      )}
 
       {/* THE AVATAR STOOD HERE and was removed 2026-11-04. Owner: "remove
           avatar from the header - footer is enough". It was a 38px disc, the
@@ -245,6 +526,49 @@ export default function AppHeaderBar({
 
           The pill simply takes the 48px back (38 avatar + the 10 gap): it is
           flex-1 and nothing else about the bar changed. */}
+
+      {/* 199954:96276 — 40x40 at x=340, a 21px glyph centred, `bg-white` in
+          the node. See THE TRAILING SLOT above for what it does and why the
+          glyph is PanelLeft.
+
+          bg-card, not bg-white: the node's white is a SURFACE here, not a
+          filter over artwork, so it is the token that four themes re-pick.
+          The disc the owner rejected was `back`'s (199922:83762 is a bare
+          Icon); this control is 199954:96276, which IS a filled 40x40 button
+          at radius 20 in its own node, and it needs the fill for a different
+          reason as well — it is the one control on this bar that sits on the
+          wave, and a bare 21px stroke on photographic artwork is the contrast
+          case the frame itself answers with a disc.
+
+          text-primary is the node's blue (#0b81f8 -> --primary), which is also
+          what the composed frame renders this glyph as. Every colour here is a
+          token: the bar's own header records why no hex survives in this file. */}
+      {onOpenNav ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onOpenNav}
+          /* THE CONTRACT NAME IS HERE NOW, not on the readout above. `Switch
+             location` is what drawerLocationHighlight:86,
+             drawerNestedLocationHighlight:46 and scopePersistsThroughDrawer:61
+             open the drawer BY, and the owner has just made this control the
+             only door. The name follows the door - leaving it on an inert
+             <p> would hand three suites an element that cannot be clicked,
+             and dropping it would take the drawer away from every caller that
+             navigates by accessible name. It has been broken and restored
+             three times today; `scopeAriaLabel` is spelled once, here and on
+             the button branch above, and never on both at once. */
+          aria-label={scopeAriaLabel}
+          title={scopeAriaLabel}
+          aria-haspopup="dialog"
+          className="flex size-[40px] shrink-0 cursor-pointer items-center justify-center rounded-[20px] bg-card hover:bg-card active:opacity-60"
+          data-node-id="199954:96276"
+          data-name="app-nav"
+        >
+          <PanelLeft className="size-[21px] text-primary" aria-hidden="true" strokeWidth={1.75} />
+        </Button>
+      ) : null}
     </div>
   )
 }

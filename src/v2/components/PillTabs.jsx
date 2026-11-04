@@ -54,7 +54,42 @@
  * by the owner, not by whichever Figma node was edited last, and an agent
  * re-deriving it from Figma alone will keep landing somewhere else.
  *
- * ── RULING 2, 2026-10-21: THE OUTLINED TREATMENT, BOTH PAGES, BOTH STATES ──
+ * ── RULING 3, 2026-11-04: THE NODE'S SEGMENTED CONTROL — WHAT SHIPS ────────
+ * ⚠ READ THIS BEFORE RULING 2 BELOW, WHICH IT SUPERSEDES.
+ *
+ * Owner, pointing at 199961:97449: "update the tabs component to be exactly
+ * the same as in Figma, both on the system screen and location screen. Content
+ * needs to be the same as it is now in location and system when it's different
+ * — but the component needs to look like [the frame]."
+ *
+ * The question both this file and src/components/ui/tabs.jsx had deferred —
+ * which control a pixel-matched page uses, and whose call that is — is
+ * answered: the CHASSIS unifies on the node, the CONTENT does not. Three
+ * triggers on the Location page (the middle one still `Systems`, with a live
+ * count — see HomeAllAccounts, and do not rename it off the frame's example
+ * `8`), two on the System page.
+ *
+ * WHAT CHANGED, atom for atom: a slate-200 track at radius 10 with a 3px
+ * inset; the active trigger lifted out of it in bg-card at radius 8 with a 1px
+ * brand border, brand label at 600 and two stacked shadows; the resting
+ * trigger painting NOTHING. Ruling 2's label rules and its 1px-border-not-fill
+ * selection survive inside that. Every value is at its call site below.
+ *
+ * ⚠ THIS FILE WAS RESTYLED RATHER THAN REPLACED BY ui/tabs.jsx, and that is a
+ *   deliberate, reported departure from how the swap was framed. The two files
+ *   now emit the same control; what ui/tabs.jsx additionally brings is Radix,
+ *   and Radix Tabs requires the List and the Content to share one Root. On
+ *   BOTH pages the row now lives in the collapsing header's chrome block while
+ *   the panels live inside the scroller, so adopting it means re-rooting each
+ *   page at a `Tabs asChild` and converting both panels to `TabsContent` —
+ *   a structural change to the two files whose scroll mechanism was landing
+ *   the same hour. This file already implements the full WAI-ARIA tablist by
+ *   hand (role, aria-selected, roving tabindex, arrow/Home/End), which is what
+ *   v2SegmentedTabs asserts, so nothing is lost at the control level. The
+ *   remaining step is one repoint per page, once someone owns both roots at a
+ *   quieter moment. REPORTED, NOT RESOLVED.
+ *
+ * ── RULING 2, 2026-10-21: THE OUTLINED TREATMENT — SUPERSEDED BY RULING 3 ──
  * ⚠ THIS IS THE RULED STATE. Do not "fix" it back to pale blue, and do not
  *   re-derive it from the three frames that still draw pale blue.
  *
@@ -191,7 +226,10 @@ const BADGE_WASH = {
    token — 100px is the node's own value and it reads as "fully round" at this
    32px height, so it stays an arbitrary length rather than being bent onto
    --radius-*, which is 10px. */
-const PILL_RADIUS = 'rounded-[100px]'
+/* RULING 3, 2026-11-04: the node's trigger radius is 8px inside a 10px track,
+   not the 100px lozenge Ruling 2 drew on a track-less row. rounded-md is 8 and
+   rounded-lg (the track, below) is --radius = 10. */
+const PILL_RADIUS = 'rounded-md'
 
 /** The count Badge — I…;101485:143349;…;121116:90300. */
 function CountBadge({ count, label }) {
@@ -252,19 +290,46 @@ function TabTrigger({ label, count, active, pill, grow, onSelect, onKeyDown, tri
       onClick={onSelect}
       onKeyDown={onKeyDown}
       className={[
-        'content-stretch cursor-pointer flex h-[32px] items-center justify-center min-w-[56px] px-2.5 relative',
+        /* h-full, not h-[32px]: 32 is the TRACK now and the trigger fills its
+           26px content box. px-[6px] and min-w-0 are the node's — a 56px floor
+           and a 10px inset belonged to a row that had no track to divide. */
+        'content-stretch cursor-pointer flex h-full items-center justify-center min-w-0 px-[6px] relative',
         grow ? 'flex-[1_0_0]' : 'shrink-0',
         pill === 'wide' ? String.raw`gap-2 py-1` : 'flex-col',
         PILL_RADIUS,
-        /* Ruling 2: every trigger sits on the house card surface and selection
-           is a 1px brand border, not a fill. bg-surface-card and border-primary
-           are tokens, so the row follows the theme — the #fafbfc / #0b81f8
-           literals the node emits could not. */
-        String.raw`bg-surface-card`,
-        /* The nodes draw only ONE selected trigger, the default pill. A
-           selected WIDE pill is a state the delivery canvas does not contain,
-           so it takes the same selection rule rather than inventing a third. */
-        active ? String.raw`border border-primary border-solid` : '',
+        /* ── RULING 3, 2026-11-04 — THE NODE'S CHASSIS, ON BOTH PAGES ──────
+           Owner, pointing at 199961:97449: "update the tabs component to be
+           exactly the same as in Figma, both on the system screen and location
+           screen. Content needs to be the same as it is now in location and
+           system when it's different — but the component needs to look like
+           [the frame]."
+
+           This supersedes RULING 2 (2026-10-21), which gave every trigger the
+           house card surface and made selection a bare 1px brand border on a
+           track-less row. The node draws a SEGMENTED CONTROL instead: a
+           slate-200 track with the active trigger lifted out of it in white.
+           Both halves of Ruling 2 that survive are here — selection is still a
+           1px brand border and the label rules are unchanged — but the resting
+           trigger no longer paints a surface, because on a track it is the
+           TRACK that is the ground.
+
+           Every colour is still the token, not the node's hex: #e2e8f0 ->
+           bg-slate-200 on the row, #ffffff -> bg-card, #0b81f8 ->
+           border-primary / text-primary, #62748e -> text-muted-foreground.
+           The two stacked shadows stay literal rgba black — they are a depth
+           cue rather than a hue and this repo has no shadow token.
+
+           THE BORDER IS TRANSPARENT AT REST, not absent, so selecting costs no
+           geometry: preflight sets box-sizing:border-box, the border is drawn
+           inside the box, and neither the trigger nor its neighbours move. */
+        String.raw`border border-solid`,
+        /* ONE border-colour atom per state, never two. This list is a plain
+           join, not tailwind-merge, so emitting `border-transparent` and then
+           `border-primary` would ship both and let CSS SOURCE order decide
+           which wins — a coin flip that no test of the className can see. */
+        active
+          ? String.raw`border-primary bg-card shadow-[0_1px_2px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.1)]`
+          : String.raw`border-transparent`,
       ].filter(Boolean).join(' ')}
     >
       {pill === 'wide' ? (
@@ -277,8 +342,11 @@ function TabTrigger({ label, count, active, pill, grow, onSelect, onKeyDown, tri
            content box. The selected one, and only it, carries the focus ring. */
         <span
           className={[
-            String.raw`content-stretch flex gap-1.5 items-center overflow-clip px-1.5 py-0.5 relative rounded-md shrink-0`,
-            active ? String.raw`drop-shadow-[0px_0px_0px_rgba(161,161,161,0.5)]` : '',
+            String.raw`content-stretch flex gap-1.5 items-center overflow-clip relative shrink-0`,
+            /* The inner box's own px/py and radius left with Ruling 3: the
+               trigger is the painted surface now and this span only groups the
+               label with its badge. Its all-zero drop-shadow went with them —
+               it was the node's no-op and the real pair is on the trigger. */
           ].filter(Boolean).join(' ')}
         >
           <span className={labelClass}>{label}</span>
@@ -340,14 +408,27 @@ export default function PillTabs({ items, value, onChange, nodeId, slotNodeId })
       /* Ruling 2 drops the row from 36px to 32px, and the node gives the row
          itself no radius — it has no fill, so there is nothing for a radius to
          clip and the old `rounded-xl` here was inert. */
-      className={String.raw`content-stretch flex flex-[1_0_0] gap-0 h-[32px] items-start min-w-px pr-[3px] py-[3px] relative`}
+      /* ── THE TRACK — RULING 3, 2026-11-04 ─────────────────────────────────
+         `bg-slate-200 rounded-lg p-[3px]`, i.e. 199961:97449's own #e2e8f0 /
+         radius 10 / 3px inset, written as tokens. The row had NO track at all
+         under Ruling 2 and that is the whole visible change: the triggers used
+         to float on the page ground, each carrying its own card surface.
+
+         THE 3px IS THE TRIGGER'S HIT AREA, not decoration, and the arithmetic
+         closes at 32: 3 + (2 border + 2 py + 20 line + 2 py + 2 border = 26) +
+         3. The older reading of the sibling node (36 track / p-3 / 32 trigger)
+         cannot be satisfied — 36-3-3 is 30 — and this one can, which is why
+         32 is what ships. The collapsing header's arithmetic on both pages is
+         built on this 32; changing it moves COLLAPSE and the scroller's
+         paddingTop with it. */
+      className={String.raw`content-stretch flex flex-[1_0_0] gap-0 h-[32px] items-stretch min-w-px bg-slate-200 rounded-lg p-[3px] relative`}
       data-node-id={nodeId}
       data-name="Tabs"
     >
       <div
         role="tablist"
         aria-orientation="horizontal"
-        className={String.raw`content-stretch flex flex-[1_0_0] gap-2 items-center min-w-px relative`}
+        className={String.raw`content-stretch flex flex-[1_0_0] gap-0 items-stretch min-w-px relative`}
         data-node-id={slotNodeId}
         data-name="slot"
       >

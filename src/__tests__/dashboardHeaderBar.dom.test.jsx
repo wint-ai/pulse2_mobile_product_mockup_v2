@@ -115,7 +115,12 @@ const drawerIsOpen = (c) => drawer(c)?.getAttribute('aria-hidden') === 'false'
 const byLabel = (c, name) => c.querySelector(`[aria-label="${name}"]`)
 const house = (c) => c.querySelector('[data-name="app-home"]')
 const pathOf = (c) => c.querySelector('[data-testid="path"]')?.textContent
-const scopeReadout = (c) => byLabel(c, 'Switch location')?.textContent
+/* The scope NAME, by its slot rather than by an accessible name. It used to be
+   `byLabel(c, 'Switch location')`, which worked only while the readout and the
+   drawer door were the same element. On 2026-11-04 the owner split them - the
+   title is an inert <p> and the door is the icon - so reading the scope by the
+   door's name would have returned the icon's empty textContent. */
+const scopeReadout = (c) => c.querySelector('[data-name="app-scope"]')?.textContent
 
 /** The Dashboard tab, picked the way every other suite in this repo picks a
     tab: the label is deliberately the FIRST <span> inside the button. Going
@@ -265,30 +270,65 @@ describe('Dashboard tab — the home button, since the house was deleted', () =>
 })
 
 describe('Dashboard header bar — the drawer, and what the old bar did', () => {
-  it('the scope pill opens the drawer and still carries "Switch location"', () => {
-    // THE ONLY DOOR on this screen, and the only control left in the bar now
-    // that the house is deleted. If this fails the Dashboard has no
-    // navigation at all.
+  it('"Switch location" is on exactly one element and it opens the drawer', () => {
+    /* THE ONLY DOOR on this screen. It was the scope pill until the evening of
+       2026-11-04; the owner then said, on a screenshot of that pill, "remove
+       this and the arrow - only the icon open the nav bar", so the name moved
+       to the icon with the door.
+
+       THE COUNT IS THE POINT, not just the presence. drawerLocationHighlight,
+       drawerNestedLocationHighlight and scopePersistsThroughDrawer all open
+       the drawer by this literal string, and two of them take the LAST match
+       of a querySelectorAll. A second element wearing the name would hand them
+       a different control without failing anything - which is how a contract
+       name rots quietly. So: exactly one, and clicking it opens the drawer.
+       This name has been broken and restored three times in one day. */
     const { container } = mountAt('/', 'wint-admin')
 
-    const pill = byLabel(container, 'Switch location')
+    const doors = container.querySelectorAll('[aria-label="Switch location"]')
     expect(
-      pill,
-      'the accessible name the drawer suites navigate by is gone from the Dashboard',
-    ).toBeTruthy()
+      doors.length,
+      'the accessible name the drawer suites navigate by is not on exactly one control',
+    ).toBe(1)
+    expect(doors[0].getAttribute('data-name')).toBe('app-nav')
     expect(drawer(container), 'no drawer mounted on the Dashboard').toBeTruthy()
     expect(drawerIsOpen(container)).toBe(false)
 
-    fireEvent.click(pill)
+    fireEvent.click(doors[0])
 
     expect(drawerIsOpen(container), 'nothing on the Dashboard opens the drawer').toBe(true)
   })
 
-  it('the pill reads the scope out and does not offer to pick one', () => {
-    // Scope is picked "Only in the drawer" (owner). The pill names where you
-    // are; its one action is the door.
+  it('the title reads the scope out and is genuinely inert', () => {
+    /* Owner, 2026-11-04: "remove this and the arrow - only the icon open the
+       nav bar", and, still standing from the same conversation: "We still have
+       title that shows what selected - for example, 'All accounts', specific
+       location, specific system."
+
+       SO BOTH HALVES ARE PINNED. The NAME must still be there and must still
+       track the route - that is the half the owner kept. And the control must
+       be GONE: not styled flat, actually inert. A scope name that still
+       answers a tap is the worst outcome here, because it looks settled and
+       behaves like the thing he removed. Checked structurally rather than by
+       firing a click, because "nothing happened" is also what a broken handler
+       looks like. */
     const { container } = mountAt('/', 'wint-admin')
     expect(scopeReadout(container)).toContain('All Accounts')
+
+    const title = container.querySelector('[data-name="app-scope"]')
+    expect(title.tagName).toBe('P')
+    expect(title.getAttribute('role')).toBeNull()
+    expect(title.getAttribute('tabindex')).toBeNull()
+    expect(title.getAttribute('aria-haspopup')).toBeNull()
+    expect(title.getAttribute('aria-label')).toBeNull()
+    expect(title.closest('button'), 'the readout is still inside a button').toBeNull()
+    expect(title.className, 'the chassis the owner removed').not.toMatch(/border-slate-300/)
+    expect(title.className).not.toMatch(/rounded-\[14px\]/)
+    expect(title.className, 'it still presents as pressable').not.toMatch(/cursor-pointer/)
+    expect(
+      container.querySelector('[data-name="app-header-bar"] svg.lucide-chevron-down'),
+      'the chevron the owner removed by name',
+    ).toBeNull()
 
     cleanup()
     const scoped = mountAt('/location/Office', 'wint-admin').container
@@ -333,14 +373,26 @@ describe('Dashboard header bar — the drawer, and what the old bar did', () => 
     expect(house(container), 'the disced house is back beside it').toBeNull()
   })
 
-  it('draws no avatar, and is now exactly the pill', () => {
+  it('draws no avatar, and is the pill plus the nav control', () => {
     /* Owner, 2026-11-04: "remove avatar from the header - footer is enough",
        and then "I want to completely remove the home icon". This assertion
-       used to be "the avatar still opens /account", then "house + pill"; its
-       subjects keep moving to TabBar rather than disappearing, and it is
-       re-aimed each time rather than deleted so the bar's contents stay
-       pinned in BOTH directions: nothing removed may come back, and the one
-       control that remains must not go with them.
+       used to be "the avatar still opens /account", then "house + pill", then
+       "exactly the pill"; its subjects keep moving to TabBar rather than
+       disappearing, and it is re-aimed each time rather than deleted so the
+       bar's contents stay pinned in BOTH directions: nothing removed may come
+       back, and what remains must not go with them.
+
+       RE-AIMED AGAIN THE SAME EVENING, and this time the bar GREW. The owner's
+       Dashboard restructure frame (199954:96275) puts a 40x40 button back at
+       the bar's right edge: "I want to replace the home icon with kind of icon
+       from the design system and shadcn [that] explain[s] it's open and
+       navigation." So the count goes 1 -> 2 on `/` and 2 -> 3 on a location.
+
+       THE HOUSE ASSERTION IS NOT RELAXED FOR IT. `house()` looks for
+       data-name="app-home" and must still find nothing: the new control is a
+       drawer door, not the home button, and the home BEHAVIOUR is still the
+       Dashboard tab's (its own describe above). A frame that still draws a
+       house glyph in that slot is exactly what the owner asked to replace.
 
        THE DOORS TO /account AND TO HOME ARE NOT TESTED HERE ANY MORE. Both
        are the tab bar's, and asserting them from this file would pin someone
@@ -357,14 +409,46 @@ describe('Dashboard header bar — the drawer, and what the old bar did', () => 
       'the header still draws a portrait',
     ).toBeNull()
 
-    // What is left on the Dashboard, and nothing else: the pill.
+    // What is on the Dashboard, and nothing else: the pill and the nav control.
     expect(house(container)).toBeNull()
     expect(byLabel(container, 'Switch location')).toBeTruthy()
-    expect(bar.children).toHaveLength(1)
+    expect(bar.querySelector('[data-name="app-nav"]')).toBeTruthy()
+    expect(bar.children).toHaveLength(2)
 
-    // And on a location, back joins it — two, never three.
+    // And on a location, back joins them — three, never four.
     cleanup()
     const scoped = mountAt('/location/Office', 'wint-admin').container
-    expect(scoped.querySelector('[data-name="app-header-bar"]').children).toHaveLength(2)
+    expect(scoped.querySelector('[data-name="app-header-bar"]').children).toHaveLength(3)
+  })
+
+  it('the nav control is a panel glyph, not a house', () => {
+    /* Figma 199954:96276 draws a 40x40 button at the bar's right edge with a
+       HOUSE in it. The owner asked for that glyph to be replaced: "I want to
+       replace the home icon with kind of icon from the design system and
+       shadcn [that] explain[s] it's open and navigation."
+
+       WHAT IS PINNED, and why by class rather than by shape:
+        · it is not the house coming back. `house()` looks for the old
+          data-name; the home BEHAVIOUR is the Dashboard tab's and has its own
+          describe above.
+        · it is not `Menu` either. The footer's More tab draws that glyph, and
+          two destinations behind one mark is worse than an imperfect mark.
+        · lucide stamps its own name onto the <svg> class, so the glyph is
+          checkable without asserting path data.
+       PanelLeft is shadcn's SidebarTrigger icon and WintSidebarV2 is a left
+       sidebar (inset-y-0 left-0, translateX(-100%)), so the family is right.
+       If a later ruling picks PanelLeftOpen this assertion is the one line to
+       re-aim; what must not pass is a house or a burger. */
+    const { container } = mountAt('/', 'wint-admin')
+
+    const nav = container.querySelector('[data-name="app-nav"]')
+    expect(nav, 'the frame\'s trailing control is not drawn').toBeTruthy()
+    expect(house(container), 'the house is back in the trailing slot').toBeNull()
+
+    const glyph = nav.querySelector('svg')
+    expect(glyph).toBeTruthy()
+    expect(glyph.getAttribute('class')).toMatch(/lucide-panel-left/)
+    expect(glyph.getAttribute('class'), 'the More tab already owns this glyph')
+      .not.toMatch(/lucide-menu\b/)
   })
 })

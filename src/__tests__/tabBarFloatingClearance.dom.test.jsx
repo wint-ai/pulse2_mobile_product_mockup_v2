@@ -198,6 +198,87 @@ const declaresClearance = src => new RegExp(
   + `|pb-\\[${TAB_BAR_CLEARANCE}px\\]`,
 ).test(src);
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * AND IT HAS TO BE VISIBLE, not merely mounted and paid for.
+ *
+ * 2026-11-04, the owner, with a screenshot of the Dashboard running to the
+ * bottom edge with no bar on it at all: "the main bottom nav bar needs to
+ * always [be] floating — it's gone now."
+ *
+ * The Dashboard restructure had given its scroll body `relative z-10`, so the
+ * artwork band behind it would sit underneath. TabBar's host is `relative
+ * shrink-0 h-0` at z-index:AUTO on purpose (TabBar.jsx:244 — it is how the
+ * z-50 and z-[300] overlays cover the bar), and CSS paints EVERY positive
+ * z-index in a later step than EVERY auto one, regardless of DOM order. So a
+ * scroll body at z-10 paints over a tab bar mounted after it, and the pill is
+ * simply not on the screen.
+ *
+ * EVERY CHECK IN THIS FILE STAYED GREEN THROUGH IT. TabBar was still mounted,
+ * the host was still h-0, the pill still hung off it with the right insets,
+ * the clearance padding was still declared and check-shell-contract still
+ * passed. The suite measured that room had been RESERVED under the bar and
+ * never that the bar was painted in it.
+ *
+ * WHY THIS IS A SOURCE CHECK. happy-dom has no layout engine and does not
+ * resolve a Tailwind class to a z-index, so the stacking cannot be observed in
+ * this environment; the browser is where it was measured. What is pinned here
+ * is the one declaration that caused it. Raising the host instead is NOT the
+ * fix and must not be used to satisfy this: the drawer scrim is z-10 and its
+ * panel z-11, and a host above those punches the pill through the navigation
+ * drawer (the floating-bar work verified drawerCoversTheBar explicitly).
+ *
+ * v2 pages only. The v1 screens in PADDED predate this shell and spell their
+ * scroll bodies several different ways; widening this is a separate pass.
+ */
+const V2_PADDED = PADDED.filter(f => f.startsWith('src/v2/pages/'));
+
+/**
+ * The className literal on the element that declares the scroll.
+ *
+ * Scoped by walking back to the element's own opening tag rather than by a
+ * fixed character window: these files put a 40-line comment between the
+ * className and the style object, so a window wide enough to span it is also
+ * wide enough to pick up the PREVIOUS element's classes.
+ */
+function scrollBodyClasses(src) {
+  const out = [];
+  /* Both dialects: the style-object form and the utility form. */
+  const re = /overflowY:\s*['"]auto['"]|(?:^|\s)overflow-y-auto(?:\s|"|`)/g;
+  let m;
+  while ((m = re.exec(src))) {
+    const openedAt = src.lastIndexOf('<', m.index);
+    if (openedAt < 0) continue;
+    const tag = src.slice(openedAt, m.index + 40);
+    const cls = [...tag.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\}|\{String\.raw`([^`]*)`\}|\{cn\(([\s\S]*?)\)\})/g)];
+    for (const c of cls) out.push(c[1] ?? c[2] ?? c[3] ?? c[4]);
+  }
+  return out;
+}
+
+/* `z-0` and `z-auto` are fine - both paint in the same step as the host, in
+   tree order, and the host is mounted last. Only a POSITIVE value outranks
+   it. */
+const POSITIVE_Z = /(?:^|\s)z-(?:\[(\d+)px?\]|([1-9]\d*))(?:\s|$)/;
+
+describe('the pill is painted, not merely mounted', () => {
+  it.each(V2_PADDED)('%s does not outrank the tab bar from its scroll body', file => {
+    /* Not asserted non-empty: a page may spell its scroller with no className
+       at all (AccountScreenV2 carries the overflow in the style object alone),
+       and that is not a violation - there is simply nothing to outrank with. */
+    for (const cls of scrollBodyClasses(read(file))) {
+      const hit = cls.match(POSITIVE_Z);
+      expect(
+        hit,
+        `${file} gives its scroll body "${hit && hit[0].trim()}". TabBar's host `
+        + 'is z-index:auto, and CSS paints every positive z-index after every '
+        + 'auto one whatever the DOM order - so this hides the floating bar '
+        + 'completely. Put the stacking on the CHROME block instead; it never '
+        + 'overlaps the pill.',
+      ).toBeNull();
+    }
+  });
+});
+
 describe('every screen under the pill reserves room for it', () => {
   it.each(PADDED)('%s pads its scroll body by the full clearance', file => {
     const src = read(file);

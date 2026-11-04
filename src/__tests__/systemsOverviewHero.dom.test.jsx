@@ -98,12 +98,27 @@ describe('SystemsOverviewHero — the type chips', () => {
 describe('SystemsOverviewHero — Figma class fidelity', () => {
   it('keeps the wave geometry and the chip fill', () => {
     const { container } = render(<SystemsOverviewHero total={244} />)
-    // 370x150 since 199922:85244, down from the 189 the 2026-11-01 read gave.
-    expect(container.firstElementChild.className).toContain('h-[150px]')
+    /* 130 since the live read of 199954:96289 on the evening of 2026-11-04.
+       The chain, because this number keeps moving: 189 (2026-11-01 read) ->
+       150 (199922:85244, the same morning) -> 126 now. The last step is not a
+       resize - "Main header" is still 162 tall, but its last 36px are the TAB
+       ROW, which the Dashboard draws as a sibling immediately under this box.
+       162 minus PillTabs' 32 is 130, so the two together are the node's block.
+
+       ⚠ THIS FAMILY IS BEING EDITED LIVE. 199954:96290, the wave inside this
+       block, reported four different boxes inside half an hour on the day this
+       was written. If this assertion fails, re-fetch the node before changing
+       it, and do not take a cache hit for an answer - the cache's staleness
+       note only fires past 24h. */
+    expect(container.firstElementChild.className).toContain('h-[130px]')
 
     const chip = container.querySelector('[role="img"]')
     expect(chip.className).toContain('bg-[rgba(241,245,249,0.28)]')
-    expect(chip.className).toContain('h-[32px]')
+    /* 34.56, not 32: the whole hero group is scaled 1.08 in 199954:96289
+       (150->162, 32->34.56, 75->81 all land on x1.08 exactly), and drawing
+       these at the October 32 is most of what the owner saw as "the layout
+       here is not as in Figma". */
+    expect(chip.className).toContain('h-[34.56px]')
     /* 2026-11-01 refetch: 18px -> 12px, and the node gives the chip a
        hairline it did not have. The stroke is spelled `white` in Figma and
        deliberately NOT written as `white` here -- a literal would freeze

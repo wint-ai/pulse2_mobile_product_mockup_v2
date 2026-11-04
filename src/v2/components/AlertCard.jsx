@@ -17,6 +17,36 @@
  * value/unit pair and the "Detected · … · …" meta row. The other five variants
  * are untouched and still answer to the nodes above.
  *
+ * ── 199961:97452 "Alert card", 370x126, 2026-11-04 ──────────────────────────
+ * The newest cut of the SAME card, inside System page_mobile 199961:97439. It
+ * confirms the `mobile` drawing node for node — the 61px red/100 disc holding
+ * a 37px waves glyph at inset (12,12), the 170px 24/24 title at x=72, the
+ * "Unit wrapper" chip under it at h-[27px], and "Detected · stamp · duration"
+ * 17px below — so every measurement here already matched and only ONE paint
+ * changed: the chip's figure is red/700 (#c10007), not red/500. That lines it
+ * up with the duration beside it and with FIG_VALUE on the overlay card, both
+ * of which were already red/700.
+ *
+ * TWO THINGS IN THAT FRAME ARE DELIBERATELY NOT DRAWN HERE, AND ONE THING
+ * HERE IS NOT IN THE FRAME. Do not "restore" any of them from the node:
+ *
+ *   1. THE FRAME'S PILL SLOT IS EMPTY. 199961:97468 moves the status pill into
+ *      the bottom row, right of the duration. The owner, giving this frame:
+ *      "update the event card everywhere — but not as in Figma, keep the state
+ *      on top like now." So the bottom row ends after the duration — see the
+ *      meta row below for exactly what that leaves.
+ *   2. THE HIDDEN ACTION ROW. The frame carries one at y=139 (two 130x36
+ *      buttons), hidden="true" in this variant, so it is not transcribed. The
+ *      row this file already draws is the 2026-10-20 one and stays behind its
+ *      existing `actions` gate; both app call sites pass actions={false}.
+ *   3. THE PILL IS INLINE AT THE RIGHT END OF THE TITLE ROW, which NO node
+ *      draws. Owner, 2026-11-04, on a screenshot of the card built straight
+ *      from this frame: "the Ongoing on the new structure needs to be on the
+ *      right side. On the same line with the High Flow event. Doesn't need to
+ *      take more space for that." It had been on a row of its own since
+ *      199383:142348. This is his layout, not Figma's, and a diff against
+ *      199961:97452 will not justify it.
+ *
  * TOKENS — SUPERSEDED 2026-10-21 by Phase 3 of docs/TOKENIZATION-PLAN.md.
  *
  * This header used to say Figma's class strings were kept VERBATIM, because
@@ -880,58 +910,6 @@ export default function AlertCard({
             shell's own gap-[20px] is what separates that group from the
             action row below, which the node does not draw at all. */}
         <div className="content-stretch flex flex-col gap-[17px] items-start relative shrink-0 w-full">
-          {/* 199383:142348 > :142389. Figma wraps the status pill in two bare
-              boxes; they are kept so the pill keeps hugging at the card's left
-              edge while the shell's own gap-[12px] does the vertical spacing
-              INNER_COLUMN's justify-between used to do (the frame has no fixed
-              height any more, so "spread to fill" had nothing to spread into). */}
-          <div className="content-stretch flex flex-col items-start relative shrink-0 w-full">
-            <div className="content-stretch flex gap-[4px] items-center justify-center relative shrink-0">
-              {/* A "1 / 1" pager is a control that cannot do anything —
-                  there is no next alert to page to. The carousel is the real
-                  pager anyway; this only earns its place once there are two.
-
-                  199383:141993 draws no pager at all, but it is a single-alert
-                  frame, so the node cannot say whether a two-alert card still
-                  wants one. It is live functionality (onAction('paginate')),
-                  so it stays under its existing pageCount > 1 gate, and the
-                  wrapper above is a row rather than the node's flex-col for
-                  that reason only — with one alert, the node's layout. */}
-              {data.pageCount > 1 ? (
-              <Button
-                type="button"
-                size="xs"
-                variant="secondary"
-                onClick={act('paginate')}
-                aria-label={`Alert ${data.page} of ${data.pageCount}. Show next`}
-                className={String.raw`bg-slate-100 content-stretch cursor-pointer flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`}
-              >
-                <p className={PAGER_LABEL}>
-                  <span className={`${PAGER_SPAN} text-muted-foreground`}>{data.page} /</span>
-                  <span className={PAGER_SPAN}>{' '}</span>
-                  <span className={`${PAGER_SPAN} text-slate-400`}>{data.pageCount}</span>
-                </p>
-              </Button>
-              ) : null}
-              {/* Figma draws "Ongoing" with the Button component, but it states
-                  status and has no destination — a Badge, so it is not a dead
-                  button. `destructive` is the matching Type and its
-                  border-transparent keeps the pill borderless as drawn.
-                  199383:142434 darkens the fill one step, red/500 -> red/600. */}
-              <Badge
-                variant="destructive"
-                /* 199394:79691 — back to red/500. The node this card was last
-                   traced from (199383:142434) darkened the fill one step to
-                   red/600; the redraw does not. */
-                className={String.raw`bg-red-500 content-stretch flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`}
-              >
-                <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-ink-on-color text-xs whitespace-nowrap">
-                  {data.status}
-                </span>
-              </Badge>
-            </div>
-          </div>
-
           {/* 199394:79692 -> :79693. The avatar and the title, and UNDER the
               title the figure, in one "Unit wrapper". This is the 2026-10-20
               redraw: the card used to restate the figures as THREE chips —
@@ -986,7 +964,16 @@ export default function AlertCard({
                     className={String.raw`content-stretch flex gap-1.5 h-[27px] items-center max-w-[170px] px-[8px] py-[4px] relative rounded-[12px] shrink-0`}
                     style={{ backgroundImage: CHIP_SHEEN(166.10511761460668) }}
                   >
-                    <p className={String.raw`font-sans font-semibold leading-[26px] overflow-hidden relative text-[16px] text-red-500 text-ellipsis whitespace-nowrap`}>
+                    {/* 199961:97461 — red/700 (#c10007), not red/500. The
+                        2026-11-04 frame darkens the figure one ramp step, and
+                        it is the only paint that frame changes on this card.
+                        It is also the value the duration two rows down and the
+                        overlay card's FIG_VALUE have carried all along, so the
+                        three event figures in this file now agree. Themed in
+                        all four: light/sand #c10007, dark
+                        --alert-ink-critical (#ff6467, the ink built for a dark
+                        card), contrast oklch(0.55 0.3 5). */}
+                    <p className={String.raw`font-sans font-semibold leading-[26px] overflow-hidden relative text-[16px] text-red-700 text-ellipsis whitespace-nowrap`}>
                       {data.value}
                     </p>
                     <p className={String.raw`font-sans font-medium leading-5 overflow-hidden relative text-muted-foreground text-[14px] text-ellipsis whitespace-nowrap`}>
@@ -995,6 +982,85 @@ export default function AlertCard({
                   </div>
                 </div>
               </div>
+            </div>
+            {/* THE STATUS PILL, INLINE — owner, 2026-11-04: "the Ongoing on
+                the new structure needs to be on the right side. On the same
+                line with the High Flow event. Doesn't need to take more
+                space for that." It had a row of its own above this one
+                (199383:142348 > :142389, two bare Figma boxes whose only job
+                was to make the pill hug the card's left edge). That row cost
+                the card 41px — a 24px pill plus the group's 17px gap — for
+                one 69px pill, and this row already had the justify-between
+                the frame gives it (199961:97454) with nothing on its right.
+                So the pill moves here and the card gets shorter by exactly
+                those 41px: measured 179px -> 138px.
+
+                NOT FROM THE NODE, AND NOT THE NODE'S PLACE EITHER.
+                199961:97452 puts the pill in the BOTTOM row, right of the
+                duration; the owner overruled that first ("keep the state on
+                top like now") and then this. Diffing this file against that
+                frame will show both as deviations. They are decisions. See
+                the file header.
+
+                `self-start`, not the row's inherited `items-center`. The
+                title is a fixed 170px measure and a real event label wraps
+                to two lines ("Low Flow Water Event"), which makes this row
+                75px rather than 61px tall; centred, the pill drifts down
+                beside the SECOND line and reads as belonging to it. Pinned
+                to the start, its 24px box sits exactly on the title's first
+                24px line in both cases.
+
+                IT COSTS THE TITLE NO WIDTH. The title is `w-[170px]` from
+                the node, not a flex measure, so it wraps where it always
+                wrapped: 61 + 11 + 170 + 69 = 311 inside a 325px inner width
+                leaves 14px to spare, and no real label gains a line. A
+                status longer than the three the data can produce (Ongoing /
+                Warning / ShutOff) would overflow rather than reflow — both
+                sides are shrink-0 as drawn — so a longer lifecycle label
+                needs a measurement, not an assumption. */}
+            <div className="content-stretch flex gap-[4px] items-center justify-center relative self-start shrink-0">
+              {/* A "1 / 1" pager is a control that cannot do anything —
+                  there is no next alert to page to. The carousel is the real
+                  pager anyway; this only earns its place once there are two.
+
+                  199383:141993 draws no pager at all, but it is a single-alert
+                  frame, so the node cannot say whether a two-alert card still
+                  wants one. It is live functionality (onAction('paginate')),
+                  so it stays under its existing pageCount > 1 gate. It now
+                  sits left of the pill inside the title row, so a two-alert
+                  card still pages without a row of its own. */}
+              {data.pageCount > 1 ? (
+              <Button
+                type="button"
+                size="xs"
+                variant="secondary"
+                onClick={act('paginate')}
+                aria-label={`Alert ${data.page} of ${data.pageCount}. Show next`}
+                className={String.raw`bg-slate-100 content-stretch cursor-pointer flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`}
+              >
+                <p className={PAGER_LABEL}>
+                  <span className={`${PAGER_SPAN} text-muted-foreground`}>{data.page} /</span>
+                  <span className={PAGER_SPAN}>{' '}</span>
+                  <span className={`${PAGER_SPAN} text-slate-400`}>{data.pageCount}</span>
+                </p>
+              </Button>
+              ) : null}
+              {/* Figma draws "Ongoing" with the Button component, but it states
+                  status and has no destination — a Badge, so it is not a dead
+                  button. `destructive` is the matching Type and its
+                  border-transparent keeps the pill borderless as drawn.
+                  199383:142434 darkens the fill one step, red/500 -> red/600. */}
+              <Badge
+                variant="destructive"
+                /* 199394:79691 — back to red/500. The node this card was last
+                   traced from (199383:142434) darkened the fill one step to
+                   red/600; the redraw does not. */
+                className={String.raw`bg-red-500 content-stretch flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`}
+              >
+                <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-ink-on-color text-xs whitespace-nowrap">
+                  {data.status}
+                </span>
+              </Badge>
             </div>
           </div>
 
@@ -1011,6 +1077,17 @@ export default function AlertCard({
               whitespace-nowrap moves off this row onto the three <p>s, where
               it completes overflow-hidden + text-ellipsis; it is inherited
               either way, so nothing renders differently.
+
+              WHAT SITS AT THE BOTTOM-RIGHT: nothing, on purpose. 199961:97463
+              wraps this row and the status pill in one gap-[17px] row with the
+              pill at its right end; the owner keeps the pill on top, so that
+              wrapper has a single child and is not drawn. The row ends after
+              the duration and the rest of the card's width is left empty —
+              measured ~75px between the duration and the shell's inner right
+              edge, against the 65px the frame reserves there for the pill.
+              Nothing is stretched, centred or back-filled to close it: the gap
+              is the frame's own slot standing empty, and the next card design
+              that wants that corner can have it.
               */}
           <div className="[word-break:break-word] content-stretch flex gap-[7px] items-center max-w-full relative shrink-0">
             <p className={String.raw`font-sans font-normal leading-[16.5px] overflow-hidden relative text-[12px] text-muted-foreground text-ellipsis whitespace-nowrap`}>

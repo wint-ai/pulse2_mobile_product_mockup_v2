@@ -1,5 +1,55 @@
 /**
- * Account / "More" — the v2 port of src/screens/AccountScreen.jsx.
+ * Profile (/account) — the v2 port of src/screens/AccountScreen.jsx.
+ *
+ * ── THE TWO VIEWS ARE ONE SCREEN, 2026-11-04 ─────────────────────────────
+ *
+ * This file used to be "Account / More" and used to hold TWO views in local
+ * state: `view === 'main'`, titled "More", and `view === 'profile'`, titled
+ * "Personal Information", reached by tapping the persona card. The floating
+ * tab bar grew a Profile item the same day and BOTH Profile and More pointed
+ * at this one route, so the bar had two buttons opening one screen. The
+ * owner, having raised it three times:
+ *
+ *   "Profile needs to open the user profile. More doesn't need to open the
+ *    user profile - they are separate buttons... make the More navigate to /
+ *    overlay a new screen which hides everything, but writes there Coming
+ *    soon."
+ *
+ * So MORE moved out to its own route (/more, src/v2/pages/MoreComingSoonScreen
+ * .jsx) and this screen became PROFILE, whole. The sub-view is gone: Personal
+ * Information is the first card instead, which is what "Profile opens the user
+ * profile" means - no extra tap, no back arrow, no second title.
+ *
+ * NOTHING LEFT THIS SCREEN. Rule 0 of .claude/skills/v2-page-parity/SKILL.md
+ * ("working functionality is never removed without the owner's word") governs
+ * the question of where the old 'main' content went, and the answer is that it
+ * did not go anywhere. Every row is still here, in this order:
+ *
+ *   Personal Information (was the sub-view)     name · email · phone · role ·
+ *                                               avatar · Sign out
+ *   both-off notifications banner               moved from first to second
+ *   Switch profile              -> /select      the only route to the picker
+ *   My Scope                                    counts + the permission rows
+ *   Users / Reports                             inert, `Coming soon` chips
+ *   Personal Settings                           language · units · theme · bg
+ *   Push Notifications / SMS Notifications      + the both-off confirm
+ *   Tutorial                    -> /home-legacy replay onboarding
+ *   app version
+ *
+ * TWO OF THOSE ARE ARGUABLY MORE'S AND ARE DELIBERATELY NOT MOVED. `Users` and
+ * `Reports` are the "reports, users, etc" surface the owner described for
+ * More, and they arrived here only this morning, at his request, from
+ * WintSidebarV2's footer. They stay because the alternative is worse in both
+ * directions: putting them on /more contradicts "hides everything, but writes
+ * there Coming soon", and deleting them removes rows he asked for three times.
+ * They are already honest - inert, chevron-less, badged `Coming soon` - so
+ * they cost nothing where they are. MOVING THEM IS HIS CALL, not a tidy-up.
+ *
+ * ONE ROW LOST ITS JOB RATHER THAN ITS CONTENT: the persona card. It was a
+ * button whose only destination was the Personal Information sub-view, and
+ * with both on one screen it had nowhere left to go. Its avatar disc, name and
+ * role are now the identity row at the top of that card; its email line is the
+ * Email field two rows below. See the call site.
  *
  * DESIGN SOURCE: none. This screen has NO authoritative Figma node. The
  * delivery file (YEmjkKS4xaA827Zm8w3oXx) resolves the screen frames the other
@@ -130,7 +180,8 @@
  * below already is, minus the chevron, plus the <Badge> this screen already
  * uses for the DEMO ONLY chip.
  *
- * EVERYTHING ELSE IS PARITY. Persona card -> Personal information; Switch
+ * EVERYTHING ELSE IS PARITY. Personal information (the persona card's data
+ * folded in); Switch
  * profile -> /select; My Scope counts + Role/Valve control/Edit policies;
  * Language (incl. Hebrew + RTL) and Measurement units; Push and SMS with the
  * both-off banner and confirm; replay onboarding; app version; and every one
@@ -139,8 +190,10 @@
  *
  * SHELL CONTRACT (.claude/skills/v2-page-parity/SKILL.md): root is
  * flex-1/min-h-0/flex-col, exactly one child is flex-1/overflow-y-auto/min-h-0,
- * <TabBar activeTab="account"> is a shrink-0 sibling — "account" is the key
- * the More tab reports (TabBar.jsx). No min-h-screen, no h-screen, no fixed.
+ * <TabBar activeTab="profile"> is a shrink-0 sibling — "profile" is the key
+ * the Profile tab reports (TabBar.jsx). It was "account" until 2026-11-04,
+ * which is why the MORE tab used to light up on this screen even when you
+ * arrived by tapping Profile. No min-h-screen, no h-screen, no fixed.
  * This screen draws no burger: v1 had none and NavigationDrawer is not part of
  * its IA.
  *
@@ -152,7 +205,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  ArrowLeft,
   ArrowLeftRight,
   Bell,
   BellOff,
@@ -325,7 +377,6 @@ export default function AccountScreenV2() {
   const { persona, setPersona, visibleSystems = [] } = useUserContext() || {}
   const { t, i18n } = useTranslation()
 
-  const [view, setView] = useState('main')
   const [pushOn, setPushOn] = useState(false)
   const [smsOn, setSmsOn] = useState(false)
   const [showWarning, setShowWarning] = useState(false)
@@ -411,7 +462,6 @@ export default function AccountScreenV2() {
   }
 
   const bothOff = !pushOn && !smsOn
-  const profileView = view === 'profile'
 
   const accountCount = new Set(visibleSystems.map((s) => s.account)).size
   const locationCount = new Set(visibleSystems.map((s) => s.l4 || s.l3).filter(Boolean)).size
@@ -431,30 +481,19 @@ export default function AccountScreenV2() {
     /* `relative` is load-bearing: it is what the confirm overlay below pins to,
        and it is why that overlay stays inside the 393x852 frame. */
     <div className="relative flex min-h-0 flex-1 flex-col bg-[image:var(--app-bg)]">
-      {/* Chrome — shrink-0, outside the scroller. */}
+      {/* Chrome — shrink-0, outside the scroller.
+          NO BACK BUTTON, and that is the 2026-11-04 change rather than an
+          omission. This screen is a TAB DESTINATION, not a sub-page: it is
+          where the Profile tab lands, so there is nothing to go back to. The
+          back arrow existed only to leave the 'profile' sub-view, and that
+          sub-view is gone — see THE TWO VIEWS ARE ONE SCREEN in the header.
+          The title is `tabs.profile`, the same catalogue string the tab that
+          opens this screen is labelled with, so the destination and the
+          control that reaches it say the same word. */}
       <div className="flex shrink-0 items-center gap-2 px-4 pb-2 pt-3">
-        {profileView ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t('common.back')}
-            onClick={() => setView('main')}
-            className="shrink-0 cursor-pointer text-slate-900 rtl:rotate-180"
-          >
-            <ArrowLeft className="size-[18px]" />
-          </Button>
-        ) : null}
-        <h1
-          className={cn(
-            'min-w-0 flex-1 truncate font-bold tracking-[-0.3px] text-slate-900 text-[18px] leading-[24px]',
-            profileView ? 'text-start' : 'text-center',
-          )}
-        >
-          {profileView ? t('more.personal_information') : t('more.title')}
+        <h1 className="min-w-0 flex-1 truncate text-center font-bold tracking-[-0.3px] text-slate-900 text-[18px] leading-[24px]">
+          {t('tabs.profile')}
         </h1>
-        {/* Balances the back button so the title stays optically centred on
-            the main view and left-aligned on the sub-view. */}
-        {profileView ? <div className="size-8 shrink-0" aria-hidden="true" /> : null}
       </div>
 
       {/* SCROLL CONTAINER — the one scrolling region.
@@ -466,351 +505,357 @@ export default function AccountScreenV2() {
           reintroduce the bug by forgetting a class. Pinned by
           accountScreenV2.dom.test.jsx. */}
       <div className="flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[14px] pb-[93px] pt-[10px] [&>*]:shrink-0">
-        {profileView ? (
-          <Card className={CARD}>
-            <SectionTitle>{t('more.personal_information')}</SectionTitle>
-            <div className="px-4 pb-4 pt-[6px]">
-              <div className="mb-[14px] flex gap-4">
-                <ProfileField
-                  icon={User}
-                  label={t('more.profile_fields.first_name')}
-                  value={persona?.name?.split(' ')[0] || EMPTY}
-                />
-                <ProfileField
-                  icon={User}
-                  label={t('more.profile_fields.last_name')}
-                  value={persona?.name?.split(' ').slice(1).join(' ') || EMPTY}
-                />
-              </div>
+        {/* PERSONAL INFORMATION IS FIRST, because this screen IS what the
+            Profile tab opens. Until 2026-11-04 it was a SUB-VIEW behind a
+            tap on the persona card — see THE TWO VIEWS ARE ONE SCREEN in
+            the header for why that stopped being tenable.
 
-              <Separator />
-              <div className="py-3">
-                <ProfileField icon={Mail} label={t('more.profile_fields.email')} value={persona?.email || EMPTY} />
-              </div>
-
-              <Separator />
-              <div className="pb-[18px] pt-3">
-                <ProfileField
-                  icon={Smartphone}
-                  label={t('more.profile_fields.phone_number')}
-                  value={persona?.phone || EMPTY}
-                />
-              </div>
-
-              {/* Sign out. v1 signs out on tap with no confirm; that is carried
-                  over rather than a confirm step being invented here. */}
-              <Button
-                variant="ghost"
-                onClick={switchProfile}
-                className="w-full cursor-pointer font-semibold text-destructive hover:bg-red-100 hover:text-destructive text-[15px] leading-[20px]"
-              >
-                {t('more.sign_out')}
-              </Button>
-            </div>
-          </Card>
-        ) : (
-          <>
-            {/* Both-off banner. The ⓘ v1 drew was inert — cursor:pointer and no
-                handler — so it is carried as the decoration it actually was,
-                rather than promoted to a control that would still do nothing. */}
-            {bothOff ? (
-              <div
-                role="status"
-                className="flex shrink-0 items-center justify-between gap-2 rounded-[18px] border border-solid border-red-400/40 bg-red-100 px-4 py-[10px]"
-              >
-                <span className="min-w-0 font-medium text-red-600 text-[14px] leading-[18px]">
-                  {t('more.both_off_warning')}
-                </span>
-                <Info className="size-[16px] shrink-0 text-red-600/70" aria-hidden="true" />
-              </div>
-            ) : null}
-
-            {/* Switch profile. The demo banner — see THE PURPLE GRADIENT in the
-                header for where its violet went. */}
-            <button
-              type="button"
-              onClick={switchProfile}
-              className="flex w-full shrink-0 cursor-pointer items-center gap-3 rounded-[18px] border border-solid border-primary/25 bg-secondary px-4 py-[14px] text-start outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            >
-              <span className="flex size-[38px] shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <ArrowLeftRight className="size-[20px]" aria-hidden="true" />
+            THE IDENTITY ROW AT THE TOP IS THE OLD PERSONA CARD, folded in
+            rather than deleted. That card was a BUTTON whose only job was
+            to open this one, so with both on a single screen it had no
+            destination left; but it also carried the avatar disc, the
+            name and the ROLE, and role appears nowhere else here except
+            as a permission word inside My Scope. Everything it rendered
+            survives except its email line, which sits two rows below it
+            as a labelled field — a card printing the same address twice
+            reads as a bug, not as thoroughness. */}
+        <Card className={CARD}>
+          <SectionTitle>{t('more.personal_information')}</SectionTitle>
+          <div className="px-4 pb-4 pt-[6px]">
+            <div className="flex items-center gap-3 pt-[2px]">
+              <span className="flex size-[40px] shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground text-[15px] leading-[20px]">
+                {initials}
               </span>
               <span className="min-w-0 flex-1">
-                <Badge className="mb-[2px] rounded-[4px] px-[6px] py-[2px] font-extrabold uppercase tracking-[0.5px] text-[9px] leading-[12px]">
-                  {t('more.demo_only')}
-                </Badge>
-                <span className="block font-bold tracking-[-0.2px] text-slate-900 text-[15px] leading-[20px]">
-                  {t('more.switch_profile')}
+                <span className="block truncate font-semibold text-slate-900 text-[15px] leading-[20px]">
+                  {persona?.name || EMPTY}
                 </span>
-                {/* The copy carries a <strong> around the persona name, so it
-                    stays an HTML string exactly as v1 rendered it. */}
-                <span
-                  className="mt-[2px] block text-slate-500 text-[12px] leading-[17px]"
-                  dangerouslySetInnerHTML={{
-                    __html: t('more.switch_profile_desc', { name: persona?.name || 'Wint demo' }),
-                  }}
-                />
+                <span className="mt-[1px] block truncate text-slate-400 text-[13px] leading-[17px]">
+                  {persona?.role || EMPTY}
+                </span>
               </span>
-              <ChevronRight className="size-[22px] shrink-0 text-slate-400 rtl:rotate-180" aria-hidden="true" />
-            </button>
+            </div>
 
-            {/* Persona card -> Personal information */}
-            <Card className={CARD}>
-              <button
-                type="button"
-                onClick={() => setView('profile')}
-                className="flex w-full cursor-pointer items-center gap-3 px-4 py-[14px] text-start outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              >
-                <span className="flex size-[40px] shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground text-[15px] leading-[20px]">
-                  {initials}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold text-slate-900 text-[15px] leading-[20px]">
-                    {persona?.name || EMPTY}
-                  </span>
-                  <span className="mt-[1px] block truncate text-slate-500 text-[14px] leading-[18px]">
-                    {persona?.email || EMPTY}
-                  </span>
-                  <span className="mt-[1px] block truncate text-slate-400 text-[13px] leading-[17px]">
-                    {persona?.role || EMPTY}
-                  </span>
-                </span>
-                <ChevronRight className="size-[18px] shrink-0 text-slate-400 rtl:rotate-180" aria-hidden="true" />
-              </button>
-            </Card>
+            <Separator className="mt-[14px]" />
+            <div className="flex gap-4 py-3">
+              <ProfileField
+                icon={User}
+                label={t('more.profile_fields.first_name')}
+                value={persona?.name?.split(' ')[0] || EMPTY}
+              />
+              <ProfileField
+                icon={User}
+                label={t('more.profile_fields.last_name')}
+                value={persona?.name?.split(' ').slice(1).join(' ') || EMPTY}
+              />
+            </div>
 
-            {/* My Scope */}
-            <Card className={CARD}>
-              <SectionTitle>{t('more.my_scope')}</SectionTitle>
-              <div className="px-4 pb-[14px] pt-1">
-                <div className="flex gap-4">
-                  {scopeCounts.map((c) => (
-                    <div key={c.key} className="min-w-0 text-center">
-                      <div className="font-bold text-slate-900 text-[20px] leading-[26px]">{c.value}</div>
-                      <div className="text-slate-500 text-[12px] leading-[16px]">{c.label}</div>
-                    </div>
-                  ))}
+            <Separator />
+            <div className="py-3">
+              <ProfileField icon={Mail} label={t('more.profile_fields.email')} value={persona?.email || EMPTY} />
+            </div>
+
+            <Separator />
+            <div className="pb-[18px] pt-3">
+              <ProfileField
+                icon={Smartphone}
+                label={t('more.profile_fields.phone_number')}
+                value={persona?.phone || EMPTY}
+              />
+            </div>
+
+            {/* Sign out. v1 signs out on tap with no confirm; that is carried
+                over rather than a confirm step being invented here. */}
+            <Button
+              variant="ghost"
+              onClick={switchProfile}
+              className="w-full cursor-pointer font-semibold text-destructive hover:bg-red-100 hover:text-destructive text-[15px] leading-[20px]"
+            >
+              {t('more.sign_out')}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Both-off banner. The ⓘ v1 drew was inert — cursor:pointer and no
+            handler — so it is carried as the decoration it actually was,
+            rather than promoted to a control that would still do nothing.
+
+            IT SITS BELOW PERSONAL INFORMATION rather than at the very top
+            of the screen, which is where it was while this was the "More"
+            page. On a screen the user opened by tapping their own face,
+            leading with a notifications warning buries the thing they
+            asked for. It is still above the fold and still a live region. */}
+        {bothOff ? (
+          <div
+            role="status"
+            className="flex shrink-0 items-center justify-between gap-2 rounded-[18px] border border-solid border-red-400/40 bg-red-100 px-4 py-[10px]"
+          >
+            <span className="min-w-0 font-medium text-red-600 text-[14px] leading-[18px]">
+              {t('more.both_off_warning')}
+            </span>
+            <Info className="size-[16px] shrink-0 text-red-600/70" aria-hidden="true" />
+          </div>
+        ) : null}
+
+        {/* Switch profile. The demo banner — see THE PURPLE GRADIENT in the
+            header for where its violet went. */}
+        <button
+          type="button"
+          onClick={switchProfile}
+          className="flex w-full shrink-0 cursor-pointer items-center gap-3 rounded-[18px] border border-solid border-primary/25 bg-secondary px-4 py-[14px] text-start outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
+          <span className="flex size-[38px] shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <ArrowLeftRight className="size-[20px]" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <Badge className="mb-[2px] rounded-[4px] px-[6px] py-[2px] font-extrabold uppercase tracking-[0.5px] text-[9px] leading-[12px]">
+              {t('more.demo_only')}
+            </Badge>
+            <span className="block font-bold tracking-[-0.2px] text-slate-900 text-[15px] leading-[20px]">
+              {t('more.switch_profile')}
+            </span>
+            {/* The copy carries a <strong> around the persona name, so it
+                stays an HTML string exactly as v1 rendered it. */}
+            <span
+              className="mt-[2px] block text-slate-500 text-[12px] leading-[17px]"
+              dangerouslySetInnerHTML={{
+                __html: t('more.switch_profile_desc', { name: persona?.name || 'Wint demo' }),
+              }}
+            />
+          </span>
+          <ChevronRight className="size-[22px] shrink-0 text-slate-400 rtl:rotate-180" aria-hidden="true" />
+        </button>
+
+        {/* My Scope */}
+        <Card className={CARD}>
+          <SectionTitle>{t('more.my_scope')}</SectionTitle>
+          <div className="px-4 pb-[14px] pt-1">
+            <div className="flex gap-4">
+              {scopeCounts.map((c) => (
+                <div key={c.key} className="min-w-0 text-center">
+                  <div className="font-bold text-slate-900 text-[20px] leading-[26px]">{c.value}</div>
+                  <div className="text-slate-500 text-[12px] leading-[16px]">{c.label}</div>
                 </div>
+              ))}
+            </div>
 
-                <Separator className="mt-[10px]" />
-                <dl className="flex flex-col gap-1 pt-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-slate-500 text-[14px] leading-[18px]">
-                      {t('more.scope_permissions.role')}
-                    </dt>
-                    <dd className="min-w-0 truncate font-semibold text-slate-900 text-[14px] leading-[18px]">
-                      {t('more.scope_permissions.full_access')}
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-slate-500 text-[14px] leading-[18px]">
-                      {t('more.scope_permissions.valve_control')}
-                    </dt>
-                    <dd className="min-w-0 truncate font-semibold text-success text-[14px] leading-[18px]">
-                      {t('common.yes')}
-                    </dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-slate-500 text-[14px] leading-[18px]">
-                      {t('more.scope_permissions.edit_policies')}
-                    </dt>
-                    <dd className="min-w-0 truncate font-semibold text-success text-[14px] leading-[18px]">
-                      {t('common.yes')}
-                    </dd>
-                  </div>
-                </dl>
+            <Separator className="mt-[10px]" />
+            <dl className="flex flex-col gap-1 pt-2">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-slate-500 text-[14px] leading-[18px]">
+                  {t('more.scope_permissions.role')}
+                </dt>
+                <dd className="min-w-0 truncate font-semibold text-slate-900 text-[14px] leading-[18px]">
+                  {t('more.scope_permissions.full_access')}
+                </dd>
               </div>
-            </Card>
-
-            {/* Users and Reports — moved off the sidebar's footer, 2026-11-04,
-                at the owner's request.
-
-                NEITHER HAS A DESTINATION AND ONE IS NOT INVENTED HERE.
-                Neither has a PRD or a designed screen, and §0 of
-                .claude/skills/wint-ui-copy/SKILL.md forbids authoring what the
-                catalogue does not have. So they are honest rather than fake:
-
-                  · a <div>, not a <button> - there is nothing to press;
-                  · NO ChevronRight. On this screen the chevron is the "this
-                    opens something" affordance (Switch profile, the persona
-                    card, Tutorial all carry it). A row that wears it and does
-                    nothing is worse than a row that says it is not here yet;
-                  · the <Badge> this screen already uses for the DEMO ONLY chip
-                    sits in the slot the chevron would have taken, carrying the
-                    status in words;
-                  · aria-disabled, not the `disabled` attribute: the REASON a
-                    control is unavailable has to reach a screen reader, and
-                    `disabled` is skipped outright by some of them. The long
-                    form of that argument is at
-                    src/v2/components/SlideToConfirm.jsx:152, and the sidebar
-                    rows these replace were aria-disabled too.
-
-                Two cards rather than one card with a divider, because that is
-                what this screen already does with two rows of the same kind -
-                Push Notifications and SMS Notifications are two cards, not one.
-
-                COPY. `Users` and `Reports` are the sidebar's own strings,
-                carried over verbatim and keyed so this screen stays fully
-                translated like the rest of it. NEW COPY: `more.coming_soon`.
-                The words are lifted verbatim from the one place this repo
-                already says this - src/screens/kpi/KPIDetailScreen.jsx:300 -
-                rather than authored, but the key is new and is awaiting the
-                owner's approval. */}
-            <Card className={CARD}>
-              <div
-                aria-disabled="true"
-                className="flex w-full items-center gap-[10px] px-4 py-[13px]"
-              >
-                <Users className={ROW_ICON} aria-hidden="true" />
-                <span className={cn('min-w-0 flex-1 truncate', ROW_LABEL)}>{t('more.users')}</span>
-                <Badge variant="outline" className={INERT_BADGE}>{t('more.coming_soon')}</Badge>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-slate-500 text-[14px] leading-[18px]">
+                  {t('more.scope_permissions.valve_control')}
+                </dt>
+                <dd className="min-w-0 truncate font-semibold text-success text-[14px] leading-[18px]">
+                  {t('common.yes')}
+                </dd>
               </div>
-            </Card>
-
-            <Card className={CARD}>
-              <div
-                aria-disabled="true"
-                className="flex w-full items-center gap-[10px] px-4 py-[13px]"
-              >
-                <FileChartColumn className={ROW_ICON} aria-hidden="true" />
-                <span className={cn('min-w-0 flex-1 truncate', ROW_LABEL)}>{t('more.reports')}</span>
-                <Badge variant="outline" className={INERT_BADGE}>{t('more.coming_soon')}</Badge>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-slate-500 text-[14px] leading-[18px]">
+                  {t('more.scope_permissions.edit_policies')}
+                </dt>
+                <dd className="min-w-0 truncate font-semibold text-success text-[14px] leading-[18px]">
+                  {t('common.yes')}
+                </dd>
               </div>
-            </Card>
+            </dl>
+          </div>
+        </Card>
 
-            {/* Personal settings — language + units */}
-            <Card className={CARD}>
-              <SectionTitle>{t('more.personal_settings')}</SectionTitle>
-              <div className="px-4 pb-[14px] pt-1">
-                <div className="py-[10px]">
-                  <div className="mb-2 flex items-center gap-[10px]">
-                    <Globe className={ROW_ICON} aria-hidden="true" />
-                    <span className={ROW_LABEL}>{t('more.language')}</span>
-                  </div>
-                  <SegmentedPicker
-                    label={t('more.language')}
-                    value={languageValue}
-                    options={languageOptions}
-                    onChange={(code) => i18n.changeLanguage(code)}
-                  />
-                </div>
+        {/* Users and Reports — moved off the sidebar's footer, 2026-11-04,
+            at the owner's request.
 
-                <Separator />
+            NEITHER HAS A DESTINATION AND ONE IS NOT INVENTED HERE.
+            Neither has a PRD or a designed screen, and §0 of
+            .claude/skills/wint-ui-copy/SKILL.md forbids authoring what the
+            catalogue does not have. So they are honest rather than fake:
 
-                <div className="pt-[10px]">
-                  <div className="mb-2 flex items-center gap-[10px]">
-                    <Ruler className={ROW_ICON} aria-hidden="true" />
-                    <span className={ROW_LABEL}>{t('more.measurement_units')}</span>
-                  </div>
-                  <SegmentedPicker
-                    label={t('more.measurement_units')}
-                    value={unitsKey}
-                    options={unitsOptions}
-                    onChange={setUnitsKey}
-                  />
-                </div>
+              · a <div>, not a <button> - there is nothing to press;
+              · NO ChevronRight. On this screen the chevron is the "this
+                opens something" affordance (Switch profile, the persona
+                card, Tutorial all carry it). A row that wears it and does
+                nothing is worse than a row that says it is not here yet;
+              · the <Badge> this screen already uses for the DEMO ONLY chip
+                sits in the slot the chevron would have taken, carrying the
+                status in words;
+              · aria-disabled, not the `disabled` attribute: the REASON a
+                control is unavailable has to reach a screen reader, and
+                `disabled` is skipped outright by some of them. The long
+                form of that argument is at
+                src/v2/components/SlideToConfirm.jsx:152, and the sidebar
+                rows these replace were aria-disabled too.
 
-                <Separator />
+            Two cards rather than one card with a divider, because that is
+            what this screen already does with two rows of the same kind -
+            Push Notifications and SMS Notifications are two cards, not one.
 
-                {/* Theme. WHY A SEGMENTED PICKER AND NOT A DROPDOWN — three
-                    options in a settings row looks like it wants a shadcn
-                    <Select> or <DropdownMenu>. It cannot be one. Those are
-                    Radix primitives that portal to document.body, and this app
-                    draws inside the fixed 393x852 frame in
-                    src/components/Phone.jsx with overflow:hidden — a portal
-                    escapes that frame by design and renders across the whole
-                    browser window with the phone sitting in the middle of it.
-                    This repo has hit that at least three times; the lesson is
-                    written out in full at src/v2/components/ValveConfirmSheet.jsx:17-24
-                    and worked around at SystemsFilterSheet.jsx:97.
-                    SegmentedPicker is an inline ToggleGroup and never portals.
-                    Do not "improve" this into a dropdown. */}
-                <div className="pt-[10px]">
-                  <div className="mb-2 flex items-center gap-[10px]">
-                    <Palette className={ROW_ICON} aria-hidden="true" />
-                    <span className={ROW_LABEL}>{t('more.theme')}</span>
-                  </div>
-                  <SegmentedPicker
-                    label={t('more.theme')}
-                    value={themeKey}
-                    options={themeOptions}
-                    onChange={(key) => { setThemeKey(setTheme(key)) }}
-                  />
-                </div>
+            COPY. `Users` and `Reports` are the sidebar's own strings,
+            carried over verbatim and keyed so this screen stays fully
+            translated like the rest of it. NEW COPY: `more.coming_soon`.
+            The words are lifted verbatim from the one place this repo
+            already says this - src/screens/kpi/KPIDetailScreen.jsx:300 -
+            rather than authored, but the key is new and is awaiting the
+            owner's approval. */}
+        <Card className={CARD}>
+          <div
+            aria-disabled="true"
+            className="flex w-full items-center gap-[10px] px-4 py-[13px]"
+          >
+            <Users className={ROW_ICON} aria-hidden="true" />
+            <span className={cn('min-w-0 flex-1 truncate', ROW_LABEL)}>{t('more.users')}</span>
+            <Badge variant="outline" className={INERT_BADGE}>{t('more.coming_soon')}</Badge>
+          </div>
+        </Card>
 
-                <Separator />
+        <Card className={CARD}>
+          <div
+            aria-disabled="true"
+            className="flex w-full items-center gap-[10px] px-4 py-[13px]"
+          >
+            <FileChartColumn className={ROW_ICON} aria-hidden="true" />
+            <span className={cn('min-w-0 flex-1 truncate', ROW_LABEL)}>{t('more.reports')}</span>
+            <Badge variant="outline" className={INERT_BADGE}>{t('more.coming_soon')}</Badge>
+          </div>
+        </Card>
 
-                {/* App background. The SAME argument against a dropdown applies
-                    here and then some — nine options would be nine portalled
-                    rows escaping the phone frame — but the segmented row the
-                    three rows above use is out too: nine equal columns inside
-                    this card is 38px each and every label truncates to two
-                    characters. It is a swatch grid instead, and the long form
-                    of that reasoning is at the top of BackgroundPicker.jsx.
-                    The short form: the thing being chosen is a colour, so the
-                    control shows the colours. */}
-                <div className="pt-[10px]">
-                  <div className="mb-2 flex items-center gap-[10px]">
-                    <Wallpaper className={ROW_ICON} aria-hidden="true" />
-                    <span className={ROW_LABEL}>{t('more.background')}</span>
-                  </div>
-                  <BackgroundPicker
-                    label={t('more.background')}
-                    value={backgroundKey}
-                    options={backgroundOptions}
-                    onChange={(key) => { setBackgroundKey(setBackground(key)) }}
-                  />
-                </div>
+        {/* Personal settings — language + units */}
+        <Card className={CARD}>
+          <SectionTitle>{t('more.personal_settings')}</SectionTitle>
+          <div className="px-4 pb-[14px] pt-1">
+            <div className="py-[10px]">
+              <div className="mb-2 flex items-center gap-[10px]">
+                <Globe className={ROW_ICON} aria-hidden="true" />
+                <span className={ROW_LABEL}>{t('more.language')}</span>
               </div>
-            </Card>
+              <SegmentedPicker
+                label={t('more.language')}
+                value={languageValue}
+                options={languageOptions}
+                onChange={(code) => i18n.changeLanguage(code)}
+              />
+            </div>
 
-            {/* Push notifications */}
-            <Card className={CARD}>
-              <SectionTitle>{t('more.push_notifications_section')}</SectionTitle>
-              <div className="flex items-center justify-between gap-3 px-4 pb-[14px] pt-2">
-                <div className="flex min-w-0 items-center gap-[10px]">
-                  <Bell className={ROW_ICON} aria-hidden="true" />
-                  <span className={ROW_LABEL}>{t('more.push')}</span>
-                </div>
-                <NotificationSwitch on={pushOn} onToggle={() => handleToggle('push')} label={t('more.push')} />
+            <Separator />
+
+            <div className="pt-[10px]">
+              <div className="mb-2 flex items-center gap-[10px]">
+                <Ruler className={ROW_ICON} aria-hidden="true" />
+                <span className={ROW_LABEL}>{t('more.measurement_units')}</span>
               </div>
-            </Card>
+              <SegmentedPicker
+                label={t('more.measurement_units')}
+                value={unitsKey}
+                options={unitsOptions}
+                onChange={setUnitsKey}
+              />
+            </div>
 
-            {/* SMS notifications */}
-            <Card className={CARD}>
-              <SectionTitle>{t('more.sms_notifications_section')}</SectionTitle>
-              <div className="flex items-center justify-between gap-3 px-4 pb-[14px] pt-2">
-                <div className="flex min-w-0 items-center gap-[10px]">
-                  <MessageSquare className={ROW_ICON} aria-hidden="true" />
-                  <span className={ROW_LABEL}>{t('more.sms')}</span>
-                </div>
-                <NotificationSwitch on={smsOn} onToggle={() => handleToggle('sms')} label={t('more.sms')} />
+            <Separator />
+
+            {/* Theme. WHY A SEGMENTED PICKER AND NOT A DROPDOWN — three
+                options in a settings row looks like it wants a shadcn
+                <Select> or <DropdownMenu>. It cannot be one. Those are
+                Radix primitives that portal to document.body, and this app
+                draws inside the fixed 393x852 frame in
+                src/components/Phone.jsx with overflow:hidden — a portal
+                escapes that frame by design and renders across the whole
+                browser window with the phone sitting in the middle of it.
+                This repo has hit that at least three times; the lesson is
+                written out in full at src/v2/components/ValveConfirmSheet.jsx:17-24
+                and worked around at SystemsFilterSheet.jsx:97.
+                SegmentedPicker is an inline ToggleGroup and never portals.
+                Do not "improve" this into a dropdown. */}
+            <div className="pt-[10px]">
+              <div className="mb-2 flex items-center gap-[10px]">
+                <Palette className={ROW_ICON} aria-hidden="true" />
+                <span className={ROW_LABEL}>{t('more.theme')}</span>
               </div>
-            </Card>
+              <SegmentedPicker
+                label={t('more.theme')}
+                value={themeKey}
+                options={themeOptions}
+                onChange={(key) => { setThemeKey(setTheme(key)) }}
+              />
+            </div>
 
-            {/* Replay the tour */}
-            <Card className={CARD}>
-              <button
-                type="button"
-                onClick={replayOnboarding}
-                className="flex w-full cursor-pointer items-center gap-[10px] px-4 py-[13px] text-start outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              >
-                <GraduationCap className={ROW_ICON} aria-hidden="true" />
-                <span className="min-w-0 flex-1">
-                  <span className={cn('block', ROW_LABEL)}>{t('more.tutorial')}</span>
-                  <span className="mt-[1px] block text-slate-500 text-[13px] leading-[17px]">
-                    {t('more.tutorial_desc')}
-                  </span>
-                </span>
-                <ChevronRight className="size-[18px] shrink-0 text-slate-400 rtl:rotate-180" aria-hidden="true" />
-              </button>
-            </Card>
+            <Separator />
 
-            <p className="shrink-0 px-4 pb-2 pt-1 text-center text-slate-400 text-[13px] leading-[17px]">
-              {t('more.app_version', { version: '1.2.0' })}
-            </p>
-          </>
-        )}
+            {/* App background. The SAME argument against a dropdown applies
+                here and then some — nine options would be nine portalled
+                rows escaping the phone frame — but the segmented row the
+                three rows above use is out too: nine equal columns inside
+                this card is 38px each and every label truncates to two
+                characters. It is a swatch grid instead, and the long form
+                of that reasoning is at the top of BackgroundPicker.jsx.
+                The short form: the thing being chosen is a colour, so the
+                control shows the colours. */}
+            <div className="pt-[10px]">
+              <div className="mb-2 flex items-center gap-[10px]">
+                <Wallpaper className={ROW_ICON} aria-hidden="true" />
+                <span className={ROW_LABEL}>{t('more.background')}</span>
+              </div>
+              <BackgroundPicker
+                label={t('more.background')}
+                value={backgroundKey}
+                options={backgroundOptions}
+                onChange={(key) => { setBackgroundKey(setBackground(key)) }}
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Push notifications */}
+        <Card className={CARD}>
+          <SectionTitle>{t('more.push_notifications_section')}</SectionTitle>
+          <div className="flex items-center justify-between gap-3 px-4 pb-[14px] pt-2">
+            <div className="flex min-w-0 items-center gap-[10px]">
+              <Bell className={ROW_ICON} aria-hidden="true" />
+              <span className={ROW_LABEL}>{t('more.push')}</span>
+            </div>
+            <NotificationSwitch on={pushOn} onToggle={() => handleToggle('push')} label={t('more.push')} />
+          </div>
+        </Card>
+
+        {/* SMS notifications */}
+        <Card className={CARD}>
+          <SectionTitle>{t('more.sms_notifications_section')}</SectionTitle>
+          <div className="flex items-center justify-between gap-3 px-4 pb-[14px] pt-2">
+            <div className="flex min-w-0 items-center gap-[10px]">
+              <MessageSquare className={ROW_ICON} aria-hidden="true" />
+              <span className={ROW_LABEL}>{t('more.sms')}</span>
+            </div>
+            <NotificationSwitch on={smsOn} onToggle={() => handleToggle('sms')} label={t('more.sms')} />
+          </div>
+        </Card>
+
+        {/* Replay the tour */}
+        <Card className={CARD}>
+          <button
+            type="button"
+            onClick={replayOnboarding}
+            className="flex w-full cursor-pointer items-center gap-[10px] px-4 py-[13px] text-start outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <GraduationCap className={ROW_ICON} aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className={cn('block', ROW_LABEL)}>{t('more.tutorial')}</span>
+              <span className="mt-[1px] block text-slate-500 text-[13px] leading-[17px]">
+                {t('more.tutorial_desc')}
+              </span>
+            </span>
+            <ChevronRight className="size-[18px] shrink-0 text-slate-400 rtl:rotate-180" aria-hidden="true" />
+          </button>
+        </Card>
+
+        <p className="shrink-0 px-4 pb-2 pt-1 text-center text-slate-400 text-[13px] leading-[17px]">
+          {t('more.app_version', { version: '1.2.0' })}
+        </p>
       </div>
 
       {/* Confirm: turning off the second of Push/SMS.
@@ -872,7 +917,11 @@ export default function AccountScreenV2() {
         </div>
       ) : null}
 
-      <TabBar activeTab="account" />
+      {/* "profile", not "account". This screen is the PROFILE tab's
+          destination now; the More tab has its own route (/more) and its own
+          key. Passing "account" was what lit MORE even when you arrived by
+          tapping Profile — see TabBar.jsx, THE COLLISION IS RESOLVED. */}
+      <TabBar activeTab="profile" />
     </div>
   )
 }

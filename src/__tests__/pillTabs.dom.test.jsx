@@ -131,10 +131,19 @@ describe('the two screens draw the same tab row', () => {
      The values are asserted as TOKEN utilities, not as the node's hexes: the
      row has to follow the theme, and bg-[#fafbfc] / text-[#0b81f8] could not.
      A hex creeping back in fails here. */
-  it('ships the outlined treatment the owner ruled for, on both screens', () => {
+  /* ⚠ RE-POINTED AT RULING 3, 2026-11-04. Owner, on 199961:97449: "update the
+     tabs component to be exactly the same as in Figma, both on the system
+     screen and location screen ... the component needs to look like [the
+     frame]." What this pinned was ruling 2 — card surface on EVERY trigger,
+     no track, a 100px lozenge — and the node draws a segmented control
+     instead. Both halves of ruling 2 that survive are still pinned below:
+     selection is a 1px brand border rather than a fill, and the label rules
+     are unchanged. Values are still TOKEN utilities, never the node's hexes. */
+  it('ships the node segmented control the owner ruled for, on both screens', () => {
     const expected = {
-      fill: 'bg-surface-card',        // every trigger, selected or not
+      selectedFill: 'bg-card',          // ONLY the selected trigger is filled
       selectedBorder: 'border-primary',
+      restingBorder: 'border-transparent', // present, so selecting costs no geometry
       selectedInk: 'text-primary',
       restingInk: 'text-muted-foreground',
     }
@@ -144,16 +153,29 @@ describe('the two screens draw the same tab row', () => {
       const selected = screen.getByRole('tab', { name: 'Overview' })
       const resting = screen.getByRole('tab', { name: 'General Info' })
 
-      expect(fillAtom(selected)).toBe(expected.fill)
-      expect(fillAtom(resting)).toBe(expected.fill)
+      expect(fillAtom(selected)).toBe(expected.selectedFill)
+      expect(fillAtom(resting), 'a resting trigger paints nothing — the TRACK is the ground').toBeUndefined()
       expect(borderAtom(selected)).toBe(expected.selectedBorder)
-      expect(borderAtom(resting), 'a resting trigger carries no border').toBeNull()
+      expect(borderAtom(resting)).toBe(expected.restingBorder)
       expect(inkAtom(selected)).toBe(expected.selectedInk)
       expect(inkAtom(resting)).toBe(expected.restingInk)
-      expect(selected.className).toContain('rounded-[100px]')
-      expect(resting.className).toContain('rounded-[100px]')
+      expect(selected.className).toContain('rounded-md')
+      expect(resting.className).toContain('rounded-md')
+
+      /* THE TRACK is the whole of what ruling 3 added, so it is pinned by the
+         three atoms the node states: slate-200 at radius 10 with a 3px inset,
+         on a 32px row. The 32 is load-bearing beyond this file — both pages'
+         collapsing headers compute their collapse distance and their
+         scroller's paddingTop from it. */
+      const track = selected.closest('[data-name="Tabs"]')
+      expect(track.className).toContain('bg-slate-200')
+      expect(track.className).toContain('rounded-lg')
+      expect(track.className).toContain('p-[3px]')
+      expect(track.className).toContain('h-[32px]')
+
       // The ruling's whole point is that this is themeable.
       expect(selected.className).not.toMatch(/#[0-9a-fA-F]{6}/)
+      expect(track.className).not.toMatch(/#[0-9a-fA-F]{6}/)
       cleanup()
     }
   })
@@ -253,19 +275,23 @@ describe('the one ruled treatment', () => {
      locA's dark repaint — were superseded by ruling 2 on 2026-10-21 and are
      gone from the component. PillTabs' header keeps the reasoning for both;
      what is pinned here is the state that ships. */
-  it('draws selection as a border on the house card surface, not as a fill', () => {
+  it('lifts the selected trigger out of the track, and leaves the resting one on it', () => {
     render(<PillTabs items={items} value="a" onChange={() => {}} />)
     const selected = screen.getByRole('tab', { name: 'A' })
     const resting = screen.getByRole('tab', { name: 'B' })
 
-    expect(fillAtom(selected)).toBe('bg-surface-card')
-    expect(fillAtom(resting)).toBe('bg-surface-card')
+    expect(fillAtom(selected)).toBe('bg-card')
+    expect(fillAtom(resting)).toBeUndefined()
     expect(borderAtom(selected)).toBe('border-primary')
-    expect(borderAtom(resting)).toBeNull()
+    expect(borderAtom(resting)).toBe('border-transparent')
     expect(inkAtom(selected)).toBe('text-primary')
     expect(inkAtom(resting)).toBe('text-muted-foreground')
     expect(labelSpan(selected).className).toContain('font-semibold')
     expect(labelSpan(resting).className).toContain('font-medium')
+    /* The two stacked drop shadows are the node's and are what makes the
+       selected trigger read as lifted rather than merely outlined. */
+    expect(selected.className).toContain('shadow-[0_1px_2px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.1)]')
+    expect(resting.className).not.toContain('shadow-[')
   })
 
   /* The `tone` prop is gone, and Phase 4 removed the leftover tone="blue"
@@ -275,7 +301,7 @@ describe('the one ruled treatment', () => {
   it('ignores a leftover tone prop rather than repainting for it', () => {
     render(<PillTabs items={items} value="a" onChange={() => {}} tone="slate" />)
     const selected = screen.getByRole('tab', { name: 'A' })
-    expect(fillAtom(selected)).toBe('bg-surface-card')
+    expect(fillAtom(selected)).toBe('bg-card')
     expect(borderAtom(selected)).toBe('border-primary')
   })
 
@@ -286,7 +312,9 @@ describe('the one ruled treatment', () => {
   it('carries one radius on every trigger, with no Figma token name left', () => {
     render(<PillTabs items={items} value="a" onChange={() => {}} />)
     const resting = screen.getByRole('tab', { name: 'B' })
-    expect(resting.className).toContain('rounded-[100px]')
+    /* Ruling 3: the node's 8px trigger inside a 10px track. It was a 100px
+       lozenge under ruling 2, which had no track to sit in. */
+    expect(resting.className).toContain('rounded-md')
     expect(resting.className).not.toContain('var(--')
     expect(resting.className).not.toContain('\\/')
   })
@@ -307,8 +335,8 @@ describe('the one ruled treatment', () => {
     const wide = screen.getByRole('tab', { name: 'W' })
     const normal = screen.getByRole('tab', { name: 'A' })
 
-    expect(wide.className).toContain('rounded-[100px]')
-    expect(normal.className).toContain('rounded-[100px]')
+    expect(wide.className).toContain('rounded-md')
+    expect(normal.className).toContain('rounded-md')
     // The wide pill lays its own row out; the default pill is a column.
     expect(wide.className).toContain('gap-2 py-1')
     expect(wide.className).not.toContain('flex-col')

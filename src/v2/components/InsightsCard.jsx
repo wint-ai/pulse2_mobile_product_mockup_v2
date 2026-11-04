@@ -42,6 +42,7 @@
 import { useId } from 'react'
 import { cn } from '@/lib/utils'
 import { DropletDown, DropletShare, Droplets } from '@/v2/icons'
+import wave from '@/assets/system-hero-wave.png'
 import {
   SPARK_W,
   SPARK_H,
@@ -585,6 +586,96 @@ function InsightsMetricCard({
    homeWidgetWidth.dom.test.jsx. */
 const LIST_SHELL = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-0 items-start overflow-clip p-0 relative rounded-[18px] w-full`
 
+/* -- Empty state, list layout ---------------------------------------------
+
+   THE ICON IS THE SIBLING'S, NOT THE WEB FRAME'S. The web empty state
+   (198424:73057, a 360x318 column) centres a 112x105 RASTER of a chart and
+   leaves. That raster is deliberately NOT imported: the owner asked for "the
+   icon that is used for the water events - the cool one with the waves and
+   the stars", and this repo already owns it. TriageBand.jsx draws it in the
+   calm state of the Dashboard's water-events card (199466:18069 / :18070 /
+   :18074) - a 90x89.308 tile of @/assets/system-hero-wave.png, cropped,
+   washed #daecff under mix-blend-multiply, with the white "ai-magic"
+   sparkles over it. Everything below is that hero, carried across so the two
+   empty states on the Dashboard read as one family.
+
+   TRIAGEBAND IS THE SOURCE OF TRUTH for the tile and the sparkle paths. They
+   are duplicated here rather than shared because a component file in this
+   repo may export only its component (react-refresh/only-export-components),
+   so neither file can hand the other a tile without a third module - which is
+   not worth adding for one 90px square. If the tile changes there, change it
+   here.
+
+   THE COMPOSITION IS THE WEB'S, THE SIZE IS THE SIBLING'S. 198424:73057
+   stacks illustration over headline over supporting line, and spends 318px
+   doing it. This card cannot: the Dashboard mounts it fifth in a stack under
+   a fixed header and over a floating tab bar. So the web's vertical
+   composition is kept and its scale is dropped - measured at 393x852, this
+   empty card comes to ~252px, against the water-events empty card's 256px
+   four cards above it on the same screen. Both numbers are browser
+   measurements, not class-string arithmetic.
+
+   THE TYPE IS THE SIBLING'S. 18px/600 text-slate-800 over 14px/400
+   text-muted-foreground, both tokens that move across all four themes
+   (:root, dark, sand, contrast) - the web frame's own 18/20px pair is a
+   desktop scale and is not carried. The wave PNG is a raster and does NOT
+   move with the theme; neither does the sibling's, which is the point.
+
+   NEW COPY - 2026-11-04, AWAITING THE OWNER'S PICK. Two directions were on
+   the table and they are not blended. What ships is the TRANSCRIPTION of the
+   web node's own strings, which wint-ui-copy section 0 prefers over an
+   invention. The alternative, parallel with the sibling card ("No active
+   insights" over a supporting line, which is what "no active insights" in his
+   message gestures at), is reported for his approval. */
+/* No vertical padding of its own: the cardContent box above already pads
+   pt-3 / pb-6, and a second inset here put the card 10px past the
+   water-events empty card it is supposed to match. */
+const EMPTY_WRAP = String.raw`content-stretch flex flex-col gap-[14px] items-center justify-center px-4 relative w-full`
+/* 199466:18070 verbatim - the wave cropped to a 90x89.308 rounded tile. */
+const EMPTY_ART = String.raw`h-[89.308px] mix-blend-multiply relative rounded-[14.608px] shrink-0 w-[90px]`
+const EMPTY_SPARK = String.raw`absolute left-[17px] rounded-[237.5px] size-[57px] top-[20.5px] pointer-events-none`
+const EMPTY_COPY = String.raw`content-stretch flex flex-col gap-[9px] items-center relative shrink-0 w-full`
+/* leading-[22px], not the sibling's leading-[18px]: that one is
+   whitespace-nowrap on a shorter string. This headline is free to wrap, and an
+   18px line box on an 18px font clips the descenders when it does. */
+const EMPTY_TITLE = String.raw`font-semibold relative shrink-0 text-slate-800 text-lg tracking-[-0.45px] text-center leading-[22px]`
+const EMPTY_SUB = String.raw`font-normal relative shrink-0 text-muted-foreground text-sm text-center leading-5`
+
+function InsightsEmpty() {
+  return (
+    <div className={EMPTY_WRAP} data-name="Insights empty">
+      <div className={EMPTY_ART} aria-hidden="true">
+        <div className="absolute inset-0 pointer-events-none rounded-[14.608px]">
+          <div className="absolute inset-0 opacity-90 overflow-hidden rounded-[14.608px]">
+            <img
+              alt=""
+              src={wave}
+              className="absolute h-[108.78%] left-[-33.52%] max-w-none top-[-4.54%] w-[166.97%]"
+            />
+          </div>
+          <div className="absolute bg-[#daecff] inset-0 mix-blend-multiply rounded-[14.608px]" />
+        </div>
+        <span className={EMPTY_SPARK} data-name="Huge Icons / ai-magic">
+          <span className="absolute inset-[12.5%] block -rotate-180 -scale-x-100">
+            <svg viewBox="0 0 42.75 42.75" fill="none" className="block size-full">
+              <path d="M16.625 33.25L15.3999 29.9391C13.7934 25.5977 12.9901 23.4269 11.4066 21.8434C9.82308 20.2599 7.65234 19.4566 3.31088 17.8501L0 16.625L3.31088 15.3999C7.65235 13.7934 9.82308 12.9901 11.4066 11.4066C12.9901 9.82308 13.7934 7.65234 15.3999 3.31088L16.625 0L17.8501 3.31088C19.4566 7.65234 20.2599 9.82308 21.8434 11.4066C23.4269 12.9901 25.5977 13.7934 29.9391 15.3999L33.25 16.625L29.9391 17.8501C25.5977 19.4566 23.4269 20.2599 21.8434 21.8434C20.2599 23.4269 19.4566 25.5977 17.8501 29.9391L16.625 33.25Z" fill="white" />
+              <path d="M35.625 42.75L35.0999 41.3311C34.4114 39.4704 34.0672 38.5401 33.3885 37.8615C32.7099 37.1828 31.7796 36.8386 29.9189 36.1501L28.5 35.625L29.9189 35.0999C31.7796 34.4115 32.7099 34.0672 33.3885 33.3885C34.0672 32.7099 34.4114 31.7796 35.0999 29.919L35.625 28.5L36.1501 29.919C36.8386 31.7796 37.1828 32.7099 37.8615 33.3885C38.5401 34.0672 39.4704 34.4115 41.3311 35.0999L42.75 35.625L41.3311 36.1501C39.4704 36.8386 38.5401 37.1828 37.8615 37.8615C37.1828 38.5401 36.8386 39.4704 36.1501 41.3311L35.625 42.75Z" fill="white" />
+            </svg>
+          </span>
+        </span>
+      </div>
+      <div className={EMPTY_COPY}>
+        {/* NEW COPY - transcribed from 198424:73057, not authored. */}
+        <p className={cn('font-sans', EMPTY_TITLE)} dir="auto">
+          Still gathering the drops
+        </p>
+        <p className={cn('font-sans', EMPTY_SUB)} dir="auto">
+          Your first insights are coming soon.
+        </p>
+      </div>
+    </div>
+  )
+}
 /**
  * @param rows  [{ title, addr, kind, delta, deltaTone: 'good'|'bad', value,
  *              series?, baseline? }]
@@ -713,11 +804,7 @@ export default function InsightsCard({
             that failed to load rather than a system with nothing to report.
             The web says so in words too (SystemInsightsTab:
             "noInsightsForSystem"). */}
-        {list.length === 0 ? (
-          <p className="w-full py-6 text-center text-slate-500 text-[14px] leading-5">
-            No insights for this system
-          </p>
-        ) : null}
+        {list.length === 0 ? <InsightsEmpty /> : null}
         {list.map((row, i) => {
           const rowTone = TONE[row.deltaTone] ?? TONE.good
           const Glyph = kindGlyph(row)

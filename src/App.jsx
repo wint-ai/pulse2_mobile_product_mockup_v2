@@ -35,6 +35,7 @@ import ValveManagementScreen from './v2/pages/ValveManagementScreen';
 import LeakDetail from './screens/leak/LeakDetail';
 import EventHistory from './screens/EventHistory';
 import AccountScreenV2 from './v2/pages/AccountScreenV2';
+import MoreComingSoonScreen from './v2/pages/MoreComingSoonScreen';
 import KPIDetailScreen from './screens/kpi/KPIDetailScreen';
 import TenantPropertiesList from './screens/home/TenantPropertiesList';
 
@@ -129,11 +130,18 @@ function AppRoutes() {
         <Route path="/leak/:systemId" element={<LeakDetail />} />
 
         {/* Account */}
-        {/* More / Account. Repointed to the v2 port 2026-10-17. The v1 screen
-            stayed on disk unused until 2026-10-24, when it was deleted with
-            the rest of the dead tree; AccountScreenV2 folds the profile in as
-            a sub-view, so there is no second user-profile page any more. */}
+        {/* PROFILE. Repointed to the v2 port 2026-10-17. The v1 screen stayed
+            on disk unused until 2026-10-24, when it was deleted with the rest
+            of the dead tree. 2026-11-04: this is the PROFILE tab's screen —
+            it folds Personal Information in as the first card rather than as
+            a sub-view, so the tab opens the user profile directly. */}
         <Route path="/account" element={<AccountScreenV2 />} />
+        {/* MORE. ADDITIVE, 2026-11-04 — nothing is repointed, so Rule 0 does
+            not bite. The owner: "don't use the same buttons for the same
+            thing... make the More navigate to / overlay a new screen which
+            hides everything, but writes there Coming soon". Until today the
+            More tab also went to /account. */}
+        <Route path="/more" element={<MoreComingSoonScreen />} />
 
         {/* Default — go to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
