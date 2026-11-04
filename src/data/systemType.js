@@ -34,7 +34,9 @@ export const SYSTEM_TYPE_LABEL = {
 }
 
 /**
- * ONE SENTENCE PER TYPE, FOR THE "WHAT IS THIS?" TAP.
+ * WHAT EACH TYPE IS, FOR THE "WHAT IS THIS?" TAP. One sentence for the two
+ * sensor types and two for Flow Monitoring - see the 2026-11-04 block at the
+ * foot of this note for why that asymmetry is the rule rather than a leftover.
  *
  * Owner, 2026-10-22: "one click here showing wht this type is / two clicks
  * redirect you as now". The hero chips (SystemsOverviewHero) carry an icon and
@@ -59,14 +61,41 @@ export const SYSTEM_TYPE_LABEL = {
  *   humidity  the same.
  * If the owner has real copy for the two sensor types, it replaces these two
  * strings and nothing else moves.
+ *
+ * ── TWO OF THE THREE ARE ONE SENTENCE, 2026-11-04 ────────────────────────
+ * This records the SETTLED state, not the route to it. The two sensor types
+ * lost their second sentence; Flow Monitoring kept both of its.
+ *
+ * WHAT HAPPENED. Owner, on a screenshot of the Flood sensors panel: "Same
+ * issue with the second sentence, across the system topologies, I don't want
+ * the second sentence. I only want the first one, and the talk to Wint sales,
+ * that's it." All three were cut to their first sentence. Flow was flagged at
+ * the time as the one worth his eye, and he agreed from the screen: "just
+ * want the description for flow monitoring to be as it was before." So flow
+ * is restored byte for byte and the other two stay cut.
+ *
+ * WHY FLOW IS THE EXCEPTION, because the asymmetry is the rule and not an
+ * oversight. The two sensor types lost "It measures no flow" - a statement of
+ * what the device does NOT do, so cutting it costs a caveat. Flow's second
+ * sentence carries the meter reading and the valve, i.e. capabilities, and
+ * without it the entry read "A metered water line." - four words, and the
+ * only one of the three that lost a fact rather than a limit. A second
+ * sentence is allowed here when it carries a capability, and not when it
+ * carries a disclaimer.
+ *
+ * THE CUTS WERE TRIMS AT THE SENTENCE BOUNDARY, NOT REWORDINGS. Nothing new
+ * was written. The two deleted halves were identical: "It measures no flow."
+ *
+ * WHERE THIS RENDERS: SystemsOverviewHero's system-type panel is the only
+ * consumer in the tree, so these strings move exactly one surface.
  */
 export const SYSTEM_TYPE_BLURB = {
   [SYSTEM_TYPE.FLOW]:
     'A metered water line. The meter reads flow, and most of these also carry a valve that can shut the line off.',
   [SYSTEM_TYPE.FLOOD]:
-    'A spot sensor that reports water reaching somewhere it should not. It measures no flow.',
+    'A spot sensor that reports water reaching somewhere it should not.',
   [SYSTEM_TYPE.HUMIDITY]:
-    'A spot sensor that reports how damp its own spot is. It measures no flow.',
+    'A spot sensor that reports how damp its own spot is.',
 }
 
 export function systemTypeOf(system) {

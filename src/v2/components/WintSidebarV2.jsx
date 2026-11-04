@@ -11,6 +11,8 @@
  *   198378:74037  SidebarMenuSubItem   — nested row, collapsed
  *   198378:74060  SidebarMenuSubItem   — system leaf (photo-sensor glyph, pl-16)
  *   198378:74083  Footer               — Users / Reports / account switcher / bell
+ *                                         (only the bell survives — see the
+ *                                          Footer call site below for why)
  *
  * WHY THIS FILE EXISTS. WintSidebar.jsx got its geometry from screenshots and
  * two things came out visibly wrong:
@@ -65,7 +67,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { BellDot, ChevronsUpDown } from 'lucide-react'
+import { BellDot } from 'lucide-react'
 // Verified byte-identical to the assets these nodes export: Briefcase08 ==
 // 224ec0b8 (viewBox 12.9974x11.8302, #0B82F8), PinLocation03 == f6d90c51
 // (11.6637x12.8304, #90A1B9), Search01 == d2961388 (13.33x13.33, #90A1B9).
@@ -94,7 +96,6 @@ import { useUserContext } from '@/context/UserContext'
 import { getAccountById, getChildAccounts, getRootAccounts } from '@/data/accounts'
 import { getHierarchyForAccount } from '@/data/hierarchy'
 import { isIgnored } from '@/data/ignoredIncidents'
-import { DEFAULT_PERSONA } from '@/data/personas'
 import { SYSTEMS } from '@/data/systems'
 import { computeSystemHealth } from '@/utils/systemHealth'
 
@@ -254,37 +255,6 @@ function ArrowDropRight({ size = 16, className }) {
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
       xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
       <path d="M8.11447 8.00033L6.22884 6.11469L7.17167 5.17187L10.0001 8.00033L7.17167 10.8287L6.22884 9.88593L8.11447 8.00033Z" fill="currentColor" />
-    </svg>
-  )
-}
-
-/** Remix group-line — footer "Users". Export framed at x+8, y+8. */
-function GroupLine({ size = 16, className }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
-      xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
-      <g transform="translate(-8,-8)">
-        <path
-          d="M9.3335 22.6667C9.3335 19.7212 11.7213 17.3334 14.6668 17.3334C17.6124 17.3334 20.0002 19.7212 20.0002 22.6667H18.6668C18.6668 20.4576 16.876 18.6667 14.6668 18.6667C12.4577 18.6667 10.6668 20.4576 10.6668 22.6667H9.3335ZM14.6668 16.6667C12.4568 16.6667 10.6668 14.8767 10.6668 12.6667C10.6668 10.4567 12.4568 8.66675 14.6668 8.66675C16.8768 8.66675 18.6668 10.4567 18.6668 12.6667C18.6668 14.8767 16.8768 16.6667 14.6668 16.6667ZM14.6668 15.3334C16.1402 15.3334 17.3335 14.1401 17.3335 12.6667C17.3335 11.1934 16.1402 10.0001 14.6668 10.0001C13.1935 10.0001 12.0002 11.1934 12.0002 12.6667C12.0002 14.1401 13.1935 15.3334 14.6668 15.3334ZM20.1893 17.8019C22.0431 18.6375 23.3335 20.5014 23.3335 22.6667H22.0002C22.0002 21.0427 21.0324 19.6448 19.642 19.0181L20.1893 17.8019ZM19.731 10.2756C21.0631 10.8248 22.0002 12.1358 22.0002 13.6667C22.0002 15.5802 20.5363 17.1502 18.6668 17.3185V15.9765C19.798 15.8149 20.6668 14.8427 20.6668 13.6667C20.6668 12.7463 20.1346 11.9508 19.3608 11.571L19.731 10.2756Z"
-          fill="currentColor"
-        />
-      </g>
-    </svg>
-  )
-}
-
-/** Tabler report-analytics — footer "Reports". Export framed at x+8, y+8. */
-function ReportAnalytics({ size = 16, className }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
-      xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
-      <g transform="translate(-8,-8)" stroke="currentColor" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14.0002 11.3333H12.6668C12.3132 11.3333 11.9741 11.4737 11.724 11.7238C11.474 11.9738 11.3335 12.313 11.3335 12.6666V20.6666C11.3335 21.0202 11.474 21.3593 11.724 21.6094C11.9741 21.8594 12.3132 21.9999 12.6668 21.9999H19.3335C19.6871 21.9999 20.0263 21.8594 20.2763 21.6094C20.5264 21.3593 20.6668 21.0202 20.6668 20.6666V12.6666C20.6668 12.313 20.5264 11.9738 20.2763 11.7238C20.0263 11.4737 19.6871 11.3333 19.3335 11.3333H18.0002" />
-        <path d="M14 11.3333C14 10.9797 14.1405 10.6406 14.3905 10.3905C14.6406 10.1405 14.9797 10 15.3333 10H16.6667C17.0203 10 17.3594 10.1405 17.6095 10.3905C17.8595 10.6406 18 10.9797 18 11.3333C18 11.687 17.8595 12.0261 17.6095 12.2761C17.3594 12.5262 17.0203 12.6667 16.6667 12.6667H15.3333C14.9797 12.6667 14.6406 12.5262 14.3905 12.2761C14.1405 12.0261 14 11.687 14 11.3333Z" />
-        <path d="M14 19.3333V16" />
-        <path d="M16 19.3334V18.6667" />
-        <path d="M18 19.3333V17.3333" />
-      </g>
     </svg>
   )
 }
@@ -513,7 +483,6 @@ export default function WintSidebarV2({ open, onClose }) {
   // and no caller has to remember to pass anything.
   const currentSystemId = (pathname.match(/^\/system\/([^/]+)/) || [])[1] || null
   const ctx = useUserContext() || {}
-  const persona = ctx.persona || DEFAULT_PERSONA
   // exploreSystems honours the v1 "explore all" toggle; SYSTEMS is the fallback
   // so this component still renders outside a UserProvider (tests, storybook).
   const systems = Array.isArray(ctx.exploreSystems) ? ctx.exploreSystems : SYSTEMS
@@ -817,59 +786,40 @@ export default function WintSidebarV2({ open, onClose }) {
           )}
         </SidebarProvider>
 
-        {/* ── Footer · 198378:74083 ───────────────────────────────────────── */}
-        <div className="border-border border-solid border-t content-stretch flex flex-col gap-2 items-start p-4 relative shrink-0">
-          <div className="content-stretch flex flex-col gap-1 items-start relative shrink-0 w-full">
-            {/* DELIBERATELY INERT — "Users" and "Reports" have no PRD and no
-                designed screen. There is no route to send them to and inventing
-                one would be a guess, so they render and do nothing. */}
-            <FooterRow icon={<GroupLine size={16} className="text-slate-700" />} label="Users" />
-            <FooterRow icon={<ReportAnalytics size={16} className="text-slate-700" />} label="Reports" />
-          </div>
+        {/* ── Footer · 198378:74083 ───────────────────────────────────────
+            STRIPPED 2026-11-04 at the owner's request (asked three times).
+            Gone: the inert "Users" and "Reports" rows, and the account /
+            profile switcher. Users and Reports are on the More screen now
+            (src/v2/pages/AccountScreenV2.jsx), which is where he put them.
+            The profile is already the third main icon in the floating tab
+            bar — TabBar.jsx's PROFILE entry, also pointing at /account — so
+            the switcher row was a second door to a door. Nothing went with
+            it: /select is still reachable from More → "Switch profile".
 
-          <div className="content-stretch flex items-center justify-between pr-2 relative shrink-0 w-full">
-            {/* 198378:74088 is a fixed 188px box inside a justify-between row,
-                NOT flex:1. Letting it grow makes justify-between inert and
-                collapses the 113px gap the frame leaves before the bell
-                (198378:74089 sits at x=301 of the 325-wide row). The inner
-                Labels span below keeps its own flex:1, so a long persona name
-                still truncates inside the 188px. */}
-            <button
-              type="button"
-              onClick={() => go('/select')}
-              className="content-stretch flex gap-2 h-[49px] items-center px-2 py-2 relative rounded-md shrink-0 text-left w-[188px] active:bg-card/60"
-            >
-              {/* SidebarMediaAsset — 32px, radius 8. The frame fills it with a
-                  photo; this app identifies a persona by emoji + tint, so the
-                  tile keeps the geometry and carries the persona mark. */}
-              <span
-                aria-hidden="true"
-                className="content-stretch flex items-center justify-center overflow-clip relative rounded-md shrink-0 size-[32px] text-[18px]"
-                style={{ background: persona.bg || '#EEF3FA' }}
-              >
-                {persona.icon || '👤'}
-              </span>
-              <span className="[word-break:break-word] content-stretch flex flex-[1_0_0] flex-col items-start justify-center min-w-px relative text-slate-700 whitespace-nowrap">
-                <span className="font-medium leading-[18px] overflow-hidden relative min-w-px text-[14px] text-ellipsis w-full">
-                  {persona.name}
-                </span>
-                <span className="font-normal leading-[15px] overflow-hidden relative shrink-0 text-[12px] text-ellipsis w-full">
-                  {persona.email || persona.role}
-                </span>
-              </span>
-              <ChevronsUpDown size={16} className="shrink-0 text-neutral-950" />
-            </button>
-            <button
-              type="button"
-              onClick={() => go('/alerts')}
-              aria-label="Alerts"
-              // 198378:74089 is a bare 16px glyph. before:-inset-[10px] grows
-              // the touch target to 36px without moving a single pixel of it.
-              className="content-stretch flex items-center justify-center relative rounded-md shrink-0 size-[16px] before:absolute before:-inset-[10px] before:content-[''] active:opacity-60"
-            >
-              <BellDot size={16} className="text-slate-700" />
-            </button>
-          </div>
+            THE BELL STAYS, and it is NOT the inert decoration the two rows
+            above it were. It navigates to /alerts (EventsScreen) and is this
+            drawer's only notifications entry point, with a notifications
+            view queued to land behind it. Deleting it would be exactly the
+            silent loss of working functionality that Rule 0 of the
+            v2-page-parity skill forbids. If it is ever to go, it goes on the
+            owner's word, not on a tidy-up.
+
+            justify-end, not the frame's justify-between: 198378:74088's
+            188px box is what justify-between was spacing against, and with
+            it gone the lone glyph would slide to the left edge. pr-6 against
+            p-4's 16px keeps its right inset at the 24px the frame measures
+            (the footer's 16px padding plus the row's own pr-2). */}
+        <div className="border-border border-solid border-t content-stretch flex items-center justify-end p-4 pr-6 relative shrink-0 w-full">
+          <button
+            type="button"
+            onClick={() => go('/alerts')}
+            aria-label="Alerts"
+            // 198378:74089 is a bare 16px glyph. before:-inset-[10px] grows
+            // the touch target to 36px without moving a single pixel of it.
+            className="content-stretch flex items-center justify-center relative rounded-md shrink-0 size-[16px] before:absolute before:-inset-[10px] before:content-[''] active:opacity-60"
+          >
+            <BellDot size={16} className="text-slate-700" />
+          </button>
         </div>
       </div>
     </>
@@ -1077,28 +1027,5 @@ function TreeRow({
     >
       {row}
     </SidebarMenuSubButton>
-  )
-}
-
-/**
- * 198378:74085 / 198378:74086. Height 32, px-8 py-8, gap-8, radius 8, icon 16,
- * label 14px weight-400 slate-700. Inert by design — see the call site.
- */
-function FooterRow({ icon, label }) {
-  return (
-    <div className="content-stretch flex gap-0 items-center p-0 relative rounded-md shrink-0 w-full">
-      <div
-        aria-disabled="true"
-        title={`${label} — no screen designed yet`}
-        className="content-stretch flex flex-[1_0_0] gap-2 h-[32px] items-center min-w-px px-2 py-2 relative rounded-md"
-      >
-        <span className="content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]">
-          {icon}
-        </span>
-        <span className="[word-break:break-word] flex-[1_0_0] font-normal leading-[14px] min-w-px overflow-hidden relative text-[14px] text-slate-700 text-ellipsis whitespace-nowrap">
-          {label}
-        </span>
-      </div>
-    </div>
   )
 }

@@ -14,6 +14,12 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SystemsOverviewHero from '@/v2/components/SystemsOverviewHero'
+/* THE CATALOGUE IS THE EXPECTATION, not a literal copied into this file. The
+   panel's middle block must be the type's own entry verbatim - which is what
+   catches a runtime truncation (a `.split('.')[0]` added to "enforce" one
+   sentence) or an extra clause concatenated on, while leaving the WORDING to
+   the owner where it belongs. */
+import { SYSTEM_TYPE, SYSTEM_TYPE_BLURB } from '@/data/systemType'
 
 afterEach(cleanup)
 
@@ -92,7 +98,8 @@ describe('SystemsOverviewHero — the type chips', () => {
 describe('SystemsOverviewHero — Figma class fidelity', () => {
   it('keeps the wave geometry and the chip fill', () => {
     const { container } = render(<SystemsOverviewHero total={244} />)
-    expect(container.firstElementChild.className).toContain('h-[189px]')
+    // 370x150 since 199922:85244, down from the 189 the 2026-11-01 read gave.
+    expect(container.firstElementChild.className).toContain('h-[150px]')
 
     const chip = container.querySelector('[role="img"]')
     expect(chip.className).toContain('bg-[rgba(241,245,249,0.28)]')
@@ -128,27 +135,27 @@ describe('SystemsOverviewHero — Figma class fidelity', () => {
     expect(tint.className).toContain('bg-[#a0ccff]')
   })
 
-  it('draws the "Active" pill the frame carries, as a label and not a control', () => {
-    /* NEW IN THE 2026-11-01 REFETCH (199531:80083). Transcribed, not
-       invented: the word is the frame's. It is NOT a button, because the
-       frame draws no menu, no open state and no second option -- a chevron
-       is not a menu, and a control that opens nothing reads as broken. If
-       the owner wants it to filter, that is a ruling and a prop, not a
-       guess. The chips must stay the only three buttons here. */
+  it('draws no lifecycle pill — the owner removed it and the frame hides it', () => {
+    /* REVERSED 2026-11-04. This test used to assert the "Active" pill the
+       2026-11-01 refetch added (199531:80083, word :80085, chevron :80084)
+       and to assert it was a label rather than a control.
+
+       It is GONE on two agreeing authorities. The owner: "we want to replace
+       the drop-down for the lifecycle with something much less visible. Maybe
+       we can just remove it for now." And 199922:85244 carries two
+       `Active`+chevron frames, both hidden="true".
+
+       Nothing was wired to it - no state, no handler, no prop, no consumer -
+       so nothing had to be kept behind. What the old test guarded is kept and
+       is the second half below: the chips stay the only three controls in
+       this hero, which is what stops a lifecycle menu being reintroduced by
+       accident as a fourth. */
     const { container } = render(
       <SystemsOverviewHero total={244} systemTypes={{ topology: 156 }} onSelectType={() => {}} />,
     )
-    const pill = container.querySelector('[data-node-id="199531:80083"]')
-    expect(pill, 'the Active pill').toBeTruthy()
-    expect(pill.textContent).toBe('Active')
-    expect(pill.tagName).not.toBe('BUTTON')
-    expect(pill.querySelector('button')).toBeNull()
+    expect(container.querySelector('[data-node-id="199531:80083"]')).toBeNull()
+    expect(container.textContent).not.toContain('Active')
     expect(container.querySelectorAll('button')).toHaveLength(3)
-
-    // Same veiled chassis as a chip, right-anchored at the node's 2.38% inset.
-    expect(pill.className).toContain('bg-[rgba(241,245,249,0.28)]')
-    expect(pill.className).toContain('rounded-[12px]')
-    expect(pill.className).toContain('right-[9px]')
   })
 
   it('paints the wave UP on a dark ground instead of multiplying it away', () => {
@@ -261,8 +268,205 @@ describe('SystemsOverviewHero — the chips are a way into the Systems tab', () 
     const { container } = hero(() => {}, { topology: 103 })
     const labels = [...container.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))
     expect(labels).toContain('Flow Monitoring systems: 103. Show these in the Systems tab.')
-    expect(labels).toContain('Humidity sensors: 0')
-    expect(labels).toContain('Flood sensors: 0')
+    /* The zero names the gesture it DOES have, 2026-11-04. It used to stop at
+       the count, which tells a screen-reader user the chip's value and
+       nothing about why it is focusable. What stays forbidden is the thing
+       this test was written for: a zero chip must never name the Systems tab,
+       because it will not go there. */
+    expect(labels).toContain('Humidity sensors: 0. What are these?')
+    expect(labels).toContain('Flood sensors: 0. What are these?')
+    for (const l of labels.filter((x) => /: 0\./.test(x))) {
+      expect(l, 'a zero chip names no destination').not.toContain('Systems tab')
+    }
+  })
+
+  it('a zero chip opens a sales panel, by tap, inside the frame', async () => {
+    /* THE ZERO CHIP IS A SALES SURFACE. Owner, rejecting the first draft:
+       "This is a bad sentence. I want something more on the sales aspect,
+       like contact Wint sales or contact your account manager ... The main
+       goal here is to do upsells for systems that not sold yet."
+
+       NOT A TOOLTIP, and twice over. Radix Tooltip portals to document.body
+       and escapes the 393x852 frame (ValveConfirmSheet:17-25, three times
+       bitten); and a tooltip is a HOVER affordance on a touch device, so
+       hover alone reaches nobody. The gesture is the tap the chip already
+       takes, and the panel rides the in-frame `absolute` band this component
+       already owns.
+
+       THE SHAPE IS WHAT IS PINNED, and the owner has now fixed the count of
+       it: "I only want the first one, and the talk to Wint sales, that's it."
+       Three blocks - title, one-sentence description, CTA - and the CTA only
+       at 0. The WORDING is still NEW COPY awaiting him, so it is deliberately
+       not pinned verbatim here. */
+    const { container } = hero(() => {}, { topology: 103 })
+
+    const nonZero = chip(container, /^Flow Monitoring/)
+    await userEvent.click(nonZero)
+    expect(
+      explainer(container).querySelector('[data-name="System type sales cta"]'),
+      'a chip with systems behind it is not an upsell',
+    ).toBeNull()
+
+    const zero = chip(container, /^Flood sensors: 0/)
+    await userEvent.click(zero)
+    const band = explainer(container)
+    expect(band.getAttribute('data-zero')).toBe('true')
+
+    /* THREE BLOCKS AND NO FOURTH. A benefit line stood between the
+       description and the CTA until 2026-11-04 and the owner cut it; this
+       counts the panel rather than naming what is absent, so any fourth block
+       added later fails here whatever it is called. */
+    const blocks = [...band.querySelectorAll('p, a')]
+    expect(blocks.map((el) => el.tagName)).toEqual(['P', 'P', 'A'])
+
+    const description = band.querySelector('[data-name="System type description"]')
+    expect(description, 'the description').toBeTruthy()
+    expect(description.textContent, 'hyphens in UI copy, never em-dashes').not.toContain('—')
+    /* Rule 4 of the owner's ruling: the absence is the opportunity, not a
+       fault. No apology anywhere in the panel. */
+    expect(band.textContent).not.toMatch(/\byet\b|unfortunately|you don't have/i)
+    expect(container.contains(description), 'no portal: it stays inside the frame').toBe(true)
+    expect(description.className, 'tokens, so all four themes re-ground it')
+      .not.toMatch(/#[0-9a-f]{3,8}\b/i)
+  })
+
+  it('the sales CTA is an external link that says it leaves the app', async () => {
+    const { container } = hero(() => {}, { topology: 103 })
+    await userEvent.click(chip(container, /^Flood sensors: 0/))
+    const cta = explainer(container).querySelector('[data-name="System type sales cta"]')
+    expect(cta, 'the sales CTA').toBeTruthy()
+    expect(cta.tagName).toBe('A')
+    expect(cta.getAttribute('href')).toBe('https://wint.ai/contact/')
+    expect(cta.getAttribute('target')).toBe('_blank')
+    /* Without `noopener` the opened page gets a handle on this window. */
+    expect(cta.getAttribute('rel')).toContain('noopener')
+    expect(cta.getAttribute('rel')).toContain('noreferrer')
+    /* The arrow cannot tell a screen reader that this leaves the app, so the
+       name does: the type, the outcome, and where it goes. */
+    const name = cta.getAttribute('aria-label')
+    expect(name).toContain('Flood sensors')
+    expect(name).toMatch(/new tab/i)
+
+    /* REACHABLE. The panel's prose is aria-hidden because it is duplicated in
+       the chip's description - but a focusable element inside an aria-hidden
+       subtree is tabbable and invisible to assistive tech at the same time,
+       which is the worst of both. The link must sit outside that subtree. */
+    expect(cta.closest('[aria-hidden="true"]'), 'the link is not inside the hidden prose').toBeNull()
+  })
+
+  it('names the panel per type, with no branch per chip', async () => {
+    /* The title, the description and the CTA's name all come from the TYPE,
+       so a fourth system type would need one data entry and no new markup.
+       Pinned by showing two different zero chips producing two different
+       panels - a hardcoded branch per chip would be the way this drifts. */
+    const { container } = hero(() => {}, { topology: 103 })
+    const panelFor = async (re) => {
+      await userEvent.click(chip(container, re))
+      const band = explainer(container)
+      return {
+        title: band.querySelector('p').textContent,
+        description: band.querySelector('[data-name="System type description"]').textContent,
+        cta: band.querySelector('[data-name="System type sales cta"]').getAttribute('aria-label'),
+      }
+    }
+    const flood = await panelFor(/^Flood sensors: 0/)
+    const humidity = await panelFor(/^Humidity sensors: 0/)
+
+    expect(flood.title).toBe('Flood sensors')
+    expect(humidity.title).toBe('Humidity sensors')
+    expect(flood.description, 'two types must not share one line')
+      .not.toBe(humidity.description)
+    expect(flood.cta).not.toBe(humidity.cta)
+  })
+
+  it('gives all THREE types their own description, not one shared string', async () => {
+    /* THE REPORT THAT PROMPTED THIS. The owner sent two screenshots of the
+       panel and both showed the FLOOD sentence - which, if the humidity chip
+       were drawing it too, would mean the text is not keyed off the system
+       type at all. That would be a bug, not a copy question, so it is pinned
+       rather than eyeballed: every chip at 0, three panels, three distinct
+       sentences, each naming its own subject.
+       (Checked against the live app too, and it was two captures of the same
+       chip - the keying was never broken. This keeps it that way.) */
+    const { container } = hero(() => {}, { topology: 0, humidity: 0, flood: 0 })
+    const seen = new Map()
+    for (const re of [/^Flow Monitoring/, /^Humidity sensors/, /^Flood sensors/]) {
+      await userEvent.click(chip(container, re))
+      const band = explainer(container)
+      seen.set(
+        band.querySelector('p').textContent,
+        band.querySelector('[data-name="System type description"]').textContent,
+      )
+    }
+    expect([...seen.keys()]).toEqual([
+      'Flow Monitoring systems', 'Humidity sensors', 'Flood sensors',
+    ])
+    expect(new Set(seen.values()).size, 'three types, three lines').toBe(3)
+    /* And each line is the one that belongs to its own type - a shuffled map
+       would still give three distinct strings. */
+    expect(seen.get('Flood sensors')).toMatch(/water reaching somewhere it should not/)
+    expect(seen.get('Humidity sensors')).toMatch(/how damp its own spot is/)
+    expect(seen.get('Flow Monitoring systems')).toMatch(/metered water line/)
+  })
+
+  it('shows the catalogue description verbatim, and nothing between it and the CTA', async () => {
+    /* RE-AIMED TWICE, and the second time is the one that matters.
+       It began as "one claim per benefit line"; the benefit line was cut, so
+       it became "one sentence of description". Then the owner restored Flow
+       Monitoring's second sentence - "just want the description for flow
+       monitoring to be as it was before" - and a sentence COUNT stopped being
+       the rule at all.
+
+       THE RULE IS NOW EXACTNESS, which is stronger than the count it replaced
+       and is what the owner actually ruled on twice over: the middle block is
+       the type's catalogue entry, byte for byte, and nothing sits between it
+       and the CTA. A stray benefit line fails it (the string would not
+       match, and the block list would gain a fourth entry); a runtime
+       truncation fails it; and flow's two sentences pass without an exception
+       written into the test, because the catalogue is the expectation.
+       Counting sentences would have needed a per-type special case here, and
+       a special case is exactly what a future paste would slip through. */
+    const { container } = hero(() => {}, { topology: 0, humidity: 0, flood: 0 })
+    const cases = [
+      [/^Flow Monitoring/, SYSTEM_TYPE.FLOW],
+      [/^Humidity sensors/, SYSTEM_TYPE.HUMIDITY],
+      [/^Flood sensors/, SYSTEM_TYPE.FLOOD],
+    ]
+    for (const [re, type] of cases) {
+      await userEvent.click(chip(container, re))
+      const band = explainer(container)
+      const description = band.querySelector('[data-name="System type description"]').textContent
+      expect(description, `${type} renders its own catalogue entry, unmangled`)
+        .toBe(SYSTEM_TYPE_BLURB[type])
+      expect(description, 'hyphens, never em-dashes').not.toContain('—')
+      /* Three blocks, in this order, and no fourth between the last two. A
+         paragraph that WRAPS is still one <p>, so flow's longer entry does
+         not move this. */
+      expect([...band.querySelectorAll('p, a')].map((el) => el.tagName))
+        .toEqual(['P', 'P', 'A'])
+    }
+  })
+
+  it('puts the type description in the chip description, and never goes empty', () => {
+    /* The panel's prose is aria-hidden on purpose (it would otherwise be
+       announced twice), so this sr-only run is the ONLY route a screen reader
+       has to those words.
+
+       RE-CHECKED after the benefit line was cut. It used to carry the benefit
+       for a zero chip and the blurb otherwise; there is nothing left to
+       append, so both now read the same and neither is empty. The sales route
+       is NOT lost with it - the CTA is a real link with its own accessible
+       name, outside the hidden prose. */
+    const { container } = hero(() => {}, { topology: 103 })
+    const describedText = (re) => {
+      const b = chip(container, re)
+      return container.querySelector('#' + CSS.escape(b.getAttribute('aria-describedby'))).textContent
+    }
+    const zero = describedText(/^Flood sensors: 0/)
+    const nonZero = describedText(/^Flow Monitoring/)
+    expect(zero).toBe(`Flood sensors. ${SYSTEM_TYPE_BLURB[SYSTEM_TYPE.FLOOD]}`)
+    expect(nonZero).toBe(`Flow Monitoring systems. ${SYSTEM_TYPE_BLURB[SYSTEM_TYPE.FLOW]}`)
+    for (const t of [zero, nonZero]) expect(t.trim().length).toBeGreaterThan(20)
   })
 
   it('with no handler every chip stays a picture, as the frame draws it', () => {

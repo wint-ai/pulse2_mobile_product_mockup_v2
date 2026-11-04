@@ -226,7 +226,7 @@ export default function HomeManager() {
         </div>
       </PipesHeader>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 8px', position: 'relative', zIndex: 1 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 93px', position: 'relative', zIndex: 1 }}>
 
         {/* Status widgets */}
         <StatusWidgetsMobile systems={visibleSystems} scopeIds={visibleSystems.map(s => s.id)} alertsOnly />

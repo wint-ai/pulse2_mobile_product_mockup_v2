@@ -233,6 +233,52 @@
  * card header is indistinguishable from one made row by row. That is asserted
  * rather than assumed.
  *
+ * ══ THE 2026-11-04 PASS — ONE DOOR ═══════════════════════════════════════
+ * The owner, verbatim, on a screenshot of this screen's filter row: "I want to
+ * hide everything under filters. I had it some of them are filters and some of
+ * them are not. Use the shadcn filters, don't invent something that looks from
+ * different app. Make search for locations, all the rest doesn't need any
+ * search. Make it easy to use."
+ *
+ * THE CHIP ROW IS GONE. Points 1 and 6 of the 2026-11-02 redesign above are
+ * PARTIALLY SUPERSEDED by this pass and are kept for the argument that put the
+ * chips there; read them with this note beside them.
+ *
+ * WHAT WAS WRONG, MEASURED IN A REAL 393x852 FRAME ON 2026-11-04:
+ *   a. TWO KINDS OF CONTROL DOING ONE JOB. Valve state was a `ToggleGroup` on
+ *      the page; location and connectivity were behind a button. The user had
+ *      to learn that "filters" meant two different gestures depending on which
+ *      filter. That is the inconsistency he names in his first sentence.
+ *   b. IT OVERFLOWED. The chip scroller measured 643px of chips in a ~268px
+ *      slot on `/valves`, which is the sliced `Clos...` in his screenshot. The
+ *      three affordances it carried - an alpha mask, matching trailing padding
+ *      and proximity snap - were treatment for the symptom of putting a list
+ *      that grows with the catalogue on a row that cannot.
+ *
+ * WHAT IS THERE NOW: ONE full-width `FilterSheetTrigger`, and behind it the
+ * SHARED `src/v2/components/FilterSheet.jsx`, which /alerts adopted the same
+ * day under the same instruction ("Use only shadcn component again"). The
+ * local `ValveFilterSheet` that lived in this file is deleted - see the note
+ * at its old site for what moved and what the shared component gained to carry
+ * this screen. ONE FILTER PATTERN IN THE APP, not two that look alike.
+ *
+ * HEIGHT IS A WASH AND THAT IS DELIBERATE. `size="sm"` is h-8, which is what
+ * the chip scroller measured, so fixed chrome is unchanged at 241px and ROWS
+ * FULLY VISIBLE AT REST ARE 10 BEFORE AND 10 AFTER on `/valves` (measured, not
+ * summed). This pass buys consistency and a row that cannot clip; the rows
+ * were bought on 2026-11-02 and are not given back.
+ *
+ * THE TWO THINGS THAT GENUINELY CHANGED BEHAVIOUR, both flagged to the owner:
+ *   · THE STATE FILTER IS MULTI-SELECT. It is a checkbox group like the other
+ *     two now. `matchesFilter` always read `filter.state` as a set, so this is
+ *     an addition - `Open` plus `Closed` in one pass - and `?state=` still
+ *     seeds exactly one key.
+ *   · `All 103` IS GONE. The scope total rode on the All chip and the shared
+ *     sheet has no "all" row in a multi group, because this app spells no
+ *     constraint as nothing ticked. The four state counts still sum to it and
+ *     all four are on screen, which is the whole reason the `none` category
+ *     keeps a filter of its own.
+ *
  * ══ PROJECT COPY STANDARD, APPLIED 2026-11-03 ════════════════════════════
  * Two rules from the private sandbox, binding project-wide:
  *   · `CLAUDE.md:268`, restated at `docs/DESIGN-GUIDE-FOR-CLAUDE.md:49` —
@@ -259,16 +305,15 @@
  * theme, so it drifts out of the design system the moment either moves.
  *
  *   <Item>/<ItemGroup>/<ItemSeparator>   every system row
- *   <ToggleGroup type="single">          the state chips — which are also the
- *                                        counts. STOCK `toggleVariants`: the
- *                                        old `CHIP` constant overrode height,
- *                                        radius, padding, text size, weight
- *                                        and all three `data-[state=on]`
- *                                        colours, i.e. the group was shadcn
- *                                        and the chip's entire appearance was
- *                                        not. All that is left is `snap-start`
+ *   <FilterSheet>/<FilterSheetTrigger>   the whole filter surface and the one
+ *                                        control that opens it, SHARED with
+ *                                        /alerts (2026-11-04). The state chips
+ *                                        that used to be a `<ToggleGroup
+ *                                        type="single">` on this row are three
+ *                                        checkbox rows inside it; see the
+ *                                        2026-11-04 note above
  *   <Checkbox>                           every tick box
- *   <Button>                             the actions, Filters, Show more
+ *   <Button>                             the actions, Show more
  *   <Card>                               the result banner and the two empty
  *                                        states. The LOCATION cards and the
  *                                        selection strip are NOT `<Card>`:
@@ -381,7 +426,7 @@
  */
 import { Fragment, useCallback, useId, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { DropletOff, SlidersHorizontal } from 'lucide-react'
+import { DropletOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -397,11 +442,18 @@ import {
   ItemTitle,
 } from '@/components/ui/item'
 import { Separator } from '@/components/ui/separator'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import TabBar from '@/components/TabBar'
-import MobileHeaderBar from '@/v2/components/MobileHeaderBar'
+/* THE header — one bar on every screen, 2026-11-04 (owner: "It always needs
+   to be the same"). Replaces MobileHeaderBar, which is left on disk unused.
+   This screen's `<h1>` is still the sr-only one below; the bar names the
+   scope, exactly as the bar it replaced did. */
+import AppHeaderBar from '@/v2/components/AppHeaderBar'
+/* One key, `home.switch_location`, for the title slot's accessible name. */
+import { useTranslation } from 'react-i18next'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import BulkValveConfirmSheet from '@/v2/components/BulkValveConfirmSheet'
+import FilterSheet, { FilterSheetTrigger } from '@/v2/components/FilterSheet'
+import { countActiveFilters } from '@/v2/components/filterSheetModel'
 import { ValveStateReadout, ValveSwatch } from '@/v2/components/ValveStateReadout'
 import {
   VALVE_CATEGORIES,
@@ -432,16 +484,15 @@ const channel =
    44px rather than 61px. */
 const PAGE_SIZE = 40
 
-/* The trailing fade on the chip scroller, and the padding that must match it.
-   This is an ALPHA ramp and not a colour, so it is theme-proof by construction
-   and is the one place in this file where a literal `#000` is not a token
-   violation — a mask reads only the alpha channel, so `#000` here means
-   "opaque", not "black". 24px is a little under half a chip's minimum width,
-   which is enough for a clipped chip to read as fading rather than as cut. */
-const CHIP_FADE_WIDTH = '24px'
-const CHIP_FADE = `linear-gradient(to right, #000 0, #000 calc(100% - ${CHIP_FADE_WIDTH}), transparent 100%)`
+/* THE CHIP SCROLLER'S TRAILING ALPHA MASK IS GONE WITH THE CHIP ROW
+   (2026-11-04). It existed because the state chips lived in an overflowing
+   horizontal scroller on this row and the trailing one was being sliced in
+   half; the chips are now inside the filter surface and nothing on the row
+   overflows, so there is nothing left for a fade to soften. If a horizontal
+   scroller ever returns to this screen, the constant is in git history at
+   `CHIP_FADE_WIDTH` along with the three overflow affordances it belonged to.
 
-/* ── THE HOUSE CARD CHASSIS, ONE PER LOCATION ─────────────────────────────
+   ── THE HOUSE CARD CHASSIS, ONE PER LOCATION ─────────────────────────────
    The canonical string is `ValveManagementCard.jsx`'s `CARD` constant and
    every token here is copied from it verbatim: `bg-surface-card`,
    `border border-solid border-card`, `rounded-[18px]`, `overflow-hidden`,
@@ -537,14 +588,15 @@ function locationPathOf(system) {
    semantics — a group with nothing ticked matches everything rather than
    nothing.
 
-   `state` IS NOT A SHEET GROUP ANY MORE. The chip row is the state filter and
-   is the only state filter; the sheet holds the two axes the chips do not
-   cover. That is point 1 of the redesign — the category list was being drawn
-   three times before the user reached a row, and the sheet's "Valve state"
-   group was the third drawing. `state` stays in this shape because `?state=`
-   seeds it and `matchesFilter` reads it; it simply has exactly one producer
-   now, which also means a MULTI-state filter can no longer be built and
-   `chipValue` below no longer has to describe one. */
+   ALL THREE KEYS ARE SHEET GROUPS AGAIN (2026-11-04), AND THEIR NAMES ARE THE
+   GROUP IDS. `state` left the sheet on 2026-11-02 when it became the chip row
+   - at that point the four category words were being drawn three times before
+   the user reached a row, and the sheet's group was the third drawing. The
+   summary card went, then the chip row went, so there is one drawing left and
+   it is back in the sheet. The shape never changed, which is why `?state=`
+   and `matchesFilter` needed no edit either time.
+   A MULTI-STATE FILTER IS BUILDABLE AGAIN, and `matchesFilter` already
+   supported it: `filter.state` has always been read as a set. */
 const EMPTY_FILTER = { location: [], state: [], connectivity: [] }
 
 const CONNECTIVITY_OPTIONS = [
@@ -565,10 +617,29 @@ function matchesFilter(system, filter) {
   return true
 }
 
-/** What the `Filters` badge counts: the SHEET's axes only. The state filter is
- *  a chip and shows its own pressed state, so counting it here would say
- *  "1 active" about a control the user can already see is on. */
-const sheetFilterCount = (filter) => filter.location.length + filter.connectivity.length
+/** THE ACTIVE FILTERS, AS THE WORDS THE USER PICKED, across EVERY axis.
+ *
+ *  This used to be `sheetFilterCount` and it deliberately left the state filter
+ *  out, because the state filter was a chip on the row with its own visible
+ *  pressed state and counting it would have said "1 active" about a control the
+ *  user could already see was on. Since 2026-11-04 there is no such chip: every
+ *  axis is behind the one door, so every axis counts here.
+ *
+ *  LABELS, NOT A BARE NUMBER, because the one control left on the row has to
+ *  answer "filtered by what?" without being opened. The words are the ones the
+ *  user chose from - `VALVE_CATEGORIES`' own state words, the location's own
+ *  name, `CONNECTIVITY_OPTIONS`' own label - never a paraphrase. */
+function activeFilterLabels(filter) {
+  const labels = []
+  for (const key of filter.state) {
+    labels.push(VALVE_CATEGORIES.find((c) => c.key === key)?.label ?? key)
+  }
+  for (const name of filter.location) labels.push(name)
+  for (const value of filter.connectivity) {
+    labels.push(CONNECTIVITY_OPTIONS.find((o) => o.value === value)?.label ?? value)
+  }
+  return labels
+}
 
 /** `?state=` → the state filter's value. Only the four `VALVE_CATEGORIES`
  *  keys are honoured; anything else is All. See the deep-link note in the
@@ -593,7 +664,20 @@ function optionsWithCounts(systems, keyOf, labelOf, order) {
   const keys = order
     ? order.filter((k) => counts.has(k))
     : [...counts.keys()].sort((a, b) => String(a).localeCompare(String(b)))
-  return keys.map((value) => ({ value, label: labelOf(value), count: counts.get(value) || 0 }))
+  return keys.map((value) => {
+    const label = labelOf(value)
+    const count = counts.get(value) || 0
+    return {
+      value,
+      label,
+      count,
+      /* THE CHECKBOX'S ACCESSIBLE NAME, unchanged from the sheet this screen
+         used to own. `FilterSheet` names an option from the row's own
+         `<label>` when no `name` is given, which would read the bare count
+         beside the word; this says it in the screen's own units instead. */
+      name: `${label}, ${num(count)} ${plural(count, 'system', 'systems')}`,
+    }
+  })
 }
 
 /** The drawn rows, in runs by location, each run keeping its first-appearance
@@ -757,168 +841,58 @@ function SystemRow({ system, checked, onToggle }) {
   )
 }
 
-/* ── The filter sheet ─────────────────────────────────────────────────────
-   `absolute inset-0` INSIDE the page — no portal, for the reason in the
-   header. Draft/apply after `SystemsFilterSheet.jsx:62-77`: the draft is
-   re-seeded WHEN THE SHEET OPENS, not on every change, so a Cancel followed by
-   a re-open does not resurrect an abandoned draft and an edit mid-session is
-   not wiped. Editing the live filter as the viewer ticks would make Cancel a
-   lie.
+/* ── THE FILTER SURFACE IS NOT THIS FILE'S ANY MORE ───────────────────────
+   The owner, 2026-11-04, on this screen: "I want to hide everything under
+   filters. I had it some of them are filters and some of them are not. Use the
+   shadcn filters, don't invent something that looks from different app. Make
+   search for locations, all the rest doesn't need any search. Make it easy to
+   use." And on /alerts the same day: "Use only shadcn component again."
 
-   TWO GROUPS, NOT THREE. "Valve state" used to be the third place on this
-   screen that drew the four category words; it is now the chip row's job
-   exclusively, and the chip row is on screen behind this sheet.
+   TWO SCREENS GOT THE SAME INSTRUCTION ON THE SAME DAY, so there is ONE
+   surface: `src/v2/components/FilterSheet.jsx`, with `FilterSheetTrigger` as
+   the control that opens it and `filterSheetModel.js` for the count. A local
+   `ValveFilterSheet` lived here until this pass and is deleted - two sheets
+   that look alike but are separate code is precisely what "don't invent
+   something that looks from different app" rules out, and a divergence between
+   them would be invisible until a token moved under one and not the other.
 
-   EVERY OPTION SHOWS HOW MANY SYSTEMS IT WOULD YIELD
-   (`SystemsFilterSheet.jsx:245-247`). */
-function ValveFilterSheet({ open, groups, selection, onApply, onClose }) {
-  const [draft, setDraft] = useState(selection)
-  const [seededFor, setSeededFor] = useState(null)
+   WHAT MOVED OUT OF THIS FILE WITH IT: the draft/apply contract, the scrim,
+   the Escape key, the `absolute inset-0` shell, the group headers, the
+   checkbox rows, the footer. WHAT THE SHARED COMPONENT GAINED so it could
+   carry this screen, all opt-in per group and all off by default so /alerts
+   did not move: `searchable` + `searchLabel` + `searchEmptyLabel`, `selectAll`
+   (the tri-state `All N` box this screen already had), a per-option `count`
+   Badge, a per-option `name` for the checkbox's accessible name, `emptyLabel`,
+   and `summary` + `dataName` on the trigger. See that file's contract.
 
-  /* Re-seed on the OPEN transition, during render rather than in an effect: an
-     effect here would run a render late and flash the previous draft. */
-  if (open && seededFor !== selection) {
-    setSeededFor(selection)
-    setDraft(selection)
-  }
-  if (!open && seededFor !== null) setSeededFor(null)
-
-  if (!open) return null
-
-  const toggle = (groupId, value) => {
-    const picked = draft[groupId] ?? []
-    const next = picked.includes(value) ? picked.filter((v) => v !== value) : [...picked, value]
-    setDraft({ ...draft, [groupId]: next })
-  }
-
-  const toggleGroup = (group) => {
-    const picked = draft[group.id] ?? []
-    const values = group.options.map((o) => o.value)
-    const all = values.length > 0 && values.every((v) => picked.includes(v))
-    setDraft({ ...draft, [group.id]: all ? [] : values })
-  }
-
-  return (
-    <div
-      className="absolute inset-0 z-50 flex flex-col justify-end"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Filter valves"
-      data-name="valve-filter-sheet"
-    >
-      {/* Scrim. A tap outside is a Cancel, not an Apply. */}
-      <button
-        type="button"
-        aria-label="Close filters"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-foreground/45"
-      />
-
-      <div className="relative flex max-h-[78%] flex-col overflow-hidden rounded-t-xl bg-card">
-        <div className="shrink-0 px-4 py-3">
-          {/* NEW COPY */}
-          <h2 className="text-sm font-semibold text-foreground">Filter valves</h2>
-        </div>
-        <Separator />
-
-        <div className="flex flex-col overflow-y-auto">
-          {groups.map((group, index) => {
-            const picked = draft[group.id] ?? []
-            const values = group.options.map((o) => o.value)
-            const all = values.length > 0 && values.every((v) => picked.includes(v))
-            const some = values.some((v) => picked.includes(v))
-            return (
-              <section key={group.id}>
-                {index > 0 ? <Separator /> : null}
-                <div className="flex items-center justify-between px-4 pt-3">
-                  <h3 className="text-xs font-semibold text-foreground">{group.label}</h3>
-                  {/* A `<label>` only forwards a click to a LABELABLE element,
-                      and Radix's Checkbox is a `<button role="checkbox">` — so
-                      the forward is explicit, with the same guard the rows use
-                      so a press ON the box does not toggle twice. Without it
-                      the only hit target would be the 18px box itself, which
-                      is under every touch-target floor there is. */}
-                  <span
-                    role="presentation"
-                    onClick={(e) => {
-                      if (e.target?.closest?.('[data-slot="checkbox"]')) return
-                      toggleGroup(group)
-                    }}
-                    className="flex cursor-pointer items-center gap-2 py-1"
-                  >
-                    <Checkbox
-                      checked={all ? true : some ? 'indeterminate' : false}
-                      onCheckedChange={() => toggleGroup(group)}
-                      /* NEW COPY — numbered, like every other select-all here. */
-                      aria-label={`Select all ${num(group.options.length)} ${group.label.toLowerCase()} options`}
-                    />
-                    <span className="text-xs text-muted-foreground">
-                      {`All ${num(group.options.length)}`}
-                    </span>
-                  </span>
-                </div>
-                <ul className="flex flex-col py-1">
-                  {group.options.length === 0 ? (
-                    /* NEW COPY */
-                    <li className="px-4 py-3 text-sm text-muted-foreground">
-                      Nothing to filter by here.
-                    </li>
-                  ) : (
-                    group.options.map((o) => (
-                      <li
-                        key={String(o.value)}
-                        /* The whole 44px row is the target, not the 18px box —
-                           see the note on the group's select-all above. */
-                        onClick={(e) => {
-                          if (e.target?.closest?.('[data-slot="checkbox"]')) return
-                          toggle(group.id, o.value)
-                        }}
-                      >
-                        <div className="flex min-h-11 w-full cursor-pointer items-center gap-3 px-4 py-2 text-left hover:bg-accent">
-                          <Checkbox
-                            checked={picked.includes(o.value)}
-                            onCheckedChange={() => toggle(group.id, o.value)}
-                            aria-label={`${o.label}, ${num(o.count)} ${plural(o.count, 'system', 'systems')}`}
-                          />
-                          <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                            {o.label}
-                          </span>
-                          {/* The count is ours. A checkbox that silently
-                              returns nothing is the complaint the house sheet
-                              started from. */}
-                          <Badge variant="secondary" className="shrink-0 tabular-nums">
-                            {num(o.count)}
-                          </Badge>
-                        </div>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </section>
-            )
-          })}
-        </div>
-
-        <Separator />
-        <div className="flex shrink-0 items-center justify-end gap-2 px-4 py-3">
-          {/* NEW COPY, both. Cancel first, Apply last: the confirming action
-              sits where the thumb finishes. */}
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="button" size="sm" onClick={() => onApply(draft)}>
-            Apply filter
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
+   WHAT THE STATE CHIPS BECAME, AND WHY IT IS A REAL CHANGE. They were a
+   `<ToggleGroup type="single">` on the page: `All 103` · `Valve Error 2` ·
+   `Open 74` · `Closed 7` · `No valve installed 20`, in a scroller measured on
+   2026-11-04 at 643px inside a ~268px slot, which is the sliced chip in the
+   owner's screenshot. They are now a `multi` group IN the surface, drawn as
+   checkbox rows like the other two axes.
+     · NOT the shared sheet's `single` mode, which is a segmented control one
+       flex-1 segment per option. Five options at 361px is 64px each and
+       `No valve installed` ellipses to nothing - the exact defect that sheet
+       was built to fix on /alerts, where four chips already ellipsed.
+     · SO THE STATE FILTER IS NOW MULTI-SELECT, which is an ADDITION: `Open`
+       plus `Closed` in one pass was impossible before. `matchesFilter` already
+       read `filter.state` as a set and needed no change, and `?state=` still
+       seeds exactly one key.
+     · THE ONE READOUT GIVEN UP IS `All 103`, the scope total that rode on the
+       All chip. The four counts beside the four states still sum to it - that
+       is why the `none` chip was kept in the first place, "a breakdown missing
+       a part is a lie about the whole" - so the number is derivable and every
+       part is on screen. Flagged to the owner rather than quietly dropped.
+     · THE SWATCH SURVIVES, beside the word, in every row. `index.css:358-367`
+       records --valve-error against --valve-open at dE 7.6 under deuteranopia,
+       legal ONLY with secondary encoding, and the word is that encoding. */
 
 // ── Screen ─────────────────────────────────────────────────────────────────
 
 export default function ValveManagementScreen() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   /* `key === 'default'` is react-router's marker for the FIRST entry in the
      history stack, in BrowserRouter and MemoryRouter alike. It is how this
      screen knows whether there is a "where the user came from" to go back to;
@@ -933,10 +907,11 @@ export default function ValveManagementScreen() {
   const scopeLabel = scopeName ?? 'All Accounts'
 
   /* `useId`, not literals, because a literal id is a duplicate waiting for a
-     second mount. `chipId` is the stem for the per-chip count descriptions;
-     `selectAllNoteId` is what the select-all box points `aria-describedby` at,
-     so a screen reader gets the same accounting the sighted user does. */
-  const chipId = useId()
+     second mount. `selectAllNoteId` is what the select-all box points
+     `aria-describedby` at, so a screen reader gets the same accounting the
+     sighted user does. The per-chip count ids went with the chips
+     (2026-11-04): a state option's count now rides in its own `aria-label`,
+     which `FilterSheet` takes from that option's `name`. */
   const selectAllNoteId = useId()
 
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -1003,13 +978,53 @@ export default function ValveManagementScreen() {
   const shown = useMemo(() => filtered.slice(0, renderLimit), [filtered, renderLimit])
   const rowGroups = useMemo(() => groupByLocation(shown), [shown])
 
+  /* ── THE THREE AXES, AS ONE DECLARATIVE ARRAY FOR `<FilterSheet>` ───────
+     The group ids ARE the keys of `filter`, so the map the sheet hands back on
+     Apply is the filter. Nothing translates between them and there is nothing
+     to keep in sync.
+
+     SHORT GROUPS FIRST, THE LONG ONE LAST. State and Connectivity are 4 and 2
+     options; Location is 17 here and unbounded in production. Measured in a
+     393x852 frame on 2026-11-04: with Location second, the Connectivity header
+     sat below the fold on first open - a two-option filter nobody would scroll
+     to find. Location is the one that can afford to be last because it is the
+     one with a search box over it.
+
+     EVERY OPTION CARRIES ITS COUNT. `SystemsFilterSheet.jsx:245-247` states
+     why in as many words: "A checkbox that silently returns nothing is the
+     complaint this whole tab started from." Counts are scope-wide and
+     independent of the other groups, so a count never moves under the user
+     while they are ticking. */
   const groups = useMemo(
     () => [
       {
-        id: 'location',
-        /* NEW COPY: both group names. */
-        label: 'Location',
-        options: optionsWithCounts(systems, leafLocationOf, (v) => v),
+        id: 'state',
+        /* NEW COPY: all three group names. The OPTION labels below are not
+           new: the four valve words are `VALVE_CATEGORIES`', verbatim from
+           Figma board 199535:96542, and the two connectivity words are the
+           product's own (`en.json:348-355`). */
+        label: 'Valve state',
+        mode: 'multi',
+        /* THE CATEGORIES PRESENT IN THIS SCOPE, and no others. An option for a
+           state with no systems is a control that can only ever return an
+           empty list. */
+        options: VALVE_CATEGORIES.filter((c) => summary.byCategory[c.key].total > 0).map((c) => {
+          const count = summary.byCategory[c.key].total
+          return {
+            value: c.key,
+            /* A NODE, not a string: the swatch travels with the word. The word
+               is the secondary encoding the dE 7.6 note in the header makes
+               mandatory, and the swatch is what makes the option scannable. */
+            label: (
+              <>
+                <ValveSwatch categoryKey={c.key} />
+                {c.label}
+              </>
+            ),
+            count,
+            name: `${c.label}, ${num(count)} ${plural(count, 'system', 'systems')}`,
+          }
+        }),
       },
       {
         /* CONNECTIVITY IS THE AXIS THE WHOLE FEATURE TURNS ON, so it is a
@@ -1017,6 +1032,8 @@ export default function ValveManagementScreen() {
            offline ones" is how a user audits what a bulk action will miss. */
         id: 'connectivity',
         label: 'Connectivity',
+        mode: 'multi',
+        selectAll: true,
         options: optionsWithCounts(
           systems,
           connectivityOf,
@@ -1024,8 +1041,26 @@ export default function ValveManagementScreen() {
           CONNECTIVITY_OPTIONS.map((o) => o.value),
         ),
       },
+      {
+        id: 'location',
+        label: 'Location',
+        mode: 'multi',
+        selectAll: true,
+        /* THE ONE SEARCHABLE AXIS. The owner: "Make search for locations, all
+           the rest doesn't need any search." 17 leaf locations in this
+           dataset, unbounded in production - and the only list here a thumb
+           cannot scan. Valve state has 4 options and connectivity 2, both
+           fully drawn: a box over either would be a control with nothing to
+           do. There is no global search on this screen and none is added. */
+        searchable: true,
+        /* NEW COPY, all three. */
+        searchLabel: 'Search locations',
+        searchEmptyLabel: 'No locations match this search.',
+        emptyLabel: 'Nothing to filter by here.',
+        options: optionsWithCounts(systems, leafLocationOf, (v) => v),
+      },
     ],
-    [systems],
+    [summary, systems],
   )
 
   const closeTargets = useMemo(
@@ -1153,10 +1188,12 @@ export default function ValveManagementScreen() {
     setRenderLimit(PAGE_SIZE)
   }, [])
 
-  const setStateChip = useCallback((keys) => {
-    setFilter((prev) => ({ ...prev, state: keys }))
-    setRenderLimit(PAGE_SIZE)
-  }, [])
+  /* `setStateChip` IS GONE (2026-11-04) and nothing replaced it. The state
+     filter was the one axis applied straight from the page, outside the
+     draft/apply contract every other axis obeys; it now travels in the sheet's
+     draft like the rest and lands through `applyFilter`. The `?state=` re-seed
+     above still writes `filter.state` directly, because a deep link is not a
+     draft - it IS the applied filter, the same way it always was. */
 
   /* The control behind "N hidden by the filter" on the strip. Clears
      EVERYTHING, including the chip — the user pressed a number that counts
@@ -1215,7 +1252,27 @@ export default function ValveManagementScreen() {
     publish({ type: 'data-changed' })
   }, [pending, pendingTargets, batchScopeLabel])
 
-  const activeSheetFilters = sheetFilterCount(filter)
+  /* WHAT THE ONE CONTROL ON THE ROW HAS TO SAY WITHOUT BEING OPENED: how many
+     constraints are on, and - when there is exactly one - WHICH.
+     THE NUMBER IS `countActiveFilters`, the shared model's, so this screen and
+     /alerts cannot disagree about what "active" means. With three `multi`
+     groups it is simply the number of ticked values.
+     THE WORD is this screen's, because only this screen knows that `open` is
+     drawn as `Open`. One label fits a 361px row and cannot clip; two would be
+     a guess about which matters more, so past one the trigger states the count
+     and the surface states the rest. NEW COPY: the `N filters` form only - the
+     single-filter form is always a word the user already chose from a
+     catalogue, never a phrase authored here.
+     DELIBERATELY NOT THE WORD "selected": this screen counts a SELECTION of
+     systems a few lines below, and two different things called "3 selected" on
+     one screen is the number confusion copy standard §4 exists to stop. */
+  const activeFilters = countActiveFilters(groups, filter)
+  const filterSummary =
+    activeFilters === 0
+      ? undefined
+      : activeFilters === 1
+        ? activeFilterLabels(filter)[0]
+        : `${num(activeFilters)} ${plural(activeFilters, 'filter', 'filters')}`
   const hasValves = summary.valveTotal > 0
 
   /* ── WHAT THE SELECTION STRIP SHOWS, AND THE `none` DEAD END ───────────
@@ -1259,17 +1316,6 @@ export default function ValveManagementScreen() {
   const showActions = hasValves && selectedCount > 0
   const showStrip = showSelectAll || showNoneSelectable || showActions
 
-  /* The chip row's value for `<ToggleGroup type="single">`. Nothing ticked is
-     'all'; otherwise it is the one state. `filter.state` can now only hold 0
-     or 1 keys — the sheet no longer has a state group — so there is no
-     multi-state case left to represent as "nothing pressed". */
-  const chipValue = filter.state.length === 0 ? 'all' : filter.state[0]
-
-  /* The categories PRESENT in this scope, which is what the chip row draws.
-     A chip for a state with no systems is a control that can only ever return
-     an empty list. */
-  const presentCategories = VALVE_CATEGORIES.filter((c) => summary.byCategory[c.key].total > 0)
-
   return (
     <div
       style={{
@@ -1296,131 +1342,84 @@ export default function ValveManagementScreen() {
             drawer, which is how `SystemPageV2Screen.jsx:1514` satisfies the
             shell contract's burger rule without drawing a burger. */}
         <div className="w-full shrink-0">
-          <MobileHeaderBar
+          <AppHeaderBar
+            /* No px of its own; the root's inset is the inset. */
+            className="px-0"
             label={scopeLabel}
+            /* `Switch location`, from the catalogue — the name the drawer is
+               opened BY everywhere in this app. */
+            scopeAriaLabel={t('home.switch_location')}
             onBack={goBack}
             backLabel="Back"
-            onOpenTree={() => setDrawerOpen(true)}
+            onOpenDrawer={() => setDrawerOpen(true)}
           />
         </div>
 
-        {/* ── THE COUNTS AND THE FILTER ARE ONE CONTROL ──────────────────
-            This row replaces BOTH the summary card's legend and the old chip
-            row. Each chip carries its swatch, its word and its count: it is
-            the breakdown and it is the filter, so the two can never disagree
-            and neither needs the other's 166px. UK Analysis Function: "Do not
-            use a key, label the categories themselves."
+        {/* ── ONE DOOR ───────────────────────────────────────────────────
+            The owner, 2026-11-04: "I want to hide everything under filters. I
+            had it some of them are filters and some of them are not."
 
-            STOCK `toggleVariants`, `variant="outline" size="sm"`. The old
-            `CHIP` constant overrode height, radius, padding, text size, weight
-            and all three `data-[state=on]` colours — the group was shadcn and
-            the chip's entire appearance was not, so a token change could not
-            reach it. All that is left is `snap-start`.
+            WHAT WAS HERE: a horizontal scroller of state chips with the Filters
+            button pinned beside it. Two kinds of control on one row doing the
+            same job by two different gestures, and the scroller OVERFLOWED -
+            measured in a real 393x852 frame at 643px of chips in a ~268px slot
+            on `/valves`, which is why his screenshot shows `Clos...` sliced.
+            The three overflow affordances it carried (an alpha mask, matching
+            trailing padding, proximity snap) were all treatment for a symptom
+            of putting a growing list on a fixed row.
 
-            THE FILTER BUTTON IS NOT A CHIP AND DOES NOT PRETEND TO BE ONE. It
-            opens a sheet rather than selecting a value, so it is a `<Button>`
-            outside the group. It also does not scroll with the chips: the
-            browser pass showed `ml-auto` inside an overflowing scroller
-            pushing it past the 393px edge, leaving the only door to location
-            and connectivity filtering off screen.
+            WHAT IS HERE NOW: one full-width `<Button>` that opens the filter
+            surface. Full width rather than the old auto width for three
+            reasons - nothing can overflow a row with one item in it; the
+            target is 361x32 instead of ~85x32 on the screen whose brief ends
+            "make it easy to use"; and the slack is what carries the summary of
+            what is currently on.
 
-            THE SCROLLER'S THREE OVERFLOW AFFORDANCES, kept from the browser
-            pass that found a chip sliced in half at the trailing edge showing
-            only its leading dot — which reads as a rendering fault, not as
-            "there is more":
-            1. A TRAILING ALPHA MASK, self-regulating: when the chips fit, the
-               last 24px of the box is empty space and the mask has nothing to
-               act on, so no state and no ResizeObserver is needed.
-            2. TRAILING PADDING EQUAL TO THE FADE, so the final chip can scroll
-               clear of the ramp and be drawn at full opacity.
-            3. SNAP, `proximity` not `mandatory`: a flick lands a chip against
-               the left edge rather than mid-chip. `proximity` leaves a
-               deliberate small scroll alone; `mandatory` would fight the
-               thumb. */}
+            THE SUMMARY IS SHADCN'S OWN FACETED-FILTER TRIGGER, not an invented
+            look: `[icon] [label] [vertical Separator] [Badge]`, which is what
+            `DataTableFacetedFilter` draws and which this row already used in
+            miniature for its count badge. shadcn collapses the value badges to
+            a bare count below `lg`; this keeps ONE badge because the common
+            case here is exactly one filter - the `?state=` deep link - and a
+            user who lands on two rows out of 103 needs to read WHY on the face
+            of the screen.
+
+            HEIGHT IS UNCHANGED, DELIBERATELY: `size="sm"` is h-8, which is what
+            the chip scroller measured. This pass buys clarity, not rows; the
+            rows were bought in the 2026-11-02 pass and are not given back. */}
         {hasValves ? (
-          <div className="flex w-full shrink-0 items-center gap-2">
-            <div
-              className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              style={{
-                scrollSnapType: 'x proximity',
-                maskImage: CHIP_FADE,
-                WebkitMaskImage: CHIP_FADE,
-              }}
-            >
-              <ToggleGroup
-                type="single"
-                variant="outline"
-                size="sm"
-                spacing={2}
-                value={chipValue}
-                /* Radix single-select emits '' when the pressed item is pressed
-                   again. Here that is a real state — it means All — so unlike
-                   AccountScreenV2's SegmentedPicker it is honoured rather than
-                   ignored. */
-                onValueChange={(v) => setStateChip(!v || v === 'all' ? [] : [v])}
-                aria-label="Filter by valve state"
-                className="gap-1.5"
-                style={{ paddingRight: CHIP_FADE_WIDTH }}
-              >
-                {/* THE COUNT RIDES IN `aria-describedby`, NOT IN THE NAME. The
-                    accessible NAME stays the bare category word so the control
-                    is addressable by what it does; the count is announced
-                    after it as a description. Putting the number in the name
-                    would make the control's identity change every time the
-                    fleet does. */}
-                {/* NEW COPY: "All". The four after it are VALVE_CATEGORIES'. */}
-                <ToggleGroupItem
-                  value="all"
-                  aria-label="All"
-                  aria-describedby={`${chipId}-all`}
-                  className="snap-start"
-                >
-                  All
-                  <span id={`${chipId}-all`} className="tabular-nums text-muted-foreground">
-                    {num(summary.total)}
-                  </span>
-                </ToggleGroupItem>
-                {presentCategories.map((c) => (
-                  <ToggleGroupItem
-                    key={c.key}
-                    value={c.key}
-                    aria-label={c.label}
-                    aria-describedby={`${chipId}-${c.key}`}
-                    className="snap-start"
-                  >
-                    <ValveSwatch categoryKey={c.key} />
-                    {c.label}
-                    <span id={`${chipId}-${c.key}`} className="tabular-nums text-muted-foreground">
-                      {num(summary.byCategory[c.key].total)}
-                    </span>
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
+          <div className="flex w-full shrink-0 items-center" data-name="valve-filter-row">
+            {/* `FilterSheetTrigger` is the shared control, so this screen and
+                /alerts open their filters with the same button. Two props are
+                this screen's:
+                  · `label="Filters"` keeps the string this screen already
+                    shipped (copy rule 0 - do not reword a visible string);
+                    the component's own default is "Filter by".
+                  · `summary` names the one constraint when there is exactly
+                    one, which is the `?state=open` deep-link case.
+                FULL WIDTH, which the shared trigger allows and /alerts does
+                not use: nothing can overflow a row with one item in it, and
+                the target goes from ~85x32 to 361x32 on the screen whose
+                brief ends "make it easy to use". The slack is what carries
+                the summary. */}
+            <FilterSheetTrigger
+              label="Filters"
+              count={activeFilters}
+              summary={filterSummary}
+              dataName="valve-filter-trigger"
               onClick={() => setFilterOpen(true)}
-              /* NEW COPY */
-              aria-label={
-                activeSheetFilters > 0 ? `Filters - ${activeSheetFilters} active` : 'Filters'
-              }
-              className={cn('shrink-0', activeSheetFilters > 0 && 'border-primary text-primary')}
-            >
-              <SlidersHorizontal aria-hidden="true" />
-              Filters
-              {activeSheetFilters > 0 ? (
-                <Badge className="ml-0.5 px-1.5 tabular-nums">{num(activeSheetFilters)}</Badge>
-              ) : null}
-            </Button>
+              className={cn(
+                'w-full justify-start',
+                activeFilters > 0 && 'border-primary text-primary',
+              )}
+            />
           </div>
         ) : null}
 
         {/* ── THE ONE SCROLLING REGION ──────────────────────────────────── */}
         <div
           className="w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
+          style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: 93 }}
           data-name="valve-rows"
         >
           {result ? <ResultBanner result={result} onDismiss={() => setResult(null)} /> : null}
@@ -1802,10 +1801,18 @@ export default function ValveManagementScreen() {
         ) : null}
       </div>
 
-      <ValveFilterSheet
+      {/* THE ONE FILTER SURFACE, shared with /alerts. `absolute inset-0`
+          inside this page and no portal, which is the constraint that rules
+          out shadcn's usual Popover-plus-Command recipe - see that file's
+          header and this one's.
+          `groups` is keyed by the keys of `filter`, so `onApply` hands back
+          the filter itself and `applyFilter` sets it whole. Nothing is
+          translated at this boundary and nothing can drift. */}
+      <FilterSheet
         open={filterOpen}
+        title="Filter valves"
         groups={groups}
-        selection={filter}
+        value={filter}
         onApply={applyFilter}
         onClose={() => setFilterOpen(false)}
       />

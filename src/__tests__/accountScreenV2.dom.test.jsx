@@ -288,7 +288,7 @@ describe('the scroll region cannot squash what is in it', () => {
     expect(title.parentElement.className).toMatch(/\bshrink-0\b/)
 
     // TabBar likewise — it is in the column, below the scroller.
-    const tabBar = screen.getByText('Home').closest('div[class*="shrink-0"]')
+    const tabBar = screen.getByText('Dashboard').closest('div[class*="shrink-0"]')
     expect(tabBar).not.toBeNull()
     expect(region.contains(tabBar)).toBe(false)
   })

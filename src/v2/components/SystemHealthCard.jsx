@@ -150,7 +150,7 @@
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { ArrowRight, PowerOff } from 'lucide-react'
-import { PhotoSensor3, PinLocation03, WifiDisconnected02 } from '@/v2/icons'
+import { LocationDot, PhotoSensor3, WifiDisconnected02 } from '@/v2/icons'
 import ValveStatus from '@/v2/components/ValveStatus'
 import { cn } from '@/lib/utils'
 
@@ -165,13 +165,50 @@ const CARD = String.raw`bg-surface-card border border-solid border-card content-
 /* 199371:129896 / 199323:12127 — the heading block and its row. */
 const HEAD_BLOCK = String.raw`content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full`
 const HEAD_ROW = String.raw`content-stretch flex h-[28px] items-center justify-between px-[20px] relative shrink-0 w-full`
-const HEAD_TITLE = String.raw`[word-break:break-word] font-medium relative shrink-0 text-foreground text-sm whitespace-nowrap leading-5`
+/* ── THE HEADING GREW, 2026-11-04 (199922:85244) ──────────────────────────
+   `System health` was 14px/20 on --foreground; the owner's account-dashboard
+   frame draws it 18px/28 in slate-600 (#45556c) and in GEIST, not the card's
+   Figtree. All three move together and none of them is a guess:
+     SIZE/LEADING  text-sm leading-5 -> text-[18px] leading-[28px]. Size BEFORE
+                   leading - the repo's standing tailwind-merge trap, stated at
+                   ORDER MATTERS in this file's header.
+     INK           --foreground is the card's body ink and resolved to
+                   slate-900 here; the frame's #45556c is slate-600, which is
+                   already this card's token for its quieter text (SHOW_ALL_TEXT
+                   and CLEAR_TEXT both carry it) and is themed in all four.
+     FAMILY        Geist is --font-mono-label in this repo (src/index.css:785),
+                   which is why the atom carries the family itself and the call
+                   site no longer prepends `font-sans`: cn() is tailwind-merge
+                   and it does NOT know --font-mono-label belongs to the
+                   font-family group, so leaving both on would ship two
+                   font-family declarations and let stylesheet order pick the
+                   winner. SystemsOverviewHero's CHIP_NUM does the same thing
+                   for the same reason.
+   FLAGGED FOR THE OWNER: the family change is this card's FIRST Geist string,
+   so the heading and the bar label below it are now different families. The
+   rest of the card was left in Figtree deliberately - the new frame draws only
+   the header and the all-clear row, and re-typing the bar, the tiles and the
+   other-issues row off a frame that does not contain them would be inventing. */
+const HEAD_TITLE = String.raw`[word-break:break-word] font-mono-label font-medium relative shrink-0 text-slate-600 text-[18px] whitespace-nowrap leading-[28px]`
 
-/* 199338:52768 — the "Show all" Button. Figma draws it 99x36; `after:` grows
-   the tap target to 99x48 without moving a pixel (the button is already
-   `relative`, and the pseudo-element paints nothing). */
-const SHOW_ALL = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex gap-1.5 h-[36px] items-center justify-end px-0 py-0 relative rounded-[26px] shrink-0 w-[99px] after:absolute after:content-[''] after:inset-x-0 after:inset-y-[-6px]`
-const SHOW_ALL_TEXT = String.raw`[word-break:break-word] font-medium relative shrink-0 text-slate-600 text-sm whitespace-nowrap leading-5`
+/* 199338:52768 — the "Show all" Button. Figma drew it 99x36; 199922:85244
+   draws it 99x32 with a 2px gap, so both move here. `after:` grows the tap
+   target to 99x48 without moving a pixel (the button is already `relative`,
+   and the pseudo-element paints nothing) — and the inset grows with the
+   shrink, -6px to -8px, so the target is still 48 and NOT 44.
+
+   THE 5px CLEARANCE ABOVE THE BAR IS PRESERVED EXACTLY, which is the only
+   reason this is safe: see THE TAP TARGET under BAR below for the
+   measurement. At h-36/-6px the after: box ran y 2..50 inside a 28px heading
+   row starting at y 12, with the bar at y 55 — 5px of free space. At
+   h-32/-8px it runs y 2..50 again, because 32 centred in that row is 10..42
+   and 42+8 = 50. Identical box, identical clearance, one less drawn pixel. */
+const SHOW_ALL = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex gap-[2px] h-[32px] items-center justify-end px-0 py-0 relative rounded-[26px] shrink-0 w-[99px] after:absolute after:content-[''] after:inset-x-0 after:inset-y-[-8px]`
+/* 199922:85244 gives this the same Geist Medium the heading beside it now
+   carries, at its existing 14px on slate-600 - so the family is the only
+   thing that moves, and it moves because the frame says so. See HEAD_TITLE
+   for why the family lives in the atom rather than at the call site. */
+const SHOW_ALL_TEXT = String.raw`[word-break:break-word] font-mono-label font-medium relative shrink-0 text-slate-600 text-sm whitespace-nowrap leading-5`
 const SHOW_ALL_ICON = String.raw`content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px]`
 
 /* 199323:12125 / 199323:12126 — the body and its 27px column. */
@@ -360,7 +397,38 @@ const TILE_SOLO = String.raw`appearance-none border-0 content-stretch cursor-poi
    revert. This side is kept instead: the node's own `#e8f5ff` ground and the
    `PinLocation03` glyph the card drew before the rework (2141d10 and every
    commit before it). The SENTENCE is origin/dev's; only the box is ours. */
-const CLEAR_ROW = String.raw`bg-accent content-stretch flex items-center min-h-[43px] px-[11px] py-[7px] relative rounded-[16px] shrink-0 w-full`
+/* ── THE ALL-CLEAR ROW IS GREEN NOW, 2026-11-04 (199922:85244) ────────────
+   THIS REVERSES THE MERGE NOTE DIRECTLY ABOVE, and it is reversed by evidence
+   rather than by preference. That note refused origin/dev's
+   `bg-alert-surface-success` on one ground and one only: "That green is in no
+   frame - it was minted for the amber/green/blue tone split the very same
+   commit deleted". The owner's account-dashboard frame draws this row
+   #d9fde2, a green, so the premise is gone and the conclusion goes with it.
+   The pale-blue #e8f5ff reading came from 199417:131529, which this frame
+   supersedes for this surface.
+
+   WHY THE TOKEN AND NOT THE LITERAL. --alert-surface-success is #dcfce7 in
+   `light`, i.e. (220,252,231) against the frame's (217,253,226): 3, 1 and 5
+   units. That is the same order of approximation this row already accepted
+   going the other way (--accent #f2f6ff against the node's #e8f5ff, a 4-unit
+   lift, taken deliberately by the dark-mode pass) and it is the only token in
+   the set in this family. A literal `bg-[#d9fde2]` would freeze a light-mode
+   green across all four themes - the exact failure this file's TILE_HOT note
+   and SystemsOverviewHero's CHIP border note both record. The token is
+   redefined under `dark` (a 10% mix of --success) and under `contrast`; `sand`
+   does not redefine it and inherits :root's #dcfce7, which is correct there -
+   sand is a light theme on a white card.
+   The chassis - min-h-[43px], px-[11px], rounded-[16px], full width - is
+   unchanged and matches the frame. */
+/* THE 4px INNER GAP, 2026-11-04. 199922:85244 puts the glyph and the sentence
+   in an inner flex group at gap-[4px]; with exactly two children that is the
+   same pixels as a gap on the row itself, and one fewer wrapper than
+   transcribing the group literally. The row keeps min-h rather than the
+   frame's flat h-[43px] for the reason CLEAR_TEXT states below — the sentence
+   is checked by scripts/check-text-overflow.mjs and must be allowed to wrap —
+   and it MEASURES 43 either way, because 20px of leading plus 7+7 of padding
+   is 34 and the min-height wins. */
+const CLEAR_ROW = String.raw`bg-alert-surface-success content-stretch flex gap-[4px] items-center min-h-[43px] px-[11px] py-[7px] relative rounded-[16px] shrink-0 w-full`
 /* Figma writes this node `shrink-0` + `whitespace-nowrap` inside a fixed
    h-[43px], which is the fixed-artboard habit scripts/check-text-overflow.mjs
    exists to catch — the sentence carries a live fleet count. It flexes and
@@ -371,7 +439,10 @@ const CLEAR_ROW = String.raw`bg-accent content-stretch flex items-center min-h-[
    pixel as the fixed form did. scripts/check-text-overflow.mjs is what
    actually holds that. Line-height AFTER the size atom — see
    ORDER MATTERS above. */
-const CLEAR_TEXT = String.raw`[word-break:break-word] flex-[1_0_0] font-semibold min-w-px relative text-slate-600 text-sm leading-[20px]`
+/* 199922:85244 gives the sentence Geist SemiBold at its existing 14px/20 on
+   slate-600, so again only the family moves. See HEAD_TITLE for why the family
+   is in the atom and not at the call site. */
+const CLEAR_TEXT = String.raw`[word-break:break-word] flex-[1_0_0] font-mono-label font-semibold min-w-px relative text-slate-600 text-sm leading-[20px]`
 
 /* ───────────────────────────────── 199338:52997 — the other-issues row.
    "14 other issues · 10 no power, 4 no recipients", full width under the
@@ -742,6 +813,44 @@ export default function SystemHealthCard({
   const showRed = attention > 0
   const showGreen = well > 0 || !showRed
 
+  /* ── NO BAR WHEN NOTHING NEEDS ATTENTION — 2026-11-04 ──────────────────
+     Owner, verbatim, on a screenshot of this card showing a full green track
+     above "0 / 5 need attention": "When all good, no progress bar. This is
+     the rule you need to".
+
+     THE RULE AS STATED: the bar renders only when the count it represents is
+     non-zero. The count beside it is `attention`, so that is the gate - a
+     track filled end to end beside a 0 is the card asserting a measurement
+     where there is nothing to measure, and at a glance a full bar reads as
+     "5 of 5 are bad" rather than "5 of 5 are fine".
+
+     THE FRAME HAD ALREADY SAID SO. 199922:85244's all-clear state is the
+     green row with the location dot and "All of your systems are running!",
+     and no bar. This was NOT a missing state in the component - the all-clear
+     row has been implemented since 2141d10 and is gated on `allClear`. The
+     bar was simply drawn UNCONDITIONALLY above it, in a block of its own that
+     no state ever switched off, so the two rendered together.
+
+     THE GATE IS `attention`, NOT `allClear`. `allClear` is the conjunction
+     (empty tiles AND nothing needing attention) and it decides what replaces
+     the TILES. The bar is a picture of one number, so it is gated on that
+     number. In practice attention === 0 implies the three tile counts are 0
+     too - a system with a valve error fails a protection check - but this
+     card takes them as four independent props and must not draw a bar for a
+     count it was handed as zero just because a sibling prop disagrees.
+
+     AN EMPTY FLEET LOSES ITS BAR TOO, and that is the same rule, not a side
+     effect: `attention` is 0 over 0 systems, so there is nothing to measure.
+     The note at `showGreen` above about the empty fleet "reading as all-well"
+     described the only case where a zero-attention track was still drawn, and
+     that case is now not drawn at all.
+
+     NOTHING ELSE MOVES. Every state with a non-zero attention count renders
+     byte-identically: `showRed` is true whenever `showBar` is, so the two
+     segments, the flex-grow proportion, the radii and the hit boxes are all
+     unchanged. The LABEL is deliberately untouched - see THE `0 /` LINE. */
+  const showBar = attention > 0
+
   const unit = fleet === 1 ? unitLabel.replace(/s$/, '') : unitLabel
 
   /* THE BAR IS A GROUP OF CONTROLS, OR IT IS A PICTURE — never both.
@@ -767,7 +876,9 @@ export default function SystemHealthCard({
       {/* 199371:129896 */}
       <div className={HEAD_BLOCK} data-node-id="199371:129896">
         <div className={HEAD_ROW} data-name="Heading 1" data-node-id="199323:12127">
-          <p className={cn('font-sans', HEAD_TITLE)} data-node-id="199323:12128">
+          {/* No `font-sans` here any more: HEAD_TITLE carries its own family
+              (Geist) and cn() cannot be trusted to drop the loser. */}
+          <p className={HEAD_TITLE} data-node-id="199323:12128">
             System health
           </p>
           <button
@@ -780,7 +891,7 @@ export default function SystemHealthCard({
             data-name="Button"
             data-node-id="199338:52768"
           >
-            <span className={cn('font-sans', SHOW_ALL_TEXT)} data-node-id="I199338:52768;6724:8007">
+            <span className={SHOW_ALL_TEXT} data-node-id="I199338:52768;6724:8007">
               {/* 199417:131563. With nothing wrong there is no "all" to show;
                   the control offers the history instead. */}
               {allClear ? 'Show past alerts' : 'Show all'}
@@ -801,7 +912,21 @@ export default function SystemHealthCard({
       {/* 199323:12125 */}
       <div className={BODY} data-node-id="199323:12125">
         <div className={BODY_COL} data-node-id="199323:12126">
-          {/* ----------------------------------------- fleet row + progress */}
+          {/* ----------------------------------------- fleet row + progress
+              THE WHOLE BLOCK IS GATED, WRAPPERS INCLUDED — 2026-11-04.
+              Owner's rule (see `showBar`) removes the bar and its
+              "X / Y need attention" line at zero. The gate sits on the
+              OUTERMOST wrapper, 199359:128710, and that placement is the
+              difference between a tidy card and an airy one: BODY_COL is
+              gap-[27px], so leaving three empty divs behind still cost 27px
+              of dead space between the header and the green row. MEASURED:
+              143px tall with the wrappers, 116px without, against the frame's
+              own 116 (12 pt + 28 header + 15 card gap + 43 row + 16 pb = 114
+              content, plus the 1px border top and bottom). Owner: "make it
+              same size as in Figma."
+              Nothing inside this block changed; it is the same markup, one
+              level further in. */}
+          {showBar ? (
           <div className={PLAIN_COL} data-node-id="199359:128710">
             <div className={GAP_10_COL} data-node-id="199360:129785">
               {/* THE FLEET ROW IS GONE FROM THIS CARD. It was a slate-100 row
@@ -859,9 +984,37 @@ export default function SystemHealthCard({
                     ) : null}
                   </div>
                 </div>
+                {/* ── THE `X / Y need attention` LINE GOES WITH THE BAR.
+                    Owner, 2026-11-04, on two screenshots showing the bar
+                    correctly gone and the line still there: "also remove the x
+                    out of y when all good". So `showBar` gates BOTH - the
+                    picture of the number and the number itself - and at zero
+                    this slot is absent, not greyed and not zero-stated.
+
+                    WHY ONE GATE AND NOT TWO. They are one statement drawn
+                    twice: the track is the proportion and the line is the same
+                    proportion in words. Splitting them would let a future edit
+                    bring half of it back.
+
+                    THE ZERO STATE IS NOT SILENT - it is the green all-clear
+                    row below (199922:85244), which says the same thing in a
+                    form that is worth reading. "All of your systems are
+                    running!" is the FRAME's string, transcribed, so §0 is
+                    satisfied and it carries no NEW COPY mark.
+
+                    THE DENOMINATOR IS NOT LOST. The scope size lives on the
+                    hero above this card - SystemsOverviewHero draws
+                    "N systems" on the wave - which is where the 2026-10-20
+                    frames moved it to. Only the `X / Y need attention`
+                    construction disappears here. */}
                 <div className={BAR_LABEL_ROW} data-node-id="199360:129782">
                   <p className={cn('font-sans', BAR_LABEL)} data-node-id="199360:129783">
-                    {/* Red only when non-zero — see ZERO IS NOT RED above. */}
+                    {/* Red only when non-zero — see ZERO IS NOT RED above.
+                        The slate-300 branch is now unreachable by construction
+                        (`showBar` is `attention > 0`), and it is kept rather
+                        than simplified away: the leading run's tint is the
+                        rule, not the state, and a future gate change must not
+                        silently paint a zero red. */}
                     {/* 199417:131529 greys the numeral at zero rather than
                         letting it read as ink: #cad5e2, not slate-700. */}
                     <span
@@ -877,6 +1030,7 @@ export default function SystemHealthCard({
               </div>
             </div>
           </div>
+          ) : null}
 
           {/* ----------------------------------------------- counter tiles */}
           <div className={GAP_10_COL} data-node-id="199360:129786">
@@ -943,10 +1097,25 @@ export default function SystemHealthCard({
                 `STATUS_ROW`; see the merge note at CLEAR_ROW. */}
             {allClear ? (
               <div className={CLEAR_ROW} data-node-id="199417:131574" data-status="clear">
+                {/* THE GLYPH IS THE LOCATION DOT, 2026-11-04. 199922:85244
+                    draws the 27px location-dot here, which this repo owns as
+                    <LocationDot> - three concentric circles on a 27 viewBox,
+                    the one geometry six former copies collapsed onto, and its
+                    DEFAULT size is already 27. It replaces <PinLocation03>, a
+                    Huge Icons map pin that has stood here since before the
+                    rework and is a different drawing at the same size. The pin
+                    is not lost: it is still the sidebar's and the info
+                    accordion's glyph, exported from v2/icons as before.
+                    The tint stays GLYPH_INK (slate-400). The frame does not
+                    state a colour for it and LocationDot ships in several
+                    (red for events, blue for health, slate for history), so
+                    recolouring it green to match the new ground would be
+                    choosing, not transcribing. Say the word and it is one
+                    token. */}
                 <span className={cn('relative shrink-0 size-[27px]', GLYPH_INK)} aria-hidden="true">
-                  <PinLocation03 size="100%" className="absolute inset-0 block" />
+                  <LocationDot size="100%" className="absolute inset-0 block" />
                 </span>
-                <p className={cn('font-sans', CLEAR_TEXT)} dir="auto">
+                <p className={CLEAR_TEXT} dir="auto">
                   All of your systems are running!
                 </p>
               </div>

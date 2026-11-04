@@ -68,6 +68,24 @@ const [locA, locB] = (() => {
   return [first?.[0], different?.[0]]
 })()
 
+/* ── WHERE THE SCOPE SIZE IS READ FROM, 2026-11-04 ────────────────────────
+   These tests are about ONE thing: a scope reports its own size rather than
+   the fleet's. They used to read that size out of the health card's
+   "<n> / <total> need attention" line, which was fine while that line was
+   drawn in every state. The owner removed it from the all-clear state ("also
+   remove the x out of y when all good"), so on a scope with nothing wrong -
+   Building A is 10 of 10 healthy - there is no line to read and the
+   assertions failed for a reason that had nothing to do with scoping.
+
+   The size is read off SystemsOverviewHero's headline instead. That is where
+   the 2026-10-20 frames moved the fleet count to, it is drawn in every state,
+   and it is the number the owner actually looks at. Read as the NODE's exact
+   text rather than as a substring of the page: "2 systems" is a substring of
+   "102 systems", so a substring match would pass on the bug these tests
+   exist to catch. */
+const heroCount = (c) => c.querySelector('[data-node-id="199466:17471"]')?.textContent
+const systemsLabel = (n) => `${n.toLocaleString('en-US')} ${n === 1 ? 'system' : 'systems'}`
+
 function mountAt(path) {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -86,12 +104,11 @@ describe('account scoping', () => {
     expect(root?.name, 'no root account').toBeTruthy()
 
     const { container } = mountAt(`/location/${encodeURIComponent(root.name)}`)
-    const text = (container.textContent || '').replace(/\s+/g, ' ')
 
     // MRG owns 101 systems directly; 2 more sit under Southbridge Health, a
     // child account. Scoping to the root must see all 103, not just the 101 —
     // an account scope has to roll its children up.
-    expect(text).toContain(`/ ${SYSTEMS.length} need attention`)
+    expect(heroCount(container)).toBe(systemsLabel(SYSTEMS.length))
   })
 
   it('a sub-account scopes to just its own systems', () => {
@@ -105,9 +122,8 @@ describe('account scoping', () => {
     expect(subCount).toBeLessThan(SYSTEMS.length)
 
     const { container } = mountAt(`/location/${encodeURIComponent(subName)}`)
-    const text = (container.textContent || '').replace(/\s+/g, ' ')
-    expect(text).toContain(`/ ${subCount} need attention`)
-    expect(text).not.toContain(`/ ${SYSTEMS.length} need attention`)
+    expect(heroCount(container)).toBe(systemsLabel(subCount))
+    expect(heroCount(container)).not.toBe(systemsLabel(SYSTEMS.length))
   })
 })
 
@@ -131,7 +147,7 @@ describe('location scoping', () => {
 
     // The reported symptom: "United States" rendered 0 / 0 and six zero pills.
     expect(text).not.toContain('0 systems')
-    expect(text).toContain(`/ ${own} need attention`)
+    expect(heroCount(container)).toBe(systemsLabel(own))
   })
 
   it('the dataset offers two locations of different sizes', () => {
@@ -202,8 +218,7 @@ describe('location scoping', () => {
     expect(own).not.toBe(SYSTEMS.length)
 
     const { container } = mountAt(`/location/${encodeURIComponent(office)}`)
-    const text = (container.textContent || '').replace(/\s+/g, ' ')
-    expect(text).toContain(`/ ${own} need attention`)
-    expect(text).not.toContain(`/ ${SYSTEMS.length} need attention`)
+    expect(heroCount(container)).toBe(systemsLabel(own))
+    expect(heroCount(container)).not.toBe(systemsLabel(SYSTEMS.length))
   })
 })

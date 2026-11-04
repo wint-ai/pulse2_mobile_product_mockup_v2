@@ -122,6 +122,14 @@
  *    deleting a working feature's only entry point would have been the
  *    functionality loss Rule 0 forbids.
  *
+ * USERS AND REPORTS, added 2026-11-04. They were two inert rows in the
+ * sidebar's footer (src/v2/components/WintSidebarV2.jsx), and the owner asked
+ * three times for them to move here. They are rendered as INERT rows, not as
+ * buttons - see the call site for the full argument. Nothing about their
+ * presentation is new: each is the same single-row <Card> the Tutorial row
+ * below already is, minus the chevron, plus the <Badge> this screen already
+ * uses for the DEMO ONLY chip.
+ *
  * EVERYTHING ELSE IS PARITY. Persona card -> Personal information; Switch
  * profile -> /select; My Scope counts + Role/Valve control/Edit policies;
  * Language (incl. Hebrew + RTL) and Measurement units; Push and SMS with the
@@ -149,6 +157,7 @@ import {
   Bell,
   BellOff,
   ChevronRight,
+  FileChartColumn,
   Globe,
   GraduationCap,
   Info,
@@ -158,6 +167,7 @@ import {
   Ruler,
   Smartphone,
   User,
+  Users,
   Wallpaper,
   X,
 } from 'lucide-react'
@@ -207,6 +217,11 @@ const SECTION_TITLE =
 
 const ROW_LABEL = 'font-medium text-slate-900 text-[15px] leading-[20px]'
 const ROW_ICON = 'size-[20px] shrink-0 text-slate-500'
+
+/* The chip on a row whose destination does not exist yet. See the Users /
+   Reports call site for why these rows are chips-and-no-chevron. */
+const INERT_BADGE =
+  'shrink-0 border-border bg-transparent px-[8px] py-[2px] font-medium text-slate-500 text-[11px] leading-[15px]'
 
 function SectionTitle({ children }) {
   return <h2 className={SECTION_TITLE}>{children}</h2>
@@ -450,7 +465,7 @@ export default function AccountScreenV2() {
           no longer fits. Setting it here means a section added later cannot
           reintroduce the bug by forgetting a class. Pinned by
           accountScreenV2.dom.test.jsx. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[14px] pb-8 pt-[10px] [&>*]:shrink-0">
+      <div className="flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[14px] pb-[93px] pt-[10px] [&>*]:shrink-0">
         {profileView ? (
           <Card className={CARD}>
             <SectionTitle>{t('more.personal_information')}</SectionTitle>
@@ -604,6 +619,62 @@ export default function AccountScreenV2() {
                     </dd>
                   </div>
                 </dl>
+              </div>
+            </Card>
+
+            {/* Users and Reports — moved off the sidebar's footer, 2026-11-04,
+                at the owner's request.
+
+                NEITHER HAS A DESTINATION AND ONE IS NOT INVENTED HERE.
+                Neither has a PRD or a designed screen, and §0 of
+                .claude/skills/wint-ui-copy/SKILL.md forbids authoring what the
+                catalogue does not have. So they are honest rather than fake:
+
+                  · a <div>, not a <button> - there is nothing to press;
+                  · NO ChevronRight. On this screen the chevron is the "this
+                    opens something" affordance (Switch profile, the persona
+                    card, Tutorial all carry it). A row that wears it and does
+                    nothing is worse than a row that says it is not here yet;
+                  · the <Badge> this screen already uses for the DEMO ONLY chip
+                    sits in the slot the chevron would have taken, carrying the
+                    status in words;
+                  · aria-disabled, not the `disabled` attribute: the REASON a
+                    control is unavailable has to reach a screen reader, and
+                    `disabled` is skipped outright by some of them. The long
+                    form of that argument is at
+                    src/v2/components/SlideToConfirm.jsx:152, and the sidebar
+                    rows these replace were aria-disabled too.
+
+                Two cards rather than one card with a divider, because that is
+                what this screen already does with two rows of the same kind -
+                Push Notifications and SMS Notifications are two cards, not one.
+
+                COPY. `Users` and `Reports` are the sidebar's own strings,
+                carried over verbatim and keyed so this screen stays fully
+                translated like the rest of it. NEW COPY: `more.coming_soon`.
+                The words are lifted verbatim from the one place this repo
+                already says this - src/screens/kpi/KPIDetailScreen.jsx:300 -
+                rather than authored, but the key is new and is awaiting the
+                owner's approval. */}
+            <Card className={CARD}>
+              <div
+                aria-disabled="true"
+                className="flex w-full items-center gap-[10px] px-4 py-[13px]"
+              >
+                <Users className={ROW_ICON} aria-hidden="true" />
+                <span className={cn('min-w-0 flex-1 truncate', ROW_LABEL)}>{t('more.users')}</span>
+                <Badge variant="outline" className={INERT_BADGE}>{t('more.coming_soon')}</Badge>
+              </div>
+            </Card>
+
+            <Card className={CARD}>
+              <div
+                aria-disabled="true"
+                className="flex w-full items-center gap-[10px] px-4 py-[13px]"
+              >
+                <FileChartColumn className={ROW_ICON} aria-hidden="true" />
+                <span className={cn('min-w-0 flex-1 truncate', ROW_LABEL)}>{t('more.reports')}</span>
+                <Badge variant="outline" className={INERT_BADGE}>{t('more.coming_soon')}</Badge>
               </div>
             </Card>
 

@@ -15,6 +15,7 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Card } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Menu, Headphones, ChevronDown, ChevronUp, Waves, Wifi, WifiOff,
   BellOff, PowerOff, Timer, Droplet, TrendingDown,
@@ -99,53 +100,83 @@ export default function HomeAccountOverview() {
         </button>
       </div>
 
-      {/* Title + Tabs */}
-      <div className="px-4 pt-2 pb-3 shrink-0">
-        <h1 className="text-[28px] leading-8 font-semibold tracking-tight text-slate-900 mb-4">
-          {scopeTitle}
-        </h1>
-        <div className="flex gap-8 border-b border-slate-200/60 -mx-4 px-4">
-          <TabButton active={tab === 'overview'} onClick={() => setTab('overview')}>Overview</TabButton>
-          <TabButton active={tab === 'general'} onClick={() => setTab('general')}>General Info</TabButton>
+      {/* Title + Tabs + the body they drive.
+
+          Radix Tabs is the element that PAIRS a trigger with its panel, so the
+          Root has to sit above both the row and the panels. It takes the
+          column's flex:1 / minHeight:0 and hands it straight on: the title
+          block stays shrink-0 chrome and the active TabsContent is the screen's
+          one scroller, so the app-shell contract is unchanged. Radix keeps the
+          INACTIVE panel in the DOM as an empty `hidden` div — display:none,
+          children not rendered — so it is no layout box and no scroller, and
+          exactly one scroller is on the screen. Measured, not assumed.
+
+          Radix Tabs does NOT portal: there is no Portal export, no
+          createPortal, and no react-portal in @radix-ui/react-tabs@1.1.21's
+          dependency list (verified in node_modules). That is why it is allowed
+          here while Select / DropdownMenu / Popover / Dialog / Tooltip are
+          banned — those escape Phone.jsx's fixed 393x852 frame, and this
+          cannot. */}
+      <Tabs value={tab} onValueChange={setTab} className="gap-0" style={{ flex: 1, minHeight: 0 }}>
+        <div className="px-4 pt-2 pb-3 shrink-0">
+          <h1 className="text-[28px] leading-8 font-semibold tracking-tight text-slate-900 mb-4">
+            {scopeTitle}
+          </h1>
+          {/* Figma 199922:83970 — the design system's segmented control, via
+              the shadcn Tabs in src/components/ui/tabs.jsx. What this replaced
+              was a hand-rolled button row: no role="tablist", no role="tab", no
+              aria-selected, both buttons in the tab order, no arrow keys, and
+              an underline painted in #0B95F8 — a brand blue that is NOT the
+              --wint-blue-accent token (#0b81f8) the design system states. The
+              control paints the token.
+
+              TWO triggers, because this page has two tabs. The frame draws a
+              third, "Locations", with a count badge; see the note at
+              HomeAllAccounts.jsx:1628 — whether these pages want a genuine
+              Locations tab is the owner's call and nothing is invented here.
+              The component carries a third trigger and a TabsCount badge when
+              the owner rules for one. */}
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="general">General Info</TabsTrigger>
+          </TabsList>
         </div>
-      </div>
 
-      {/* Body — the scrolling region */}
-      <div className="px-4 pt-4 pb-8 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-        {tab === 'overview' ? (
-          <>
-            {/* Demo controls — quick toggles so we can switch states in the mockup */}
-            <DemoToggle healthy={healthy} setHealthy={setHealthy} expanded={expanded} setExpanded={setExpanded} />
+        {/* Body — the scrolling region */}
+        <TabsContent value="overview" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: 93 }}>
+          {/* Demo controls — quick toggles so we can switch states in the mockup */}
+          <DemoToggle healthy={healthy} setHealthy={setHealthy} expanded={expanded} setExpanded={setExpanded} />
 
-            {/* Water Events card */}
-            {healthy
-              ? <WaterEventsHealthy onShowPast={() => setOverlay('water')} />
-              : <WaterEventsCard expanded={expanded} setExpanded={setExpanded} events={MOCK.waterEvents} count={MOCK.waterEventsCount} onShowAll={() => setOverlay('water')} />
-            }
+          {/* Water Events card */}
+          {healthy
+            ? <WaterEventsHealthy onShowPast={() => setOverlay('water')} />
+            : <WaterEventsCard expanded={expanded} setExpanded={setExpanded} events={MOCK.waterEvents} count={MOCK.waterEventsCount} onShowAll={() => setOverlay('water')} />
+          }
 
-            {/* Systems Health card */}
-            <SystemsHealthCard healthy={healthy} onShowPast={() => setOverlay('alerts')} />
+          {/* Systems Health card */}
+          <SystemsHealthCard healthy={healthy} onShowPast={() => setOverlay('alerts')} />
 
-            {/* Insights — shared with the system page. No onViewAll: there is
-                no Insights list screen designed, so it renders inert. */}
-            <InsightsCard rows={MOCK.insights} />
+          {/* Insights — shared with the system page. No onViewAll: there is
+              no Insights list screen designed, so it renders inert. */}
+          <InsightsCard rows={MOCK.insights} />
 
-            {/* Water consumption — present in the Figma home comp (the layer is
-                named "Balance", a leftover shadcn template name). */}
-            <WaterConsumptionCard />
-          </>
-        ) : (
-          /* NOT DESIGNED. The delivery canvas has the tab but no content frame
-             for it anywhere, and Rule 0 forbids inventing one. Honest placeholder
-             until a comp exists — do not fill this with plausible-looking fields. */
+          {/* Water consumption — present in the Figma home comp (the layer is
+              named "Balance", a leftover shadcn template name). */}
+          <WaterConsumptionCard />
+        </TabsContent>
+
+        {/* NOT DESIGNED. The delivery canvas has the tab but no content frame
+            for it anywhere, and Rule 0 forbids inventing one. Honest placeholder
+            until a comp exists — do not fill this with plausible-looking fields. */}
+        <TabsContent value="general" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: 93 }}>
           <Card>
             <div className="py-10 px-4 text-center">
               <div className="text-sm font-medium text-slate-600">General Info</div>
               <div className="text-xs text-slate-400 mt-1">No design yet for this tab.</div>
             </div>
           </Card>
-        )}
-      </div>
+        </TabsContent>
+      </Tabs>
 
       {/* v2 drawer: navigation only, no global scope. v1 screens still mount
           NavigationDrawer and keep their scope behaviour — the two coexist. */}
@@ -163,23 +194,16 @@ export default function HomeAccountOverview() {
         scopeName={scopeTitle}
       />
 
-      <TabBar activeTab="home" hideAlerts />
+      <TabBar activeTab="home" />
     </div>
   )
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
-function TabButton({ active, children, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative py-3 text-[15px] font-medium transition-colors ${active ? 'text-[#0B95F8]' : 'text-slate-500'}`}
-    >
-      {children}
-      {active && <span className="absolute left-0 right-0 -bottom-px h-[2px]" style={{ background: BRAND }} />}
-    </button>
-  )
-}
+// TabButton lived here. It was the hand-rolled tab trigger, and it is GONE
+// rather than left unused: react-refresh/only-export-components is an error in
+// this repo and no-unused-vars would flag it anyway. The control is now
+// src/components/ui/tabs.jsx.
 
 function DemoToggle({ healthy, setHealthy, expanded, setExpanded }) {
   return (

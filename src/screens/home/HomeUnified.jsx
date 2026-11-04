@@ -811,7 +811,7 @@ function SwipePanel({ children, activeIndex, onSwipe }) {
         transition: 'transform 0.25s ease', height: '100%',
       }}>
         {children.map((child, i) => (
-          <div key={i} style={{ width: `${100 / children.length}%`, height: '100%', overflowY: 'auto', flexShrink: 0 }}>
+          <div key={i} style={{ width: `${100 / children.length}%`, height: '100%', overflowY: 'auto', flexShrink: 0, paddingBottom: 93 }}>
             {child}
           </div>
         ))}

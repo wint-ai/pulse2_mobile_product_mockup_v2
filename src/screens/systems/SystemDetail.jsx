@@ -470,7 +470,7 @@ function OverviewTab({ sys, navigate }) {
   // surface via the Protection Status card below; no separate banner needed.
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', paddingTop: 10 }}>
+    <div style={{ flex: 1, overflowY: 'auto', paddingTop: 10, paddingBottom: 93 }}>
       <div style={{ padding: '0 14px' }}>
         {/* Water Event widget always renders. When there's an active water
             event it shows the full active card; when there isn't, it shows
@@ -498,7 +498,7 @@ function OverviewTab({ sys, navigate }) {
 function PolicyTab({ sys }) {
   const { theme } = useTheme();
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 14px' }}>
+    <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 93px' }}>
       <ActivePolicyCard sys={sys} theme={theme} />
     </div>
   );

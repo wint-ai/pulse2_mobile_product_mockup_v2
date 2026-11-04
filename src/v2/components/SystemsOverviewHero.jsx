@@ -2,6 +2,25 @@
  * SystemsOverviewHero — the blue wave at the top of the Location screen, with
  * the fleet count on it and the system-type chips under that.
  *
+ * ── THE ACCOUNT DASHBOARD HEADER, 199922:85244 — 2026-11-04 ──────────
+ * The owner's new frame for this surface. Four things move, and the fourth
+ * is a removal the owner asked for in words as well:
+ *   1. THE BOX IS 370x150, not 370x189. Same rounded-[17px], same wave, same
+ *      #a0ccff tint at mix-blend-multiply over an opacity-90 raster.
+ *   2. THE HEADLINE IS CENTRED. It was left-anchored at the chip row's own
+ *      21px inset; it is centred across the box now, same 34.646/39.37 type
+ *      and the same --ink-on-color.
+ *   3. THE CHIPS ARE EVENLY SPREAD rather than bunched at the left on a 5px
+ *      gap: the row spans gutter to gutter and justifies between.
+ *   4. THE "Active" PILL IS GONE. See THE LIFECYCLE PILL below — the frame
+ *      carries two `Active`+chevron frames and both are hidden="true", and
+ *      the owner asked for it independently of the frame.
+ * The chip chassis, the numeral type, the wave crop and the tint are all
+ * unchanged from the 2026-11-01 read and are NOT re-derived below.
+ *
+ * THE CHIPS ARE SYSTEM TYPES, and at 0 they carry an upsell rather than a
+ * dead end — see THE ZERO CHIP.
+ *
  * ── REFETCHED 2026-11-01 ─────────────────────────────────────────────
  * Owner: "I feel like we are not working with the latest version of the hero."
  * He was right, and the reason is structural: the design has been
@@ -67,13 +86,9 @@
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { useEffect, useId, useRef, useState } from 'react'
-/* The node's glyph is "Tabler Icons / chevron-down", exported on an 18.2095
-   viewBox as M4.55238 6.82857 / 9.10476 11.381 / 13.6571 6.82857 at stroke
-   1.51367. Normalised to a 24 grid that is exactly `m6 9 6 6 6-6` at stroke
-   2 — lucide's ChevronDown, path for path. So this is the real glyph and not
-   one of the lookalikes src/v2/icons/index.js warns about; no new asset is
-   owed, and that index already says to take Lucide's from lucide-react. */
-import { ChevronDown } from 'lucide-react'
+/* The external-link mark on the zero chip's sales CTA. Lucide's own glyph, per
+   src/v2/icons/index.js ("Lucide still covers everything it already has"). */
+import { ArrowUpRight } from 'lucide-react'
 
 import { BrandDrops, FloodLine, PhotoSensor3 } from '@/v2/icons'
 import { SYSTEM_TYPE, SYSTEM_TYPE_BLURB } from '@/data/systemType'
@@ -128,6 +143,46 @@ const CHIP = String.raw`content-stretch flex gap-[8px] h-[32px] items-center jus
 const CHIP_NUM = String.raw`[word-break:break-word] font-mono-label font-semibold relative shrink-0 text-[18px] leading-[18px] tracking-[-0.45px] text-ink-on-color whitespace-nowrap`
 
 const fmt = (n) => Number(n ?? 0).toLocaleString('en-US')
+
+/* ── THE ZERO CHIP IS A SALES SURFACE — 2026-11-04 ───────────────────────
+   Owner, rejecting the first draft of this panel outright: "This is a bad
+   sentence. I want something more on the sales aspect, like contact Wint sales
+   or contact your account manager. For more details or something like that.
+   The main goal here is to do upsells for systems that not sold yet."
+
+   WHAT CHANGED, AND WHY THE FIRST DRAFT WAS WRONG. It read "No {type} on this
+   account yet. Your Wint contact can add them." - an explanation of an
+   ABSENCE, and the "yet" made it an apology for one. A 0 here is not a gap in
+   the account, it is a product the account has not bought, and the panel's job
+   is to name the thing and offer the conversation.
+
+   THE PANEL IS THREE BLOCKS, AND THAT IS THE OWNER'S COUNT. 2026-11-04, on a
+   screenshot of the Flood sensors panel: "Same issue with the second sentence,
+   across the system topologies, I don't want the second sentence. I only want
+   the first one, and the talk to Wint sales, that's it."
+
+     <type name>               the title the panel already drew
+     <description>             SYSTEM_TYPE_BLURB - ONE sentence now; the
+                               catalogue was trimmed at the boundary, see
+                               src/data/systemType.js for the deleted halves
+                               and for the one that is worth his eye
+     [Talk to Wint sales ->]   the external link, to wint.ai/contact/
+
+   A FOURTH BLOCK STOOD BETWEEN THE LAST TWO AND IS GONE. A per-type "benefit"
+   line ("They catch water where there is no pipe to meter.", and one each for
+   humidity and flow) was drafted and wired for about an hour; the owner cut
+   all three. Nothing replaces them - the count is three blocks, not three
+   blocks and a substitute - and the UPSELL_BENEFIT map went with them rather
+   than being left unreferenced. Recorded here because the drafts were marked
+   NEW COPY and someone will otherwise wonder where they went.
+
+   REGISTER: §3b, everyday, not the danger register - nothing on this panel
+   stops or starts water. Sentence case, active voice, and the control is named
+   for its outcome rather than "Learn more". */
+const SALES_URL = 'https://wint.ai/contact/'
+/* NEW COPY - awaiting owner approval. Named for the outcome (§3b rule 5), not
+   "Learn more" and not "Contact us". */
+const UPSELL_CTA = 'Talk to Wint sales'
 
 /* The chips carry NO text label in the node — an icon and a number, nothing
    else — so the icon is the whole of their meaning. These three glyphs are
@@ -237,11 +292,16 @@ export default function SystemsOverviewHero({
   }, [armed])
 
   const armedType = armed === null ? null : TYPES.find((t) => t.key === armed)
+  /* Whether the open chip is the zero case, which is what adds the upsell
+     strip to the band below. Read off the SAME `counts` the chip renders, so
+     the strip cannot disagree with the numeral that opened it. */
+  const armedIsZero = armedType !== null && armedType !== undefined
+    && (Number(counts[armedType.key]) || 0) === 0
 
   return (
     <div
-      className={cn('relative shrink-0 w-full h-[189px]', className)}
-      data-node-id="199531:81213"
+      className={cn('relative shrink-0 w-full h-[150px]', className)}
+      data-node-id="199922:85244"
       data-name="Systems overview hero"
     >
       {/* 199466:17470. aria-hidden: weather, not information.
@@ -330,48 +390,44 @@ export default function SystemsOverviewHero({
         <div className="absolute inset-0 rounded-[17px] bg-[#a0ccff] mix-blend-multiply" />
       </div>
 
-      {/* 199531:80083 — THE "ACTIVE" PILL, NEW IN THIS REFETCH. The frame now
-          draws a pill in the hero's top right carrying the word "Active" and a
-          chevron, on the same veiled chassis as the chips: inset 4.76% top and
-          2.38% right of the 370x189 box, i.e. 9px and 8.8px, 32px tall,
-          rounded-12, gap-4. Right-anchored here rather than left, because this
-          page's px-4 gutter gives 361px against the frame's 370 and the right
-          inset is the one that has to hold.
+      {/* ── THE LIFECYCLE PILL IS REMOVED, 2026-11-04 ────────────────────────
+          A pill reading "Active" with a chevron-down stood here
+          (199531:80083, its word 199531:80085, its glyph 199531:80084), on the
+          same veiled chassis as the chips, at right-[9px] top-[9px].
 
-          IT IS A LABEL, NOT A CONTROL, and that is the frame's ruling rather
-          than mine. The chevron is the only hint of a menu; the node has no
-          menu, no open state, no second option, and no other value of this
-          word anywhere on the page. Drawing a dropdown would be drawing a
-          state the frame lacks; making it a <button> that opens nothing would
-          be a control that reads as broken. So it renders as text, with the
-          chevron aria-hidden as the decoration it currently is. WHAT IT SHOULD
-          FILTER IS THE OWNER'S CALL — systems by lifecycle state is the
-          obvious reading, but this component is not told about one, and
-          inventing the other options would be inventing copy. */}
-      <div
-        className={cn(CHIP, 'absolute right-[9px] top-[9px] z-[2] gap-[4px] justify-start')}
-        data-node-id="199531:80083"
-      >
-        <span className={CHIP_NUM} dir="auto" data-node-id="199531:80085">Active</span>
-        <ChevronDown
-          aria-hidden="true"
-          size={18.21}
-          className="relative shrink-0 text-ink-on-color"
-          data-node-id="199531:80084"
-        />
-      </div>
+          REMOVED ON TWO AGREEING AUTHORITIES. The owner: "we want to replace
+          the drop-down for the lifecycle with something much less visible.
+          Maybe we can just remove it for now." And the new frame agrees -
+          199922:85244 carries two `Active`+chevron frames and both are
+          hidden="true".
 
-      {/* 199466:17471. THE HEADLINE MOVED. The October node pinned it at
-          `left-[calc(50%-64px)]` with a -50% translate, resolving to a left
-          edge of about 36px; the refetch gives a plain inset of
-          5.68% x 370 = 21px — flush with the chip row beneath it, which it
-          never was before — and a top of 27.51% x 189 = 52px, down from 41.
-          Still written as a left-anchored px inset rather than a percentage:
-          the frame is 402 wide and this page's px-4 gutter gives 361, so
-          anything tied to 50% lands somewhere the design never showed. */}
+          NOTHING WAS WIRED TO IT, which is why this is a deletion and not a
+          disconnection. It was a <div> holding a <span> and an aria-hidden
+          lucide <ChevronDown>: no state, no handler, no prop, no filter, no
+          consumer anywhere in the tree. The 2026-11-01 note that stood here
+          said so in as many words - "IT IS A LABEL, NOT A CONTROL ... the node
+          has no menu, no open state, no second option" - so there is no
+          lifecycle state to preserve, and Rule 0 has nothing to fire on. If
+          the owner later wants the quieter replacement he mentions, it starts
+          from zero: this component was never told about a lifecycle axis and
+          inventing its other values would be inventing copy.
+
+          THE GLYPH, for whoever builds that replacement: the node's chevron is
+          "Tabler Icons / chevron-down" on an 18.2095 viewBox, which normalises
+          to lucide's ChevronDown path for path at stroke 2 on a 24 grid. The
+          import went with the markup. */}
+
+      {/* 199466:17471. THE HEADLINE IS CENTRED, 2026-11-04. It was pinned to
+          the chip row's own 21px left inset; 199922:85244 centres it across the
+          box. Written as a full-width `text-center` run rather than a 50% left
+          with a -50% translate, for the reason the October note already gave:
+          the frame is wider than this page's px-4 gutter leaves, so anything
+          tied to 50% of the FRAME lands somewhere the design never showed,
+          while 50% of the BOX is what centred means and is what this is.
+          The type, the ink and the two-weight split are unchanged. */}
       <p
         className={cn(
-          '[word-break:break-word] absolute left-[21px] top-[52px] whitespace-nowrap text-ink-on-color text-[34.646px]',
+          '[word-break:break-word] absolute left-0 right-0 top-[20px] text-center whitespace-nowrap text-ink-on-color text-[34.646px]',
           'font-sans',
           String.raw`font-semibold`,
         )}
@@ -382,20 +438,28 @@ export default function SystemsOverviewHero({
         <span className={cn('font-sans', 'font-normal leading-[39.37px]')}>{unit}</span>
       </p>
 
-      {/* 199531:80031 — the three chips, left-anchored at the node's own 21px
-          inset. They are a row rather than three absolutes, because the node's
-          offsets were measured against the node's own numerals and a
-          four-digit count would overlap its neighbour.
+      {/* 199531:80031 — the three chips. They are a row rather than three
+          absolutes, because the node's offsets were measured against the
+          node's own numerals and a four-digit count would overlap its
+          neighbour.
 
-          THE REFETCH MOVES THE ROW. It drops 10px (56.08% x 189 = 106, was 96)
-          and closes up: the node's chips now sit at 21/105/187 against widths
-          79/77/79, i.e. 5px apart where they were 11. The chips themselves
-          stay content-sized for the reason above, so with real numerals the
-          row reads a little narrower than the frame's fixed-width boxes — the
-          same trade this component has made since it was written. */}
+          EVENLY SPREAD, 2026-11-04. 199922:85244 stops bunching them at the
+          left on a 5px gap and spreads them across the box, so the row now
+          spans gutter to gutter (the same 21px inset on BOTH sides) and
+          justifies between. That is also what makes the content-sized chips
+          this component has always drawn read correctly: a four-digit count
+          grows its own chip and the spread absorbs it, where a fixed gap used
+          to push the row's right edge wherever the data sent it.
+
+          THE VERTICAL. The box is 150 tall and the health card below it
+          overlaps the bottom. MEASURED, not assumed: the page gives the card
+          `-mt-[37px]` inside a stack whose gap is 20px, so the net overlap is
+          17px and the card's top edge lands at 133 of this box's 150, not at
+          113. Headline 20..59, chips 68..100, 33px clear of that edge. If the
+          stack's gap ever changes, this clearance moves with it. */}
       <div
         ref={rowRef}
-        className="absolute flex gap-[5px] items-center left-[21px] top-[106px] z-[2]"
+        className="absolute flex items-center justify-between left-[21px] right-[21px] top-[68px] z-[2]"
         data-node-id="199531:80031"
       >
         {TYPES.map(({ key, name, type, glyph, size }) => {
@@ -412,6 +476,16 @@ export default function SystemsOverviewHero({
              neither. Its accessible name drops the "Show these in the Systems
              tab." clause accordingly: a control must not name a destination it
              will not go to.
+
+             THE ZERO CHIP NAMES WHAT THE TAP DOES, 2026-11-04. `Flood
+             sensors: 0` is a reading, not a control: it tells a screen-reader
+             user the chip's value and nothing about why it is focusable. The
+             zero name now carries the gesture's outcome instead, which is the
+             same contract the navigating name has had since 7bf0f4f - say the
+             destination, and only the one you will actually reach. Two of the
+             three chips read 0 against this dataset (systemType.js: the MRG
+             snapshot carries no flood and no humidity device), so this is the
+             ORDINARY case on this screen, not an edge.
 
              The HANDLER gate stays at the component boundary, though. With no
              onSelectType at all the chips are still the inert pictures the
@@ -480,7 +554,12 @@ export default function SystemsOverviewHero({
               aria-label={
                 navigates
                   ? `${name}: ${fmt(count)}. Show these in the Systems tab.`
-                  : `${name}: ${fmt(count)}`
+                  /* NEW COPY - the gesture clause only. The noun and the count
+                     are the frame's; "What are these?" is the shortest honest
+                     name for a control that opens an explanation and goes
+                     nowhere. Alternatives for the owner: "Learn about these."
+                     / "About this system type." */
+                  : `${name}: ${fmt(count)}. What are these?`
               }
               aria-describedby={`${blurbId}-${key}`}
               aria-expanded={armed === key}
@@ -518,14 +597,36 @@ export default function SystemsOverviewHero({
           popover portals to document.body, which escapes that frame by design —
           the failure ValveConfirmSheet:17-25 documents and this repo has been
           bitten by three times. This is the house `absolute` overlay instead.
-          It may hang below the hero's own 189px because the hero root sets no
+          It may hang below the hero's own 150px because the hero root sets no
           overflow (only the wave wrapper does), and z-[2] carries it over the
-          health card the page pulls up by 37px at z-[1].
+          health card the page pulls up by 37px at z-[1]. A Radix Tooltip is
+          doubly wrong here and not only for the portal: a tooltip is a HOVER
+          affordance and this is a touch device, so hover alone reaches nobody.
+          The gesture is a tap, and the chip is the control that takes it.
 
           TOKENS, NOT HEX, because four themes are live: --card, --border,
           --foreground and --muted-foreground are each redefined under `dark`,
           `sand` and `contrast`, so the band re-grounds itself per theme rather
           than staying a light card on a dark screen. */}
+      {/* THE DESCRIPTION, FOR ASSISTIVE TECH. The panel's prose is
+          aria-hidden - it would otherwise be announced twice - so this sr-only
+          run is the ONLY route a screen reader has to those words, and it is
+          present on every chip whether or not anything is armed.
+
+          IT NO LONGER BRANCHES ON THE COUNT, 2026-11-04. It used to append the
+          per-type benefit line for a chip reading 0, because that line was the
+          only thing on the panel that told a 0 what to do about itself and it
+          lived inside the hidden prose. The owner cut the benefit lines, so
+          there is nothing left to append and both branches said the same
+          thing; the ternary went with them.
+
+          WHAT A ZERO CHIP NOW ANNOUNCES, checked rather than assumed: its
+          aria-label ("Flood sensors: 0. What are these?"), then this
+          description ("Flood sensors. A spot sensor that reports water
+          reaching somewhere it should not."). Neither is empty, and the sales
+          route is NOT lost with the benefit line - the CTA is a real <a> with
+          its own accessible name, sitting outside the hidden prose precisely
+          so it stays reachable. */}
       <div className="sr-only">
         {TYPES.map(({ key, name, type }) => (
           <span key={key} id={`${blurbId}-${key}`}>{`${name}. ${SYSTEM_TYPE_BLURB[type]}`}</span>
@@ -534,16 +635,63 @@ export default function SystemsOverviewHero({
 
       {armedType ? (
         <div
-          aria-hidden="true"
           data-name="System type explainer"
-          className="absolute left-[21px] right-[21px] top-[134px] z-[2] rounded-[14px] border border-border bg-card px-[14px] py-[10px] shadow-lg"
+          data-zero={armedIsZero ? 'true' : undefined}
+          className="absolute left-[21px] right-[21px] top-[104px] z-[2] rounded-[14px] border border-border bg-card px-[14px] py-[10px] shadow-lg"
         >
-          <p className="text-[13px] font-semibold leading-[18px] text-foreground">
-            {armedType.name}
-          </p>
-          <p className="mt-[2px] text-[12px] leading-[16px] text-muted-foreground">
-            {SYSTEM_TYPE_BLURB[armedType.type]}
-          </p>
+          {/* THE aria-hidden MOVED INWARD, and it had to. It used to sit on
+              the panel root, which was correct while the panel was only text
+              already carried by the sr-only description. The panel now holds a
+              LINK, and a focusable element inside an aria-hidden subtree is
+              hidden from assistive tech while still being tabbable - the worst
+              of both. So only the prose is hidden (it is still duplicated, so
+              it would otherwise be announced twice) and the link is left
+              reachable with a name of its own. The zero chip's description
+              carries the benefit line too; see the sr-only block above. */}
+          <div aria-hidden="true">
+            <p className="text-[13px] font-semibold leading-[18px] text-foreground">
+              {armedType.name}
+            </p>
+            <p
+              data-name="System type description"
+              className="mt-[2px] text-[12px] leading-[16px] text-muted-foreground"
+            >
+              {SYSTEM_TYPE_BLURB[armedType.type]}
+            </p>
+          </div>
+          {/* ── THE SALES CTA, drawn only at 0.
+              IT LEAVES THE APP AND IT LOOKS LIKE IT DOES. The glyph is
+              lucide's ArrowUpRight, not the ArrowRight this app uses for its
+              in-app "Show all" / "Show past alerts" - a right arrow means "go
+              on to the next thing HERE", and the up-right arrow is the
+              convention for "this opens somewhere else". Two destinations on
+              one screen have to be tellable apart by eye as well as by ear,
+              which is the same argument SystemHealthCard makes for its
+              segment names.
+              `rel="noopener noreferrer"` is not optional on a `target=_blank`:
+              without it the opened page gets a handle on this window. Same
+              pattern ControlPanel.jsx:477 already uses.
+              THE ACCESSIBLE NAME says the type, the outcome and the fact that
+              it leaves - the arrow cannot say that to a screen reader. */}
+          {armedIsZero ? (
+            <a
+              href={SALES_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-name="System type sales cta"
+              aria-label={`${UPSELL_CTA} about ${armedType.name}. Opens wint.ai in a new tab.`}
+              className={cn(
+                'mt-[10px] inline-flex items-center gap-[6px] rounded-[10px] no-underline',
+                'bg-primary px-[12px] py-[7px] text-primary-foreground',
+                'text-[12px] font-semibold leading-[16px]',
+                'transition-opacity hover:opacity-90 active:opacity-80',
+                'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              )}
+            >
+              <span>{UPSELL_CTA}</span>
+              <ArrowUpRight aria-hidden="true" focusable="false" size={14} className="shrink-0" />
+            </a>
+          ) : null}
         </div>
       ) : null}
     </div>

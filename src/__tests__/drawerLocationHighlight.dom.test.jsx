@@ -5,7 +5,27 @@
 // by a stable source (global selectedScope id / currentSystemId prop), so
 // the highlight survives:
 //   • drawer close -> reopen on the same page
-//   • page navigation (Home -> Alerts and back)
+//   • page navigation to Alerts
+//
+// *** IT DOES NOT SURVIVE THE DASHBOARD TAB, AND THAT IS DELIBERATE, 2026-11-04.
+//     The owner deleted the header's house and moved its job onto the
+//     Dashboard tab, then was asked directly: on Alerts scoped to Office,
+//     does tapping Dashboard give you Office's dashboard or your own top
+//     level? He chose TOP LEVEL, SCOPE DROPPED. So the Dashboard tab calls
+//     clearSelectedScope(), there is no selected location left, and nothing
+//     is highlighted. A HUMAN CHOSE THIS - it is not a stale test and not a
+//     bug, and it must not be "fixed" back without him.
+//
+//     THE COST, stated because it is the thing most likely to read as a bug:
+//     Alerts -> pick a location -> tap Dashboard bounces you to your own top
+//     level instead of showing that location's dashboard. That flow is the
+//     bug Rami reported twice, and the owner has now chosen it. ***
+//
+// AND /alerts NO LONGER OPENS A DRAWER AT ALL, same day, same owner: "Remove
+// the header of like 'My Systems', so the navigation option from this view
+// shouldn't be there, only on the dashboard." Both of that page's doors were
+// in the header he removed, so the Alerts leg below checks the scope SURVIVES
+// the navigation rather than checking a highlight it cannot reach.
 //
 // Highlight chrome: 3px left accent stripe (the absolutely-positioned
 // rgb(11,149,248) bar) + accent-tinted background. Both SystemRow and
@@ -159,7 +179,7 @@ describe('Drawer location-highlight parity with system-highlight', () => {
     }
   });
 
-  it('highlight survives navigation Home -> Alerts -> Home (the parity case)', () => {
+  it('scope survives Home -> Alerts; the Dashboard tab deliberately drops it', () => {
     renderApp('wint-admin', '/');
     openDrawer();
     pickFirstAccountCardHeader();
@@ -168,21 +188,39 @@ describe('Drawer location-highlight parity with system-highlight', () => {
     // Navigate to Alerts.
     act(() => { findTabButton('Alerts').click(); });
 
-    // Open the (new) drawer mounted by Alerts.
-    openDrawer();
-    let row = findRowByTargetId(picked.id);
-    expect(row).toBeTruthy();
-    expect(hasAccentStripe(row)).toBe(true);
+    // THE ALERTS LEG NO LONGER OPENS A DRAWER, 2026-11-04. Owner, looking at
+    // /alerts: "Remove the header of like 'My Systems', so the navigation
+    // option from this view shouldn't be there, only on the dashboard."
+    // Both of that page's doors - the bell disc and the scope pill - left
+    // with the header, and Figma 199532:87604 draws neither. There is no
+    // "Switch location" control on /alerts to open, so this leg cannot
+    // assert a highlight inside a drawer that cannot be reached.
+    //
+    // RE-AIMED AT WHAT THE LEG IS FOR rather than deleted. The parity case is
+    // that the PICKED SCOPE survives the navigation - that is what drives the
+    // highlight wherever a drawer IS reachable. Alerts still names the scope,
+    // as a readout in its sub-line now, so the same signal is checked here.
+    // The absence of the door is asserted too, so this stops passing silently
+    // if a door comes back without anyone revisiting the test.
+    expect(document.querySelector('[aria-label="Switch location"]')).toBeNull();
+    expect(exposedCtx.selectedScope?.id).toBe(picked.id);
+    expect(document.querySelector('[data-name="alerts-scope-name"]')?.textContent)
+      .toBe(picked.name);
 
-    // Navigate back to Home.
-    act(() => { findTabButton('Home').click(); });
+    // Navigate back to Home. RE-AIMED 2026-11-04: this asserted that the
+    // highlight survived the Dashboard tap, and the owner has overruled that
+    // half of the 2026-06-15 rule - see the file header. The Dashboard tab is
+    // the home control now and going home drops the drilled-in scope, so
+    // there is no selected location left to highlight. Pinned to the NEW
+    // rule rather than deleted.
+    act(() => { findTabButton('Dashboard').click(); });
+    expect(exposedCtx.selectedScope).toBeFalsy();
     openDrawer();
-    row = findRowByTargetId(picked.id);
-    expect(row).toBeTruthy();
-    expect(hasAccentStripe(row)).toBe(true);
+    const row = findRowByTargetId(picked.id);
+    expect(row == null || !hasAccentStripe(row)).toBe(true);
   });
 
-  it('cross-page: visiting /system/<id> then opening drawer on Home expands path + highlights system', () => {
+  it('cross-page: /system/<id> then the Dashboard tab drops the implicit system scope', () => {
     // Simulates Rami's reported bug 2026-06-15: pick a system (URL =
     // /system/<id> sets implicit system scope), navigate away to a
     // different page, open the drawer - expected: path is expanded and
@@ -213,19 +251,21 @@ describe('Drawer location-highlight parity with system-highlight', () => {
     expect(exposedCtx.selectedScope?.levelType).toBe('system');
     expect(exposedCtx.selectedScope?.systemIds).toEqual([OFFICE_HIGH_FLOW]);
 
-    // Tap Home in the bottom TabBar (preserves scope per the 2026-06-15
-    // rule; selectedScope is still the system scope).
-    act(() => { findTabButton('Home').click(); });
+    // Tap Dashboard in the bottom TabBar. RE-AIMED 2026-11-04: it used to
+    // PRESERVE the scope per the 2026-06-15 rule, and this test asserted the
+    // drawer then expanded the path and highlighted the system. The owner has
+    // since made the Dashboard tab the home control, and going home drops any
+    // drilled-in scope - including the implicit system scope /system/<id>
+    // sets. See the file header for his words and for the cost.
+    act(() => { findTabButton('Dashboard').click(); });
+    expect(exposedCtx.selectedScope).toBeFalsy();
 
-    // Open the drawer on Home.
+    // Open the drawer on Home. With no scope there is nothing to highlight.
     openDrawer();
-
-    // The system row should be visible (path expanded) and highlighted.
     const row = findRowByTargetId(OFFICE_HIGH_FLOW);
-    expect(row, 'system row missing - drawer did not expand path').toBeTruthy();
     expect(
-      hasAccentStripe(row),
-      'system row found but not highlighted (effectiveSystemId not wired through)'
+      row == null || !hasAccentStripe(row),
+      'scope was dropped, so no row may still carry the selected-location stripe',
     ).toBe(true);
   });
 

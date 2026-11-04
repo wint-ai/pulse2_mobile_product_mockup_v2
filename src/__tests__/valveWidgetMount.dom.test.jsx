@@ -559,7 +559,7 @@ describe('mounting the widget cost the page nothing', () => {
         'SystemHealthCard’s valve tile is gone',
       ).toBeTruthy()
       /* TabBar, with alerts hidden on this page — so Home and More. */
-      expect(screen.getByRole('button', { name: 'Home' }), 'TabBar is not mounted').toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Dashboard' }), 'TabBar is not mounted').toBeTruthy()
       expect(screen.getByRole('button', { name: 'More' }), 'TabBar is not mounted').toBeTruthy()
       /* And the tab row the card lives behind. */
       for (const name of ['Overview', 'Systems', 'General Info']) {

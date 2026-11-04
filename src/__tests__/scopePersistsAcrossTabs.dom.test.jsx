@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 //
-// Regression test 2026-06-15: tapping the bottom TabBar (Home / Alerts /
-// More) must NOT clear the user's drawer-selected scope. The user reported:
+// Regression test 2026-06-15. HALF OF IT WAS DELIBERATELY OVERRULED BY THE
+// OWNER ON 2026-11-04 - read that part before changing anything here.
+//
+// WHAT IT WAS WRITTEN FOR. Rami reported this twice:
 //
 //   On Alerts, picked a location → header shows the picked location.
 //   Tapped Home → header reverts to "My Systems" (BUG: scope wiped).
@@ -9,15 +11,38 @@
 //
 // Root cause was an unconditional clearSelectedScope() in TabBar's onClick,
 // added 2026-06-08 to avoid carry-over from System Detail. That fix was too
-// broad - it killed the Home↔Alerts scope-parity requirement.
+// broad - it killed the Home↔Alerts scope-parity requirement. The rule that
+// came out of it was: A BOTTOM-TAB TAP NEVER MUTATES SCOPE.
+//
+// *** THE DASHBOARD HALF OF THAT RULE IS GONE, ON PURPOSE, 2026-11-04. ***
+//
+// The owner deleted the header's house and moved its job onto the Dashboard
+// tab: "I want to completely remove the home icon. And once user clicks on
+// dashboard, it just takes him to the upper level of the scope that he
+// already have." Asked directly - on Alerts scoped to Office, does tapping
+// Dashboard give you Office's dashboard or your own top level? - he chose
+// TOP LEVEL, SCOPE DROPPED.
+//
+// So the Dashboard tab now calls clearSelectedScope() and navigates to
+// homeTargetFor(...), and the tests below state THAT. A HUMAN CHOSE IT: this
+// is not a stale test and not a bug, and it must not be "fixed" back to the
+// 2026-06-15 behaviour without him.
+//
+// THE COST, said plainly because it is the thing most likely to read as a bug
+// to the next person: Alerts -> pick a location -> tap Dashboard now bounces
+// you to your OWN TOP LEVEL rather than showing that location's dashboard.
+// That exact flow is the complaint this file was written for.
+//
+// THE OTHER HALF STANDS AND IS STILL TESTED. The Alerts, Profile and More
+// taps never touch scope.
 //
 // These tests cover:
 //   1. Scope set programmatically persists when navigating Home → Alerts.
-//   2. Scope persists when navigating Alerts → Home.
+//   2. Dashboard CLEARS it and lands at the persona's own top level.
 //   3. The 'My Systems' fallback rule is identical on both screens (no
 //      account-name fallback on Alerts - ScopeHeader is the single source).
-//   4. The Alerts header uses the bell badge (notifications_active), not
-//      the home_work icon.
+//   4. The Alerts header is the list title now - a count badge and a subject -
+//      and carries neither of the two scope controls it used to.
 //   5. NavigationDrawer's Favorites section defaults to FOLDED on every
 //      open, regardless of whether it has entries.
 
@@ -30,6 +55,10 @@ import HomeUnified from '../screens/home/HomeUnified';
 import EventsScreen from '../screens/events/EventsScreen';
 import NavigationDrawer from '../components/NavigationDrawer';
 import TabBar from '../components/TabBar';
+/* The SAME module TabBar derives its destination from, so the expectation
+   below moves with the persona's own systemFilter instead of being pinned to
+   a literal route. */
+import { topLevelFor } from '../utils/homeTarget';
 
 const PERSONA_ID = 'wint-admin';
 
@@ -80,7 +109,7 @@ function renderApp(startRoute = '/alerts') {
 // tab button from all buttons whose direct text content equals the label.
 function findTabButton(label) {
   const buttons = document.querySelectorAll('button');
-  // The TabBar buttons render the label inside a <span style="font-size:12px">.
+  // The TabBar buttons render the label inside an 11px <span>.
   // We pick the LAST matching button (latest mount, after navigation).
   let last = null;
   for (const b of buttons) {
@@ -117,7 +146,7 @@ function pickFirstSystemAsScope() {
   return scopeName;
 }
 
-describe('Bottom-tab navigation preserves drawer-selected scope', () => {
+describe('Bottom-tab navigation: Alerts keeps scope, Dashboard drops it', () => {
   it('Alerts: picking a scope shows it in the header (baseline)', () => {
     renderApp('/alerts');
     const scopeName = pickFirstSystemAsScope();
@@ -126,23 +155,31 @@ describe('Bottom-tab navigation preserves drawer-selected scope', () => {
     expect(titles.length).toBeGreaterThan(0);
   });
 
-  it('Alerts → Home preserves the selected scope (Home shows scope name, NOT "My Systems")', () => {
+  // RE-AIMED 2026-11-04. This asserted the OPPOSITE until that day - that
+  // Alerts → Home preserved the drawer scope - and it is the assertion the
+  // owner overruled. See the file header: he was asked the question directly
+  // and chose top level with the scope dropped. Kept, pointed at the new
+  // rule, so the behaviour stays pinned rather than untested.
+  it('Alerts → Dashboard CLEARS the scope and goes to the persona top level', () => {
     renderApp('/alerts');
     const scopeName = pickFirstSystemAsScope();
-
-    // Tap the Home bottom-tab button.
-    const homeBtn = findTabButton('Home');
-    act(() => { homeBtn.click(); });
-
-    // Home is now rendered. The scope title should still show the picked
-    // location, NOT the fallback "My Systems".
-    const stillScoped = screen.queryAllByText(scopeName, { exact: false });
-    expect(stillScoped.length).toBeGreaterThan(0);
-    // And the bare fallback should NOT be the page title.
-    // (The literal string "My Systems" can still appear as a breadcrumb
-    // root, so we only assert the scope name persists - that's the real
-    // signal scope was preserved.)
     expect(exposedCtx.selectedScope?.name).toBe(scopeName);
+
+    // Tap the Dashboard bottom-tab button - the home control now.
+    act(() => { findTabButton('Dashboard').click(); });
+
+    // The scope is dropped. This is the ruling.
+    expect(exposedCtx.selectedScope).toBeFalsy();
+
+    // And the destination is THIS PERSONA'S top level, asked of the same
+    // module TabBar asks - over the systems the persona's systemFilter
+    // actually leaves visible, not a hard-coded route. wint-admin sees the
+    // whole fleet, so that resolves to the all-accounts roll-up; a narrower
+    // persona would move this expectation with it.
+    const home = topLevelFor(exposedCtx.visibleSystems);
+    expect(home.path).toBe('/');
+    // It really navigated: the Alerts surface is unmounted.
+    expect(document.querySelector('[data-name="alerts-title"]')).toBeNull();
   });
 
   it('Home → Alerts preserves the selected scope', () => {
@@ -157,20 +194,28 @@ describe('Bottom-tab navigation preserves drawer-selected scope', () => {
     expect(exposedCtx.selectedScope?.name).toBe(scopeName);
   });
 
-  it('Home → Alerts → Home round-trip preserves scope (the exact flow Rami reported)', () => {
+  // RE-AIMED 2026-11-04, same ruling. This is the exact flow Rami reported -
+  // Alerts, pick a location, tap Dashboard - and the owner has now chosen the
+  // behaviour Rami called a bug. It is pinned here so the choice is visible
+  // and reversible rather than silently re-litigated.
+  it('Alerts → Dashboard → Alerts: only Dashboard mutates scope, and it stays dropped', () => {
     renderApp('/alerts');
     const scopeName = pickFirstSystemAsScope();
-
-    // Alerts → Home
-    act(() => { findTabButton('Home').click(); });
     expect(exposedCtx.selectedScope?.name).toBe(scopeName);
 
-    // Home → Alerts
+    // Alerts → Dashboard: the one tab that touches scope.
+    act(() => { findTabButton('Dashboard').click(); });
+    expect(exposedCtx.selectedScope).toBeFalsy();
+
+    // Dashboard → Alerts: still never touches it, so it stays cleared.
+    // Nothing re-scopes the page behind the user on the way back.
     act(() => { findTabButton('Alerts').click(); });
-    expect(exposedCtx.selectedScope?.name).toBe(scopeName);
+    expect(exposedCtx.selectedScope).toBeFalsy();
 
-    // Final assertion: the scope name appears as the page title on Alerts.
-    expect(screen.queryAllByText(scopeName, { exact: false }).length).toBeGreaterThan(0);
+    // Alerts falls back to the shared 'My Systems' readout rather than
+    // resurrecting the scope the Dashboard tap dropped.
+    expect(document.querySelector('[data-name="alerts-scope-name"]')?.textContent)
+      .toBe('My Systems');
   });
 });
 
@@ -193,19 +238,40 @@ describe('Home + Alerts share the same page-title rule via ScopeHeader', () => {
   });
 });
 
-describe('Alerts header badge uses the bell icon', () => {
-  it('Alerts page renders notifications_active glyph, not home_work', () => {
+describe('Alerts header is the list title, not a scope control', () => {
+  // THIS SUITE USED TO PIN THE BELL. It asserted that /alerts drew the
+  // notifications_active glyph, which was that page's identity mark AND its
+  // door into NavigationDrawer. Owner, 2026-11-04, looking at the page:
+  //
+  //   "Remove the header of like 'My Systems', so the navigation option from
+  //    this view shouldn't be there, only on the dashboard."
+  //
+  // Figma 199532:87604 says the same: its title row is a back chevron and a
+  // centred title, with the scope caret and the Avatar both hidden. So the
+  // bell and the scope pill are both off this page and the glyph this suite
+  // looked for no longer renders anywhere on it.
+  //
+  // RE-AIMED, NOT DELETED, at what the page now guarantees instead: the
+  // frame's title - a count badge and a phrase naming what is listed - the
+  // absence of BOTH scope controls, and the scope NAME surviving as a readout,
+  // which is what the three suites above read off this page.
+  it('Alerts draws the count badge and subject, and neither scope control', () => {
     const { container } = renderApp('/alerts');
-    // Material Symbols ligature: the text content of the badge <span> is
-    // the glyph name. We just check the bell name appears in the page.
-    expect(container.textContent).toContain('notifications_active');
-    // And NOT the Home icon name (Home's badge is home_work; an Alerts
-    // page that mistakenly used the same icon would fail this assertion).
-    // The Alerts ScopeHeader uses notifications_active only.
-    const drawerBadgeMatches = (container.textContent.match(/home_work/g) || []).length;
-    // Drawer trigger may live elsewhere; the assertion that matters is
-    // that the bell IS present on the Alerts page header.
-    expect(drawerBadgeMatches).toBeGreaterThanOrEqual(0);
+    expect(container.querySelector('[data-name="alerts-title-count"]')).toBeTruthy();
+    expect(container.querySelector('[data-name="alerts-title-subject"]')).toBeTruthy();
+    // The bell disc and the shared bar's scope pill are both gone.
+    expect(container.querySelector('[data-name="alerts-drawer-trigger"]')).toBeNull();
+    expect(container.querySelector('[data-name="app-scope"]')).toBeNull();
+    expect(container.textContent).not.toContain('notifications_active');
+  });
+
+  it('Alerts keeps the scope NAME as a readout once the pill is gone', () => {
+    const { container } = renderApp('/alerts');
+    expect(exposedCtx.selectedScope).toBeFalsy();
+    // Same rule as before: selectedScope?.name || 'My Systems', no
+    // account-name fallback. It is the sub-line's first element now.
+    expect(container.querySelector('[data-name="alerts-scope-name"]')?.textContent)
+      .toBe('My Systems');
   });
 
   it('Home page renders home_work glyph in the header', () => {

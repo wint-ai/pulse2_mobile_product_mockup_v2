@@ -171,6 +171,72 @@ const boxFor = (container, id) =>
 const actionBar = (container) => container.querySelector('[data-name="valve-action-bar"]')
 const selectAllBar = (container) => container.querySelector('[data-name="valve-select-all"]')
 
+/* ── THE ONE DOOR (2026-11-04) ────────────────────────────────────────────
+   The owner, verbatim: "I want to hide everything under filters. I had it some
+   of them are filters and some of them are not. Use the shadcn filters, don't
+   invent something that looks from different app. Make search for locations,
+   all the rest doesn't need any search. Make it easy to use."
+
+   The valve-state chips used to sit ON the page beside the Filters button -
+   the one filter outside the filter surface, and the row overflowed besides
+   (measured at 643px of chips in a ~268px slot, which is the clipped chip in
+   his screenshot). They are now a group INSIDE the shared
+   `src/v2/components/FilterSheet.jsx`, which /alerts opened the same day, so
+   the app has ONE filter pattern rather than two that look alike.
+
+   TWO THINGS CHANGED SHAPE AND BOTH ARE PINNED BELOW RATHER THAN ASSUMED:
+     · the surface has to be OPENED and the choice committed with APPLY, which
+       is the draft/apply contract location and connectivity always obeyed;
+     · a state option is a shadcn `Checkbox` row named `<state>, <n> systems`,
+       not a radio chip. It is MULTI-select now - `Open` plus `Closed` in one
+       pass was impossible before - and "nothing ticked" is how this app has
+       always spelled "no constraint", so the old `All` chip has no successor
+       and `noStateFilter()` below is what replaces reading it.
+
+   EVERY ASSERTION STANDING BEHIND THESE HELPERS IS THE ONE IT ALWAYS WAS.
+   Nothing about reach, counts, selection or the deep link is re-expressed -
+   only the route to the control. */
+const esc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+function openFilters() {
+  fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+  return screen.getByRole('dialog', { name: 'Filter valves' })
+}
+
+/** One option box inside the open surface, by the word it starts with. The
+ *  accessible name carries the count after a comma ("Open, 74 systems"), which
+ *  is why this anchors on the comma rather than on an exact string - the
+ *  fixtures are the real catalog and its counts move. */
+const optionBox = (sheet, label) =>
+  within(sheet).getByRole('checkbox', { name: new RegExp(`^${esc(label)},`) })
+
+/** Open, tick one valve state, Apply. The old chip tap, in three gestures. */
+function applyState(name) {
+  const sheet = openFilters()
+  fireEvent.click(optionBox(sheet, name))
+  fireEvent.click(within(sheet).getByRole('button', { name: 'Apply filter' }))
+}
+
+/** Read a state option's ticked state without changing anything. Cancels
+ *  rather than applies, so the act of LOOKING can never apply a filter. */
+function readState(name) {
+  const sheet = openFilters()
+  const checked = optionBox(sheet, name).getAttribute('aria-checked')
+  fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }))
+  return checked
+}
+
+/** The successor to "the All chip is pressed": NOTHING in the valve-state
+ *  group is ticked, which is this app's empty-set-means-all rule. */
+function noStateFilter() {
+  const sheet = openFilters()
+  const group = sheet.querySelector('[data-name="filter-group-state"]')
+  const boxes = [...group.querySelectorAll('[data-slot="checkbox"]')]
+  const none = boxes.length > 0 && boxes.every((b) => b.getAttribute('aria-checked') === 'false')
+  fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }))
+  return none
+}
+
 /** Drive the confirm sheet all the way to DISPATCH, on fake timers.
  *
  *  The sheet's commit button no longer dispatches on click (2026-11-02): the
@@ -507,20 +573,16 @@ describe('ValveManagementScreen — the number rule', () => {
 })
 
 describe('ValveManagementScreen — filtering and select-all', () => {
-  // The quick filter is a <ToggleGroup type="single">, so Radix gives its
-  // items role="radio" inside a role="radiogroup" — not role="button".
-  const chip = (name) => screen.getByRole('radio', { name })
-
-  it('a state chip narrows the rows', () => {
+  it('a state filter narrows the rows', () => {
     const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
     expect(rows(container).length).toBe(SCOPED.length)
-    expect(chip('All').getAttribute('aria-checked')).toBe('true')
+    expect(noStateFilter()).toBe(true)
 
-    fireEvent.click(chip('Valve Error'))
+    applyState('Valve Error')
     const errored = SCOPED.filter((s) => valveCategoryOf(s) === 'error')
     expect(rows(container).length).toBe(errored.length)
     expect(rows(container).length).toBeLessThan(SCOPED.length)
-    expect(chip('Valve Error').getAttribute('aria-checked')).toBe('true')
+    expect(readState('Valve Error')).toBe('true')
     expectNoReactError()
   })
 
@@ -529,13 +591,23 @@ describe('ValveManagementScreen — filtering and select-all', () => {
     const open = SCOPED.filter((s) => valveCategoryOf(s) === 'open')
     const a = renderAt(`/valves/${encodeURIComponent(SCOPE)}?state=open`)
     expect(rows(a.container).length).toBe(open.length)
-    expect(chip('Open').getAttribute('aria-checked')).toBe('true')
+    // The seeded state is ticked inside the surface...
+    expect(readState('Open')).toBe('true')
+    // ...and NAMED on the one control left on the page, so a user who lands on
+    // 2 rows out of 5 can read why without opening anything.
+    expect(
+      a.container.querySelector('[data-name="filter-trigger-summary"]').textContent,
+    ).toBe('Open')
+    expect(screen.getByRole('button', { name: 'Filters (1 active)' })).toBeTruthy()
     cleanup()
 
     // An unknown value must NOT render an empty list — it falls back to All.
     const b = renderAt(`/valves/${encodeURIComponent(SCOPE)}?state=banana`)
     expect(rows(b.container).length).toBe(SCOPED.length)
-    expect(chip('All').getAttribute('aria-checked')).toBe('true')
+    expect(noStateFilter()).toBe(true)
+    // nothing to summarise, so no summary badge and the plain name
+    expect(b.container.querySelector('[data-name="filter-trigger-summary"]')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeTruthy()
     expectNoReactError()
   })
 
@@ -551,8 +623,13 @@ describe('ValveManagementScreen — filtering and select-all', () => {
     const option = within(sheet).getByRole('checkbox', { name: new RegExp(`^${SCOPE}`) })
     // "A checkbox that silently returns nothing is the complaint this whole
     // tab started from" — SystemsFilterSheet.jsx:245-247. The count is drawn
-    // beside the box, so the row around it is what carries the text.
-    expect(option.closest('li').textContent).toContain(String(SCOPED.length))
+    // beside the box, so the row around it is what carries the text. The row
+    // is a shadcn <Item> now rather than a hand-rolled <li>.
+    expect(option.closest('[data-slot="item"]').textContent).toContain(String(SCOPED.length))
+    // ...and it is said aloud too, in this screen's own units.
+    expect(option.getAttribute('aria-label')).toBe(
+      `${SCOPE}, ${SCOPED.length} ${SCOPED.length === 1 ? 'system' : 'systems'}`,
+    )
 
     fireEvent.click(option)
     fireEvent.click(within(sheet).getByRole('button', { name: 'Apply filter' }))
@@ -609,7 +686,7 @@ describe('ValveManagementScreen — filtering and select-all', () => {
     expect(actionBar(container).textContent).toContain('1 selected')
 
     // Narrow to a state the selected system is not in.
-    fireEvent.click(screen.getByRole('radio', { name: 'Valve Error' }))
+    applyState('Valve Error')
     expect(rowFor(container, ACTIONABLE_SYS.id)).toBeNull()
 
     const bar = actionBar(container)
@@ -743,7 +820,7 @@ describe('ValveManagementScreen - the select-all control says exactly what it se
   it('says nothing extra when every drawn row can be selected', () => {
     const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
     // Narrow to a state whose rows are all selectable.
-    fireEvent.click(screen.getByRole('radio', { name: 'Open' }))
+    applyState('Open')
 
     const bar = selectAllBar(container)
     expect(bar.textContent).toMatch(/^Select all \d+ matching$/)
@@ -778,45 +855,305 @@ describe('ValveManagementScreen - the select-all control says exactly what it se
    `getBoundingClientRect()` is all zeros, so this file cannot and does not
    assert a single pixel. */
 describe('ValveManagementScreen - the counts and the filter are one control', () => {
-  it('each state chip carries its own count, and the summary card that drew them twice is gone', () => {
+  it('each state option carries its own count, and the summary card that drew them twice is gone', () => {
     const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
     const summary = summariseValves(SCOPED)
+    const sheet = openFilters()
 
     /* The category list used to be drawn THREE times before the user reached a
        row: the summary card's legend, the chip row, and the filter sheet's
        "Valve state" group. UK Analysis Function: "Do not use a key, label the
-       categories themselves." So the chip IS the readout and IS the filter. */
+       categories themselves." So the control IS the readout and IS the filter.
+       WHERE that one drawing lives moved on 2026-11-04 - from the page to
+       inside the filter surface - and the rule it exists for did not: the
+       counts and the filter are still ONE control and there is still exactly
+       one of it. */
+    let summed = 0
     for (const c of VALVE_CATEGORIES) {
       const total = summary.byCategory[c.key].total
       if (total === 0) continue
-      const el = screen.getByRole('radio', { name: c.label })
-      expect(el.textContent).toContain(String(total))
-      /* THE COUNT IS A DESCRIPTION, NOT PART OF THE NAME. A control whose
-         accessible name changes every time the fleet does is a control nothing
-         can address — and every name-based assertion in this file would churn
-         with the catalog. */
-      expect(el.getAttribute('aria-describedby')).toBeTruthy()
+      summed += total
+      const box = optionBox(sheet, c.label)
+      // The count is beside the word, on the row.
+      expect(box.closest('[data-slot="item"]').textContent).toContain(String(total))
+      // ...and in the accessible name, in units, so it is not read as a digit
+      // glued to the word. Copy standard §4: never let two counts abut.
+      expect(box.getAttribute('aria-label')).toBe(
+        `${c.label}, ${total} ${total === 1 ? 'system' : 'systems'}`,
+      )
+      // THE WORD IS NEVER DROPPED. index.css:358-367 - --valve-error against
+      // --valve-open is dE 7.6 under deuteranopia, legal ONLY with secondary
+      // encoding, and the word is that encoding.
+      expect(box.closest('[data-slot="item"]').textContent).toContain(c.label)
     }
-    // "All" carries the scope total the same way.
-    expect(screen.getByRole('radio', { name: 'All' }).textContent).toContain(
-      String(summary.total),
-    )
+
+    /* THE SCOPE TOTAL IS STILL DERIVABLE, which is the whole reason the `none`
+       category keeps a filter of its own: "a breakdown missing a part is a lie
+       about the whole". The `All 103` chip that used to state it outright is
+       gone with the chip row - flagged to the owner - but every part is here
+       and they sum to it. */
+    expect(summed).toBe(summary.total)
 
     // The 166px card — the single largest piece of chrome — is gone.
     expect(container.querySelector('[data-name="valve-summary"]')).toBeNull()
     expectNoReactError()
   })
 
-  it('the filter sheet no longer draws the valve states a third time', () => {
-    renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }))
-    const sheet = screen.getByRole('dialog', { name: 'Filter valves' })
+  it('draws the four category words EXACTLY ONCE, and it is inside the one filter surface', () => {
+    /* RE-EXPRESSED 2026-11-04, NOT RELAXED. This test used to assert that the
+       sheet does NOT carry a "Valve state" group, because at the time the
+       chips were on the page and a group here would have been the category
+       list's THIRD drawing. The owner has since moved every filter behind one
+       door - "I want to hide everything under filters" - so the sheet is now
+       where that ONE drawing lives. The invariant being pinned is unchanged:
+       the four words appear once on the way to a row, never two or three
+       times. */
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
 
-    // The two axes the chips do NOT cover are still first-class here.
+    // On the page at rest: no state control at all, and exactly ONE control
+    // on the filter row - the shared trigger. "Some of them are filters and
+    // some of them are not" is what that pins against.
+    expect(screen.queryByRole('radio')).toBeNull()
+    expect(container.querySelector('[data-name="filter-group-state"]')).toBeNull()
+    const row = container.querySelector('[data-name="valve-filter-row"]')
+    expect(row.querySelectorAll('button').length).toBe(1)
+    expect(row.querySelector('[data-name="valve-filter-trigger"]')).toBeTruthy()
+
+    const sheet = openFilters()
+    // All three axes are first-class here, and the state group is one of them.
+    expect(within(sheet).getByText('Valve state')).toBeTruthy()
     expect(within(sheet).getByText('Location')).toBeTruthy()
     expect(within(sheet).getByText('Connectivity')).toBeTruthy()
-    // The third drawing of the four category words is not.
-    expect(within(sheet).queryByText('Valve state')).toBeNull()
+
+    // Each category word is drawn ONCE inside the surface, not once per group.
+    for (const c of VALVE_CATEGORIES) {
+      if (summariseValves(SCOPED).byCategory[c.key].total === 0) continue
+      expect(
+        within(sheet).getAllByRole('checkbox', { name: new RegExp(`^${esc(c.label)},`) }).length,
+      ).toBe(1)
+    }
+    expectNoReactError()
+  })
+})
+
+/* ── THE 2026-11-04 PASS - ONE DOOR, AND A SEARCH BEHIND IT ──────────────
+   The owner, verbatim: "I want to hide everything under filters. I had it some
+   of them are filters and some of them are not. Use the shadcn filters, don't
+   invent something that looks from different app. Make search for locations,
+   all the rest doesn't need any search. Make it easy to use."
+
+   Four instructions, four groups of assertions. The surface itself is the
+   shared `src/v2/components/FilterSheet.jsx`, so these pin what THIS SCREEN
+   asks of it - the three axes, the search on exactly one of them, and the
+   draft/apply contract holding over a filter that can stop water. */
+describe('ValveManagementScreen - the one filter door', () => {
+  const locationGroup = (sheet) => sheet.querySelector('[data-name="filter-group-location"]')
+  const optionRows = (group) => [...group.querySelectorAll('[data-slot="item"]')]
+
+  it('opens the surface from the one control on the row, inside the frame', () => {
+    const { container } = renderAt('/valves')
+
+    const row = container.querySelector('[data-name="valve-filter-row"]')
+    expect(row).toBeTruthy()
+    // ONE control on the row. The chip scroller beside it is gone.
+    expect(row.querySelectorAll('button').length).toBe(1)
+    expect(container.querySelector('[data-slot="toggle-group"]')).toBeNull()
+
+    const sheet = openFilters()
+    // NO PORTAL: Phone.jsx is a fixed 393x852 overflow-hidden frame, so a
+    // Radix Popover/Dialog/Sheet would paint outside it.
+    expect(container.contains(sheet)).toBe(true)
+    expect(sheet.className).toMatch(/\babsolute\b/)
+    expect(sheet.className).toMatch(/\binset-0\b/)
+    expect(sheet.className).not.toMatch(/\bfixed\b/)
+    expectNoReactError()
+  })
+
+  it('searches LOCATIONS only, narrows the list, and says that it is narrowed', () => {
+    renderAt('/valves')
+    const sheet = openFilters()
+
+    // "all the rest doesn't need any search" - exactly one search box, and it
+    // is the one over the long list.
+    const boxes = within(sheet).getAllByRole('searchbox')
+    expect(boxes.length).toBe(1)
+    expect(locationGroup(sheet).contains(boxes[0])).toBe(true)
+    expect(boxes[0].getAttribute('aria-label')).toBe('Search locations')
+
+    const before = optionRows(locationGroup(sheet)).length
+    expect(before).toBeGreaterThan(5)
+
+    fireEvent.change(boxes[0], { target: { value: 'harborview' } })
+
+    const after = optionRows(locationGroup(sheet))
+    expect(after.length).toBeGreaterThan(0)
+    expect(after.length).toBeLessThan(before)
+    for (const r of after) expect(r.textContent.toLowerCase()).toContain('harborview')
+
+    /* A FILTERED LIST SAYS IT IS FILTERED. Copy standard §4 - a silent cut
+       reads as "this is everything", and here it would read as "this account
+       only has four locations". */
+    const note = locationGroup(sheet).querySelector('[data-name="filter-search-note-location"]')
+    expect(note.textContent).toBe(`Showing ${after.length} of ${before}`)
+
+    // A term that matches nothing says so rather than drawing an empty box.
+    fireEvent.change(boxes[0], { target: { value: 'zzzzz' } })
+    expect(optionRows(locationGroup(sheet)).length).toBe(0)
+    expect(within(sheet).getByText('No locations match this search.')).toBeTruthy()
+    expectNoReactError()
+  })
+
+  it('the search narrows what is DRAWN, never what is PICKED', () => {
+    /* The dangerous version of a search over a filter: you tick a location,
+       type something that hides it, press Apply, and the filter you committed
+       is not the one you built. */
+    const { container } = renderAt('/valves')
+    const sheet = openFilters()
+
+    const option = within(sheet).getByRole('checkbox', { name: new RegExp(`^${SCOPE}`) })
+    fireEvent.click(option)
+
+    const search = within(sheet).getByRole('searchbox', { name: 'Search locations' })
+    fireEvent.change(search, { target: { value: 'harborview' } })
+    // It is off screen now...
+    expect(within(sheet).queryByRole('checkbox', { name: new RegExp(`^${SCOPE}`) })).toBeNull()
+
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Apply filter' }))
+    // ...and still the filter that was applied.
+    expect(rows(container).length).toBe(SCOPED.length)
+    expectNoReactError()
+  })
+
+  it("a group's select-all reaches the options on screen, which under a search is fewer", () => {
+    /* THE NUMBER ON A CONTROL IS WHAT THE CONTROL WILL DO. A select-all that
+       silently swept in thirteen hidden locations would be the same class of
+       footgun this screen exists to close one level up. */
+    const { container } = renderAt('/valves')
+    const sheet = openFilters()
+
+    const allLocations = optionRows(locationGroup(sheet)).length
+    const search = within(sheet).getByRole('searchbox', { name: 'Search locations' })
+    fireEvent.change(search, { target: { value: 'harborview' } })
+    const matching = optionRows(locationGroup(sheet)).length
+    expect(matching).toBeLessThan(allLocations)
+
+    // The box is numbered for the search, not for the group.
+    const selectAll = within(sheet).getByRole('checkbox', {
+      name: `Select all ${matching} location options`,
+    })
+    fireEvent.click(selectAll)
+    for (const r of optionRows(locationGroup(sheet))) {
+      expect(r.querySelector('[data-slot="checkbox"]').getAttribute('aria-checked')).toBe('true')
+    }
+
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Apply filter' }))
+    // Only the matching locations were taken, never the whole group.
+    const drawn = new Set(
+      rows(container).map((r) => {
+        const s = SYSTEMS.find((x) => x.id === r.getAttribute('data-valve-row'))
+        return s.l4Name || s.l3Name || s.l2Name || s.l1Name
+      }),
+    )
+    expect(drawn.size).toBe(matching)
+    for (const name of drawn) expect(name.toLowerCase()).toContain('harborview')
+    expectNoReactError()
+  })
+
+  it('is draft-until-Apply: Cancel abandons the edit and leaves the list alone', () => {
+    const { container } = renderAt('/valves')
+    const before = rows(container).length
+
+    const sheet = openFilters()
+    fireEvent.click(optionBox(sheet, 'Valve Error'))
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }))
+
+    expect(rows(container).length).toBe(before)
+    expect(container.querySelector('[data-name="filter-trigger-summary"]')).toBeNull()
+    // and a re-open does not resurrect the abandoned draft
+    expect(noStateFilter()).toBe(true)
+    expectNoReactError()
+  })
+
+  it('the valve state axis is MULTI-select now, and the trigger counts every axis', () => {
+    /* It was a single-select chip row on the page. Behind the door it is a
+       checkbox group like the other two, which is an ADDITION - Open plus
+       Closed in one pass was impossible before - and `matchesFilter` already
+       read `filter.state` as a set. */
+    const { container } = renderAt('/valves')
+    const sheet = openFilters()
+    fireEvent.click(optionBox(sheet, 'Open'))
+    fireEvent.click(optionBox(sheet, 'Closed'))
+    fireEvent.click(optionBox(sheet, 'Online'))
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Apply filter' }))
+
+    const expected = SYSTEMS.filter(
+      (s) => ['open', 'closed'].includes(valveCategoryOf(s)) && isReachable(s),
+    )
+    expect(expected.length).toBeGreaterThan(0)
+    for (const r of rows(container)) {
+      const s = SYSTEMS.find((x) => x.id === r.getAttribute('data-valve-row'))
+      expect(['open', 'closed']).toContain(valveCategoryOf(s))
+      expect(isReachable(s)).toBe(true)
+    }
+
+    // THREE constraints, so the trigger states the number, not one of them.
+    expect(screen.getByRole('button', { name: 'Filters (3 active)' })).toBeTruthy()
+    expect(container.querySelector('[data-name="filter-trigger-summary"]').textContent).toBe(
+      '3 filters',
+    )
+    expectNoReactError()
+  })
+
+  it('Clear all filters empties every axis and is itself a draft action', () => {
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}?state=open`)
+    const openCount = SCOPED.filter((s) => valveCategoryOf(s) === 'open').length
+    expect(rows(container).length).toBe(openCount)
+
+    const sheet = openFilters()
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Clear all filters' }))
+    // Nothing has happened to the list yet — Clear is a draft action, the same
+    // as every tick on this surface, so one gesture cannot both clear and
+    // commit behind the user's back.
+    expect(rows(container).length).toBe(openCount)
+
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Apply filter' }))
+    expect(rows(container).length).toBe(SCOPED.length)
+    expect(container.querySelector('[data-name="filter-trigger-summary"]')).toBeNull()
+    expectNoReactError()
+  })
+
+  it('the ?state= deep link still lands, with the surface shut', () => {
+    /* ValveManagementCard's legend rows navigate here with ?state=<key>. The
+       filter moving behind a door must not make the link open one. */
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}?state=error`)
+    const errored = SCOPED.filter((s) => valveCategoryOf(s) === 'error')
+    expect(errored.length).toBeGreaterThan(0)
+    expect(rows(container).length).toBe(errored.length)
+    // The surface is NOT open...
+    expect(screen.queryByRole('dialog', { name: 'Filter valves' })).toBeNull()
+    // ...and the page says what it is filtered to.
+    expect(container.querySelector('[data-name="filter-trigger-summary"]').textContent).toBe(
+      'Valve Error',
+    )
+    expectNoReactError()
+  })
+
+  it('keeps the two bulk-safety invariants while a filter is on', () => {
+    /* Rule 0 of this screen: filtering never touches the selection, and the
+       offline exclusion is never hidden by it. */
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    fireEvent.click(rowFor(container, OFFLINE_SYS.id))
+    fireEvent.click(rowFor(container, ACTIONABLE_SYS.id))
+    expect(actionBar(container).textContent).toContain('2 selected')
+
+    applyState('Open')
+
+    // The selection survived the filter...
+    expect(actionBar(container).textContent).toContain('2 selected')
+    // ...and the offline one is still visibly excluded from what will act.
+    expect(actionBar(container).textContent).toMatch(/1 offline[^.]*excluded/)
+    const close = within(actionBar(container)).getByRole('button', { name: /^Close \d+ valve/ })
+    expect(close.textContent).toContain('Close 1 valve')
     expectNoReactError()
   })
 })
@@ -830,7 +1167,7 @@ describe('ValveManagementScreen - the "No valve installed" dead end', () => {
      disabled checkbox and a note restating the filter just applied. */
   it('offers no select-all at all when nothing in the filtered set can be selected, and says why', () => {
     const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
-    fireEvent.click(screen.getByRole('radio', { name: 'No valve installed' }))
+    applyState('No valve installed')
 
     const noValve = SCOPED.filter((s) => valveCategoryOf(s) === 'none')
     expect(noValve.length).toBeGreaterThan(0)
@@ -867,15 +1204,11 @@ describe('ValveManagementScreen - the selection strip', () => {
     expect(actionBar(container).textContent).toContain('1 selected')
 
     // state=error AND the connectivity that system is not — zero rows, by
-    // construction rather than by a hardcoded count.
-    fireEvent.click(screen.getByRole('radio', { name: 'Valve Error' }))
-    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }))
-    const sheet = screen.getByRole('dialog', { name: 'Filter valves' })
-    fireEvent.click(
-      within(sheet).getByRole('checkbox', {
-        name: new RegExp(`^${EMPTY_COMBO_CONNECTIVITY},`),
-      }),
-    )
+    // construction rather than by a hardcoded count. Both axes now live on the
+    // one surface, so this is a single open / tick / tick / Apply.
+    const sheet = openFilters()
+    fireEvent.click(optionBox(sheet, 'Valve Error'))
+    fireEvent.click(optionBox(sheet, EMPTY_COMBO_CONNECTIVITY))
     fireEvent.click(within(sheet).getByRole('button', { name: 'Apply filter' }))
 
     expect(rows(container).length).toBe(0)
@@ -895,7 +1228,7 @@ describe('ValveManagementScreen - the selection strip', () => {
   it('the hidden count is itself the control that clears the filter', () => {
     const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
     fireEvent.click(rowFor(container, ACTIONABLE_SYS.id))
-    fireEvent.click(screen.getByRole('radio', { name: 'Valve Error' }))
+    applyState('Valve Error')
     expect(rowFor(container, ACTIONABLE_SYS.id)).toBeNull()
 
     /* A number that reports a problem and offers no way out of it makes the
@@ -907,7 +1240,10 @@ describe('ValveManagementScreen - the selection strip', () => {
 
     expect(rows(container).length).toBe(SCOPED.length)
     expect(rowFor(container, ACTIONABLE_SYS.id)).toBeTruthy()
-    expect(screen.getByRole('radio', { name: 'All' }).getAttribute('aria-checked')).toBe('true')
+    // It clears EVERYTHING, the state axis included — and the one control left
+    // on the page stops naming a filter, because there is none.
+    expect(container.querySelector('[data-name="filter-trigger-summary"]')).toBeNull()
+    expect(noStateFilter()).toBe(true)
     const bar = actionBar(container)
     // the selection was never touched — only what was hiding it
     expect(bar.textContent).toContain('1 selected')
@@ -921,7 +1257,7 @@ describe('ValveManagementScreen - the selection strip', () => {
        half below reads "1 selected". Separately correct, together baffling. */
     const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
     fireEvent.click(rowFor(container, ACTIONABLE_SYS.id))
-    fireEvent.click(screen.getByRole('radio', { name: 'Valve Error' }))
+    applyState('Valve Error')
 
     const bar = selectAllBar(container)
     expect(bar).toBeTruthy()
@@ -1174,11 +1510,11 @@ describe('ValveManagementScreen - select-all at two scopes', () => {
 
   it('a location select-all RESPECTS THE ACTIVE FILTER and never reaches a row the user cannot see', () => {
     const { container } = renderAt('/valves')
-    // Narrow to one valve state with the chip row.
-    // The chip row is a <ToggleGroup type="single">, so Radix gives its items
+    // Narrow to one valve state. The state group is a <ToggleGroup
+    // type="single"> inside the filter surface, so Radix gives its items
     // role="radio" inside a role="radiogroup" - not role="button".
     const open = VALVE_CATEGORIES.find((c) => c.key === 'open')
-    fireEvent.click(screen.getByRole('radio', { name: open.label }))
+    applyState(open.label)
 
     const card = locationCards(container).find((c) =>
       locationBox(container, c.getAttribute('data-location')),

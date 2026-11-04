@@ -12,9 +12,12 @@
     "no": "No"
   },
   "tabs": {
-    "home": "Home",
+    "home": "Dashboard",
     "alerts": "Alerts",
-    "more": "More"
+    "more": "More",
+    "profile": "Profile",
+    "alerts_badge_one": "{{formatted}} active alert",
+    "alerts_badge_other": "{{formatted}} active alerts"
   },
   "home": {
     "title_default": "My Systems",
@@ -175,6 +178,9 @@
     "push_desc": "In-app and lock-screen",
     "sms": "SMS",
     "sms_desc": "Text messages",
+    "users": "Users",
+    "reports": "Reports",
+    "coming_soon": "Coming soon",
     "tutorial": "Tutorial",
     "tutorial_desc": "Learn how to use the app",
     "sign_out": "Sign out",

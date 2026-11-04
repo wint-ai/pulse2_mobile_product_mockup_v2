@@ -18,7 +18,8 @@
  *       │   └── Scope 199383:141507   flex-[1_0_0] h-28 pr-7 rounded-23
  *       │        · label 199383:141508   16/24 Figtree Medium slate-800
  *       │        · chevron-down 199383:141509   24px
- *       └── Avatar 199383:141510   28px round, hard right
+ *       └── Avatar 199383:141510   28px round, hard right — NOT DRAWN, see
+ *                                  the removal note at the slot itself
  *
  * WHAT THE CONTROLS DO. A Figma frame draws affordances and cannot say what
  * they do, so this came from the repo owner, verbatim, looking at this bar:
@@ -27,7 +28,7 @@
  *      Down arrow - opens side bar navigation
  *      Avatar open user profile and 'More'"
  *
- * Three consequences, each of which deletes something the app had:
+ * Four consequences, each of which deletes something the app had:
  *
  * 1. NO BURGER. Both screens used to carry one at the far left as the only way
  *    into WintSidebarV2. The nodes have never drawn it, and it was kept on the
@@ -49,19 +50,22 @@
  *    is what that slot is for: the scope you are in, and the control that
  *    changes it.
  *
- * THE AVATAR IS THE NODE'S OWN PICTURE, fetched and committed.
- * Figma serves it from a figma.com/api/mcp/asset URL that dies in about a
- * week, and check-shell-contract.mjs bans referencing one of those at runtime
- * — so the file was downloaded while the link was still alive and committed
- * as src/assets/avatar.jpg. (It arrives named .png and is actually a 460x460
- * JPEG; the extension here follows the bytes.) Nothing points at figma.com.
+ * 4. NO AVATAR, 2026-11-04. Owner: "remove avatar from the header - footer is
+ *    enough", given about the Dashboard bar and applied here because it is a
+ *    general statement and because the condition it rests on holds for both
+ *    of this bar's pages: SystemPageV2Screen and ValveManagementScreen each
+ *    mount TabBar, whose fourth item is now Profile on /account. Confirmed in
+ *    the running app, not read off the source. The owner's instruction above
+ *    ("Avatar open user profile and 'More'") is superseded for this bar only:
+ *    the control did not die, it moved to the footer where it is reachable
+ *    from every screen instead of two.
  *
- * The persona's initials stay UNDERNEATH it, on the bg-primary disc
- * AccountScreenV2 draws for the same person at 40px. They are invisible while
- * the image loads correctly and are what remains if it ever fails, so the
- * control still identifies who is signed in rather than going blank.
- * Note the design's avatar is one fixed portrait: it illustrates the slot, it
- * does not vary by persona the way the initials do.
+ *    What the slot used to hold, for anyone restoring it: the node's own
+ *    committed portrait (src/assets/avatar.jpg, downloaded while the
+ *    figma.com/api/mcp/asset link was alive because check-shell-contract.mjs
+ *    bans referencing one at runtime) over the persona's initials on a
+ *    bg-primary disc, extracted to PersonaAvatar.jsx, which is still live and
+ *    is what the Profile tab draws.
  *
  * TOKENS — Phase 3, docs/TOKENIZATION-PLAN.md (2026-10-21). Every
  * `var(--x, #hex)` in this file has been rewritten to the Tailwind utility
@@ -77,26 +81,22 @@
  * pasted back in from Figma — but no live class string in this file carries
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
-import { useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useUserContext } from '@/context/UserContext'
-import avatarUrl from '@/assets/avatar.jpg'
+/* useNavigate, UserContext and PersonaAvatar all left with the avatar
+   (2026-11-04). This bar no longer navigates on its own or knows who is
+   signed in; both controls it draws are handlers the caller passes in. */
 
 /* Figtree Medium, spelled as the node spells it. Kept as a constant because
    the escaped `\/` has to survive into the class string: in a PLAIN JS string
    `\/` collapses to `/`, which Tailwind reads as an opacity modifier, and the
    utility then silently never applies. String.raw is what keeps the bytes. */
 
-/** AccountScreenV2's rule, so one person gets one set of initials. */
-function initialsOf(name) {
-  return (name || '?')
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .slice(0, 2)
-}
+/* `initialsOf` left with the disc it belongs to, in PersonaAvatar.jsx
+   (2026-11-04). It was a private copy of AccountScreenV2's rule and had one
+   caller, the avatar; there were three such copies across this app and the
+   Profile tab would have made a fourth. */
 
 export default function MobileHeaderBar({
   /** The scope you are in. The node centres it and the chevron-down changes it. */
@@ -110,9 +110,6 @@ export default function MobileHeaderBar({
   className,
   nodeId = '199383:141502',
 }) {
-  const navigate = useNavigate()
-  const { persona } = useUserContext() || {}
-
   return (
     <div
       className={cn(
@@ -194,43 +191,24 @@ export default function MobileHeaderBar({
           </button>
         </div>
 
-        {/* 199383:141510 "Avatar" — hard right, pushed out by justify-between
-            on the content row. Opens More, on the profile view. */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          /* To More itself, NOT to the "Personal information" sub-page behind
-             it. Owner: "why do we need two user profiles pages". More already
-             opens on the profile summary — name, email, role — so deep-linking
-             past it put the user one screen further from everything else that
-             lives there, for two fields they had not asked for. */
-          onClick={() => navigate('/account')}
-          aria-label={persona?.name ? `${persona.name} — profile and More` : 'Profile and More'}
-          className={cn(
-            'flex items-center justify-center overflow-clip relative size-[28px] cursor-pointer active:opacity-60',
-            /* ghost's hover:bg-accent would wash the brand disc, and the node
-               draws no hover at all — pinning it back to bg-primary keeps the
-               avatar inert, as drawn. */
-            String.raw`rounded-full bg-primary text-primary-foreground hover:bg-primary`,
-          )}
-          data-node-id="199383:141510"
-          data-name="Avatar"
-        >
-          <span className="font-bold text-[11px] leading-none">{initialsOf(persona?.name)}</span>
-          {/* The node's <img>, verbatim: absolutely filled, object-cover,
-              rounded-full and pointer-events-none so the button keeps the
-              click. It sits ON the initials, which is why they are the
-              fallback and not a second control. */}
-          <img
-            alt=""
-            src={avatarUrl}
-            className={cn(
-              'absolute inset-0 max-w-none object-cover pointer-events-none size-full',
-              String.raw`rounded-full`,
-            )}
-          />
-        </Button>
+        {/* 199383:141510 "Avatar" STOOD HERE and was removed 2026-11-04.
+            Owner: "remove avatar from the header - footer is enough". The
+            floating tab bar grew a fourth Profile item on the same /account
+            earlier the same day, so this 28px disc had become a second door
+            onto one room.
+
+            THE RULING WAS GIVEN ABOUT THE DASHBOARD BAR, and is applied here
+            because it is general ("footer is enough") and because both pages
+            this bar serves, SystemPageV2Screen and ValveManagementScreen,
+            mount TabBar - checked in the source AND in the running app, where
+            Profile reaches /account from /system/:id and from /valves. If it
+            had not, this disc would have been those screens' only route to
+            the profile surface and removing it would have been a Rule 0 loss.
+
+            The slot carried nothing else: no conditional, and no test asserts
+            its label. The scope slot beside it is flex-[1_0_0] and takes the
+            width back; justify-between now has one child on the right, which
+            is the left group itself. */}
       </div>
     </div>
   )

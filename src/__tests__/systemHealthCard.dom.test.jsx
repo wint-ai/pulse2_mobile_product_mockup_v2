@@ -100,10 +100,17 @@ describe('SystemHealthCard — progress bar', () => {
   })
 
   it('clamps healthy to the fleet size', () => {
+    /* 9 well out of a fleet of 5 is nonsense input; what matters is that it
+       does not produce a NEGATIVE attention count. It used to be read off the
+       label ("0 / 5 need attention"); since the owner's 2026-11-04 rule a
+       clamped fleet is an all-clear fleet and draws neither bar nor line, so
+       the clamp is read off the all-clear state it lands in instead. A
+       negative count would miss `attention === 0` and draw a bar. */
     const { container } = render(<SystemHealthCard total={5} healthy={9} />)
     expect(segments(container).red).toBeNull()
-    expect(container.querySelector('[data-node-id="199360:129783"]').textContent)
-      .toBe('0 / 5 need attention')
+    expect(container.querySelector('[data-name="Progress Bar"]')).toBeNull()
+    expect(container.querySelector('[data-node-id="199360:129783"]')).toBeNull()
+    expect(container.querySelector('[data-status="clear"]')).toBeTruthy()
   })
 })
 
@@ -161,28 +168,73 @@ describe('SystemHealthCard — counters', () => {
 })
 
 describe('SystemHealthCard — all healthy / empty', () => {
-  it('drops the red segment and rounds the green on both ends', () => {
+  /* ── NO BAR WHEN NOTHING NEEDS ATTENTION, 2026-11-04 ────────────────────
+     Owner, verbatim, on a screenshot of a full green track above
+     "0 / 5 need attention": "When all good, no progress bar. This is the rule
+     you need to".
+
+     THIS TEST USED TO ASSERT THE OPPOSITE - that the all-clear state drops the
+     red segment and rounds the green on both ends - and it is reversed at the
+     owner's ruling. The reading it was protecting is the reason: a track
+     filled end to end beside a 0 asserts a measurement where there is nothing
+     to measure, and at a glance it says "48 of 48 are bad".
+
+     The expectation is built from the DATA (`healthy === total`, so attention
+     is 0) rather than from a literal, so a fixture change cannot quietly turn
+     this into an assertion about some other state. */
+  it('draws no bar at all when nothing needs attention', () => {
+    const total = 48
+    const healthy = total // attention === 0, by construction
     const { container } = render(
-      <SystemHealthCard total={48} healthy={48} valveErrors={0} offline={0} noPower={0} />,
+      <SystemHealthCard total={total} healthy={healthy} valveErrors={0} offline={0} noPower={0} />,
     )
+    expect(total - healthy, 'the fixture must actually be the zero case').toBe(0)
     const { red, green } = segments(container)
     expect(red).toBeNull()
-    expect(green).toBeTruthy()
-    expect(green.className).toContain('rounded-[9068757px]')
-    expect(green.className).not.toContain('rounded-br-')
+    expect(green, 'a full green track beside a 0 reads as "all bad"').toBeNull()
+    expect(container.querySelector('[data-name="Progress Bar"]')).toBeNull()
+    // ... and the state says itself in words instead. 199922:85244's answer.
+    expect(container.querySelector('[data-status="clear"]')).toBeTruthy()
   })
 
-  it('stops painting the leading zero red', () => {
-    const { container } = render(<SystemHealthCard total={48} healthy={48} />)
-    const lead = container.querySelector('[data-node-id="199360:129783"] span')
-    expect(lead.className).not.toContain('text-red-600')
-    /* 199417:131529 greys the zero to #cad5e2 rather than leaving it at the
-       slate-700 the sentence beside it uses. The guarantee is unchanged —
-       zero is never red — only the node's answer for what it is instead.
-       Phase 4: #cad5e2 is --slate-300, so the pin is the token. */
-    expect(lead.className).toContain('text-slate-300')
-    expect(container.querySelector('[data-node-id="199360:129783"]').textContent)
-      .toBe('0 / 48 need attention')
+  it('draws the bar as soon as the count it represents is non-zero', () => {
+    const total = 48
+    const healthy = total - 1
+    const { container } = render(<SystemHealthCard total={total} healthy={healthy} />)
+    expect(total - healthy).toBeGreaterThan(0)
+    expect(container.querySelector('[data-name="Progress Bar"]')).toBeTruthy()
+    const { red, green } = segments(container)
+    expect(red).toBeTruthy()
+    expect(green).toBeTruthy()
+    // The geometry of the non-zero states is untouched by the rule above.
+    expect(red.style.flexGrow).toBe(String(total - healthy))
+    expect(green.style.flexGrow).toBe(String(healthy))
+  })
+
+  /* SUPERSEDED BY THE OWNER'S 2026-11-04 RULE, "also remove the x out of y
+     when all good". This asserted that the leading zero on
+     "0 / 48 need attention" rendered slate-300 rather than red - a greyed
+     zero rather than a red one. There is no line at all in that state now, so
+     the strongest form of "zero is never red" is that no zero is drawn.
+     What the old test guarded still has to hold one step up the scale, and
+     that is the second half: a count of 1 IS red, so the branch that greys a
+     zero has not been wired backwards. */
+  it('draws no attention line at all when the count is zero', () => {
+    const total = 48
+    const { container } = render(<SystemHealthCard total={total} healthy={total} />)
+    expect(container.querySelector('[data-node-id="199360:129783"]')).toBeNull()
+    expect(container.textContent).not.toContain('need attention')
+    expect(container.textContent).not.toMatch(/\b0 \//)
+  })
+
+  it('still paints a non-zero count red on the line it does draw', () => {
+    const total = 48
+    const healthy = total - 1
+    const attention = total - healthy
+    const { container } = render(<SystemHealthCard total={total} healthy={healthy} />)
+    const line = container.querySelector('[data-node-id="199360:129783"]')
+    expect(line.textContent).toBe(`${attention} / ${total} need attention`)
+    expect(line.querySelector('span').className).toContain('text-red-600')
   })
 
   /* SUPERSEDED BY 199417:131529, and worth saying why rather than editing
@@ -261,11 +313,18 @@ describe('SystemHealthCard — all healthy / empty', () => {
     expect(by('Disconnected power: 0').className).not.toContain('bg-alert-surface-critical')
   })
 
-  it('renders an empty fleet without a sliver of either colour', () => {
+  it('renders an empty fleet with no bar at all, not a placeholder track', () => {
+    /* An empty fleet was the one case where a zero-attention track was still
+       drawn - `!showRed` handed the green segment the full width so the bar
+       was never bare. The owner's rule covers it without a special case: 0
+       over 0 systems is still nothing to measure, so the picture of it goes.
+       This is a STRENGTHENING of what the test asked before (no sliver of
+       either colour), not a reversal. */
     const { container } = render(<SystemHealthCard />)
     const { red, green } = segments(container)
     expect(red).toBeNull()
-    expect(green.style.flexGrow).toBe('1')
+    expect(green).toBeNull()
+    expect(container.querySelector('[data-name="Progress Bar"]')).toBeNull()
   })
 })
 
@@ -409,12 +468,19 @@ describe('SystemHealthCard — the progress bar as a pair of controls', () => {
   })
 
   it('leaves the lone full-width segment overhanging both sides', () => {
+    /* THE LONE SEGMENT IS THE RED ONE NOW. It used to be the green, taken
+       from an all-clear fleet (48 of 48) - a state that draws no bar at all
+       since the owner's 2026-11-04 rule. The only remaining way to hold the
+       whole track alone is the other end of the same scale: nothing well. The
+       guarantee is unchanged - a segment that owns the full width overhangs
+       into the card's gutter on BOTH sides, never inward. */
     const { container } = render(
-      <SystemHealthCard total={48} healthy={48} onSelectHealth={() => {}} />,
+      <SystemHealthCard total={6} healthy={0} onSelectHealth={() => {}} />,
     )
-    const { green } = segments(container)
-    expect(green.className).toContain('after:left-[-20px]')
-    expect(green.className).toContain('after:right-[-20px]')
+    const { red, green } = segments(container)
+    expect(green, 'nothing is well, so there is no green half').toBeNull()
+    expect(red.className).toContain('after:left-[-20px]')
+    expect(red.className).toContain('after:right-[-20px]')
   })
 
   it('keeps the measured proportion and the radii when it becomes a control', () => {
@@ -464,28 +530,35 @@ describe('SystemHealthCard — the progress bar as a pair of controls', () => {
      there is nothing to press. Green at zero is drawn in exactly one case --
      an empty fleet -- and a control there would promise a table of nothing. */
   it('never offers a red control when nothing needs attention', () => {
+    /* The guarantee is unchanged and is now carried by the bar's absence: a
+       control promising "the systems that require attention" must never exist
+       when there are none. The green half went with it under the owner's
+       2026-11-04 rule - the note that used to stand here ("Green still
+       navigates: show me the ones that are fine is a real ask") described a
+       bar that is no longer drawn in this state. The ask itself survives
+       elsewhere on the screen: the header button offers the history, and the
+       Systems tab is one tap away. */
     const onSelectHealth = vi.fn()
     const { container } = render(
       <SystemHealthCard total={48} healthy={48} onSelectHealth={onSelectHealth} />,
     )
     const { red, green } = segments(container)
     expect(red).toBeNull()
-    // Green still navigates: "show me the ones that are fine" is a real ask.
-    expect(green.tagName).toBe('BUTTON')
-    expect(green.getAttribute('aria-label')).toBe(
-      `${OK_LABEL}: 48 of 48 systems. Show these systems.`,
-    )
+    expect(green).toBeNull()
     expect(screen.queryByRole('button', { name: /Requires attention/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: new RegExp(OK_LABEL) })).toBeNull()
   })
 
-  it("does not make an empty fleet's placeholder green pressable", () => {
+  it("draws no placeholder track for an empty fleet to make pressable", () => {
+    /* It used to draw an unpressable green placeholder at flexGrow 1 so the
+       track was never bare. There is no track now - see the empty-fleet test
+       in the all-healthy block - so what this pins is that nothing in the bar
+       slot became a control on the way out. */
     const { container } = render(<SystemHealthCard onSelectHealth={() => {}} />)
     const { red, green } = segments(container)
     expect(red).toBeNull()
-    // Drawn (flexGrow 1, so the track is not bare) but not a promise.
-    expect(green.tagName).toBe('DIV')
-    expect(green.style.flexGrow).toBe('1')
-    expect(container.querySelector('[data-node-id="199360:129779"] button')).toBeNull()
+    expect(green).toBeNull()
+    expect(container.querySelector('[data-node-id="199360:129779"]')).toBeNull()
   })
 
   it('makes the red segment full-width and pressable when nothing is well', () => {
@@ -505,11 +578,15 @@ describe('SystemHealthCard — the progress bar as a pair of controls', () => {
   })
 
   it('follows the singular when the fleet is one', () => {
+    /* `total={1} healthy={1}` stood here and draws no bar since 2026-11-04,
+       so the singular is read off the one segment a one-system fleet can
+       still draw: the red one, when that system is the one in trouble. The
+       thing under test - "1 system", not "1 systems" - is unchanged. */
     const { container } = render(
-      <SystemHealthCard total={1} healthy={1} onSelectHealth={() => {}} />,
+      <SystemHealthCard total={1} healthy={0} onSelectHealth={() => {}} />,
     )
-    expect(segments(container).green.getAttribute('aria-label')).toBe(
-      `${OK_LABEL}: 1 of 1 system. Show these systems.`,
+    expect(segments(container).red.getAttribute('aria-label')).toBe(
+      `${ATTENTION_LABEL}: 1 of 1 system. Show these systems.`,
     )
   })
 })
@@ -522,9 +599,19 @@ describe('SystemHealthCard — Figma class fidelity', () => {
   it('keeps every line-height through tailwind-merge', () => {
     const { container } = render(<SystemHealthCard {...ALERTING} />)
 
+    /* 18/28 on Geist since 199922:85244 (was 14/20 on Figtree). The POINT of
+       this assertion is unchanged and is the only reason it names a size at
+       all: the leading has to survive cn(), which drops a `leading-` written
+       before its font-size atom. */
     const heading = container.querySelector('[data-node-id="199323:12128"]')
-    expect(heading.className).toContain('leading-5')
-    expect(heading.className).toContain('text-sm')
+    expect(heading.className).toContain('leading-[28px]')
+    expect(heading.className).toContain('text-[18px]')
+    /* The family is on the atom, NOT on the call site, and that is load-
+       bearing rather than tidy: tailwind-merge does not know --font-mono-label
+       is a font-family, so a `font-sans` left at the call site would ship two
+       font-family declarations and let stylesheet order pick. */
+    expect(heading.className).toContain('font-mono-label')
+    expect(heading.className).not.toMatch(/(^|\s)font-sans(\s|$)/)
 
     const label = container.querySelector('[data-node-id="199360:129783"]')
     expect(label.className).toContain('leading-[0]')
@@ -649,14 +736,19 @@ describe('SystemHealthCard — the all-clear row and the other-issues row', () =
     const row = clearRow(container)
     expect(row).toBeTruthy()
     expect(row.getAttribute('data-node-id')).toBe('199417:131574')
-    /* The informational wash, not a success green. See CLEAR_ROW — the
-       node's ground is a frozen #e8f5ff. origin/dev's revert kept the
-       rework's `bg-alert-surface-success` under the reverted sentence; the
-       green was minted for the tone split that the same commit deleted and
-       is in no frame, so the ground stays this side's. Pinned both ways so
-       that is not undone by accident. */
-    expect(row.className).toContain('bg-accent')
-    expect(row.className).not.toContain('bg-alert-surface-success')
+    /* THE GROUND IS GREEN AGAIN, 2026-11-04, and this assertion is reversed
+       with it. It used to pin `bg-accent` and forbid
+       `bg-alert-surface-success`, on one stated ground: that green "is in no
+       frame". The owner's account-dashboard frame 199922:85244 draws this row
+       #d9fde2, so the premise is false now and the pin follows the evidence.
+       A TOKEN, NOT THE LITERAL - --alert-surface-success is #dcfce7 in
+       `light`, within (3,1,5) of the frame, and unlike a frozen hex it is
+       redefined under dark and contrast. The forbidding half is kept, aimed
+       at the literal instead: a raw hex here would be a light-mode green on
+       all four themes. */
+    expect(row.className).toContain('bg-alert-surface-success')
+    expect(row.className, 'a frozen hex would not re-ground per theme')
+      .not.toMatch(/#[0-9a-f]{3,8}\b/i)
     // The frame's sentence (573b57c), pinned verbatim. This and the quiet-
     // state test above are the only two copy pins on this row.
     expect(textOf(container)).toContain('All of your systems are running!')
@@ -678,9 +770,14 @@ describe('SystemHealthCard — the all-clear row and the other-issues row', () =
     expect(clearRow(container)).toBeTruthy()
     expect(textOf(container)).not.toMatch(/water|leak/i)
 
-    const bar = container.querySelector('[data-node-id="199360:129783"]')
-    expect(bar.textContent).toBe('0 / 10 need attention')
+    /* THE LEAK MOVES NO HEALTH FIGURE, which used to be read off the line
+       ("0 / 10 need attention" with two leaks live). The line is gone in this
+       state since the owner's 2026-11-04 rule, so the same guarantee is read
+       off what replaced it: a fleet with 2 live water events and no device
+       fault is still all-clear on THIS card, and nothing red is drawn. */
+    expect(container.querySelector('[data-node-id="199360:129783"]')).toBeNull()
     expect(container.querySelector('[data-segment="attention"]')).toBeNull()
+    expect(textOf(container)).not.toContain('need attention')
   })
 
   it('unhealthy and dry: the dangerous one, and it is not painted all-clear', () => {

@@ -61,6 +61,11 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+/* One key only — `home.switch_location`, for the header bar's scope slot.
+   The rest of this page is still untranslated; this is not the start of a
+   pass, it is the accessible name the drawer suites navigate by, and it has
+   to come from the catalogue rather than be spelled out here. */
+import { useTranslation } from 'react-i18next'
 /* The node's chevron-left / chevron-down are Tabler rasters on expiring
    figma.com/api/mcp/asset URLs, so neither is referenced at runtime. lucide
    carries both at the node's 24px — the same substitution EventOverlayV2 makes
@@ -93,7 +98,14 @@ import WaterEventFeedbackSheet from '@/v2/components/WaterEventFeedbackSheet'
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import { CaretDown } from '@/v2/icons'
-import MobileHeaderBar from '@/v2/components/MobileHeaderBar'
+/* THE header, now that there is only one — owner: "Why on system page we have
+   a different header? It always needs to be the same." It was AlertsHeaderBar
+   until 2026-11-04 and is mounted on every surface: here, /alerts,
+   /system/:id and /valves. It replaced MobileHeaderBar on this page first
+   (the owner's "Y-header is still the old one" screenshot was of the bar that
+   is gone below) and then everywhere else. MobileHeaderBar is left on disk,
+   unused. */
+import AppHeaderBar from '@/v2/components/AppHeaderBar'
 /* The pill tab row, shared with SystemPageV2Screen. It used to be a local
    `TabTrigger` here and a near-copy of it there; the two drifted apart and the
    owner saw one row dark-slate and the other pale-blue. PillTabs' header
@@ -117,6 +129,12 @@ import {
   windowMonthsOf,
 } from '@/v2/lib/consumptionWindow'
 import { SYSTEMS, computeWidgets, computeKPIs, getSystemById } from '@/data/systems'
+/* `useUserContext` was imported here for `clearSelectedScope` and nothing
+   else, and it left with the house on 2026-11-04. The clear did not go with
+   it — it is the Dashboard tab's now (src/components/TabBar.jsx), because the
+   drawer-selected scope is the third of useAlertScope()'s three narrowings
+   and a home that only changed the route would leave the app scoped to
+   wherever the user had been. */
 /* THE IGNORE FLOW's three reads, added 2026-10-29 with the fix below. Each is
    the same module SystemPageV2Screen uses, so the two entry points into
    EventFocusOverlay cannot answer differently about one event. */
@@ -137,7 +155,12 @@ import {
   HISTORY_EVENTS,
   computeIgnoredEvents,
   computePusherResolvedEvents,
+  scopeActiveAlerts,
 } from '@/data/events'
+/* THE scope rule, reused rather than re-derived — see THE PERSONA WAS NOT IN
+   SCOPE at `scopedSystems`. useAlertScope() is the hook /alerts and the tab
+   badge both read. */
+import { useAlertScope } from '@/hooks/useActiveAlerts'
 import { getAccountById } from '@/data/accounts'
 import { getConsumption } from '@/data/consumption'
 import { getFleetConsumptionSeries } from '@/data/consumptionSeries'
@@ -522,6 +545,22 @@ function matchesAccountName(s, name) {
   return getAccountById(acct.parentId)?.name === name
 }
 
+/* ── WHERE HOME IS, PER USER — MOVED OUT 2026-11-04 ───────────────────────
+   `LEVEL_NAME_KEYS` and `topLevelFor` lived here, because the header's house
+   lived on this page. The owner then deleted the house — "I want to
+   completely remove the home icon ... Just remove it" — and its job moved to
+   the Dashboard tab in src/components/TabBar.jsx.
+
+   The rule went with the job, unchanged, to src/utils/homeTarget.js: two
+   files need one answer, and a page component may not export a plain
+   function in this config (`react-refresh/only-export-components` is an
+   ERROR). The same reason `detectedInstant` and the consumption-window
+   helpers are imported above rather than written here.
+
+   NOTHING ON THIS PAGE READS IT ANY MORE, which is why there is no import:
+   the house was its only caller. `clearSelectedScope` and the `useUserContext`
+   import went the same way — this page had no other use for either. */
+
 // ── Screen ─────────────────────────────────────────────────────────────────
 
 /**
@@ -547,6 +586,7 @@ export default function HomeAllAccounts({ expanded = false }) {
      a route param rather than a second page. */
   const { locationName } = useParams()
   const scopeTitle = locationName ? decodeURIComponent(locationName) : 'All Accounts'
+  const { t } = useTranslation()
 
   /* THE ROUTE IS THE SCOPE.
      WintSidebarV2's header states the v2 model explicitly: the drawer is
@@ -562,15 +602,51 @@ export default function HomeAllAccounts({ expanded = false }) {
      /system/:id, nodes above a location just expand), and the drawer passes
      node.name, so matching the three location levels on the system record is
      the whole resolution step. */
+  /* ── THE PERSONA WAS NOT IN SCOPE — 2026-11-04 ─────────────────────────
+     Signed in as `tenant-1apt` (Sofia, one apartment) this page reported
+     "103 systems" on the hero and "12 / 103 need attention" on the health
+     card under it. The route half of the scope was built (above); the USER
+     half was never built at all, so every persona saw the whole fleet. It
+     predates today and was invisible until the tab badge beside it started
+     telling the truth: the badge said 1 and the hero said 103, a few pixels
+     apart.
+
+     ONE RULE, NOT A THIRD COPY. src/hooks/useActiveAlerts.js states the scope
+     for /alerts and for the tab badge, and src/data/events.js's
+     `scopeActiveAlerts` IS that rule - three independent narrowings (the
+     persona's own systems, the ?scope= deep link, the drawer's selected
+     location) with the documented convention that an EMPTY visibleIds set
+     means "no persona filter" rather than "no systems". Writing those three
+     again here keyed on `s.id` would be a third copy of a rule this repo has
+     already drifted on once, so the systems are shimmed into the shape that
+     function reads (`{ system }`) and handed to it. It costs one map over 103
+     records and it cannot drift.
+
+     IT NARROWS THE WHOLE PAGE, not only the hero, and that is deliberate.
+     `live` is derived from this one set and feeds the hero AND the health
+     card, so scoping the hero alone would have printed "1 system" directly
+     above "12 / 103 need attention" - swapping one contradiction for a worse
+     one. Every other card here (the table, the consumption chart, valve
+     management, insights) already reads this same set, which is the property
+     that makes the screen agree with itself. */
+  const alertScope = useAlertScope()
   const scopedSystems = useMemo(() => {
     const all = SYSTEMS ?? []
-    if (!locationName) return all
-    const name = decodeURIComponent(locationName)
-    /* Both halves are the module-level predicates above; see the note there
-       for why they are named rather than inlined. The `||` order is the
-       original's and is load-bearing for `scopeKind` below. */
-    return all.filter(s => matchesLocationName(s, name) || matchesAccountName(s, name))
-  }, [locationName])
+    const byRoute = (() => {
+      if (!locationName) return all
+      const name = decodeURIComponent(locationName)
+      /* Both halves are the module-level predicates above; see the note there
+         for why they are named rather than inlined. The `||` order is the
+         original's and is load-bearing for `scopeKind` below. */
+      return all.filter(s => matchesLocationName(s, name) || matchesAccountName(s, name))
+    })()
+    return scopeActiveAlerts(byRoute.map(s => ({ system: s.id, s })), alertScope).map(x => x.s)
+  }, [locationName, alertScope])
+
+  /* `homeTarget` was derived here, off `alertScope.visibleIds`, for the
+     header's house. It is `homeTargetFor(visibleIds)` in
+     src/utils/homeTarget.js now and is read by the Dashboard tab — see the
+     note where the house stood, further down this file. */
 
   /* WHICH HALF MATCHED — derived, never guessed from the string.
 
@@ -625,8 +701,18 @@ export default function HomeAllAccounts({ expanded = false }) {
        would report 96%% health over 3,431 systems: the Floor-26 bug wearing a
        location's name. Only a completely absent dataset returns null, which is
        what those fallbacks are actually for. */
+    /* THE GATE IS "IS THERE A DATASET", NOT "IS THERE A ROUTE NAME", 2026-11-04.
+       It read `locationName ? zeros : null`, which was right while the only
+       way to hold an empty set was to name a location that matched nothing.
+       The persona narrowing above adds a second way: a user who can see no
+       systems at all, on `/`, where locationName is undefined. That fell
+       through to `null` and handed every card its `?? MOCK_*` fallback - the
+       Floor-26 bug (96% health over 3,431 invented systems) wearing a real
+       user's session instead of a location's name. The test is now the one
+       this branch's own note already claimed: "Only a completely absent
+       dataset returns null, which is what those fallbacks are actually for." */
     if (!systems.length) {
-      return locationName
+      return (SYSTEMS ?? []).length
         ? {
             waterEvents: [],
             /* NOT 100. 100% of nothing is a perfect score for a scope that
@@ -845,7 +931,11 @@ export default function HomeAllAccounts({ expanded = false }) {
         insightKind: row.kind,
       })),
     }
-  }, [scopedSystems, locationName])
+    /* `locationName` left the deps with the branch that read it: the
+       empty-scope gate is on the DATASET now, and SYSTEMS is a module
+       constant. `scopedSystems` already carries every scope change, route
+       name included. */
+  }, [scopedSystems])
 
   const navigate = useNavigate()
   // Days shown by the Top usage card. Held here rather than in the card because
@@ -924,11 +1014,14 @@ export default function HomeAllAccounts({ expanded = false }) {
     () =>
       scopedSystems.length
         ? buildTopUsage(scopedSystems, topUsageDays)
-        // Same rule as `live`: scoped-but-empty renders empty, never MOCK_TOP_USAGE.
-        : locationName
+        /* Same rule as `live`, and corrected with it on 2026-11-04: an empty
+           SCOPE renders empty, and only an absent DATASET reaches
+           MOCK_TOP_USAGE. A persona who can see nothing on `/` used to take
+           the null branch here too. */
+        : (SYSTEMS ?? []).length
           ? { total: '0', rows: [] }
           : null,
-    [scopedSystems, topUsageDays, locationName],
+    [scopedSystems, topUsageDays],
   )
 
   /* Plots whatever is in scope — the whole fleet on /, one location on
@@ -1563,22 +1656,93 @@ export default function HomeAllAccounts({ expanded = false }) {
           className="content-stretch flex flex-col gap-[10px] items-start relative shrink-0 w-full"
           data-node-id="199532:82461"
         >
-          {/* Mobile Header Bar - 199360:129729 / 199371:137022, now shared
-              with the System page: 199383:141502 draws the identical bar, and
-              two hand-matched copies of one node drift apart. MobileHeaderBar
-              holds the geometry and the owner's instruction for what each
-              control does. No px of its own - the root's px-16 is the inset. */}
-          <MobileHeaderBar
-            nodeId="199360:129729"
+          {/* THE HEADER BAR — Figma 199922:83959, mounted 2026-11-04.
+              house + scope pill. It replaced MobileHeaderBar
+              (199360:129729 / 199371:137022) here first, and then on every
+              other screen when the owner saw the system page and said "it
+              always needs to be the same". MobileHeaderBar is now unused and
+              left on disk.
+
+              THE LEADING SLOT IS THE ONLY THING THAT VARIES, and on this
+              page it is now `back` or nothing: /alerts holds the bell,
+              /system/:id and /valves hold their own back step. The house was
+              the one slot that was Dashboard-only and it is gone — see
+              `onHome`'s former position below.
+
+              WHAT CARRIES OVER, control for control — Rule 0, nothing is
+              dropped in a swap:
+                · scope readout      label={scopeTitle}, the same string
+                · drawer door        the pill. It was the scope slot on the
+                                     old bar and it is the scope pill here,
+                                     so the door did not move.
+                · avatar -> /account GONE, 2026-11-04, owner: "remove avatar
+                                     from the header - footer is enough". It
+                                     survived the swap and was removed after
+                                     it, once TabBar's fourth item, Profile,
+                                     reached the same /account from every
+                                     screen. Verified in the app before the
+                                     removal, because this was the
+                                     Dashboard's only route to /account.
+                · back on a location onBack below, kept
+                · house -> own top   GONE as a CONTROL, 2026-11-04, and kept
+                                     as a BEHAVIOUR: it is the Dashboard tab's
+                                     now, which is mounted on strictly more
+                                     screens than this bar is.
+
+              px-0 cancels the component's own px-[10px]. That inset is the
+              node's distance from the 393px frame edge; this page already
+              insets once at the root's px-4, and leaving both would float the
+              bar 26px in while the tab row under it and every card below sit
+              at 16px. Same reasoning, same words, as the bar it replaced:
+              no px of its own, the root's inset is the inset. The vertical
+              padding IS the node's and is kept.
+
+              THE PILL IS A READOUT, NOT A PICKER. Scope is picked "Only in
+              the drawer" (owner), which is what AppHeaderBar implements
+              and why no menu is attached here. */}
+          <AppHeaderBar
+            className="px-0"
             /* The route IS the scope, so the slot names the route: "All
                Accounts" on /, the location on /location/:name. */
             label={scopeTitle}
+            /* `Switch location`, from the catalogue, translated. This is the
+               name the drawer suites open the drawer BY
+               (drawerLocationHighlight.dom.test.jsx:66 queries the literal
+               string) and it is v1 ScopeHeader's, not a new one — the page
+               the bar replaced announced its slot as "Scope: <name>. Open the
+               navigation drawer." and carried no `Switch location` at all, so
+               this ADDS the contract name to the Dashboard rather than moving
+               it. Copy rule 0: the string already exists, it is not reworded
+               here. */
+            scopeAriaLabel={t('home.switch_location')}
             /* The account roll-up is the real parent of a location. On / there
                is no parent scope, so no arrow is drawn rather than one that
                goes nowhere. */
             onBack={locationName ? () => navigate('/') : undefined}
             backLabel={locationName ? 'Back to all accounts' : 'Back'}
-            onOpenTree={() => setDrawerOpen(true)}
+            /* THE DRAWER'S ONLY DOOR on this screen. The house was it for
+               about an hour this morning and is not any more, so if this prop
+               ever stops being passed the Dashboard loses navigation
+               entirely — Rule 0, and dashboardHeaderBar.dom.test.jsx asserts
+               it by the `Switch location` name the drawer suites use. */
+            onOpenDrawer={() => setDrawerOpen(true)}
+            /* THE HOUSE STOOD HERE — `onHome` + `homeAriaLabel` — and was
+               deleted 2026-11-04 with the glyph itself. Owner: "I want to
+               completely remove the home icon. And once user clicks on
+               dashboard, it just takes him to the upper level of the scope
+               that he already have. Instead of the home button. Just remove
+               it".
+
+               BOTH HALVES MOVED, neither was dropped: the Dashboard tab in
+               src/components/TabBar.jsx navigates to
+               `homeTargetFor(visibleIds).path` and calls `clearSelectedScope()`
+               on the way, which is exactly what this handler did. The rule is
+               src/utils/homeTarget.js, moved verbatim out of this file.
+
+               THE LEADING SLOT IS NOW EMPTY on `/` and `back` on
+               /location/:name, so the pill takes the house's 40px and the
+               10px gap with it: measured 311 -> 361 on `/` and 261 -> 311 on
+               /location/Office at 393x852. */
           />
 
           {/* 199360:129737 — the tab row, immediately after the header bar.
@@ -1653,8 +1817,16 @@ export default function HomeAllAccounts({ expanded = false }) {
             scroll padding, and without it the last card sits flush against the
             TabBar. */}
         <div
-          className="content-stretch flex flex-col gap-[20px] items-start pb-4 relative w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
+          className="content-stretch flex flex-col gap-[20px] items-start relative w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          /* paddingBottom 93 = the floating pill's 77px footprint (12 inset +
+             65 tall) plus this app's own 16px gutter, so the last card comes
+             to rest the same distance from the pill as from the frame's
+             sides. src/components/tabBarMetrics.js is where that is written
+             down; the literal is repeated here because the guard test reads
+             sources rather than the DOM. It REPLACES the old pb-4 - the bar
+             used to reserve its own column and now reserves nothing, so at
+             maximum scroll this page's last 53.8px were behind the pill. */
+          style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 93 }}
           data-node-id="199360:129787"
         >
           {tab === 'overview' ? (
@@ -1846,7 +2018,7 @@ export default function HomeAllAccounts({ expanded = false }) {
         }}
       />
 
-      <TabBar activeTab="home" hideAlerts />
+      <TabBar activeTab="home" />
     </div>
   )
 }

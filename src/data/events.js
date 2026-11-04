@@ -349,6 +349,45 @@ export function computeActiveEvents() {
 }
 
 /**
+ * Every active alert in the dataset, before any scoping.
+ *
+ * This is the RAW list and almost nothing should call it directly. The UI
+ * entry point is useScopedActiveAlerts() in src/hooks/useActiveAlerts.js,
+ * which narrows this to what the signed-in user can actually see. Kept
+ * separate (and exported) only so the scope step is a visible, testable
+ * function rather than something buried inside a hook.
+ */
+export function computeAllActiveAlerts() {
+  return [...computeActiveEvents(), ...computeConfigurationGaps()];
+}
+
+/**
+ * Narrow an alert list to a scope. THE scope rule - there is one copy of it.
+ *
+ * Three independent narrowings, all three of which /alerts has always applied
+ * to its rendered list:
+ *   visibleIds        the persona's own systems (UserContext.visibleSystems).
+ *                     An EMPTY set means "no persona filter", not "no systems" -
+ *                     that is the pre-existing convention in EventsScreen and
+ *                     it is preserved here deliberately.
+ *   scopeIds          the ?scope=a,b deep-link param.
+ *   selectedScopeIds  the location the user picked in the navigation drawer.
+ *
+ * Config gaps carry `system` just like real events do (computeConfigurationGaps
+ * above), so they scope with everything else and no branch is needed for them.
+ *
+ * Applying this twice is a no-op, which is what lets EventsScreen hand an
+ * already-scoped list back through its own applyFilters() without special-casing.
+ */
+export function scopeActiveAlerts(list, { visibleIds, scopeIds, selectedScopeIds } = {}) {
+  let out = list;
+  if (visibleIds && visibleIds.size > 0) out = out.filter(e => visibleIds.has(e.system));
+  if (scopeIds) out = out.filter(e => scopeIds.has(e.system));
+  if (selectedScopeIds) out = out.filter(e => selectedScopeIds.has(e.system));
+  return out;
+}
+
+/**
  * Build event-shape entries for Water Events the user has ignored.
  * Used in the History tab.
  */

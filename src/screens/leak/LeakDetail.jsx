@@ -254,7 +254,7 @@ export default function LeakDetail() {
       {/* Content — single-incident view; per-system history lives on System Activity tab.
           When ignored: gray out per alerts-mockup-feedback #4 ("treat as completed, nothing actionable"). */}
       <div style={{
-        flex: 1, overflowY: 'auto', padding: '10px 14px 8px',
+        flex: 1, overflowY: 'auto', padding: '10px 14px 93px',
         opacity: ignored ? 0.7 : 1,
         transition: 'opacity 200ms ease-out',
       }}>

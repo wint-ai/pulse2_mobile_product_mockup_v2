@@ -12,9 +12,12 @@
     "no": "לא"
   },
   "tabs": {
-    "home": "בית",
+    "home": "לוח בקרה",
     "alerts": "התראות",
-    "more": "עוד"
+    "more": "עוד",
+    "profile": "פרופיל",
+    "alerts_badge_one": "התראה פעילה אחת",
+    "alerts_badge_other": "{{formatted}} התראות פעילות"
   },
   "home": {
     "title_default": "המערכות שלי",
@@ -175,6 +178,9 @@
     "push_desc": "מוצגות במסך הנעילה ובאפליקציה",
     "sms": "התראות SMS",
     "sms_desc": "הודעות טקסט למספר הטלפון שלך",
+    "users": "משתמשים",
+    "reports": "דוחות",
+    "coming_soon": "בקרוב",
     "tutorial": "מדריך",
     "tutorial_desc": "לימוד השימוש באפליקציה",
     "sign_out": "התנתקות",

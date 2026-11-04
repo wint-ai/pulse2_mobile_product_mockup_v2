@@ -158,7 +158,14 @@ import InsightsCard from '@/v2/components/InsightsCard'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import InfoAccordion from '@/v2/components/InfoAccordion'
 import SystemHeroCard from '@/v2/components/SystemHeroCard'
-import MobileHeaderBar from '@/v2/components/MobileHeaderBar'
+/* THE header — one bar on every screen, 2026-11-04. Owner, looking at THIS
+   page: "Why on system page we have a different header? It always needs to be
+   the same." It replaces MobileHeaderBar, which is left on disk unused. */
+import AppHeaderBar from '@/v2/components/AppHeaderBar'
+/* One key, `home.switch_location`, for the title slot's accessible name. It
+   is what the drawer suites open the drawer BY, so it comes from the
+   catalogue rather than being spelled out here. */
+import { useTranslation } from 'react-i18next'
 /* The pill tab row, shared with HomeAllAccounts. It used to be a local
    `TabTrigger` whose own comment called it "deliberately a near-copy" of that
    page's — which is precisely how the two rows came to paint different
@@ -678,6 +685,7 @@ function ActionPolicyCard({ policies }) {
 export default function SystemPageV2Screen() {
   const navigate = useNavigate()
   const { systemId } = useParams()
+  const { t } = useTranslation()
   /* Collapsed is the default: System tab_mobile (198379:80447) draws the card
      that way, and the expanded variant is what "Open" reveals. */
   const [loopExpanded, setLoopExpanded] = useState(false)
@@ -1816,11 +1824,19 @@ export default function SystemPageV2Screen() {
       >
         {/* MOBILE HEADER BAR - 199383:141502 (alert) / 199394:20586 (calm).
          *
-         * The bar itself now lives in MobileHeaderBar, because the Location
-         * frames draw the identical bar (199360:129729) and two hand-matched
-         * copies of one node drift apart. That file holds the node's geometry
-         * and the owner's instruction for what each control does; this one
-         * only says what those controls mean ON A SYSTEM.
+         * SUPERSEDED 2026-11-04 — the bar is AppHeaderBar now, the app's one
+         * header, and the nodes above describe the bar it replaced. The owner
+         * looking at THIS page is what caused it: "Why on system page we have
+         * a different header? It always needs to be the same." The geometry
+         * and the owner's rulings live in that component; this comment only
+         * says what the controls mean ON A SYSTEM.
+         *
+         * WHAT CHANGED HERE, and nothing else did: the leading slot is a bare
+         * back glyph instead of a 30px disc (Figma 199922:83762), the title
+         * slot is the shared pill, the avatar is gone to the tab bar, and the
+         * drawer is opened by `Switch location` rather than by "Scope: <name>.
+         * Open the navigation drawer." Back's destination and label, and the
+         * rule for what the title names, are untouched below.
          *
          * IT IS FIXED CHROME, not the first thing in the scroll. A Figma frame
          * has no scroll model, so the node cannot answer this and the reason
@@ -1839,8 +1855,23 @@ export default function SystemPageV2Screen() {
          *
          * NO px. Neither node emits horizontal padding on the bar - the root
          * frame's 16px is the inset - so nothing is added here. */}
-        <MobileHeaderBar
-          nodeId="199383:141502"
+        <AppHeaderBar
+          /* NO px of its own: the root frame's 16px is the inset, which is
+             what the bar it replaced said too. */
+          className="px-0"
+          /* `Switch location` — the one accessible name the drawer is opened
+             BY across this app, and the one the drawer suites query. The bar
+             this replaced announced its slot as "Scope: <name>. Open the
+             navigation drawer.", so this page GAINS the contract name. */
+          scopeAriaLabel={t('home.switch_location')}
+          /* NO HOUSE — and there is no longer one to not pass. It was
+             Dashboard-only by the owner's "relevant only for the dashboard
+             view", so this call site simply omitted `onHome`; on 2026-11-04
+             he deleted the control outright ("I want to completely remove the
+             home icon ... Just remove it") and the prop went with it. This
+             page is UNCHANGED by that: its leading slot was, and is, the back
+             step. Going to your own top level is the Dashboard tab's job now
+             (TabBar.jsx), and this screen mounts that tab below. */
           /* THE SLOT CARRIES THE SYSTEM, not the parent location.
              The node centres an ACCOUNT here ("Meridian Realty Group (MRG)"),
              because that frame's scope is an account. On /system/:id the scope
@@ -1857,7 +1888,7 @@ export default function SystemPageV2Screen() {
             ? () => navigate(`/location/${encodeURIComponent(system.parentName)}`)
             : undefined}
           backLabel={system.parentName ? `Back to ${system.parentName}` : 'Back'}
-          onOpenTree={() => setDrawerOpen(true)}
+          onOpenDrawer={() => setDrawerOpen(true)}
         />
 
         {/* Content 198379:80449 — the one scrolling region on this screen.
@@ -1917,7 +1948,7 @@ export default function SystemPageV2Screen() {
              than the frame, which is inside the drift the frame has on its
              own gutters (17 left against 16 right). */
           className="content-stretch flex flex-col gap-[16px] items-start pt-[10px] -mx-[16px] w-[calc(100%+32px)] px-[16px] relative [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', minHeight: 0 }}
+          style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', minHeight: 0, paddingBottom: 93 }}
           data-node-id="198379:80449"
         >
           {/* Tabs + hero + body. The gap-[14px] wrapper 198379:80456 that used
@@ -2758,7 +2789,7 @@ export default function SystemPageV2Screen() {
         onCancel={() => setValveIntent(null)}
       />
 
-      <TabBar activeTab="home" hideAlerts />
+      <TabBar activeTab="home" />
     </div>
   )
 }

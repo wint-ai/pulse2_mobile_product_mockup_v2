@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Menu, Headphones, ChevronRight, ChevronDown, Waves, Bell,
   Droplet, ThermometerSun, TrendingDown, TrendingUp,
@@ -196,7 +197,7 @@ export default function SystemPageV2() {
           No system with id &ldquo;{systemId}&rdquo;.
         </div>
         <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-        <TabBar activeTab="systems" hideAlerts />
+        <TabBar activeTab="systems" />
       </div>
     )
   }
@@ -216,55 +217,92 @@ export default function SystemPageV2() {
         </button>
       </div>
 
-      {/* Header */}
-      <div className="px-4 pt-1 pb-3 shrink-0">
-        <div className="flex items-center gap-1 text-xs text-slate-500 mb-1.5">
-          {sys.crumbs.map((c, i) => (
-            <span key={i} className="flex items-center gap-1">
-              <span className="cursor-pointer hover:text-slate-900">{c}</span>
-              {i < sys.crumbs.length - 1 && <ChevronRight size={12} className="opacity-60" />}
-            </span>
-          ))}
-          <ChevronRight size={12} className="opacity-60" />
-          <span className="text-slate-900 font-medium">{sys.title}</span>
-        </div>
-        <h1 className="text-[28px] leading-8 font-semibold tracking-tight text-slate-900 mb-1">
-          {sys.title}
-        </h1>
-        <div className="text-xs text-slate-500">Updated {sys.updatedAt}</div>
+      {/* Header + tabs + the body they drive.
 
-        {/* Tabs */}
-        <div className="mt-4 flex gap-6 border-b border-slate-200/60 -mx-4 px-4">
-          <TabButton active={tab === 'overview'} onClick={() => setTab('overview')}>Overview</TabButton>
-          <TabButton active={tab === 'general'} onClick={() => setTab('general')}>General Info</TabButton>
-        </div>
-      </div>
+          Radix Tabs is the element that PAIRS a trigger with its panel, so the
+          Root has to sit above both the row and the panels. It takes the
+          column's flex:1 / minHeight:0 and hands it straight on: the header
+          stays shrink-0 chrome and the active TabsContent is the screen's one
+          scroller, so the app-shell contract is unchanged. Radix keeps the
+          INACTIVE panel in the DOM as an empty `hidden` div — display:none,
+          children not rendered — so it is no layout box and no scroller, and
+          exactly one scroller is on the screen. Measured, not assumed.
 
-      {/* Body — the scrolling region */}
-      <div className="px-4 pt-4 pb-8 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-        {tab === 'overview' ? <OverviewBody sys={sys} /> : <GeneralInfoStub />}
-      </div>
+          Radix Tabs does NOT portal: there is no Portal export, no
+          createPortal, and no react-portal in @radix-ui/react-tabs@1.1.21's
+          dependency list (verified in node_modules). That is why it is allowed
+          here while Select / DropdownMenu / Popover / Dialog / Tooltip are
+          banned — those escape Phone.jsx's fixed 393x852 frame, and this
+          cannot. */}
+      <Tabs value={tab} onValueChange={setTab} className="gap-0" style={{ flex: 1, minHeight: 0 }}>
+        <div className="px-4 pt-1 pb-3 shrink-0">
+          <div className="flex items-center gap-1 text-xs text-slate-500 mb-1.5">
+            {sys.crumbs.map((c, i) => (
+              <span key={i} className="flex items-center gap-1">
+                <span className="cursor-pointer hover:text-slate-900">{c}</span>
+                {i < sys.crumbs.length - 1 && <ChevronRight size={12} className="opacity-60" />}
+              </span>
+            ))}
+            <ChevronRight size={12} className="opacity-60" />
+            <span className="text-slate-900 font-medium">{sys.title}</span>
+          </div>
+          <h1 className="text-[28px] leading-8 font-semibold tracking-tight text-slate-900 mb-1">
+            {sys.title}
+          </h1>
+          <div className="text-xs text-slate-500">Updated {sys.updatedAt}</div>
+
+          {/* Figma 199922:83970 — the design system's segmented control, via
+              the shadcn Tabs in src/components/ui/tabs.jsx. What this replaced
+              was a hand-rolled button row: no role="tablist", no role="tab", no
+              aria-selected, both buttons in the tab order, no arrow keys, and
+              an underline painted in #0B95F8 — a brand blue that is NOT the
+              --wint-blue-accent token (#0b81f8) the design system states. The
+              control paints the token.
+
+              ⚠ COPY CONFLICT, REPORTED NOT RESOLVED. These two labels are
+              UNCHANGED on purpose. .claude/skills/wint-ui-copy/SKILL.md §1
+              lists, as a binding project rule sourced to sandbox/CLAUDE.md:
+              "System page tabs are System · Policy · Timeline · Info — never
+              'Overview'/'Activity' in user-facing text." This is a system page
+              and its first tab says "Overview". Figma 199922:83970 also says
+              "Overview", and wint-ui-copy §0 says Figma copy is transcribed
+              literally and never authored. The two sources contradict each
+              other; renaming a tab is a copy decision, not a styling one, so
+              nothing is renamed here. The owner settles it.
+
+              TWO triggers, because this page has two tabs. The frame draws a
+              third, "Locations", with a count badge; see the note at
+              HomeAllAccounts.jsx:1628. Nothing is invented here — the
+              component carries a third trigger and a TabsCount badge whenever
+              the owner rules for one. */}
+          <TabsList className="mt-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="general">General Info</TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Body — the scrolling region */}
+        <TabsContent value="overview" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: 93 }}>
+          <OverviewBody sys={sys} />
+        </TabsContent>
+        <TabsContent value="general" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: 93 }}>
+          <GeneralInfoStub />
+        </TabsContent>
+      </Tabs>
 
       {/* v2 drawer: navigation only, no global scope, so it takes no
           currentSystemId / onSelectLocation contract the way v1's did. */}
       <WintSidebarV2 open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      <TabBar activeTab="systems" hideAlerts />
+      <TabBar activeTab="systems" />
     </div>
   )
 }
 
-function TabButton({ active, children, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`relative py-3 text-sm font-medium ${active ? 'text-[#0B95F8]' : 'text-slate-500'}`}
-    >
-      {children}
-      {active && <span className="absolute left-0 right-0 -bottom-px h-[2px]" style={{ background: BRAND }} />}
-    </button>
-  )
-}
+// TabButton lived here. It was the hand-rolled tab trigger, and it is GONE
+// rather than left unused: react-refresh/only-export-components is an error in
+// this repo and no-unused-vars would flag it anyway. The control is now
+// src/components/ui/tabs.jsx.
 
 function OverviewBody({ sys }) {
   return (
