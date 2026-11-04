@@ -110,13 +110,16 @@
  * 4. GROUPING, so the row's second line can go away. The old row carried
  *    `path · last known: X · Last seen Y` on a wrapping second line — 61px
  *    EVERY row, with the path repeated for every system at the same address.
- *    The path now sits ONCE in a STICKY GROUP HEADER and the rows under it
- *    carry name + state on ONE line (44px). Only an OFFLINE row still spends a
- *    second line, on the two facts that are actually per-row: `Offline` and
- *    its age. The path has NOT been dropped from the row's accessible name —
- *    a screen-reader user tabbing between checkboxes never sees the sticky
+ *    The path now sits ONCE PER GROUP and the rows under it carry name + state
+ *    on ONE line (measured 45.3px). Only an OFFLINE row still spends a second
+ *    line, on the two facts that are actually per-row: `Offline` and its age.
+ *    The path has NOT been dropped from the row's accessible name — a
+ *    screen-reader user tabbing between checkboxes never sees the group
  *    header, so it stays in the `aria-label`. "We need to understand the
  *    context of systems" is satisfied by both routes.
+ *    THE GROUP HEADER WAS A STICKY FULL-BLEED BAND until 2026-11-03 and is now
+ *    a quiet label inside a per-location CARD. See THE 2026-11-03 PASS below;
+ *    nothing about the path's two routes changed with it.
  *
  * 5. ONE SELECTION STRIP instead of a select-all bar and an action bar
  *    (56 + 84 = 140px of two separately-bordered hand-rolled cards sitting
@@ -126,12 +129,127 @@
  * 6. THE `none` FILTER: KEPT AS A CHIP, DEAD END REMOVED AT THE DESTINATION.
  *    See the long note at `showSelectAll` below.
  *
- * NET, AS ARITHMETIC (there is no browser here; nothing below is measured):
- * header 59 + chips 32 + strip 46 + TabBar 64 + padding 16 + gaps 24 = 241
- * with no selection, and 314 with one (the strip's action half is +73). So
- * 509 -> 314, the list goes 299 -> 494, and at a 44px row + 1px separator
- * that is 4.9 -> ~11.0 rows, or ~9.7 once a sticky group header lands every
- * five rows.
+ * NET, AS ARITHMETIC (written before this repo had a browser; MEASURED on
+ * 2026-11-03 and the arithmetic held): header 59 + chips 32 + strip 46 +
+ * TabBar 64 + padding 16 + gaps 24 = 241 with no selection, and 314 with one
+ * (the strip's action half is +73). So 509 -> 314 and the list goes 299 ->
+ * 494. The browser says the scroller is 361x585 at y=115 and that TEN rows are
+ * fully visible at rest, which is the 4.9 -> ~9.7 that was predicted.
+ *
+ * ══ THE 2026-11-03 PASS — THE LIST BECOMES A STACK OF CARDS ══════════════
+ * The owner, verbatim: "when we go to manage valves, this components looks
+ * kind of an odd. Maybe we need to use a different component for this table
+ * view cards view or something. There looks a bit odd. We need to fix it."
+ *
+ * He is right, and for the first time this could be CHECKED rather than
+ * reasoned about: `scripts/shot.mjs` landed the same day and every number
+ * below is off a real 393x852 Chromium frame, not off a sum of class strings.
+ *
+ * WHAT WAS ODD, MEASURED. THE LIST WAS THE ONE SURFACE IN THIS APP WITH NO
+ * CARD SURFACE AT ALL. Every sibling — the Home stack, the result banner, the
+ * empty state, and the select-all strip at the foot of THIS screen — is a
+ * rounded card (`bg-surface-card`, `rounded-[18px]`, `border-card`). The rows
+ * here sat directly on `--app-bg`, so the list read as unstyled. Worse, the
+ * per-location `<h2>` was a FULL-BLEED OPAQUE WHITE BAND (`bg-card border-y`,
+ * x=16->377, 30px): the only opaque white in the list, so the HEADERS read as
+ * the content and the ROWS read as background — an inversion of the actual
+ * hierarchy. And the strip was the only card-shaped thing on screen, which
+ * made the mismatch louder rather than quieter.
+ *
+ * THE FIX IS ONE CARD PER LOCATION. Each `rowGroups` entry is a house-chassis
+ * card in a `gap-2` stack; the path is a quiet `text-xs text-muted-foreground`
+ * header INSIDE it over an inset hairline; the rows keep `<ItemGroup>` +
+ * `<ItemSeparator>` with the rules inset 16px so they stop short of the 18px
+ * corner (the treatment the Home stack's own cards use). The strip takes the
+ * same chassis, so there is now exactly ONE card treatment on this screen.
+ *
+ * THE STICKY HEADER WAS DROPPED. IT WAS A REAL WIN AND THIS IS A REVERSAL, SO
+ * IT IS ARGUED RATHER THAN ASSERTED, AND IT IS PINNED BY TEST:
+ *   a. THE CARD'S BORDER IS THE STRONGER CUE. Sticky existed because in an
+ *      undifferentiated 103-row list nothing but that band said where a row
+ *      lived. A bordered container says it at EVERY scroll position and cannot
+ *      scroll away. What is lost is not "which group am I in" — that is now
+ *      structural — but only the group's NAME while deep inside a tall card.
+ *   b. THE FLEET MAKES THAT LOSS SMALL. Measured: 103 systems over 17 leaf
+ *      locations, group sizes 2-10 and twelve of the seventeen at 5 or fewer.
+ *      A 5-row card is 261px against a 585px scroller, so its header is on
+ *      screen essentially the whole time the card is. Even the largest group,
+ *      10 rows, is 493px — still shorter than the scroller.
+ *   c. IT IS NOT ACTUALLY AVAILABLE INSIDE THE CHASSIS. `overflow-hidden` is
+ *      what clips the last row's `hover:bg-accent/50` fill to the 18px corner,
+ *      and an `overflow: hidden` ancestor BECOMES the sticky element's scroll
+ *      container — a box that never scrolls, so the sticky goes inert. Keeping
+ *      `sticky top-0` in the source would have meant either hand-rolling the
+ *      corner clipping off the house chassis, or shipping a class that reads
+ *      as sticky and does nothing. An honest static header beats both.
+ * REVISIT IF the dataset ever yields a location group taller than the
+ * scroller: the route back is to drop `overflow-hidden` and clip the last row
+ * explicitly, and the trade in (c) flips.
+ *
+ * THE ROW'S THREE COLUMNS NOW SHARE A CENTRE LINE. `<ItemActions>` carried
+ * `self-start`, which top-aligned the state readout against a centre-aligned
+ * checkbox and title: measured at 1.63px of rise, which is small per row and
+ * reads as a wobble down a list of them. Measured at 0 after.
+ *
+ * THE HEIGHT COST, MEASURED, BECAUSE ~17 CARDS OF CHROME IS REAL SCROLL.
+ * Per group BEFORE: a 30px band and no gap. AFTER: 28px header + 1px rule +
+ * 2px of card border + the 8px stack gap = 38.8px, i.e. +8.8px per group. A
+ * 5-row section went 260.3px -> 261.3px and the whole 40-row page 2241px ->
+ * 2314px. ROWS FULLY VISIBLE AT REST: 10 BEFORE, 10 AFTER. The card surface
+ * costs no row.
+ *
+ * ══ SELECT-ALL AT TWO SCOPES (2026-11-03, same day) ══════════════════════
+ * The owner, verbatim: "I want select all for the entire for all systems, and
+ * select all per location."
+ *
+ * There was ONE select-all — the strip, covering everything that matches the
+ * filter across every location. It is unchanged, tri-state box and all three
+ * of its explanatory sentences included. The SECOND scope is a tri-state box
+ * in each location card's header, and it is the reason this requirement
+ * arrived mid-flight: the card header the pass above introduced is the only
+ * place on this screen that is unambiguously about exactly one location.
+ *
+ * TWO SELECT-ALLS ON ONE SCREEN IS A SAFETY PROBLEM BEFORE IT IS A LAYOUT
+ * ONE, so the whole design is about making each one's REACH unmistakable:
+ *   · THE PER-LOCATION BOX REACHES that location's SELECTABLE systems that
+ *     match the CURRENT FILTER — including any below the `PAGE_SIZE` cut. It
+ *     is built from `selectableFiltered`, never from `shown`. The alternative
+ *     — stopping at the fold — would put two select-alls on one screen with
+ *     two different and INVISIBLE reaches, which is strictly worse than one.
+ *     It is the same rule "select-all covers all N" already states for the
+ *     strip. See `selectableByLocation` for the full argument.
+ *   · THE NUMBER ON SCREEN IS THAT REACH. The badge in each header is the
+ *     count the box will take, not the count of rows drawn beneath it, so the
+ *     one card a page boundary can truncate visibly carries a badge larger
+ *     than its own row count, with the paging line below spelling out why.
+ *   · THE ACCESSIBLE NAME CARRIES THE SCOPE AND THE NUMBER
+ *     ("Select all 3 systems at 100 Meridian Plaza · Office"), plus an
+ *     "including N not shown" clause when the box reaches past the fold.
+ *   · A LOCATION WITH NOTHING SELECTABLE GETS NO BOX AT ALL, not a disabled
+ *     one — the same dead-end removal the `showSelectAll` note argues for.
+ *   · THE HEADER IS THE 44px TARGET, measured, not the 18px box.
+ * Nothing downstream needed changing: `willAct`, `hiddenSelected` and
+ * `blockedSelected` all derive from `selectedIds`, so a selection made from a
+ * card header is indistinguishable from one made row by row. That is asserted
+ * rather than assumed.
+ *
+ * ══ PROJECT COPY STANDARD, APPLIED 2026-11-03 ════════════════════════════
+ * Two rules from the private sandbox, binding project-wide:
+ *   · `CLAUDE.md:268`, restated at `docs/DESIGN-GUIDE-FOR-CLAUDE.md:49` —
+ *     HYPHENS IN UI COPY, NEVER EM-DASHES. Six strings on this screen were in
+ *     breach and are fixed. `aria-label`s are included because they are read
+ *     aloud: they are UI copy. CODE COMMENTS ARE NOT, which is why this header
+ *     still uses them freely, and the test that pins the rule strips comments
+ *     before it looks.
+ *   · `docs/wint-format-standards.md` — THE THOUSANDS SEPARATOR IS A COMMA.
+ *     Every count that reaches the screen now goes through `num()`. The owner
+ *     sized this feature at "around 1000 valve", so four-digit counts are the
+ *     case it is built for even though the demo fleet is 103.
+ * NOT CHANGED, DELIBERATELY: `formatLastSeen` (`src/utils/format.js`) returns
+ * `Today HH:MM` / `Yesterday HH:MM` / `Mon D, HH:MM`, which is ABSOLUTE and so
+ * already satisfies the standard's ban on relative time past one minute. It
+ * uses a comma where the standard's card format shows a middle dot; that file
+ * has many other callers and is not this screen's to edit.
  *
  * ── BUILT ON `src/components/ui/`, NOT HAND-ROLLED ───────────────────────
  * The first cut drew its own pills, its own tick box, its own card and its own
@@ -152,7 +270,14 @@
  *   <Checkbox>                           every tick box
  *   <Button>                             the actions, Filters, Show more
  *   <Card>                               the result banner and the two empty
- *                                        states — the only cards left
+ *                                        states. The LOCATION cards and the
+ *                                        selection strip are NOT `<Card>`:
+ *                                        they wear `LOCATION_CARD`, the house
+ *                                        chassis copied from
+ *                                        `ValveManagementCard.jsx`'s `CARD`,
+ *                                        which is the 18px treatment the rest
+ *                                        of this app's surfaces use and which
+ *                                        shadcn's `<Card>` does not match
  *   <Badge>                              counts that are not themselves a
  *                                        control
  *   <Separator>                          the rules the Item primitives do not
@@ -316,12 +441,56 @@ const PAGE_SIZE = 40
 const CHIP_FADE_WIDTH = '24px'
 const CHIP_FADE = `linear-gradient(to right, #000 0, #000 calc(100% - ${CHIP_FADE_WIDTH}), transparent 100%)`
 
+/* ── THE HOUSE CARD CHASSIS, ONE PER LOCATION ─────────────────────────────
+   The canonical string is `ValveManagementCard.jsx`'s `CARD` constant and
+   every token here is copied from it verbatim: `bg-surface-card`,
+   `border border-solid border-card`, `rounded-[18px]`, `overflow-hidden`,
+   `w-full`. The two things NOT copied are `items-start`, because that card's
+   children are auto-width and these fill the card, and `content-stretch`,
+   which is what `items-start` was cancelling. `shrink-0` matters here for a
+   second reason: these sit in a flex COLUMN scroller, and without it a card
+   would be squeezed rather than scrolled.
+
+   `overflow-hidden` is load-bearing and is also why the group header is no
+   longer sticky — see the 2026-11-03 note in the header. It is what clips the
+   last row's `hover:bg-accent/50` fill to the 18px corner. */
+const LOCATION_CARD =
+  'flex w-full shrink-0 flex-col overflow-hidden rounded-[18px] border border-solid border-card bg-surface-card'
+
+/* HAIRLINE RULES ARE INSET 16px so they stop short of the corner, which is the
+   treatment the Home stack's own cards give their rules (measured 2026-11-03:
+   the Water events card insets both its header rule and its row rules by 16px
+   from the card edge).
+
+   WHY A CHILD SELECTOR RATHER THAN A CLASS ON THE SEPARATOR: `separator.jsx`
+   ships `data-[orientation=horizontal]:w-full`, specificity (0,2,0), which a
+   plain `w-auto` on the element itself (0,1,0) cannot beat — it would lose and
+   the rule would render 100% wide WITH a 16px margin, i.e. inset on the left
+   and clipped flush on the right. Written as a descendant selector on the card
+   it is (0,3,0) and wins outright, and the flex column's default `stretch`
+   supplies the remaining width. One declaration covers the header rule and
+   every row rule. */
+const INSET_RULES =
+  '[&_[data-slot=item-separator]]:mx-4 [&_[data-slot=item-separator]]:w-auto'
+
 const CATEGORY_KEYS = VALVE_CATEGORIES.map((c) => c.key)
 
 /* Singular / plural without a formatter — there is no i18n on this surface and
    `Intl.PluralRules` for two English forms is ceremony. Same call as
    `ValveManagementCard.jsx:318`. */
 const plural = (n, one, many) => (n === 1 ? one : many)
+
+/* THOUSANDS SEPARATOR IS A COMMA (`docs/wint-format-standards.md`, binding
+   project-wide). Four-digit counts are not hypothetical on THIS screen: the
+   owner's own framing for the feature is "shut off valve for around 1000 valve
+   or 100 valves", and a bare `1000` on the one control in this app that cuts
+   water to occupied buildings is exactly the number a reader mis-sizes at a
+   glance. Every count that REACHES THE SCREEN goes through this, `aria-label`s
+   included — they are read aloud, so they are UI copy.
+   `en-US` is pinned rather than left to the runtime locale for two reasons:
+   this surface has no i18n at all (see the header), and a locale-dependent
+   separator would make the DOM tests depend on the machine they run on. */
+const num = (n) => Number(n).toLocaleString('en-US')
 
 // ── Scope resolution ───────────────────────────────────────────────────────
 /* THE SAME PREDICATES `HomeAllAccounts.jsx:503-518` USES, in the same shape,
@@ -506,9 +675,9 @@ function SystemRow({ system, checked, onToggle }) {
           ? ''
           : reachable
             ? 'Excluded from bulk actions.'
-            : 'System is offline — excluded from bulk actions, last-known state shown.'
+            : 'System is offline - excluded from bulk actions, last-known state shown.'
       }`.trim()
-    : `${name}, ${path}. No valve installed — not selectable, there is no valve here to command.`
+    : `${name}, ${path}. No valve installed - not selectable, there is no valve here to command.`
 
   const press = (e) => {
     if (!selectable) return
@@ -572,7 +741,13 @@ function SystemRow({ system, checked, onToggle }) {
         ) : null}
       </ItemContent>
 
-      <ItemActions className="min-w-0 self-start">
+      {/* NO `self-start`. It top-aligned the readout against a centre-aligned
+          checkbox and title, so the three columns did not share a baseline —
+          measured 2026-11-03 at 1.63px of rise, enough to read as a wobble
+          down a 45px-row list. `ItemActions` is `flex items-center`, so the
+          flex default (`stretch`) plus that inner centring lands the state
+          word on the row's own centre line. */}
+      <ItemActions className="min-w-0">
         <ValveStateReadout
           system={system}
           className={cn('text-xs', reachable ? 'text-foreground' : 'text-muted-foreground')}
@@ -675,10 +850,10 @@ function ValveFilterSheet({ open, groups, selection, onApply, onClose }) {
                       checked={all ? true : some ? 'indeterminate' : false}
                       onCheckedChange={() => toggleGroup(group)}
                       /* NEW COPY — numbered, like every other select-all here. */
-                      aria-label={`Select all ${group.options.length} ${group.label.toLowerCase()} options`}
+                      aria-label={`Select all ${num(group.options.length)} ${group.label.toLowerCase()} options`}
                     />
                     <span className="text-xs text-muted-foreground">
-                      {`All ${group.options.length}`}
+                      {`All ${num(group.options.length)}`}
                     </span>
                   </span>
                 </div>
@@ -703,7 +878,7 @@ function ValveFilterSheet({ open, groups, selection, onApply, onClose }) {
                           <Checkbox
                             checked={picked.includes(o.value)}
                             onCheckedChange={() => toggle(group.id, o.value)}
-                            aria-label={`${o.label}, ${o.count} ${plural(o.count, 'system', 'systems')}`}
+                            aria-label={`${o.label}, ${num(o.count)} ${plural(o.count, 'system', 'systems')}`}
                           />
                           <span className="min-w-0 flex-1 truncate text-sm text-foreground">
                             {o.label}
@@ -712,7 +887,7 @@ function ValveFilterSheet({ open, groups, selection, onApply, onClose }) {
                               returns nothing is the complaint the house sheet
                               started from. */}
                           <Badge variant="secondary" className="shrink-0 tabular-nums">
-                            {o.count}
+                            {num(o.count)}
                           </Badge>
                         </div>
                       </li>
@@ -884,7 +1059,7 @@ export default function ValveManagementScreen() {
      durable row read later with no screen around it; "320 Summit Blvd" alone
      would say the batch covered the location, and it did not. This string
      says what it covered. */
-  const batchScopeLabel = `${scopeLabel} · ${selectedCount} of ${summary.total} ${plural(summary.total, 'system', 'systems')} selected`
+  const batchScopeLabel = `${scopeLabel} · ${num(selectedCount)} of ${num(summary.total)} ${plural(summary.total, 'system', 'systems')} selected`
 
   const toggle = useCallback((id) => {
     setSelectedIds((prev) => {
@@ -913,6 +1088,61 @@ export default function ValveManagementScreen() {
       return next
     })
   }, [selectableFiltered])
+
+  /* ── SELECT-ALL AT TWO SCOPES ──────────────────────────────────────────
+     The owner, 2026-11-03: "I want select all for the entire for all systems,
+     and select all per location." The strip above is the FLEET one and is
+     unchanged; this is the per-LOCATION one, and it lands in the card header
+     the same pass introduced, which is the only place on this screen that is
+     unambiguously about one location.
+
+     IT IS BUILT FROM `selectableFiltered`, NOT FROM `shown` — THIS IS THE
+     WHOLE DESIGN DECISION AND IT IS DELIBERATE:
+
+     · IT RESPECTS THE FILTER. The source is already filtered, so a location
+       box can never reach a row the current filter is hiding. Same rule the
+       fleet strip follows, for the same reason: a bulk control that acts on
+       rows the user cannot see is the footgun this screen exists to close.
+     · IT IGNORES `isSelectable === false`. A "No valve installed" system is
+       never in this list, so a location's number can never promise a command
+       that cannot be issued.
+     · IT COVERS ROWS BELOW THE `PAGE_SIZE` CUT. `rowGroups` is built from the
+       PAGE, so the last drawn card can be a partial view of its location —
+       but the box reaches that location's whole matching set, exactly as
+       "Select all N matching" reaches past the page. The alternative, a box
+       that silently stops at the fold, would mean two select-alls on one
+       screen with two different and invisible reaches. THE COUNT ON SCREEN IS
+       THAT REACH: the badge in each header is this number, not the number of
+       rows drawn beneath it, so a truncated card visibly shows a badge larger
+       than its own row count and the pagination line below spells out why.
+     · IT IS STILL A SET OF STABLE IDS MATERIALISED AT CLICK TIME, never a
+       predicate — see the header. */
+  const selectableByLocation = useMemo(() => {
+    const byLocation = new Map()
+    for (const s of selectableFiltered) {
+      const key = leafLocationOf(s)
+      const list = byLocation.get(key)
+      if (list) list.push(s)
+      else byLocation.set(key, [s])
+    }
+    return byLocation
+  }, [selectableFiltered])
+
+  const toggleLocation = useCallback(
+    (locationKey) => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        const list = selectableByLocation.get(locationKey) ?? []
+        const all = list.length > 0 && list.every((s) => next.has(s.id))
+        for (const s of list) {
+          if (all) next.delete(s.id)
+          else next.add(s.id)
+        }
+        return next
+      })
+    },
+    [selectableByLocation],
+  )
 
   const applyFilter = useCallback((next) => {
     setFilter(next)
@@ -1147,7 +1377,7 @@ export default function ValveManagementScreen() {
                 >
                   All
                   <span id={`${chipId}-all`} className="tabular-nums text-muted-foreground">
-                    {summary.total}
+                    {num(summary.total)}
                   </span>
                 </ToggleGroupItem>
                 {presentCategories.map((c) => (
@@ -1161,7 +1391,7 @@ export default function ValveManagementScreen() {
                     <ValveSwatch categoryKey={c.key} />
                     {c.label}
                     <span id={`${chipId}-${c.key}`} className="tabular-nums text-muted-foreground">
-                      {summary.byCategory[c.key].total}
+                      {num(summary.byCategory[c.key].total)}
                     </span>
                   </ToggleGroupItem>
                 ))}
@@ -1174,14 +1404,14 @@ export default function ValveManagementScreen() {
               onClick={() => setFilterOpen(true)}
               /* NEW COPY */
               aria-label={
-                activeSheetFilters > 0 ? `Filters — ${activeSheetFilters} active` : 'Filters'
+                activeSheetFilters > 0 ? `Filters - ${activeSheetFilters} active` : 'Filters'
               }
               className={cn('shrink-0', activeSheetFilters > 0 && 'border-primary text-primary')}
             >
               <SlidersHorizontal aria-hidden="true" />
               Filters
               {activeSheetFilters > 0 ? (
-                <Badge className="ml-0.5 px-1.5 tabular-nums">{activeSheetFilters}</Badge>
+                <Badge className="ml-0.5 px-1.5 tabular-nums">{num(activeSheetFilters)}</Badge>
               ) : null}
             </Button>
           </div>
@@ -1210,7 +1440,7 @@ export default function ValveManagementScreen() {
               <CardContent className="flex flex-col gap-1.5">
                 <p className="text-sm font-medium text-foreground">No valves in this scope.</p>
                 <p className="text-sm text-muted-foreground">
-                  {`All ${summary.total} ${plural(summary.total, 'system is', 'systems are')} metering-only — there is nothing here to open or close.`}
+                  {`All ${num(summary.total)} ${plural(summary.total, 'system is', 'systems are')} metering-only - there is nothing here to open or close.`}
                 </p>
               </CardContent>
             </Card>
@@ -1221,50 +1451,143 @@ export default function ValveManagementScreen() {
             </p>
           ) : (
             <>
-              {/* ── GROUPED ROWS, STICKY HEADER PER LOCATION ─────────────
-                  The path is drawn ONCE per run instead of once per row, which
-                  is what lets the row be one line. It is `sticky top-0` inside
-                  this scroller — not `fixed`, which would escape Phone.jsx —
-                  so the address of whatever is under the thumb is always on
-                  screen while scrolling 103 rows.
+              {/* ── ONE CARD PER LOCATION ────────────────────────────────
+                  Each `rowGroups` entry is a house-chassis card in a `gap-2`
+                  stack, exactly like the Home stack. This replaces a bare run
+                  of rows sitting directly on `--app-bg` under a full-bleed
+                  opaque white band; see THE 2026-11-03 PASS in the header for
+                  what was wrong with that and why.
 
-                  `bg-card` rather than the page's `--app-bg`: that token is a
-                  101deg GRADIENT across the whole frame, and a 28px strip
-                  painting its own copy of it would not line up with the page
-                  behind it. An opaque card-coloured band is the honest answer
-                  and reads as a section divider, which is what it is.
+                  THE PATH IS A QUIET HEADER *INSIDE* THE CARD, not a band over
+                  the list: `text-xs font-medium text-muted-foreground` on the
+                  card's own surface, with one inset hairline under it. It no
+                  longer paints a colour of its own, so the `--app-bg` gradient
+                  question that drove the old `bg-card` choice does not arise —
+                  the card is the surface and the header simply sits on it.
+
+                  THE HEADER IS NO LONGER `sticky`. That is a deliberate
+                  reversal, argued in the header; the short form is that the
+                  card's border is a stronger and always-present grouping cue
+                  than a floating band, and that `overflow-hidden` on the house
+                  chassis makes an inner `sticky` inert anyway.
 
                   NO `aria-label` ON THE `<section>`: a labelled section is a
-                  LANDMARK, and one landmark per location would put ~20 of them
+                  LANDMARK, and one landmark per location would put ~17 of them
                   in a screen reader's rotor for a fleet list. The `<h2>` gives
                   the structure and the `<ItemGroup>`'s own `role="list"` takes
                   the name. */}
-              {rowGroups.map((group) => (
-                <section key={group.key}>
-                  <h2 className="sticky top-0 z-10 truncate border-y border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground">
-                    {group.path}
-                  </h2>
-                  <ItemGroup aria-label={group.path}>
-                    {group.systems.map((s, i) => (
-                      <Fragment key={s.id}>
-                        {i > 0 ? <ItemSeparator /> : null}
-                        <SystemRow
-                          system={s}
-                          checked={selectedIds.has(s.id)}
-                          onToggle={() => toggle(s.id)}
-                        />
-                      </Fragment>
-                    ))}
-                  </ItemGroup>
-                </section>
-              ))}
+              <div className="flex flex-col gap-2" data-name="valve-location-stack">
+                {rowGroups.map((group) => {
+                  /* THE SECOND SELECT-ALL SCOPE. See `selectableByLocation`
+                     above for what this list is and, crucially, what it
+                     reaches: every selectable system at this location that
+                     matches the current filter, INCLUDING any below the
+                     `PAGE_SIZE` cut. */
+                  const groupSelectable = selectableByLocation.get(group.key) ?? []
+                  const groupReach = groupSelectable.length
+                  const groupAll =
+                    groupReach > 0 && groupSelectable.every((s) => selectedIds.has(s.id))
+                  const groupSome = groupSelectable.some((s) => selectedIds.has(s.id))
+                  /* NO BOX ON A LOCATION THAT HAS NOTHING TO SELECT. A card of
+                     "No valve installed" rows would otherwise get a checkbox
+                     that can only ever select 0 — the same dead end the
+                     `showSelectAll` note removes from the fleet strip, and it
+                     is removed here for the same reason rather than drawn
+                     disabled. */
+                  const groupHasBox = groupReach > 0
+                  return (
+                    <section
+                      key={group.key}
+                      className={cn(LOCATION_CARD, INSET_RULES)}
+                      data-name="valve-location-card"
+                      data-location={group.key}
+                    >
+                      {/* ── THE PER-LOCATION SELECT-ALL ────────────────────
+                          `min-h-11` so the header carries the same 44px target
+                          the rows do, and the WHOLE header is that target, not
+                          the 18px box. The `closest()` guard is the row's and
+                          the strip's — without it a press on the box toggles
+                          twice and lands back where it started.
+
+                          THE BADGE IS THE REACH, and it is the answer to "which
+                          select-all did I just press": the fleet strip says
+                          "Select all N matching" in words, each card says its
+                          location and its own N. They are never the same
+                          control and never the same number unless the scope has
+                          one location. */}
+                      <div
+                        className={cn(
+                          'flex w-full items-center gap-2.5 px-4',
+                          groupHasBox ? 'min-h-11 cursor-pointer py-1 hover:bg-accent/50' : 'py-1.5',
+                        )}
+                        data-name="valve-location-select-all"
+                        onClick={
+                          groupHasBox
+                            ? (e) => {
+                                if (e.target?.closest?.('[data-slot="checkbox"]')) return
+                                toggleLocation(group.key)
+                              }
+                            : undefined
+                        }
+                      >
+                        {groupHasBox ? (
+                          <Checkbox
+                            checked={groupAll ? true : groupSome ? 'indeterminate' : false}
+                            onCheckedChange={() => toggleLocation(group.key)}
+                            /* NEW COPY. THE SCOPE AND THE NUMBER ARE BOTH IN THE
+                               NAME, because two select-alls now exist and a
+                               screen-reader user must never be unsure which one
+                               they are on. The trailing clause appears only when
+                               this box reaches past what is drawn. */
+                            aria-label={`Select all ${num(groupReach)} ${plural(
+                              groupReach,
+                              'system',
+                              'systems',
+                            )} at ${group.path}${
+                              groupReach > group.systems.length
+                                ? `, including ${num(groupReach - group.systems.length)} not shown`
+                                : ''
+                            }`}
+                            className="shrink-0"
+                          />
+                        ) : null}
+                        <h2 className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
+                          {group.path}
+                        </h2>
+                        {groupHasBox ? (
+                          <Badge variant="secondary" className="shrink-0 tabular-nums">
+                            {num(groupReach)}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {/* The header's rule. `ItemSeparator` rather than
+                          `Separator` so ONE inset declaration on the card covers
+                          this and every row rule — the two primitives land on
+                          different `data-slot` values. */}
+                      <ItemSeparator />
+                      <ItemGroup aria-label={group.path}>
+                        {group.systems.map((s, i) => (
+                          <Fragment key={s.id}>
+                            {i > 0 ? <ItemSeparator /> : null}
+                            <SystemRow
+                              system={s}
+                              checked={selectedIds.has(s.id)}
+                              onToggle={() => toggle(s.id)}
+                            />
+                          </Fragment>
+                        ))}
+                      </ItemGroup>
+                    </section>
+                  )
+                })}
+              </div>
 
               {filtered.length > shown.length ? (
                 /* SAY WHAT IS NOT DRAWN. A silent truncation reads as "this is
                    everything" when it is not. NEW COPY. */
                 <div className="flex flex-col items-center gap-2 px-1 pt-3.5 pb-2">
                   <p className="text-xs text-muted-foreground">
-                    {`Showing ${shown.length} of ${filtered.length} · select-all covers all ${selectableFiltered.length}`}
+                    {`Showing ${num(shown.length)} of ${num(filtered.length)} · select-all covers all ${num(selectableFiltered.length)}`}
                   </p>
                   <Button
                     type="button"
@@ -1272,7 +1595,7 @@ export default function ValveManagementScreen() {
                     size="sm"
                     onClick={() => setRenderLimit((n) => n + PAGE_SIZE)}
                   >
-                    {`Show ${Math.min(PAGE_SIZE, filtered.length - shown.length)} more`}
+                    {`Show ${num(Math.min(PAGE_SIZE, filtered.length - shown.length))} more`}
                   </Button>
                 </div>
               ) : null}
@@ -1287,13 +1610,17 @@ export default function ValveManagementScreen() {
             Bottom half, on the first selection: what IS selected, what is
             being withheld from the action and why, and the two actions.
 
-            `rounded-xl` and `shadow-sm` are the house card treatment, used
-            here directly rather than approximated. */}
+            IT NOW WEARS THE SAME CHASSIS AS THE LOCATION CARDS (2026-11-03).
+            It used to be `rounded-xl border-border bg-card shadow-sm` — a
+            12px-radius opaque-white floating card, and while the list had no
+            card surface at all it was THE ONLY CARD-SHAPED THING ON SCREEN,
+            which made the inconsistency louder rather than quieter. Now that
+            the list is a stack of 18px cards, the strip takes `LOCATION_CARD`
+            so there is exactly ONE card treatment on this screen. `shadow-sm`
+            goes with it: the house cards carry no shadow, and the strip is
+            already separated from the scroller by the page's own `gap-2`. */}
         {showStrip ? (
-          <div
-            className="w-full shrink-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm"
-            data-name="valve-selection-strip"
-          >
+          <div className={cn(LOCATION_CARD, 'shrink-0')} data-name="valve-selection-strip">
             {showSelectAll ? (
               <div
                 className="flex min-h-11 w-full cursor-pointer items-center gap-2.5 px-4 py-2"
@@ -1315,13 +1642,13 @@ export default function ValveManagementScreen() {
                      whose scope is ambiguous is the footgun this label exists
                      to close. It counts SELECTABLE matches: a "No valve
                      installed" row can never join a selection. */
-                  aria-label={`Select all ${selectableFiltered.length} matching`}
+                  aria-label={`Select all ${num(selectableFiltered.length)} matching`}
                   aria-describedby={unselectableFiltered > 0 ? selectAllNoteId : undefined}
                   className="shrink-0"
                 />
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate text-sm font-medium text-foreground">
-                    {`Select all ${selectableFiltered.length} matching`}
+                    {`Select all ${num(selectableFiltered.length)} matching`}
                   </span>
                   {/* NEW COPY, AND THE WHOLE POINT OF THIS LINE: the rows that
                       are drawn but CANNOT be selected are accounted for, not
@@ -1335,7 +1662,7 @@ export default function ValveManagementScreen() {
                       noise on the screen's most dangerous control. */}
                   {unselectableFiltered > 0 ? (
                     <span id={selectAllNoteId} className="text-xs text-muted-foreground">
-                      {`${unselectableFiltered} of ${filtered.length} rows shown can’t be selected — No valve installed`}
+                      {`${num(unselectableFiltered)} of ${num(filtered.length)} rows shown can’t be selected - No valve installed`}
                     </span>
                   ) : null}
                   {/* THE TRI-STATE BOX AND THE COUNT BELOW CAN DISAGREE, AND
@@ -1346,7 +1673,7 @@ export default function ValveManagementScreen() {
                       together baffling — so the strip says which. NEW COPY. */}
                   {selectedCount > 0 && !someMatchingSelected ? (
                     <span className="text-xs text-muted-foreground">
-                      {`None of the ${selectedCount} you have selected ${plural(selectedCount, 'is', 'are')} in this filter, so this box is empty.`}
+                      {`None of the ${num(selectedCount)} you have selected ${plural(selectedCount, 'is', 'are')} in this filter, so this box is empty.`}
                     </span>
                   ) : null}
                 </div>
@@ -1363,7 +1690,7 @@ export default function ValveManagementScreen() {
                 className="px-4 py-3 text-sm text-muted-foreground"
                 data-name="valve-none-selectable"
               >
-                {`None of these ${filtered.length} ${plural(filtered.length, 'system', 'systems')} can be selected — No valve installed, so there is nothing here to command.`}
+                {`None of these ${num(filtered.length)} ${plural(filtered.length, 'system', 'systems')} can be selected - No valve installed, so there is nothing here to command.`}
               </p>
             ) : null}
 
@@ -1380,7 +1707,7 @@ export default function ValveManagementScreen() {
                     difference on its face, here, before the confirm sheet. */}
                 <p className="text-xs leading-4 text-foreground">
                   {/* NEW COPY */}
-                  <span className="font-semibold">{`${selectedCount} selected`}</span>
+                  <span className="font-semibold">{`${num(selectedCount)} selected`}</span>
                   {hiddenSelected > 0 ? (
                     <>
                       <span className="text-muted-foreground">{' · '}</span>
@@ -1396,7 +1723,7 @@ export default function ValveManagementScreen() {
                         onClick={clearFilters}
                         className="h-auto px-0 py-0 align-baseline text-xs font-normal text-muted-foreground underline underline-offset-2"
                       >
-                        {`${hiddenSelected} hidden by the filter`}
+                        {`${num(hiddenSelected)} hidden by the filter`}
                       </Button>
                     </>
                   ) : null}
@@ -1449,7 +1776,7 @@ export default function ValveManagementScreen() {
                     onClick={() => setPending({ action: 'close' })}
                   >
                     <DropletOff aria-hidden="true" />
-                    {`Close ${closeTargets.willAct.length} ${plural(closeTargets.willAct.length, 'valve', 'valves')}`}
+                    {`Close ${num(closeTargets.willAct.length)} ${plural(closeTargets.willAct.length, 'valve', 'valves')}`}
                   </Button>
                   {/* THE SECONDARY, AND IT IS PUSHED AWAY FROM THE PRIMARY.
                       The two are not equals in this moment — usually one of
@@ -1466,7 +1793,7 @@ export default function ValveManagementScreen() {
                     disabled={openTargets.willAct.length === 0}
                     onClick={() => setPending({ action: 'open' })}
                   >
-                    {`Open ${openTargets.willAct.length}`}
+                    {`Open ${num(openTargets.willAct.length)}`}
                   </Button>
                 </div>
               </div>
@@ -1536,10 +1863,10 @@ function excludedSentence(blocked) {
     if (reason && reason in counts) counts[reason] += 1
   }
   const parts = []
-  if (counts.offline) parts.push(`${counts.offline} offline`)
-  if (counts.error) parts.push(`${counts.error} in Valve Error`)
-  if (counts.closing) parts.push(`${counts.closing} already closing`)
-  if (counts['no-valve']) parts.push(`${counts['no-valve']} with no valve installed`)
+  if (counts.offline) parts.push(`${num(counts.offline)} offline`)
+  if (counts.error) parts.push(`${num(counts.error)} in Valve Error`)
+  if (counts.closing) parts.push(`${num(counts.closing)} already closing`)
+  if (counts['no-valve']) parts.push(`${num(counts['no-valve'])} with no valve installed`)
   return `${parts.join(' · ')} excluded`
 }
 
@@ -1564,12 +1891,12 @@ function ResultBanner({ result, onDismiss }) {
         <p className="text-sm font-medium text-foreground">
           {result.commanded === 0
             ? `Nothing was commanded to ${verb}.`
-            : `${result.commanded} ${plural(result.commanded, 'valve', 'valves')} commanded to ${verb}.`}
+            : `${num(result.commanded)} ${plural(result.commanded, 'valve', 'valves')} commanded to ${verb}.`}
         </p>
         {skippedCount > 0 ? (
           <p className="text-xs text-muted-foreground">
-            {`${skippedCount} of ${result.attemptedOver} selected ${plural(skippedCount, 'was', 'were')} not commanded: ${result.buckets
-              .map((b) => `${b.count} ${BUCKET_WORD[b.bucket]}`)
+            {`${num(skippedCount)} of ${num(result.attemptedOver)} selected ${plural(skippedCount, 'was', 'were')} not commanded: ${result.buckets
+              .map((b) => `${num(b.count)} ${BUCKET_WORD[b.bucket]}`)
               .join(' · ')}.`}
           </p>
         ) : null}

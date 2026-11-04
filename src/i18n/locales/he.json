@@ -377,7 +377,11 @@
     "connect_pusher_desc": "סרקו את קוד ה-QR שמופיע על המחשב",
     "connect_pusher_long_desc": "סרקו את קוד ה-QR שמופיע במחשב באמצעות מצלמת הטלפון, או הקלידו את הקוד המופיע מתחתיו.",
     "enter_code": "הזינו את הקוד המופיע במחשב",
-    "connect": "התחבר"
+    "connect": "התחבר",
+    "fleet_state_label": "מה תראו",
+    "fleet_state_clear": "הכול תקין",
+    "fleet_state_live": "נזילות ותקלות",
+    "fleet_state_hint": "אירועי מים מהעבר נשארים בציר הזמן בשתי האפשרויות."
   },
   "ignore_sheet": {
     "title": "לסמן את האירוע כלא רלוונטי?",

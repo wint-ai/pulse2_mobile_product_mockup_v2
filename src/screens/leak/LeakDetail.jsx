@@ -77,7 +77,10 @@ function actorStepSub(stepType, step, tag) {
 
 const CHANNEL_LABEL = { push: 'Push', email: 'Email', sms: 'SMS' };
 
-// Deterministic 4-digit leak id from incident
+// Deterministic 4-digit leak id from incident.
+// NO LONGER THE EVENT ID — 2026-11-04. `sys.alert.eventId` (buildEventRecord's
+// `displayId('LK', id)`) is the one every other surface prints; this is kept
+// only as the no-record fallback for an alert that carries no event record.
 function toLeakId(incident) {
   if (!incident?.id) return null;
   let hash = 0;
@@ -173,7 +176,13 @@ export default function LeakDetail() {
   const notification = getNotification(activeIncident);
   const event = CURRENT_EVENTS.find(e => e.system === sys.id && !e.resolved && (e.type === 'leak-high' || e.type === 'leak-low'));
   const policy = getActivePolicy(sys.id);
-  const leakId = toLeakId(activeIncident);
+  /* THE ONE EVENT ID. This screen was the last surface still minting its own:
+     `toLeakId` hashed the INCIDENT id, so /alert/:systemId printed "lk-6215"
+     for the event the alert row, the event hero and /events/system/:id all
+     call "LK-6363024". Off the canonical record now, via `sys.alert` — its
+     projection. The fallback stays for an alert with no record behind it
+     (a pushed / simulated alert is created at interaction time). */
+  const leakId = sys.alert?.eventId ?? toLeakId(activeIncident);
 
   const isHighFlow = sys.alert?.type === 'leak-high';
   // tokens.css aligned: danger-main #a5455e → danger-text #632a35 (high-flow);

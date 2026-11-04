@@ -62,23 +62,122 @@ afterEach(cleanup)
    non-component from a component file trips react-refresh/only-export-components,
    and a test that re-declares the number is the test noticing if it moves. */
 const ARMING_DELAY_MS = 800
-/* HOLD_SECONDS, per tier. ROUND NUMBERS STANDING IN FOR TELEMETRY WE DO NOT
-   HAVE — NN/g: "The exact threshold should be set through user research."
-   These assertions pin the ladder's SHAPE (longer window as blast radius
-   grows, gate only at the top), not the particular seconds. */
-const HOLD_SMALL = 8
-const HOLD_MEDIUM = 15
-const HOLD_LARGE = 20
+/* THE CANCEL WINDOW IS GONE, AT EVERY TIER (2026-11-03, note 12). The owner
+   rejected it twice - on a 3-valve OPEN and again on a 79-valve CLOSE:
+   "i dont want this step." The `HOLD_SMALL` / `HOLD_MEDIUM` / `HOLD_LARGE`
+   constants that used to stand here are deleted with it, and so are
+   `holdSeconds`, `skipHold`, `onHoldStart`, `onHoldTick` and `onHoldStop`.
+   The removal is PINNED below rather than merely un-tested, so it cannot
+   silently come back. */
 
-/* One act() per tick, deliberately. Advancing N*1000ms in a single act would
-   fire only the FIRST timeout: each second's timer is scheduled by the render
-   that the previous one caused, and that render has not happened yet inside
-   one batched act. Second by second is the only way the countdown actually
-   runs in fake time. */
-const runHold = (seconds) => {
-  for (let i = 0; i < seconds; i += 1) {
-    act(() => { vi.advanceTimersByTime(1000) })
-  }
+/* ══ THE TWO COMMIT PATHS, 2026-11-03 ═══════════════════════════════════
+   The commit BUTTON no longer commits on its own. SC 2.5.7 Dragging Movements
+   (AA) requires a no-drag alternative to the slider, failure F108 says there
+   must be "an alternative single pointer input available to actuate the
+   function", and F108 allows that alternative to be "a series of single
+   pointer interactions" — which is exactly what the acknowledgement checkbox
+   plus the button is. A SINGLE TAP WOULD SATISFY THE LETTER OF 2.5.7 AND
+   DESTROY THE FEATURE, whose whole purpose is to defeat one careless tap. So
+   the tick is now required at EVERY tier, not only at the top one, and these
+   two helpers are how the old one-click assertions were re-expressed. */
+/* AMENDED 2026-11-03 (note 10). The pair is no longer in the DEFAULT visual
+   flow - the owner, on the line this sheet used to print under the slider:
+   "Why slide is not necessary? It should be necessary and this is the only
+   way we are allowing the open three valves to be enabled." The alternative
+   is KEPT, because 2.5.7 is not optional, and merely stops being advertised:
+   a quiet `Cannot slide?` disclosure reveals it. So every assertion about the
+   commit button opens that hatch first, and `openEscapeHatch` is idempotent
+   so it can be called from anywhere. */
+const openEscapeHatch = () => {
+  const toggle = screen.queryByRole('button', { name: /^Cannot slide/ })
+  if (toggle && toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
+  return toggle
+}
+
+/* THE ONE COMMIT CONTROL. It is always in the DOM now (2026-11-03, note 11):
+   the slide no longer dispatches, it ARMS this button, and the acknowledgement
+   behind the escape hatch arms the same one. So this helper no longer has to
+   reveal anything - what changes is whether the button is INERT. */
+const commitButton = (name = /^Close 31 valves$/) => screen.getByRole('button', { name })
+
+/* `aria-disabled`, NOT `disabled`: the reason a control is unavailable has to
+   reach assistive tech, and `disabled` is skipped outright by some of it
+   (.claude/skills/wint-ui-copy/SKILL.md §5). jest-dom's `toBeDisabled` only
+   reads the real attribute, so the assertion is spelled out. */
+const inert = (el) => el.getAttribute('aria-disabled') === 'true'
+
+/** The component's own count formatting, re-declared so the test notices if
+    it moves. docs/wint-format-standards.md: comma thousands separator. */
+const num = (n) => Number(n).toLocaleString('en-US')
+
+const tick = () => {
+  openEscapeHatch()
+  const box = screen.getByRole('checkbox')
+  if (box.getAttribute('aria-checked') !== 'true') fireEvent.click(box)
+  return box
+}
+
+/** THE NO-DRAG ARMING GESTURE, then the commit. Reveal, tick, press: three
+    single-pointer presses, no drag anywhere. */
+const tapCommit = (name) => {
+  tick()
+  fireEvent.click(commitButton(name))
+}
+
+/* ── THE SLIDE PATH ──────────────────────────────────────────────────────
+   happy-dom has no layout engine, so the control's travel — which it measures
+   from the live track rect, deliberately, rather than summing class strings —
+   comes back as 0 here. The rect is stubbed so the threshold means something:
+   a 300px track minus a 48px thumb minus 2*4px of padding is 244px of travel,
+   and the commit threshold is 90% of it. These numbers are the component's
+   own constants; a test that re-declares them is the test noticing if they
+   move. */
+const TRACK_W = 300
+const THUMB_PX = 48
+const PAD_PX = 4
+const TRAVEL = TRACK_W - THUMB_PX - 2 * PAD_PX
+
+/* QUERIED BY ITS HOOK, NOT BY ITS NAME. The accessible name CHANGES when the
+   control arms - "Slide to close 31 valves" becomes "Slide accepted. Now press
+   the button." - because what a press there does changes with it. A helper
+   anchored on the resting name would simply stop finding it at the exact
+   moment most of these tests care about. The ROLE and the NAME are asserted
+   on their own, in the two tests whose subject they are. */
+const slideControl = () => {
+  const el = document.querySelector('[data-name="slide-to-confirm"]')
+  if (!el) throw new Error('no slide-to-confirm control in the document')
+  return el
+}
+
+const slideThumb = () => {
+  const root = slideControl()
+  root.getBoundingClientRect = () => ({
+    width: TRACK_W, height: 56, top: 0, left: 0, right: TRACK_W, bottom: 56, x: 0, y: 0,
+  })
+  return root.querySelector('[data-name="slide-to-confirm-thumb"]')
+}
+
+/**
+ * Drive a real drag. `dx` is the horizontal distance in px; `y` is the
+ * VERTICAL DRIFT, which must not matter (SC 2.5.1 — pointer capture, and the
+ * component never reads clientY). `release: false` leaves the finger down,
+ * which is how "nothing fires on the down-event" is pinned.
+ */
+const drag = (dx, { y = 0, release = true } = {}) => {
+  const thumb = slideThumb()
+  fireEvent.pointerDown(thumb, { pointerId: 1, clientX: 0, clientY: 0, button: 0 })
+  fireEvent.pointerMove(thumb, { pointerId: 1, clientX: dx, clientY: y })
+  if (release) fireEvent.pointerUp(thumb, { pointerId: 1, clientX: dx, clientY: y })
+  return thumb
+}
+
+/** Past the 90% threshold, and released. THIS ARMS; IT DOES NOT DISPATCH. */
+const fullDrag = (opts) => drag(TRAVEL, opts)
+
+/** THE SLIDE ARMING GESTURE, then the commit. */
+const slideCommit = (name) => {
+  fullDrag()
+  fireEvent.click(commitButton(name))
 }
 
 const OFFLINE = [
@@ -121,7 +220,7 @@ describe('BulkValveConfirmSheet — one number, one meaning', () => {
     expect(screen.getByText('31')).toBeInTheDocument()
     expect(screen.getByText('valves will close')).toBeInTheDocument()
 
-    const confirm = screen.getByRole('button', { name: /Close 31 valves/ })
+    const confirm = commitButton()
     expect(confirm.textContent).toContain('31')
   })
 
@@ -129,7 +228,7 @@ describe('BulkValveConfirmSheet — one number, one meaning', () => {
     render(<BulkValveConfirmSheet {...props({ action: 'open', willActCount: 8 })} />)
     expect(screen.getByText('8')).toBeInTheDocument()
     expect(screen.getByText('valves will open')).toBeInTheDocument()
-    const confirm = screen.getByRole('button', { name: /Open 8 valves/ })
+    const confirm = commitButton(/^Open 8 valves$/)
     /* Opening resumes flow — it is not destructive, and the red button would
        be a lie about which direction is dangerous. */
     expect(confirm.getAttribute('data-variant')).toBe('default')
@@ -137,7 +236,7 @@ describe('BulkValveConfirmSheet — one number, one meaning', () => {
 
   it('uses the destructive variant for the close direction', () => {
     render(<BulkValveConfirmSheet {...props()} />)
-    const confirm = screen.getByRole('button', { name: /Close 31 valves/ })
+    const confirm = commitButton()
     expect(confirm.getAttribute('data-variant')).toBe('destructive')
   })
 
@@ -162,7 +261,7 @@ describe('BulkValveConfirmSheet — one number, one meaning', () => {
 
     expect(screen.getByText('320 Summit Blvd')).toBeInTheDocument()
     expect(
-      screen.getByText('Only the systems you selected — not every system here'),
+      screen.getByText('Only the systems you selected - not every system here'),
     ).toBeInTheDocument()
     // and it must not also claim the scope-wide reach it is denying
     expect(screen.queryByText('Every system at this location')).toBeNull()
@@ -230,7 +329,7 @@ describe('BulkValveConfirmSheet — the offline bucket is the whole point', () =
   it('renders the offline block ABOVE the confirm button in DOM order', () => {
     render(<BulkValveConfirmSheet {...props()} />)
     const offlineName = screen.getByText(/Boiler room 2/)
-    const confirm = screen.getByRole('button', { name: /Close 31 valves/ })
+    const confirm = commitButton()
     const FOLLOWING = window.Node.DOCUMENT_POSITION_FOLLOWING
 
     expect(offlineName.compareDocumentPosition(confirm) & FOLLOWING).toBeTruthy()
@@ -279,7 +378,7 @@ describe('BulkValveConfirmSheet — the offline bucket is the whole point', () =
     expect(screen.queryByText(/no valve installed/i)).toBeNull()
     expect(screen.queryByText(/Valve Error/i)).toBeNull()
     // The sheet itself is still there and still commits.
-    expect(screen.getByRole('button', { name: /Close 31 valves/ })).toBeInTheDocument()
+    expect(commitButton()).toBeInTheDocument()
   })
 })
 
@@ -353,7 +452,7 @@ describe('BulkValveConfirmSheet — the fifth valve state, mid-transition', () =
   it('renders the mid-transition block ABOVE the confirm button in DOM order', () => {
     render(<BulkValveConfirmSheet {...props({ closingCount: 5 })} />)
     const label = screen.getByText('are verifying closure')
-    const confirm = screen.getByRole('button', { name: /Close 31 valves/ })
+    const confirm = commitButton()
     const FOLLOWING = window.Node.DOCUMENT_POSITION_FOLLOWING
 
     expect(label.compareDocumentPosition(confirm) & FOLLOWING).toBeTruthy()
@@ -378,7 +477,7 @@ describe('BulkValveConfirmSheet — the fifth valve state, mid-transition', () =
 
     // The rest of the sheet is untouched: one number, one meaning.
     expect(screen.getByText('31')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Close 31 valves/ })).toBeInTheDocument()
+    expect(commitButton()).toBeInTheDocument()
     expect(screen.getByText('Not included')).toBeInTheDocument()
   })
 
@@ -396,7 +495,7 @@ describe('BulkValveConfirmSheet — the fifth valve state, mid-transition', () =
     )
     expect(screen.queryByText('Not included')).toBeNull()
     expect(screen.queryByText(/verifying closure/i)).toBeNull()
-    expect(screen.getByRole('button', { name: /Close 31 valves/ })).toBeInTheDocument()
+    expect(commitButton()).toBeInTheDocument()
   })
 })
 
@@ -405,42 +504,40 @@ describe('BulkValveConfirmSheet — the arming delay', () => {
   afterEach(() => { cleanup(); vi.useRealTimers() })
 
   /* ~800ms of dead button. The threat is the second half of a double-tap on
-     whatever control opened the sheet landing on the confirm button — which on
+     whatever control opened the sheet landing on the confirm button - which on
      a destructive fleet action means water off in a building nobody asked
-     about. */
-  /* RE-EXPRESSED 2026-11-02, NOT DELETED. The last two lines used to be
-     `fireEvent.click(confirm)` -> `expect(onConfirm).toHaveBeenCalledTimes(1)`.
-     That is no longer what the commit button does: it opens the cancel window
-     (G164) and `onConfirm` now means DISPATCH NOW. Both halves of the original
-     claim are still pinned — the button is dead until the delay is spent, and
-     a click after it is what ultimately commits — with the commit moved to the
-     far end of the window, which is where the redesign put it. The arming
-     delay itself is UNCHANGED and is still 800ms at every tier: its job was
-     never to make anyone read, it is input hygiene against the second half of
-     a double-tap landing on a live control. */
-  it('leaves the primary disabled until the delay has been spent', () => {
+     about.
+
+     RE-EXPRESSED THREE TIMES NOW, NEVER DELETED. 2026-11-02 moved the commit
+     to the far end of a cancel window; 2026-11-03 made the slide ARM this
+     button rather than dispatch; the same day deleted the window entirely.
+     What survives from the original claim is exactly this: THE PRIMARY IS
+     DEAD UNTIL THE DELAY HAS BEEN SPENT, and a press after it is what
+     dispatches. The delay is now LARGELY REDUNDANT - the button cannot be
+     live without a deliberate arm and no arm completes in 800ms - but it is
+     mechanical, it is cheap, and a working guard is not removed casually. */
+  it('leaves the primary inert until the delay has been spent', () => {
     const onConfirm = vi.fn()
     render(<BulkValveConfirmSheet {...props({ skipArmingDelay: false, onConfirm })} />)
 
-    const confirm = screen.getByRole('button', { name: /Close 31 valves/ })
-    expect(confirm).toBeDisabled()
+    const confirm = commitButton()
+    // arm it, so the delay is the only thing left holding the button
+    tick()
+    expect(inert(confirm)).toBe(true)
     fireEvent.click(confirm)
     expect(onConfirm).not.toHaveBeenCalled()
 
     act(() => { vi.advanceTimersByTime(ARMING_DELAY_MS - 1) })
-    expect(confirm).toBeDisabled()
+    expect(inert(confirm)).toBe(true)
 
     act(() => { vi.advanceTimersByTime(1) })
-    expect(confirm).toBeEnabled()
+    expect(inert(confirm)).toBe(false)
 
     fireEvent.click(confirm)
-    // The click opened the window; nothing has left for the devices yet.
-    expect(onConfirm).not.toHaveBeenCalled()
-    runHold(HOLD_MEDIUM)
     expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 
-  /* Cancel is never delayed — backing out of a dangerous action must be the
+  /* Cancel is never delayed - backing out of a dangerous action must be the
      cheapest thing on the sheet. */
   it('never delays the way out', () => {
     const onCancel = vi.fn()
@@ -459,7 +556,29 @@ describe('BulkValveConfirmSheet — the arming delay', () => {
      gone. It is off by default, which is the half that matters. */
   it('arms immediately when the caller opts out', () => {
     render(<BulkValveConfirmSheet {...props({ skipArmingDelay: true })} />)
-    expect(screen.getByRole('button', { name: /Close 31 valves/ })).toBeEnabled()
+    tick()
+    expect(inert(commitButton())).toBe(false)
+  })
+
+  /* THE SLIDE IS NOT DELAYED. The delay is input hygiene against the second
+     half of a double-tap, and a drag cannot be the second half of a double-tap
+     - so taxing the gesture too would be the friction stacking the owner
+     objected to. It still gates the BUTTON, which is still a press. */
+  it('does not delay the slide, and still delays the press', () => {
+    const onConfirm = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ skipArmingDelay: false, onConfirm })} />)
+
+    expect(slideControl().getAttribute('aria-disabled')).toBeNull()
+    fullDrag()
+    // the slide landed and armed, with no wait and no dispatch
+    expect(slideControl().getAttribute('data-armed')).toBe('true')
+    expect(onConfirm).not.toHaveBeenCalled()
+    expect(inert(commitButton())).toBe(true)
+
+    act(() => { vi.advanceTimersByTime(ARMING_DELAY_MS) })
+    expect(inert(commitButton())).toBe(false)
+    fireEvent.click(commitButton())
+    expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 
   it('re-arms when the sheet is reopened, not once per mount', () => {
@@ -467,16 +586,17 @@ describe('BulkValveConfirmSheet — the arming delay', () => {
       <BulkValveConfirmSheet {...props({ skipArmingDelay: false, action: 'close' })} />,
     )
     act(() => { vi.advanceTimersByTime(ARMING_DELAY_MS) })
-    expect(screen.getByRole('button', { name: /Close 31 valves/ })).toBeEnabled()
+    tick()
+    expect(inert(commitButton())).toBe(false)
 
     rerender(<BulkValveConfirmSheet {...props({ skipArmingDelay: false, action: null })} />)
     rerender(<BulkValveConfirmSheet {...props({ skipArmingDelay: false, action: 'close' })} />)
-    expect(screen.getByRole('button', { name: /Close 31 valves/ })).toBeDisabled()
+    expect(inert(commitButton())).toBe(true)
   })
 
   it('keeps the primary dead while a command is already in flight', () => {
     render(<BulkValveConfirmSheet {...props({ skipArmingDelay: true, busy: true })} />)
-    expect(screen.getByRole('button', { name: /Close 31 valves/ })).toBeDisabled()
+    expect(inert(commitButton())).toBe(true)
   })
 })
 
@@ -568,238 +688,205 @@ describe('BulkValveConfirmSheet — nothing escapes the 393x852 frame', () => {
   })
 })
 
-describe('BulkValveConfirmSheet — the cancel window IS the design (WCAG G164)', () => {
+describe('BulkValveConfirmSheet — there is no cancel window, at any tier', () => {
   beforeEach(() => { vi.useFakeTimers() })
   afterEach(() => { cleanup(); vi.useRealTimers() })
 
-  /* THE REFRAME. Confirmation-only design assumes the command leaves the
-     instant the user taps. It does not — we control dispatch — and WCAG's
-     sufficient technique for SC 3.3.4 is literally "a stated time window in
-     which the user may amend or cancel a request". For the seconds in which a
-     slip is actually noticed, this moves the whole interaction out of the
-     confirmation class and into the undo class. */
-  it('opens a window on commit and dispatches only when it expires', () => {
+  /* ══ REWORKED 2026-11-03, NOT DELETED ════════════════════════════════
+     This block used to pin the cancel window: WCAG technique G164 for SC
+     3.3.4, a stated time window in which the user may amend or cancel. The
+     owner rejected it TWICE in one day - on a 3-valve OPEN ("I feel like we
+     don't really need this step") and again on a 79-valve CLOSE ("i dont want
+     this step") - so it is gone at every tier, in both directions.
+
+     THE TESTS ARE RE-EXPRESSED AS THE NEGATIVE so the removal is pinned and
+     cannot silently return, and so the reason survives in the repository:
+
+       1. IT COSTS NO CONFORMANCE. G164 is a SUFFICIENT technique for SC 3.3.4,
+          not the only one. 3.3.4 is equally satisfied by its "Confirmed"
+          bullet - a mechanism for reviewing and confirming before finalising -
+          which is what this whole sheet is. SC 2.5.2 Pointer Cancellation is
+          satisfied separately, by acting on the up-event and on a press.
+       2. IT WAS THE WEAKEST OF THE THREE MECHANISMS. Bravo-Lillo et al. found
+          attractors that merely DELAYED dismissal habituated; only those
+          forcing interaction with the changed content did not. A timer is the
+          delay kind. Slide-then-press and the acknowledgement are not.
+       3. THE ACTION IS REVERSIBLE. A closed valve can be opened again.
+
+     ⚠ AND THE ONE REAL COST, PINNED HERE SO IT IS NOT DISCOVERED LATER:
+     THERE IS NO WINDOW BETWEEN THE PRESS AND THE DISPATCH. Recovery is no
+     longer "stop it before it leaves"; it is "open the valves again", which is
+     a fresh dangerous act on a building whose water has already stopped. */
+
+  it('dispatches immediately on the press, with nothing in between', () => {
     const onConfirm = vi.fn()
     render(<BulkValveConfirmSheet {...props({ onConfirm })} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Close 31 valves/ }))
-    expect(onConfirm).not.toHaveBeenCalled()
-
-    // A Stop is on screen for the whole window, and the commit button is gone:
-    // there is exactly one live control and it is the way out.
-    expect(screen.getByRole('button', { name: /^Stop/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Close 31 valves$/ })).toBeNull()
-
-    runHold(HOLD_MEDIUM - 1)
-    expect(onConfirm).not.toHaveBeenCalled()
-    runHold(1)
+    slideCommit()
     expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 
-  it('dispatches exactly once, however long the clock keeps running', () => {
+  it('offers no Stop, no countdown and no ticking label, at any tier', () => {
+    for (const over of [
+      { willActCount: 7 },
+      { willActCount: 31 },
+      { willActCount: 412 },
+      { willActCount: 31, scopeKind: 'account' },
+      { action: 'open', willActCount: 412 },
+    ]) {
+      const onConfirm = vi.fn()
+      render(<BulkValveConfirmSheet {...props({ onConfirm, ...over })} />)
+      const name = new RegExp(
+        `^${over.action === 'open' ? 'Open' : 'Close'} ${num(over.willActCount)} valves?$`,
+      )
+      tapCommit(name)
+
+      expect(onConfirm).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('button', { name: /^Stop/ })).toBeNull()
+      expect(document.body.textContent).not.toMatch(/\bin \d+s\b/)
+      expect(document.body.textContent).not.toMatch(/Nothing has reached the valves/)
+      // and no timer is left scheduled that could still fire
+      act(() => { vi.advanceTimersByTime(60000) })
+      expect(onConfirm).toHaveBeenCalledTimes(1)
+      cleanup()
+    }
+  })
+
+  /* THE EXACTLY-ONCE GUARANTEE MATTERS MORE NOW, NOT LESS. With no window the
+     commands leave on the press itself, so a double fire is water moving twice
+     with nothing in between. */
+  it('dispatches exactly once, however many times the button is pressed', () => {
     const onConfirm = vi.fn()
     render(<BulkValveConfirmSheet {...props({ onConfirm })} />)
-    fireEvent.click(screen.getByRole('button', { name: /Close 31 valves/ }))
-    runHold(HOLD_MEDIUM + 10)
+
+    tick()
+    const confirm = commitButton()
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
+    fireEvent.click(confirm)
     expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 
-  /* The window is worthless if stopping it is hard. Three ways out, all live
-     for the whole countdown, none of them delayed. */
-  it('stops the dispatch from the Stop button', () => {
+  it('cannot be dispatched twice by using both arming gestures', () => {
     const onConfirm = vi.fn()
-    const onHoldStop = vi.fn()
-    render(<BulkValveConfirmSheet {...props({ onConfirm, onHoldStop })} />)
+    render(<BulkValveConfirmSheet {...props({ onConfirm })} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Close 31 valves/ }))
-    runHold(3)
-    fireEvent.click(screen.getByRole('button', { name: /^Stop/ }))
-
-    expect(onHoldStop).toHaveBeenCalledTimes(1)
-    runHold(HOLD_MEDIUM + 5)
-    expect(onConfirm).not.toHaveBeenCalled()
-    // and the user is back on the review, not dumped out of it
-    expect(screen.getByRole('button', { name: /Close 31 valves/ })).toBeInTheDocument()
-    expect(screen.getByText('320 Summit Blvd')).toBeInTheDocument()
+    fullDrag()
+    tick()
+    const confirm = commitButton()
+    fireEvent.click(confirm)
+    // the node is detached with the review; pressing it again must still be inert
+    fireEvent.click(confirm)
+    expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 
-  /* MID-HOLD, ESCAPE STOPS THE COMMAND RATHER THAN CLOSING THE SHEET. The
-     dangerous thing in flight is the dispatch, not the dialog, so the way out
-     does the safest available thing. */
-  it('stops the dispatch on Escape, and does not also dismiss', () => {
+  it('accepts neither of the five removed hold props as a way back in', () => {
     const onConfirm = vi.fn()
-    const onCancel = vi.fn()
-    render(<BulkValveConfirmSheet {...props({ onConfirm, onCancel })} />)
-
-    fireEvent.click(screen.getByRole('button', { name: /Close 31 valves/ }))
-    runHold(2)
-    fireEvent.keyDown(window, { key: 'Escape' })
-
-    expect(onCancel).not.toHaveBeenCalled()
-    runHold(HOLD_MEDIUM + 5)
-    expect(onConfirm).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: /Close 31 valves/ })).toBeInTheDocument()
-  })
-
-  it('stops the dispatch on a scrim tap, and never turns one into a commit', () => {
-    const onConfirm = vi.fn()
-    const onCancel = vi.fn()
-    render(<BulkValveConfirmSheet {...props({ onConfirm, onCancel })} />)
-
-    fireEvent.click(screen.getByRole('button', { name: /Close 31 valves/ }))
-    runHold(2)
-    const dialog = screen.getByRole('alertdialog')
-    fireEvent.click(within(dialog).getAllByRole('button', { name: 'Cancel' })[0])
-
-    expect(onCancel).not.toHaveBeenCalled()
-    runHold(HOLD_MEDIUM + 5)
-    expect(onConfirm).not.toHaveBeenCalled()
-  })
-
-  /* THE SCREEN MUST BE ABLE TO DRAW THIS SOMEWHERE OF ITS OWN — a banner that
-     outlives the sheet, say. The sheet draws its own countdown regardless, so
-     all three callbacks are optional; this pins their shape. */
-  it('reports the window to the caller: start, every tick, and zero', () => {
     const onHoldStart = vi.fn()
     const onHoldTick = vi.fn()
-    render(<BulkValveConfirmSheet {...props({ onHoldStart, onHoldTick })} />)
-
-    fireEvent.click(screen.getByRole('button', { name: /Close 31 valves/ }))
-    expect(onHoldStart).toHaveBeenCalledWith({
-      action: 'close',
-      willActCount: 31,
-      seconds: HOLD_MEDIUM,
-    })
-    expect(onHoldTick).toHaveBeenLastCalledWith(HOLD_MEDIUM)
-
-    runHold(1)
-    expect(onHoldTick).toHaveBeenLastCalledWith(HOLD_MEDIUM - 1)
-    runHold(HOLD_MEDIUM - 1)
-    expect(onHoldTick).toHaveBeenLastCalledWith(0)
-  })
-
-  /* `holdSeconds` is the caller's override and 0 means "no window" — the
-     escape hatch an emergency path will want, next to `skipArmingDelay`. */
-  it('honours a caller-supplied window length, and 0 means dispatch now', () => {
-    const onConfirm = vi.fn()
-    const { rerender } = render(
-      <BulkValveConfirmSheet {...props({ onConfirm, holdSeconds: 3 })} />,
+    const onHoldStop = vi.fn()
+    render(
+      <BulkValveConfirmSheet
+        {...props({ onConfirm, onHoldStart, onHoldTick, onHoldStop })}
+        holdSeconds={20}
+        skipHold={false}
+      />,
     )
-    fireEvent.click(screen.getByRole('button', { name: /Close 31 valves/ }))
-    runHold(2)
-    expect(onConfirm).not.toHaveBeenCalled()
-    runHold(1)
+    slideCommit()
+    // the window props are inert: the dispatch happened on the press anyway
     expect(onConfirm).toHaveBeenCalledTimes(1)
-
-    rerender(<BulkValveConfirmSheet {...props({ onConfirm, action: null })} />)
-    rerender(<BulkValveConfirmSheet {...props({ onConfirm, holdSeconds: 0 })} />)
-    fireEvent.click(screen.getByRole('button', { name: /Close 31 valves/ }))
-    expect(onConfirm).toHaveBeenCalledTimes(2)
+    expect(onHoldStart).not.toHaveBeenCalled()
+    expect(onHoldTick).not.toHaveBeenCalled()
+    expect(onHoldStop).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: /^Stop/ })).toBeNull()
   })
 
   /* IEC 61850's control model is SelectWithValue -> Operate ->
-     CommandTermination, and termination — the device confirming it REACHED the
-     commanded state — can arrive much later or not at all. This repo has no
+     CommandTermination, and termination - the device confirming it REACHED the
+     commanded state - can arrive much later or not at all. This repo has no
      such channel, so the sheet shows the two states it can honestly show and
-     refuses to paint the third. */
+     refuses to paint the third. The result survives the removal of the
+     window; it is simply the first thing the user now sees after the press. */
   it('says SENT, and says that sent is not closed', () => {
     render(<BulkValveConfirmSheet {...props()} />)
-    fireEvent.click(screen.getByRole('button', { name: /Close 31 valves/ }))
-    runHold(HOLD_MEDIUM)
+    slideCommit()
 
-    /* Twice on purpose, and exactly twice: once visibly (aria-hidden, because
-       it ticks) and once in the sr-only live region that carries ONE stable
-       sentence instead of announcing a new number every second. */
+    /* Twice on purpose, and exactly twice: once visibly (aria-hidden) and once
+       in the sr-only live region. */
     const sent = screen.getAllByText('Sent to 31 valves')
     expect(sent).toHaveLength(2)
     expect(sent.filter((n) => n.className.includes('sr-only'))).toHaveLength(1)
     expect(document.body.textContent).toMatch(/Sent is not the same as closed/)
-    // No "done", and no Stop for a command already gone.
+    // No "done", and no Stop.
     expect(screen.queryByRole('button', { name: /^Stop/ })).toBeNull()
     expect(document.body.textContent).not.toMatch(/31 valves closed/i)
   })
 
-  it('clears a window that was never finished when the decision changes', () => {
+  it('clears a dispatch that already happened when the decision changes', () => {
     const onConfirm = vi.fn()
     const { rerender } = render(<BulkValveConfirmSheet {...props({ onConfirm })} />)
-    fireEvent.click(screen.getByRole('button', { name: /Close 31 valves/ }))
-    runHold(2)
+    slideCommit()
+    expect(onConfirm).toHaveBeenCalledTimes(1)
 
     rerender(<BulkValveConfirmSheet {...props({ onConfirm, action: null })} />)
     rerender(<BulkValveConfirmSheet {...props({ onConfirm, action: 'open' })} />)
-    runHold(HOLD_MEDIUM + 5)
 
-    expect(onConfirm).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: /Open 31 valves/ })).toBeInTheDocument()
-  })
-})
-
-describe('BulkValveConfirmSheet — the window skip, with real timers', () => {
-  /* The back-compatible escape hatch: `skipHold` restores the pre-redesign
-     behaviour exactly, so a caller that cannot yet carry the window is one
-     prop away from working. Off by default, which is the half that matters. */
-  it('dispatches on the click when the caller opts out of the window', () => {
-    const onConfirm = vi.fn()
-    render(<BulkValveConfirmSheet {...props({ onConfirm, skipHold: true })} />)
-    fireEvent.click(screen.getByRole('button', { name: /Close 31 valves/ }))
+    // a fresh decision, back on the review with nothing armed
+    expect(screen.queryByText(/^Sent to/)).toBeNull()
+    expect(slideControl().getAttribute('data-armed')).toBe('false')
+    expect(inert(commitButton(/^Open 31 valves$/))).toBe(true)
     expect(onConfirm).toHaveBeenCalledTimes(1)
-    expect(screen.queryByRole('button', { name: /^Stop/ })).toBeNull()
   })
 })
 
 describe('BulkValveConfirmSheet — friction scales to blast radius', () => {
-  beforeEach(() => { vi.useFakeTimers() })
-  afterEach(() => { cleanup(); vi.useRealTimers() })
+  /* THE LADDER SURVIVES, WITH ONE COLUMN LEFT. Uniform treatment is the
+     documented failure - Akhawe & Felt measured up to 70.2% click-through
+     across ~25M real warning impressions, and clinical override rates run
+     50-80%. What the ladder still decides, now that the cancel window is gone
+     at every tier, is the ACKNOWLEDGEMENT: `large` forces it, the other two do
+     not. The thresholds are the product decision; the mechanism they drive is
+     not, and has changed twice. */
 
-  /* THE LADDER'S SHAPE, not its seconds: the window grows with the number of
-     valves. Uniform treatment is the documented failure — Akhawe & Felt
-     measured up to 70.2% click-through across ~25M real warning impressions,
-     and clinical override rates run 50-80%. A sheet identical at 3 valves and
-     at 900 teaches the user that it is always identical. */
-  const windowFor = (over) => {
-    const onConfirm = vi.fn()
-    render(<BulkValveConfirmSheet {...props({ onConfirm, ...over })} />)
-    const ack = screen.queryByRole('checkbox')
-    if (ack) fireEvent.click(ack)
-    fireEvent.click(screen.getByRole('button', { name: /^(Close|Open) \d+ valves?$/ }))
-    let seconds = 0
-    while (onConfirm.mock.calls.length === 0 && seconds < 120) {
-      runHold(1)
-      seconds += 1
-    }
-    cleanup()
-    return seconds
-  }
-
-  it('gives a bigger action a longer window', () => {
-    const small = windowFor({ willActCount: 7 })
-    const medium = windowFor({ willActCount: 31 })
-    const large = windowFor({ willActCount: 412 })
-
-    expect(small).toBe(HOLD_SMALL)
-    expect(medium).toBe(HOLD_MEDIUM)
-    expect(large).toBe(HOLD_LARGE)
-    expect(small).toBeLessThan(medium)
-    expect(medium).toBeLessThan(large)
-  })
-
-  /* An account action is unbounded by construction — it is whatever the
-     hierarchy happens to hold today — so it is top tier whatever the count
-     says. */
-  it("treats scopeKind='account' as top tier at any count", () => {
-    expect(windowFor({ willActCount: 31, scopeKind: 'account' })).toBe(HOLD_LARGE)
-  })
-
-  it('leaves the small tier with no extra gate at all', () => {
+  it('forces the acknowledgement only at the top tier', () => {
     render(<BulkValveConfirmSheet {...props({ willActCount: 7 })} />)
     expect(screen.queryByRole('checkbox')).toBeNull()
-    expect(screen.getByRole('button', { name: /Close 7 valves/ })).toBeEnabled()
+    cleanup()
+
+    render(<BulkValveConfirmSheet {...props({ willActCount: 31 })} />)
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    cleanup()
+
+    render(<BulkValveConfirmSheet {...props({ willActCount: 412 })} />)
+    expect(screen.getByRole('checkbox')).toBeInTheDocument()
   })
 
-  it('leaves the middle tier with the review but no gate', () => {
-    render(<BulkValveConfirmSheet {...props()} />)
+  /* An account action is unbounded by construction - it is whatever the
+     hierarchy happens to hold today - so it is top tier whatever the count
+     says. */
+  it("treats scopeKind='account' as top tier at any count", () => {
+    render(<BulkValveConfirmSheet {...props({ willActCount: 31, scopeKind: 'account' })} />)
+    expect(screen.getByRole('checkbox')).toBeInTheDocument()
+    expect(slideControl().getAttribute('aria-disabled')).toBe('true')
+  })
+
+  it('leaves the small tier with no gate on the slide', () => {
+    const onConfirm = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ willActCount: 7, onConfirm })} />)
+    /* Below the top tier the acknowledgement is not a gate, so it is not on
+       screen - it lives inside the escape hatch as the non-drag arming
+       gesture. */
     expect(screen.queryByRole('checkbox')).toBeNull()
-    expect(screen.getByRole('button', { name: /Close 31 valves/ })).toBeEnabled()
+    expect(slideControl().getAttribute('aria-disabled')).toBeNull()
+
+    slideCommit(/^Close 7 valves$/)
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves the middle tier with the full review and no gate on the slide', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+    expect(slideControl().getAttribute('aria-disabled')).toBeNull()
+    expect(inert(commitButton())).toBe(true)
     // the full review is still there
     expect(screen.getByText('Not included')).toBeInTheDocument()
     expect(screen.getByText('systems are offline')).toBeInTheDocument()
@@ -810,7 +897,7 @@ describe('BulkValveConfirmSheet — the top-tier gate', () => {
   /* NOT TYPE-TO-CONFIRM. The argument against it here is the keyboard and the
      frame, NOT accessibility: the "documented accessibility problems" of
      type-to-confirm are widely asserted and, on searching, not actually
-     documented — no WCAG failure, no study, no design-system citation. On a
+     documented - no WCAG failure, no study, no design-system citation. On a
      393px frame the software keyboard covers the scope summary the user is
      meant to be checking, and the string is on screen to copy from.
 
@@ -818,14 +905,73 @@ describe('BulkValveConfirmSheet — the top-tier gate', () => {
      varying content, which is the treatment Bravo-Lillo (SOUPS 2014) found
      "resilient to habituation" where pure delays were not. It maps onto WCAG
      technique G155 (a checkbox in addition to the submit button). THE
-     COMPOSITION IS A SYNTHESIS, NOT A PUBLISHED TESTED PATTERN. */
+     COMPOSITION IS A SYNTHESIS, NOT A PUBLISHED TESTED PATTERN.
+
+     IT SURVIVED THE REMOVAL OF THE CANCEL WINDOW ON PURPOSE. The window was
+     the DELAY kind of attractor, which habituates; this is the forced-
+     interaction kind, which does not. They were never the same control. */
   it('holds the commit inert until the row is tapped', () => {
     render(<BulkValveConfirmSheet {...props({ willActCount: 412 })} />)
-    const confirm = screen.getByRole('button', { name: /Close 412 valves/ })
-    expect(confirm).toBeDisabled()
+    const confirm = commitButton(/^Close 412 valves$/)
+    expect(inert(confirm)).toBe(true)
+
+    // the tick alone is the GATE here, not an arm: the slide is still required
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(inert(confirm)).toBe(true)
+
+    fullDrag()
+    expect(inert(confirm)).toBe(false)
+  })
+
+  /* THE SLIDE DOES NOT BUY ITS WAY PAST THE TICK AT THE TOP TIER. The two are
+     not substitutes: the slide is PHYSICAL FRICTION against an accidental
+     actuation, invariant content that Bravo-Lillo would expect to habituate,
+     while the tick is FORCED INTERACTION WITH THE VARYING COUNT, which is the
+     treatment that survived habituation. */
+  it('gates the SLIDE at the top tier too, and nothing else does', () => {
+    const onConfirm = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ willActCount: 412, onConfirm })} />)
+
+    expect(slideControl().getAttribute('aria-disabled')).toBe('true')
+    fullDrag()
+    expect(slideControl().getAttribute('data-armed')).toBe('false')
+    expect(onConfirm).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('checkbox'))
-    expect(confirm).toBeEnabled()
+    expect(slideControl().getAttribute('aria-disabled')).toBeNull()
+  })
+
+  /* AND THE TICK MUST NOT BE A BACK DOOR TO THE BUTTON. The owner: the slide
+     "should be necessary and this is the only way we are allowing the open
+     three valves to be enabled." At the top tier the same checkbox is ALSO on
+     screen as the gate, so its ARMING half is bound to the escape hatch the
+     user deliberately opened - otherwise a sighted user could reach the
+     dispatch at the top tier without ever sliding. */
+  it('does not let the visible top-tier tick arm the button on its own', () => {
+    const onConfirm = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ willActCount: 412, onConfirm })} />)
+
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(commitButton(/^Close 412 valves$/))
+    expect(onConfirm).not.toHaveBeenCalled()
+
+    // but the same tick DOES arm it once the non-drag path is opened
+    openEscapeHatch()
+    /* AND THE DISCLOSURE SAYS SO. At the top tier the acknowledgement row is
+       already on screen as the gate, so opening the disclosure would otherwise
+       reveal nothing and read as a broken control. */
+    expect(screen.getByText('The box above also enables the button.')).toBeInTheDocument()
+    fireEvent.click(commitButton(/^Close 412 valves$/))
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+  })
+
+  /* And below the top tier it reveals the row itself, not a sentence about
+     it - there is nothing already on screen for the sentence to refer to. */
+  it('reveals the acknowledgement row itself below the top tier', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+    openEscapeHatch()
+    expect(screen.getByRole('checkbox')).toBeInTheDocument()
+    expect(screen.queryByText('The box above also enables the button.')).toBeNull()
   })
 
   it('restates the varying count and the scope inside the tappable row', () => {
@@ -843,7 +989,7 @@ describe('BulkValveConfirmSheet — the top-tier gate', () => {
 
   /* POLYMORPHIC BY CONSTRUCTION: the sentence is different on every
      invocation because the count and the scope are. That is the property
-     Vance et al. (CHI 2017) found reduces habituation — not the wording. */
+     Vance et al. (CHI 2017) found reduces habituation - not the wording. */
   it('says something different on a different action', () => {
     const { rerender } = render(<BulkValveConfirmSheet {...props({ willActCount: 412 })} />)
     const first = screen.getByRole('checkbox').closest('label').textContent
@@ -866,18 +1012,38 @@ describe('BulkValveConfirmSheet — the top-tier gate', () => {
   it('clears the tick when the decision changes', () => {
     const { rerender } = render(<BulkValveConfirmSheet {...props({ willActCount: 412 })} />)
     fireEvent.click(screen.getByRole('checkbox'))
-    expect(screen.getByRole('button', { name: /Close 412 valves/ })).toBeEnabled()
+    expect(slideControl().getAttribute('aria-disabled')).toBeNull()
 
     rerender(<BulkValveConfirmSheet {...props({ action: null })} />)
     rerender(<BulkValveConfirmSheet {...props({ action: 'open', willActCount: 412 })} />)
-    expect(screen.getByRole('button', { name: /Open 412 valves/ })).toBeDisabled()
+    expect(slideControl().getAttribute('aria-disabled')).toBe('true')
   })
 
   it('says why the primary is inert, so it does not read as broken', () => {
     render(<BulkValveConfirmSheet {...props({ willActCount: 412 })} />)
+    // the box is the nearest unmet condition at the top tier
     expect(screen.getByText(/Tick the box above/)).toBeInTheDocument()
+
     fireEvent.click(screen.getByRole('checkbox'))
+    // now it is the slide
     expect(screen.queryByText(/Tick the box above/)).toBeNull()
+    expect(screen.getByText('Slide above to enable this.')).toBeInTheDocument()
+
+    fullDrag()
+    expect(screen.queryByText('Slide above to enable this.')).toBeNull()
+  })
+
+  /* AND THE REASON REACHES ASSISTIVE TECH, which is the whole point of
+     `aria-disabled` over `disabled` - the latter is skipped outright by some
+     of it, so the reason never arrives. */
+  it('points the inert button at that reason for a screen reader', () => {
+    render(<BulkValveConfirmSheet {...props({ willActCount: 412 })} />)
+    const confirm = commitButton(/^Close 412 valves$/)
+    const describedBy = confirm.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    expect(document.getElementById(describedBy).textContent).toMatch(/Tick the box above/)
+    // and it is focusable, unlike a `disabled` button
+    expect(confirm.hasAttribute('disabled')).toBe(false)
   })
 
   /* The gate never gates the way OUT. */
@@ -929,7 +1095,7 @@ describe('BulkValveConfirmSheet — compressed, with nothing dropped', () => {
     const notIncluded = screen.getByText('Not included')
     expect(offline.compareDocumentPosition(notIncluded) & FOLLOWING).toBeTruthy()
 
-    expect(screen.getByText('— will not be affected')).toBeInTheDocument()
+    expect(screen.getByText('- will not be affected')).toBeInTheDocument()
     expect(notIncluded.nextElementSibling.textContent).not.toMatch(/offline/i)
   })
 
@@ -1020,7 +1186,7 @@ describe('BulkValveConfirmSheet — focus, and the honest half of aria-modal', (
     const heading = screen.getByRole('heading', { name: 'Close water supply' })
     expect(document.activeElement).toBe(heading)
     expect(document.activeElement).not.toBe(
-      screen.getByRole('button', { name: /Close 31 valves/ }),
+      commitButton(),
     )
   })
 
@@ -1050,5 +1216,475 @@ describe('BulkValveConfirmSheet — focus, and the honest half of aria-modal', (
     for (const b of container.querySelectorAll('button')) {
       expect(b.getAttribute('type')).toBe('button')
     }
+  })
+})
+
+
+describe('BulkValveConfirmSheet — the slide ARMS, the button COMMITS', () => {
+  /* THE OWNER'S ASK, verbatim: "I want to add to the bulk operations kind of
+     confirmation like the puzzle Lego that user needs to slide to make sure
+     user do it when he's aware of what he's doing and not just click something
+     in his pocket." And then, on the first cut, which dispatched on release:
+     "sliding shall be confirmation before the user can click on the close
+     button."
+
+     SO THE MODEL IS: slide to ARM -> press to COMMIT. That collapsed two
+     independent commit paths into ONE COMMIT CONTROL reachable by TWO ARMING
+     GESTURES - the slide, or the acknowledgement behind the escape hatch.
+
+     WHAT IT IS HONESTLY WORTH. Bravo-Lillo et al. found that attractors which
+     merely DELAYED dismissal habituated, and only those forcing interaction
+     with the FIELD CARRYING THE CHANGE survived. A slider is the same slider
+     every time, so it is PHYSICAL FRICTION, not attention: it answers the
+     pocket tap the owner named and it does NOT answer habituated-but-
+     deliberate confirmation. The acknowledgement checkbox is what answers
+     that, which is why it survives at the top tier. NO CONTROLLED STUDY was
+     found showing slide-to-confirm reduces real-world errors. */
+
+  it('does not arm and does not dispatch on the down-event', () => {
+    const onConfirm = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ onConfirm })} />)
+
+    // finger down, finger moved the whole way, finger STILL DOWN
+    drag(TRAVEL, { release: false })
+
+    expect(onConfirm).not.toHaveBeenCalled()
+    expect(slideControl().getAttribute('data-armed')).toBe('false')
+    expect(inert(commitButton())).toBe(true)
+  })
+
+  /* SC 2.5.2 Pointer Cancellation (Level A) wants completion on the up-event
+     with an abort available. Releasing short of the threshold IS the abort. */
+  it('springs back on a short drag and arms nothing', () => {
+    const onConfirm = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ onConfirm })} />)
+
+    drag(Math.round(TRAVEL * 0.5))
+    expect(onConfirm).not.toHaveBeenCalled()
+    expect(slideControl().getAttribute('data-armed')).toBe('false')
+    expect(slideControl().getAttribute('data-progress')).toBe('0')
+    expect(inert(commitButton())).toBe(true)
+    // the review is still on screen
+    expect(screen.getByText('320 Summit Blvd')).toBeInTheDocument()
+  })
+
+  it('still refuses a drag that stops one pixel short of the threshold', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+    drag(Math.ceil(TRAVEL * 0.9) - 1)
+    expect(slideControl().getAttribute('data-armed')).toBe('false')
+  })
+
+  /* THE HEADLINE OF THE WHOLE CHANGE: a completed slide DISPATCHES NOTHING.
+     It lands, it stays landed, and it makes the button the obvious next
+     target. */
+  it('arms on a full drag, dispatches nothing, and does not spring back', () => {
+    const onConfirm = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ onConfirm })} />)
+
+    fullDrag()
+    expect(onConfirm).not.toHaveBeenCalled()
+    const slide = slideControl()
+    expect(slide.getAttribute('data-armed')).toBe('true')
+    expect(slide.getAttribute('data-progress')).toBe('1')
+    expect(inert(commitButton())).toBe(false)
+    // and the track says so, in the caller's words
+    expect(slide.textContent).toBe('Slide accepted. Now press the button.')
+  })
+
+  it('then commits exactly once on the press, and a second press does nothing', () => {
+    const onConfirm = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ onConfirm })} />)
+
+    fullDrag()
+    fireEvent.click(commitButton())
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+    // the sheet is on its result now; nothing left to press twice
+    expect(screen.queryByRole('button', { name: /^Close 31 valves$/ })).toBeNull()
+    expect(screen.getAllByText('Sent to 31 valves')).toHaveLength(2)
+  })
+
+  /* ARMING IS REVERSIBLE, and the way back is in the one place the user is
+     already looking. A press there can never commit anything. */
+  it('disarms when the confirmed slide is pressed again', () => {
+    const onConfirm = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ onConfirm })} />)
+
+    fullDrag()
+    expect(inert(commitButton())).toBe(false)
+
+    fireEvent.click(slideControl())
+    expect(slideControl().getAttribute('data-armed')).toBe('false')
+    expect(slideControl().getAttribute('data-progress')).toBe('0')
+    expect(inert(commitButton())).toBe(true)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('disarms from the keyboard too', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+    fireEvent.keyDown(slideControl(), { key: 'Enter' })
+    expect(slideControl().getAttribute('data-armed')).toBe('true')
+    fireEvent.keyDown(slideControl(), { key: 'Enter' })
+    expect(slideControl().getAttribute('data-armed')).toBe('false')
+  })
+
+  /* A STALE ARM MUST NEVER SURVIVE A CHANGE TO WHAT IT WOULD ACT ON. The
+     decision is the direction AND the count AND the scope, so any of them
+     moving drops the arm - otherwise a press would dispatch an act the user
+     never confirmed. */
+  it('drops the arm when the count changes under it', () => {
+    const onConfirm = vi.fn()
+    const { rerender } = render(<BulkValveConfirmSheet {...props({ onConfirm })} />)
+    fullDrag()
+    expect(inert(commitButton())).toBe(false)
+
+    rerender(<BulkValveConfirmSheet {...props({ onConfirm, willActCount: 44 })} />)
+    expect(slideControl().getAttribute('data-armed')).toBe('false')
+    expect(inert(commitButton(/^Close 44 valves$/))).toBe(true)
+    fireEvent.click(commitButton(/^Close 44 valves$/))
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  it('drops the arm when the scope changes under it', () => {
+    const { rerender } = render(<BulkValveConfirmSheet {...props()} />)
+    fullDrag()
+    expect(inert(commitButton())).toBe(false)
+
+    rerender(<BulkValveConfirmSheet {...props({ scopeLabel: 'Pier 9' })} />)
+    expect(slideControl().getAttribute('data-armed')).toBe('false')
+    expect(inert(commitButton())).toBe(true)
+  })
+
+  /* SC 2.5.1 Pointer Gestures is LEVEL A, and W3C's Understanding is explicit:
+     a slider is only a dragging movement "unless [it] is implemented in a way
+     that forces users to precisely follow the path of the track, and straying
+     from the track 'loses' the user's grip on the slider thumb" — in which
+     case it "may fail the requirements of both this criterion and Success
+     Criterion 2.5.7". So the grip must survive vertical drift. The component
+     never reads clientY at all; this is that, as a test. */
+  it('keeps its grip when the pointer drifts far off the track vertically', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+
+    const thumb = slideThumb()
+    fireEvent.pointerDown(thumb, { pointerId: 1, clientX: 0, clientY: 0 })
+    fireEvent.pointerMove(thumb, { pointerId: 1, clientX: TRAVEL * 0.4, clientY: -240 })
+    fireEvent.pointerMove(thumb, { pointerId: 1, clientX: TRAVEL, clientY: 600 })
+    fireEvent.pointerUp(thumb, { pointerId: 1, clientX: TRAVEL, clientY: 600 })
+
+    expect(slideControl().getAttribute('data-armed')).toBe('true')
+  })
+
+  it('takes the pointer capture that makes that grip real', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+    const thumb = slideThumb()
+    const captured = []
+    thumb.setPointerCapture = (id) => captured.push(id)
+    fireEvent.pointerDown(thumb, { pointerId: 7, clientX: 0, clientY: 0 })
+    expect(captured).toEqual([7])
+  })
+
+  /* ══ SC 2.5.7 DRAGGING MOVEMENTS (LEVEL AA) ══════════════════════════
+     "All functionality that uses a dragging movement for operation can be
+     achieved by a single pointer without dragging, unless dragging is
+     essential..." Failure F108: "The failure occurs when there is no
+     alternative single pointer input available to actuate the function."
+     Arming CAN be done with taps, so the drag is not essential.
+     THE DRAG IS NOW MANDATORY ON ITS OWN ROUTE, so this path matters MORE
+     than it did, not less. THIS TEST IS THE CONFORMANCE: not a single pointer
+     drag event, and it arms THE SAME BUTTON. */
+  it('arms and commits through the checkbox and the button with no drag at all', () => {
+    const onConfirm = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ action: 'open', onConfirm })} />)
+
+    /* THREE single-pointer presses, and NOT ONE pointer-drag event: reveal
+       the hatch, tick, press. F108: "The alternative may involve a series of
+       single pointer interactions." */
+    fireEvent.click(screen.getByRole('button', { name: /^Cannot slide/ }))
+    fireEvent.click(screen.getByRole('checkbox'))
+    const confirm = commitButton(/^Open 31 valves$/)
+    expect(inert(confirm)).toBe(false)
+    fireEvent.click(confirm)
+
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+    expect(slideControl).toBeDefined()
+  })
+
+  /* AND IT MUST NOT BE ONE TAP. An alternative that is a single tap satisfies
+     the letter of 2.5.7 and deletes the feature. */
+  it('refuses the button on its own, at every tier', () => {
+    for (const willActCount of [7, 31, 412]) {
+      const onConfirm = vi.fn()
+      render(<BulkValveConfirmSheet {...props({ willActCount, onConfirm })} />)
+      const confirm = commitButton(new RegExp(`^Close ${willActCount} valves$`))
+      expect(inert(confirm)).toBe(true)
+      fireEvent.click(confirm)
+      expect(onConfirm).not.toHaveBeenCalled()
+      cleanup()
+    }
+  })
+
+  /* The keyboard is built because it is right, NOT because it discharges
+     2.5.7 — W3C: "achieving keyboard equivalence for a dragging operation
+     does not automatically meet this success criterion." It ARMS now, like
+     every other route to the button. */
+  it('arms from the keyboard, on Enter, on Space and on four Arrow presses', () => {
+    for (const keys of [['Enter'], [' '], ['ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight']]) {
+      const onConfirm = vi.fn()
+      render(<BulkValveConfirmSheet {...props({ action: 'open', onConfirm })} />)
+      for (const key of keys) fireEvent.keyDown(slideControl(), { key })
+      expect(slideControl().getAttribute('data-armed')).toBe('true')
+      // arming is not committing
+      expect(onConfirm).not.toHaveBeenCalled()
+      fireEvent.click(commitButton(/^Open 31 valves$/))
+      expect(onConfirm).toHaveBeenCalledTimes(1)
+      cleanup()
+    }
+  })
+
+  it('walks back down the track on the Arrow keys without ever arming', () => {
+    render(<BulkValveConfirmSheet {...props({ action: 'open' })} />)
+    const slide = slideControl()
+    fireEvent.keyDown(slide, { key: 'ArrowRight' })
+    fireEvent.keyDown(slide, { key: 'ArrowRight' })
+    fireEvent.keyDown(slide, { key: 'ArrowRight' })
+    expect(slide.getAttribute('data-progress')).toBe('0.75')
+    fireEvent.keyDown(slide, { key: 'ArrowLeft' })
+    fireEvent.keyDown(slide, { key: 'Home' })
+    expect(slide.getAttribute('data-progress')).toBe('0')
+    expect(slide.getAttribute('data-armed')).toBe('false')
+  })
+
+  /* ROLE IS `button`, NOT `slider`. A `role="slider"` announces a value in a
+     range and invites value adjustment; this control has no value, it is an
+     arming gesture. */
+  it('is announced as a button named by its outcome, never as a slider', () => {
+    render(<BulkValveConfirmSheet {...props({ willActCount: 1200 })} />)
+    expect(screen.queryByRole('slider')).toBeNull()
+    const slide = screen.getByRole('button', { name: 'Slide to close 1,200 valves' })
+    expect(slide).toBeInTheDocument()
+    // the varying payload is ON the track, not a generic "Confirm"
+    expect(slide.textContent).toContain('1,200')
+    expect(document.body.textContent).not.toMatch(/Slide to confirm/i)
+  })
+
+  /* AND THE NAME CHANGES WHEN IT ARMS, because what a press there does
+     changes with it: it stops being "slide" and becomes "undo the slide". */
+  it('renames itself once armed, and says what comes next', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+    fullDrag()
+    expect(
+      screen.getByRole('button', { name: 'Slide accepted. Now press the button.' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Slide to close/ })).toBeNull()
+    // never a word that could be read as something having happened to a valve
+    expect(document.body.textContent).not.toMatch(/\bconfirmed\b|\bdone\b/i)
+  })
+
+  /* A path nobody can find is not an alternative. The slider's description
+     names the no-drag route, so a screen-reader user who never sees the track
+     still hears it. */
+  it('names the no-drag path in the slider\'s own description', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+    const describedBy = slideControl().getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    const hint = document.getElementById(describedBy)
+    expect(hint).not.toBeNull()
+    expect(hint.textContent).toBe(
+      'Slide the handle to the right end to enable the button. The Cannot slide button gives another way.',
+    )
+    /* AND IT IS sr-only. The owner, on the visible version of this line:
+       "Why slide is not necessary? It should be necessary and this is the
+       only way we are allowing the open three valves to be enabled." */
+    expect(hint.className).toContain('sr-only')
+  })
+
+  it('tells an armed user how to take it back', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+    fullDrag()
+    const hint = document.getElementById(slideControl().getAttribute('aria-describedby'))
+    expect(hint.textContent).toBe('To undo this slide, press it again.')
+  })
+
+  it('tells a top-tier user which control is holding the slide', () => {
+    render(<BulkValveConfirmSheet {...props({ willActCount: 412 })} />)
+    const hint = document.getElementById(slideControl().getAttribute('aria-describedby'))
+    expect(hint.textContent).toBe(
+      'This slide is not enabled. Tick the acknowledgement box above.',
+    )
+    /* IT MUST NOT SAY "Tick the box above": that exact sentence is the commit
+       button's own inert-reason line, and two nodes carrying one sentence is
+       two controls claiming one fact. */
+    expect(hint.textContent).not.toMatch(/Tick the box above/)
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(
+      document.getElementById(slideControl().getAttribute('aria-describedby')).textContent,
+    ).toMatch(/^Slide the handle/)
+  })
+
+  it('keeps the slide out of the way of a command already in flight', () => {
+    render(<BulkValveConfirmSheet {...props({ busy: true })} />)
+    expect(slideControl().getAttribute('aria-disabled')).toBe('true')
+  })
+
+  /* The slide is an arm, not a dismissal: it must never be able to close the
+     sheet, and the two ways out stay live beside it. */
+  it('leaves both ways out live while the slide sits at rest', () => {
+    const onCancel = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ onCancel })} />)
+    const cancels = screen.getAllByRole('button', { name: 'Cancel' })
+    expect(cancels).toHaveLength(2)
+    for (const c of cancels) expect(c).toBeEnabled()
+  })
+})
+
+describe('BulkValveConfirmSheet — the copy register', () => {
+  /* BINDING PROJECT RULE, and it predates this file: hyphens in UI copy,
+     never em-dashes (sandbox/CLAUDE.md:268, docs/DESIGN-GUIDE-FOR-CLAUDE.md:49,
+     restated in .claude/skills/wint-ui-copy/SKILL.md §1). Comments are exempt;
+     this asserts on the RENDERED text only. */
+  it('renders no em-dash anywhere on the sheet, in either direction', () => {
+    for (const over of [{}, { action: 'open' }, { scopeKind: 'selection' }, { willActCount: 412 }]) {
+      const { container } = render(<BulkValveConfirmSheet {...props(over)} />)
+      expect(container.textContent).not.toMatch(/\u2014/)
+      cleanup()
+    }
+  })
+
+  /* ASD-STE100 is the register on a surface where water actually stops
+     (SKILL.md §3a): no contractions, one word one meaning. */
+  it('writes no contraction on the danger surface', () => {
+    const { container } = render(<BulkValveConfirmSheet {...props()} />)
+    expect(container.textContent).toMatch(/Cannot reach these/)
+    expect(container.textContent).not.toMatch(/Can\u2019t|don\u2019t|won\u2019t|isn\u2019t/)
+  })
+
+  /* docs/wint-format-standards.md: comma thousands separator. The owner's own
+     framing for this feature is "around 1000 valve", so this is live. */
+  it('separates thousands everywhere a count is printed', () => {
+    render(<BulkValveConfirmSheet {...props({ willActCount: 1200, scopeKind: 'account' })} />)
+    expect(commitButton(/^Close 1,200 valves$/)).toBeInTheDocument()
+    expect(screen.getByText('1,200')).toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/\b1200\b/)
+  })
+})
+
+
+describe('BulkValveConfirmSheet — the slide is the only advertised path', () => {
+  /* THE OWNER, 2026-11-03, looking at the open sheet and at the line this
+     sheet used to print under the slider ("A slide is not necessary. Tick the
+     box below. Then press the button."):
+
+       "Why slide is not necessary? It should be necessary and this is the
+        only way we are allowing the open three valves to be enabled."
+
+     He is right, and that sentence was self-defeating: it told every user not
+     to bother with the control. What follows pins the resolution - the pair
+     is OUT OF THE DEFAULT FLOW and STILL REACHABLE, because SC 2.5.7 is Level
+     AA and is not a thing we get to drop. */
+
+  it('offers the slide as the only live way forward when the sheet opens', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+
+    expect(slideControl()).toBeInTheDocument()
+    expect(slideControl().getAttribute('aria-disabled')).toBeNull()
+    // the commit control is there, and it is inert until something arms it
+    expect(inert(commitButton())).toBe(true)
+    // the non-drag arming gesture is not advertised
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    // the way out is never hidden behind anything
+    expect(screen.getAllByRole('button', { name: 'Cancel' })).toHaveLength(2)
+  })
+
+  it('never tells the user that the slide is unnecessary', () => {
+    for (const over of [{}, { action: 'open' }, { willActCount: 7 }, { willActCount: 412 }]) {
+      const { container } = render(<BulkValveConfirmSheet {...props(over)} />)
+      expect(container.textContent).not.toMatch(/not necessary/i)
+      cleanup()
+    }
+  })
+
+  /* ══ SC 2.5.7, AFTER THE CHANGE ══════════════════════════════════════
+     The alternative is kept and merely stops being advertised. W3C is
+     explicit that the slider's KEYBOARD support does not discharge this:
+     "achieving keyboard equivalence for a dragging operation does not
+     automatically meet this success criterion." It has to be POINTER-
+     operable without dragging, which is what this disclosure provides. */
+  it('keeps the non-drag path reachable behind a quiet disclosure', () => {
+    const onConfirm = vi.fn()
+    render(<BulkValveConfirmSheet {...props({ action: 'open', onConfirm })} />)
+
+    const hatch = screen.getByRole('button', { name: /^Cannot slide/ })
+    expect(hatch.getAttribute('aria-expanded')).toBe('false')
+    expect(hatch.getAttribute('type')).toBe('button')
+
+    fireEvent.click(hatch)
+    expect(hatch.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByRole('checkbox')).toBeInTheDocument()
+    // revealing it is neither arming nor committing
+    expect(inert(commitButton(/^Open 31 valves$/))).toBe(true)
+    expect(onConfirm).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(inert(commitButton(/^Open 31 valves$/))).toBe(false)
+    expect(onConfirm).not.toHaveBeenCalled()
+  })
+
+  /* LOW EMPHASIS, NOT HIDDEN, AND STILL A REAL TARGET: the person this exists
+     for has a motor impairment, so 44px is the floor it has to clear. */
+  it('draws the disclosure as a quiet control, not as a second primary', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+    const hatch = screen.getByRole('button', { name: /^Cannot slide/ })
+    expect(hatch.className).toMatch(/text-muted-foreground/)
+    expect(hatch.className).toMatch(/\bh-11\b/)
+    expect(hatch.className).not.toMatch(/bg-destructive|bg-primary/)
+    // not the house <Button>, which would give it a primary's weight
+    expect(hatch.getAttribute('data-slot')).toBeNull()
+    expect(hatch.textContent).toBe('Cannot slide?')
+    // ASD-STE100 bans contractions on this surface
+    expect(document.body.textContent).not.toMatch(/Can\u2019t slide/)
+  })
+
+  it('shuts the disclosure again when the decision changes', () => {
+    const { rerender } = render(<BulkValveConfirmSheet {...props()} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Cannot slide/ }))
+    expect(screen.getByRole('checkbox')).toBeInTheDocument()
+
+    rerender(<BulkValveConfirmSheet {...props({ action: null })} />)
+    rerender(<BulkValveConfirmSheet {...props({ action: 'open' })} />)
+    expect(screen.queryByRole('checkbox')).toBeNull()
+  })
+
+  /* ONE ACKNOWLEDGEMENT ROW, ONE PLACE AT A TIME. At the top tier it is the
+     anti-habituation GATE and it is on screen; below it, it is the first act
+     of the non-drag alternative and it lives in the hatch. The two controls
+     must never read as a pair of equivalent ways in. */
+  it('keeps the top-tier acknowledgement on screen, where it gates the slide', () => {
+    render(<BulkValveConfirmSheet {...props({ willActCount: 412 })} />)
+    expect(screen.getByRole('checkbox')).toBeInTheDocument()
+    expect(slideControl().getAttribute('aria-disabled')).toBe('true')
+    // and the one commit control is there, inert
+    expect(inert(commitButton(/^Close 412 valves$/))).toBe(true)
+  })
+
+  it('never draws two acknowledgement rows, at any tier', () => {
+    for (const willActCount of [7, 31, 412]) {
+      render(<BulkValveConfirmSheet {...props({ willActCount })} />)
+      openEscapeHatch()
+      expect(screen.getAllByRole('checkbox')).toHaveLength(1)
+      expect(screen.getAllByText(/^I understand this stops water/)).toHaveLength(1)
+      cleanup()
+    }
+  })
+
+  /* THE COMMIT BUTTON IS BACK IN THE DEFAULT FLOW, inert, because it is now
+     the ONE commit control and both arming gestures lead to it. What is NOT
+     advertised is the way to arm it without a drag. */
+  it('shows the one commit control from the start, inert and explained', () => {
+    render(<BulkValveConfirmSheet {...props()} />)
+    const confirm = commitButton()
+    expect(confirm).toBeInTheDocument()
+    expect(inert(confirm)).toBe(true)
+    expect(screen.getByText('Slide above to enable this.')).toBeInTheDocument()
+    // and the non-drag arming gesture is still behind the disclosure
+    expect(screen.queryByRole('checkbox')).toBeNull()
   })
 })

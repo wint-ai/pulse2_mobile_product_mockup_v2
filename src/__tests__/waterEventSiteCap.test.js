@@ -20,7 +20,16 @@
  */
 import { describe, it, expect } from 'vitest'
 import { SYSTEMS } from '@/data/systems'
-import { WATER_EVENT_SITE_CAP } from '@/data/upstream/buildTree'
+import { WATER_EVENT_SITE_CAP, FLEET_STATE } from '@/data/upstream/buildTree'
+
+/* MODE-AWARE, NOT WEAKENED. The sign-in screen can build the fleet in a
+   'clear' state (src/data/fleetState.js) where the cap is 0 and every site is
+   clean. The CEILINGS above still hold there - 0 events is <= any cap - and are
+   asserted unconditionally. The three cases below are FLOORS ("events still
+   exist", "the parity pair survives") and a floor is false by design in the
+   all-clear fleet, so they run only in 'live'. Nothing is relaxed for 'live':
+   the default suite reads FLEET_STATE === 'live' and runs every case. */
+const liveOnly = FLEET_STATE === 'live' ? it : it.skip
 
 const isWaterEvent = (s) => s.alert?.type === 'leak-high' || s.alert?.type === 'leak-low'
 
@@ -59,7 +68,7 @@ describe('water events are capped at 20% of a location', () => {
     }
   })
 
-  it('the cap did not empty the dataset — water events still exist to look at', () => {
+  liveOnly('the cap did not empty the dataset — water events still exist to look at', () => {
     /* The cap is a ceiling, not a target. A generator change that silently
        produced zero events everywhere would satisfy the rule above and make
        every water-event surface in the app untestable by hand. */
@@ -69,7 +78,7 @@ describe('water events are capped at 20% of a location', () => {
     expect(sitesWithOne).toBeGreaterThanOrEqual(3)
   })
 
-  it('still contains a system that is leaking with no device fault', () => {
+  liveOnly('still contains a system that is leaking with no device fault', () => {
     /* The owner's 2026-10-21 case — "system can be 100% health but with active
        water event" — which healthIsNotWaterEvents.dom.test.jsx also guards.
        Repeated here because the cap is exactly the kind of change that could
@@ -81,7 +90,16 @@ describe('water events are capped at 20% of a location', () => {
     expect(healthyAndLeaking.length).toBeGreaterThan(0)
   })
 
-  it('the ten-unit residential buildings keep their parity pair', () => {
+  it('the ten-unit residential buildings keep their ten apartments', () => {
+    /* Entity shape, so it holds in BOTH fleet states - the all-clear mode
+       changes status only, never which systems exist. */
+    for (const [name, systems] of bySite()) {
+      if (!/^Building [AB]$/.test(name)) continue
+      expect(systems.length, name).toBe(10)
+    }
+  })
+
+  liveOnly('the ten-unit residential buildings keep their parity pair', () => {
     /* floor(10 * 0.2) is 2, which is exactly the Apartment 2 / Apartment 5
        high/low pair the residential branch in buildTree preserves. If the cap
        is ever lowered, this is the first thing it breaks, and the two apps stop

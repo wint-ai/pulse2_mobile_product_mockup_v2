@@ -88,12 +88,37 @@ export const ALERT_CARDS = SYSTEMS.filter(s => s.alert !== null);
 import { getSimulatedAlert, reloadSimulatedAlerts } from './simulatedAlerts';
 import { getSimulatedEvents } from './simulatedEvents';
 
-// "Treat the fleet as clean" flag, set by the pusher's Clear button via
-// applyDemoReset(). When set, every system that has NO sim alert reads as
-// alert: null - the pre-populated mock incidents + historical events are
-// suppressed everywhere they're read. New pushes still work on top: firing
-// a Warning activates a sim alert for that one system; everything else
-// stays clean. Sticky in localStorage; gone on a full storage clear.
+/* "Treat the fleet as clean" flag, set by the pusher's Clear button via
+   applyDemoReset(). When set, every system that has NO sim alert reads as
+   alert: null - the pre-populated mock incidents + historical events are
+   suppressed everywhere they're read. New pushes still work on top: firing
+   a Warning activates a sim alert for that one system; everything else
+   stays clean. Sticky in localStorage; gone on a full storage clear.
+
+   ⚠ THIS IS NOT THE FLEET-STATE SWITCH. The sign-in screen's healthy/live
+   choice is `pulse2-fleet-state` (src/data/fleetState.js), and the two flags
+   are deliberately NOT wired together. They want opposite things from history:
+
+     pulse2-mock-suppressed  "the pusher owns the truth now" (Rami 2026-06-06).
+                             hasSimActivity() returns true for EVERY system
+                             while it is set, which is how static incidents and
+                             historical lifeEvents are kept off the Timeline -
+                             so a demo push is not mixed with pre-baked rows.
+                             Deleting history is the POINT of this flag.
+     pulse2-fleet-state      "clear the present, keep the past" (owner,
+                             2026-11-04). Past water events must still appear on
+                             timelines and in Alerts -> History, because the
+                             ended-event screen, the Tell-us-more flow and the
+                             chart annotations are the features worth demoing.
+
+   Delegating one to the other would silently delete the history the healthy
+   mode exists to show. It also only ever half-worked as a fleet switch:
+   applySimOverlay runs on single-system lookups (getSystemById, line ~224),
+   while SYSTEMS is the raw generator output, so Home kept reading
+   "12 / 103 need attention" with the flag set. The fleet-state flag works at
+   the generator instead, which is why it needs no overlay at all.
+
+   Leave this one to its original job. */
 const MOCK_SUPPRESSED_KEY = 'pulse2-mock-suppressed';
 export function isMockSuppressed() {
   try { return localStorage.getItem(MOCK_SUPPRESSED_KEY) === '1'; }
@@ -172,6 +197,11 @@ export function applySimOverlay(sys, sim) {
       return {
         ...sys,
         alert: null,
+        /* THE CANONICAL RECORD GOES WITH THE ALERT -- 2026-11-04. `sys.event`
+           is what `sys.alert` is a projection of, so leaving a record standing
+           beside a cleared alert would put the exact divergence this change
+           removed back in, one layer down. Cleared together, always. */
+        event: null,
         valve: sys.valve == null ? sys.valve : 'open',
         comm: 'online',
         power: sys.power == null ? sys.power : 'ac',
@@ -190,7 +220,7 @@ export function applySimOverlay(sys, sim) {
 
   // Resolved water event tombstones the alert (see header comment).
   if (sim.resolved && (sim.type === 'leak-high' || sim.type === 'leak-low')) {
-    return { ...sys, alert: null };
+    return { ...sys, alert: null, event: null };
   }
 
   // valveStateOnly sim entries (e.g. VC_OK_01 Valve closed by user) carry
@@ -202,7 +232,11 @@ export function applySimOverlay(sys, sim) {
     return { ...sys, valve: sim.valveOverride || sys.valve };
   }
 
-  const overlaid = { ...sys, alert: sim };
+  /* A PUSHED alert replaces the generated one, so the generated RECORD goes
+     with it. The pusher owns the truth for a system it has touched (the same
+     rule incidents.js states), and a sim alert carries its own instant
+     (`startedAtIso`, pushEvents.js) rather than a record. */
+  const overlaid = { ...sys, alert: sim, event: null };
   if (sim.valveOverride) overlaid.valve = sim.valveOverride;
   if (sim.type === 'power-lost')  overlaid.power = 'ac-lost';
   if (sim.type === 'offline') {

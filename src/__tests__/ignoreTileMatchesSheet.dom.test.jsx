@@ -27,11 +27,22 @@
  * owner can see it and reverse it in one line if they disagree.
  *
  * THE FIXTURE IS SYNTHESISED, AND THAT IS THE POINT. The live dataset carries
- * no ShutOff water event at all (9 active events: 8 Ongoing, 1 Warning), so
- * the dead end was unreachable from the fleet as it stands today and no
- * existing test could have seen it. `getActiveIncident` is wrapped to append a
- * `valve-closed` step — the one step `getLeakState` reads for 'ShutOff' — so
- * the state is produced through the real reducer rather than stubbed.
+ * no ShutOff water event at all, so the dead end is unreachable from the fleet
+ * as it stands today and no existing test could have seen it.
+ * `getActiveIncident` is wrapped to dress one, and the state is still produced
+ * through the real `getLeakState` rather than stubbed at the call site.
+ *
+ * WHAT THE FIXTURE DRESSES CHANGED ON 2026-11-04, and only the fixture did.
+ * The status used to be derived from WHICH STEPS an incident had, so appending
+ * a `valve-closed` step was the whole synthesis. It is now carried on the
+ * canonical event record (buildTree.js `buildEventRecord`) and projected onto
+ * the incident as `leakState`, because deriving it from the steps meant the
+ * pill was decided by a hash unrelated to the duration printed beside it. So
+ * the fixture now sets BOTH: a record that says 'ShutOff' and the step that is
+ * the display consequence of one. Setting only the step would describe an
+ * incident the generator cannot produce — a closed valve on an event whose own
+ * record says it is merely Ongoing — and the test would be pinning a shape
+ * that does not exist.
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 
@@ -51,9 +62,14 @@ vi.mock('@/data/incidents', async (importOriginal) => {
       if (!incident || !ctl.shutOff) return incident
       return {
         ...incident,
+        /* What the record says. `getLeakState` reads this first. */
+        leakState: 'ShutOff',
+        /* And the step a ShutOff record actually produces, so the timeline the
+           overlay draws matches the state the pill reports. The stamp is the
+           absolute form every step carries since `agoLabel` was deleted. */
         steps: [
           ...(incident.steps ?? []),
-          { type: 'valve-closed', time: '15:02', timeAgo: '1h ago', detail: 'Valve closed' },
+          { type: 'valve-closed', time: '15:02', timeAgo: 'Nov 4, 15:02', detail: 'Valve closed' },
         ],
       }
     },

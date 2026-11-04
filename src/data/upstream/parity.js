@@ -19,6 +19,45 @@ export const MRG_ACCOUNT_ID = snapshot.rootAccountId;
 export const ALL_CLEAR_LOCATION_IDS = snapshot.allClearLocationIds;
 
 /**
+ * THE ONE `now` — every generator's clock anchor, read ONCE at module scope.
+ *
+ * WHY THIS EXISTS. buildTree, generateEvents and generateIncidents each called
+ * `Date.now()` themselves, six times between them, at module-evaluation time.
+ * Each `hoursAgo` was fixed but each anchor floated, so the SAME event's
+ * absolute clocks walked forward independently and the three surfaces printed
+ * three different detection instants for one event. Owner, 2026-11-04: "all
+ * data needs to be, always, to reflect the same data."
+ *
+ * NOT PINNED, DELIBERATELY. This is still `Date.now()`, so the fleet's clocks
+ * advance between page loads — a reload an hour from now shows the event an
+ * hour older, which is what a live demo has to do. What changed is that every
+ * generator advances by the SAME delta, because they all read this one value.
+ * Pinning it to a fixed instant is a separate product decision (it would also
+ * freeze "2h ago" at whatever it said when the constant was written) and is
+ * not taken here.
+ *
+ * Module scope, not a function: these modules evaluate once at import, and a
+ * function would hand a later caller a later anchor, which is the bug.
+ */
+export const BUILD_NOW = Date.now();
+
+/**
+ * Display id, e.g. "LK-6129384". Stable per system + prefix.
+ *
+ * THE ONE EVENT ID — 2026-11-04. There were three producers of "the id of this
+ * event" and they disagreed on sight. Measured on esrt-bldg-A-apt-2: this
+ * one gives `LK-6363024`, events.js's `hashId` gave `LK-86215`, and
+ * EventFocusOverlay's `toLeakId(incident)` gave `lk-6215` — the last being the
+ * one the event hero actually showed a user. All
+ * three are now this one, reached through the canonical record's `eventId`.
+ * It lives here rather than in generateEvents.js because the record that owns
+ * the id is built in buildTree.js, upstream of that file.
+ */
+export function displayId(prefix, systemId) {
+  return `${prefix}-${6000000 + (stableHash(`${prefix}:${systemId}`) % 999999)}`;
+}
+
+/**
  * Stable 32-bit hash. Verbatim from the web (`stableHash` in mockData.ts and
  * the inline loop in systemEventType). Must not be "improved" — its exact
  * output is the contract between the two apps.

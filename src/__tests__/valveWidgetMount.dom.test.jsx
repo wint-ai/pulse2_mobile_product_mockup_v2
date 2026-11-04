@@ -28,11 +28,12 @@
  * `getBoundingClientRect()` is all zeros, no stylesheet is applied and nothing
  * is painted. So nothing below asserts, or may be read as asserting:
  *   · that the card is visible, or where on the screen it lands;
- *   · that the segmented bar draws, or that its segments are the right width;
- *   · that any tile meets a 44/56px touch target;
- *   · that the card is ~317px tall (the component's header sums it from its
- *     class values, down from ~520px before the 2026-11-02 redesign — that is
- *     arithmetic, not a measurement, and nothing here pretends otherwise);
+ *   · that the donut draws, or that any arc is the right width on screen;
+ *   · that any legend row meets its 44px touch target;
+ *   · that the card is 363px tall (MEASURED in a real browser on 2026-11-03
+ *     with `scripts/shot.mjs`, up from 319.5px for the segmented-bar build and
+ *     down from ~520px before the 2026-11-02 redesign - but measured THERE,
+ *     not here, and nothing in this file asserts it);
  *   · that any colour token resolves in any of the four themes.
  * Those are screenshot questions and were checked in a browser instead. What
  * IS assertable here is structure — which element is inside which, in what
@@ -276,54 +277,100 @@ describe('the offline exclusion is visible on the live page', () => {
   /* 320 Summit Blvd is the one scope in this dataset where it shows: three
      systems carry a valve, one of them is offline, and one of the online ones
      is in Valve Error — so the number that can actually be commanded is
-     smaller than the number of valves, and both numbers are on the card. */
-  it(`${SUMMIT} states fewer commandable systems than it has valves`, () => {
+     smaller than the number of valves.
+
+     HOW THIS FILE USED TO PROVE IT, AND WHY IT CHANGED. Both cases here read
+     the card's denominator line (`N systems with a valve · N can be
+     commanded · N offline`). THE OWNER DELETED THAT LINE on 2026-11-03 —
+     "remove this sentence. I want it much more clear." — choosing an outright
+     delete over a gap-only line or moving it onto the button. The full
+     argument is in the component header; the short version is that two of its
+     three numbers counted different populations and two of the three were
+     already on screen.
+
+     SO THE EXCLUSION IS PROVED OFF THE SURVIVING SITE: the per-row offline
+     sub-counts. They are not a weaker proxy — they are the encoding the
+     owner's requirement actually names, stated per category instead of as one
+     total, and they are now the ONLY offline encoding this card carries. The
+     commandable TOTAL is no longer this card's job: it belongs to
+     `ValveManagementScreen` and `BulkValveConfirmSheet`, where the command is
+     sized and the skipped systems are listed by name. */
+  it(`${SUMMIT} marks its offline valve on the row that counts it`, () => {
     const { container } = renderAt(at(SUMMIT))
     const card = cardIn(container)
     expect(card).toBeTruthy()
 
-    /* Read off the denominator's OWN element, never off the whole card: the
-       "No valve installed" row count abuts this line in `textContent`, so a
-       count of 2 followed by "3 systems with a valve" parses as 23 — a test
-       that reads the wrong number and still passes. */
-    const text = card.querySelector('[data-name="valve-denominator"]')?.textContent ?? ''
-    const m = text.match(/^(\d+)\s+systems?\s+with\s+a\s+valve\s+·\s+(\d+)\s+can\s+be\s+commanded/)
-    expect(m, `the honest-denominator line is missing from:\n${text}`).toBeTruthy()
+    // The line is gone, in every one of its three clauses.
+    expect(card.querySelector('[data-name="valve-denominator"]')).toBeNull()
+    expect(card.textContent).not.toMatch(/with a valve/i)
+    expect(card.textContent).not.toMatch(/can be commanded/i)
 
-    const valveTotal = Number(m[1])
-    const commandable = Number(m[2])
-    expect(valveTotal, 'this scope should carry several valves').toBeGreaterThan(1)
+    /* Against the REAL dataset, at least one row at this scope states an
+       offline sub-count — which is the fact the deleted line used to total.
+       Read off the aria-labels, which carry it for a reader too. */
+    const rows = [...card.querySelectorAll('[data-valve-row]')]
+    expect(rows.length, 'no legend rows at this scope').toBeGreaterThan(0)
+    const offlineNotes = rows
+      .map((r) => (r.getAttribute('aria-label') ?? '').match(/([\d,]+) offline/)?.[1])
+      .filter(Boolean)
+      .map((n) => Number(n.replace(/,/g, '')))
+
     expect(
-      commandable,
-      'the whole point of the card: what can be commanded is smaller than what exists',
-    ).toBeLessThan(valveTotal)
-    /* And it says WHY, on the same line — a smaller number with no cause is
-       the wrong-belief failure this feature was built against. */
-    expect(text).toMatch(/·\s+\d+\s+offline/)
+      offlineNotes.length,
+      'no row at 320 Summit Blvd states an offline sub-count, so the card no longer ' +
+        'encodes offline at all',
+    ).toBeGreaterThan(0)
+    expect(offlineNotes.reduce((a, n) => a + n, 0)).toBeGreaterThan(0)
+
+    /* And it is visible, not only announced: the sub-count is rendered text in
+       the row, not an aria-label the sighted user never gets. */
+    const seen = rows.some((r) => /\d+\s+offline/.test(r.textContent))
+    expect(seen, 'the offline sub-count is in the accessible name only').toBe(true)
+
+    expectCleanConsole(at(SUMMIT))
   })
 
-  it(`${SUMMIT}'s rows still count the offline system the denominator excludes`, () => {
+  it(`${SUMMIT}'s rows still count the offline system at its last-known state`, () => {
     const { container } = renderAt(at(SUMMIT))
     const card = cardIn(container)
 
     const openRow = card.querySelector('[data-valve-row="open"]')
     expect(openRow, 'no Open row').toBeTruthy()
 
-    const text = card.querySelector('[data-name="valve-denominator"]')?.textContent ?? ''
-    const valveTotal = Number(text.match(/^(\d+)\s+systems?\s+with\s+a\s+valve/)?.[1])
+    const num = (t) => Number(String(t ?? '').replace(/,/g, ''))
     const rowSum = [...card.querySelectorAll('[data-valve-row]')]
       .filter((r) => r.getAttribute('data-valve-row') !== 'none')
       .reduce((a, r) => {
         const label = r.getAttribute('aria-label') ?? ''
-        return a + Number(label.match(/:\s*(\d+)\s+system/)?.[1] ?? 0)
+        return a + num(label.match(/:\s*([\d,]+)\s+system/)?.[1] ?? 0)
       }, 0)
 
-    /* The rows and the denominator describe the same set: every system with a
-       valve is in exactly one of the three valve rows, OFFLINE ONES INCLUDED.
-       "can be commanded" is the number that shrinks, and it is stated beside
-       them rather than instead of them. */
-    expect(Number.isFinite(valveTotal), `no denominator line in:\n${text}`).toBe(true)
-    expect(rowSum, 'the valve rows and the denominator describe different sets').toBe(valveTotal)
+    /* EVERY SYSTEM WITH A VALVE IS IN EXACTLY ONE OF THE THREE VALVE ROWS,
+       OFFLINE ONES INCLUDED. That was the real content of the deleted
+       denominator case: an offline system holds its last-known state and is
+       genuinely in the scope, so hiding it would understate the fleet. With
+       the line gone, the ring is what the row counts are checked against —
+       the arcs carry their own counts and the two must agree. */
+    const ring = card.querySelector('[data-name="valve-bar"]')
+    expect(ring, 'no ring to check the rows against').toBeTruthy()
+    const valveArcSum = [...ring.querySelectorAll('[data-valve-segment]')]
+      .filter((a) => a.getAttribute('data-valve-segment') !== 'none')
+      .reduce((a, arc) => a + num(arc.getAttribute('data-valve-count')), 0)
+
+    expect(rowSum, 'this scope should carry several valves').toBeGreaterThan(1)
+    expect(rowSum, 'the valve rows and the ring describe different sets').toBe(valveArcSum)
+
+    /* And the offline one is INSIDE that total rather than subtracted from it:
+       the row's own count includes it, and the sub-count says so. */
+    const openLabel = openRow.getAttribute('aria-label') ?? ''
+    const openCount = num(openLabel.match(/:\s*([\d,]+)\s+system/)?.[1])
+    const openOffline = num(openLabel.match(/([\d,]+) offline/)?.[1] ?? 0)
+    expect(Number.isFinite(openCount)).toBe(true)
+    expect(openOffline, 'the Open row at this scope should carry the offline system').toBe(1)
+    expect(openCount, 'the row count excludes its own offline system').toBeGreaterThanOrEqual(
+      openOffline,
+    )
+
     expectCleanConsole(at(SUMMIT))
   })
 })
@@ -390,53 +437,63 @@ describe('the widget is display only, and offers the way in instead', () => {
     expect(where()).toBe(`/valves/${encodeURIComponent(SUMMIT)}?state=open`)
   })
 
-  /* THE 2026-11-02 REDESIGN, ON THE LIVE PAGE RATHER THAN IN ISOLATION. The
-     donut was replaced by a decorative segmented bar plus a grid of tappable
-     stat tiles; `valveManagementCard.dom.test.jsx` argues that change and
-     proves it against fixtures. What is proved HERE is the part a fixture
-     cannot reach: that against the REAL dataset the bar still never carries a
-     segment for a dimension it cannot hold. Offline is orthogonal — an offline
-     system is also open, closed or in error — so folding it into the bar would
-     make the chart sum to more than the scope it is drawn over. */
-  it('draws a decorative bar whose segments are only the four valve categories', () => {
+  /* THE 2026-11-03 REBUILD, ON THE LIVE PAGE RATHER THAN IN ISOLATION. The
+     owner overruled the removal of the donut - "I don't think the current
+     solution is the best visualization for that. Maybe we can try something
+     else like PyChart donut" - so the segmented bar is gone and the ring is
+     back, with a column of tappable legend rows beside it.
+     `valveManagementCard.dom.test.jsx` argues that change and proves the
+     geometry against fixtures. What is proved HERE is the part a fixture
+     cannot reach: that against the REAL dataset the ring still never carries
+     an arc for a dimension it cannot hold. Offline is orthogonal - an offline
+     system is also open, closed or in error - so folding it into the ring
+     would make the chart sum to more than the scope it is drawn over. */
+  it('draws a decorative ring whose arcs are only the four valve categories', () => {
     const { container } = renderAt(at(SUMMIT))
     const card = cardIn(container)
 
-    const bar = card.querySelector('[data-name="valve-bar"]')
-    expect(bar, 'no segmented bar on the live page').toBeTruthy()
-    expect(bar.getAttribute('aria-hidden')).toBe('true')
-    expect(String(bar.className)).toContain('pointer-events-none')
-    expect(within(bar).queryAllByRole('button')).toHaveLength(0)
+    const ring = card.querySelector('[data-name="valve-bar"]')
+    expect(ring, 'no donut on the live page').toBeTruthy()
+    expect(ring.getAttribute('aria-hidden')).toBe('true')
+    expect(String(ring.className)).toContain('pointer-events-none')
+    expect(within(ring).queryAllByRole('button')).toHaveLength(0)
 
-    const keys = [...bar.querySelectorAll('[data-valve-segment]')].map((s) =>
-      s.getAttribute('data-valve-segment'),
-    )
-    expect(keys.length, 'an empty bar').toBeGreaterThan(0)
-    for (const key of keys) {
-      expect(['error', 'open', 'closed', 'none'], `segment "${key}"`).toContain(key)
+    const svg = ring.querySelector('svg')
+    expect(svg, 'the ring draws no svg on the live page').toBeTruthy()
+    expect(svg.getAttribute('aria-hidden')).toBe('true')
+
+    const arcs = [...ring.querySelectorAll('[data-valve-segment]')]
+    expect(arcs.length, 'an empty ring').toBeGreaterThan(0)
+    for (const arc of arcs) {
+      const key = arc.getAttribute('data-valve-segment')
+      expect(['error', 'open', 'closed', 'none'], `arc "${key}"`).toContain(key)
+      // Token utilities only. An inline hex would freeze across all four themes.
+      expect(String(arc.getAttribute('class')), key).toMatch(/(?:^|\s)stroke-/)
+      expect(arc.outerHTML).not.toMatch(/#[0-9a-f]{3,8}\b/i)
     }
 
-    // The control is the tile, not the chart.
-    const tiles = [...card.querySelectorAll('[data-valve-row]')]
-    expect(tiles.length).toBeGreaterThan(0)
+    // The control is the legend row, not the chart.
+    const rows = [...card.querySelectorAll('[data-valve-row]')]
+    expect(rows.length).toBeGreaterThan(0)
 
-    /* The segments weigh exactly what the tiles count. If offline ever became
-       a fifth segment, or a segment were weighted by anything but its own
-       category count, these two totals would part company. */
-    const segmentSum = [...bar.querySelectorAll('[data-valve-segment]')].reduce(
-      (a, s) => a + Number(s.style.flexGrow),
+    /* The arcs weigh exactly what the rows count. If offline ever became a
+       fifth arc, or an arc were weighted by anything but its own category
+       count, these two totals would part company. Counts are parsed
+       comma-tolerantly: `wint-format-standards.md:24` puts a thousands
+       separator in every rendered count, and this dataset is one growth spurt
+       away from four digits. */
+    const num = (text) => Number(String(text ?? '').replace(/,/g, ''))
+    const arcSum = arcs.reduce((a, arc) => a + num(arc.getAttribute('data-valve-count')), 0)
+    const rowSum = rows.reduce(
+      (a, r) => a + num((r.getAttribute('aria-label') ?? '').match(/([\d,]+)\s+systems?/)?.[1] ?? 0),
       0,
     )
-    const tileSum = tiles.reduce(
-      (a, t) => a + Number((t.getAttribute('aria-label') ?? '').match(/(\d+)\s+systems?/)?.[1] ?? 0),
-      0,
-    )
-    expect(tileSum, 'no tile states a count').toBeGreaterThan(0)
-    expect(segmentSum, 'the bar and the tiles describe different sets').toBe(tileSum)
+    expect(rowSum, 'no legend row states a count').toBeGreaterThan(0)
+    expect(arcSum, 'the ring and the legend describe different sets').toBe(rowSum)
 
-    for (const tile of tiles) {
-      expect(tile.tagName.toLowerCase()).toBe('button')
-      expect(bar.contains(tile)).toBe(false)
+    for (const row of rows) {
+      expect(row.tagName.toLowerCase()).toBe('button')
+      expect(ring.contains(row)).toBe(false)
     }
   })
 
@@ -462,7 +519,10 @@ describe('a scope with systems but no valves', () => {
     expect(card, 'the card vanished instead of saying why it is empty').toBeTruthy()
 
     expect(within(card).getByText('No valves in this scope.')).toBeTruthy()
-    /* The denominator, so "no valves" cannot be read as "no systems". */
+    /* The scope's own count, so "no valves" cannot be read as "no systems".
+       This is the zero-valve branch's second line and is NOT the deleted
+       denominator line - different branch, different string, and the owner's
+       2026-11-03 deletion did not touch it. */
     expect(card.textContent).toMatch(/All \d+ systems? (?:is|are) metering-only\./)
 
     /* NOTHING TO DO, in any of its forms: no bulk bar, no open/close button,
@@ -567,10 +627,15 @@ describe('the two valve-error numbers on this screen agree', () => {
     expect(card).toBeTruthy()
     const row = card.querySelector('[data-valve-row="error"]')
     /* No row means no system in this scope is in Valve Error, so the tile must
-       read zero. */
+       read zero. Comma-tolerant for the same reason the tile's own regex above
+       already is: every count on this card renders through the house
+       thousands-separator rule (`wint-format-standards.md:24`), so a
+       four-digit scope would otherwise parse as its last three digits. */
     const rowCount = row
       ? Number(
-          (row.getAttribute('aria-label') ?? row.textContent ?? '').match(/Valve Error\D*(\d+)/)?.[1],
+          (row.getAttribute('aria-label') ?? row.textContent ?? '')
+            .match(/Valve Error\D*([\d,]+)/)?.[1]
+            ?.replace(/,/g, ''),
         )
       : 0
 

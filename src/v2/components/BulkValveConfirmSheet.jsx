@@ -35,6 +35,15 @@
  * them without new evidence.
  *
  * ── 1. UNDO IS AVAILABLE HERE, AND THAT RE-CLASSES THE WHOLE DESIGN ──────
+ * ⚠ SUPERSEDED 2026-11-03 BY NOTE 12. THE CANCEL WINDOW THIS NOTE ARGUES FOR
+ * NO LONGER EXISTS: the owner rejected it twice, in both directions and at
+ * both sizes, and it is gone at every tier. The argument is kept verbatim
+ * below because it is the reasoning that put the window there, and anyone
+ * proposing to bring it back should read note 12 first - the removal costs no
+ * conformance, and it was the weakest of the three mechanisms by the same
+ * literature this note cites. WHAT THIS NOTE SAYS ABOUT RECOVERABILITY IS NOW
+ * FALSE: the commands DO leave the instant the button is pressed.
+ *
  * The old sheet was built on the premise that confirmation is all we have.
  * It is not. The commands have not left for the devices at the moment the
  * user commits, and we control when they do. WCAG's *sufficient technique*
@@ -48,10 +57,8 @@
  * slip in exactly the seconds a slip is noticed — the user has just watched
  * the sheet close and is still looking at the screen.
  *
- * So the commit button no longer dispatches. It STARTS THE HOLD. `onConfirm`
- * now means DISPATCH NOW and fires when the window expires or is skipped —
- * see "THE CONTRACT CHANGE" below, because this is a breaking change for the
- * one caller.
+ * (Historical, and no longer true: the commit button used to START THE HOLD
+ * rather than dispatch. It dispatches now - see note 12 and THE CONTRACT.)
  *
  * ── 2. FRICTION SCALES TO BLAST RADIUS; UNIFORM FRICTION IS THE DEFECT ───
  * Primer again: "How much friction to put in someone's way depends on how
@@ -72,6 +79,12 @@
  *   small   willActCount <= 10               8s window,  no acknowledgement
  *   medium  11-100                          15s window,  no acknowledgement
  *   large   >100, OR scopeKind === 'account' 20s window,  ACKNOWLEDGEMENT
+ *
+ * AMENDED 2026-11-03, TWICE, see notes 11 and 12. THE WINDOW COLUMN NO LONGER
+ * EXISTS AT ANY TIER - the owner rejected the cancel window outright. What the
+ * ladder still decides is the ACKNOWLEDGEMENT: `large` forces it, the other
+ * two do not. The deliberateness that the window was partly standing in for is
+ * now carried by slide-to-arm plus press-to-commit (note 11).
  *
  * THE THRESHOLDS ARE PLACEHOLDERS AND ARE ROUND NUMBERS BECAUSE WE HAVE NO
  * TELEMETRY, NOT BECAUSE 10 AND 100 MEAN ANYTHING. NN/g on exactly this:
@@ -170,6 +183,195 @@
  * `text-[Npx]` sizes and fifteen arbitrary spacing values are on the shadcn
  * scale: `text-sm` body, `text-xs` eyebrows, 4px spacing steps.
  *
+ * ══ THE 2026-11-03 ADDITION ─ SLIDE TO CONFIRM ════════════════
+ * The owner, verbatim: "I want to add to the bulk operations kind of
+ * confirmation like the puzzle Lego that user needs to slide to make sure user
+ * do it when he's aware of what he's doing and not just click something in his
+ * pocket."
+ *
+ * ── 7. THE SLIDE IS THE COMMIT. THE COUNTDOWN IS NOT REPLACED ──────
+ * `<SlideToConfirm>` takes over the job of STARTING the dispatch. The commit
+ * button no longer does it alone. The two controls do different jobs and both
+ * are kept where they are warranted: THE SLIDE IS DELIBERATE COMMIT, THE
+ * COUNTDOWN IS RECOVERY. The sequence is slide (or tick + press) -> countdown
+ * where there is one -> dispatch.
+ *
+ * NOT A PUZZLE / JIGSAW SLIDER. The owner floated the CAPTCHA-style variant
+ * and it was rejected on the merits: a puzzle tests perception and dexterity -
+ * it proves you are not a bot - and proves nothing about whether the user
+ * understood that 412 valves are about to close. It also adds a motor barrier
+ * for tremor, switch and voice users and a cognitive one for everybody, for no
+ * benefit here. The control is a plain linear slide.
+ *
+ * WHAT IT FIXES AND WHAT IT DOES NOT, honestly. Bravo-Lillo et al. (SOUPS,
+ * "Harder to ignore?") found that attractors which merely DELAYED dismissal
+ * did NOT survive habituation; the only ones that did were those forcing
+ * interaction with THE FIELD CONTAINING THE CHANGED INFORMATION. A slider is
+ * the same slider every time - invariant content - so it is PHYSICAL FRICTION,
+ * NOT ATTENTION. It addresses the owner's stated failure mode, the accidental
+ * actuation and the pocket tap. IT DOES NOT ADDRESS HABITUATED-BUT-DELIBERATE
+ * CONFIRMATION. The acknowledgement checkbox, which restates the varying
+ * count, is the control that does that, and the slider's arrival is NOT a
+ * reason to weaken or remove it. The one cheap nod: the track carries the act
+ * and the count ("Slide to close 412 valves"), never a generic "Confirm".
+ *
+ * NO CONTROLLED STUDY was found showing slide-to-confirm reduces real-world
+ * errors. Google Play is reported to be adding a swipe-to-confirm step against
+ * accidental purchases - that is intent, not evidence. Say so to the owner
+ * rather than implying the pattern is proven.
+ *
+ * ── 8. WCAG SC 2.5.7 IS SATISFIED BY THE CHECKBOX, NOT BY THE SLIDE ─
+ * SC 2.5.7 Dragging Movements (Level AA): "All functionality that uses a
+ * dragging movement for operation can be achieved by a single pointer without
+ * dragging, unless dragging is essential..." Failure F108: "The failure occurs
+ * when there is no alternative single pointer input available to actuate the
+ * function." A slide-to-confirm CAN be replaced by taps, so it is NOT
+ * essential, so A SLIDE-ONLY COMMIT WOULD BE AN F108 FAILURE AT LEVEL AA.
+ *
+ * THE ALTERNATIVE IS THE ACKNOWLEDGEMENT CHECKBOX PLUS THE COMMIT BUTTON,
+ * AVAILABLE AT EVERY TIER. Two deliberate single-pointer acts, no drag, and
+ * F108 explicitly permits it: "The alternative may involve a series of single
+ * pointer interactions." A SINGLE TAP WOULD NOT DO - it satisfies the letter
+ * of 2.5.7 and destroys the feature, whose whole purpose is to defeat one
+ * careless tap. SO THE COMMIT BUTTON IS INERT UNTIL THE BOX IS TICKED AT
+ * EVERY TIER, not only at the top one. That is a behaviour change and the
+ * tests were re-expressed, not deleted. Where that pair LIVES changed again
+ * the same day - see note 10.
+ *
+ * Keyboard support exists on the slider and does NOT discharge 2.5.7 - W3C is
+ * explicit that "achieving keyboard equivalence for a dragging operation does
+ * not automatically meet this success criterion". It is there because it is
+ * right. The slider also stays out of SC 2.5.1 Pointer Gestures (Level A) by
+ * using `setPointerCapture` and never reading `clientY`; see SlideToConfirm.jsx
+ * for the quotations. Nothing fires on the down-event (SC 2.5.2).
+ *
+ * THE ARMING DELAY IS GONE ON THE SLIDE PATH ONLY. Its job is input hygiene
+ * against the second half of a double-tap, and a drag cannot be the second
+ * half of a double-tap. It is unchanged on the tap path, which is still a tap.
+ *
+ * ── 10. THE SLIDE IS THE ONLY ADVERTISED PATH ───────────────
+ * The owner, 2026-11-03, looking at the open sheet and at the line this sheet
+ * used to print under the slider ("A slide is not necessary. Tick the box
+ * below. Then press the button."): "Why slide is not necessary? It should be
+ * necessary and this is the only way we are allowing the open three valves to
+ * be enabled."
+ *
+ * He is right, and that sentence was self-defeating: it told every user not to
+ * bother with the control we had just built. IT IS DELETED. The acknowledgement
+ * row and the commit button are OUT OF THE DEFAULT VISUAL FLOW. A sighted
+ * pointer user is offered the slide and nothing else.
+ *
+ * THE ALTERNATIVE IS NOT DELETED, AND MUST NOT BE. It is SC 2.5.7 at Level AA,
+ * and KEYBOARD OPERATION OF THE SLIDER DOES NOT DISCHARGE IT - W3C: "achieving
+ * keyboard equivalence for a dragging operation does not automatically meet
+ * this success criterion." The alternative has to be POINTER-operable without
+ * dragging. So it is kept and merely stops being advertised: a quiet,
+ * low-emphasis `Cannot slide?` disclosure under the slider reveals the
+ * tick-then-press path on demand. Not shown by default, not presented as an
+ * equal option, reachable by anyone who needs it, and a 44px target because
+ * the person it exists for has a motor impairment.
+ *
+ * DISCOVERABLE WITHOUT SIGHT. The slider's `aria-describedby` still names the
+ * alternative in words; the sentence is now `sr-only`, which is exactly the
+ * split the owner asked for - reach the people who need it, stop telling
+ * everybody else the control is optional.
+ *
+ * THE CHECKBOX AND THE SLIDE ARE NOT REDUNDANT, AND THE MARKUP SAYS SO. There
+ * is ONE acknowledgement row and it appears in ONE place at a time:
+ *   - top tier (>100 or account): VISIBLE, above the slider, where it GATES
+ *     the slide. It is the anti-habituation control - forced interaction with
+ *     the varying count - and that is a different job from the slide's
+ *     physical friction against an accidental actuation. Unchanged.
+ *   - below the top tier: INSIDE the escape hatch, where it is the first of
+ *     the two single-pointer acts that make up the non-drag alternative.
+ * The two never sit on screen as a pair of equivalent ways in.
+ *
+ * THE ARMING BAR MOVED WITH THE BUTTON. It only ever guarded the tap, so it
+ * now lives inside the escape hatch too. That also reclaims the ~10px of
+ * scroll that was pushing Cancel below the fold at the largest selections.
+ *
+ * ── 11. THE SLIDE ARMS. THE BUTTON COMMITS. ────────────────
+ * The owner, 2026-11-03, on the close sheet at 79 valves: "sliding shall be
+ * confirmation before the user can click on the close button."
+ *
+ * THE SLIDE NO LONGER DISPATCHES. It ARMS, and the button commits:
+ *
+ *     slide to arm   ->   press the button   ->   dispatch
+ *
+ * THIS IS TIDIER THAN WHAT IT REPLACES, and that is the real reason to welcome
+ * it rather than merely obey it. There used to be TWO independent commit paths
+ * - the slide dispatched, and tick-then-press dispatched. Now there is ONE
+ * COMMIT CONTROL reachable by TWO ARMING GESTURES:
+ *
+ *   slide past 90% and release            -> arms `slideArmed`
+ *   `Cannot slide?` -> tick the box       -> arms `armedByTap`
+ *
+ * One press then dispatches, whichever way it was armed. A short drag springs
+ * back and arms nothing. Nothing fires on the down-event, so there is no route
+ * at all from a single pointer-down to water moving.
+ *
+ * THE TICK ONLY ARMS FROM INSIDE THE HATCH (`armedByTap = escapeOpen && acked`)
+ * and that asymmetry is deliberate. At the top tier the SAME checkbox is also
+ * on screen as the gate on the slide; if a tick there armed the button, a
+ * sighted user could reach the dispatch without ever sliding, which is exactly
+ * what the owner ruled out. Binding the arming half to the disclosure the user
+ * deliberately opened keeps the slide mandatory on its own route and keeps the
+ * non-drag route available to the people SC 2.5.7 exists for.
+ *
+ * A STALE ARM MUST NEVER SURVIVE A CHANGE TO WHAT IT WOULD ACT ON. The arm and
+ * the acknowledgement are both dropped when `action`, `willActCount`,
+ * `scopeLabel` or `scopeKind` changes - the decision is all four, not just the
+ * direction. That reset lives in its own effect so that a count change cannot
+ * also clear `dispatchedRef` mid-flight.
+ *
+ * ARMING IS REVERSIBLE: pressing the confirmed slider again disarms it, which
+ * is the cheapest possible way back and is in the one place the user is
+ * already looking. A press there can never commit anything.
+ *
+ * 2.5.7 IS UNCHANGED AND STILL SATISFIED, and it matters MORE now, not less:
+ * the drag is mandatory on its own route, so the `Cannot slide?` disclosure is
+ * the only pointer path for someone who cannot drag. It arms the same button
+ * with presses and no drag at all. Keyboard operation of the slider still does
+ * not discharge the criterion - W3C: "achieving keyboard equivalence for a
+ * dragging operation does not automatically meet this success criterion."
+ *
+ * ── 12. THE CANCEL WINDOW IS GONE. ALL OF IT. ───────────────
+ * The owner, 2026-11-03, screenshotting `Close 79 valves in 11s` with its Stop
+ * button: "i dont want this step." That is the SECOND rejection - he rejected
+ * it earlier the same day on a 3-valve OPEN, which is why it had already been
+ * scoped to closes only. Two rejections across both directions and both sizes
+ * is one instruction: THERE IS NO CANCEL-WINDOW STEP IN THIS FLOW.
+ *
+ * DELETED: the countdown panel, the ticking label, `Stop - do not close` /
+ * `Stop - do not open`, the sr-only countdown announcement, the `HOLD_SECONDS`
+ * ladder (8s / 15s / 20s), and the `holdSeconds`, `skipHold`, `onHoldStart`,
+ * `onHoldTick` and `onHoldStop` props. No caller passed any of them - checked,
+ * `ValveManagementScreen.jsx` passes none - so nothing outside this file moved.
+ *
+ * NOBODY SHOULD RESTORE IT THINKING IT WAS LOAD-BEARING. Three reasons:
+ *
+ *   1. IT COSTS NO CONFORMANCE. The window implemented WCAG technique G164 for
+ *      SC 3.3.4 Error Prevention. G164 is a SUFFICIENT technique, not the only
+ *      one: 3.3.4 is equally satisfied by its "Confirmed" bullet - a mechanism
+ *      for reviewing and confirming before finalising - which is what this
+ *      entire sheet is. SC 2.5.2 Pointer Cancellation is satisfied separately,
+ *      by acting on the up-event and on a press, never on a down-event.
+ *   2. IT WAS THE WEAKEST OF THE THREE MECHANISMS. Bravo-Lillo et al. found
+ *      attractors that merely DELAYED dismissal did not survive habituation;
+ *      only those forcing interaction with the changed content did. A timer is
+ *      the delay kind. The slide-then-press and the acknowledgement are not.
+ *   3. THE ACTION IS REVERSIBLE. A closed valve can be opened again. The
+ *      window was never standing between the user and an irreversible act.
+ *
+ * ⚠ THE ONE REAL CONSEQUENCE, AND THE OWNER SHOULD OWN IT KNOWINGLY:
+ * THERE IS NOW NO WINDOW BETWEEN THE PRESS AND THE DISPATCH. The commands go
+ * immediately. Recovery is no longer "stop it before it leaves" - it is "open
+ * the valves again", which is a FRESH DANGEROUS ACTION the user has to take,
+ * on a building where the water has already stopped. That is a genuine
+ * reduction in recoverability, traded for a flow the owner will actually use.
+ * `dispatchedRef` therefore matters MORE than it did, not less: a double fire
+ * now means water moving twice with nothing in between.
+ *
  * ══ WHAT THIS SHEET STILL CANNOT HONESTLY SAY ════════════════════════════
  * IEC 61850's control model — the standard this domain actually runs on — is
  * `SelectWithValue -> Operate -> CommandTermination`, where termination is the
@@ -198,26 +400,19 @@
  * in the response, retry scoped to the failed subset), not from a UX source,
  * and should be read as such.
  *
- * ══ THE CONTRACT CHANGE — READ THIS BEFORE WIRING THE SCREEN ═════════════
- * `onConfirm` NO LONGER FIRES ON THE COMMIT CLICK. The click starts the hold;
- * `onConfirm` fires HOLD_SECONDS[tier] later, or immediately if `skipHold`.
- * It still fires EXACTLY ONCE per decision (`dispatchedRef`).
+ * ══ THE CONTRACT, AS IT NOW STANDS ═══════════════════════
+ * `onConfirm` MEANS DISPATCH NOW and fires SYNCHRONOUSLY on the commit press.
+ * It fires EXACTLY ONCE per decision (`dispatchedRef`). There is nothing
+ * between the press and the dispatch - see note 12.
  *
- * Nothing else about the existing props changed, so the current call site in
- * `ValveManagementScreen.jsx:1417` keeps working unmodified — it simply
- * dispatches later. The FOUR NEW PROPS are all optional and all additive:
+ * FIVE PROPS WERE REMOVED on 2026-11-03 with the cancel window: `holdSeconds`,
+ * `skipHold`, `onHoldStart`, `onHoldTick` and `onHoldStop`. THIS IS A PUBLIC
+ * CONTRACT CHANGE and it was taken rather than leaving them dormant, because a
+ * prop that is accepted and ignored is a lie about what the component does.
+ * No caller passed any of them, so no call site changed.
  *
- *   holdSeconds   number   override the tier default (0 disables the hold)
- *   skipHold      boolean  dispatch on click, as before. For tests and for a
- *                          future emergency path. Default false.
- *   onHoldStart   ({ action, willActCount, seconds }) => void
- *   onHoldTick    (secondsRemaining) => void   fired every second, and with 0
- *                                              at dispatch
- *   onHoldStop    () => void                   the user pressed Stop
- *
- * The three callbacks exist so the SCREEN can render the countdown somewhere
- * of its own — a banner that survives the sheet closing, say. The sheet draws
- * its own countdown regardless, so the screen may ignore all three.
+ * The props that remain are the original ones plus `skipArmingDelay`, and the
+ * current call site at `ValveManagementScreen.jsx` keeps working unmodified.
  *
  * ══ UNCHANGED FROM THE ORIGINAL, AND STILL LOAD-BEARING ══════════════════
  *  - THE HEADLINE NUMBER IS WHAT WILL BE ATTEMPTED, never what was selected.
@@ -331,24 +526,29 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
+import SlideToConfirm from '@/v2/components/SlideToConfirm'
 import { ValveStateReadout } from '@/v2/components/ValveStateReadout'
 
-/* INPUT HYGIENE, NOT A COGNITIVE ATTRACTOR — see note 4 in the header. ~800ms
+/* INPUT HYGIENE, NOT A COGNITIVE ATTRACTOR - see note 4 in the header. ~800ms
    is long enough that the second half of a double-tap on whatever control
    opened this sheet lands on a dead button, and short enough that a user who
-   meant it barely registers it. `prefers-reduced-motion` flattens the bar that
-   draws it (see SHEET_CSS) but never shortens or removes the delay itself.
-   `skipArmingDelay` is the only thing that does. */
+   meant it barely registers it. It is now LARGELY REDUNDANT, because the
+   commit button cannot be live until a deliberate arm has happened and no arm
+   completes in 800ms - but it is cheap, it is mechanical rather than
+   cognitive, and removing a working guard is not a thing to do casually.
+   `prefers-reduced-motion` flattens the bar that draws it (see SHEET_CSS) but
+   never shortens or removes the delay itself. `skipArmingDelay` is the only
+   thing that does. */
 const ARMING_DELAY_MS = 800
 
-/* THE LADDER. Round numbers standing in for telemetry we do not have — NN/g:
-   "The exact threshold should be set through user research." See note 2. */
+/* THE LADDER. Round numbers standing in for telemetry we do not have - NN/g:
+   "The exact threshold should be set through user research." See note 2.
+   ONLY `large` IS LOAD-BEARING NOW (note 11 deleted the cancel window that
+   `small` and `medium` used to key): it is the tier that forces the
+   acknowledgement. The three-step shape is kept because the thresholds are the
+   product decision, not the mechanism they happen to drive today. */
 const TIER_MEDIUM_MIN = 11
 const TIER_LARGE_MIN = 101
-
-/* THE CANCEL WINDOW, per tier — WCAG G164 applied to a physical actuation.
-   The command has NOT left for the devices while this is counting down. */
-const HOLD_SECONDS = { small: 8, medium: 15, large: 20 }
 
 /** `scopeKind === 'account'` is unbounded by construction, so it is top tier
     whatever the count says. A zero count cannot be a large action. */
@@ -359,10 +559,10 @@ function tierFor(willActCount, scopeKind) {
   return 'small'
 }
 
-/* Scoped to this component rather than added to the global stylesheet — the
+/* Scoped to this component rather than added to the global stylesheet - the
    house pattern at WaterEventFeedbackSheet.jsx:375. Under reduced motion the
-   arming bar simply sits full-width and still: the button stays disabled for
-   the same 800ms either way. */
+   arming bar simply sits full-width and still: the button stays inert for the
+   same 800ms either way. */
 const SHEET_CSS = `
 .bvcs-arm { animation: bvcs-arm ${ARMING_DELAY_MS}ms linear forwards; }
 @keyframes bvcs-arm { from { width: 0%; } to { width: 100%; } }
@@ -371,7 +571,7 @@ const SHEET_CSS = `
 }
 `
 
-/* THE SHADCN SCALE, named once. Line-height LAST in each — twMerge drops a
+/* THE SHADCN SCALE, named once. Line-height LAST in each - twMerge drops a
    `leading-` that precedes a font-size atom. `text-muted-foreground` is the
    semantic token for ALL secondary text here; no ramp steps (note 6). */
 const TITLE = 'font-semibold text-foreground tracking-tight text-xl leading-tight'
@@ -384,6 +584,10 @@ const EYEBROW = 'font-semibold uppercase tracking-wide text-muted-foreground tex
 
 /** `1 system` / `3 systems`, so no row ever reads "1 systems". */
 const plural = (n, one, many) => (n === 1 ? one : many)
+
+/** `1,000`, never `1000`. docs/wint-format-standards.md, and the owner's own
+    framing for this feature is "around 1000 valve". */
+const num = (n) => Number(n).toLocaleString('en-US')
 
 /**
  * ONE ROW PER EXCLUSION BUCKET. The five hand-copied blocks this replaces each
@@ -400,10 +604,10 @@ const plural = (n, one, many) => (n === 1 ? one : many)
 function ExclusionRow({ count, label, consequence }) {
   return (
     <li className="flex items-baseline gap-2 py-1">
-      <span className={`font-sans ${COUNT_ROW} shrink-0`}>{count}</span>
+      <span className={`font-sans ${COUNT_ROW} shrink-0`}>{num(count)}</span>
       <p className="min-w-0 flex-1 font-sans">
         <span className={ROW_LABEL}>{label}</span>
-        {' — '}
+        {' - '}
         <span className={BODY}>{consequence}</span>
       </p>
     </li>
@@ -423,13 +627,8 @@ function ExclusionRow({ count, label, consequence }) {
  *   alreadyInStateCount?: number,
  *   busy?: boolean,
  *   skipArmingDelay?: boolean,
- *   holdSeconds?: number,
- *   skipHold?: boolean,
  *   onConfirm?: () => void,
  *   onCancel?: () => void,
- *   onHoldStart?: (info: {action: string, willActCount: number, seconds: number}) => void,
- *   onHoldTick?: (secondsRemaining: number) => void,
- *   onHoldStop?: () => void,
  * }} props
  */
 export default function BulkValveConfirmSheet({
@@ -446,17 +645,14 @@ export default function BulkValveConfirmSheet({
   alreadyInStateCount = 0,
   busy = false,
   skipArmingDelay = false,
-  holdSeconds,
-  skipHold = false,
   onConfirm,
   onCancel,
-  onHoldStart,
-  onHoldTick,
-  onHoldStop,
 }) {
   const titleId = useId()
   const consequenceId = useId()
   const ackId = useId()
+  const slideHintId = useId()
+  const inertId = useId()
 
   /* The offline list starts OPEN. A count alone lets the user assume the
      offline ones are unimportant, and a closed-by-default disclosure is that
@@ -465,50 +661,38 @@ export default function BulkValveConfirmSheet({
   const [offlineOpen, setOfflineOpen] = useState(true)
   const [armed, setArmed] = useState(false)
   const [acked, setAcked] = useState(false)
-  /* `null` = not holding. A number = seconds left before dispatch. */
-  const [holdLeft, setHoldLeft] = useState(null)
-  const holding = holdLeft !== null
+  /* THE SLIDE'S ARM. See note 11: the slide no longer dispatches, it ARMS the
+     one commit button. The flag lives HERE, not inside SlideToConfirm, because
+     this component owns the decision being armed and therefore owns dropping
+     the arm when that decision changes. */
+  const [slideArmed, setSlideArmed] = useState(false)
+  /* DISPATCHED. The result panel outlives the press. */
+  const [sent, setSent] = useState(false)
+  /* THE ESCAPE HATCH, closed by default - see note 10. The non-drag path is
+     REACHABLE, not ADVERTISED. */
+  const [escapeOpen, setEscapeOpen] = useState(false)
 
   const headingRef = useRef(null)
-  const stopRef = useRef(null)
   const sheetRef = useRef(null)
-  /* Dispatch exactly once per decision, whatever re-renders the countdown
-     effect sees. Reset in the per-decision cleanup below. */
+  /* DISPATCH EXACTLY ONCE PER DECISION. This matters MORE now than it ever
+     did: with the cancel window gone (note 12) the commands leave on the press
+     itself, so a double fire is water moving twice with nothing in between.
+     Reset in the per-decision cleanup below. */
   const dispatchedRef = useRef(false)
 
-  /* THE CALLBACKS, BEHIND A REF, AND WHY. The countdown effect must depend on
-     `holdLeft` ALONE. If it also depended on `onConfirm` / `onHoldTick` — which
-     every real caller passes as inline arrows, fresh on every parent render —
-     the 1s timer would be torn down and restarted on each of those renders and
-     the countdown could stall indefinitely without ever reaching 0. On a sheet
-     whose whole job is to dispatch at 0, that is a hang, not a glitch.
-     DECLARED FIRST ON PURPOSE: effects run in declaration order within a
-     commit, so this one has refreshed the ref before the countdown reads it. */
-  const latest = useRef({})
-  useEffect(() => {
-    latest.current = { onConfirm, onHoldStart, onHoldTick, onHoldStop }
-  })
-
   /* Escape. Radix gave this for free; an in-frame overlay has to say so itself
-     (ValveConfirmSheet.jsx:70-76). DURING A HOLD, Escape STOPS THE DISPATCH
-     rather than closing — the dangerous thing in flight is the command, not
-     the sheet, and the way out must always do the safest available thing. */
+     (ValveConfirmSheet.jsx:70-76). */
   useEffect(() => {
     if (!action) return undefined
     const onKey = (e) => {
       if (e.key !== 'Escape') return
-      if (holdLeft !== null) {
-        setHoldLeft(null)
-        latest.current.onHoldStop?.()
-        return
-      }
       onCancel?.()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [action, onCancel, holdLeft])
+  }, [action, onCancel])
 
-  /* Re-arms on every open, and on a switch between close and open — the delay
+  /* Re-arms on every open, and on a switch between close and open - the delay
      has to be spent once per decision, not once per mount. The disarm lives in
      the CLEANUP rather than at the top of the effect body: setState in an
      effect body is a cascading render and react-hooks/set-state-in-effect
@@ -520,21 +704,37 @@ export default function BulkValveConfirmSheet({
     return () => { clearTimeout(id); setArmed(false) }
   }, [action, skipArmingDelay])
 
-  /* ONE DECISION, ONE ACKNOWLEDGEMENT, ONE DISPATCH. Switching close->open or
-     closing and reopening the sheet clears the tick and the countdown, for the
+  /* ONE DECISION, ONE ACKNOWLEDGEMENT, ONE ARM, ONE DISPATCH. Switching
+     close->open or closing and reopening the sheet clears everything, for the
      same reason the arming delay re-arms: a user who ticked "412 valves at
      320 Summit Blvd" has not agreed to anything about the next decision. */
   useEffect(() => {
     if (!action) return undefined
     return () => {
       setAcked(false)
-      setHoldLeft(null)
+      setSlideArmed(false)
+      setSent(false)
+      setEscapeOpen(false)
       dispatchedRef.current = false
     }
   }, [action])
 
+  /* A STALE ARM MUST NEVER SURVIVE A CHANGE TO WHAT IT WOULD ACT ON. The
+     decision is not only the direction: it is the direction, the count and the
+     scope. If any of them moves under an armed slide, the arm is about a
+     different act than the one the button would now perform, so both the arm
+     and the acknowledgement are dropped. Separate from the effect above so a
+     count change cannot also reset `dispatchedRef` mid-flight. */
+  useEffect(() => {
+    if (!action) return undefined
+    return () => {
+      setSlideArmed(false)
+      setAcked(false)
+    }
+  }, [action, willActCount, scopeLabel, scopeKind])
+
   /* INITIAL FOCUS ON THE HEADING, NEVER ON THE COMMIT BUTTON. SLDS states it
-     flatly — "Do not focus the cursor on the action button" — and Primer puts
+     flatly - "Do not focus the cursor on the action button" - and Primer puts
      initial focus on Cancel for a danger dialog. The heading is one step
      better than Cancel: a screen reader starts at the blast radius rather than
      at a verdict, and a Space or Enter arriving from the opening control has
@@ -545,31 +745,6 @@ export default function BulkValveConfirmSheet({
     return undefined
   }, [action])
 
-  /* THE CANCEL WINDOW (WCAG G164). Dispatch happens HERE, at zero, not on the
-     commit click. Deps are `[holdLeft]` only — see the `latest` note above. */
-  useEffect(() => {
-    if (holdLeft === null) return undefined
-    latest.current.onHoldTick?.(holdLeft)
-    if (holdLeft > 0) {
-      const id = setTimeout(() => setHoldLeft((n) => (n === null ? null : n - 1)), 1000)
-      return () => clearTimeout(id)
-    }
-    if (!dispatchedRef.current) {
-      dispatchedRef.current = true
-      latest.current.onConfirm?.()
-    }
-    return undefined
-  }, [holdLeft])
-
-  /* When the hold starts, the one control that matters is Stop. Putting the
-     caret on it also means a stray Enter arriving mid-countdown ABORTS rather
-     than commits, which is the right way for an ambiguous keypress to fail. */
-  useEffect(() => {
-    if (!holding) return undefined
-    stopRef.current?.focus()
-    return undefined
-  }, [holding])
-
   /* `skipArmingDelay` is read here, not written into state, so flipping it
      cannot leave a stale armed flag behind. */
   const armedNow = skipArmingDelay || armed
@@ -578,11 +753,9 @@ export default function BulkValveConfirmSheet({
 
   const closing = action === 'close'
   const tier = tierFor(willActCount, scopeKind)
-  /* `holdSeconds={0}` is a legitimate caller choice and means "no window". */
-  const holdWindow = Math.max(0, Math.round(holdSeconds ?? HOLD_SECONDS[tier]))
   const needsAck = tier === 'large'
 
-  /* THE TAB TRAP. Half of what makes `aria-modal="true"` true — see the
+  /* THE TAB TRAP. Half of what makes `aria-modal="true"` true - see the
      footnote in the header for the half this component cannot reach. Scoped to
      the sheet's own subtree via onKeyDown rather than a window listener, so it
      cannot interfere with anything outside it. */
@@ -606,25 +779,25 @@ export default function BulkValveConfirmSheet({
     }
   }
 
-  /* NEW COPY — awaiting owner approval. Names the PHYSICAL act, not the
+  /* NEW COPY - awaiting owner approval. Names the PHYSICAL act, not the
      software one: the user is not "running a bulk command", they are stopping
      or starting water in a building. */
   const title = closing ? 'Close water supply' : 'Open water supply'
 
   /* NEW COPY. The scope label is always shown, and this second line says how
-     wide it reaches — "320 Summit Blvd" alone does not tell you it means every
+     wide it reaches - "320 Summit Blvd" alone does not tell you it means every
      system under it.
 
      THREE KINDS, NOT TWO. The first two sentences are true of
      `ValveManagementCard`, which acts over a WHOLE SCOPE. Neither is true of
-     `ValveManagementScreen`, which acts over a SELECTION — usually a subset of
+     `ValveManagementScreen`, which acts over a SELECTION - usually a subset of
      the scope named on the line above. 'selection' is that fact stated where
      it belongs, phrased as the NEGATION of the other two so the three read as
      one family.
 
      NO 'fleet' KIND, deliberately. The fleet is genuinely one account's
-     hierarchy in this dataset — every account is a child of Meridian Realty
-     Group — so there is no fact 'fleet' would state that 'account' states
+     hierarchy in this dataset - every account is a child of Meridian Realty
+     Group - so there is no fact 'fleet' would state that 'account' states
      wrongly. If a second top-level account lands in the data, it earns one.
 
      BACKWARDS COMPATIBLE BY CONSTRUCTION: 'location' and 'account' return what
@@ -633,7 +806,7 @@ export default function BulkValveConfirmSheet({
      nothing. */
   const scopeLine =
     scopeKind === 'selection'
-      ? 'Only the systems you selected — not every system here'
+      ? 'Only the systems you selected - not every system here'
       : scopeKind === 'account'
         ? 'Every system in this account'
         : 'Every system at this location'
@@ -642,7 +815,7 @@ export default function BulkValveConfirmSheet({
   const actLabel = closing
     ? plural(willActCount, 'valve will close', 'valves will close')
     : plural(willActCount, 'valve will open', 'valves will open')
-  /* NEW COPY — the water consequence, in the user's units. This string is the
+  /* NEW COPY - the water consequence, in the user's units. This string is the
      sheet's `aria-describedby` target: a screen reader hears the blast radius
      before it reaches any button. */
   const actConsequence = closing
@@ -652,59 +825,90 @@ export default function BulkValveConfirmSheet({
   /* NEW COPY, all five. Each says what happens to the WATER there, and none of
      them promises a later retry: nothing queues these. */
   const offlineConsequence = closing
-    ? 'Can’t reach these. Their valves stay as they are, and water keeps running there.'
-    : 'Can’t reach these. Their valves stay as they are, and water does not come back there.'
+    ? 'Cannot reach these. Their valves stay as they are, and water keeps running there.'
+    : 'Cannot reach these. Their valves stay as they are, and water does not come back there.'
   const noValveConsequence = 'Water here is not controlled by a valve.'
   const faultedConsequence = 'These may not move. Treat their water as unchanged.'
-  /* NEW COPY — net-new even by this file's standards: nothing in the product
+  /* NEW COPY - net-new even by this file's standards: nothing in the product
      has worded the bulk case of a valve mid-transition before. The LABEL is
      the designer's own line for the state, Figma board 199535:96542 drawing it
-     verbatim as `Verifying closure (allow a few min)` — so "verifying
+     verbatim as `Verifying closure (allow a few min)` - so "verifying
      closure", never "in transit", "pending" or "closing now". */
   const closingConsequence = closing
-    ? 'These are already closing. Water is stopping there — allow a few min.'
+    ? 'These are already closing. Water is stopping there. Allow a few min.'
     : 'These are already closing. Water there is stopping, and this will not bring it back.'
   const alreadyConsequence = closing
     ? 'Water is already off there.'
     : 'Water is already running there.'
 
   /* NEW COPY. Named by OUTCOME and carrying the count, which is also what
-     makes the button text different on every invocation. */
+     makes the button text different on every invocation. THIS IS NOW THE ONE
+     COMMIT CONTROL - both arming gestures lead to this single button. */
   const confirmLabel = closing
-    ? `Close ${willActCount} ${plural(willActCount, 'valve', 'valves')}`
-    : `Open ${willActCount} ${plural(willActCount, 'valve', 'valves')}`
+    ? `Close ${num(willActCount)} ${plural(willActCount, 'valve', 'valves')}`
+    : `Open ${num(willActCount)} ${plural(willActCount, 'valve', 'valves')}`
 
-  /* NEW COPY — THE TOP-TIER GATE. The varying quantity and the scope are
+  /* NEW COPY - THE SLIDE. Named by OUTCOME and carrying the count, so the
+     track is polymorphic rather than a generic "Confirm", and the handle
+     physically travels ACROSS the number it is about to act on. */
+  const slideLabel = closing
+    ? `Slide to close ${num(willActCount)} ${plural(willActCount, 'valve', 'valves')}`
+    : `Slide to open ${num(willActCount)} ${plural(willActCount, 'valve', 'valves')}`
+
+  /* NEW COPY - THE ARMED SLIDE. It is the accessible name of the control in
+     its armed state, and it is the next instruction rather than a status word:
+     "Confirmed" or "Done" would both be read as something having happened to
+     the valves, which is exactly the belief this sheet exists to prevent. */
+  const slideArmedLabel = 'Slide accepted. Now press the button.'
+
+  /* NEW COPY - THE 2.5.7 ALTERNATIVE, STATED IN WORDS AND NOT ON SCREEN.
+     This sentence is the slider's `aria-describedby` target and it is
+     `sr-only`: the alternative has to be DISCOVERABLE without sight, and it
+     must not be ADVERTISED to everybody else (note 10). ASD-STE100: one
+     instruction per sentence, no contractions, under 20 words.
+     IT DELIBERATELY AVOIDS THE WORDS "Tick the box above": that exact
+     sentence is the commit button's own inert-reason line, and two nodes
+     carrying it would be two things saying one thing. */
+  const slideHint = slideArmed
+    ? 'To undo this slide, press it again.'
+    : needsAck && !acked
+      ? 'This slide is not enabled. Tick the acknowledgement box above.'
+      : 'Slide the handle to the right end to enable the button. The Cannot slide button gives another way.'
+
+  /* NEW COPY - THE QUIET ESCAPE HATCH. Low emphasis on purpose. The owner:
+     the slide "should be necessary and this is the only way we are allowing
+     the open three valves to be enabled", and the line this replaces
+     ("A slide is not necessary...") told every user not to bother with the
+     control. "Cannot", never "Can't": ASD-STE100 bans contractions here. */
+  const escapeLabel = 'Cannot slide?'
+
+  /* NEW COPY - WHAT THE DISCLOSURE REVEALS AT THE TOP TIER. Below the top tier
+     it reveals the acknowledgement row itself. At the top tier that row is
+     ALREADY on screen as the gate on the slide, so opening the disclosure
+     would otherwise reveal nothing and read as a broken control. This states
+     the one fact it actually changes: the same tick now also arms the button.
+     It is a STATEMENT, not an instruction, so it reads the same whether or not
+     the box is already ticked. It deliberately avoids the words "Tick the box
+     above", which belong to the button's own inert-reason line. */
+  const escapeNote = 'The box above also enables the button.'
+
+  /* NEW COPY - THE TOP-TIER GATE. The varying quantity and the scope are
      rendered INSIDE the tappable row, which is the property Bravo-Lillo found
      survives habituation. It states only what this component actually knows:
      the valve count and the caller's own scope label. It does NOT invent a
-     building count, a tenant count or an occupancy — none of those reach this
+     building count, a tenant count or an occupancy - none of those reach this
      sheet, and a fabricated number on the acknowledgement row would be the
      exact failure the sheet exists to prevent. */
   const ackLabel = closing
-    ? `I understand this stops water at ${willActCount} ${plural(willActCount, 'valve', 'valves')} — ${scopeLabel}`
-    : `I understand this starts water at ${willActCount} ${plural(willActCount, 'valve', 'valves')} — ${scopeLabel}`
+    ? `I understand this stops water at ${num(willActCount)} ${plural(willActCount, 'valve', 'valves')} - ${scopeLabel}`
+    : `I understand this starts water at ${num(willActCount)} ${plural(willActCount, 'valve', 'valves')} - ${scopeLabel}`
 
-  /* NEW COPY — THE CANCEL WINDOW. "Stop" is named for the act rather than for
-     the outcome, against the rule the commit button follows, and deliberately:
-     an abort has to be one word the thumb finds without reading, and both
-     Primer and SLDS keep the escape on a danger dialog short. The outcome is
-     on the line beneath it instead. */
-  const stopLabel = `Stop — don’t ${closing ? 'close' : 'open'}`
-  const holdBody = closing
-    ? 'Nothing has reached the valves yet. Stop now and the water stays on.'
-    : 'Nothing has reached the valves yet. Stop now and the water stays off.'
-  /* NEW COPY — the IEC 61850 honesty note, in the user's words. `sent` is the
+  /* NEW COPY - the IEC 61850 honesty note, in the user's words. `sent` is the
      furthest this product can truthfully go: there is no command-termination
      channel, so the app never learns that a valve REACHED the commanded
      state. See the header. */
-  const sentHeadline = `Sent to ${willActCount} ${plural(willActCount, 'valve', 'valves')}`
-  const sentBody = `Sent is not the same as ${closing ? 'closed' : 'open'} — check each valve’s state in the list.`
-  /* One stable sentence for assistive tech, so the live region does not
-     announce a new number every second. */
-  const holdAnnounce = holding && holdLeft > 0
-    ? `${confirmLabel} in ${holdWindow} seconds. Press Stop to cancel.`
-    : sentHeadline
+  const sentHeadline = `Sent to ${num(willActCount)} ${plural(willActCount, 'valve', 'valves')}`
+  const sentBody = `Sent is not the same as ${closing ? 'closed' : 'open'}. Check each valve state in the list.`
 
   const offlineCount = offlineSystems.length
 
@@ -752,24 +956,73 @@ export default function BulkValveConfirmSheet({
      habituation feeds on. No exclusions, no section. */
   const hasExclusions = exclusions.length > 0
 
-  const canCommit = armedNow && !busy && (!needsAck || acked)
+  /* ══ ONE COMMIT CONTROL, TWO ARMING GESTURES ═══════════════════════════
+     The slide arms it. The acknowledgement behind the escape hatch arms it.
+     Pressing it is the dispatch, whichever way it was armed. See note 11.
 
-  const startHold = () => {
-    if (!canCommit || holding) return
-    if (skipHold || holdWindow === 0) {
-      if (dispatchedRef.current) return
-      dispatchedRef.current = true
-      latest.current.onConfirm?.()
-      return
-    }
-    latest.current.onHoldStart?.({ action, willActCount, seconds: holdWindow })
-    setHoldLeft(holdWindow)
+     THE TICK ONLY ARMS FROM INSIDE THE HATCH. At the top tier the same
+     checkbox is ALSO on screen as the gate on the slide, and a tick there must
+     NOT be a way to reach the button without sliding - the owner: the slide
+     "should be necessary and this is the only way". So the arming half of the
+     checkbox is bound to the disclosure the user deliberately opened. */
+  const canSlide = !busy && (!needsAck || acked)
+  const armedByTap = escapeOpen && acked
+  const commitArmed = slideArmed || armedByTap
+  const canCommit = armedNow && !busy && commitArmed && (!needsAck || acked)
+
+  /* ONE DISPATCH, WHATEVER REACHED IT, AND THE COMMANDS LEAVE IMMEDIATELY -
+     there is no cancel window in front of them any more (note 12). */
+  const dispatchNow = () => {
+    if (dispatchedRef.current) return
+    dispatchedRef.current = true
+    setSent(true)
+    onConfirm?.()
   }
 
-  const stopHold = () => {
-    setHoldLeft(null)
-    latest.current.onHoldStop?.()
+  const onTapCommit = () => {
+    if (!canCommit) return
+    dispatchNow()
   }
+
+  /* NEW COPY - WHY THE ONE COMMIT CONTROL IS INERT. An inert primary with no
+     stated reason reads as a broken app, and a user who cannot see why will
+     press it repeatedly. The reason is a real paragraph rather than a longer
+     accessible NAME, so the button keeps the outcome-named label every other
+     surface and test queries it by, and the reason still reaches assistive
+     tech through `aria-describedby`. */
+  const inertReason =
+    canCommit || busy || !armedNow
+      ? null
+      : (needsAck || escapeOpen) && !acked
+        ? 'Tick the box above to enable this.'
+        : 'Slide above to enable this.'
+
+  /* ONE ACKNOWLEDGEMENT ROW, TWO JOBS, NEVER BOTH AT ONCE. At the top tier it
+     is the forced interaction with the VARYING content (Bravo-Lillo), it is
+     visible by default and it GATES THE SLIDE. Below the top tier it is the
+     first of the two single-pointer acts that make up the SC 2.5.7
+     alternative, and it lives inside the escape hatch. It is declared here so
+     the markup cannot drift between the two sites.
+     A <label> around a Radix checkbox: `<button>` is a labelable element, so
+     `htmlFor` both names the control and forwards the tap from anywhere in the
+     row - a 393px-wide target instead of an 18px one, with no click handler of
+     our own to go wrong. */
+  const ackRow = (
+    <label
+      htmlFor={ackId}
+      className="mt-3 flex shrink-0 cursor-pointer items-start gap-3 rounded-xl border border-border-strong bg-card p-3"
+    >
+      <Checkbox
+        id={ackId}
+        checked={acked}
+        onCheckedChange={(v) => setAcked(v === true)}
+        className="mt-0.5"
+      />
+      <span className="font-sans text-sm font-medium leading-snug text-foreground">
+        {ackLabel}
+      </span>
+    </label>
+  )
 
   return (
     <div
@@ -783,15 +1036,12 @@ export default function BulkValveConfirmSheet({
     >
       <style>{SHEET_CSS}</style>
 
-      {/* Scrim. A tap outside is a Cancel — this action never commits by
-          accident. MID-HOLD it stops the dispatch instead of dismissing: the
-          same rule as Escape, do the safest available thing. The label stays
-          "Cancel" either way, because that is what the gesture means to the
-          user in both states. */}
+      {/* Scrim. A tap outside is a Cancel - this action never commits by
+          accident. */}
       <button
         type="button"
         aria-label="Cancel"
-        onClick={holding ? stopHold : onCancel}
+        onClick={onCancel}
         className="absolute inset-0 cursor-default bg-foreground/45"
       />
 
@@ -816,7 +1066,7 @@ export default function BulkValveConfirmSheet({
 
         {/* ── What will actually be attempted ─────────────────────────────── */}
         <div className="flex items-baseline gap-2">
-          <span className={`font-sans ${COUNT_BIG}`}>{willActCount}</span>
+          <span className={`font-sans ${COUNT_BIG}`}>{num(willActCount)}</span>
           <span className="font-sans text-base font-semibold leading-snug text-foreground">
             {actLabel}
           </span>
@@ -837,12 +1087,12 @@ export default function BulkValveConfirmSheet({
               aria-expanded={offlineOpen}
               className="flex w-full items-baseline gap-2 text-left"
             >
-              <span className={`font-sans ${COUNT_ROW} shrink-0`}>{offlineCount}</span>
+              <span className={`font-sans ${COUNT_ROW} shrink-0`}>{num(offlineCount)}</span>
               {/* NEW COPY, on the product's own word (en.json `offline`). */}
               <span className={`font-sans ${ROW_LABEL}`}>
                 {plural(offlineCount, 'system is offline', 'systems are offline')}
               </span>
-              <span className={`font-sans ${BODY} flex-1`}>— will not be affected</span>
+              <span className={`font-sans ${BODY} flex-1`}>- will not be affected</span>
               <ChevronDown
                 aria-hidden="true"
                 className={`size-4 shrink-0 self-center text-muted-foreground transition-transform motion-reduce:transition-none ${
@@ -853,12 +1103,9 @@ export default function BulkValveConfirmSheet({
             <p className={`font-sans ${BODY} mt-1`}>{offlineConsequence}</p>
             {/* THE NAMES, not only the count: a count alone lets the user
                 assume the offline ones are unimportant. Capped in HEIGHT
-                rather than in rows — on an account action this can be dozens,
+                rather than in rows - on an account action this can be dozens,
                 and truncating the list would recreate exactly the wrong belief
-                this sheet exists to prevent. The house <Card> replaces what
-                was a hand-rolled one (border + radius + padding), and brings
-                `bg-card` with it, which reads as an inset panel against the
-                sheet's `--surface-card` ground in all four themes. */}
+                this sheet exists to prevent. */}
             {offlineOpen && (
               <Card className="mt-2 gap-0 rounded-xl border-border py-2 shadow-none">
                 <ul className="max-h-32 overflow-y-auto px-3">
@@ -867,7 +1114,7 @@ export default function BulkValveConfirmSheet({
                       key={s.id ?? s.name}
                       className="flex items-baseline justify-between gap-2 py-0.5 font-sans"
                     >
-                      {/* `lastSeenLabel` is rendered VERBATIM after the dot —
+                      {/* `lastSeenLabel` is rendered VERBATIM after the dot -
                           the caller owns its wording, e.g. "Last seen 3h ago".
                           NEW COPY only in the fallback. Name and last-seen stay
                           in ONE element: they are one fact about one system. */}
@@ -876,11 +1123,10 @@ export default function BulkValveConfirmSheet({
                       </span>
                       {/* OPTIONAL, and off by default. When the caller supplies
                           a `categoryKey` the row also shows the LAST KNOWN
-                          valve state at `certainty="last-known"`, which is the
-                          case `ValveStateReadout` was built for — see its API
-                          note. Absent the prop nothing is drawn, because
-                          guessing a state for a device we cannot reach is the
-                          one thing this sheet must never do. */}
+                          valve state at `certainty="last-known"`. Absent the
+                          prop nothing is drawn, because guessing a state for a
+                          device we cannot reach is the one thing this sheet
+                          must never do. */}
                       {s.categoryKey && (
                         <ValveStateReadout
                           categoryKey={s.categoryKey}
@@ -899,8 +1145,7 @@ export default function BulkValveConfirmSheet({
         {/* ── Everything else that will NOT move ──────────────────────────
             These sit between the user and the commit button in DOM order as
             well as on screen, and tests pin it, so they cannot be moved below
-            the button silently. ONE ROW EACH — the five three-line blocks are
-            gone, the five facts are not. */}
+            the button silently. ONE ROW EACH. */}
         {hasExclusions && (
           <>
             <Separator className="my-4 shrink-0" />
@@ -920,77 +1165,102 @@ export default function BulkValveConfirmSheet({
           </>
         )}
 
-        {/* ── The top-tier gate ───────────────────────────────────────────
-            A <label> around a Radix checkbox: `<button>` is a labelable
-            element, so `htmlFor` both names the control and forwards the tap
-            from anywhere in the row — a 393px-wide target instead of an 18px
-            one, with no click handler of our own to go wrong. */}
-        {needsAck && (
-          <label
-            htmlFor={ackId}
-            className="mt-4 flex shrink-0 cursor-pointer items-start gap-3 rounded-xl border border-border-strong bg-card p-3"
-          >
-            <Checkbox
-              id={ackId}
-              checked={acked}
-              onCheckedChange={(v) => setAcked(v === true)}
-              className="mt-0.5"
-            />
-            <span className="font-sans text-sm font-medium leading-snug text-foreground">
-              {ackLabel}
-            </span>
-          </label>
-        )}
-
-        {/* ── Commit, or the cancel window ─────────────────────────────────
-            `destructive` for close: the design system expresses danger purely
-            through the variant (Figma component set 6716:46634). Opening is
-            NOT destructive — it resumes flow — so it takes the default
-            variant. RED IS NEVER THE ONLY CARRIER: the count, the outcome verb
-            and the exclusion rows all say it in words. */}
-        {holding ? (
+        {sent ? (
+          /* THE RESULT. There is no cancel window in front of it any more, so
+             this is the first thing the user sees after the press. IEC 61850
+             honesty: `sent`, never `closed`. */
           <div className="mt-5 shrink-0 rounded-xl border border-border-strong bg-card p-4">
-            <p className="sr-only" aria-live="assertive">{holdAnnounce}</p>
+            <p className="sr-only" aria-live="assertive">{sentHeadline}</p>
             <p
               aria-hidden="true"
               className="font-sans text-base font-semibold leading-snug text-foreground"
             >
-              {holdLeft > 0 ? `${confirmLabel} in ${holdLeft}s` : sentHeadline}
+              {sentHeadline}
             </p>
-            <p aria-hidden="true" className={`font-sans ${BODY} mt-1`}>
-              {holdLeft > 0 ? holdBody : sentBody}
-            </p>
-            {holdLeft > 0 && (
-              <>
-                <div
-                  aria-hidden="true"
-                  className="mt-3 h-0.5 w-full overflow-hidden rounded-full bg-border"
-                >
-                  <div
-                    className="h-full bg-muted-foreground transition-[width] duration-1000 ease-linear motion-reduce:transition-none"
-                    style={{ width: `${holdWindow > 0 ? (holdLeft / holdWindow) * 100 : 0}%` }}
-                  />
-                </div>
-                <Button
-                  ref={stopRef}
-                  type="button"
-                  variant="default"
-                  onClick={stopHold}
-                  className="mt-3 h-12 w-full shrink-0 rounded-xl text-base font-semibold"
-                >
-                  {stopLabel}
-                </Button>
-              </>
-            )}
+            <p aria-hidden="true" className={`font-sans ${BODY} mt-1`}>{sentBody}</p>
           </div>
         ) : (
           <>
+            {/* THE TOP-TIER GATE SITS ABOVE THE SLIDE, because here the tick
+                GATES the slide rather than standing in for it. Below the top
+                tier the same row is part of the escape hatch instead, and it
+                is rendered there - ONE checkbox, one sentence, one place, so
+                the two controls never read as a pair of equivalent options. */}
+            {needsAck && ackRow}
+
+            {/* ── THE SLIDE: IT ARMS, IT DOES NOT COMMIT ──────────────────
+                The owner: "sliding shall be confirmation before the user can
+                click on the close button." `destructive` for close and
+                `primary` for open, matching the button variants exactly:
+                opening is not a destructive act. */}
+            <SlideToConfirm
+              label={slideLabel}
+              armedLabel={slideArmedLabel}
+              armed={slideArmed}
+              tone={closing ? 'destructive' : 'primary'}
+              disabled={!canSlide}
+              hintId={slideHintId}
+              onArm={() => setSlideArmed(true)}
+              onDisarm={() => setSlideArmed(false)}
+            />
+
+            {/* THE NON-DRAG PATH, NAMED, AND NOT ON SCREEN. WCAG SC 2.5.7 is
+                satisfied by the acknowledgement row behind the escape hatch -
+                but a path nobody can find is not an alternative, and a
+                screen-reader user never sees the track. `sr-only`, so it
+                reaches the people who need it without telling everybody else
+                that the slide is optional. */}
+            <p id={slideHintId} className="sr-only">{slideHint}</p>
+
+            {/* ── THE ESCAPE HATCH ────────────────────────────────────────
+                QUIET, NOT HIDDEN, AND NOT OPTIONAL TO SHIP. SC 2.5.7 is Level
+                AA and F108 wants "an alternative single pointer input
+                available to actuate the function"; keyboard operation does
+                NOT discharge it (W3C: "achieving keyboard equivalence for a
+                dragging operation does not automatically meet this success
+                criterion"), so this has to be POINTER-operable without a drag.
+                THE DRAG IS NOW MANDATORY ON ITS OWN ROUTE, so this matters
+                MORE than it did, not less. Low emphasis, underlined so it
+                reads as a control, and 44px tall so it is still a real target
+                for the person with a motor impairment it exists for. */}
+            <button
+              type="button"
+              onClick={() => setEscapeOpen((v) => !v)}
+              aria-expanded={escapeOpen}
+              data-name="slide-escape-hatch"
+              className="mt-2 flex h-11 shrink-0 items-center justify-center self-center rounded-lg px-4 font-sans text-sm font-medium text-muted-foreground underline underline-offset-4"
+            >
+              {escapeLabel}
+            </button>
+
+            {/* Below the top tier the disclosure reveals the acknowledgement
+                row itself, which is the NON-DRAG ARMING GESTURE for the same
+                button. At the top tier that row is already on screen as the
+                gate, so the disclosure states the fact it changes instead of
+                revealing nothing. */}
+            {escapeOpen &&
+              (needsAck ? (
+                <p className={`font-sans ${BODY} mt-2 text-center`}>{escapeNote}</p>
+              ) : (
+                ackRow
+              ))}
+
+            {/* ── THE ONE COMMIT CONTROL ──────────────────────────────────
+                `destructive` for close: the design system expresses danger
+                purely through the variant (Figma component set 6716:46634).
+                Opening is NOT destructive - it resumes flow - so it takes the
+                default variant. RED IS NEVER THE ONLY CARRIER: the count, the
+                outcome verb and the exclusion rows all say it in words.
+                `aria-disabled`, NOT `disabled`: the reason has to reach
+                assistive tech, and `disabled` is skipped outright by some of
+                it (.claude/skills/wint-ui-copy/SKILL.md §5). */}
             <Button
               type="button"
               variant={closing ? 'destructive' : 'default'}
-              onClick={startHold}
-              disabled={!canCommit}
-              className="mt-5 h-12 w-full shrink-0 rounded-xl text-base font-semibold"
+              onClick={onTapCommit}
+              aria-disabled={!canCommit || undefined}
+              aria-describedby={inertReason ? inertId : undefined}
+              className="mt-3 h-12 w-full shrink-0 rounded-xl text-base font-semibold aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
             >
               {confirmLabel}
             </Button>
@@ -1011,12 +1281,9 @@ export default function BulkValveConfirmSheet({
               </>
             )}
 
-            {needsAck && !acked && armedNow && (
-              /* NEW COPY. The same rule as the arming bar: an inert primary
-                 with no stated reason reads as a broken app, and a user who
-                 cannot see why will tap it repeatedly. */
-              <p className={`font-sans ${BODY} mt-2 text-center`}>
-                Tick the box above to enable this.
+            {inertReason && (
+              <p id={inertId} className={`font-sans ${BODY} mt-2 text-center`}>
+                {inertReason}
               </p>
             )}
 

@@ -142,11 +142,17 @@ import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
    see the predicate in the timeline mapper below, and concludedEvent.js for
    why it is not in the component file. */
 import { hasConcludedEvent } from '@/v2/components/concludedEvent'
+/* ONE mapping from `system.alert` to an AlertCard row, shared with
+   EventFocusOverlay. It used to be two. See the module header. */
+import { eventAlertRow } from '@/v2/components/eventAlertRow'
 import WaterConsumptionCardV2 from '@/v2/components/WaterConsumptionCardV2'
 import EventsTimelineCard, { TAG_CHIP_LABEL } from '@/v2/components/EventsTimelineCard'
 import MonthPickerSheet from '@/v2/components/MonthPickerSheet'
 import SystemTypeCard from '@/v2/components/SystemTypeCard'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
+/* What a valve state MEANS, asked rather than re-derived — see `valveState`
+   below and the module's own header on why it exists. */
+import { valveCategoryOf } from '@/v2/components/valveScope'
 import ActivePolicyCard from '@/v2/components/ActivePolicyCard'
 import InsightsCard from '@/v2/components/InsightsCard'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
@@ -186,7 +192,11 @@ import {
 import { getSystemById } from '@/data/systems'
 import { INSIGHT_KIND, insightValueLabel } from '@/data/upstream/insightsModel'
 import { getCurrentActor } from '@/data/currentUser'
-import { getActiveIncident, getLeakState } from '@/data/incidents'
+/* `getLeakState` is no longer imported here: the only call was inside
+   `alertCardsFor`'s old body, which now lives in `eventAlertRow`. The
+   comments below that still name it are describing the lifecycle, not
+   calling it. */
+import { getActiveIncident } from '@/data/incidents'
 import { getConsumption } from '@/data/consumption'
 import { daySpanLabel, getConsumptionSeries } from '@/data/consumptionSeries'
 import {
@@ -300,42 +310,96 @@ function isWaterEvent(alert) {
   return alert?.type === 'leak-high' || alert?.type === 'leak-low'
 }
 
+/**
+ * MAY THE EVENT SCREEN OPEN FOR THIS SYSTEM? — 2026-11-03.
+ *
+ * Owner, on a screenshot of the event screen rendering "Valve malfunction -
+ * Basement Supply": "this screen and flow is also for water events like high
+ * flow event, low flow event, flood detector event, not for valve malfunction
+ * or disconnection power or stuff like that. This is not a possible option."
+ *
+ * So EventFocusOverlay is a WATER-EVENT surface, and every door into it asks
+ * this. See the long note on ?focus=event below for the history — this is the
+ * second reversal of that behaviour in two days and the note keeps both.
+ *
+ * TWO CASES PASS, AND THE SECOND IS THE ONE THAT IS EASY TO LOSE:
+ *   · a LIVE water event — `system.alert` is a leak;
+ *   · a CONCLUDED water event — there is no live alert at all and the
+ *     overlay's own resolver can still find the ended one. That is the
+ *     End-of-Leak push: it carries ?focus=event and lands AFTER the event
+ *     ended, when applySimOverlay has already tombstoned the alert to null
+ *     (systems.js:191-194). Gating on `Boolean(system.alert)` is exactly how
+ *     that push was broken once before.
+ *
+ * THE ORDER IS LOAD-BEARING, NOT STYLE. `hasConcludedEvent` is true for very
+ * nearly every system — generateIncidents.js builds one resolved incident for
+ * ALL of them — so `isWaterEvent(alert) || hasConcludedEvent(id)` would wave a
+ * valve-error system straight through on the strength of a leak that ended
+ * weeks ago. The LIVE alert is asked first and answers on its own: if the
+ * system is alerting right now, that alert IS the event, and it either is a
+ * water event or this surface is not for it.
+ *
+ * `hasConcludedEvent` rather than a local copy of its conditions, for the
+ * reason its own header gives: it calls the same function the overlay resolves
+ * with, so this gate cannot drift from the destination.
+ */
+function eventFocusAllowed(alert, systemId) {
+  if (alert) return isWaterEvent(alert)
+  return hasConcludedEvent(systemId)
+}
+
+/**
+ * THE CARD ROW IS NO LONGER BUILT HERE — 2026-11-04.
+ *
+ * The body of this function was a field-for-field twin of
+ * EventFocusOverlay's `alertRowFor`, copied on purpose and drifted anyway:
+ * the overlay learned to DATE its Detected line and this copy did not, so the
+ * same event printed two different detection strings depending on which
+ * screen you opened it from. Both now call `eventAlertRow`, which owns the
+ * mapping and takes every per-surface difference as an option. See that
+ * module's header before adding a third copy.
+ *
+ * WHAT STAYED HERE: the WATER-EVENT FILTER and the array. This page's alert
+ * carousel renders a LIST and renders nothing at all for a fault; the overlay
+ * renders one row and has its own gate (`eventFocusAllowed`). That is a
+ * difference in what this surface SHOWS, not in how a row is BUILT, so it
+ * belongs at the call site and not in the shared builder.
+ *
+ * WHAT CHANGED ON SCREEN: the Detected line. It read `alert.startedAtStamp`
+ * raw — buildTree's own "Nov 03, 2026 22:14:40", with a padded day and real
+ * seconds — and on a PUSHED event, which carries no stamp, it fell all the
+ * way back to the bare clock "22:14" with no day on it at all. It is now
+ * `formatDate(detectedInstant(alert), 'tooltip')`: the same long shape, from
+ * the same instant the hero dates its own line from, and never a bare clock.
+ * The visible cost is cosmetic and deliberate — "Nov 3" not "Nov 03", and
+ * real seconds again, because the shared instant IS the record's own
+ * `detectedAtIso` -- and the bare clock the flow chart's axis draws is
+ * formatted FROM that same instant, so the two cannot disagree about the
+ * minute without the record disagreeing with itself.
+ *
+ * (Between 2026-11-03 and 2026-11-04 this line showed ":00" seconds, because
+ * `detectedInstant` took the DATE from one `Date.now()` write and the CLOCK
+ * from another and had to throw the seconds away to reconcile them. There is
+ * one write now, so there is nothing to reconcile.)
+ *
+ * FORMAT, STILL UNRESOLVED: 'tooltip' keeps this surface on the long stamp
+ * Figma draws, while the event hero stays on the card format
+ * wint-format-standards.md specifies. The two disagree, the owner has been
+ * asked, and neither was quietly changed to match the other.
+ */
 function alertCardsFor(alert, systemId) {
   if (!alert) return []
-
-  const leak = alert.type === 'leak-high' || alert.type === 'leak-low'
-  /* The gate. `leak` still drives the status label and the flow-rate slot
-     below — the helper is left whole rather than rewritten around the one
-     branch that now reaches it, because this is a filter, not a redesign. */
-  if (!leak) return []
-  // "120 L/hour" -> "120"; the unit is a separate slot on the card.
-  const rate = leak && alert.flowRate ? String(alert.flowRate).replace(/[^\d,.]/g, '') : null
-
-  return [{
-    page: 1,
-    pageCount: 1,
-    title: alert.label,
-    /* Was hardcoded 'Ongoing'. The Warning/Ongoing/ShutOff lifecycle is what
-       PRD 04a:63 and 06:88 gate the action row on, so a literal here makes
-       that gating impossible to honour. getLeakState reads the incident's own
-       steps; non-leak faults have no lifecycle and keep the plain label. */
-    status: leak ? (getLeakState(getActiveIncident(systemId)) ?? 'Ongoing') : 'Ongoing',
-    ignored: isIgnored(systemId),
-    /* Water event or not. Ignore and "On it" are water-event actions; the
-       fault branch gets the summary only. */
-    leak,
-    value: rate ?? alert.volume ?? '',
-    /* 'L/H', not 'L/H flow rate': in the redrawn card (199394:79723) the
-       figure and its unit sit together in one chip, so the unit is a unit and
-       not a caption. */
-    unit: rate ? 'L/H' : '',
-    detectedLabel: 'Detected',
-    /* The node's Detected line carries a full date and time
-       ("Apr 02, 2026 08:13:15"), not the bare clock the compact surfaces use.
-       Falls back so a caller without the richer field still renders. */
-    detectedAt: alert.startedAtStamp ?? alert.startedAt,
-    duration: alert.age,
-  }]
+  if (!isWaterEvent(alert)) return []
+  return [eventAlertRow(alert, systemId, {
+    /* The canonical label. This card's title box is not the hero's one-line
+       170px box, so nothing is shortened here. */
+    titleForm: 'full',
+    detectedFormat: 'tooltip',
+    /* The page's own long-standing behaviour, preserved rather than quietly
+       dropped — the overlay's copy stopped doing this on 2026-11-02 and
+       making both stop is a product call, not a refactor's. */
+    valueFallsBackToVolume: true,
+  })]
 }
 
 /* ── Figma-exported glyphs, inlined ─────────────────────────────────────────
@@ -755,7 +819,12 @@ export default function SystemPageV2Screen() {
                built once from the static fleet — but the overlay's live branch
                reads `sys.alert`, which getSystemById has run through the sim
                overlay. Clear a system in the pusher and the row survives while
-               the alert is gone, so `Boolean(sys.alert)` is the gate;
+               the alert is gone, so the live alert is the gate — and since
+               2026-11-03 it is `isWaterEvent(sys.alert)`, not merely
+               `Boolean(...)`: the ONGOING row comes from the STATIC table, so
+               a pushed valve-error standing where a static leak was would
+               otherwise leave a water row drillable over a FAULT alert, and
+               the event screen may not open on one (see ?focus=event below);
              · the ENDED row comes from the static HISTORY_EVENTS table — but
                the overlay's concluded branch reads `getIncidentsForSystem`,
                which returns [] under sim activity (incidents.js:25). So the
@@ -763,8 +832,17 @@ export default function SystemPageV2Screen() {
                imported rather than re-implemented so the two cannot drift.
            Without both gates a chevron could sit on a row whose tap paints
            nothing — the exact "tapped View and the screen did not change" bug
-           the ?focus=event guard was written around, re-created per row. */
-        ...(kind === 'water' && (ev.resolved ? hasConcludedEvent(sys.id) : Boolean(sys.alert))
+           the ?focus=event guard was written around, re-created per row.
+
+           AND THE SYSTEM MUST NOT BE FAULTING — 2026-11-03. `eventFocusAllowed`
+           is the whole of the owner's water-only rule, asked here so a FAULT
+           alert standing on a system that also has an ended water row cannot
+           put a chevron on that row. Without it the handler at the mount would
+           refuse the tap and the chevron would be the "tapped it and nothing
+           happened" defect this comment is otherwise entirely about. */
+        ...(kind === 'water'
+          && eventFocusAllowed(sys.alert, sys.id)
+          && (ev.resolved ? hasConcludedEvent(sys.id) : isWaterEvent(sys.alert))
           ? {
               /* The card reads this one and nothing else — it is what turns
                  the row into a navigation target. */
@@ -1316,47 +1394,96 @@ export default function SystemPageV2Screen() {
        question, as it always did. */
     const faultNow = Boolean(system.alert) && !waterNow
     if (action === 'tag' && !faultNow) setShowTagFeedback(true)
-    /* ?focus=event — THE VIEW BUTTON, on EVERY push. Owner, 2026-11-02: View
-       "redirect the user to the push content", so a push lands on its own
+    /* ?focus=event — THE VIEW BUTTON, on EVERY push, AND ITS SECOND REVERSAL.
+       Read the whole note before touching the condition: this behaviour has
+       now been reversed twice in two days, and the pattern is itself the
+       reason none of the history below is deleted.
+
+       ── WHAT IT WAS (owner, 2026-11-02) ─────────────────────────────────
+       View "redirect the user to the push content", so a push lands on its own
        EVENT and not merely on the page that contains it. The link is built at
        PushNotifications.jsx:930 and opens EventFocusOverlay, mounted at the
-       foot of this file — until now that overlay was reachable only by tapping
-       an alert card, never by URL.
+       foot of this file; before that URL path existed the overlay was
+       reachable only by tapping an alert card.
 
-       DELIBERATELY NOT GATED ON isWaterEvent, AND THAT IS THE WHOLE POINT.
-       `action=ignore` above is water-only because ignoring a device fault was
-       never a feature. View is the opposite: "any push notification" has no
-       exceptions, so a valve error, a lost AC feed, an offline device and a
-       sensor push must all open here. The overlay has a dedicated fault
-       branch for exactly this (its header, item 7 — the severity pill, the
-       last-command line, the power line off ALERT_META) and draws no footer
-       on a fault, which is the correct answer there rather than a missing one.
+       The comment that stood here argued, at length, that the deep link was
+       DELIBERATELY NOT GATED ON isWaterEvent and that this was "the whole
+       point": `action=ignore` above is water-only because ignoring a device
+       fault was never a feature, whereas View was the opposite — "any push
+       notification" has no exceptions, so a valve error, a lost AC feed, an
+       offline device and a sensor push must all open here. It offered the
+       overlay's dedicated fault branch as evidence that the fault case was
+       intended (its header, item 7 — the severity pill, the last-command
+       line, the power line off ALERT_META), and the fact that it draws no
+       footer on a fault as evidence that the branch was finished rather than
+       unbuilt.
 
-       NOT GATED ON `system.alert` EITHER, SINCE 2026-11-02. It used to be.
-       The guard read `focus === 'event' && Boolean(system.alert)` and existed
-       for one measured reason: EventFocusOverlay resolved `alert ??
-       system.alert ?? null` and returned null when that was empty, so opening
-       it on an ended event set `eventFocusOpen` true over a component that
-       painted nothing — the user tapped View, the app navigated, and the
-       screen did not visibly change. That mattered because ?focus=event
-       arrives on the End-of-Leak push too, which lands AFTER the event ended
-       and finds `system.alert` already tombstoned — the same timing the tag
-       guard above is written around.
+       That reasoning was sound ON ITS OWN PREMISE. The premise is what the
+       owner has now withdrawn, which is why it is kept and not argued with.
+
+       ── WHAT IT IS NOW (owner, 2026-11-03) ──────────────────────────────
+       Owner, on a screenshot of THIS screen rendering "Valve malfunction -
+       Basement Supply — Floor 29": "How could this option available this
+       screen and flow is also for water events like high flow event, low flow
+       event, flood detector event, not for valve malfunction or disconnection
+       power or stuff like that. This is not a possible option. I want to make
+       sure this is not".
+
+       THE EVENT SCREEN AND ITS FLOW ARE FOR WATER EVENTS ONLY. A device fault
+       — valve error, AC power lost, offline / comms, battery — must not reach
+       this overlay from any entry point.
+
+       THE REPLACEMENT BEHAVIOUR IS THE OWNER'S OWN CHOICE, not an invention
+       here: A FAULT PUSH ROUTES TO THE SYSTEM PAGE, /system/:id — which is
+       where it already is by the time this effect runs. The system page
+       renders faults, and renders them well: the valve card, System health,
+       the System type card's "Alerting" status dot and the Events Timeline
+       row all report it. So View still lands on real content; it lands at
+       SYSTEM level rather than on an event. Nothing navigates away and
+       nothing is blanked — the param is read and stripped exactly as before,
+       the overlay simply declines to open, and the user is left on a page
+       that explains the fault.
+
+       ── THE HALF THAT IS NOT ABOUT FAULTS, AND MUST NOT BE RE-BROKEN ─────
+       The guard used to read `focus === 'event' && Boolean(system.alert)`.
+       That second half came off on 2026-11-02 for a measured reason which
+       still holds, and it must not come back. EventFocusOverlay resolved
+       `alert ?? system.alert ?? null` and returned null when that was empty,
+       so opening it on an ended event set `eventFocusOpen` true over a
+       component that painted nothing — the user tapped View, the app
+       navigated, and the screen did not visibly change. ?focus=event arrives
+       on the End-of-Leak push too, which lands AFTER the event ended and
+       finds `system.alert` already tombstoned: the same timing the tag guard
+       above is written around.
 
        The overlay now HAS a concluded-event layout (EventFocusOverlay.jsx,
        search `const concluded =`): it reads the ended event out of the
        pusher's own tombstoned record, or the system's closed incident, and
        draws the card, the flow trace, the recipients and the timeline with
-       the live-only controls suppressed. So the reason for the second half of
-       this condition is gone, and the comment that stood here said to drop
-       both when it was — which is what this is. An event that genuinely has
-       no record on either side still resolves to null and the overlay still
-       paints nothing, exactly as before; the difference is that the ended
-       event now has one. */
+       the live-only controls suppressed. An event that genuinely has no
+       record on either side still resolves to null and the overlay still
+       paints nothing.
+
+       `eventFocusAllowed` (:336) is written around exactly those two facts at
+       once: a LIVE alert has to BE a water event, and NO live alert at all
+       falls through to `hasConcludedEvent`, the overlay's own resolver, which
+       only ever returns a leak. Its header says why the two cannot be
+       collapsed into an `||`.
+
+       ── WHERE ELSE THIS RULE LIVES ──────────────────────────────────────
+       A guard here alone would be the bug restated, so the other three doors
+       into the overlay ask the same predicate: the alert card's pointer tap
+       (`openEventOnCardTap`) and the keyboard proxy beside it — belt and
+       braces, since alertCardsFor already draws no card on a fault — and the
+       Events Timeline's row drill-down, both at the mapper that decides
+       whether a row gets a chevron and at the `onOpenEvent` handler.
+
+       ?action=ignore is untouched: it was already water-only and already
+       right. */
     /* `setEventFocus(null)` keeps the deep link on the overlay's own
        precedence — a push's View button names a system, not a row, so it must
        not inherit whichever row the user drilled last. */
-    if (focus === 'event') {
+    if (focus === 'event' && eventFocusAllowed(system.alert, systemId)) {
       setEventFocus(null)
       setEventFocusOpen(true)
     }
@@ -1488,10 +1615,36 @@ export default function SystemPageV2Screen() {
      unless every valve is closed" rather than keeping a second source of
      truth. */
   const valves = (system.devices ?? []).filter(d => d.valve)
+  /* ── A FAULTED VALVE USED TO ROUND TO 'open' HERE TOO — 2026-11-03 ──────
+     The twin of the defect fixed in `EventFocusOverlay.jsx` in the same
+     change, and it had to be fixed with it: this value is passed STRAIGHT
+     INTO that overlay as `valve.state` (see THE VALVE SEAM at its mount
+     below), which is the top term of its precedence and always wins. Fixing
+     only the overlay would have left `/system/:id?focus=event` — the route
+     the whole defect was reported on — drawing the same false "Open".
+
+     `'error'` is not `'closed'`, so this card drew a valve that had already
+     failed to respond to a command as CLOSED, with a live "Open valve"
+     button beside it. `valveScope.js` owns what a valve state means and what
+     may be commanded; this page is the third surface to have derived it for
+     itself, which is the drift that module was extracted to prevent.
+
+     `valveCategoryOf` rather than `blockedReasonOf` — the latter answers
+     with a precedence built for COMMANDS (offline outranks the valve's own
+     state), and a readout built on it would report a system that is both
+     offline and faulted as open. The long note at the fixed site in
+     EventFocusOverlay.jsx has the full argument.
+
+     THE OPTIMISTIC MAP IS NOT CONSULTED ON A FAULT. `closedValves` records
+     what the user asked for on this screen, and on a faulted valve no such
+     request can be made any more — `ValveStatusCard` renders the action
+     unavailable — so there is nothing for it to carry. */
   const valveState =
-    valves.length && valves.every(d => closedValves[d.id] || d.valve === 'closed')
-      ? 'closed'
-      : 'open'
+    valveCategoryOf(system) === 'error'
+      ? 'error'
+      : valves.length && valves.every(d => closedValves[d.id] || d.valve === 'closed')
+        ? 'closed'
+        : 'open'
 
   /* "1 Valve | 1 Meters" in the comp — counted from the system's own devices
      rather than printed from the frame. */
@@ -1625,6 +1778,13 @@ export default function SystemPageV2Screen() {
     const SELF_HANDLED =
       'button, a, [role="button"], input, select, textarea, label, [data-status-pill]'
     if (e.target?.closest?.(SELF_HANDLED)) return
+    /* WATER EVENTS ONLY, 2026-11-03 — the owner's rule, enforced at every door
+       into the overlay rather than at one of them. This card cannot in fact be
+       a fault today (alertCardsFor returns [] for one, so there is no card to
+       tap), which is precisely why the check is worth keeping: it costs a
+       predicate now, and it is what stops a future variant of this carousel
+       from quietly re-opening the route the owner has just closed. */
+    if (!eventFocusAllowed(system.alert, systemId)) return
     /* The alert card IS the live event, so this opener keeps the overlay's own
        precedence. Reset rather than left alone: a previous drill-down into the
        ENDED row would otherwise still be pinned and this tap would open the
@@ -2003,6 +2163,9 @@ export default function SystemPageV2Screen() {
                         <button
                           type="button"
                           onClick={() => {
+                            // Water events only — the same gate the pointer
+                            // opener carries; see openEventOnCardTap.
+                            if (!eventFocusAllowed(system.alert, systemId)) return
                             // See openEventOnCardTap for why the reset.
                             setEventFocus(null)
                             setEventFocusOpen(true)
@@ -2370,6 +2533,12 @@ export default function SystemPageV2Screen() {
                           tone={alerting ? 'alert' : 'calm'}
                           onTagEvent={() => setShowTagFeedback(true)}
                           onOpenEvent={(id, event) => {
+                            /* WATER EVENTS ONLY, 2026-11-03. The mapper above
+                               decides whether a chevron is drawn at all; this
+                               is the same rule restated at the destination, so
+                               the handler cannot open a fault even if a row
+                               were ever marked drillable without it. */
+                            if (!eventFocusAllowed(system.alert, system.id)) return
                             /* `drillFocus` is the mapper's, written off
                                `ev.resolved`. NOT read off `badge.label`:
                                that is display text, and this file already

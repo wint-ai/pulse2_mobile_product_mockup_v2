@@ -59,10 +59,13 @@
  *                                      <ValveConfirmSheet> — see VALVE.
  *   nothing                            "Find this system" — see FIND.
  *
- * `alertRowFor` below is a deliberate copy of SystemPageV2Screen's private
- * `alertCardsFor`. It is NOT exported from that page and a page may only export
- * its component, so it cannot be imported. THE TWO MUST LATER SHARE ONE HELPER
- * (src/data/ or src/v2/lib/) — until then a change to one is a bug in the other.
+ * THE SHARED HELPER NOW EXISTS — 2026-11-04. This said, for two weeks, that
+ * `alertRowFor` below was "a deliberate copy of SystemPageV2Screen's private
+ * `alertCardsFor` … THE TWO MUST LATER SHARE ONE HELPER … until then a change
+ * to one is a bug in the other." A change WAS made to one (this copy learned
+ * to date its Detected line, 2026-11-03) and was a bug in the other.
+ * Both now call `@/v2/components/eventAlertRow`; the per-surface differences
+ * are options at the call site (search `alertRow =`).
  *
  * WHAT STAYED BESPOKE, AND WHY
  *   - The claimed strip ("On it · {actor}" + elapsed). No component in v2 draws
@@ -270,11 +273,19 @@ import { MessageBlocked, PhotoSensor3, Waves } from '@/v2/icons'
 import wave from '@/assets/system-hero-wave.png'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
 import ValveStatusCard from '@/v2/components/ValveStatusCard'
+/* THE ONE SOURCE OF TRUTH FOR WHAT A VALVE STATE MEANS. This screen used to
+   derive it for itself and got it wrong — see `derivedValveState` below.
+   `valveScope.js` already owns the rule the bulk screens obey; this surface
+   now asks it the same question instead of writing a third copy. */
+import { valveCategoryOf } from '@/v2/components/valveScope'
 import vmaFront from '@/assets/wint-vma-front.png'
 import {
   buildEventFlowSeries,
-  flowTicks,
+  flowClockFormatter,
+  flowMilestones,
+  flowTickMinutes,
   peakFlowRate,
+  reduceFlowPoints,
   toFlowRateSeries,
 } from '@/v2/components/eventFlowSeries'
 import { getConsumptionSeries } from '@/data/consumptionSeries'
@@ -302,7 +313,14 @@ import {
   stopInvestigating,
 } from '@/data/investigatingStore'
 import { getCurrentActor } from '@/data/currentUser'
+/* `formatDate` and `resolveEventClock` are no longer imported here: both were
+   only ever called by the row builder and the instant resolver, which now
+   live in `eventAlertRow.js`. */
 import { formatDuration } from '@/utils/format'
+/* ONE mapping from an alert record to an AlertCard row, shared with
+   SystemPageV2Screen. It used to be two, copied field for field. See the
+   module header before you copy it again. */
+import { eventAlertRow } from '@/v2/components/eventAlertRow'
 
 /* ── Token map ────────────────────────────────────────────────────────────
    Colours that have to travel through an inline style (a severity dot) cannot
@@ -407,75 +425,30 @@ const BAR_SOLID_AT = HERO_H - BAR_H
       component, per the react-refresh rule this repo lints with) ─────────── */
 
 /**
- * The AlertCard row — a DELIBERATE COPY of SystemPageV2Screen's private
- * `alertCardsFor` (same file, search `function alertCardsFor`). Field for
- * field, including the "120 L/hour" -> "120" strip and the leak-only status
- * lifecycle, so the overlay's card and the page's card can never render the
- * same event two ways. See the header: the two must later share one helper.
+ * THE ALERT ROW AND THE DETECTED INSTANT MOVED OUT — 2026-11-04.
+ *
+ * `alertRowFor` and `detectedInstant` used to live here, and `alertRowFor`'s
+ * own header said what it was: "a DELIBERATE COPY of SystemPageV2Screen's
+ * private `alertCardsFor` … the two must later share one helper." They had
+ * already drifted — this copy dated its Detected line and the page's copy did
+ * not — which is the whole case for the move.
+ *
+ * Both are now `eventAlertRow.js`, imported above, and the System page calls
+ * the same builder with its own options. What this surface needs that the
+ * page does not is passed as options at the call site (search `alertRow =`):
+ * the frame's short one-line title and the card-format Detected line. What is
+ * genuinely this component's — the `eventId` and the `status: 'Ended'`
+ * override for a concluded event — is still applied here, on top of the
+ * shared row, because neither is a property of the alert record.
  */
-function alertRowFor(alert, systemId) {
-  if (!alert) return null
-  const leak = alert.type === 'leak-high' || alert.type === 'leak-low'
-  const rate = leak && alert.flowRate ? String(alert.flowRate).replace(/[^\d,.]/g, '') : null
-  return {
-    page: 1,
-    pageCount: 1,
-    /* 199683:24875 is a ONE-LINE 170px box reading "High flow event". Our
-       label is "High Flow Water Event", which wraps to two lines there and
-       pushes the whole card 25px taller. The frame's own shorter form is
-       used for THIS surface; alert.label is untouched everywhere else. */
-    title: leak
-      ? `${alert.type === 'leak-high' ? 'High' : 'Low'} flow event`
-      : alert.label,
-    fullTitle: alert.label,
-    status: leak ? (getLeakState(getActiveIncident(systemId)) ?? 'Ongoing') : 'Ongoing',
-    ignored: isIgnored(systemId),
-    leak,
-    /* THE FIRST TILE IS A FLOW RATE OR IT IS NOTHING — 2026-11-02.
-       Owner, on a Valve malfunction card: "[r]ate is missing here."
 
-       It used to read `rate ?? alert.volume ?? ''`, so on anything that is
-       not a leak the tile fell back to the event's VOLUME while the caption
-       below it still said "Flow Rate" — litres presented as litres-per-hour.
-       A caption that misnames its own figure is worse than no tile, and the
-       fallback was never reachable with honest data anyway: buildTree.js's
-       `buildAlert` fabricates `flowRate`/`volume` ONLY in its leak branch
-       (:94-124) and gives every fault `volume: null`, and the pushed record
-       pushEvents.js writes for a valve-error / offline / power-lost carries
-       neither field (:176-186). A fault has no water figures at all, which
-       is the dataset saying a device condition does not report flow.
-
-       So the `leak &&` guard on `rate` is NOT hiding a real rate, and the
-       volume fallback goes. On a leak nothing moves: a flow rate tiles as
-       "127 L/H" exactly as before, with the volume beside it as "Total".
-       The empty-string spelling is kept rather than null because it is also
-       what gates the tile in AlertCard. */
-    value: rate ?? '',
-    /* Just the unit. The tile below it is captioned "Flow Rate", so
-       "L/H flow rate" said it twice and overflowed the 161px tile. */
-    unit: rate ? 'L/H' : '',
-    /* THE SECOND TILE — 199703:42976, "13,564 L / Total". The event's
-       accumulated volume, and it is only ever the volume: on a leak with a
-       flow rate `value` already took the rate, so `alert.volume` is free and
-       is what the frame tiles beside it. Stripped to digits the same way the
-       rate is, because the dataset spells it "13,564 L" and the unit is a
-       separate run at a different size. Null when the event carries no
-       volume yet, which hides the tile rather than drawing a zero. */
-    total: leak && alert.volume ? String(alert.volume).replace(/[^\d,.]/g, '') : null,
-    totalUnit: leak && alert.volume ? 'L' : '',
-    detectedLabel: 'Detected',
-    detectedAt: alert.startedAt,
-    duration: alert.age,
-  }
-}
-
-/* LeakDetail.jsx:82-87 — the deterministic 4-digit leak id. */
-function toLeakId(incident) {
-  if (!incident?.id) return null
-  let hash = 0
-  for (const c of incident.id) hash = (hash * 31 + c.charCodeAt(0)) % 10000
-  return `lk-${hash.toString().padStart(4, '0')}`
-}
+/* `toLeakId` WAS HERE -- retired 2026-11-04.
+   It was the THIRD producer of "the id of this event", hashing the INCIDENT's
+   id into "lk-6215" -- and because this is the event hero, "lk-6215" was the
+   id a user actually saw, while /events/system/:id showed "LK-6363024" and the
+   Alerts row showed "LK-86215", all for the same event on
+   esrt-bldg-A-apt-2. `displayId` is the one
+   survivor (parity.js), reached through the canonical record's `eventId`. */
 
 /* ErrorAlertDetail.jsx:25-29 — the same hash, a different prefix. */
 function deterministicId(seed, prefix) {
@@ -571,10 +544,15 @@ function stepsToTimelineEvents(steps, isLowFlow) {
       title: meta.actor && step.actor ? `${title} · ${step.actor}` : title,
       metrics,
       description: (meta.actor ? actorStepSub(step.type, step) : step.detail) || '',
-      /* `timeAgo` already carries its own suffix, and on a RESOLVED incident it
-         is a date stamp rather than an elapsed label (generateIncidents.js:138
-         uses stamp(), :57 uses agoLabel()) — so it is printed as recorded
-         rather than having " ago" appended to it. */
+      /* `timeAgo` is an ABSOLUTE STAMP on every step, resolved or active --
+         "Nov 3, 23:45". It used to be one on a resolved incident and a
+         relative "5h 41m ago" on an active one (generateIncidents.js `stamp`
+         vs its `agoLabel`); `agoLabel` was deleted on 2026-11-04 because the
+         project's format standard bans relative time past one minute, and
+         because a relative label has to be recomputed against a `now` and was
+         therefore one more clock to drift. Printed as recorded, never with
+         " ago" appended -- which is now true for the same reason in both
+         states rather than only in one. */
       timestamp: [step.time, step.timeAgo].filter(Boolean).join(' · '),
       notifications: step.recipients ?? null,
     }
@@ -675,20 +653,65 @@ const FLOW_CHART_CONFIG = {
  */
 /* What each milestone MEANS, which is the "more info" the owner asked the
    dots to reveal. One sentence each, and each one says what happened and why
-   it matters — not what the label already says. */
+   it matters — not what the label already says.
+
+   NEW COPY, FOR SIGN-OFF — rekeyed 2026-11-04 onto the owner's own four
+   milestone names. `started` went with "Leak started": he capped the set at
+   four and named the four, and that was not one of them. */
 const MARK_DETAIL = {
-  started: 'Flow stepped up and stayed up. Normal use falls back between draws; this did not.',
-  detected: 'Flow had held above the system’s normal band long enough to rule out ordinary use.',
-  shutoff: 'The valve closed and flow fell to the standing background rate.',
+  detected: 'Flow had held above this system’s normal band long enough to rule out ordinary use.',
+  shutoff: 'Water stopped here. The line falls to the standing background rate within a minute or two.',
+  ongoing: 'The system checked again and the flow was still running, so the event stayed open.',
+  ended: 'Flow came back inside the normal band and the event was closed.',
 }
 
-function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
+/* HOW LONG A READING STAYS FRESH. One sample a minute, so three minutes is
+   three missed readings - past that the chart stops implying the feed is live
+   and says when the last reading actually landed. Home Assistant's quality
+   scale states the rule this follows: "an entity that keeps showing its last
+   value after the device went offline is lying." */
+const STALE_AFTER_MS = 3 * 60 * 1000
+
+/* Scoped to this component, the house pattern (BulkValveConfirmSheet.jsx:563).
+   THE PULSE IS ON THE STATUS CHIP, NOT ON THE DATA, and that is the whole
+   argument: Robertson et al. (IEEE TVCG, InfoVis 2008 10-Year Test of Time)
+   measured animation as "the least effective form for analysis", and the
+   ApexCharts rule is that an update animation must not outlast the update
+   interval - at one sample a minute a moving line would be still for 59
+   seconds in 60 anyway. So nothing about the TRACE moves. What moves is a 6px
+   dot next to the word "Live", which is a state indicator and not a reading.
+   It stops the moment the feed goes stale, which is the point of it. */
+const FLOW_CSS = `
+.flow-live-dot { animation: flow-live 2s ease-in-out infinite; }
+@keyframes flow-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.72); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-live-dot { animation: none; opacity: 1; }
+}
+`
+
+function EventFlowChart({ points, peak, milestones = [], mode = 'day', lastReadingAtMs = null }) {
   /* Which milestone's detail is open. Null until one is tapped: the chart
      reads on its own and the detail is the second look. */
   const [pickedMark, setPickedMark] = useState(null)
+  /* THE MINUTE TICK. It fabricates no sample - the series is what the record
+     says it is. All it does is re-ask "how old is the newest reading now",
+     which is the only question whose answer changes while nobody touches the
+     screen, and which decides whether this chart may keep calling itself live.
+     `now` is STATE, never read during render: `Date.now()` in a render body is
+     an eslint ERROR in this config (react-hooks/purity) and it is right to be
+     — it would make the staleness verdict depend on which re-render asked. */
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    if (mode !== 'live') return undefined
+    const id = setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [mode])
+
   const onPickMark = key => setPickedMark(k => (k === key ? null : key))
-  const picked = marks.find(m => m.key === pickedMark)
-  const pickedAt = picked ? points.find(p => p.minute === picked.minute) : null
+
   if (!points.length) {
     return (
       <p className="text-[13px] text-slate-500">
@@ -696,99 +719,160 @@ function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
       </p>
     )
   }
+
+  const isEvent = mode === 'live' || mode === 'ended'
+  /* THE REDUCTION, and the honest caption that goes with it. `bucketMinutes`
+     of 1 means every sample is drawn and the caption says only the cadence. */
+  const { points: drawn, bucketMinutes } = isEvent
+    ? reduceFlowPoints(points)
+    : { points, bucketMinutes: 1 }
+  const tickMinutes = isEvent ? flowTickMinutes(points) : []
+  const clockAtMinute = isEvent ? flowClockFormatter(points) : null
+  const live = mode === 'live'
+  const stale =
+    live && lastReadingAtMs != null && nowMs != null && nowMs - lastReadingAtMs > STALE_AFTER_MS
+  const lastClock = points.at(-1).label
+
   return (
     <div className="flex flex-col gap-[8px]">
-      <div className="flex items-baseline gap-[6px]">
-        <span className="text-[18px] font-bold tracking-[-0.4px] text-slate-900">
-          {peak?.toLocaleString?.() ?? peak}
+      <style>{FLOW_CSS}</style>
+
+      {/* THE READOUT. `133.7` was the raw plateau sample printed straight out
+          of the generator: a tenth of a litre an hour is not a figure anyone
+          acts on, and docs/wint-format-standards.md says whole numbers carry
+          no decimals and thousands carry a comma. The unit moved up beside the
+          number, where it is read with it, instead of opening the caption. */}
+      <div className="flex flex-wrap items-baseline gap-x-[6px] gap-y-[4px]">
+        <span className="text-[20px] font-bold tracking-[-0.4px] text-slate-900 tabular-nums">
+          {Math.round(peak ?? 0).toLocaleString('en-US')}
         </span>
+        <span className="text-[13px] font-semibold text-slate-700">L/h</span>
         <span className="text-[12px] font-medium text-slate-500">
-          {marks.length ? 'L/h peak during the event' : 'L/h peak today'}
+          {isEvent ? 'peak during the event' : 'peak today'}
         </span>
+        {live ? (
+          <span className="ml-auto flex shrink-0 items-center gap-[5px] rounded-full bg-severity-high/10 px-[8px] py-[3px] text-[11px] font-semibold text-severity-high">
+            {/* The word carries the state; the dot is decoration on top of it,
+                never the only cue. wint-ui-copy §5. */}
+            {stale ? null : (
+              <span aria-hidden="true" className="flow-live-dot size-[6px] rounded-full bg-severity-high" />
+            )}
+            {stale ? `No new reading since ${lastClock}` : 'Live'}
+          </span>
+        ) : null}
       </div>
+
       {/* aspect-auto cancels ChartContainer's aspect-video — the phone frame
           needs an explicit height, never a fixed width. */}
       <ChartContainer
         config={FLOW_CHART_CONFIG}
-        className="aspect-auto h-[150px] w-full [&_.recharts-cartesian-axis-tick_text]:fill-[var(--neutral-500)]"
+        className="aspect-auto h-[160px] w-full [&_.recharts-cartesian-axis-tick_text]:fill-[var(--neutral-500)]"
       >
-        <LineChart data={points} margin={{ top: 4, right: 6, bottom: 0, left: 0 }}>
-          <CartesianGrid vertical={false} stroke="#e5e5e5" />
+        <LineChart data={drawn} margin={{ top: 10, right: 12, bottom: 0, left: 0 }}>
+          {/* `#e5e5e5` was hard-coded here. It is --chart-grid's LIGHT value,
+              so under `dark` the grid drew near-white rules across a near-black
+              card — the single loudest thing in the section. The token is
+              defined for every theme that needs its own. */}
+          <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
           <YAxis
             dataKey="lph"
-            width={38}
+            width={40}
             tickLine={false}
             axisLine={false}
             tickSize={0}
             tickMargin={8}
+            tickFormatter={v => Math.round(v).toLocaleString('en-US')}
             tick={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}
           />
-          {/* Minute data is 55+ points and recharts labels every one it is
-              given. `ticks` is the explicit subset — round wall-clock minutes
-              at a step that lands 4-7 labels — rather than `interval`, which
-              counts from the first point and so lands on 10:18, 10:28, 10:38
-              instead of 10:20, 10:30, 10:40. Owner: "x axis needs timestamps
-              with the right spacing". */}
+          {/* A NUMBER AXIS, NOT A CATEGORY ONE — 2026-11-04. On a category
+              axis a ReferenceDot can only sit on a category that is in the
+              data, so once the reducer drops a sample the milestone on it
+              disappears. CDC's charting guidance documents exactly that
+              failure. A number axis takes a data-domain value, so a milestone
+              keeps its own minute whatever was reduced away, and a tick at a
+              round clock minute renders without a sample under it.
+              `padding` is what stops a milestone at the window's first minute
+              being drawn half under the y-axis labels, which is where
+              milestone 1 has been hiding. */}
           <XAxis
-            dataKey={marks.length ? 'label' : 'hour'}
+            {...(isEvent
+              ? {
+                  type: 'number',
+                  dataKey: 'minute',
+                  domain: [points[0].minute, points.at(-1).minute],
+                  ticks: tickMinutes,
+                  tickFormatter: clockAtMinute,
+                  padding: { left: 8, right: 8 },
+                }
+              : { dataKey: 'hour', interval: 5 })}
             height={22}
             tickLine={false}
             axisLine={false}
             tickMargin={6}
-            {...(ticks.length ? { ticks } : { interval: 5 })}
             tick={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}
           />
-          {/* THE MILESTONES, as numbered dots ON the line.
+          {/* THE MILESTONES. Still "a small annotation on the chart" with the
+              detail behind a tap — the owner's 2026-10-26 ruling, unchanged.
+              What changed is everything that made them look bad at 311x160px:
 
-              They were dashed vertical rules with a label each. Owner: "hate
-              the dotted lines — replace with a small annotation on the chart,
-              clicking see more info on this milestone." They were also
-              unreadable in practice: three labels on a 393px frame collided
-              into "Leak startedDetected" within 3 minutes of each other,
-              because the milestones cluster at the start by their nature.
+                · the 18px numbered disc is now a 9px dot. A numeral set at
+                  10px inside a disc that size read as a sticker pressed onto
+                  the line, and on a ten-hour axis the discs overlapped.
+                · the numeral moved OUT. There is no vertical room above the
+                  plateau for a label, and the rail below carries the order.
+                · the dot at the window's first minute is no longer clipped by
+                  the y-axis — see the XAxis padding above.
 
-              A dot carries the mark, a numeral carries the order, and the
-              detail moves to a line under the chart that only the tapped one
-              fills. Tap target is the 9px dot plus recharts' own hit area;
-              the list under it is the keyboard path, so the information is
-              not behind a pointer-only gesture. */}
-          {marks.map((mk, i) => {
-            const at = points.find(p => p.minute === mk.minute)
-            if (!at) return null
-            const tone = mk.key === 'shutoff' ? 'var(--success)' : 'var(--severity-high)'
-            return (
-              <ReferenceDot
-                key={mk.key}
-                x={at.label}
-                y={at.lph}
-                r={9}
-                fill={tone}
-                stroke="var(--card)"
-                strokeWidth={2}
-                isFront
-                onClick={() => onPickMark?.(mk.key)}
-                style={{ cursor: 'pointer' }}
-                label={{
-                  value: String(i + 1),
-                  fill: 'var(--ink-on-color)',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  fontFamily: 'var(--font-sans)',
-                  position: 'center',
-                }}
+              The y is read from the FULL series, so reduction cannot move a
+              milestone off the line. */}
+          {milestones.map(mk => (
+            <ReferenceDot
+              key={mk.key}
+              x={isEvent ? mk.minute : mk.at}
+              y={mk.lph}
+              r={pickedMark === mk.key ? 6 : 4.5}
+              fill={mk.tone}
+              stroke="var(--card)"
+              strokeWidth={2}
+              isFront
+              onClick={() => onPickMark(mk.key)}
+              style={{ cursor: 'pointer' }}
+            />
+          ))}
+          {/* THE LIVE EDGE. The newest reading, marked as the present moment
+              rather than as just where the data ran out. `reduceFlowPoints`
+              guarantees this exact sample survives reduction. It goes dark the
+              moment the feed does, which is the honest half of "feels alive". */}
+          {live && !stale ? (
+            <ReferenceDot
+              x={isEvent ? points.at(-1).minute : lastClock}
+              y={points.at(-1).lph}
+              r={3.5}
+              fill="var(--severity-high)"
+              stroke="var(--card)"
+              strokeWidth={2}
+              isFront
+            />
+          ) : null}
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                labelFormatter={v => (clockAtMinute ? clockAtMinute(Number(v)) : v)}
               />
-            )
-          })}
-          <ChartTooltip content={<ChartTooltipContent />} />
-          {/* `monotone` smooths a 24-point day nicely and turns 55 minute
-              samples into a fat ribbon. `linear` at 1.5px keeps the step at
-              onset sharp, which is the one feature of this chart that has to
-              read at a glance. */}
+            }
+          />
+          {/* `monotone` smooths a 24-point day nicely and turns minute samples
+              into a fat ribbon. `linear` keeps the step at onset sharp, which
+              is the one feature of this chart that has to read at a glance.
+              The stroke went 1.5 -> 1.75: at ~1 sample per pixel the line is a
+              line again rather than a band, so it can afford the weight, and
+              a 1.5px stroke under --severity-high's neighbours was the
+              thinnest thing on the card. */}
           <Line
-            type={marks.length ? 'linear' : 'monotone'}
+            type={isEvent ? 'linear' : 'monotone'}
             dataKey="lph"
             stroke="var(--color-lph)"
-            strokeWidth={marks.length ? 1.5 : 2}
+            strokeWidth={isEvent ? 1.75 : 2}
             dot={false}
             activeDot={{ r: 3 }}
             isAnimationActive={false}
@@ -796,59 +880,68 @@ function EventFlowChart({ points, peak, marks = [], ticks = [] }) {
         </LineChart>
       </ChartContainer>
 
-      {/* THE ANNOTATION. One row per milestone, numbered to match its dot, so
-          the chart is readable without tapping anything and the detail is
-          there when it is wanted. These are BUTTONS, not captions: the dots
-          are a pointer-only target, and this is the same information reachable
-          by keyboard. Tapping the open one closes it. */}
-      {marks.length ? (
-        <div className="flex flex-col gap-[4px]">
-          <div className="flex flex-wrap items-center gap-[6px]">
-            {marks.map((mk, i) => {
-              const on = pickedMark === mk.key
-              const tone = mk.key === 'shutoff'
-                ? 'bg-success text-ink-on-color'
-                : 'bg-severity-high text-ink-on-color'
-              return (
+      {/* THE ANNOTATION RAIL. It was a WRAPPING ROW of pills and that is the
+          other half of "annotations look bad": four pills carrying a label and
+          a clock each do not fit 367px, so they wrapped into a ragged two-line
+          block whose second line read as a separate control. A column of at
+          most four rows cannot collide, holds the label, the clock and the
+          reading at that instant, and matches the dots left-to-right by
+          colour and by order.
+
+          These are BUTTONS, not captions: the dots are a pointer-only target
+          and this is the same information reachable by keyboard. Tapping the
+          open one closes it. */}
+      {milestones.length ? (
+        <div className="flex flex-col gap-[2px]">
+          {milestones.map(mk => {
+            const on = pickedMark === mk.key
+            return (
+              <div key={mk.key} className="flex flex-col">
                 <button
-                  key={mk.key}
                   type="button"
-                  aria-pressed={on}
+                  aria-expanded={on}
                   onClick={() => onPickMark(mk.key)}
-                  className={`flex cursor-pointer items-center gap-[5px] rounded-full border border-solid px-[7px] py-[3px] text-[11.5px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
-                    on ? 'border-slate-300 bg-slate-100' : 'border-transparent hover:bg-slate-50'
+                  className={`flex w-full cursor-pointer items-center gap-[8px] rounded-[8px] px-[7px] py-[5px] text-[12px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+                    on ? 'bg-slate-100' : 'hover:bg-slate-50'
                   }`}
                 >
-                  <span className={`flex size-[14px] shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${tone}`}>
-                    {i + 1}
+                  <span
+                    aria-hidden="true"
+                    className="size-[9px] shrink-0 rounded-full"
+                    style={{ background: mk.tone }}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-left font-medium text-slate-700">
+                    {mk.label}
                   </span>
-                  <span className="font-medium text-slate-700">{mk.label}</span>
-                  <span className="text-slate-500">
-                    {points.find(p => p.minute === mk.minute)?.label}
+                  <span className="shrink-0 tabular-nums text-slate-500">{mk.at}</span>
+                  <span className="shrink-0 tabular-nums font-medium text-slate-600">
+                    {Math.round(mk.lph).toLocaleString('en-US')} L/h
                   </span>
                 </button>
-              )
-            })}
-          </div>
-          {picked ? (
-            <p className="rounded-[8px] bg-slate-50 px-[8px] py-[6px] text-[11.5px] leading-[1.45] text-slate-600">
-              <span className="font-semibold text-slate-800">
-                {picked.label}
-                {pickedAt ? ` · ${pickedAt.label}` : ''}
-                {pickedAt ? ` · ${pickedAt.lph.toLocaleString()} L/h` : ''}
-              </span>
-              {MARK_DETAIL[picked.key] ? ` — ${MARK_DETAIL[picked.key]}` : ''}
-            </p>
-          ) : null}
+                {on && MARK_DETAIL[mk.key] ? (
+                  <p className="mx-[7px] mb-[2px] rounded-[8px] bg-slate-50 px-[8px] py-[6px] text-[11.5px] leading-[1.45] text-slate-600">
+                    {MARK_DETAIL[mk.key]}
+                  </p>
+                ) : null}
+              </div>
+            )
+          })}
         </div>
       ) : null}
 
-      <p className="text-[11.5px] text-slate-500 leading-[1.4]">
-        {/* Say what the line is. It is the system's measured hourly use for
-            today read as flow rate, not a separate trace of this incident. */}
-        {marks.length
-          ? 'Flow rate through the event, one reading a minute.'
+      {/* SAY WHAT IS NOT SHOWN. wint-ui-copy §4: a reduced series that states
+          only its cadence reads as "this is every reading". It is not — past
+          five hours the line is the highest and lowest reading of each step,
+          which is why a one-minute spike still crosses the line it crossed. */}
+      <p className="text-[11.5px] leading-[1.4] text-slate-500">
+        {isEvent
+          ? bucketMinutes > 1
+            ? `One reading a minute. The line draws the highest and lowest of each ${bucketMinutes} minutes.`
+            : 'Flow rate through the event, one reading a minute.'
           : 'This system’s measured use today, hour by hour, read as flow rate.'}
+        {/* The stale chip already carries this clock, and saying it twice in
+            two sentences reads as two different facts. */}
+        {live && !stale ? ` Last reading ${lastClock}.` : ''}
       </p>
     </div>
   )
@@ -1482,13 +1575,15 @@ export default function EventFocusOverlay({
   const FaultIcon = FAULT_ICON[evt.type] ?? PowerOff
 
   const eventId = isEnded
-    ? /* The history row's own display id (generateEvents.js:145), which is
-         what /events/system/:systemId already shows for this event. Null on a
-         pushed one - see concludedEventFor. */
+    ? /* The history row's own display id, which is what /events/system/:id
+         already shows for this event. Null on a pushed one - see
+         concludedEventFor. */
       concluded.eventId
-    : isWater
-      ? toLeakId(incident)
-      : deterministicId(sysId + evt.type, ID_PREFIX[evt.type] || 'evt')
+    : /* THE ONE EVENT ID, straight off the alert -- which is a projection of
+         the canonical record, so this is the same string the Alerts row and
+         /events/system/:id print. `deterministicId` is kept for a PUSHED
+         alert, which is created at interaction time and carries no record. */
+      evt.eventId ?? deterministicId(sysId + evt.type, ID_PREFIX[evt.type] || 'evt')
 
   /* The summary card — the System page's own AlertCard, from the same row. */
   /* 199683:24892 puts the Event ID inside the card, on the meta row opposite
@@ -1511,8 +1606,43 @@ export default function EventFocusOverlay({
      already desaturated below for the same reason the ignored frame
      desaturates it. One line in AlertCard if the owner wants the pill muted
      too. */
+  /* THE SHARED BUILDER, WITH THIS SURFACE'S OPTIONS. Every one of these was a
+     difference between the two copies of this mapping; none of them is a
+     difference in what the record MEANS, so they are arguments and not a
+     second function. */
   const alertRow = {
-    ...alertRowFor(evt, sysId),
+    ...eventAlertRow(evt, sysId, {
+      /* 199683:24875 is a ONE-LINE 170px title box. "High Flow Water Event"
+         wraps to two lines there and pushes the card 25px taller, so this
+         surface draws the frame's own shorter "High flow event". The
+         canonical label is still on screen — the dialog's accessible name is
+         built from `fullTitle`. */
+      titleForm: 'short',
+      /* `Mar 4 · 14:35` — wint-format-standards.md, "Alerts/cards": no year,
+         middle dot, 24-hour, named month. This is a card.
+
+         *** FLAGGED FOR THE OWNER, NOT RESOLVED HERE ***
+         Figma YEmjkKS4xaA827Zm8w3oXx node 199772:145451 draws this line as
+         "Detected Apr 02, 2026 08:13:15" — a full timestamp with a year AND
+         seconds. That is the standard's TOOLTIP format, not its card format,
+         and the frame predates the standard. SystemPageV2Screen's card still
+         draws the frame's long stamp ('tooltip'), so the two surfaces
+         disagree about the FORMAT until the owner rules. They no longer
+         disagree about the INSTANT — that is now `detectedInstant`, once,
+         for both — and when the ruling comes it is one argument here. */
+      detectedFormat: 'alert',
+      /* NOT inherited from the page. Owner, 2026-11-02, on a card whose
+         "Flow Rate" caption sat over a figure in litres: "[r]ate is missing
+         here." The first tile is a flow rate or it is nothing. */
+      valueFallsBackToVolume: false,
+    }),
+    /* NOT the builder's business, either of them: an event id is resolved
+       from the incident / history row above, not read off the alert record,
+       and `isEnded` is a fact about which BRANCH resolved this event rather
+       than a field on it. "Ended" is not a new string — it is the badge this
+       very card already carries for a resolved row (SystemPageV2Screen:669)
+       and the only thing that would otherwise still read "Ongoing" about an
+       event that is over. */
     eventId,
     ...(isEnded ? { status: 'Ended' } : null),
   }
@@ -1523,13 +1653,61 @@ export default function EventFocusOverlay({
      the same helper the page uses (getSystemUnits). */
   const valveDevices = (sys.devices ?? getSystemUnits(sys)).filter(d => d.valve)
   const hasValve = valveDevices.length > 0
-  /* "open unless every valve is closed", the page's rule. */
-  const derivedValveState = hasValve && valveDevices.every(d => d.valve === 'closed')
-    ? 'closed'
-    : 'open'
+  /* ── A FAULTED VALVE USED TO ROUND TO 'open' — FIXED 2026-11-03 ─────────
+     This was two words:
+
+       hasValve && valveDevices.every(d => d.valve === 'closed') ? 'closed' : 'open'
+
+     `'error'` is not `'closed'`, so a valve that had already failed to
+     respond to a command came out of here as 'open', and the card below was
+     mounted `interactive` on top of that. On `ws-10788` — which
+     `buildTree.js:472` deliberately creates, spending one water event per
+     site on an already-faulted system "to preserve the leak-over-fault case
+     the UI has to draw" — that produced a live low-flow leak, a readout
+     saying the valve was Open, auto-shutoff Disabled, and a full-width
+     primary offering to close a valve that cannot move.
+
+     THE RULE IS NOT RE-DERIVED HERE. `valveScope.js` already owns it:
+     `blockedReasonOf` lists 'error' (and 'offline', 'no-valve', 'closing')
+     as blockers and `canActuate` returns false for each. The bulk screens
+     have obeyed it since it was extracted; this screen did not consult it at
+     all, which is exactly the drift that module's header warns about.
+
+     `valveCategoryOf` IS THE ONE TO ASK FOR A READOUT, and not
+     `blockedReasonOf`, even though the fault is what we want — which is
+     worth writing down, because the other reads like the obvious call.
+     `blockedReasonOf` answers with a PRECEDENCE (no-valve, then offline,
+     then closing, then the valve's own state) because its job is to name the
+     single reason a COMMAND will not be sent. A system that is both offline
+     and faulted gets 'offline' from it, and a readout built on that would
+     put the faulted valve straight back on the 'open' branch. The category
+     is the valve's state with reachability left out of it, which is exactly
+     what a position readout needs. `valveScope.js:176` splits the two
+     dimensions the same way, and says so.
+
+     The open-vs-closed half stays the device-level rule this surface shares
+     with the System page, because that is where the page's optimistic
+     `closedValves` lands. */
+  const valveFaulted = valveCategoryOf(sys) === 'error'
+  /* "open unless every valve is closed", the page's rule — but only once the
+     valve is in a state that can be read as a position at all. */
+  const derivedValveState = valveFaulted
+    ? 'error'
+    : hasValve && valveDevices.every(d => d.valve === 'closed')
+      ? 'closed'
+      : 'open'
   /* STATE PRECEDENCE: the page, then what was confirmed here, then the data.
-     `??` and not `||`, so a page that legitimately says 'open' is not skipped. */
-  const valveState = valve?.state ?? confirmedValve ?? derivedValveState
+     `??` and not `||`, so a page that legitimately says 'open' is not skipped.
+
+     EXCEPT A FAULT, WHICH OUTRANKS ALL THREE — 2026-11-03. The seam exists so
+     this surface cannot contradict the page about a POSITION; a fault is not
+     a position. `SystemPageV2Screen.jsx:1592` derives its own `valveState`
+     with the same "open unless every valve is closed" shape and so hands this
+     overlay a literal 'open' for a faulted system, which would reinstate the
+     defect through the one term that always wins. That page is fixed in the
+     same change, but the guard stays: no caller gets to tell this card that a
+     valve which cannot move is open. */
+  const valveState = valveFaulted ? 'error' : valve?.state ?? confirmedValve ?? derivedValveState
   /* The card speaks state ('open'|'closed'); the sheet speaks intent
      ('open'|'close'). The translation is the one the page makes at
      SystemPageV2Screen.jsx:1105. */
@@ -1565,13 +1743,28 @@ export default function EventFocusOverlay({
      the system HAS one, auto-close is on, and the valve is actually shut —
      otherwise `shutoffAfterDetectMin` is null and the milestone is not drawn,
      which is most events. */
-  const flowSeed = `${sysId}|${evt.type ?? 'event'}`
+  /* Seeded off the CANONICAL event id where there is one, so the cosmetic
+     plateau noise belongs to this event rather than to "whatever type of thing
+     happened at this system". Falls back to the old seed for a pushed alert,
+     which has no record. */
+  const flowSeed = evt.eventId ?? `${sysId}|${evt.type ?? 'event'}`
   const seedInt = [...flowSeed].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7)
   const detectLagMin = 2 + (seedInt % 5)
-  /* A finished event knows how long it actually ran (generateEvents.js:127),
-     so the trace spans the real event rather than the live branch's nominal
-     45 minutes. A pushed one carries no span and keeps the constant. */
-  const eventDurationMin = concluded?.durationMin ?? 45
+  /* THE CHART PLOTS THE EVENT THE REST OF THE SCREEN DESCRIBES -- 2026-11-04.
+     This was `concluded?.durationMin ?? 45` and the `?? 45` was reached by
+     every LIVE event, so a ten-hour event was drawn on a forty-five-minute
+     axis while the card beside it read "10h 07m". The live branch now reads
+     the canonical record's own `durationSec` (carried on the alert), so the
+     trace spans the real event. A finished event keeps its own span, and a
+     PUSHED one -- which carries neither -- keeps the constant.
+
+     REPORTED, NOT DECIDED: at one point a minute a ten-hour event is ~610
+     points on a 311px chart, i.e. ~2 points per pixel. That is a product
+     decision about windowing or downsampling, and the owner has a separate
+     pending request about this chart's appearance, so nothing is chosen here.
+     The chart is only being made to plot the right event. */
+  const eventDurationMin =
+    concluded?.durationMin ?? (evt.durationSec ? Math.round(evt.durationSec / 60) : 45)
   /* How long until auto-close fires on an event still running. Same 1-4
      minute seeded response the closed case uses, so the two states tell one
      consistent story about this system. It feeds the countdown only — the
@@ -1581,9 +1774,33 @@ export default function EventFocusOverlay({
      about this event; on an event that ended hours ago it is not, so the
      milestone is not drawn there rather than inferred from an unrelated
      close. */
+  /* THE REAL MILESTONE, NOT A SECOND GUESS AT ONE -- 2026-11-04.
+     This was `1 + ((seedInt >> 3) % 4)`: a 1-4 minute close drawn from a local
+     seed. The canonical record already PLACES the valve close
+     (buildTree.js `buildEventRecord`, the `valve-closed` milestone) and the
+     event screen's own timeline prints that instant a few hundred pixels
+     above this chart -- hours after detection, not minutes. Two answers to
+     "when did the valve shut", on one screen. The record's is the one that is
+     also written down, so it wins; the seeded value survives only for a
+     PUSHED event, which has no record to read.
+
+     The GATE is unchanged and is deliberately not folded into the milestone's
+     existence: `valveState` is the valve's state NOW and `autoShutoffOn` is
+     the live policy, and whether to DRAW an auto-close is a product rule this
+     change is not touching. */
+  const shutoffMilestone = isEnded
+    ? null
+    : sys.event?.milestones?.find(m => m.kind === 'valve-closed')
   const shutoffAfterDetectMin =
     !isEnded && hasValve && autoShutoffOn && valveState === 'closed'
-      ? 1 + ((seedInt >> 3) % 4)
+      ? (shutoffMilestone
+          ? Math.max(
+              1,
+              Math.round(
+                (new Date(shutoffMilestone.atIso) - new Date(sys.event.detectedAtIso)) / 60000,
+              ),
+            )
+          : 1 + ((seedInt >> 3) % 4))
       : null
 
   /* THE EVENT GRAPH. For a WATER EVENT this is now the incident's own trace
@@ -1602,7 +1819,11 @@ export default function EventFocusOverlay({
         /* The axis reads in wall time. alert.startedAt is the one real clock
            the dataset carries, and it is when the event was RAISED — so the
            trace is anchored to it and onset sits detectLagMin before. */
-        startClock: evt.startedAt ?? alertRow.detectedAt,
+        /* `alertRow.detectedAt` is no longer a bare clock — it is the
+           formatted "Mar 4 · 14:35" card line — so it is no longer a
+           usable fallback here. It never added anything anyway: the two
+           were the same value. The axis wants the raw clock or nothing. */
+        startClock: evt.startedAt ?? null,
       })
     : null
   const flowPoints = eventFlow
@@ -1611,6 +1832,30 @@ export default function EventFocusOverlay({
   const flowPeak = eventFlow
     ? Math.max(...eventFlow.points.map(p => p.lph))
     : peakFlowRate(flowPoints)
+
+  /* THE ANNOTATION SET — owner, 2026-11-04: "anotation needs to have max 4
+     miles stones it depend per event: event detected, Shut-off level, Ongoing,
+     Ended". Which of the four this event gets is decided in
+     eventFlowSeries.js, off the RECORD's own stamps - the same instants the
+     timeline a few hundred pixels above this chart prints. */
+  const flowMarks = eventFlow
+    ? flowMilestones({
+        points: eventFlow.points,
+        marks: eventFlow.marks,
+        record: sys.event ?? null,
+        isEnded,
+      })
+    : []
+  /* WHEN THE NEWEST READING LANDED. Derived from the record rather than from
+     `Date.now()`, so the chart's claim to be live is the record's claim and
+     not the browser's: `detectedAtIso` plus the event's own run time IS the
+     instant of the last sample. A pushed event carries no record and makes no
+     such claim. */
+  const lastReadingAtMs =
+    !isEnded && sys.event?.detectedAtIso && Number.isFinite(sys.event?.durationSec)
+      ? Date.parse(sys.event.detectedAtIso) + sys.event.durationSec * 1000
+      : null
+  const flowMode = eventFlow ? (isEnded ? 'ended' : 'live') : 'day'
 
   /* LIVE-ONLY, SUPPRESSED. Every bullet `advice` returns for a water event is
      an instruction about water that is still running - close the valve, check
@@ -2479,6 +2724,34 @@ export default function EventFocusOverlay({
               interactive
               onToggle={(next) => setPendingValve(next === 'closed' ? 'close' : 'open')}
               autoCloseState={autoShutoffOn ? 'On' : 'Disabled'}
+              /* THE ATTENTION DISCLOSURE IS OFF ON THIS SURFACE — 2026-11-03.
+                 Owner, on a screenshot of this card: "Remove the attention
+                 collapse expand component. I don't want it at[...]".
+
+                 A RULE 0 REMOVAL with the owner's explicit permission (see
+                 .claude/skills/v2-page-parity/SKILL.md). It is turned OFF
+                 here, not deleted: the block lives in ValveStatusCard.jsx,
+                 which the System page and the /valves screens also mount, and
+                 the instruction was scoped to the event screen's card. The
+                 card already carries `showAttention` for exactly this — "the
+                 prop stays, so hiding it again is one word at the call site"
+                 (ValveStatusCard.jsx, 2026-10-26). This is that one word.
+
+                 WHAT IT WAS CARRYING, so nobody has to go and find out:
+                 the trigger row "Attention" and, behind the chevron, "The
+                 valve will not automatically shut off and water loss is at
+                 risk". Both are drawn only when auto-shutoff is Disabled.
+
+                 WHERE THAT STILL GETS SAID on this surface: the Auto-shutoff
+                 badge in this same card still reads "Disabled" with a red
+                 dot, and on a WATER event `advice()` above puts "Nothing will
+                 close the valve for you. If this needs stopping, close it
+                 from the button below." into "What should I do". On a FAULT
+                 (valve-error / offline / power-lost with auto-shutoff off)
+                 `advice()` has no valve line, so the badge is all that is
+                 left. FLAGGED, not worked around — inventing a replacement
+                 surface is not mine to do. */
+              showAttention={false}
               /* THE COUNTDOWN, finally wired. It has been implemented since
                  2026-10-25 and never rendered, because `activatesIn` had no
                  source and I would not default it to the node's 00:00 — a
@@ -2661,8 +2934,9 @@ export default function EventFocusOverlay({
             <EventFlowChart
               points={flowPoints}
               peak={flowPeak}
-              marks={eventFlow?.marks ?? []}
-              ticks={eventFlow ? flowTicks(eventFlow.points) : []}
+              milestones={flowMarks}
+              mode={flowMode}
+              lastReadingAtMs={lastReadingAtMs}
             />
           )}
         </Section>

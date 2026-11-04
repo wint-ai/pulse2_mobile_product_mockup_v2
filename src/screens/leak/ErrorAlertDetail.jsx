@@ -3,6 +3,8 @@ import TabBar from '../../components/TabBar';
 import { useTheme } from '../../context/ThemeContext';
 import { useUserContext } from '../../context/UserContext';
 import { getAncestorScopes } from '../../utils/ancestorScopes';
+import { formatDate } from '../../utils/format';
+import { detectedInstant } from '../../v2/components/eventAlertRow';
 
 const ALERT_META = {
   'valve-error':      { label: 'Valve error',     icon: 'valve',         severity: 'Critical', sevColor: '#DB4670' },
@@ -46,7 +48,43 @@ export default function ErrorAlertDetail({ sys }) {
 
   const alert = sys.alert;
   const meta = ALERT_META[alert.type] || { label: alert.label || 'Alert', icon: 'error', severity: 'Warning', sevColor: '#B5651A' };
-  const eventId = deterministicId(sys.id + alert.type, ID_PREFIX[alert.type] || 'evt');
+  /* THE ONE EVENT ID. This screen was the LAST producer still minting its own.
+     `deterministicId(sys.id + alert.type, …)` hashed a seed no other surface
+     used, so one comms loss printed `off-4994` here while the canonical
+     `CM-6492706` showed on the v2 event overlay, in /alerts and on
+     /events/system/:id. Off the canonical record now, via `sys.alert` - the
+     projection (buildTree.js:264) of the fault record `faultRecord` builds,
+     whose `eventId` is `displayId(FAULT_ID_PREFIX[type], id)` (buildTree.js:225).
+
+     THE FALLBACK IS REACHABLE AND STAYS. A pushed / simulated alert is minted
+     at interaction time by `updateActiveAlert` (pushEvents.js:201) and
+     `applySimOverlay` hangs it on `sys.alert` with `event: null`
+     (systems.js:234). That object carries type / label / startedAt /
+     startedAtIso and NO eventId, so this screen still has to mint one for it.
+     Same reasoning and same shape as LeakDetail.jsx's `leakId`. */
+  const eventId = sys.alert?.eventId ?? deterministicId(sys.id + alert.type, ID_PREFIX[alert.type] || 'evt');
+
+  /* THE DETECTION INSTANT, DATED. The summary line read a hard-coded day
+     word in front of a BARE WALL CLOCK: `Today · {alert.startedAt}`.
+     `alert.startedAt` is `clockOf(detectedAtIso)` (buildTree.js
+     `alertFromRecord`) and carries NO DAY, so a fault detected 1d 9h ago
+     printed as if it had started this morning - ws-17404's comms loss read
+     "Today · 01:34" for an event that began the day before, which is the
+     whole-day error the foot of eventFocusOverlay.dom.test.jsx was written
+     to pin shut on the water half of this route.
+
+     Same defect, same fix as the event hero's Detected line: the ONE
+     absolute instant the record carries, read through `detectedInstant`
+     (the single place every surface asks "when was this detected") and
+     formatted by `formatDate` in the CARD context - "Nov 3 · 01:34",
+     wint-format-standards.md "Alerts/cards": no year, middle dot, 24-hour,
+     named month. Nothing here reconstructs a day from a clock any more.
+
+     Guarded on the Date rather than on the formatted string so the screen
+     never renders `formatDate`'s em-dash placeholder for a missing
+     instant; a pushed alert always carries `startedAtIso`
+     (pushEvents.js:208), so the empty case is the absent-record one. */
+  const detectedAt = detectedInstant(alert);
 
   // Activity section removed per alerts-mockup-feedback #13 (decision 2026-06-01):
   // Activity is a System-Detail concept, not per-alert. Users go to System Detail → Activity tab
@@ -106,7 +144,7 @@ export default function ErrorAlertDetail({ sys }) {
               fontVariationSettings: "'FILL' 1", alignSelf: 'center',
             }}>{meta.icon}</span>
             <span style={{ fontSize: 14, fontWeight: 700, color: theme.text }}>{meta.label}</span>
-            {alert.startedAt && <span style={{ fontSize: 11, color: theme.textMuted }}>Today · {alert.startedAt}</span>}
+            {detectedAt && <span style={{ fontSize: 11, color: theme.textMuted }}>{formatDate(detectedAt, 'alert')}</span>}
             {alert.age && <span style={{ fontSize: 11, color: theme.textMuted }}>· {alert.age}</span>}
           </div>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -160,7 +198,18 @@ export default function ErrorAlertDetail({ sys }) {
                     }}>{ch === 'push' ? 'Push' : ch === 'email' ? 'Email' : ch === 'sms' ? 'SMS' : ch}</span>
                   ))}
                 </div>
-                {alert.startedAt && <span style={{ fontSize: 11, color: theme.textMuted, fontFamily: 'monospace' }}>{alert.startedAt}</span>}
+                {/* NO NOTIFIED INSTANT EXISTS FOR A FAULT, SO NONE IS SHOWN.
+                    This printed `alert.startedAt` - the DETECTION clock,
+                    bare and dayless, relabelled as the moment this
+                    recipient was notified. Two different facts, one
+                    number. The fault record carries a single milestone,
+                    `detected` (buildTree.js `faultRecord`); the
+                    `alert-sent` milestone is written in the WATER branch
+                    only, and `recipients` above is mock data with no
+                    instant of its own. There is nothing truthful to put
+                    here and nothing is invented - wint-ui-copy SKILL.md
+                    §0, "do not invent strings". If a real notification
+                    time is ever recorded for faults, it goes here. */}
               </div>
             ))}
           </div>

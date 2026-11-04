@@ -13,13 +13,28 @@
 //
 //   1. IT OPENS ON A WATER EVENT. The ordinary case.
 //
-//   2. IT OPENS ON A FAULT. The case with no precedent on this page: the only
-//      other deep-link action, ?action=ignore, is gated OUT on a fault because
+//   2. IT DOES **NOT** OPEN ON A FAULT. *** INVERTED 2026-11-03, BY THE
+//      OWNER, AND THE OLD ASSERTION IS QUOTED HERE RATHER THAN DELETED. ***
+//
+//      This file used to assert the exact opposite, in these words: "IT OPENS
+//      ON A FAULT. The case with no precedent on this page: the only other
+//      deep-link action, ?action=ignore, is gated OUT on a fault because
 //      ignoring a device fault was never a feature. View is the opposite rule
-//      — "any push notification" has no exceptions, so valve errors, power
-//      loss, offline and sensor pushes must all land inside their own event.
-//      EventFocusOverlay has a dedicated fault layout for this; what it must
-//      NOT do is reach the water-event sheets on the way in.
+//      — 'any push notification' has no exceptions, so valve errors, power
+//      loss, offline and sensor pushes must all land inside their own event."
+//
+//      Owner, 2026-11-03, on a screenshot of this screen drawing "Valve
+//      malfunction - Basement Supply — Floor 29": "How could this option
+//      available this screen and flow is also for water events like high flow
+//      event, low flow event, flood detector event, not for valve malfunction
+//      or disconnection power or stuff like that. This is not a possible
+//      option." The event screen is a WATER-EVENT surface; a fault push lands
+//      on the System page instead, which already renders faults.
+//
+//      Two things are pinned, not one: the overlay does not open, AND the
+//      system page underneath is still there and still usable. "Does not
+//      open" on its own would be satisfied by a blank screen, which is the
+//      other half of the bug this replaces.
 //
 //   3. IT OPENS ON AN EVENT THAT HAS ALREADY ENDED. *** INVERTED 2026-11-02,
 //      AND THE INVERSION IS THE POINT OF THE CHANGE. *** This file used to
@@ -120,19 +135,34 @@ describe('?focus=event opens the event itself', () => {
     expect(overlayIsOpen(), 'View should land inside the event, not beside it').toBe(true)
   })
 
-  it('opens the overlay on a FAULT too — View has no exceptions', () => {
-    /* The owner's rule is "any push notification" gets View, and the fault
-       pushes (valve error, AC power lost, offline, sensor) are notifications
-       like any other. This is the one branch with no precedent on this page:
-       ?action=ignore is deliberately gated OUT here, and copying that gate
-       onto focus would have left every non-water push with a dead button. */
-    mount(faulted, '?focus=event')
-    expect(overlayIsOpen(), 'a fault push must still open its own event').toBe(true)
+  it('does NOT open the overlay on a fault — and leaves a usable page', () => {
+    /* INVERTED 2026-11-03 — see item 2 in the header for the sentence this
+       replaces and the owner's words that replaced it. The gate is
+       `eventFocusAllowed`, which asks the LIVE alert first, so a fault
+       answers on its own and never falls through to the concluded resolver
+       (every system has a closed incident, so a bare `hasConcludedEvent`
+       would have let faults straight back in). */
+    const { container } = mount(faulted, '?focus=event')
+    expect(overlayIsOpen(), 'a fault must not open the water-event screen').toBe(false)
+
+    /* AND THE OTHER HALF. Not navigating is only right if what the user is
+       left on is the System page, which already reports the fault — so the
+       page must still render, and the fault must still be named on it. */
+    expect(container.firstChild, 'the system page must still render').toBeTruthy()
+    expect(
+      /* queryAllByText: the page prints the system name more than once
+         (the header bar and the breadcrumb), which is a page that rendered,
+         not an ambiguity to resolve. */
+      screen.queryAllByText(faulted.name).length,
+      'the user is left on the fault system own page',
+    ).toBeGreaterThan(0)
   })
 
-  it('reaches no water-event sheet on the way into a fault', () => {
-    /* Rule 0 on the neighbouring guards: opening the overlay on a fault must
-       not drag the water-only flows in with it. */
+  it('reaches no water-event sheet on a fault either', () => {
+    /* Rule 0 on the neighbouring guards. It used to mean "opening the overlay
+       on a fault must not drag the water-only flows in with it"; now that the
+       overlay does not open at all it is the same assertion one layer out —
+       nothing on a fault page may reach a water-event flow. */
     mount(faulted, '?focus=event')
     expect(
       within(document.body).queryByText('Ignore this water event?'),

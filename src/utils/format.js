@@ -145,6 +145,22 @@ export function formatDate(date, context = 'alert') {
   }
 }
 
+/* `resolveEventClock` WAS HERE -- deleted 2026-11-04.
+ *
+ * It was added that morning for one reason: the dataset's active-event record
+ * carried `startedAt` as a BARE WALL CLOCK with no day on it, so a card that
+ * wanted to print a date had to RECOVER one -- by walking the event's `age`
+ * back from now, or, failing that, by assuming the clock's most recent
+ * occurrence. Both are guesses, and the second one is how a ten-hour event
+ * could be dated to the wrong day entirely.
+ *
+ * The record now carries `detectedAtIso`, a full ISO instant (buildTree.js
+ * `buildEventRecord`), and the bare clock beside it is FORMATTED FROM that
+ * instant rather than rolled separately. There is nothing left to recover, so
+ * the recovery is gone rather than left behind as a path that can still be
+ * taken. `parseDuration`, which it used, is kept -- it has other callers.
+ */
+
 /**
  * Format a date for display, with "Just now" for < 1 minute
  * @param {Date|string} date

@@ -126,6 +126,15 @@ function updateActiveAlert(p, ts) {
         label,
         flowRate: p.flowRate, volume: p.volume,
         startedAt: ts,
+        /* THE SAME ISO DISCIPLINE AS THE GENERATED RECORD -- 2026-11-04.
+           A pushed event is created at INTERACTION time, so it cannot be built
+           at module scope off BUILD_NOW and it will always have its own
+           anchor; that is correct and is not what was being unified. What it
+           CAN do is carry an absolute instant rather than a bare "HH:MM", so
+           every surface dates it the same way it dates a generated one and
+           nothing has to recover a day from a clock. `ts` is this push's wall
+           clock; `startedAtIso` is the same moment, in full. */
+        startedAtIso: new Date().toISOString(),
       });
       return true;
     }
@@ -138,6 +147,12 @@ function updateActiveAlert(p, ts) {
         label: existing?.label || label,
         flowRate, volume,
         startedAt: existing?.startedAt || ts,
+        /* The instant the event STARTED, carried forward from the Warning
+           push that opened it. A record written before `startedAtIso` existed
+           has none, and the card then draws no date rather than a guessed
+           one. */
+        startedAtIso: existing?.startedAtIso || new Date().toISOString(),
+        endedAtIso: new Date().toISOString(),
         // How long it ran. The End-of-Leak push has always CARRIED this
         // (pushCatalog LE_01's `duration` param, default "2 h 14 m") and this
         // record has always dropped it, which was invisible while nothing
@@ -153,6 +168,8 @@ function updateActiveAlert(p, ts) {
     }
     // Ongoing / Shutoff (incl. VC_S_02, VC_OK_02)
     const startedAt = existing?.startedAt || ts;
+    /* Same instant, carried through every later phase of the same event. */
+    const startedAtIso = existing?.startedAtIso || new Date().toISOString();
     const leakType = existing?.type || newType;
     let phase = 'warning';
     let valveOverride;
@@ -169,6 +186,7 @@ function updateActiveAlert(p, ts) {
       volume:   p.volume   || existing?.volume,
       ...(valveOverride ? { valveOverride } : {}),
       startedAt,
+      startedAtIso,
     });
     return true;
   }
@@ -184,6 +202,10 @@ function updateActiveAlert(p, ts) {
       type: p.type,
       label: p.title || labelMap[p.type],
       startedAt: ts,
+      /* Same ISO discipline as a pushed water event and as every generated
+         alert: an absolute instant, so no surface recovers a day from a
+         bare clock. */
+      startedAtIso: new Date().toISOString(),
     });
     return true;
   }

@@ -330,15 +330,30 @@ describe('the fault branch is unchanged', () => {
     expect(within(document.body).queryByText(SHEET_MARKER)).toBeNull()
   })
 
-  it('?focus=event on a fault still opens the fault, never a concluded event', () => {
+  it('?focus=event on a fault opens NOTHING — not even a concluded event', () => {
+    /* INVERTED 2026-11-03. This asserted that the deep link "still opens the
+       fault, never a concluded event"; the owner has since ruled the event
+       screen water-only ("not for valve malfunction or disconnection power or
+       stuff like that"), so the route is closed and the fault stays on the
+       System page. The HALF THAT MATTERS TO THIS FILE is unchanged and is
+       what is still pinned below: a fault must not fall through into the
+       CONCLUDED layout. Every system carries a closed incident, so a gate
+       written as `isWaterEvent(alert) || hasConcludedEvent(id)` would have
+       opened last month's leak over a live valve error. The live alert is
+       asked first and answers on its own.
+
+       The overlay's own fault branch is NOT retired — it is still reachable
+       by mounting the component directly, which the test above does, and
+       which is why that one is left alone. What changed is the ROUTE. */
     mountPage(faulted, '?focus=event')
-    expect(overlayIsOpen()).toBe(true)
-    /* `concludedEventFor` is only consulted when there is no live alert at
-       all, so a fault cannot fall through into the water layout. */
+    expect(overlayIsOpen(), 'the event screen is for water events only').toBe(false)
+    /* No panel at all, asked the way this file asks it everywhere else.
+       NOT `queryByText('Ended')`: the System page behind draws that word
+       itself, on every resolved row of its own Events Timeline (see the
+       `inOverlay` note above), so an unscoped match would prove nothing. */
     expect(
-      inOverlay().queryByText('Event graph'),
-      'the fault branch draws its own sections',
-    ).toBeTruthy()
-    expect(inOverlay().queryByText('Ended')).toBeNull()
+      screen.queryByRole('dialog'),
+      'nothing resolved a concluded event behind the refusal either',
+    ).toBeNull()
   })
 })

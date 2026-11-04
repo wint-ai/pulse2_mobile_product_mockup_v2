@@ -46,7 +46,10 @@ import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
 import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
 import { SYSTEMS } from '@/data/systems'
 import { getActiveIncident, getNotification } from '@/data/incidents'
-import { getSystemUnits } from '@/data/systemDetails'
+import { getActivePolicy, getSystemUnits } from '@/data/systemDetails'
+/* What "operable" means, asked of the module that owns it rather than
+   re-derived here — see the `valveSys` fixture. */
+import { canActuate } from '@/v2/components/valveScope'
 import { isIgnored, ignoreIncident, clearIgnored } from '@/data/ignoredIncidents'
 import { isInvestigating, startInvestigating, stopInvestigating } from '@/data/investigatingStore'
 import { getCurrentActor } from '@/data/currentUser'
@@ -72,7 +75,26 @@ const faultSys = SYSTEMS.find(s => s.alert && !WATER.has(s.alert.type))
     valve control on a fault overlay. The fixture was always meant to be a
     leak — the block directly beneath says so about its own two cases — so
     this is the predicate being corrected, not relaxed. */
-const valveSys = SYSTEMS.find(s => WATER.has(s.alert?.type) && hasValve(s))
+/* ── AND IT MUST BE AN OPERABLE VALVE — 2026-11-03, the THIRD correction of
+   this same predicate, for the third time the same way: the fixture said less
+   than the tests meant and the dataset moved underneath it.
+
+   Every test below this line is about the valve CONTROL — that there is
+   exactly one, that it reads "Close valve now", that tapping it opens
+   ValveConfirmSheet and commits nothing. A system whose valve is in `error`
+   has no such control any more: `valveScope.js` rules it not actuable, and
+   ValveStatusCard now draws the state the owner designed for it — the action
+   present, visibly unavailable, and aria-disabled. That is correct behaviour,
+   not a regression, so the fixture is what has to say which system it wants.
+
+   It mattered immediately: `buildTree.js:472` spends one water event per site
+   on an already-faulted system on purpose, and the FIRST water-event-with-a-
+   valve system in the fleet is exactly that one (`ws-10788`). Ten tests here
+   went looking for a live close button on the one system designed not to have
+   one. `valveFaultedState.dom.test.jsx` owns that system's behaviour. */
+const operable = s => hasValve(s) && canActuate(s)
+
+const valveSys = SYSTEMS.find(s => WATER.has(s.alert?.type) && operable(s))
 
 /* buildTree.js records 20 MRG systems as genuinely metering-only. The two
    tests below need one carrying a WATER EVENT specifically, not any alert:
@@ -88,6 +110,16 @@ const valveSys = SYSTEMS.find(s => WATER.has(s.alert?.type) && hasValve(s))
    never meant to be there. The predicate now says what the tests mean. */
 const noValveSys = SYSTEMS.find(s => WATER.has(s.alert?.type) && !hasValve(s))
 
+/* A water event on a system whose auto-shut-off is NOT enabled — the one
+   state in which ValveStatusCard would otherwise draw its Attention
+   disclosure. Picked out of the dataset so the absence test below cannot go
+   vacuous against a fleet where every valve happens to be armed.
+   `operable` for the same reason as `valveSys` above — its test taps the live
+   close button, which a faulted valve no longer offers. */
+const autoOffValveSys = SYSTEMS.find(
+  s => WATER.has(s.alert?.type) && operable(s) && getActivePolicy(s.id)?.autoShutoff !== 'Enabled',
+)
+
 /** Clean every store this surface reads, so no test inherits another's claim. */
 function resetStores(id) {
   if (!id) return
@@ -95,7 +127,7 @@ function resetStores(id) {
   clearIgnored(id)
 }
 
-const ALL_IDS = [leakSys?.id, faultSys?.id, valveSys?.id, noValveSys?.id]
+const ALL_IDS = [leakSys?.id, faultSys?.id, valveSys?.id, noValveSys?.id, autoOffValveSys?.id]
 
 beforeEach(() => {
   ALL_IDS.forEach(resetStores)
@@ -187,15 +219,54 @@ describe('the two layouts', () => {
     expect(screen.queryByText('Events Timeline')).toBeNull()
   })
 
-  it('gives the fault an event id in the fault vocabulary, not a leak id', () => {
+  /* ── ONE EVENT, ONE ID — rewritten 2026-11-04 ──────────────────────────
+     What this protects has not changed: a device fault must not be labelled
+     with a leak's id. What changed is WHERE the id comes from. There used to
+     be three producers of "the id of this event" and this surface used its
+     own, `toLeakId(incident)`, which printed `lk-6215` while /alerts printed
+     `LK-0245` and /events/system/:id printed `LK-6363024` — three strings,
+     one event. They are now one: the canonical record's `eventId`
+     (`displayId`, parity.js), carried on `system.alert`.
+
+     So the assertion is no longer a shape regex over a format this surface
+     happened to use. It is the stronger statement the fix makes true: the id
+     ON SCREEN IS THE RECORD'S OWN ID, to the character. A shape regex would
+     have passed for any of the three. */
+  it('shows the record’s own event id, in the fault vocabulary and not a leak id', () => {
     renderOverlay({ system: faultSys })
-    expect(screen.getByText(/^(off|ve|pwr|bat|evt)-\d{4}$/)).toBeInTheDocument()
+    const id = faultSys.alert.eventId
+    expect(id, 'the fault record must carry an id for this to assert anything').toBeTruthy()
+    expect(screen.getByText(id)).toBeInTheDocument()
+    /* The fault vocabulary: comms / valve / power, never the leak prefix. */
+    expect(id).toMatch(/^(CM|VE|PW)-/)
     expect(screen.queryByText(/^lk-\d{4}$/)).toBeNull()
   })
 })
 
 /* The 2026-10-17 design-system pass: the owner's "use design as we have in the
    system page card view" / "events timeline use the same as we already use". */
+/* ── THE DETECTED LINE CARRIES A DATE ──────────────────────────────────────
+   2026-11-03, the owner on a screenshot of the hero card: "Date is missing on
+   the event card. On the event flow."
+
+   It used to render the dataset's bare `alert.startedAt` — "16:14", a clock
+   with no day. On an event that can run ten hours and more (the live demo
+   event reads "Duration 10h 07m") that does not say WHICH day it started,
+   and the format standard bans the relative "10h ago" that used to cover for
+   it.
+
+   PINNED TO THE CARD FORMAT, `Mar 4 · 14:35`:
+   pulse2_mobile_product_sandbox/docs/wint-format-standards.md — "Alerts/cards"
+   — no year, middle dot, 24-hour clock, named month.
+
+   DIVERGES FROM FIGMA, DELIBERATELY. YEmjkKS4xaA827Zm8w3oXx node
+   199772:145451 draws this line as "Detected Apr 02, 2026 08:13:15" — a full
+   timestamp with a year and seconds, which is the standard's TOOLTIP format,
+   not its card format. This is a card; the standard is binding and more
+   recent than the frame. Flagged for the owner to overrule, and this test is
+   where the ruling would land. */
+const DETECTED_CARD_FORMAT = /^[A-Z][a-z]{2} \d{1,2} · \d{2}:\d{2}$/
+
 describe('it reuses the app’s own components', () => {
   it('draws the summary with the System page’s AlertCard, from the same row', () => {
     renderOverlay()
@@ -210,7 +281,7 @@ describe('it reuses the app’s own components', () => {
     expect(screen.getAllByText(short).length).toBeGreaterThan(0)
     expect(screen.getByRole('dialog').getAttribute('aria-labelledby')).toBeTruthy()
     expect(screen.getByText('Detected')).toBeInTheDocument()
-    expect(screen.getByText(leakSys.alert.startedAt)).toBeInTheDocument()
+    expect(screen.getByText(DETECTED_CARD_FORMAT)).toBeInTheDocument()
     /* Just the unit now: the tile under it is captioned "Flow Rate", so
        "L/H flow rate" said it twice and overflowed the node's 161px tile. */
     expect(screen.getByText('L/H')).toBeInTheDocument()
@@ -219,6 +290,43 @@ describe('it reuses the app’s own components', () => {
     // as SystemPageV2Screen's alertCardsFor builds it.
     const rate = String(leakSys.alert.flowRate).replace(/[^\d,.]/g, '')
     expect(screen.getAllByText(rate).length).toBeGreaterThan(0)
+  })
+
+  /* THE DEFECT ITSELF, pinned so it cannot come back: a bare clock on the
+     Detected line, with no day attached to it. */
+  /* ── REWRITTEN 2026-11-04, AGAINST WHAT IT PROTECTS ────────────────────
+     This asserted `detected.textContent.endsWith(\`· ${leakSys.alert.startedAt}\`)`
+     — it pinned the line to a FIELD, by name, and that field was the bare
+     clock the defect was made of. It passed for the wrong reason: it would
+     have gone on passing if the card had printed nothing but a day in front
+     of a clock that came from a different `Date.now()` than everything else
+     on the screen, which is exactly what was happening.
+
+     What it is meant to protect is: the Detected line is DATED, in the card
+     format, and it names THE event's one detection instant. So that is what
+     it now says — the date and the clock are both read back off
+     `alert.startedAtIso`, the single ISO instant the record carries, rather
+     than off a second field that merely tends to agree with it. */
+  it('dates the Detected line, from the one instant, and never leaves it a bare clock', () => {
+    renderOverlay()
+    const detected = screen.getByText(DETECTED_CARD_FORMAT)
+
+    const iso = leakSys.alert.startedAtIso
+    expect(iso, 'the record must carry an absolute instant').toBeTruthy()
+    const at = new Date(iso)
+    const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const pad = n => String(n).padStart(2, '0')
+    /* The card format, wint-format-standards.md "Alerts/cards": no year,
+       middle dot, 24-hour, named month. Built here from the instant so the
+       expectation cannot be satisfied by any other moment. */
+    const expected = `${MON[at.getMonth()]} ${at.getDate()} \u00B7 ${pad(at.getHours())}:${pad(at.getMinutes())}`
+    expect(detected.textContent).toBe(expected)
+
+    /* A DAY IS ALWAYS PRESENT. The defect was a clock on its own, so the
+       negative is kept and is now about the SHAPE rather than about one
+       field's value: nothing on this surface renders a bare "HH:MM" as its
+       whole content. */
+    expect(screen.queryByText(/^\d{1,2}:\d{2}$/)).toBeNull()
   })
 
   it('does NOT draw AlertCard’s own action row — Manage event is the only one', () => {
@@ -369,6 +477,38 @@ describe('the valve', () => {
     const readout = screen.getByRole('region', { name: 'Valve status' })
     expect(within(readout).getByText('Open')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^close valve now$/i })).toBeInTheDocument()
+  })
+
+  /* ── THE ATTENTION DISCLOSURE IS OFF ON THIS SURFACE ────────────────────
+     2026-11-03, the owner on a screenshot of this card: "Remove the attention
+     collapse expand component. I don't want it at[...]".
+
+     A Rule 0 removal with the owner's explicit permission. It is turned OFF
+     rather than deleted — the block lives in ValveStatusCard, which the
+     System page and the /valves screens also mount, and the instruction was
+     scoped to the event screen. `showAttention={false}` at this one call
+     site is the whole change, which is exactly the kind of thing that creeps
+     back on the next pass through the card, so its absence is pinned here.
+
+     WHAT WENT WITH IT, for whoever reads this next: the trigger row
+     "Attention" and, behind the chevron, "The valve will not automatically
+     shut off and water loss is at risk". On a WATER event the same warning is
+     still made twice over — the "Disabled" Auto-shutoff badge in this card,
+     and `advice()`'s "Nothing will close the valve for you..." under "What
+     should I do". On a FAULT it is the badge alone. */
+  it('draws NO Attention disclosure, even with auto-shut-off disabled', () => {
+    expect(autoOffValveSys, 'the dataset must still carry an auto-off system').toBeTruthy()
+    renderOverlay({ system: autoOffValveSys, valve: { state: 'open', onIntent: () => {} } })
+    const readout = screen.getByRole('region', { name: 'Valve status' })
+    /* NOT VACUOUS: this is the exact state that used to draw the block. */
+    expect(within(readout).getByText('Disabled')).toBeInTheDocument()
+    expect(within(readout).queryByText('Attention')).toBeNull()
+    expect(
+      within(readout).queryByText(/will not automatically shut off/i),
+      'the collapsed sentence must not be left mounted behind `hidden` either',
+    ).toBeNull()
+    /* Readout straight into the button, with nothing orphaned between them. */
+    expect(within(readout).getByRole('button', { name: /^close valve now$/i })).toBeInTheDocument()
   })
 
   it('draws NO valve readout and NO valve action when the system has no valve', () => {
@@ -1102,7 +1242,12 @@ describe('Event graph', () => {
     const { header, panel } = section(/^Event graph$/)
     fireEvent.click(header)
     expect(panel.hidden).toBe(false)
-    expect(within(panel).getByText(/L\/h peak/)).toBeInTheDocument()
+    /* The unit moved up beside the figure on 2026-11-04, so "L/h" and "peak"
+       are two elements now and no single node carries both. The guarantee is
+       the one this always tested — recharts draws nothing here, so the peak
+       has to be readable as TEXT — and the panel's own textContent is where
+       that is true whatever the markup. */
+    expect(panel.textContent).toMatch(/\d+\s*L\/h\s*peak/)
   })
 })
 

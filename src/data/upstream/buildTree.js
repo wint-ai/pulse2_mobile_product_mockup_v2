@@ -24,6 +24,8 @@
  */
 import snapshot from './mrg-snapshot.json';
 import {
+  BUILD_NOW,
+  displayId,
   stableHash,
   mix32,
   systemEventType,
@@ -31,12 +33,29 @@ import {
   systemErrorKind,
   ALL_CLEAR_LOCATION_IDS,
 } from './parity';
+import { readFleetState, FLEET_CLEAR } from '../fleetState';
+
+/* ── FLEET STATE ─────────────────────────────────────────────────────────────
+   'live' (the default) or 'clear'. Read ONCE, here, at module scope: this file
+   evaluates at import, so the mode cannot change without a full page reload and
+   pretending otherwise would leave a stale tree beside a flipped flag.
+
+   'clear' is not a second dataset and not a second snapshot. It is the two
+   budgets below moved to their limits — every site clean, no water events — so
+   the entities (accounts, locations, systems, ids, names, addresses) are
+   identical in both modes by construction. See src/data/fleetState.js. */
+export const FLEET_STATE = readFleetState();
+const ALL_CLEAR = FLEET_STATE === FLEET_CLEAR;
 
 /* The share of a location's systems that may carry an active water event at
    once. Owner-set, 2026-10-24. Exported so the invariant test asserts against
    the same number the generator uses, rather than a second copy of 0.2 that
-   can drift away from it. */
-export const WATER_EVENT_SITE_CAP = 0.2;
+   can drift away from it.
+
+   Zero in 'clear' mode. Belt and braces with the clean floor below — with every
+   site clean this cap is never consulted, but a site that somehow escaped the
+   clean set must still spend no events. */
+export const WATER_EVENT_SITE_CAP = ALL_CLEAR ? 0 : 0.2;
 
 export const SNAPSHOT_META = snapshot._meta;
 export const ROOT_ACCOUNT_ID = snapshot.rootAccountId;
@@ -69,57 +88,196 @@ function relativeAge(hoursAgo) {
 }
 
 /**
- * "Apr 02, 2026 08:13:15" — the format the Alert card's Detected line draws
- * (Figma 199394:79703). Added ALONGSIDE clockFromHoursAgo rather than
- * replacing it: a bare "08:13" is still what the compact surfaces want, and
- * changing that field's meaning would ripple through every one of them.
+ * -- THE CANONICAL EVENT RECORD ----------------------------------------------
+ *
+ * ONE EVENT, ONE RECORD, BUILT ONCE. Owner, 2026-11-04: "It doesn't matter
+ * where you are looking from on specific event. If you are looking at it from
+ * the location page, from the account page, or system page, or even the event
+ * page, all data needs to be, always, to reflect the same data."
+ *
+ * WHAT WAS WRONG. Three generators each rolled their OWN `hoursAgo` for the
+ * same event, from three different hash salts, and then ran the identical
+ * formula over them:
+ *
+ *   buildTree.js          stableHash('active:'   + id) -> 10.1167 h
+ *   generateEvents.js     stableHash('event:'    + id) ->  9.8167 h
+ *   generateIncidents.js  stableHash('incident:' + id) ->  5.6833 h
+ *
+ * For esrt-bldg-A-apt-2 that is 18 minutes of disagreement between the alert
+ * card and the Alerts list, and 4h 26m between the alert card and the event
+ * screen's timeline. generateEvents even carried a comment saying it
+ * "[r]econstruct[s] the alert's start from its age label so event and alert
+ * agree" - it never read the alert, it re-rolled.
+ *
+ * THE OTHER TWO SALTS ARE GONE. `generateEvents.js` and `generateIncidents.js`
+ * are now projections of this record: they keep their exported shapes so no
+ * consumer moves, but every clock, duration, figure and id in them traces back
+ * to the object below.
+ *
+ * THE FIELD THE WHOLE BUG HINGED ON is `detectedAtIso`: a full ISO instant,
+ * never a bare clock. `startedAt` used to be "HH:MM" with no day, and
+ * `events.js` stamped it onto TODAY unconditionally - which is how the Alerts
+ * list came to show this event at a FUTURE time today with a duration of `0s`
+ * (negative, clamped by Math.max(0, ...)). The bare clock is still emitted for
+ * the compact surfaces that draw one, but it is DERIVED from the instant, so
+ * the two cannot disagree about the minute.
+ *
+ * ALL CLOCKS COME OFF `BUILD_NOW` (parity.js), read once per page load. They
+ * still advance between loads - all of them, by the same delta.
  */
-function stampFromHoursAgo(hoursAgo) {
-  const d = new Date(Date.now() - hoursAgo * 3600000);
+function buildEventRecord(id, leak, valve) {
+  if (!leak) return null;
+  const h = stableHash(`active:${id}`);
+  /* THE ONE ROLL. `active:` survives because it is the seed the alert card -
+     the surface most people look at - already used, so unifying on it moves
+     the fewest numbers on screen. */
+  const hoursAgo = 1 + (h % 11) + (h % 60) / 60;
+  const flowLph = leak === 'high' ? 120 + (h % 480) : 18 + (h % 34);
+  const volumeL = Math.round(flowLph * hoursAgo);
+  const detectedAtMs = BUILD_NOW - hoursAgo * 3600000;
+  /* Offsets are applied HERE, at BUILD time, so every reader gets the same
+     instant for the same milestone rather than re-deriving it against its own
+     `now`. */
+  const at = offsetH => new Date(detectedAtMs + offsetH * 3600000).toISOString();
+
+  /* The lifecycle. Longer-running events accumulate more of it, so the demo
+     has both short "just detected" and rich multi-step timelines - the same
+     thresholds generateIncidents.js applied, now gated on the ONE duration
+     instead of on a seed unrelated to it. */
+  const milestones = [
+    { kind: 'detected', atIso: at(0), flowLph },
+    { kind: 'alert-sent', atIso: at(0) },
+  ];
+  if (hoursAgo > 2) {
+    milestones.push({ kind: 'on-it', atIso: at(0.4) });
+    milestones.push({ kind: 'continues', atIso: at(1), flowLph });
+  }
+  if (hoursAgo > 5 && leak === 'high') {
+    milestones.push({ kind: 'volume-milestone', atIso: at(3), volumeL: 1000 });
+  }
+  if (valve === 'closed') {
+    milestones.push({ kind: 'valve-closed', atIso: at(Math.min(hoursAgo - 0.1, 4)) });
+  }
+
+  return {
+    /* THE ONE EVENT ID. `displayId('LK', id)` is the form /events/system/:id
+       already showed, so it is the survivor; events.js's `hashId` and the
+       overlay's `toLeakId` are retired. */
+    eventId: displayId('LK', id),
+    systemId: id,
+    type: leak === 'high' ? 'leak-high' : 'leak-low',
+    label: leak === 'high' ? 'High Flow Water Event' : 'Low Flow Water Event',
+    detectedAtIso: new Date(detectedAtMs).toISOString(),
+    /* PRESENCE IS WHAT "RESOLVED" MEANS. An active event has none. */
+    endedAtIso: null,
+    /* Derived once from the instants. Never re-rolled. */
+    durationSec: Math.round(hoursAgo * 3600),
+    /* NUMBERS, not pre-formatted strings. The alert below formats them for
+       display; anything that needs to compute reads these. */
+    flowLph,
+    volumeL,
+    /* THE STATUS PILL, off this record. It used to come from `getLeakState`,
+       which asked which STEPS an incident had - and those steps were gated on
+       the incident seed, so the pill beside a duration was decided by a draw
+       with nothing to do with it. Same three states, same thresholds, one
+       source. */
+    status: valve === 'closed' ? 'ShutOff' : hoursAgo > 2 ? 'Ongoing' : 'Warning',
+    milestones,
+  };
+}
+
+/** `relativeAge` over the record's seconds, so both read one duration. */
+function relativeAgeOf(seconds) {
+  return relativeAge(seconds / 3600);
+}
+
+/**
+ * "Apr 02, 2026 08:13:15" - the format the Alert card's Detected line draws
+ * (Figma 199394:79703).
+ */
+function stampOf(ms) {
+  const d = new Date(ms);
   const p2 = (n) => String(n).padStart(2, '0');
   const month = d.toLocaleString('en-US', { month: 'short' });
   return `${month} ${p2(d.getDate())}, ${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
 }
 
-function clockFromHoursAgo(hoursAgo) {
-  const d = new Date(Date.now() - hoursAgo * 3600000);
+/** The bare wall clock of an instant. DERIVED, never rolled separately. */
+function clockOf(ms) {
+  const d = new Date(ms);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+const FAULT_ID_PREFIX = { offline: 'CM', 'valve-error': 'VE', 'power-lost': 'PW' };
+
+/**
+ * A fault's own single-seed record. Faults are NOT water events - they carry
+ * no flow, no volume and no lifecycle - but they are alerts, and every alert
+ * now carries an absolute instant so that no surface has to recover a day from
+ * a bare clock. Each fault kind already had exactly one salt, so there was no
+ * three-way split here to collapse; what is new is the ISO instant.
+ */
+function faultRecord(id, type, label, salt, span) {
+  const h = stableHash(`${salt}:${id}`);
+  const hoursAgo = span(h);
+  const detectedAtIso = new Date(BUILD_NOW - hoursAgo * 3600000).toISOString();
+  return {
+    eventId: displayId(FAULT_ID_PREFIX[type], id),
+    systemId: id,
+    type,
+    label,
+    detectedAtIso,
+    endedAtIso: null,
+    durationSec: Math.round(hoursAgo * 3600),
+    flowLph: null,
+    volumeL: null,
+    status: 'Ongoing',
+    milestones: [{ kind: 'detected', atIso: detectedAtIso }],
+  };
 }
 
 /**
  * The active-event card for a system, or null when it has no active event.
- * Volume/flow use the same hash family the web uses for its resolved incidents,
- * so numbers are stable across reloads rather than random per render.
+ *
+ * A PROJECTION of the record above - every field here is formatted FROM it,
+ * nothing is drawn independently. The pre-formatted strings stay because every
+ * compact surface in the app reads them, but they are now one source's output.
  */
-function buildAlert(id, leak, valve, comm, power) {
-  if (leak) {
-    const h = stableHash(`active:${id}`);
-    const hoursAgo = 1 + (h % 11) + (h % 60) / 60;
-    const flowRate = leak === 'high' ? 120 + (h % 480) : 18 + (h % 34);
-    const volume = Math.round(flowRate * hoursAgo);
-    return {
-      type: leak === 'high' ? 'leak-high' : 'leak-low',
-      label: leak === 'high' ? 'High Flow Water Event' : 'Low Flow Water Event',
-      age: relativeAge(hoursAgo),
-      startedAt: clockFromHoursAgo(hoursAgo),
-      startedAtStamp: stampFromHoursAgo(hoursAgo),
-      volume: `${volume.toLocaleString('en-US')}L`,
-      flowRate: `${flowRate} L/hour`,
-    };
-  }
-  // Non-leak faults still surface as alerts, in the app's existing priority order.
-  if (comm === 'offline') {
-    const h = stableHash(`offline:${id}`);
-    return { type: 'offline', label: 'System Offline', age: relativeAge(1 + (h % 40)), startedAt: clockFromHoursAgo(1 + (h % 40)), volume: null };
-  }
-  if (valve === 'error') {
-    const h = stableHash(`valve:${id}`);
-    return { type: 'valve-error', label: 'Valve error', age: relativeAge(1 + (h % 12)), startedAt: clockFromHoursAgo(1 + (h % 12)), volume: null };
-  }
-  if (power === 'ac-lost') {
-    const h = stableHash(`power:${id}`);
-    return { type: 'power-lost', label: 'AC Power Lost', age: relativeAge(1 + (h % 30)), startedAt: clockFromHoursAgo(1 + (h % 30)), volume: null };
-  }
+function alertFromRecord(rec) {
+  if (!rec) return null;
+  const ms = new Date(rec.detectedAtIso).getTime();
+  const isLeak = rec.type === 'leak-high' || rec.type === 'leak-low';
+  return {
+    type: rec.type,
+    label: rec.label,
+    age: relativeAgeOf(rec.durationSec),
+    /* THE ABSOLUTE INSTANT. Every surface's Detected line resolves from this
+       one field; nothing reconstructs a day from a clock any more. */
+    startedAtIso: rec.detectedAtIso,
+    /* Derived from the same instant - the compact surfaces (the flow chart's
+       axis, the timeline rows) still want a bare clock, and this one cannot
+       drift from the stamp beside it because both are `detectedAtIso`
+       formatted. */
+    startedAt: clockOf(ms),
+    startedAtStamp: stampOf(ms),
+    durationSec: rec.durationSec,
+    eventId: rec.eventId,
+    status: rec.status,
+    volume: isLeak ? `${rec.volumeL.toLocaleString('en-US')}L` : null,
+    flowRate: isLeak ? `${rec.flowLph} L/hour` : null,
+  };
+}
+
+/**
+ * The record behind a system's alert: the canonical water event when it has
+ * one, otherwise the fault it is in, in the app's existing priority order.
+ * A leak outranks a device fault - see FAULT_EVENT_PRIORITY below.
+ */
+function buildEventFor(id, leak, valve, comm, power) {
+  if (leak) return buildEventRecord(id, leak, valve);
+  if (comm === 'offline') return faultRecord(id, 'offline', 'System Offline', 'offline', h => 1 + (h % 40));
+  if (valve === 'error') return faultRecord(id, 'valve-error', 'Valve error', 'valve', h => 1 + (h % 12));
+  if (power === 'ac-lost') return faultRecord(id, 'power-lost', 'AC Power Lost', 'power', h => 1 + (h % 30));
   return null;
 }
 
@@ -201,7 +359,12 @@ const PROTECTION_KINDS = ['comm', 'valve', 'power', 'recipients'];
 // At least this share of each parent's leaf sites is fully clean. Half is the
 // owner's floor; `Math.ceil` means an odd count rounds in the clean direction
 // (12 office sites → 6 clean, 5 residential buildings → 3 clean).
-const CLEAN_SITE_FLOOR = 0.5;
+//
+// 1 in 'clear' mode: EVERY site clean. That is the whole of the all-clear
+// fleet — the clean-site path in phase 3 already empties `plan` for a clean
+// site, so nothing here needs a parallel "healthy" branch, and anything the
+// clean path forgets would be forgotten in both modes rather than only in one.
+const CLEAN_SITE_FLOOR = ALL_CLEAR ? 1 : 0.5;
 
 /* Residential apartments are synthetic — the web has no CRM record for them and
    renders them with no device errors at all (see systemErrorKind in parity.js),
@@ -227,7 +390,7 @@ const RESIDENTIAL_FAULT_CAP = 2;
    A valve error first — once. The valve is the thing that would have STOPPED
    the water event, so a leak over a failed valve is the case the UI most needs
    to be able to draw, and src/__tests__/fixtures.js LOW_FLOW_VALVE_ERROR
-   selects exactly it. But `buildAlert` gives the leak priority, so that pairing
+   selects exactly it. But `buildEventFor` gives the leak priority, so that pairing
    HIDES the valve error's own alert card — and with only two or three valve
    errors in the whole fleet, preferring valve at every site spent all of them
    and made the "Valve error" alert type unreachable. (It did: the alert census
@@ -469,7 +632,7 @@ for (const siteId of siteOrder) {
   /* ONE event goes on top of an already-faulted system; the rest go to clear
      ones. Both halves of that are load-bearing.
 
-     `buildAlert` gives a leak priority over a device fault, so an event landing
+     `buildEventFor` gives a leak priority over a device fault, so an event landing
      on a faulted system HIDES that system's Offline / Valve error / AC Power
      Lost card. Sending every event to a faulted system would make three of the
      five alert types unreachable; sending none there would delete the
@@ -525,6 +688,10 @@ for (const rec of pending) {
     const comm = kind === 'comm' ? 'offline' : 'online';
     const power = kind === 'power' ? 'ac-lost' : derived(id, 'power', BENIGN_POWER);
 
+    /* Built before the literal, not inside it, because the alert is a
+       PROJECTION of it and both have to come from the one call. */
+    const eventRecord = buildEventFor(id, leak, valve, comm, power);
+
     systems.push({
       id,
       account: node.system?.accountSfId || l4?.site?.accountSfId || ROOT_ACCOUNT_ID,
@@ -546,7 +713,11 @@ for (const rec of pending) {
       power,
       leak,
       offline: comm === 'offline',
-      alert: buildAlert(id, leak, valve, comm, power),
+      /* THE CANONICAL RECORD, carried on the system so every generator and
+         every screen projects the same object instead of re-deriving one.
+         Null when the system has nothing wrong with it. */
+      event: eventRecord,
+      alert: alertFromRecord(eventRecord),
 
       // Residential apartments are tenant systems — they get Home/Away mode.
       homeAway: isResidential,

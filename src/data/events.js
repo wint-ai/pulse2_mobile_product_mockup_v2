@@ -3,10 +3,15 @@
 
 import { SYSTEMS, applySimOverlay } from './systems';
 import { getActiveIncident, getNotification } from './incidents';
-import { isIgnored, getAllIgnored, getIgnoredInfo } from './ignoredIncidents';
+/* `getAllIgnored` dropped from this import 2026-11-04: its one consumer was
+   `computeIgnoredEvents`, deprecated to a `return []` on 2026-06-15, so the
+   import has been dead since. eslint's no-unused-vars is an error in this
+   config and this file is being touched. */
+import { isIgnored, getIgnoredInfo } from './ignoredIncidents';
 import { getSimulatedAlerts, reloadSimulatedAlerts } from './simulatedAlerts';
 import { getAllSimulatedEvents } from './simulatedEvents';
 import { CURRENT_EVENTS_FROM_UPSTREAM, HISTORY_EVENTS_FROM_UPSTREAM } from './upstream/generateEvents';
+import { displayId } from './upstream/parity';
 
 // Active water events + errors, one per system carrying an alert.
 // Generated from the fleet — see src/data/upstream/generateEvents.js. The old
@@ -120,24 +125,21 @@ const STEP_TITLE = {
   'valve-closed':     'Valve Closed',
 };
 
-function hashId(s) {
-  let h = 0;
-  for (const c of (s || '')) h = (h * 31 + c.charCodeAt(0)) % 100000;
-  return h.toString().padStart(4, '0');
-}
-
 function initialsFor(name) {
   return (name || '').split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 }
 
-// Build a "today at HH:MM" naive ISO timestamp (no offset, treated as system-local downstream).
-function timestampFromTodayClock(hhmm) {
-  if (!hhmm || !/^\d{1,2}:\d{2}$/.test(hhmm)) return null;
-  const [hh, mm] = hhmm.split(':').map(Number);
-  const d = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(hh)}:${pad(mm)}:00`;
-}
+/* `timestampFromTodayClock` WAS HERE, AND IT WAS A BUG -- deleted 2026-11-04.
+   It took `alert.startedAt`, a bare "HH:MM" with no day on it, and stamped it
+   onto TODAY unconditionally. On an event detected yesterday evening that
+   produced a timestamp in the FUTURE, so this row rendered with tomorrow's
+   date and a duration of `0s` -- negative elapsed, clamped by Math.max(0, ...).
+   Visible in /alerts as "Nov 4 ... 0s" on a ten-hour-old event.
+
+   It existed only because the record had no day. It now has one:
+   `alert.startedAtIso` (buildTree.js `buildEventRecord`), which is the same
+   instant every other surface dates its Detected line from. Nothing recovers
+   a day from a clock any more. */
 
 function buildActiveEvent(sys) {
   const alert = sys.alert;
@@ -146,10 +148,12 @@ function buildActiveEvent(sys) {
   const incident = isLeak ? getActiveIncident(sys.id) : null;
   const notif = incident ? getNotification(incident) : null;
 
-  const timestamp = timestampFromTodayClock(alert.startedAt);
-  const durationSec = timestamp
-    ? Math.max(0, Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000))
-    : null;
+  /* THE ONE INSTANT and THE ONE DURATION, both straight off the canonical
+     record (via `sys.alert`, which is its projection). Neither is recomputed
+     here: the duration used to be `now - timestamp` over a timestamp this file
+     had just fabricated, which is how a 10-hour event came to print `0s`. */
+  const timestamp = alert.startedAtIso ?? null;
+  const durationSec = alert.durationSec ?? null;
 
   const path = sys.l4Name && sys.l3Name ? `${sys.l4Name} · ${sys.l3Name}` : (sys.l3Name || sys.l4Name || '');
 
@@ -162,12 +166,18 @@ function buildActiveEvent(sys) {
     detail = alert.volume ? `${alert.volume} · ${alert.flowRate}` : alert.flowRate;
   }
 
-  const idPrefix = isLeak ? 'LK' : alert.type === 'valve-error' ? 'VE' : alert.type === 'power-lost' ? 'PW' : 'CM';
-  const eventId = `${idPrefix}-${hashId(incident?.id || sys.id)}`;
+  /* THE ONE EVENT ID. This used to be a THIRD producer -- `hashId` over the
+     incident id, giving "LK-86215" where /events/system/:id showed
+     "LK-6363024" and the event hero showed "lk-6215", all for the same event
+     on esrt-bldg-A-apt-2. The record's
+     `eventId` is the survivor; the other two are retired. */
+  const eventId = alert.eventId ?? null;
 
   const metadata = {};
   if (alert.flowRate) metadata['Flow Rate'] = alert.flowRate;
   if (alert.volume) metadata['Volume Lost'] = alert.volume;
+  /* `alert.age` is `relativeAge(durationSec)` -- the same duration the row's
+     own `durationSec` carries, formatted. One number, two spellings. */
   if (alert.age) metadata['Duration'] = alert.age;
 
   const notifications = notif?.recipients?.length
@@ -262,7 +272,11 @@ function buildSecondaryEvent(sys, type) {
     resolved: false,
     dateGroup: 'Today',
     tappable: false,
-    eventId: `${idPrefix}-${hashId(sys.id + '_' + type)}`,
+    /* A secondary issue is not the system's primary event, so it cannot reuse
+       the record's id -- it is a different row for a different fault. Same
+       `displayId` family as every other id in the app, so there is still only
+       one id FORMAT. */
+    eventId: displayId(idPrefix, `${sys.id}_${type}`),
     severity: 'warning',
     metadata: {},
     notifications: [],

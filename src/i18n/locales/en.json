@@ -377,7 +377,11 @@
     "connect_pusher_desc": "Scan the QR shown on your laptop",
     "connect_pusher_long_desc": "Scan the QR shown on your laptop with your phone's camera, or type the code shown below it.",
     "enter_code": "Enter code shown on laptop",
-    "connect": "Connect"
+    "connect": "Connect",
+    "fleet_state_label": "What you'll see",
+    "fleet_state_clear": "All clear",
+    "fleet_state_live": "Leaks and faults",
+    "fleet_state_hint": "Past water events stay on the timeline either way."
   },
   "ignore_sheet": {
     "title": "Ignore this Water Event?",

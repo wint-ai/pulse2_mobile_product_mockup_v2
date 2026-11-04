@@ -121,6 +121,11 @@ import { SYSTEMS, computeWidgets, computeKPIs, getSystemById } from '@/data/syst
    the same module SystemPageV2Screen uses, so the two entry points into
    EventFocusOverlay cannot answer differently about one event. */
 import { getActiveIncident, getLeakState } from '@/data/incidents'
+/* THE ONE DETECTION INSTANT, asked of the module that owns it rather than
+   read off a field here — see eventAlertRow.js. A component file may not
+   export a plain function in this config, which is why it lives there. */
+import { detectedInstant } from '@/v2/components/eventAlertRow'
+import { formatDate } from '@/utils/format'
 import { ignoreIncident, isIgnored } from '@/data/ignoredIncidents'
 import { getCurrentActor } from '@/data/currentUser'
 /* The four history sources v1's Alerts screen reads (EventsScreen.jsx:169-174).
@@ -716,7 +721,29 @@ export default function HomeAllAccounts({ expanded = false }) {
         })(),
         type: s.alert?.type ?? null,
         valve: s.valve ?? null,
-        detectedAt: s.alert?.startedAt ?? '',
+        /* ── A BARE CLOCK, IN A FIELD NOTHING DRAWS YET — 2026-11-04 ──────
+           This read `s.alert?.startedAt`: "23:38" and nothing else, no day.
+
+           NOT CURRENTLY ON SCREEN, and that is said plainly rather than
+           implied: this page mounts `TriageBand` with these rows, and
+           TriageBand's row (199359:129097) draws the system, the place and the
+           DURATION — no detection time at all. So the bare clock here was not
+           a visible defect and dating it is not a visible fix. The field is
+           still corrected, for two reasons: it is the row shape
+           `ActiveWaterEventsCard` reads (its own Figma fixture fills this slot
+           with "Apr 02, 2026 08:13:15"), so the first surface to draw it would
+           have inherited the defect; and a bare clock sitting in a field named
+           `detectedAt` is the exact shape of the bug this change removes.
+
+           REPORTED, NOT DECIDED: that Home and the location page show a
+           duration and no detection instant at all is a product question for
+           the owner, not something to settle inside a data fix.
+
+           The long 'tooltip' shape matches that card's own fixture and the
+           System page's card. The card-vs-long disagreement between those and
+           the event hero is the owner's open question and is NOT settled
+           here. */
+        detectedAt: formatDate(detectedInstant(s.alert), 'tooltip'),
         duration: s.alert?.age ?? '',
         notifiedBy: null,
         ignored: false,
@@ -987,7 +1014,13 @@ export default function HomeAllAccounts({ expanded = false }) {
           ...base,
           id: `${s.id}:water`,
           type: s.alert.type,
-          timestamp: s.alert.startedAt ?? '',
+          /* THE INSTANT, not the clock. `EventOverlayV2.formatStamp` parses
+             an ISO and falls through to `String(value)` on anything else — so
+             this row used to print a bare "22:50" directly beneath the history
+             rows below, which pass `ev.timestamp` and therefore print
+             "Nov 03, 2026 22:50:09". One list, two spellings, from the same
+             dataset. Now one. */
+          timestamp: s.alert.startedAtIso ?? '',
           duration: s.alert.age ?? '',
           resolved: false,
         })

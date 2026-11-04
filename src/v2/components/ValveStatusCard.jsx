@@ -74,6 +74,59 @@
  * the state BEFORE that pass. It is still the rule if an escaped name is ever
  * pasted back in from Figma — but no live class string in this file carries
  * one now, and a fresh paste should resolve the fallback hex to a utility.
+ *
+ * ── 2026-11-03: THE CARD NOW HAS FOUR STATES, NOT TWO ────────────────────
+ * It drew open and closed only. `error` and `unknown` both fell through the
+ * `isOpen = state === 'open'` branch, so:
+ *
+ *   · the redraw mount (EventFocusOverlay) drew a FAULTED valve as "Open"
+ *     with a live, filled, full-width "Close valve now" primary. On
+ *     `ws-10788` — a live low-flow water event on a system whose valve is in
+ *     `error`, with auto-shutoff Disabled — the screen offered to stop a leak
+ *     with a control that cannot move the valve, and nothing else was going
+ *     to close it either.
+ *   · the System page mount drew the same valve as "Closed" with an
+ *     "Open valve" button, which is the same false statement pointing the
+ *     other way.
+ *
+ * RULE 0 (.claude/skills/v2-page-parity/SKILL.md — working functionality is
+ * never removed without the owner's explicit permission) IS SATISFIED, THREE
+ * TIMES OVER, and it is written down here rather than argued again later:
+ *   1. THE OWNER SUPPLIED THE DESIGN in direct answer to this exact question.
+ *      Figma board 199535:96542 draws the error state with the action
+ *      rendered unavailable. Disabling it on `error` is the instruction, not
+ *      an initiative.
+ *   2. THE CONTROL WAS NOT WORKING. `valveScope.js:242` lists 'error' as a
+ *      blocker and `canActuate` returns false for it; the valve has already
+ *      failed to respond to a command. Nothing that worked stopped working.
+ *   3. THE READOUT WAS FALSE. A faulted valve reported as "Open" is not a
+ *      scope change to correct; it is a bug fix.
+ *
+ * ── THE TWO NEW STATES — Figma board 199535:96542 ────────────────────────
+ *   199683:25996  ERROR    red glyph · the POSITION word KEPT and muted ·
+ *                          the action rendered unavailable (border + label,
+ *                          NO fill), the label still reading "Close valve"
+ *   199683:25974  UNKNOWN  pale glyph · the word "Unknown" at FULL ink (NOT
+ *                          muted, unlike error) · TWO 82px outline actions,
+ *                          "Close" and "Open", both live
+ *
+ * THE ONE DESIGN DECISION WORTH NOT UNDOING: on `error` THE READING SURVIVES.
+ * The icon carries the fault and the button carries the unavailability; the
+ * word still states where the valve physically is, one step quieter. Do not
+ * substitute "Valve error" for it — a card that replaces its reading with its
+ * fault has stopped reporting the thing it exists to report.
+ *
+ * TOKENS, AND WHY NOT THE FRAME'S SLATE STEPS. The frame emits
+ * --colors/slate/600 (#45556c), /400 (#90a1b9), /800 (#1d293d) and /900
+ * (#0f172b). This repo paints four themes, and a Tailwind colour utility that
+ * names a token it does not define falls through to stock Tailwind and then
+ * FREEZES in all four — the way at least three invisible-in-dark defects got
+ * in. Every step is mapped onto the semantic token that owns the same JOB,
+ * and each mapping is justified at the constant that uses it below.
+ *
+ * ASSETS — nothing downloaded for either state. `ValveStatus.jsx` has drawn
+ * five variants since 197639:253443, `error` (red, two-tone) and `unknown`
+ * (pale, dashed) among them; they are reused as they stand.
  */
 
 import { useEffect, useId, useState } from 'react'
@@ -161,6 +214,15 @@ const V2_ROW = String.raw`bg-slate-100 content-stretch flex gap-[8px] h-[70px] i
    is flex-1 with min-w-px, so at 393px the state box keeps its width and the
    panel takes the remainder, which is the behaviour the fixed width is for. */
 const V2_STATE = String.raw`content-stretch flex gap-[6px] h-[38px] items-center relative rounded-[24px] shrink-0 w-[117px]`
+/* THE SAME BOX, FLOORED RATHER THAN FIXED — error and unknown only.
+   117px fits the node's own words ("Open", "Closed") and clips the two new
+   ones: "Unknown" at 24px/-0.6 is about 100px on its own, and the 30px glyph
+   plus the 6px gap leave 81. The word is `whitespace-nowrap`, so the overflow
+   was silent — the card rendered a valve reading as "Unknowı". `min-w` keeps
+   the node's geometry exactly wherever the content fits inside it (open and
+   closed are unchanged to the pixel) and lets it grow only where it must; the
+   panel beside it is flex-1 with min-w-px and gives the width up. */
+const V2_STATE_WIDE = String.raw`content-stretch flex gap-[6px] h-[38px] items-center relative rounded-[24px] shrink-0 min-w-[117px]`
 const V2_GLYPH = String.raw`content-stretch flex flex-col items-center justify-center relative shrink-0 size-[30px]`
 const V2_GLYPH_BOX = String.raw`h-[20.84px] relative shrink-0 w-[21.831px]`
 const V2_VALUE = String.raw`[word-break:break-word] font-sans font-medium leading-6 relative shrink-0 text-2xl text-slate-800 tracking-[-0.6px] whitespace-nowrap`
@@ -289,6 +351,63 @@ const V2_ATTN_BODY = String.raw`[word-break:break-word] font-sans font-normal le
 const V2_BTN = String.raw`bg-foreground content-stretch cursor-pointer drop-shadow-[0px_2.296px_3.214px_rgba(47,116,237,0.28)] flex h-[54px] items-center justify-center relative rounded-full shrink-0 w-full outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 const V2_BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-[24.75px] relative shrink-0 text-background text-lg whitespace-nowrap`
 
+/* ── 199683:25996 — THE FAULTED READING ───────────────────────────────────
+   slate/600 -> --muted-foreground.
+
+   The design asks for the position word "one step muted versus a normal
+   reading", and --muted-foreground is this repo's ONLY declared muted-ink
+   ROLE (index.css:111). It is re-picked by every theme — :root --slate-500,
+   `dark` zinc-400, `sand` stone-500, `contrast` its own cyan — where a frozen
+   slate-600 would not move at all. The normal reading beside it is V2_VALUE's
+   text-slate-800, so the step between a trustworthy reading and a muted one
+   survives in all four.
+
+   It stays a READING, not decoration: over --surface-card in `light` it
+   measures 5.1:1, well past the 4.5:1 this 24px word does not even owe. The
+   frame's own slate-600 would have measured about the same; the token is
+   chosen for where it goes in the other three themes. */
+const V2_VALUE_MUTED = String.raw`[word-break:break-word] font-sans font-medium leading-6 relative shrink-0 text-2xl text-muted-foreground tracking-[-0.6px] whitespace-nowrap`
+
+/* slate/400 on the unavailable action -> TWO tokens where the frame uses one,
+   and deliberately:
+
+     · THE BORDER is the only thing that bounds this control, so it owes WCAG
+       SC 1.4.11's 3:1. --border is the SUBTLE tier (index.css:120-133,
+       1.07:1 over the card) and exists for hairlines; --border-strong is the
+       tier that block declares for "inputs, focusable chrome", and it
+       measures 4.59:1. The frame's slate-400 is about 1.9:1 on white and
+       would fail — so this is the token that keeps the design's intent, which
+       is a box you can see is a control.
+     · THE LABEL still has to be READ. It is the sentence "Close valve": the
+       thing the user is being told they cannot do, on a screen where a leak
+       is running. It takes the muted-ink role rather than a ramp step so pale
+       it reads as absent.
+
+   NO FILL, which is the frame's: a boundary and a word, nothing else, so it
+   cannot be mistaken for the filled primary this replaces. */
+const V2_BTN_OFF = String.raw`border border-border-strong border-solid content-stretch cursor-not-allowed flex h-[54px] items-center justify-center relative rounded-full shrink-0 w-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const V2_BTN_OFF_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-[24.75px] relative shrink-0 text-muted-foreground text-lg whitespace-nowrap`
+
+/* ── 199683:25974 — THE UNKNOWN POSITION ──────────────────────────────────
+   slate/900 on the two outline actions -> --foreground, for BOTH border and
+   label.
+
+   In :root the two are the same byte (index.css:105 `--foreground:
+   var(--slate-900)`), so `light` is the frame exactly. But --slate-900 is the
+   INK RAMP STEP and it INVERTS — under `dark` it resolves to zinc-50 — while
+   --foreground is the ink DECLARED to oppose the surface. On an outline
+   control both happen to want to invert, so the two agree here; the token is
+   named for the job, so the next reader does not have to re-derive that, and
+   it is the same reasoning V2_BTN already records for its
+   bg-foreground/text-background pair.
+
+   The WORD above these keeps V2_VALUE unchanged: the design puts Unknown at
+   slate/800, i.e. at a normal reading's weight, because an unknown position
+   is a fact we are sure of. Only `error` mutes. */
+const V2_BTN_PAIR = String.raw`content-stretch flex gap-[8px] items-center relative shrink-0 w-full`
+const V2_BTN_OUTLINE = String.raw`border border-foreground border-solid content-stretch cursor-pointer flex h-[54px] items-center justify-center relative rounded-full shrink-0 w-[82px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const V2_BTN_OUTLINE_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-[24.75px] relative shrink-0 text-foreground text-lg whitespace-nowrap`
+
 /* sysA's ids. sysB draws the same card as
    141553->143046, 141554->143047, 141555->143048, 141556->143049,
    141557->143050, 141558->143051, 141559->143052, 141565->143058,
@@ -359,6 +478,20 @@ const BTN = String.raw`bg-accent border border-slate-900 border-solid content-st
 
 // I199383:141566;100985:11132
 const BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
+
+/* The same two states on the ORIGINAL (non-`redraw`) card, which the System
+   page mounts. Identical token mappings to the V2_* set above — the
+   justifications are written there and are not repeated — carried onto this
+   card's own geometry (the 26px pill, 10px pads, 14/20 label) rather than the
+   redraw's 54px full-width one, because the owner's standing rule is that
+   this card's other mounts keep the chassis they have. Nothing an open or a
+   closed valve draws is touched. */
+const VALUE_MUTED = String.raw`[word-break:break-word] flex flex-col font-sans font-medium justify-center leading-[0] relative shrink-0 text-[19.501px] text-muted-foreground whitespace-nowrap`
+const BTN_OFF = String.raw`border border-border-strong border-solid content-stretch cursor-not-allowed flex flex-[1_0_0] gap-1 items-center justify-center min-w-fit px-2.5 py-[12px] relative rounded-[26px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const BTN_OFF_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-muted-foreground text-sm whitespace-nowrap`
+const BTN_PAIR = String.raw`content-stretch flex gap-[6px] items-center relative shrink-0`
+const BTN_OUTLINE = String.raw`border border-foreground border-solid content-stretch cursor-pointer flex gap-1 items-center justify-center min-w-fit px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
+const BTN_OUTLINE_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
 
 /* ── The `redraw` set ─────────────────────────────────────────────────────
    199683:24796 / :24797 / :24810, the EVENT OVERLAY only. Opt-in, because
@@ -576,7 +709,22 @@ function WarningGlyph() {
 }
 
 export default function ValveStatusCard({
+  /* 'open' | 'closed' | 'error' | 'unknown'. The last two are new — see the
+     2026-11-03 block in the header. Anything unrecognised still falls to the
+     closed branch, as it always did; callers that cannot be sure should pass
+     'unknown', which now has a real rendering instead of being rounded. */
   state = 'open',
+  /* THE VALVE'S REAL PHYSICAL POSITION while `state` is 'error' — 'open' |
+     'closed' | null. The design keeps the position word on a faulted valve
+     and only mutes it, so the card needs somewhere to be told it.
+
+     NOT DEFAULTED TO 'open'. Nothing in this repo's data model records a
+     position alongside a fault: `buildTree.js:524` writes 'error' INTO the
+     same `system.valve` field the position lives in, so on today's data a
+     faulted valve has no knowable position at all. With none supplied the
+     card says so (`unknownLabel`) rather than guessing — guessing "Open" is
+     the exact false reading this state exists to remove. */
+  position = null,
   onToggle,
   /* Render the card as a READOUT: everything the design draws, minus the
      action. EventFocusOverlay needs the card's face but not a second way to
@@ -641,6 +789,33 @@ export default function ValveStatusCard({
      prop stays, so hiding it again is one word at the call site. */
   showAttention = true,
   label = 'Valve status',
+  /* 199683:25974 draws the word "Unknown". Transcribed, not authored — it is
+     also the word `SystemTypeCard.jsx:391` already prints for a valve state
+     it has no entry for, so the app does not call one thing two names. */
+  unknownLabel = 'Unknown',
+  /* 199683:25974 draws its two actions as "Close" and "Open" — the short
+     forms, because two 82px pills side by side have no room for the long
+     ones and the card's own title already says what is being closed. */
+  closeShortLabel = 'Close',
+  openShortLabel = 'Open',
+  /* NEW COPY — PROPOSED, NOT FINALISED (.claude/skills/wint-ui-copy/SKILL.md
+     §0). The frame draws the unavailable button but no reason text, and a
+     control that is visibly unavailable owes the user the reason; §5 of that
+     skill makes the accessible name where it goes.
+
+     DANGER REGISTER (ASD-STE100), because this is a surface where water
+     stops: two sentences, six words and five words, one topic each, active
+     voice, no contraction, and `error` is the word `VALVE_CATEGORIES` already
+     uses for this state rather than a synonym of it.
+
+     Alternatives for the owner to choose between:
+       a. "This action is not available. The valve reports an error."  (here)
+       b. "The valve reports an error. It cannot open or close."
+       c. "This valve cannot move. It reports an error."
+     (b) states the consequence, which §3a prefers, but chains two subjects;
+     (a) leads with what the user just tried to do, which is what an
+     accessible name on a button is for. */
+  unavailableReason = 'This action is not available. The valve reports an error.',
   stateLabel,
   handlingLabel = 'Valve handling:',
   handling = 'Auto shut-off',
@@ -656,16 +831,53 @@ export default function ValveStatusCard({
   const chassis = redraw
     ? String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[18px] items-start p-[18px] relative rounded-[18px] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
     : CARD
+  /* FOUR STATES, ASKED FOR BY NAME. `isOpen` keeps exactly the meaning it had
+     — only 'open' is open — and the two new states are tested before it, so
+     nothing rounds. Before this, `state === 'error'` simply failed the
+     `isOpen` test and took the CLOSED branch on this card, and the redraw
+     branch's own `isOpen ? 'open' : 'closed'` glyph call did the same. */
+  const isError = state === 'error'
+  const isUnknown = state === 'unknown'
   const isOpen = state === 'open'
+  /* The glyph is the one thing that always names the real state: red and
+     two-tone on a fault, pale and dashed on an unknown. Both variants have
+     been in ValveStatus.jsx since 197639:253443 and neither had a caller. */
+  const glyphState = isError ? 'error' : isUnknown ? 'unknown' : isOpen ? 'open' : 'closed'
+  /* THE POSITION SURVIVES THE FAULT — see the header. */
+  const positionWord = position === 'open' ? 'Open' : position === 'closed' ? 'Closed' : null
   // Figma draws "Open"; the closed wording has no frame, so it is derived and
   // still overridable, which is what keeps every drawn string a prop.
-  const value = stateLabel ?? (isOpen ? 'Open' : 'Closed')
+  const value =
+    stateLabel ??
+    (isUnknown
+      ? unknownLabel
+      : isError
+        ? positionWord ?? unknownLabel
+        : isOpen
+          ? 'Open'
+          : 'Closed')
   // See WORDING above — "Open valve" is derived, not drawn.
   /* 199683:24797 draws "Close valve now". The open wording has no frame, so
      it is derived and still overridable. */
-  const action = redraw
-    ? (isOpen ? 'Close valve now' : 'Open valve now')
-    : (isOpen ? 'Close valve' : 'Open valve')
+  /* Which way the inert action points on a fault: with the position when one
+     is known, and otherwise toward CLOSE, which is the direction 199683:25996
+     draws and the only one that could help during a leak. */
+  const actsToClose = isError ? positionWord !== 'Closed' : isOpen
+  const action = isError
+    ? /* 199683:25996 labels it "Close valve", with no "now". The suffix on the
+         redraw's live primary promises immediacy, and this button is inert. */
+      (actsToClose ? 'Close valve' : 'Open valve')
+    : redraw
+      ? (actsToClose ? 'Close valve now' : 'Open valve now')
+      : (actsToClose ? 'Close valve' : 'Open valve')
+  /* `aria-disabled`, NEVER the `disabled` attribute — the house rule at
+     .claude/skills/wint-ui-copy/SKILL.md §5. `disabled` is skipped outright
+     by some assistive tech, so the user never learns WHY, and on this control
+     the why is the single most useful thing it has to say. The button stays
+     in the tab order and announces its reason; the click handler is guarded
+     separately, because aria-disabled is a promise to the reader and not to
+     the DOM. */
+  const unavailableName = `${action}. ${unavailableReason}`
   /* One branch for the whole panel. Both halves came off separate branches
      once, and a system with auto-close off read "Auto shut-off" above the
      auto-shut-off sentence — the panel contradicting its own first line. */
@@ -702,7 +914,10 @@ export default function ValveStatusCard({
 
             <div className={V2_ROW} data-node-id="199703:38731">
               {/* The valve's own state. */}
-              <div className={V2_STATE} data-node-id="199703:39376">
+              <div
+                className={isError || isUnknown ? V2_STATE_WIDE : V2_STATE}
+                data-node-id="199703:39376"
+              >
                 <div className={V2_GLYPH} data-node-id="199703:38732" data-name="Valve status">
                   {/* Figma wraps the export in an `inset-[-3.98%…]` bleed box
                       that exists only because the export bakes the stroke
@@ -711,13 +926,22 @@ export default function ValveStatusCard({
                       itself is the node's, to the thousandth. */}
                   <div className={V2_GLYPH_BOX} data-name="Group">
                     <ValveStatus
-                      state={isOpen ? 'open' : 'closed'}
+                      state={glyphState}
                       className="absolute inset-0 block size-full"
                       preserveAspectRatio="none"
                     />
                   </div>
                 </div>
-                <p className={V2_VALUE} dir="auto" data-node-id="199703:38733">
+                {/* MUTED ON A FAULT ONLY. 199683:25974 draws Unknown at the
+                    full slate/800 reading weight, because an unknown position
+                    is a fact we are sure of; 199683:25996 steps the position
+                    word back because it is a reading we can no longer
+                    verify. */}
+                <p
+                  className={isError ? V2_VALUE_MUTED : V2_VALUE}
+                  dir="auto"
+                  data-node-id={isError ? '199683:25996' : '199703:38733'}
+                >
                   {value}
                 </p>
               </div>
@@ -827,15 +1051,61 @@ export default function ValveStatusCard({
               reads as "you may do this here", and the point is that the
               control lives elsewhere on that surface. */}
           {interactive ? (
-            <button
-              type="button"
-              onClick={() => onToggle?.(isOpen ? 'closed' : 'open')}
-              className={V2_BTN}
-              data-node-id="199703:38734"
-              data-name="Button"
-            >
-              <p className={V2_BTN_TEXT}>{action}</p>
-            </button>
+            isUnknown ? (
+              /* 199683:25974 — TWO actions, both LIVE. The position is
+                 unknown, so neither direction is the obvious one and both are
+                 meaningful. The frame sets them side by side at 82px each;
+                 this card's button slot is a full-width row, so they sit at
+                 its start rather than filling it. */
+              <div className={V2_BTN_PAIR} data-node-id="199683:25974" data-name="Buttons">
+                <button
+                  type="button"
+                  onClick={() => onToggle?.('closed')}
+                  className={V2_BTN_OUTLINE}
+                  data-name="Button"
+                >
+                  <p className={V2_BTN_OUTLINE_TEXT}>{closeShortLabel}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onToggle?.('open')}
+                  className={V2_BTN_OUTLINE}
+                  data-name="Button"
+                >
+                  <p className={V2_BTN_OUTLINE_TEXT}>{openShortLabel}</p>
+                </button>
+              </div>
+            ) : isError ? (
+              /* 199683:25996 — present, visibly unavailable, and able to say
+                 why. See `unavailableName` for why this is aria-disabled and
+                 not `disabled`. */
+              <button
+                type="button"
+                aria-disabled="true"
+                aria-label={unavailableName}
+                onClick={(event) => {
+                  /* The guard. aria-disabled does not stop a click, and an
+                     unreachable valve must not receive a command just
+                     because the control still answers the mouse. */
+                  event.preventDefault()
+                }}
+                className={V2_BTN_OFF}
+                data-node-id="199683:25996"
+                data-name="Button"
+              >
+                <p className={V2_BTN_OFF_TEXT}>{action}</p>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onToggle?.(isOpen ? 'closed' : 'open')}
+                className={V2_BTN}
+                data-node-id="199703:38734"
+                data-name="Button"
+              >
+                <p className={V2_BTN_TEXT}>{action}</p>
+              </button>
+            )
           ) : null}
         </div>
       </div>
@@ -860,12 +1130,15 @@ export default function ValveStatusCard({
                 box itself is the node's, to the thousandth. */}
             <div className={GLYPH_BOX} data-node-id={NODE.glyph} data-name="Group">
               <ValveStatus
-                state={isOpen ? 'open' : 'closed'}
+                state={glyphState}
                 className="absolute inset-0 block size-full"
                 preserveAspectRatio="none"
               />
             </div>
-            <div className={redraw ? VALUE_REDRAW : VALUE} data-node-id={NODE.value}>
+            <div
+              className={redraw ? VALUE_REDRAW : isError ? VALUE_MUTED : VALUE}
+              data-node-id={NODE.value}
+            >
               <p className={redraw ? 'leading-6' : 'leading-[29.251px]'} dir="auto">
                 {value}
               </p>
@@ -879,15 +1152,52 @@ export default function ValveStatusCard({
             greyed button still reads as "you may do this here", and the point
             is that the control lives elsewhere on that surface. */}
         {interactive ? (
-          <button
-            type="button"
-            onClick={() => onToggle?.(isOpen ? 'closed' : 'open')}
-            className={redraw ? BTN_REDRAW : BTN}
-            data-node-id={NODE.button}
-            data-name="Button"
-          >
-            <p className={redraw ? BTN_TEXT_REDRAW : BTN_TEXT}>{action}</p>
-          </button>
+          isUnknown ? (
+            /* 199683:25974 on this card's geometry — two short outline pills
+               where the single action sits. */
+            <div className={BTN_PAIR} data-node-id="199683:25974" data-name="Buttons">
+              <button
+                type="button"
+                onClick={() => onToggle?.('closed')}
+                className={BTN_OUTLINE}
+                data-name="Button"
+              >
+                <p className={BTN_OUTLINE_TEXT}>{closeShortLabel}</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => onToggle?.('open')}
+                className={BTN_OUTLINE}
+                data-name="Button"
+              >
+                <p className={BTN_OUTLINE_TEXT}>{openShortLabel}</p>
+              </button>
+            </div>
+          ) : isError ? (
+            <button
+              type="button"
+              aria-disabled="true"
+              aria-label={unavailableName}
+              onClick={(event) => {
+                event.preventDefault()
+              }}
+              className={BTN_OFF}
+              data-node-id="199683:25996"
+              data-name="Button"
+            >
+              <p className={BTN_OFF_TEXT}>{action}</p>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onToggle?.(isOpen ? 'closed' : 'open')}
+              className={redraw ? BTN_REDRAW : BTN}
+              data-node-id={NODE.button}
+              data-name="Button"
+            >
+              <p className={redraw ? BTN_TEXT_REDRAW : BTN_TEXT}>{action}</p>
+            </button>
+          )
         ) : null}
       </div>
 

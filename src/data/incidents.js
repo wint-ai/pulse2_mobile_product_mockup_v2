@@ -45,8 +45,20 @@ export function getNotification(incident) {
 
 // Map active incident to a Highlight/Detailed leak state.
 // Active states per spec: Warning, Ongoing, ShutOff (Resolved goes to history).
+//
+// OFF THE CANONICAL RECORD -- 2026-11-04. This used to read WHICH STEPS the
+// incident had, and generateIncidents.js gated those steps on its own
+// `stableHash('incident:' + id)` draw. So the status pill was decided by a seed
+// unrelated to the duration printed beside it: a card could read "Warning" over
+// "10h 07m". `leakState` is now written by buildTree.js's event record, from
+// the same `hoursAgo` and the same valve state the duration comes from.
+//
+// THE STEP FALLBACK STAYS, and is not dead: a PUSHED incident, and any record
+// written before this field existed, carries no `leakState`, and the step
+// vocabulary is still the honest answer for those.
 export function getLeakState(incident) {
   if (!incident) return null;
+  if (incident.leakState) return incident.leakState;
   const types = new Set(incident.steps?.map(s => s.type) || []);
   if (types.has('valve-closed')) return 'ShutOff';
   if (types.has('continues') || types.has('volume-milestone')) return 'Ongoing';

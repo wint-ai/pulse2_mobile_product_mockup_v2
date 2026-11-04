@@ -38,6 +38,9 @@
 // assertable is the ATOM that decides each of those, so that is what is
 // pinned. The rest belongs in a browser and is reported as unverified.
 
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import process from 'node:process'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, cleanup, fireEvent, screen, within, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
@@ -49,6 +52,7 @@ import {
   VALVE_CATEGORIES,
   canActuate,
   isReachable,
+  isSelectable,
   summariseValves,
   valveCategoryOf,
 } from '@/v2/components/valveScope'
@@ -231,12 +235,13 @@ describe('ValveManagementScreen — one row per system, with its context', () =>
   /* THE CONTEXT MOVED, 2026-11-02; IT WAS NOT DROPPED. The old row repeated
      `path · last known: X · Last seen Y` on a wrapping second line — 61px for
      EVERY row, with the same address restated for every system at it. The path
-     is now drawn ONCE in a sticky header above the run of rows it describes
-     (redesign point 4), which is what lets the row be one line and is most of
-     why the list went from ~4.9 visible rows to ~11.
+     is now drawn ONCE in the header of the LOCATION CARD that holds the run of
+     rows it describes (redesign point 4, recut as cards 2026-11-03), which is
+     what lets the row be one line and is most of why the list went from ~4.9
+     visible rows to a browser-measured 10.
      The owner's requirement is unchanged and is asserted on both routes below:
      "We need to understand the context of systems." A sighted user reads the
-     path off the sticky header; someone tabbing between checkboxes never sees
+     path off the card header; someone tabbing between checkboxes never sees
      that header, so it is ALSO spelled into each row's accessible name. */
   it('draws one row per system; the name is on the row and the location path is on its group header AND in its accessible name', () => {
     const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
@@ -262,16 +267,91 @@ describe('ValveManagementScreen — one row per system, with its context', () =>
     expectNoReactError()
   })
 
-  /* THE HEADER IS STICKY AND IT IS NOT `fixed`. `position: fixed` would escape
-     Phone.jsx's 393x852 overflow:hidden frame, which is the same prohibition
-     that keeps both sheets off Radix portals. happy-dom has no layout engine,
-     so what is assertable is the CLASS that decides it. */
-  it('the group header is sticky inside the scroller, never fixed', () => {
+  /* ── THE 2026-11-03 PASS: ONE CARD PER LOCATION ────────────────────────
+     The owner: "when we go to manage valves, this components looks kind of an
+     odd... There looks a bit odd." Measured in a real browser at 393x852, the
+     row list was the ONE surface in this app with no card surface at all: the
+     rows sat directly on the `--app-bg` gradient under a full-bleed opaque
+     white sticky band. Each location is now a house-chassis card.
+     happy-dom has no layout engine, so what is assertable here is the CLASS
+     that decides it — the pixels were checked in the browser. */
+  it('every location group is a house-chassis card, not a bare run of rows', () => {
     const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
-    const header = container.querySelector('[data-name="valve-rows"] section h2')
+    const cards = [...container.querySelectorAll('[data-name="valve-location-card"]')]
+    expect(cards.length).toBeGreaterThan(0)
+    // Every drawn row lives inside one of those cards; none is loose.
+    expect(rows(container).length).toBe(SCOPED.length)
+    for (const row of rows(container)) {
+      expect(row.closest('[data-name="valve-location-card"]')).toBeTruthy()
+    }
+    for (const card of cards) {
+      const cls = String(card.className)
+      // The canonical chassis — `ValveManagementCard.jsx`'s CARD constant.
+      expect(cls).toMatch(/\bbg-surface-card\b/)
+      expect(cls).toMatch(/\bborder-card\b/)
+      expect(cls).toMatch(/\brounded-\[18px\]/)
+      expect(cls).toMatch(/\boverflow-hidden\b/)
+      // The rules stop short of the corner rather than running into it.
+      expect(cls).toMatch(/item-separator\]\]:mx-4/)
+    }
+    expectNoReactError()
+  })
+
+  /* STICKY WAS DROPPED, DELIBERATELY AND ON THE RECORD (2026-11-03).
+     It is pinned by a test so it cannot come back by accident and so the
+     reversal is visible to whoever next reads this file: the card's border is
+     a stronger, always-present grouping cue than a floating band, and the
+     chassis's own `overflow-hidden` — which is what clips the last row's hover
+     fill to the 18px corner — makes an inner `position: sticky` INERT, because
+     an `overflow: hidden` ancestor becomes the sticky element's scroll
+     container and that box never scrolls. A header that reads as sticky in the
+     source and does nothing in the browser is worse than an honest static one.
+     `fixed` remains forbidden for the original reason: it would escape
+     Phone.jsx's 393x852 overflow:hidden frame. */
+  it('the group header is a quiet label inside the card — not sticky, never fixed', () => {
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    const header = container.querySelector('[data-name="valve-location-card"] h2')
     expect(header).toBeTruthy()
-    expect(String(header.className)).toMatch(/\bsticky\b/)
-    expect(String(header.className)).not.toMatch(/\bfixed\b/)
+    const cls = String(header.className)
+    expect(cls).not.toMatch(/\bsticky\b/)
+    expect(cls).not.toMatch(/\bfixed\b/)
+    // And it no longer paints an opaque full-bleed band of its own.
+    expect(cls).not.toMatch(/\bbg-card\b/)
+    expect(cls).not.toMatch(/\bborder-y\b/)
+    // It IS the quiet in-card header: secondary ink, badge size.
+    expect(cls).toMatch(/\btext-xs\b/)
+    expect(cls).toMatch(/\btext-muted-foreground\b/)
+    expectNoReactError()
+  })
+
+  /* THE THREE COLUMNS SHARE A CENTRE LINE. `ItemActions` carried `self-start`,
+     which top-aligned the state readout against a centre-aligned checkbox and
+     title — measured at 1.63px of rise per row, which reads as a wobble down a
+     45px-row list. Measured at 0 after the fix. */
+  it('the state readout is centred on the row, not top-aligned', () => {
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    const actions = [...container.querySelectorAll('[data-valve-row] [data-slot="item-actions"]')]
+    expect(actions.length).toBe(SCOPED.length)
+    for (const el of actions) {
+      expect(String(el.className)).not.toMatch(/\bself-start\b/)
+    }
+    expectNoReactError()
+  })
+
+  /* ONE CARD TREATMENT ON THE SCREEN. While the list had no card surface, the
+     selection strip was the only card-shaped thing on it — which made the
+     inconsistency louder, not quieter. It now wears the same chassis. */
+  it('the selection strip wears the same chassis as the location cards', () => {
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    const strip = container.querySelector('[data-name="valve-selection-strip"]')
+    expect(strip).toBeTruthy()
+    const cls = String(strip.className)
+    expect(cls).toMatch(/\bbg-surface-card\b/)
+    expect(cls).toMatch(/\bborder-card\b/)
+    expect(cls).toMatch(/\brounded-\[18px\]/)
+    // The old one-off treatment is gone.
+    expect(cls).not.toMatch(/\brounded-xl\b/)
+    expect(cls).not.toMatch(/\bshadow-sm\b/)
     expectNoReactError()
   })
 
@@ -402,6 +482,16 @@ describe('ValveManagementScreen — the number rule', () => {
       vi.advanceTimersByTime(ARMING_DELAY_MS + 50)
     })
     const sheet = screen.getByRole('alertdialog')
+    /* THE TAP PATH IS NOW TWO ACTS BEHIND A DISCLOSURE. The sheet's
+       primary commit is a slide (SlideToConfirm); the button these tests
+       press is the SC 2.5.7 non-drag alternative, and below the top tier it
+       lives behind the "Cannot slide?" escape hatch with the acknowledgement
+       checkbox as the first of its two single-pointer acts. A single tap
+       would satisfy the letter of 2.5.7 and destroy the control, which is
+       why the button stays inert until the box is ticked. Open the hatch,
+       tick, then press. */
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Cannot slide?' }))
+    fireEvent.click(within(sheet).getByRole('checkbox'))
     fireEvent.click(within(sheet).getByRole('button', { name: /^Close 1 valve/ }))
     spendTheCancelWindow(container)
 
@@ -641,7 +731,7 @@ describe('ValveManagementScreen - the select-all control says exactly what it se
        badge is gone and the difference is a sentence naming the rows and the
        reason, in VALVE_CATEGORIES' own words. */
     expect(bar.textContent).toContain(
-      `${unselectable} of ${SCOPED.length} rows shown can\u2019t be selected \u2014 No valve installed`,
+      `${unselectable} of ${SCOPED.length} rows shown can\u2019t be selected - No valve installed`,
     )
     // the standalone row-count badge is gone
     expect(bar.textContent).not.toMatch(/\d+ rows$/)
@@ -893,7 +983,11 @@ describe('ValveManagementScreen - the action bar has a real hierarchy', () => {
 })
 
 describe('ValveManagementScreen - the sheet is told it is acting over a SELECTION', () => {
-  const SELECTION_LINE = 'Only the systems you selected \u2014 not every system here'
+  /* HYPHEN, NOT AN EM-DASH. The sheet's copy moved to '-' under the
+     project-wide rule (pulse2_mobile_product_sandbox/CLAUDE.md:268,
+     "Hyphens in UI copy, not em-dashes"); this fixture is pinned to
+     the shipped string, so it moves with it. */
+  const SELECTION_LINE = 'Only the systems you selected - not every system here'
 
   it('names the scope plainly and says the selection is a subset', () => {
     const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
@@ -944,14 +1038,295 @@ describe('ValveManagementScreen - the sheet is told it is acting over a SELECTIO
     act(() => {
       vi.advanceTimersByTime(ARMING_DELAY_MS + 50)
     })
-    fireEvent.click(
-      within(screen.getByRole('alertdialog')).getByRole('button', { name: /^Close 1 valve/ }),
-    )
+    const sheet = screen.getByRole('alertdialog')
+    /* THE TAP PATH IS NOW TWO ACTS BEHIND A DISCLOSURE. The sheet's
+       primary commit is a slide (SlideToConfirm); the button these tests
+       press is the SC 2.5.7 non-drag alternative, and below the top tier it
+       lives behind the "Cannot slide?" escape hatch with the acknowledgement
+       checkbox as the first of its two single-pointer acts. A single tap
+       would satisfy the letter of 2.5.7 and destroy the control, which is
+       why the button stays inert until the box is ticked. Open the hatch,
+       tick, then press. */
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Cannot slide?' }))
+    fireEvent.click(within(sheet).getByRole('checkbox'))
+    fireEvent.click(within(sheet).getByRole('button', { name: /^Close 1 valve/ }))
     spendTheCancelWindow(container)
 
     const [batch] = getBulkValveHistory()
     expect(batch).toBeTruthy()
     expect(batch.scopeLabel).toBe(`${SCOPE} \u00b7 2 of ${SCOPED.length} systems selected`)
+    expectNoReactError()
+  })
+})
+
+/* ══ SELECT-ALL AT TWO SCOPES (2026-11-03) ════════════════════════════════
+   The owner, verbatim: "I want select all for the entire for all systems, and
+   select all per location."
+
+   The FLEET select-all is the strip and is covered above and unchanged. This
+   block covers the second scope — the box in each location card's header —
+   and, above all, the thing that makes two select-alls safe rather than
+   confusing: EACH ONE'S REACH IS EXACT, STATED, AND THE SAME EVERY TIME.
+
+   The per-location box reaches every SELECTABLE system at that location that
+   matches the CURRENT FILTER, including any below the PAGE_SIZE cut. That is
+   the same reach rule the fleet strip follows ("select-all covers all N"), and
+   the number on screen IS that reach — which is what the badge assertions
+   below pin. */
+
+/** The leaf location a system is grouped under — `ValveManagementScreen`'s own
+ *  `leafLocationOf`, restated here rather than imported because the screen does
+ *  not export it. If it is ever exported, both should take it from there. */
+const leafOf = (s) => s?.l4Name || s?.l3Name || s?.l2Name || s?.l1Name || 'Unassigned'
+
+const locationCards = (c) => [...c.querySelectorAll('[data-name="valve-location-card"]')]
+const locationHeader = (c, key) =>
+  c.querySelector(`[data-location="${key}"] [data-name="valve-location-select-all"]`)
+const locationBox = (c, key) => locationHeader(c, key)?.querySelector('[data-slot="checkbox"]')
+/** Ids currently ticked, read off the DOM rather than off component state. */
+const checkedIds = (c) =>
+  rows(c)
+    .filter(
+      (r) => r.querySelector('[data-slot="checkbox"]')?.getAttribute('aria-checked') === 'true',
+    )
+    .map((r) => r.getAttribute('data-valve-row'))
+
+describe('ValveManagementScreen - select-all at two scopes', () => {
+  it('every location card carries its own select-all, and a location with nothing selectable carries none', () => {
+    const { container } = renderAt('/valves')
+    const cards = locationCards(container)
+    expect(cards.length).toBeGreaterThan(1)
+
+    for (const card of cards) {
+      const key = card.getAttribute('data-location')
+      const drawn = [...card.querySelectorAll('[data-valve-row]')].map((r) =>
+        r.getAttribute('data-valve-row'),
+      )
+      const anySelectable = drawn.some((id) => isSelectable(SYSTEMS.find((s) => s.id === id)))
+      const box = locationBox(container, key)
+      if (anySelectable) {
+        expect(box).toBeTruthy()
+        // The 44px target is the WHOLE header, not the 18px box.
+        expect(String(locationHeader(container, key).className)).toMatch(/\bmin-h-11\b/)
+      } else {
+        /* NO DEAD END. A card of "No valve installed" rows gets no box rather
+           than a disabled one that can only ever select 0 — the same decision
+           `showSelectAll` makes for the fleet strip. */
+        expect(box).toBeNull()
+      }
+    }
+    expectNoReactError()
+  })
+
+  it('a location select-all selects THAT location only, and leaves every other location alone', () => {
+    const { container } = renderAt('/valves')
+    const card = locationCards(container).find((c) =>
+      locationBox(container, c.getAttribute('data-location')),
+    )
+    const key = card.getAttribute('data-location')
+
+    const expected = SYSTEMS.filter((s) => leafOf(s) === key && isSelectable(s)).map((s) => s.id)
+    expect(expected.length).toBeGreaterThan(0)
+
+    fireEvent.click(locationBox(container, key))
+
+    const ticked = checkedIds(container)
+    // Everything at this location that CAN be selected now is.
+    for (const id of expected) expect(ticked).toContain(id)
+    // And nothing outside it.
+    for (const id of ticked) expect(leafOf(SYSTEMS.find((s) => s.id === id))).toBe(key)
+    // A no-valve system at the SAME location is never swept in.
+    const noValveHere = SYSTEMS.find((s) => leafOf(s) === key && !isSelectable(s))
+    if (noValveHere) expect(ticked).not.toContain(noValveHere.id)
+
+    // The action bar is derived from `selectedIds`, so it must agree.
+    expect(actionBar(container)).toBeTruthy()
+    expect(within(actionBar(container)).getByText(`${expected.length} selected`)).toBeTruthy()
+    expectNoReactError()
+  })
+
+  it('the location box goes INDETERMINATE when only some of its systems are selected', () => {
+    const { container } = renderAt('/valves')
+    const card = locationCards(container).find((c) => {
+      const key = c.getAttribute('data-location')
+      return (
+        locationBox(container, key) &&
+        SYSTEMS.filter((s) => leafOf(s) === key && isSelectable(s)).length > 1
+      )
+    })
+    const key = card.getAttribute('data-location')
+    const box = locationBox(container, key)
+    expect(box.getAttribute('aria-checked')).toBe('false')
+
+    const one = SYSTEMS.find((s) => leafOf(s) === key && isSelectable(s))
+    fireEvent.click(rowFor(container, one.id))
+    expect(box.getAttribute('aria-checked')).toBe('mixed')
+
+    // Pressing the header from `mixed` completes the location rather than clearing it.
+    fireEvent.click(box)
+    expect(box.getAttribute('aria-checked')).toBe('true')
+    // And pressing it again clears exactly that location.
+    fireEvent.click(box)
+    expect(box.getAttribute('aria-checked')).toBe('false')
+    expect(checkedIds(container).length).toBe(0)
+    expectNoReactError()
+  })
+
+  it('a location select-all RESPECTS THE ACTIVE FILTER and never reaches a row the user cannot see', () => {
+    const { container } = renderAt('/valves')
+    // Narrow to one valve state with the chip row.
+    // The chip row is a <ToggleGroup type="single">, so Radix gives its items
+    // role="radio" inside a role="radiogroup" - not role="button".
+    const open = VALVE_CATEGORIES.find((c) => c.key === 'open')
+    fireEvent.click(screen.getByRole('radio', { name: open.label }))
+
+    const card = locationCards(container).find((c) =>
+      locationBox(container, c.getAttribute('data-location')),
+    )
+    const key = card.getAttribute('data-location')
+    fireEvent.click(locationBox(container, key))
+
+    const ticked = checkedIds(container)
+    expect(ticked.length).toBeGreaterThan(0)
+    for (const id of ticked) {
+      const s = SYSTEMS.find((x) => x.id === id)
+      expect(leafOf(s)).toBe(key)
+      // Nothing outside the filter was swept in.
+      expect(valveCategoryOf(s)).toBe('open')
+    }
+    // A system at the SAME location in a DIFFERENT state is untouched.
+    const otherState = SYSTEMS.find(
+      (s) => leafOf(s) === key && isSelectable(s) && valveCategoryOf(s) !== 'open',
+    )
+    if (otherState) expect(ticked).not.toContain(otherState.id)
+    expectNoReactError()
+  })
+
+  it('the badge on a location header IS that box reach, not the number of rows drawn under it', () => {
+    const { container } = renderAt('/valves')
+    for (const card of locationCards(container)) {
+      const key = card.getAttribute('data-location')
+      const header = locationHeader(container, key)
+      const box = locationBox(container, key)
+      if (!box) continue
+      const reach = SYSTEMS.filter((s) => leafOf(s) === key && isSelectable(s)).length
+      // The visible count states the reach...
+      expect(header.textContent).toContain(String(reach))
+      // ...and so does the accessible name, with the scope spelled out, so the
+      // user can never be unsure WHICH select-all they are on.
+      const name = box.getAttribute('aria-label')
+      expect(name).toMatch(new RegExp(`^Select all ${reach} system`))
+      expect(name).toContain(key)
+    }
+    expectNoReactError()
+  })
+
+  it('the fleet strip and the location boxes stay consistent with each other', () => {
+    const { container } = renderAt('/valves')
+    const fleetBox = selectAllBar(container).querySelector('[data-slot="checkbox"]')
+
+    // Fleet select-all ticks every location box that exists.
+    fireEvent.click(fleetBox)
+    expect(fleetBox.getAttribute('aria-checked')).toBe('true')
+    for (const card of locationCards(container)) {
+      const box = locationBox(container, card.getAttribute('data-location'))
+      if (box) expect(box.getAttribute('aria-checked')).toBe('true')
+    }
+
+    // Clearing ONE location drops the fleet box to mixed, not to unchecked.
+    const firstKey = locationCards(container)
+      .map((c) => c.getAttribute('data-location'))
+      .find((k) => locationBox(container, k))
+    fireEvent.click(locationBox(container, firstKey))
+    expect(locationBox(container, firstKey).getAttribute('aria-checked')).toBe('false')
+    expect(fleetBox.getAttribute('aria-checked')).toBe('mixed')
+    expectNoReactError()
+  })
+})
+
+/* ══ PROJECT COPY STANDARD ════════════════════════════════════════════════
+   Two rules from the private sandbox, binding project-wide and applied to this
+   screen on 2026-11-03:
+     · `CLAUDE.md:268` / `DESIGN-GUIDE-FOR-CLAUDE.md:49` - hyphens in UI copy,
+       never em-dashes. `aria-label`s count: they are read aloud.
+     · `docs/wint-format-standards.md` - the thousands separator is a comma.
+
+   THE FIRST RULE IS PINNED AT THE SOURCE, NOT IN THE DOM, AND THAT IS
+   DELIBERATE. A DOM sweep for em-dashes on this screen returns 58 hits that
+   are NOT this file's to fix: the demo fleet's own system names carry them
+   (`Basement Supply — Floor 29`, from `src/data/systems.js`) and so does
+   `MobileHeaderBar`'s avatar label. Asserting over the rendered tree would
+   therefore either fail on other people's files or need a deny-list that rots.
+   Scanning THIS file's source with comments stripped tests exactly the thing
+   the rule is about - the strings this screen authors - and nothing else.
+   CODE COMMENTS ARE NOT UI COPY and are stripped before the check. */
+describe('ValveManagementScreen - project copy standard', () => {
+  /* Read off disk relative to the vitest root rather than via
+     `import.meta.url`: Vite rewrites that to an http:// URL under the DOM
+     environment, which `readFileSync` cannot take. */
+  const SCREEN_SRC = readFileSync(
+    resolve(process.cwd(), 'src/v2/pages/ValveManagementScreen.jsx'),
+    'utf8',
+  )
+
+  /** The file with every comment removed, so only code and the string literals
+   *  it renders are left. */
+  const codeOnly = SCREEN_SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+
+  it('authors no em-dash in any string it renders or announces', () => {
+    const offending = codeOnly
+      .split('\n')
+      .map((line, i) => [i + 1, line])
+      .filter(([, line]) => line.includes('—'))
+    expect(offending).toEqual([])
+    // and the sweep is real: the comments it stripped DID contain them.
+    expect(SCREEN_SRC.includes('—')).toBe(true)
+  })
+
+  it('renders the hyphen form in the sentences that used to carry an em-dash', () => {
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    // The select-all's exclusion clause.
+    expect(selectAllBar(container).textContent).toContain(
+      "rows shown can’t be selected - No valve installed",
+    )
+    // The no-valve row's accessible name.
+    expect(boxFor(container, NO_VALVE_SYS.id).getAttribute('aria-label')).toContain(
+      'No valve installed - not selectable',
+    )
+    // The offline row's.
+    expect(boxFor(container, OFFLINE_SYS.id).getAttribute('aria-label')).toContain(
+      'System is offline - excluded from bulk actions',
+    )
+    expectNoReactError()
+  })
+
+  it('renders counts through a comma-grouping formatter, which is what makes 1,000 readable', () => {
+    /* The owner's own framing is "shut off valve for around 1000 valve", so
+       this is the format the feature is sized for. The demo fleet is only
+       three digits, so what is pinned here is that the counts go through the
+       FORMATTER rather than being interpolated bare - a four-digit fleet would
+       otherwise print `1000` on the one control in this app that cuts water
+       off. The formatter itself is asserted first so the test still means
+       something if the fleet never grows. */
+    expect((1000).toLocaleString('en-US')).toBe('1,000')
+    // No count is interpolated bare: every one goes through `num()`.
+    expect(codeOnly).toMatch(/const num = \(n\) => Number\(n\)\.toLocaleString\('en-US'\)/)
+    for (const bare of [
+      '${selectedCount} selected',
+      '${filtered.length} rows shown',
+      '${summary.total}}',
+      'Showing ${shown.length}',
+    ]) {
+      expect(codeOnly).not.toContain(bare)
+    }
+
+    renderAt('/valves')
+    expect(screen.getAllByText(SYSTEMS.length.toLocaleString('en-US')).length).toBeGreaterThan(0)
+    expect(
+      screen.getByText(
+        new RegExp(`Showing [\\d,]+ of ${SYSTEMS.length.toLocaleString('en-US')}\\b`),
+      ),
+    ).toBeTruthy()
     expectNoReactError()
   })
 })

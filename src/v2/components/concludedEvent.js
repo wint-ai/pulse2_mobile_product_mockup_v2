@@ -68,6 +68,20 @@ export function concludedEventFor(systemId) {
         flowRate: sim.flowRate,
         volume: sim.volume,
         startedAt: sim.startedAt,
+        /* THE INSTANT, carried through from the push that opened this event
+           (pushEvents.js writes `startedAtIso` on every phase of it). It used
+           to be absent here and `detectedInstant` recovered a day from the
+           bare clock; that recovery was deleted on 2026-11-04 along with the
+           rest of the day-guessing, so an instant that is not carried is an
+           instant the card cannot draw. A sim record written before that field
+           existed has none, and the Detected line is then left empty rather
+           than filled with a plausible guess. */
+        startedAtIso: sim.startedAtIso ?? null,
+        /* STILL MARKED AS A CONCLUDED EVENT'S. `age` here is how long the
+           event RAN, not how long ago it started, so nothing may treat it as
+           elapsed-since-detection. Nothing does any more — the flag is kept
+           because `eventAlertRow` and its callers still branch on it. */
+        resolved: true,
         /* The push's own duration, which pushEvents.js records on the ended
            record. Absent on a record written before that did, in which case
            the card's Duration row is left empty rather than filled with a
@@ -98,6 +112,16 @@ export function concludedEventFor(systemId) {
       flowRate: row.metadata?.['Flow Rate'],
       volume: row.metadata?.['Volume Lost'],
       startedAt: incident.startedAt,
+      /* THE ABSOLUTE INSTANT, so the card's Detected line can print a DATE and
+         not just a clock. `incident.startedAt` is a bare "HH:MM"
+         and a resolved event may be days old, so there is nothing in it to
+         recover a day from — and since 2026-11-04 nothing tries to. Both the
+         incident and the history row it is paired with now carry the moment in
+         full, from the same `resolvedVariant` off the same `BUILD_NOW`, so
+         they are the same instant; the incident's own field is preferred and
+         the row is the fallback. Handed over, never re-derived. */
+      startedAtIso: incident.startedAtIso ?? row.timestamp ?? null,
+      resolved: true,
       /* `age` is the field a live alert carries its elapsed span in and the
          one `alertRowFor` reads for the Duration row. A finished event knows
          its real span, so it goes in the same slot. */
