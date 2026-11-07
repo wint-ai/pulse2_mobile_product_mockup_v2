@@ -261,10 +261,24 @@ function TabTrigger({ label, count, active, pill, grow, onSelect, onKeyDown, tri
            are tokens, so the row follows the theme — the #fafbfc / #0b81f8
            literals the node emits could not. */
         String.raw`bg-surface-card`,
-        /* The nodes draw only ONE selected trigger, the default pill. A
-           selected WIDE pill is a state the delivery canvas does not contain,
-           so it takes the same selection rule rather than inventing a third. */
-        active ? String.raw`border border-primary border-solid` : '',
+        /* ── SELECTION EASES, AND THE BORDER IS ALWAYS THERE ──────────────
+           This used to ADD `border border-primary border-solid` on select
+           and have none at all otherwise. A border that does not exist
+           cannot animate, so selection snapped.
+
+           The border is now always present and only its COLOUR changes,
+           which is a compositor-friendly property and transitions cleanly.
+           It also makes the two states geometrically identical: with
+           box-sizing: border-box the outer size already matched, but the
+           CONTENT box was 2px narrower on the selected pill, which is a
+           half-pixel of label shift nobody could name but everybody sees.
+
+           --dur-fast: tabs are high-frequency, and Apple is explicit that
+           frequent interactions must not be made to wait on motion. `press`
+           gives the tap its own acknowledgement -- these are not shadcn
+           Buttons, so they do not inherit the one added there. */
+        String.raw`border border-solid press transition-[border-color,color,background-color] duration-(--dur-fast) ease-linear`,
+        active ? String.raw`border-primary` : String.raw`border-transparent`,
       ].filter(Boolean).join(' ')}
     >
       {pill === 'wide' ? (

@@ -643,8 +643,19 @@ export default function WintSidebarV2({ open, onClose }) {
       <div
         onClick={onClose}
         aria-hidden="true"
-        className="absolute inset-0 z-10 transition-opacity duration-[250ms]"
-        style={{ background: SCRIM, opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none' }}
+        className="absolute inset-0 z-10 transition-opacity"
+        style={{
+          background: SCRIM,
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? 'auto' : 'none',
+          /* The scrim takes the SHORTER duration in both directions. A scrim
+             that lingers after the panel has left reads as a stuck screen,
+             and one that lags the panel open shows the content un-dimmed
+             behind a drawer that is already there. Linear because an eased
+             fade of a flat colour reads as a flicker. */
+          transitionDuration: 'var(--dur-medium)',
+          transitionTimingFunction: 'linear',
+        }}
       />
 
       {/* Panel. Absolute inside the Phone frame (Phone.jsx's DesktopFrame is
@@ -663,12 +674,28 @@ export default function WintSidebarV2({ open, onClose }) {
            combination that blanks the whole scroller on iOS 26+. See section
            5 of the data-bg block in src/index.css. */
         data-chrome="drawer"
-        className="absolute inset-y-0 left-0 z-[11] flex flex-col overflow-hidden transition-transform duration-[250ms]"
+        className="absolute inset-y-0 left-0 z-[11] flex flex-col overflow-hidden transition-transform"
         style={{
           width: PANEL_WIDTH_PCT,
           maxWidth: PANEL_MAX_WIDTH,
           backgroundImage: PANEL_BG,
           transform: open ? 'translateX(0)' : 'translateX(-100%)',
+          /* ENTRANCE AND EXIT ARE NOT THE SAME, which is the single most
+             legible rule in a motion system: a surface arriving should
+             settle, a surface leaving should get out of the way. This was
+             250ms with the browser's default `ease` in both directions --
+             symmetrical, and therefore characterless.
+
+             Open decelerates over --dur-slow; close accelerates over
+             --dur-medium, two thirds of it. M3 applies the same asymmetry to
+             a drawer (emphasized-decelerate in, emphasized-accelerate out)
+             and the same ~1/3 reduction to its Fade (400 in / 150 out).
+
+             The panel is kept mounted either way -- see the note above --
+             so this is a transform toggle, not a mount, and it interrupts
+             cleanly if you close it mid-open. */
+          transitionDuration: open ? 'var(--dur-slow)' : 'var(--dur-medium)',
+          transitionTimingFunction: open ? 'var(--ease-out)' : 'var(--ease-in)',
         }}
       >
         {/* ── Header · 198378:74015 ───────────────────────────────────────

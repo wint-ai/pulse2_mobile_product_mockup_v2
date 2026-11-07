@@ -41,6 +41,7 @@
 import { useEffect } from 'react'
 
 import { Button } from '@/components/ui/button'
+import SheetShell from '@/v2/components/SheetShell'
 import { Separator } from '@/components/ui/separator'
 
 /* TOKENS. Every colour here is a design token:
@@ -74,7 +75,6 @@ export default function ValveConfirmSheet({ action, deviceName, valveCount, onCo
     return () => window.removeEventListener('keydown', onKey)
   }, [action, onCancel])
 
-  if (!action) return null
 
   const closing = action === 'close' || action === 'close-all'
 
@@ -93,23 +93,27 @@ export default function ValveConfirmSheet({ action, deviceName, valveCount, onCo
   const confirmLabel =
     action === 'close-all' ? 'Yes, Close All Valves' : closing ? 'Yes, Close Valve' : 'Yes, Open Valve'
 
-  return (
-    <div
-      className="absolute inset-0 z-50 flex flex-col justify-end"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-    >
-      {/* Scrim. A tap outside is a Cancel — this action never commits by
-          accident. */}
-      <button
-        type="button"
-        aria-label="Cancel"
-        onClick={onCancel}
-        className="absolute inset-0 cursor-default bg-foreground/45"
-      />
+  /* THE EARLY `if (!action) return null` IS GONE, and it had to go. Exit
+     animation is only possible if the component still renders while it
+     leaves; returning null on the same tick that closed it means React
+     unmounts the subtree immediately and AnimatePresence never sees it go.
+     `open` is passed down instead and the shell owns the unmount.
 
-      <div className="relative flex flex-col rounded-t-[18px] bg-surface-card px-[20px] pb-[24px] pt-[12px]">
+     NOT DISMISSIBLE BY DRAG. Every other sheet in the app can be thrown
+     away; this one confirms shutting off a building's water. A flick is too
+     cheap a gesture for that, and the scrim already offers an explicit
+     Cancel. The grabber is off for the same reason — it would advertise a
+     gesture that is deliberately not wired. */
+  return (
+    <SheetShell
+      open={Boolean(action)}
+      onClose={onCancel}
+      label={title}
+      closeLabel="Cancel"
+      dismissible={false}
+      className="flex flex-col rounded-t-[18px] bg-surface-card px-[20px] pb-[24px] pt-[12px]"
+    >
+      <>
         {/* The grab handle v1 drew, kept so the sheet reads as a sheet — now
             the shadcn Separator, which already carries bg-border. */}
         <Separator
@@ -139,7 +143,7 @@ export default function ValveConfirmSheet({ action, deviceName, valveCount, onCo
         >
           Cancel
         </Button>
-      </div>
-    </div>
+      </>
+    </SheetShell>
   )
 }

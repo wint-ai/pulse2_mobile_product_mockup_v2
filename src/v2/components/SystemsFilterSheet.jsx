@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils'
 import { Search01 } from '@/v2/icons'
 import FilterOptionIcon from '@/v2/components/FilterOptionIcon'
 import { FILTER_CATEGORIES, FILTER_CATEGORY_BY_ID, filterOptions } from '@/data/systemFilters'
+import SheetShell from '@/v2/components/SheetShell'
 
 /** A tick box drawn to the panel's 16px square, not a native checkbox. */
 function CheckBox({ checked, indeterminate }) {
@@ -88,7 +89,6 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
     return options.filter((o) => String(o.label).toLowerCase().includes(q))
   }, [options, query])
 
-  if (!open) return null
 
   const picked = draft[categoryId] ?? []
   const allShownPicked = shown.length > 0 && shown.every((o) => picked.includes(o.value))
@@ -107,19 +107,23 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
     setDraft({ ...draft, [categoryId]: next })
   }
 
+  /* The `if (!open) return null` guard is gone: a component that unmounts on
+     the tick it closes can never animate out. SheetShell owns the unmount.
+     Scrim copy, the 85% cap and the surface are all unchanged — only the
+     shell and the motion are new. A tap outside is still a Cancel, not an
+     Apply, and the sheet is draggable because dismissing a filter is cheap
+     and reversible. */
   return (
-    <div className="absolute inset-0 z-50 flex flex-col justify-end" role="dialog" aria-label="Filter by" aria-modal="true">
-      {/* Scrim. A tap outside is a Cancel, not an Apply. */}
-      <button
-        type="button"
-        aria-label="Close filters"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-[rgba(15,23,43,0.45)]"
-      />
-
-      {/* #fafbfc, matching the widgets it filters, rather than shadcn's
-          plain white — the sheet is part of this app, not the library demo. */}
-      <div className="relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[18px] bg-surface-card">
+    <SheetShell
+      open={open}
+      onClose={onClose}
+      label="Filter by"
+      closeLabel="Close filters"
+      grabber
+      scrimClassName="bg-[rgba(15,23,43,0.45)]"
+      className="flex max-h-[85%] flex-col overflow-hidden rounded-t-[18px] bg-surface-card"
+    >
+      <>
         <div className="flex shrink-0 items-center gap-[8px] border-b border-solid border-border px-[16px] py-[12px]">
           {category ? (
             <button
@@ -273,7 +277,7 @@ export default function SystemsFilterSheet({ open, systems = [], selection, onAp
             Apply filter
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </SheetShell>
   )
 }

@@ -147,7 +147,20 @@ describe('the two screens draw the same tab row', () => {
       expect(fillAtom(selected)).toBe(expected.fill)
       expect(fillAtom(resting)).toBe(expected.fill)
       expect(borderAtom(selected)).toBe(expected.selectedBorder)
-      expect(borderAtom(resting), 'a resting trigger carries no border').toBeNull()
+      /* A RESTING TRIGGER NOW CARRIES A TRANSPARENT BORDER, not no border.
+         This asserted `toBeNull()`, which was right while selection ADDED a
+         border on select -- but a border that does not exist cannot animate,
+         so selection snapped. The border is always present and only its
+         COLOUR changes, which transitions cleanly and keeps the two states
+         geometrically identical (with border-box the outer size already
+         matched, but the resting CONTENT box was 2px wider).
+
+         The owner's ruling this file guards -- "selection is a 1px brand
+         border, not a fill" -- is intact and still asserted on the line
+         above: the SELECTED trigger carries the brand border and neither
+         carries a fill. What changed is only how the unselected one spells
+         "no visible border". */
+      expect(borderAtom(resting), 'a resting trigger shows no VISIBLE border').toBe('border-transparent')
       expect(inkAtom(selected)).toBe(expected.selectedInk)
       expect(inkAtom(resting)).toBe(expected.restingInk)
       expect(selected.className).toContain('rounded-[100px]')
@@ -261,7 +274,7 @@ describe('the one ruled treatment', () => {
     expect(fillAtom(selected)).toBe('bg-surface-card')
     expect(fillAtom(resting)).toBe('bg-surface-card')
     expect(borderAtom(selected)).toBe('border-primary')
-    expect(borderAtom(resting)).toBeNull()
+    expect(borderAtom(resting)).toBe('border-transparent')  // see the note above
     expect(inkAtom(selected)).toBe('text-primary')
     expect(inkAtom(resting)).toBe('text-muted-foreground')
     expect(labelSpan(selected).className).toContain('font-semibold')

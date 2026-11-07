@@ -35,7 +35,7 @@ const buttonVariants = cva(
      browser: computed `transform` stayed `none` through the whole press
      while `scale` did the work. Both are listed so this keeps working
      whichever property a future utility reaches for. */
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap outline-none transition-[scale,transform,color,background-color,border-color,box-shadow,opacity] duration-[var(--dur-medium)] ease-[var(--ease-out)] active:scale-95 active:duration-[var(--dur-fast)] active:ease-linear focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap outline-none transition-[scale,transform,color,background-color,border-color,box-shadow,opacity] duration-(--dur-medium) ease-(--ease-out) active:scale-95 active:duration-(--dur-fast) active:ease-linear focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {

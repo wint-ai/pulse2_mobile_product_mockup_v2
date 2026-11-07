@@ -117,8 +117,20 @@ export default function TabBar({ activeTab, hideAlerts = false }) {
             {/* size-[22px] also opts the glyph out of the Button preset's
                 `[&_svg:not([class*='size-'])]:size-4`, which would otherwise
                 shrink it to 16px. */}
+            {/* The FILL is what actually reads as "this tab is selected", and
+                it was snapping. The Button preset now transitions `color`,
+                so the tint already eases -- but `fill` is set per-element
+                here and is not in that list, so the glyph filled instantly
+                while its colour faded. The two have to move together or the
+                swap looks broken at the halfway point.
+
+                --dur-fast, not slower: this is a high-frequency control, and
+                Apple is explicit that frequent interactions should not be
+                made to wait on motion. iOS itself cuts tab content with NO
+                animation at all; easing the glyph's own state is as far as
+                this should go. */}
             <Icon
-              className="size-[22px]"
+              className="size-[22px] transition-[fill] duration-(--dur-fast) ease-linear"
               strokeWidth={1.8}
               fill={isActive ? 'currentColor' : 'none'}
             />
