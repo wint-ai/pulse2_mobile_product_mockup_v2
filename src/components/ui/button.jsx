@@ -4,7 +4,38 @@ import { cn } from "@/lib/utils"
 import { Slot } from "radix-ui"
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  /* MOTION, 2026-11-07. Two changes, both from the motion research in
+     index.css:
+
+     1. `transition-all` is GONE. It is the one transition value that is
+        always wrong: it eventually catches a layout property -- width, the
+        `h-9` a size variant sets, a padding change from `has-[>svg]` -- and
+        drags the whole animation off the compositor onto the main thread.
+        Replaced by the explicit list of what a button actually changes.
+
+     2. `active:scale-95` is NEW, and it is the single highest-impact line in
+        this pass. Mobile web has NO HOVER: every `hover:` rule above is dead
+        on a phone, so until now tapping any button in this app produced no
+        feedback whatsoever. A press that does not acknowledge itself inside
+        ~100ms is the usual reason an app "feels static" -- it reads as a
+        dropped tap, and people tap again.
+
+        Down is fast and linear (contact, not animation); the release
+        decelerates over --dur-medium, which is what makes it feel sprung
+        rather than snapped back. 95% is enough to read without the control
+        appearing to retreat from the finger.
+
+     Press survives prefers-reduced-motion on purpose -- see the note beside
+     the `press` utility in index.css. */
+  /* `scale` IS IN THE TRANSITION LIST, AND `transform` ALONE IS NOT ENOUGH.
+     Tailwind v4 compiles `scale-95` to the INDEPENDENT `scale:` property,
+     not to `transform: scale(...)` the way v3 did. A transition list naming
+     only `transform` therefore animates nothing, and the press snaps
+     instantly to 95% and back with no easing at all. Measured in a real
+     browser: computed `transform` stayed `none` through the whole press
+     while `scale` did the work. Both are listed so this keeps working
+     whichever property a future utility reaches for. */
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap outline-none transition-[scale,transform,color,background-color,border-color,box-shadow,opacity] duration-[var(--dur-medium)] ease-[var(--ease-out)] active:scale-95 active:duration-[var(--dur-fast)] active:ease-linear focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {

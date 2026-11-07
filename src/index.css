@@ -14,6 +14,26 @@
 
 @import "tailwindcss";
 
+/* ── THE SHADCN ANIMATIONS, FINALLY COMPILED ──────────────────────────────
+   Every shadcn component in src/components/ui/ already carries the motion
+   classes it shipped with -- `animate-in`, `animate-out`, `fade-in-0`,
+   `zoom-in-95`, `slide-in-from-bottom`. Twenty-odd of them, across dialog,
+   sheet, dropdown, tooltip and popover.
+
+   NONE OF THEM PRODUCED A SINGLE BYTE OF CSS. `tailwindcss-animate` is in
+   package.json, but it is a Tailwind v3 PLUGIN and this project is on v4,
+   where a plugin must be loaded from CSS rather than from a JS config that
+   no longer exists. It was referenced nowhere. Measured on the built
+   stylesheet before this line was added: `animate-in`, `animate-out`,
+   `@keyframes enter` and `@keyframes exit` were all absent from 157KB of
+   output. That is why every dialog and sheet in this app appears instantly
+   -- the markup says it animates and the build emits nothing.
+
+   `tw-animate-css` is the v4 successor shadcn itself moved to. Importing it
+   revives all of that markup at once, which is why it is the first thing in
+   this file rather than part of the token block below. */
+@import "tw-animate-css";
+
 /* This app is single-theme. Binding `dark:` to an explicit `.dark` class
    — which nothing ever sets — is deliberate: it stops the dark: utilities
    that ship inside the stock shadcn components (button, sidebar, sheet)
@@ -1997,3 +2017,180 @@ button {
   from { transform: translateY(-110%); }
   to   { transform: translateY(0); }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOTION
+   ══════════════════════════════════════════════════════════════════════════
+   Researched 2026-11-07 against Apple HIG + WWDC23 "Animate with springs",
+   Material 3's motion tokens, and the practitioner literature (NN/g, Carbon,
+   Atlassian, WebKit). Where the three disagree, the choice is recorded.
+
+   THE ONE RULE THAT MATTERS MOST, because it is what this app got wrong:
+   a tappable thing must acknowledge the tap inside 100ms. Mobile web has no
+   hover, so a component styled only for :hover has NO touch feedback at all.
+   That -- not the absence of page transitions -- is the usual reason an app
+   "feels static".
+
+   Second rule: animate `transform` and `opacity` and nothing else. They are
+   the only two properties the compositor can run without laying out or
+   painting. `transition: all` is banned here; it will eventually catch a
+   layout property and drop the whole app to the main thread.
+
+   ── DURATIONS ───────────────────────────────────────────────────────────
+   One scale, no raw numbers at call sites. Sized by the ELEMENT, per Carbon:
+   a chip moves a short distance and should be quick; a full-height sheet
+   travels the screen and is allowed to take its time. */
+:root {
+  --dur-fast: 100ms;      /* presses, chips, toggles -- anything frequent */
+  --dur-base: 150ms;      /* opacity and colour. M3 `short3`; also the exit  */
+  --dur-medium: 200ms;    /* small cards, menus, most exits                  */
+  --dur-slow: 300ms;      /* cards, drawer, accordion                        */
+  --dur-sheet: 500ms;     /* full-height sheets and page pushes -- see below */
+
+  /* ── EASINGS ──────────────────────────────────────────────────────────
+     Entrances decelerate, exits accelerate. That asymmetry is the single
+     most legible thing in a motion system: something arriving should settle,
+     something leaving should get out of the way.
+
+     The three M3 curves are used by name because they are properly specified
+     and we are already a Material-adjacent shadcn app. M3's `emphasized` is
+     deliberately NOT here: it is not a cubic-bezier at all but a two-segment
+     SVG path, and its official single-curve fallback deviates from the real
+     thing by 16% of the travel. Where we want that character we use the iOS
+     curve below, which is a better approximation of the same intent. */
+  --ease-out: cubic-bezier(0.05, 0.7, 0.1, 1);    /* M3 emphasized-decelerate */
+  --ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);     /* M3 emphasized-accelerate */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);    /* moves, stays on screen   */
+
+  /* THE iOS CURVE. Not published by Apple -- derived independently by two
+     shipping iOS-on-web libraries (Ionic's page/modal transitions and Vaul's
+     drawer) which converged on the same four numbers. It is a bezier
+     approximation of a critically damped spring: fast off the mark, long
+     decelerating tail, zero overshoot. Sheets and page pushes use it. */
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Opacity-only crossfades. Linear is right here and almost nowhere else:
+     an eased fade reads as a flicker because perceived brightness is not
+     linear in alpha. */
+  --ease-linear: linear;
+
+  /* NO `linear()` SPRINGS ANYWHERE IN THIS FILE, AND THAT IS DELIBERATE.
+     CSS can express a real spring via the `linear()` easing function, and on
+     paper it is the obvious way to get iOS physics with no JavaScript. It is
+     the wrong choice HERE specifically because this app is installed as an
+     iOS home-screen PWA, which makes WebKit the only runtime that matters.
+
+     WebKit bug 312407: `linear()` forces an animation onto the MAIN THREAD
+     in released Safari -- even when the animation touches nothing but
+     transform and opacity, which are otherwise composited. Every other
+     easing stays off it. The fix landed in July 2026 behind "Time-based
+     Threaded Animations" but is not confirmed in a shipped Safari release.
+
+     So a `linear()` spring would trade a perfectly composited animation for
+     a janky one on the one device the owner reviews this on. `--ease-ios`
+     above is a bezier approximation of a critically damped spring and stays
+     on the compositor. Real springs -- the kind that carry velocity out of a
+     gesture -- are done in JS by Motion, where they belong anyway, because
+     no CSS easing can be interrupted mid-flight with velocity preserved. */
+
+  /* ── SCRIM ────────────────────────────────────────────────────────────
+     M3 specifies 0.32 for the dialog scrim. Adopted as one token so every
+     dimmed surface in the app dims by the same amount. */
+  --scrim: rgba(15, 23, 43, 0.32);
+
+  /* ── STAGGER ──────────────────────────────────────────────────────────
+     Per item, for a list's FIRST paint only. Neither M3 nor Apple publishes
+     a stagger value -- every number in circulation is third-party -- so this
+     is Carbon's 30ms with a hard budget: the whole sequence must finish
+     inside --dur-stagger-max, which means long lists stop staggering rather
+     than making the last card wait. A staggered RE-render reads as a bug,
+     so this is keyed to mount and never to data. */
+  --stagger-step: 30ms;
+  --stagger-max: 300ms;
+}
+
+/* ── REDUCED MOTION ───────────────────────────────────────────────────────
+   NOT the `animation-duration: 0.01ms !important` reset that circulates.
+   That nukes the thing Apple actually asks for.
+
+   Apple's guidance is a SUBSTITUTION list, not an off switch: "replacing
+   transitions in x-, y-, and z-axes with fades", "tightening animation
+   springs to reduce bounce", and -- the one everybody misses -- "tracking
+   animations directly with people's gestures". Reduce Motion targets
+   AUTOMATIC and REPETITIVE motion. A sheet following your finger is listed
+   as a REMEDY, not a problem.
+
+   So: keep the transition, change its channel. Opacity survives at full
+   duration; translate, scale and stagger do not. Gesture-driven drag is
+   untouched -- it lives in JS and is deliberately not switched off there.
+
+   `--motion-ok` is the multiplier spatial animations scale by, so a single
+   token disables transforms app-wide without disabling fades. */
+:root { --motion-ok: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-ok: 0;
+    --stagger-step: 0ms;
+    --stagger-max: 0ms;
+  }
+
+  /* Spatial motion is removed; the effects family keeps running. */
+  *, *::before, *::after {
+    animation-delay: 0ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  /* tw-animate-css builds its enter/exit from these four custom properties.
+     Zeroing the spatial three leaves the opacity channel intact, so a sheet
+     still fades in -- it just stops travelling. This is the whole policy in
+     four lines. */
+  *, *::before, *::after {
+    --tw-enter-translate-x: 0 !important;
+    --tw-enter-translate-y: 0 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+    --tw-enter-scale: 1 !important;
+    --tw-exit-scale: 1 !important;
+    --tw-enter-rotate: 0 !important;
+    --tw-exit-rotate: 0 !important;
+  }
+}
+
+/* ── PRESS FEEDBACK ───────────────────────────────────────────────────────
+   The fix for the complaint. `:active` fires on touch, `:hover` does not.
+
+   95% rather than a deeper squash: the control must read as pressed without
+   appearing to move away from the finger. Down is instant (`--dur-fast` and
+   a linear curve -- the press should feel like contact, not like an
+   animation); the release decelerates over --dur-medium, which is what makes
+   it feel sprung rather than snapped.
+
+   `@media (hover: none)` is NOT used to gate this: a mouse user should get
+   the same acknowledgement. What IS gated is the hover styling elsewhere.
+
+   Applied by a utility rather than globally, so a press state is a decision
+   per component -- a whole-page `:active` rule would squash scroll
+   containers and list rows that are not controls. */
+@utility press {
+  transition: transform var(--dur-medium) var(--ease-out);
+  &:active { transform: scale(0.95); transition-duration: var(--dur-fast); transition-timing-function: var(--ease-linear); }
+}
+
+/* A gentler press for large surfaces -- a full-width card squashing by 5%
+   reads as the whole screen flinching. Travel is proportional to size, so
+   the bigger the target the smaller the scale change. */
+@utility press-soft {
+  transition: transform var(--dur-medium) var(--ease-out);
+  &:active { transform: scale(0.985); transition-duration: var(--dur-fast); transition-timing-function: var(--ease-linear); }
+}
+
+/* PRESS SURVIVES REDUCED MOTION, and that is a considered exception rather
+   than an oversight. Apple's Reduce Motion targets AUTOMATIC and REPETITIVE
+   motion, and its own remedy list includes "tracking animations directly
+   with people's gestures" -- a press response is the purest example of one.
+   It is also tiny, instantaneous, user-initiated and confined to the control
+   under the finger, which is none of the five things WebKit names as
+   vestibular triggers (large-area motion, parallax, zoom, spin, dolly).
+   Removing it would take away the only touch feedback this app has, from the
+   users who can least afford ambiguity about whether a tap registered. */
