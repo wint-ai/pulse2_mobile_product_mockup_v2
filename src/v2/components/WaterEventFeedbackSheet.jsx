@@ -1373,7 +1373,11 @@ function FeedbackSheet({
         className="absolute inset-0 cursor-default bg-foreground/45"
       />
 
-      <div className="wef-sheet relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[24px] bg-surface-card shadow-[0_-8px_32px_rgba(0,0,0,0.18)]">
+      {/* Entrance via the shadcn animation classes, which compiled to nothing
+          until tw-animate-css was wired in this pass. Entrance only: this
+          component returns null when closed, so there is no element left to
+          animate out. */}
+      <div className="wef-sheet relative flex max-h-[85%] flex-col overflow-hidden rounded-t-[24px] bg-surface-card shadow-[0_-8px_32px_rgba(0,0,0,0.18)] animate-in fade-in-0 slide-in-from-bottom-[100%] duration-500 ease-(--ease-ios) motion-reduce:slide-in-from-bottom-0">
         {/* 199745:21417 / 199748:26641 — the grab handle. */}
         <div aria-hidden="true" className="mx-auto mb-[6px] mt-[11px] h-[4px] w-[34px] shrink-0 rounded-[10px] bg-slate-300" />
 
