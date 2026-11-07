@@ -2231,3 +2231,12 @@ button {
     transition-timing-function: linear;
   }
 }
+
+/* The pull-to-refresh spinner. A looping indicator is the ONE place linear is
+   correct: an eased rotation visibly stutters at each cycle boundary. It is
+   also the one piece of this app's motion that is automatic and repetitive,
+   which is why PullToRefresh stops it under Reduce Motion while leaving the
+   gesture itself completely intact. */
+@keyframes ptr-spin {
+  to { transform: rotate(360deg); }
+}

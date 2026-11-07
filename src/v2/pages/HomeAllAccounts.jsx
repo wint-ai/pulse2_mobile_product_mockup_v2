@@ -59,7 +59,7 @@
  * so the project's Phosphor caret-down is used instead of shipping a smiley.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 /* The node's chevron-left / chevron-down are Tabler rasters on expiring
    figma.com/api/mcp/asset URLs, so neither is referenced at runtime. lucide
@@ -133,6 +133,7 @@ import { getConsumption } from '@/data/consumption'
 import { getFleetConsumptionSeries } from '@/data/consumptionSeries'
 import { getInsightRows, insightValueLabel, INSIGHT_KIND } from '@/data/upstream/insightsModel'
 import { computeSystemHealth } from '@/utils/systemHealth'
+import PullToRefresh from '@/v2/components/PullToRefresh'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 // MOCK — replace with the real account roll-up. Every value is the comp's own.
@@ -767,6 +768,9 @@ export default function HomeAllAccounts({ expanded = false }) {
   // holding data the card only displays.
   const [topUsageDays, setTopUsageDays] = useState(30)
   const [tab, setTab] = useState('overview')
+  /* Handed to PullToRefresh so the gesture can read the scroller's own
+     scrollTop -- a pull only means "refresh" when there is nothing above. */
+  const homeScrollRef = useRef(null)
   /* System tab filters. Held here rather than in the card because the sheet is
      an overlay and every wrapper Figma emits is `relative` — rendered inside
      the tab body it would be trapped there instead of covering the frame. */
@@ -1500,7 +1504,24 @@ export default function HomeAllAccounts({ expanded = false }) {
             pb-16 is the only value here the node cannot state: a frame has no
             scroll padding, and without it the last card sits flush against the
             TabBar. */}
+        {/* PULL TO REFRESH wraps the scroller rather than replacing it, so
+            the shell contract above is untouched: this div keeps `flex:1 /
+            minHeight:0 / overflowY:auto` exactly as it had it, and
+            PullToRefresh reads it through `scrollRef`. Wrapping INSIDE the
+            flex child would have put the indicator in the scroll flow, where
+            it changes content height mid-gesture and fights the scroll it is
+            measuring.
+
+            `onRefresh` is deliberately a settle with no refetch behind it.
+            This dataset is generated and there is nothing to re-fetch; the
+            gesture exists so the interaction is right for when there is. */}
+        <PullToRefresh
+          scrollRef={homeScrollRef}
+          className="flex min-h-0 flex-1 flex-col"
+          onRefresh={async () => {}}
+        >
         <div
+          ref={homeScrollRef}
           className="content-stretch flex flex-col gap-[20px] items-start pb-4 relative w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
           data-node-id="199360:129787"
@@ -1540,6 +1561,7 @@ export default function HomeAllAccounts({ expanded = false }) {
             </div>
           )}
         </div>
+        </PullToRefresh>
 
         {/* One water event, full screen — the destination the card's rows now
             open. It is `absolute inset-0 z-50` with no portal (a Radix portal
