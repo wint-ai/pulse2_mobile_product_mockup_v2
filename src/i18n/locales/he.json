@@ -14,6 +14,7 @@
   "tabs": {
     "home": "לוח בקרה",
     "alerts": "התראות",
+    "search": "חיפוש",
     "more": "עוד",
     "profile": "פרופיל",
     "alerts_badge_one": "התראה פעילה אחת",
@@ -220,6 +221,7 @@
     }
   },
   "drawer": {
+    "search_label": "חיפוש מיקומים ומערכות",
     "search_placeholder": "חפש מערכות ומיקומים",
     "no_results": "אין תוצאות",
     "explore_all": "עיין בכל המערכות",

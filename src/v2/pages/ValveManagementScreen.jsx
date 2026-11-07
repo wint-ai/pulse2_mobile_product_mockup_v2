@@ -1487,19 +1487,26 @@ export default function ValveManagementScreen() {
             Measured before and after at 393x852 — 484px of usable scroll on
             /valves both times.
 
-            ⚠ 93 IS SPELLED AS A LITERAL HERE AND THAT IS NOT AN OVERSIGHT.
-            `tabBarFloatingClearance.dom.test.jsx:195` greps the SOURCE of all
-            seventeen padded screens for `paddingBottom: 93` / `pb-[93px]` /
-            `padding: '... 93px'` — it is the only way one test can assert
-            something about seventeen files — so `TAB_BAR_CLEARANCE` here would
-            read as a screen that forgot its padding and fail. The literal
-            cannot silently rot either way: that regex is BUILT from
-            TAB_BAR_CLEARANCE, so moving the constant turns all seventeen red
-            at once. REPORTED: when that check learns to accept the identifier,
-            this becomes TAB_BAR_CLEARANCE like the strip below. */}
+            ✔ IT IS THE CONSTANT NOW — 2026-11-07, and this note records why
+            it was a literal `93` until then. `tabBarFloatingClearance.dom.
+            test.jsx` greps the SOURCE of all seventeen padded screens — it is
+            the only way one test can assert something about seventeen files —
+            and its regex could match the literal only, so `TAB_BAR_CLEARANCE`
+            here used to read as a screen that forgot its padding and fail.
+            That contradicted tabBarMetrics.js, which says in as many words
+            that pages DO import the constant.
+
+            THE CHECK WAS FIXED, not the advice: it now has a second arm that
+            accepts the identifier when the file genuinely imports it from that
+            module, with its own coverage so the arm cannot rot back into
+            matching nothing. The literal arm is still BUILT from
+            TAB_BAR_CLEARANCE, so the screens that still spell 93 stay honest
+            — moving the constant turns them red at once. This screen and
+            SystemPageV2Screen's scroller are the first two on the constant;
+            see the strip below, which was already on it. */}
         <div
           className="w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: showStrip ? 0 : 93 }}
+          style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: showStrip ? 0 : TAB_BAR_CLEARANCE }}
           data-name="valve-rows"
         >
           {result ? <ResultBanner result={result} onDismiss={() => setResult(null)} /> : null}

@@ -11,6 +11,31 @@
  *
  * Pages DO import TAB_BAR_CLEARANCE, because a scroll body's bottom padding is
  * an ordinary style value with no Tailwind involvement.
+ *
+ * ── BOTH SPELLINGS ARE LEGAL, AND THE IMPORT IS THE BETTER ONE ───────────
+ * `paddingBottom: TAB_BAR_CLEARANCE` and `paddingBottom: 93` both satisfy
+ * tabBarFloatingClearance.dom.test.jsx. Prefer the import: a screen that
+ * hard-codes 93 does not move when this file does, and the only thing keeping
+ * the seventeen literal-spelling screens honest is that the test's regex is
+ * BUILT from this constant, so changing it turns all of them red at once
+ * rather than letting one drift.
+ *
+ * ⚠ THE TWO USED TO CONTRADICT EACH OTHER — FIXED 2026-11-07. This paragraph
+ *   said "pages DO import" while that test was a source-text grep that could
+ *   only match the literal `93` and could not resolve an identifier. A page
+ *   following this file's advice therefore FAILED, with a message saying it
+ *   had not declared the padding when it had. Two screens hit it and wrote
+ *   the literal instead, each leaving a note saying so. The test now has a
+ *   second arm that accepts the identifier when the file genuinely imports it
+ *   from this module; the arm has its own coverage in that file
+ *   (`recognises the clearance whether a screen spells it or imports it`), so
+ *   it cannot rot back into matching nothing.
+ *
+ * ⚠ STILL TRUE, AND NOT THE SAME THING: a Tailwind CLASS must carry the
+ *   literal — `pb-[93px]`, never `pb-[${TAB_BAR_CLEARANCE}px]`. The scanner
+ *   reads source text and emits no CSS for a template-built class. The
+ *   distinction is the one at the top of this file: style VALUES may be
+ *   imported, class TEXT may not.
  */
 
 /** The pill's own height. TabBar PILL: `h-[65px]`. */

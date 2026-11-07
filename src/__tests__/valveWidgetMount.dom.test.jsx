@@ -169,9 +169,22 @@ const where = () => screen.getByTestId('where').textContent
 const at = (name) => `/location/${encodeURIComponent(name)}`
 const cardIn = (container) => container.querySelector('[data-name="valve-management"]')
 /* The screen's ONE scroller, which is also the stack that gives every card its
-   20px gap. HomeAllAccounts.jsx carries this node id on it. */
-const stackIn = (container) => container.querySelector('[data-node-id="199360:129787"]')
-const openSystemsTab = () => fireEvent.click(screen.getByRole('tab', { name: 'Systems' }))
+   20px gap. HomeAllAccounts.jsx carries this node id on it.
+
+   ⚠ THE ID MOVED ON 2026-11-07, with the page's design source. It was
+   199360:129787 and is 200013:93100 — the content frame of node 200013:93089,
+   which is the restructure's target. Same element, same job, a newer frame. */
+const stackIn = (container) => container.querySelector('[data-node-id="200013:93100"]')
+/* ⚠ THE TAB ROW BECAME A MENU on 2026-11-07 — owner: "we are replacing tabs
+   with the more button". The three destinations kept their ids, so this is the
+   same Systems view reached through the control that now opens it. The row is
+   role="menuitem" and the open state is `aria-current`, not `aria-selected`;
+   src/v2/components/MoreMenu.jsx carries the argument. */
+const openMoreMenu = () => fireEvent.click(document.querySelector('[data-name="app-more"]'))
+const openSystemsTab = () => {
+  openMoreMenu()
+  fireEvent.click(document.querySelector('[data-menu-item="systems"]'))
+}
 
 describe('the dataset still looks the way these cases assume', () => {
   it(`${SUMMIT} still mixes valves, an offline system and a fault`, () => {
@@ -265,8 +278,12 @@ describe('the valve widget is mounted on the live page', () => {
 
     openSystemsTab()
 
-    expect(screen.getByRole('tab', { name: 'Systems' }).getAttribute('aria-selected')).toBe('true')
-    /* The table is up — so the tab really switched and this is not an
+    openMoreMenu()
+    expect(
+      document.querySelector('[data-menu-item="systems"]').getAttribute('aria-current'),
+    ).toBe('true')
+    fireEvent.keyDown(document.querySelector('[data-name="more-menu-card"]'), { key: 'Escape' })
+    /* The table is up — so the view really switched and this is not an
        assertion about a page that failed to render. */
     expect(screen.getByRole('columnheader', { name: 'System' })).toBeTruthy()
     expect(cardIn(container), 'the valve card leaked into the Systems tab').toBeNull()
@@ -558,13 +575,25 @@ describe('mounting the widget cost the page nothing', () => {
         container.querySelector('[aria-label^="Valve errors:"]'),
         'SystemHealthCard’s valve tile is gone',
       ).toBeTruthy()
-      /* TabBar, with alerts hidden on this page — so Home and More. */
+      /* TabBar. The `hideAlerts` prop is long gone, so this is the same four
+         tabs as everywhere else; Dashboard and the Search tab are sampled.
+         SEARCH REPLACED MORE HERE ON 2026-11-07 and the name is its full
+         accessible one, which is deliberately not the visible label - see
+         src/components/TabBar.jsx. It doubles as a door check: with the
+         header's PanelLeft gone, that button is the only thing on this route
+         that opens the navigation drawer. */
       expect(screen.getByRole('button', { name: 'Dashboard' }), 'TabBar is not mounted').toBeTruthy()
-      expect(screen.getByRole('button', { name: 'More' }), 'TabBar is not mounted').toBeTruthy()
-      /* And the tab row the card lives behind. */
+      expect(
+        screen.getByRole('button', { name: 'Search locations and systems' }),
+        'TabBar is not mounted, or the drawer has lost its only door on this route',
+      ).toBeTruthy()
+      /* And the control the card lives behind — the More menu since
+         2026-11-07, with the same three destinations the tab row carried. */
+      openMoreMenu()
       for (const name of ['Overview', 'Systems', 'General Info']) {
-        expect(screen.getByRole('tab', { name }), name).toBeTruthy()
+        expect(screen.getByRole('menuitem', { name }), name).toBeTruthy()
       }
+      fireEvent.keyDown(document.querySelector('[data-name="more-menu-card"]'), { key: 'Escape' })
       /* The card is there too — so this case cannot pass by the card simply
          never having mounted. */
       expect(cardIn(container)).toBeTruthy()

@@ -29,44 +29,67 @@ const renderAt = (path) =>
     </MemoryRouter>,
   )
 
-/* role 'tab', not 'button'. The row moved from two hand-rolled copies of a
-   `TabTrigger` (one per page) into the shared @/v2/components/PillTabs, and
-   that move added the tab semantics the control always should have had:
-   role="tablist" / role="tab" / aria-selected plus a roving tabindex. An
-   element with role="tab" is no longer matched by getByRole('button'), so
-   these queries are retargeted rather than dropped — they assert the same
-   three controls, by the role the control now truthfully reports. */
-const openSystemsTab = () => {
-  fireEvent.click(screen.getByRole('tab', { name: 'Systems' }))
+/* ── role 'menuitem', not 'tab' — 2026-11-07 ────────────────────────────────
+   The control changed TWICE and the destination changed neither time.
+
+   It was two hand-rolled `TabTrigger` copies, then the shared PillTabs, which
+   brought real role="tablist" / role="tab" / aria-selected semantics. On
+   2026-11-07 the owner replaced the row itself: "we are replacing tabs with
+   the more button / needs to open as a floating component like in ios". The
+   three destinations moved into src/v2/components/MoreMenu.jsx with their ids
+   unchanged (`overview` / `systems` / `general`), so every assertion below is
+   the same assertion against the control that now carries it.
+
+   WHAT WENT WITH THE ROW, and so with these queries: role="tab" and
+   `aria-selected`. A menu is not a tablist — MoreMenu's rows are
+   role="menuitem" with `aria-current="true"` on the one in effect (NOT
+   aria-checked; see REJECTED F in that file). The selection is still
+   announced, by the attribute the correct role actually carries.
+
+   The page-level structure of the restructure is pinned in
+   homeAllAccountsRestructure.dom.test.jsx; this file keeps its own subject,
+   which is the SCOPE the Systems view reports on. */
+const openMore = () => {
+  fireEvent.click(document.querySelector('[data-name="app-more"]'))
 }
+const openSystemsTab = () => {
+  openMore()
+  fireEvent.click(document.querySelector('[data-menu-item="systems"]'))
+}
+const menuRow = (id) => document.querySelector(`[data-menu-item="${id}"]`)
 
 describe('the System tab', () => {
   it('sits alongside Overview and General Info', () => {
     renderAt('/')
+    openMore()
     for (const name of ['Overview', 'Systems', 'General Info']) {
-      expect(screen.getByRole('tab', { name }), name).toBeTruthy()
+      expect(screen.getByRole('menuitem', { name }), name).toBeTruthy()
     }
   })
 
   /* The accessible name must stay the bare label. Folding the count in once
      renamed "Systems" to "Systems 103" and broke exactly the lookup above; the
-     number is announced as the Badge's own label instead. */
+     number is announced as its own label instead. MoreMenu carries that rule
+     over from PillTabs' CountBadge. */
   it('keeps the count off the tab’s accessible name', () => {
     renderAt('/')
-    const systems = screen.getByRole('tab', { name: 'Systems' })
+    openMore()
+    const systems = screen.getByRole('menuitem', { name: 'Systems' })
     expect(systems.getAttribute('aria-label')).toBe('Systems')
     expect(within(systems).getByLabelText(/^\d+ systems$/)).toBeTruthy()
   })
 
-  it('reports selection with aria-selected, not just a colour', () => {
+  it('reports selection with aria-current, not just a colour', () => {
     renderAt('/')
-    expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByRole('tab', { name: 'Systems' }).getAttribute('aria-selected')).toBe('false')
+    openMore()
+    expect(menuRow('overview').getAttribute('aria-current')).toBe('true')
+    expect(menuRow('systems').getAttribute('aria-current')).toBeNull()
 
-    openSystemsTab()
+    fireEvent.click(menuRow('systems'))
 
-    expect(screen.getByRole('tab', { name: 'Overview' }).getAttribute('aria-selected')).toBe('false')
-    expect(screen.getByRole('tab', { name: 'Systems' }).getAttribute('aria-selected')).toBe('true')
+    openMore()
+    expect(menuRow('overview').getAttribute('aria-current')).toBeNull()
+    expect(menuRow('systems').getAttribute('aria-current')).toBe('true')
   })
 
   it('shows the table, and Overview’s cards go away', () => {

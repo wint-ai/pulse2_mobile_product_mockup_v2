@@ -18,15 +18,36 @@
  *   node scripts/figma-cache.mjs plan <file...>      what to fetch, deduped, one owner per node
  *   node scripts/figma-cache.mjs get <tool> <node>   cached payload, or exit 1 on a miss
  *   node scripts/figma-cache.mjs put <tool> <node> [file]   store a payload (stdin if no file)
+ *   node scripts/figma-cache.mjs evict <tool> <node> drop a poisoned or stale entry
  *   node scripts/figma-cache.mjs stats               hit rate and calls saved
  *   node scripts/figma-cache.mjs budget              calls used in the last 24h vs the cap
  *   node scripts/figma-cache.mjs audit <dir>         find duplicate fetches in agent transcripts
+ *
+ * ── A SECOND WAY TO POISON THIS CACHE — found 2026-11-07 ──────────────────
+ * `put` has always refused a rate-limit refusal, because caching one tells
+ * every later reader "this node does not exist". A TRUNCATED payload is the
+ * same bug wearing better clothes, and it got past that guard twice.
+ *
+ * The harness caps a tool result at 100,000 characters. Two entries were
+ * stored at EXACTLY that length — `get_design_context 200013:91524` and
+ * `get_design_context 199772:145451` — each cut mid-attribute, missing the
+ * last 25-35% of the node. Nothing in them says so. A later reader gets a
+ * payload that parses, reads like design data, and is quietly missing the
+ * bottom of the frame; `put` accepted both because they contained no
+ * rate-limit text. Both were evicted on 2026-11-07 and `put` now screens for
+ * this — see truncationVerdict().
+ *
+ * ⚠ FIGMA'S OWN TRUNCATION IS A DIFFERENT THING and is NOT refused. When the
+ *   node is too big, Figma says so in the payload ("...working with truncated
+ *   output and results may be incomplete"). That is honest and still useful,
+ *   so it is stored WITH A FLAG and `get` says so out loud. The refusal is
+ *   reserved for a cut nobody declared.
  *
  * The cap defaults to 200 (Professional, Dev/Full seat). Override for another
  * plan with FIGMA_MCP_DAILY_CAP, e.g. 600 on Organization/Enterprise.
  */
 import {
-  existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync,
+  existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync, rmSync,
 } from 'node:fs'
 import path from 'node:path'
 
@@ -125,6 +146,75 @@ function cmdPlan(files) {
   }
 }
 
+/* ── IS THIS PAYLOAD THE WHOLE NODE? ───────────────────────────────────────
+ * Three verdicts, and the difference between them is who did the cutting:
+ *
+ *   'cut'      — something cut this and said nothing. REFUSED by put, and
+ *                served as a MISS by get. This is the poisoning case.
+ *   'suspect'  — it ends mid-token. Stored, loudly flagged. Some legitimate
+ *                entries are raw rasters or hand-written notes that end oddly,
+ *                so this one warns rather than refuses.
+ *   'declared' — the payload states its own truncation (Figma's wording when
+ *                a node exceeds its size cap). Honest and still useful, so it
+ *                is stored and the flag travels with it.
+ */
+
+/* Tool-output caps this harness and its neighbours impose. A payload whose
+   length is EXACTLY one of these was cut by the transport, not by Figma:
+   genuine design output landing on a round number to the character does not
+   happen. 100,000 is the one that bit us, twice. */
+const OUTPUT_CAPS = new Set([25000, 30000, 50000, 100000, 200000, 250000, 500000, 1000000, 1048576])
+
+/* Figma's own wording when it shortens a large node. Matched near the END of
+   the payload only — these words appear in ordinary prose notes too. */
+const DECLARES_TRUNCATION = /truncated output|results may be incomplete|output (?:was )?truncated/i
+
+function truncationVerdict(payload) {
+  const n = payload.length
+
+  if (OUTPUT_CAPS.has(n)) {
+    return {
+      kind: 'cut',
+      why: `the payload is EXACTLY ${n.toLocaleString('en-US')} characters, which is a `
+        + 'tool-output cap, not a length design data arrives at. It was cut in '
+        + 'transport and the end of the node is missing.',
+    }
+  }
+
+  const opener = payload.trimStart()[0]
+  if (opener === '[' || opener === '{') {
+    try {
+      JSON.parse(payload)
+    } catch {
+      return {
+        kind: 'cut',
+        why: 'the payload opens as JSON and does not parse. A complete JSON result '
+          + 'parses; one that stops partway through does not.',
+      }
+    }
+  }
+
+  if (DECLARES_TRUNCATION.test(payload.slice(-2000))) {
+    return {
+      kind: 'declared',
+      why: 'the payload states its own truncation - this is Figma shortening a large '
+        + 'node, not the transport cutting it. Usable, but it is NOT the whole frame.',
+    }
+  }
+
+  /* A complete emission ends on a terminator. Mid-token is how a cut looks
+     when the length happens to miss a cap. */
+  const last = payload.replace(/\s+$/, '').slice(-1)
+  if (n > 2000 && last && !/[\])}>;.,:"'`*/-]/.test(last)) {
+    return {
+      kind: 'suspect',
+      why: `the payload ends mid-token: ...${JSON.stringify(payload.slice(-48))}`,
+    }
+  }
+
+  return null
+}
+
 /* ── get / put ─────────────────────────────────────────────────────────────*/
 function cmdGet(tool, nodeId) {
   const file = path.join(CACHE_DIR, keyFor(tool, nodeId))
@@ -135,8 +225,27 @@ function cmdGet(tool, nodeId) {
   }
   const entry = JSON.parse(readFileSync(file, 'utf8'))
   const age = Date.now() - entry.fetchedAt
+
+  /* RE-CHECKED ON READ, not trusted from the stored flag alone, because every
+     entry written before 2026-11-07 was stored without one. */
+  const verdict = entry.truncation || truncationVerdict(entry.payload)
+
+  if (verdict && verdict.kind === 'cut') {
+    /* SERVED AS A MISS, and nothing goes to stdout. A reader piping this into
+       a file would otherwise get a partial node that reads like a whole one -
+       which is the entire failure this check exists to stop. */
+    record({ type: 'miss', tool, nodeId })
+    console.error(`POISONED ENTRY ${tool} ${nodeId} — ${verdict.why}`)
+    console.error('Refusing to serve it. Evict and re-fetch:')
+    console.error(`  node scripts/figma-cache.mjs evict ${tool} ${nodeId}`)
+    process.exit(1)
+  }
+
   record({ type: 'hit', tool, nodeId })
 
+  if (verdict) {
+    console.error(`WARNING: this entry is INCOMPLETE — ${verdict.why}`)
+  }
   if (age > ASSET_URL_TTL_MS) {
     console.error(`WARNING: cached ${Math.round(age / DAY_MS)}d ago. Any figma.com asset URL inside `
       + 'has EXPIRED — re-fetch before using assets. Structure is still usable.')
@@ -144,6 +253,26 @@ function cmdGet(tool, nodeId) {
     console.error(`note: cached ${Math.round(age / (60 * 60 * 1000))}h ago; re-fetch if the design may have moved since.`)
   }
   process.stdout.write(entry.payload)
+}
+
+/* ── evict ─────────────────────────────────────────────────────────────────
+ * Drop one entry. Used for a poisoned payload, or when a node is known to have
+ * moved under us. It is a ledger event, not a silent unlink: the next reader
+ * should be able to see that the entry was removed on purpose. */
+function cmdEvict(tool, nodeId) {
+  if (!tool || !nodeId) {
+    console.error('usage: figma-cache.mjs evict <tool> <node>')
+    process.exit(2)
+  }
+  const file = path.join(CACHE_DIR, keyFor(tool, nodeId))
+  if (!existsSync(file)) {
+    console.log(`nothing cached for ${tool} ${nodeId}`)
+    return
+  }
+  const bytes = statSync(file).size
+  rmSync(file)
+  record({ type: 'evict', tool, nodeId })
+  console.log(`evicted ${tool} ${nodeId} (${bytes} bytes). The next read is a MISS; re-fetch it.`)
 }
 
 function cmdPut(tool, nodeId, file) {
@@ -160,9 +289,48 @@ function cmdPut(tool, nodeId, file) {
     console.error('refusing to cache what looks like a rate-limit error, not design data')
     process.exit(2)
   }
+
+  /* ── AND THE SAME BUG BY A QUIETER ROUTE — 2026-11-07 ───────────────────
+     A payload cut at the harness's 100,000-character ceiling contains no
+     rate-limit text, parses, and reads like design data. It is still a lie:
+     the last quarter of the node is missing and nothing in the file says so.
+     Two entries were stored that way before this check existed. Same class of
+     bug as the refusal above, same treatment. */
+  const verdict = truncationVerdict(payload)
+  const forced = process.argv.includes('--force')
+
+  if (verdict && verdict.kind === 'cut' && !forced) {
+    console.error(`refusing to cache a TRUNCATED payload: ${verdict.why}`)
+    console.error('')
+    console.error('An incomplete node cached as a complete one is worse than a miss - the')
+    console.error('next reader cannot tell. Re-fetch the node, or fetch it in pieces (a')
+    console.error('child node at a time), or store it with --force if you have checked it')
+    console.error('yourself and want the partial payload on the record.')
+    process.exit(2)
+  }
+
+  if (verdict) {
+    console.error(`WARNING: caching an INCOMPLETE payload — ${verdict.why}`)
+    if (forced) console.error('(stored anyway: --force)')
+  }
+
   writeFileSync(
     path.join(CACHE_DIR, keyFor(tool, nodeId)),
-    JSON.stringify({ tool, nodeId, fetchedAt: Date.now(), payload }, null, 2),
+    JSON.stringify(
+      {
+        tool,
+        nodeId,
+        fetchedAt: Date.now(),
+        /* The flag TRAVELS WITH THE ENTRY so `get` does not have to re-derive
+           it, and so a reader opening the JSON by hand sees it. `get` still
+           re-checks, because everything written before this existed has no
+           flag at all. */
+        ...(verdict ? { truncation: { ...verdict, forced } } : {}),
+        payload,
+      },
+      null,
+      2,
+    ),
     'utf8',
   )
   record({ type: 'fetch', tool, nodeId })
@@ -251,6 +419,7 @@ switch (cmd) {
   case 'plan': cmdPlan(rest); break
   case 'get': cmdGet(rest[0], rest[1]); break
   case 'put': cmdPut(rest[0], rest[1], rest[2]); break
+  case 'evict': cmdEvict(rest[0], rest[1]); break
   case 'stats': cmdStats(); break
   case 'budget': cmdBudget(); break
   case 'audit': cmdAudit(rest[0]); break

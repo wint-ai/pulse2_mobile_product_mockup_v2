@@ -82,9 +82,72 @@ function findTabButton(label) {
   return last;
 }
 
+/* THE DRAWER'S DOOR — RE-AIMED 2026-11-07, AND READ THE WHOLE NOTE BEFORE
+   CHANGING IT BACK.
+
+   This helper has opened the drawer by `[aria-label="Switch location"]` since
+   2026-06-15, and that name being broken is the regression this file has
+   caught four separate times. It is not broken again - it is RETIRED. The
+   owner replaced the More tab with Search:
+
+     "another thing we need to do is replace the 'More' in buttom main nav bar
+      With Search -locate right to dashboard
+      Serach open the nav bar with the systems and locations"
+
+   With the header's PanelLeft gone in the same restructure, the Search tab is
+   the only control that opens the navigation drawer on every v2 route.
+   `Switch location` measured ZERO elements on `/`, `/location/:name`,
+   `/system/:id`, `/valves`, `/account`, `/alerts` and `/more` before this
+   change landed - i.e. the drawer had NO door on any of them.
+
+   IT IS NOT QUITE EXTINCT, and this file is where that matters, because the
+   two survivors are the screens this file renders. A twenty-route sweep on
+   2026-11-07 found `Switch location` alive on exactly two: `/v1/` and
+   `/systems`, both of which render HomeUnified, whose v1 ScopeHeader
+   (src/components/ScopeHeader.jsx:48) still hangs the name on its badge.
+   So the helper below could have kept working unchanged - on these two v1
+   reference routes only, guarding a door no live screen has. THAT is why it
+   is re-aimed rather than left: it was about to start passing for the wrong
+   reason.
+
+   WHY THE NAME CHANGED RATHER THAN MOVING. A tab whose visible label reads
+   "Search" cannot announce as "Switch location": WCAG 2.5.3 Label in Name
+   requires the accessible name to contain the visible label. The door is
+   named `Search locations and systems` instead - the drawer's own field name
+   (WintSidebarV2.jsx:742), catalogued as `drawer.search_label`.
+
+   WHAT THIS STILL GUARDS, which is the point of keeping the tripwire rather
+   than deleting it. It guards MORE than it did an hour ago, not less:
+     · the drawer has exactly one reachable door, by a stable accessible name;
+     · that door is reachable from the bottom bar, i.e. from every screen,
+       rather than from one screen's header;
+     · tapping it OPENS the drawer - the same end state every assertion below
+       depends on. A dead tab fails here on the first line, not silently.
+   What it no longer guards is the literal string `Switch location` on a v2
+   route. Asserted below, once, so this file still fails loudly if that name
+   quietly comes back on a second control and splits the door in two again.
+
+   The tap goes through the real mechanism, not a shortcut: the Search tab
+   dispatches the cancelable window event in src/components/drawerSearch.js
+   and the drawer this screen mounts claims it and opens itself.
+
+   SCOPED TO `button` ON PURPOSE. The door and the field it opens deliberately
+   announce alike, so once a v2 drawer is open TWO elements carry this name -
+   the tab (a button) and WintSidebarV2's own <input> (a textbox). A bare
+   attribute selector would pick whichever came last in the DOM, which is the
+   tab on some screens and the field on others. */
+const DRAWER_DOOR = 'Search locations and systems';
+
 function openDrawer() {
-  const triggers = document.querySelectorAll('[aria-label="Switch location"]');
+  const triggers = document.querySelectorAll(`button[aria-label="${DRAWER_DOOR}"]`);
   const trigger = triggers[triggers.length - 1];
+  if (!trigger) {
+    throw new Error(
+      `No drawer door on this screen. Nothing answers to "${DRAWER_DOOR}", and `
+      + 'since the header lost its PanelLeft there is no other control that '
+      + 'opens the navigation drawer - so the drawer is unreachable here.'
+    );
+  }
   act(() => { trigger.click(); });
 }
 
@@ -188,24 +251,41 @@ describe('Drawer location-highlight parity with system-highlight', () => {
     // Navigate to Alerts.
     act(() => { findTabButton('Alerts').click(); });
 
-    // THE ALERTS LEG NO LONGER OPENS A DRAWER, 2026-11-04. Owner, looking at
+    // THE ALERTS LEG LOST ITS HEADER DOOR ON 2026-11-04. Owner, looking at
     // /alerts: "Remove the header of like 'My Systems', so the navigation
     // option from this view shouldn't be there, only on the dashboard."
     // Both of that page's doors - the bell disc and the scope pill - left
-    // with the header, and Figma 199532:87604 draws neither. There is no
-    // "Switch location" control on /alerts to open, so this leg cannot
-    // assert a highlight inside a drawer that cannot be reached.
+    // with the header, and Figma 199532:87604 draws neither.
     //
-    // RE-AIMED AT WHAT THE LEG IS FOR rather than deleted. The parity case is
-    // that the PICKED SCOPE survives the navigation - that is what drives the
-    // highlight wherever a drawer IS reachable. Alerts still names the scope,
-    // as a readout in its sub-line now, so the same signal is checked here.
-    // The absence of the door is asserted too, so this stops passing silently
-    // if a door comes back without anyone revisiting the test.
-    expect(document.querySelector('[aria-label="Switch location"]')).toBeNull();
+    // THE LEG CHECKS WHAT IT IS FOR rather than a highlight: the parity case
+    // is that the PICKED SCOPE survives the navigation, which is what drives
+    // the highlight wherever a drawer IS reachable. Alerts names the scope as
+    // a readout in its sub-line, so the same signal is checked here.
     expect(exposedCtx.selectedScope?.id).toBe(picked.id);
     expect(document.querySelector('[data-name="alerts-scope-name"]')?.textContent)
       .toBe(picked.name);
+
+    // `Switch location` IS RETIRED FROM EVERY v2 SURFACE as of 2026-11-07 -
+    // see the note at openDrawer() for the two v1 reference routes where it
+    // still exists and why that does not make it a live door. EventsScreen is
+    // a v2 surface, so nothing here may answer to it. This assertion is what
+    // stops a second control quietly reclaiming the name.
+    expect(document.querySelector('[aria-label="Switch location"]')).toBeNull();
+
+    // *** FLAG FOR THE OWNER: /alerts HAS A DRAWER DOOR AGAIN, AND IT IS A
+    //     SIDE EFFECT OF A DIFFERENT INSTRUCTION. *** He removed the
+    //     navigation option from this view on 2026-11-04 ("only on the
+    //     dashboard"), and on 2026-11-07 he put Search in the BOTTOM BAR,
+    //     which is mounted on every screen including this one. So the door is
+    //     back on /alerts - not by anyone reversing him, but because a global
+    //     control is global. Asserted rather than hidden, so the two
+    //     instructions are visibly in tension in the test rather than
+    //     invisibly in the app. Removing it would mean a tab that is present
+    //     on one screen and absent on another, which is worse.
+    expect(
+      document.querySelector('[aria-label="Search locations and systems"]'),
+      'the Search tab is mounted on /alerts because the bar is mounted on every screen',
+    ).not.toBeNull();
 
     // Navigate back to Home. RE-AIMED 2026-11-04: this asserted that the
     // highlight survived the Dashboard tap, and the owner has overruled that

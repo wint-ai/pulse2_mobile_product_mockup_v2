@@ -10,13 +10,18 @@
  * copy block, the wave and most of sysB's header are new nodes). Where a line
  * below cites an id, it is the fresh one.
  *
- * ── IT HAS TWO SHAPES NOW — 2026-11-04 ────────────────────────────────
- * A CARD (the default, everything below describes it) and a BAND: the same
- * copy, on artwork the PAGE paints full-bleed behind the header bar. The
- * owner's current System-page frame, 199961:97440, draws the second —
- * left=-4 / top=-11 / 406x293 inside a 402 frame, i.e. outside its parent on
- * every axis. The whole of the difference, and why its three effects are one
- * prop, is on `band` in the props below. Nothing in the card path moved.
+ * ── IT HAS ONE SHAPE — BAND MODE IS DELETED, 2026-11-07 ───────────────
+ * It had two: a CARD (what it is) and a BAND, which drew the same copy bare
+ * on artwork the PAGE painted full-bleed behind the collapsing header
+ * (199961:97440, hero at left=-4 / top=-11 / 406x293 in a 402 frame).
+ *
+ * The restructure deleted the collapsing header and the full-bleed band with
+ * it — nodes 200013:91524 / :91525 / :91602 / :93089 move the wave INSIDE an
+ * inset rounded card — so there is no ground left for band mode to sit on.
+ * The `band` prop and its three effects (no wave of its own, no `pt-[17px]`,
+ * no `pl-[18px] pr-[17px]`) went with it once SystemPageV2Screen, its last
+ * caller, stopped passing it. Do not reconstruct it from this paragraph; it
+ * is recorded so the next reader knows the deletion was commissioned.
  *
  * ── "IT LOOKS VERY HIGH" — MEASURED 2026-11-01 ────────────────────────
  * Owner, on the phone: "it looks very high … it takes too much space. I want
@@ -160,13 +165,23 @@
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
 import { Button } from '@/components/ui/button'
+import HeroCardShell from '@/v2/components/HeroCardShell'
 import { Chart03, TriangleFill } from '@/v2/icons'
 import { cn } from '@/lib/utils'
-/* Figma's own two rasters, re-encoded into the repo. 199703:30816 references
-   823c4.png and 199703:31382 references 6df46.png — different images, not one
-   image and a tint. See the wave block below for the measurements. */
-import waveAlert from '@/assets/system-hero-wave-alert.png'
-import waveCalm from '@/assets/system-hero-wave-calm.png'
+/* ── THE WAVE MOVED OUT, 2026-11-07 ───────────────────────────────────────
+   The two rasters used to be imported HERE and painted by a hand-rolled layer
+   a few lines below. Both are gone: HeroCardShell owns the coloured section
+   and paints it with HeroWaveArt, which is the one file that holds the
+   rasters, the tint, the theme-conditional blend and the scrim.
+
+   Nothing about the paint changed in the move — the box is still
+   `inset-x-0 aspect-[369/291]` with the image at `object-cover`, which is
+   200013:91525's own raster layer verbatim. What changed is that there is now
+   ONE place a wave is painted instead of three, and the card's corner clip
+   lives with the card rather than with the art. The measurements that justify
+   each of those decisions stay where they were written — the two-rasters
+   argument below, the blend in HeroWaveArt, the baked corner matte in
+   HeroCardShell. One copy of a ruling, not two. */
 
 /* The nodes spell two families — Geist for the figures, Figtree for the words.
    Both carry the project's own fallbacks.
@@ -211,398 +226,299 @@ export default function SystemHeroCard({
   rangeLabel,
   tone = 'calm',
   /**
-   * ── BAND MODE — 2026-11-04, Figma 199961:97440 ───────────────────────────
-   * FALSE (the default) is this file as it has always been: a CARD, the same
-   * width as every card under it, painting its own wave inside its own
-   * rounded box. Nothing about that path changes.
+   * ── THE WHITE BODY — 2026-11-07, Figma 200013:91602 ──────────────────────
+   * Handed straight to HeroCardShell, which paints the white section and
+   * supplies the one continuous radius. It is a SLOT because what goes in it
+   * is "whatever is most urgent right now": the active event when the system
+   * has one, the System type card (200013:91615) when it is calm. This
+   * component knows about water consumption and nothing else, so it carries
+   * the slot rather than choosing what fills it.
    *
-   * TRUE says "the page is already painting this artwork behind me, full
-   * bleed, and I am copy on it." The owner's System-page frame draws the hero
-   * at left=-4 / top=-11 / 406x293 inside a 402 frame — i.e. OUTSIDE its
-   * parent on every axis, the same move 199954:96290 makes on the Dashboard —
-   * so the wave stopped being this card's background and became the ground the
-   * header bar and this copy both sit on.
-   *
-   * ONE PROP, THREE EFFECTS, because they are one decision and a caller that
-   * could take two of the three would be able to build a broken hero:
-   *
-   *  1. NO WAVE OF ITS OWN. The page's HeroWaveArt band is already drawing
-   *     this exact raster behind this exact box; two copies would double the
-   *     multiply and draw a seam at the hero's top edge. Same reasoning, same
-   *     words, as SystemsOverviewHero's `artwork` prop.
-   *  2. NO `pt-[17px]`. That 17 is the node's padding inside a CARD whose top
-   *     edge is the wave's top edge. In band mode there is a 54px header bar
-   *     above this copy supplying the air, and keeping the 17 as well pushes
-   *     the delta row 15px past the band's 205 and onto page ground, where
-   *     white-on-page is illegible. Measured at 393x852: 158 -> 141.
-   *  3. NO `pl-[18px] pr-[17px]`. Those are the CARD's inner gutters. The
-   *     frame insets this copy 4.88% of 406 from a hero at x=-4, i.e. 15.8px
-   *     from the FRAME edge — the page's own 16px gutter, not 16+18. In card
-   *     mode the 18 is right and is kept.
+   * Omit it and the hero is a bare coloured card, which is still a legal
+   * shape — it is what the page draws while the body has nothing urgent in
+   * it.
    */
-  band = false,
+  body,
   /** Fires the jump to the consumption chart. See the control below. */
   onJumpToChart,
   className,
 }) {
   const alert = tone === 'alert'
 
-  return (
-    <div className={cn('relative shrink-0 w-full overflow-x-clip', className)} data-hero-tone={tone} data-hero-band={band ? 'true' : 'false'}>
-      {/* The wave — 199383:141500 (alert) / 199394:79634 (calm). `top-0`
-          rather than the node's top-[148px] because this element now BEGINS
-          where the node puts the wave.
+  /* ── THE CARD IS HeroCardShell NOW — 2026-11-07, Figma 200013:91602 ──────
+     This file used to BE the card: a rounded box that painted its own wave
+     and clipped it with its own `rounded-[20px]`. It is now the COPY that
+     goes in the coloured section of a shared chassis, and the chassis is
+     what the restructure needs — because the hero's white half is a slot.
 
-          ONE BOX FOR BOTH TONES, CENTRED. Two owner reports, and the second
-          corrected me:
+     WHAT MOVED, AND WHERE THE ARGUMENT FOR IT LIVES NOW:
+       · the two rasters, the tint, the theme-conditional blend  -> HeroWaveArt
+       · the aspect-[369/291] art box and the corner clip         -> HeroCardShell
+       · the baked black corner matte, measured                   -> HeroCardShell
+     Nothing about the paint changed in the move and nothing here lost a
+     measurement: the box is still `inset-x-0 aspect-[369/291]` with the
+     image at `object-cover`, which is 200013:91525's own raster layer
+     verbatim, and 369/291 is still exactly the source raster's 738x582 so
+     the art is fitted rather than cropped.
 
-            "the waves component is not right and left symetric in the screen"
-            "why each wave box is not the same size / it needs to be same as
-             in figma"
+     THE RADIUS WENT 20 -> 22 with the move, and that is the frame's number,
+     not a taste call: 200013:91615 — the white card this hero now carries as
+     its body — is `rounded-[var(--rounded-3xl,22px)]`, which is also the
+     radius every other card in this repo draws. The hero finally measures
+     the same as the cards under it.
 
-          The second is the important one. I had the two tones at different
-          sizes — alert 369x291, calm 385x303 — and defended it as per-tone
-          design. It was not: it was a STALE PAYLOAD. Re-measured against live
-          Figma on 2026-10-20 (metadata, not a cached export):
+     WHAT DID NOT MOVE: the copy row below, its 18/17 gutters, its pt-[17px]
+     and its pb-[7px]. 200013:91525 re-measures all four unchanged — the copy
+     block is inset 4.88%/5.84% of a 369x291 box, i.e. (18, 17), 145x141, and
+     the "All stats" pill is inset 73.17%/42.27%, i.e. (270, 123), 82x29. */
+  /* ── THE COPY ROW — 199703:30816 (alert) / 199703:31382 (calm) ───────
+     The 2026-10-26 redraw, re-measured against 200013:91525 on 2026-11-07
+     and unchanged. The hero box is 369x291 and every offset below is
+     measured inside it.
 
-              alert  199383:141500   x=17  y=148  369 x 291
-              calm   199394:79634    x=17  y=154  369 x 291
+     (The sentence that used to end here said the row is `w-[369px] mx-auto`.
+     It has been `w-full` since the bleed was corrected — see THE WAVE NOW
+     SPANS THE CARD, above. Left as a note rather than deleted because the
+     fixed width is the thing that keeps getting reintroduced.)
 
-          Identical box, identical x; only y differs by 6px. The calm frame had
-          been edited since the morning fetch this file was built on. So both
-          tones take 369x291 and the per-tone branch is gone.
+     ── THIS ROW'S HEIGHT IS THE COLOURED SECTION'S HEIGHT ─────────────
+     New, and it is why the chassis can butt the white body straight onto
+     it. Laying 200013:91602 out by hand: the root is `gap-[165px]` between
+     its two flow children, the first white card lands at y=224, and the
+     absolute hero box starts at y=59. 224 - 59 = 165, and
 
-          The CENTRING is still ours and is still the one number here that is
-          not the node's. x=17 on a 393 frame leaves 17 left and 7 right, which
-          is the asymmetry the first report was about. inset-x-0 + mx-auto puts
-          it at 12/12. Same reasoning as the figure below, which is already
-          centred rather than carrying the node's left-[132px].
+         pt-[17px] + the copy block (141) + pb-[7px]  =  165
 
-          aria-hidden: it is weather, not information — the figure in front of
-          it carries the meaning. It is deliberately allowed to run past this
-          element's own height, which is what puts it behind the first cards
-          exactly as both frames draw it. */}
-      {/* ── TWO RASTERS, NOT ONE RASTER AND A TINT ────────────────────────
-          2026-10-26, owner: "the waves color is not exactly as in figma."
+     to the pixel. The designer set that gap so the colour ends exactly
+     where the first card begins; the three numbers below are the same
+     statement written as padding. Changing any of them moves the join.
 
-          It could not have been. This drew ONE blue-grey wave at opacity-50
-          under a flat `mix-blend-color` tint, and called the result red on an
-          alert. 199703:30816 and 199703:31382 reference DIFFERENT image
-          assets, and measuring them settles it:
+     `items-end` is the node's own alignment, not a choice: the copy block
+     and the "All stats" pill share a bottom edge and nothing else.
+     Reading that as one bottom-aligned row is what lets the pill keep its
+     place when the figure wraps to a different height, which absolute
+     offsets would not survive.
 
-            Figma alert (823c4.png)   738x582  avg #e4474b  #a51114..#fd868c
-            Figma calm  (6df46.png)   738x582  avg #4c86f9  #1035f4..#9dccff
-            our system-hero-wave.png 1206x778  avg #7ba8f9  #1332f5..#faffff
+     pl-[18px] / pr-[17px] are the node's two gutters. They differ by a
+     pixel and that is the frame, not a rounding error on our side.
 
-          So the designer paints two waves. The old construction was wrong
-          twice over: no tint over that lighter, higher-contrast blue can land
-          on #e4474b, and even the CALM state was too pale because the source
-          raster is not the one Figma uses. Both are now shipped and picked by
-          tone, which makes the colour exact by construction rather than
-          approximated.
+     ── pb-[7px], AND IT IS THE ANSWER TO "IT LOOKS CRAMPED" ────────────
+     Owner, on this hero as it rendered: "layout here needs to be improved
+     in terms of spacing, padding etc." Measured against 199961:97440 with
+     get_metadata rather than adjusted by eye, and the slack was real:
 
-          `opacity-50` and both tint layers are GONE with it. The node applies
-          the image at mix-blend-multiply and nothing else — the colour is in
-          the pixels now, so anything layered over them can only move it away
-          from the design.
+       copy block            142.0 tall     content 48 + 7 + 80 = 135
+       -> 7px of it is EMPTY, at the BOTTOM
 
-          THE BLEND MODE STAYS THEME-CONDITIONAL, and for the reason the old
-          note here recorded: `multiply` is `backdrop x source`, and on a dark
-          card the backdrop is ~0.09, which collapses the wave to a near-black
-          rectangle (measured internal range 1.09:1 under dark against 2.78:1
-          under light). Dropping the multiply off `light` composites it
-          normally there. `light` is untouched.
+     So the change line is not supposed to touch the block's lower edge,
+     and this row drew it touching. The 7 goes on the ROW rather than on
+     the copy column because the node bottom-aligns the pill with the
+     CONTENT (pill bottom y=142.045 against the block's own 148.086, i.e.
+     6.04px clear of it) — with `items-end` and the padding here, the two
+     columns and the pill all land on the same 135 and the row measures
+     the node's 142. Putting it on the column instead would have pushed
+     the pill down with it and kept the jam. */
+  const copy = (
+  <div
+    className={cn(
+      'relative flex w-full items-end justify-between pb-[7px]',
+      /* The card's two inner gutters and its top padding. The 17 is the
+         node's padding inside a card whose top edge is the wave's top edge;
+         the 18/17 are the card's own gutters, inside the page's 16. Band mode
+         used to zero all three together — it is deleted, see the file
+         header. */
+      'pl-[18px] pr-[17px] pt-[17px]',
+    )}
+    data-node-id={alert ? '199703:30816' : '199703:31382'}
+  >
+    {/* The copy block — 145x141 at (18, 17).
+        LEFT-ALIGNED NOW. It was centred, and the centring was ours: the
+        superseded 199396:84050 pinned the block at left-[132px], which put
+        it 12.5px off a 393 frame's centre, and this file read that as
+        canvas drift and corrected it. Both new nodes settle the question
+        the other way — `items-start` at a flush 18px gutter — so the
+        correction is gone with the node that motivated it.
 
-          system-hero-wave.png IS NOT DELETED — SystemsOverviewHero, TriageBand
-          and EventFocusOverlay still draw it, and the overlay's own node
-          (199431:138924) genuinely does use the tint construction. Different
-          node, different build; only this card's wave changed. */}
-      {/* ── THE WAVE NOW SPANS THE CARD, NOT A FIXED 369 ──────────────────
-          2026-10-26. It was `mx-auto w-[369px]` inside a component the page
-          bled to the full 393, which put the wave 12px off each phone edge
-          while every card under it sat at 16px — four pixels proud, the whole
-          length of the page.
+        No fixed width. The node's 145 is just the caption's own measured
+        run; pinning it would clip a longer range label, and this caption
+        is fed real windows ("Nov 2025 - Oct 2026") rather than the frame's
+        one example. */}
+    {/* ── gap-[13px] -> gap-[7px], 2026-11-04 — MEASURED, NOT EYEBALLED ─
+        The designer re-spaced this copy block into a component of its own
+        (199820:58592) and get_metadata on it is unambiguous:
 
-          THE BLEED WAS A MISREADING, and this is where it is corrected. The
-          note below used to argue that "the nodes position the wave against
-          the ROOT frame (left-[17px] / left-[9px]), not against the card
-          column, so the component has to span the full 393". But 402 - 17 -
-          369 = 16: left-[17px] on a 402 frame IS the card gutter, not an
-          offset from it. 199703:31476 settles it — the hero is `left-[17px]
-          w-[369px]` against a Content column of w-[370px] at px-[16px], so
-          the two edges line up to within the frame's own 1px of drift.
+          caption frame   y= 0   145x48   two 24px lines, no gap
+          figure frame    y=55   132x80
+          ------------------------------------------------------------
+          the gap is 7, not 13
 
-          So the hero is a CARD, the same width as every card beneath it, and
-          the wave simply fills it. The owner's "the waves component is not
-          right and left symetric in the screen" was this bug; centring the
-          wave inside a bled component made it symmetric without making it
-          align, which is why it still looked wrong afterwards.
-
-          It is still ALLOWED TO RUN PAST this element's own height — 291px of
-          wave under 158px of copy — which is what puts it behind the first
-          cards exactly as the frame draws it. Only the horizontal axis
-          changed. */}
-      {/* SUPPRESSED IN BAND MODE — see the `band` prop. Not a style switch:
-          the layer only goes away when the CALLER is already painting this
-          exact raster behind this exact box. If you reach for this, check that
-          something above you is drawing HeroWaveArt at the same tone. */}
-      {band ? null : (
+        The 13 was never measured off a node — it was the slack left over
+        when 48 + 80 was subtracted from a 141-tall block. The block's
+        TOTAL was right by coincidence (48+13+80 = 141 against the node's
+        142) and its DISTRIBUTION was wrong by 6px up here and 7px down at
+        the bottom, which is exactly what "cramped at the bottom, loose in
+        the middle" looks like and exactly why it had to be measured.
+        See the row's pb-[7px] above for the other half. */}
+    <div className="flex min-w-0 flex-col items-start gap-[7px]">
+      {/* Caption over date range — 145x48, two 24px lines, no gap.
+          199820:58505 y=0 h=24, 199820:58506 y=24 h=24. */}
       <div
-        aria-hidden="true"
-        className={cn(
-          'absolute mix-blend-multiply [[data-theme]:not([data-theme=light])_&]:mix-blend-normal pointer-events-none rounded-[20px] top-0',
-          /* THE ART SCALES WITH THE CARD, 2026-11-01. This was a flat
-             `h-[291px]`, which is the frame's number and only the frame's
-             number: 199703:31476 is 369 wide and its raster box is spelled
-             `aspect-[369/291]`, i.e. 291 is what 369 PRODUCES, not an
-             independent value. 369/291 is also exactly the source raster's
-             own 738x582, so Figma is fitting the art, not cropping it.
-             Pinned at 291 on this page's 361px card the box went 1.241:1
-             against the art's 1.268:1, so object-cover quietly cropped 4px
-             off each side and the blue ran 6.3px lower than a faithful
-             scale. The aspect reproduces both: the art fits exactly and the
-             wave scales with the card on any width.
-
-             This is 6px of ARTWORK and 0px of LAYOUT -- the wave is absolute
-             and aria-hidden, so it has never contributed to this element's
-             height. It is not an answer to "the hero is too tall"; see the
-             height note at the top of this file. */
-          'inset-x-0 aspect-[369/291]',
-        )}
-        data-node-id={alert ? '199703:31476' : '199703:32478'}
+        className="[word-break:break-word] flex flex-col items-start justify-center text-base text-white"
+        data-node-id={alert ? 'I199703:30816;199703:30077' : 'I199703:31382;199703:32480'}
       >
-        {/* The node draws the raster at the card's full width and lets it
-            crop vertically: `aspect-[369/291] left-0 right-0 top-0` with the
-            image at `inset-0 size-full`. `object-cover` is what reproduces
-            that here without pinning a height the raster has to match. */}
-        <div className="absolute inset-0 overflow-hidden rounded-[20px] pointer-events-none">
-          <img
-            alt=""
-            className="absolute inset-0 block size-full max-w-none object-cover"
-            src={alert ? waveAlert : waveCalm}
-          />
-        </div>
-      </div>
-      )}
-
-      {/* ── THE COPY ROW — 199703:30816 (alert) / 199703:31382 (calm) ───────
-          The 2026-10-26 redraw. The card is 369x291 and every offset below is
-          measured inside it, which is why this row is `w-[369px] mx-auto` —
-          the same box the wave above already takes.
-
-          `items-end` is the node's own alignment, not a choice: the copy block
-          and the "All stats" pill share a bottom edge and nothing else.
-          Reading that as one bottom-aligned row is what lets the pill keep its
-          place when the figure wraps to a different height, which absolute
-          offsets would not survive.
-
-          pl-[18px] / pr-[17px] are the node's two gutters. They differ by a
-          pixel and that is the frame, not a rounding error on our side.
-
-          ── pb-[7px], AND IT IS THE ANSWER TO "IT LOOKS CRAMPED" ────────────
-          Owner, on this hero as it rendered: "layout here needs to be improved
-          in terms of spacing, padding etc." Measured against 199961:97440 with
-          get_metadata rather than adjusted by eye, and the slack was real:
-
-            copy block            142.0 tall     content 48 + 7 + 80 = 135
-            -> 7px of it is EMPTY, at the BOTTOM
-
-          So the change line is not supposed to touch the block's lower edge,
-          and this row drew it touching. The 7 goes on the ROW rather than on
-          the copy column because the node bottom-aligns the pill with the
-          CONTENT (pill bottom y=142.045 against the block's own 148.086, i.e.
-          6.04px clear of it) — with `items-end` and the padding here, the two
-          columns and the pill all land on the same 135 and the row measures
-          the node's 142. Putting it on the column instead would have pushed
-          the pill down with it and kept the jam. */}
-      <div
-        className={cn(
-          'relative flex w-full items-end justify-between pb-[7px]',
-          /* The card's two gutters and its top padding, or neither — see the
-             `band` prop for why all three go together. */
-          band ? 'px-0 pt-0' : 'pl-[18px] pr-[17px] pt-[17px]',
-        )}
-        data-node-id={alert ? '199703:30816' : '199703:31382'}
-      >
-        {/* The copy block — 145x141 at (18, 17).
-            LEFT-ALIGNED NOW. It was centred, and the centring was ours: the
-            superseded 199396:84050 pinned the block at left-[132px], which put
-            it 12.5px off a 393 frame's centre, and this file read that as
-            canvas drift and corrected it. Both new nodes settle the question
-            the other way — `items-start` at a flush 18px gutter — so the
-            correction is gone with the node that motivated it.
-
-            No fixed width. The node's 145 is just the caption's own measured
-            run; pinning it would clip a longer range label, and this caption
-            is fed real windows ("Nov 2025 - Oct 2026") rather than the frame's
-            one example. */}
-        {/* ── gap-[13px] -> gap-[7px], 2026-11-04 — MEASURED, NOT EYEBALLED ─
-            The designer re-spaced this copy block into a component of its own
-            (199820:58592) and get_metadata on it is unambiguous:
-
-              caption frame   y= 0   145x48   two 24px lines, no gap
-              figure frame    y=55   132x80
-              ------------------------------------------------------------
-              the gap is 7, not 13
-
-            The 13 was never measured off a node — it was the slack left over
-            when 48 + 80 was subtracted from a 141-tall block. The block's
-            TOTAL was right by coincidence (48+13+80 = 141 against the node's
-            142) and its DISTRIBUTION was wrong by 6px up here and 7px down at
-            the bottom, which is exactly what "cramped at the bottom, loose in
-            the middle" looks like and exactly why it had to be measured.
-            See the row's pb-[7px] above for the other half. */}
-        <div className="flex min-w-0 flex-col items-start gap-[7px]">
-          {/* Caption over date range — 145x48, two 24px lines, no gap.
-              199820:58505 y=0 h=24, 199820:58506 y=24 h=24. */}
-          <div
-            className="[word-break:break-word] flex flex-col items-start justify-center text-base text-white"
-            data-node-id={alert ? 'I199703:30816;199703:30077' : 'I199703:31382;199703:32480'}
+        <p
+          className="font-sans font-bold leading-6"
+          data-node-id={alert ? 'I199703:30816;199703:30078' : 'I199703:31382;199703:32481'}
+        >
+          Water consumption
+        </p>
+        {/* The range keeps a node id of its own because a test addresses
+            it directly — systemHeroSeeMore's `captionRange` reads this
+            line to prove the hero and the chart name ONE window. */}
+        {rangeLabel ? (
+          <p
+            className="font-sans font-medium leading-6"
+            data-node-id={alert ? 'I199703:30816;199703:30079' : 'I199703:31382;199703:32482'}
           >
-            <p
-              className="font-sans font-bold leading-6"
-              data-node-id={alert ? 'I199703:30816;199703:30078' : 'I199703:31382;199703:32481'}
-            >
-              Water consumption
-            </p>
-            {/* The range keeps a node id of its own because a test addresses
-                it directly — systemHeroSeeMore's `captionRange` reads this
-                line to prove the hero and the chart name ONE window. */}
-            {rangeLabel ? (
+            {rangeLabel}
+          </p>
+        ) : null}
+      </div>
+
+      {/* The figure and the delta — a 132x80 box, `justify-end`. The 80 is
+          the node's and the content is 78 (a 59px figure row over a 20px
+          delta row, hard against each other with no gap), so the box
+          bottom-aligns its pair and leaves the slack on top. Keeping the
+          height means the "All stats" pill opposite does not move when the
+          delta row is absent. */}
+      <div className="flex h-[80px] flex-col items-start justify-end">
+        {/* The figure row — gap 6, was 8. */}
+        <div
+          className={String.raw`[word-break:break-word] flex ${GEIST} font-medium gap-[6px] items-center leading-[0] shrink-0 text-white tracking-[-1.0556px] whitespace-nowrap`}
+          data-node-id={alert ? 'I199703:30816;199703:30081' : 'I199703:31382;199703:32484'}
+        >
+          <p className="text-[42.222px] leading-[58.056px]">{total}</p>
+          {unit ? (
+            /* 12x59 with pt-[13px] — the node drops the unit 13px so it
+               rides the figure's baseline rather than its optical centre,
+               which is where plain `items-center` had been putting it. */
+            <div className="flex h-[59px] w-[12px] flex-col items-center justify-center pt-[13px]">
+              <p className="text-[20px] leading-[20px]">{unit}</p>
+            </div>
+          ) : null}
+        </div>
+
+        {/* ── THE DELTA ROW — the pill is gone ──────────────────────────
+            It was a 100x34 rounded-12 veil holding a signed "+120%". Both
+            new nodes draw an unpilled row instead: a 10px triangle, the
+            percentage, then the window it is measured against.
+
+            THE SIGN MOVED INTO THE TRIANGLE. The frames draw "120%" and
+            "96%" with no "+" or "-" anywhere — direction is carried by the
+            glyph, which 199703:31382 flips with `-scale-y-100` rather than
+            shipping a second icon. So the number here is the ABSOLUTE
+            percentage and `deltaPct`'s sign only chooses the rotation.
+
+            ZERO DRAWS NO TRIANGLE. Neither frame has a flat state and
+            there is no third glyph to borrow, so an unchanged window gets
+            the figure alone rather than an arrow that would have to claim
+            a direction the data does not have. */}
+        {deltaPct != null ? (
+          <div
+            className="flex items-center gap-[6px]"
+            data-node-id={alert ? 'I199703:30816;199703:30086' : 'I199703:31382;199703:32489'}
+            data-delta-direction={deltaPct > 0 ? 'up' : deltaPct < 0 ? 'down' : 'flat'}
+          >
+            <div className="flex items-center gap-[2px]">
+              {deltaPct === 0 ? null : (
+                <TriangleFill
+                  size={10}
+                  className={cn('shrink-0 text-white', deltaPct < 0 && '-scale-y-100')}
+                />
+              )}
               <p
-                className="font-sans font-medium leading-6"
-                data-node-id={alert ? 'I199703:30816;199703:30079' : 'I199703:31382;199703:32482'}
+                className={String.raw`${GEIST} font-medium text-[20px] leading-[20px] text-white tracking-[-1.0556px] whitespace-nowrap`}
               >
-                {rangeLabel}
+                {Math.abs(deltaPct)}%
+              </p>
+            </div>
+            {/* "vs. {window}". Rendered only when there IS a previous
+                window to name — on the oldest window, and at Yearly, the
+                percentage falls back to the window's own two halves and
+                there is no earlier span to print. The frame has no variant
+                for that, so this draws nothing rather than inventing a
+                caption for it. */}
+            {compareLabel ? (
+              <p className="font-sans font-normal text-xs leading-[12px] text-[#fafbfc] opacity-90 whitespace-nowrap">
+                vs. {compareLabel}
               </p>
             ) : null}
           </div>
-
-          {/* The figure and the delta — a 132x80 box, `justify-end`. The 80 is
-              the node's and the content is 78 (a 59px figure row over a 20px
-              delta row, hard against each other with no gap), so the box
-              bottom-aligns its pair and leaves the slack on top. Keeping the
-              height means the "All stats" pill opposite does not move when the
-              delta row is absent. */}
-          <div className="flex h-[80px] flex-col items-start justify-end">
-            {/* The figure row — gap 6, was 8. */}
-            <div
-              className={String.raw`[word-break:break-word] flex ${GEIST} font-medium gap-[6px] items-center leading-[0] shrink-0 text-white tracking-[-1.0556px] whitespace-nowrap`}
-              data-node-id={alert ? 'I199703:30816;199703:30081' : 'I199703:31382;199703:32484'}
-            >
-              <p className="text-[42.222px] leading-[58.056px]">{total}</p>
-              {unit ? (
-                /* 12x59 with pt-[13px] — the node drops the unit 13px so it
-                   rides the figure's baseline rather than its optical centre,
-                   which is where plain `items-center` had been putting it. */
-                <div className="flex h-[59px] w-[12px] flex-col items-center justify-center pt-[13px]">
-                  <p className="text-[20px] leading-[20px]">{unit}</p>
-                </div>
-              ) : null}
-            </div>
-
-            {/* ── THE DELTA ROW — the pill is gone ──────────────────────────
-                It was a 100x34 rounded-12 veil holding a signed "+120%". Both
-                new nodes draw an unpilled row instead: a 10px triangle, the
-                percentage, then the window it is measured against.
-
-                THE SIGN MOVED INTO THE TRIANGLE. The frames draw "120%" and
-                "96%" with no "+" or "-" anywhere — direction is carried by the
-                glyph, which 199703:31382 flips with `-scale-y-100` rather than
-                shipping a second icon. So the number here is the ABSOLUTE
-                percentage and `deltaPct`'s sign only chooses the rotation.
-
-                ZERO DRAWS NO TRIANGLE. Neither frame has a flat state and
-                there is no third glyph to borrow, so an unchanged window gets
-                the figure alone rather than an arrow that would have to claim
-                a direction the data does not have. */}
-            {deltaPct != null ? (
-              <div
-                className="flex items-center gap-[6px]"
-                data-node-id={alert ? 'I199703:30816;199703:30086' : 'I199703:31382;199703:32489'}
-                data-delta-direction={deltaPct > 0 ? 'up' : deltaPct < 0 ? 'down' : 'flat'}
-              >
-                <div className="flex items-center gap-[2px]">
-                  {deltaPct === 0 ? null : (
-                    <TriangleFill
-                      size={10}
-                      className={cn('shrink-0 text-white', deltaPct < 0 && '-scale-y-100')}
-                    />
-                  )}
-                  <p
-                    className={String.raw`${GEIST} font-medium text-[20px] leading-[20px] text-white tracking-[-1.0556px] whitespace-nowrap`}
-                  >
-                    {Math.abs(deltaPct)}%
-                  </p>
-                </div>
-                {/* "vs. {window}". Rendered only when there IS a previous
-                    window to name — on the oldest window, and at Yearly, the
-                    percentage falls back to the window's own two halves and
-                    there is no earlier span to print. The frame has no variant
-                    for that, so this draws nothing rather than inventing a
-                    caption for it. */}
-                {compareLabel ? (
-                  <p className="font-sans font-normal text-xs leading-[12px] text-[#fafbfc] opacity-90 whitespace-nowrap">
-                    vs. {compareLabel}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* ── "ALL STATS" — 82x29 at (270, 129) ────────────────────────────
-            SAME CONTROL, NEW NAME AND NEW PLACE. It read "See more" under the
-            figure; both new nodes put it opposite the delta row and call it
-            "All stats". The BEHAVIOUR is untouched and is still the 2026-10-20
-            ruling — "see more is only redirect to consumption chart on the
-            dates above, so see less is not relevant, and in addition
-            consumption chart shall be always visible". It jumps to the chart,
-            puts it on the window the caption names, and turns the
-            previous-period comparison on. It opens nothing, so it still
-            carries NO aria-expanded.
-
-            The accessible name leads with the visible label (WCAG 2.5.3, so
-            voice control matches what is drawn) and then says where the button
-            goes, because "All stats" out of context does not tell a non-sighted
-            user the page is about to move.
-
-            Now bordered: a white hairline over the 28% veil, which the old
-            unbordered ghost did not have. The veil follows the same theme rule
-            as every other chip on a wave — `light` keeps the literal byte for
-            byte, every other theme computes the 28% from --ink-on-color. */}
-        {onJumpToChart ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size={null}
-            onClick={onJumpToChart}
-            aria-label="All stats: go to the water consumption chart"
-            /* ── THE TAP TARGET IS 40px; THE PAINT IS STILL THE NODE'S 29 ───
-               199961:97440 measures this frame at 90.22 x 29.199 and that is
-               what is drawn — the hero's one ACTION should not be resized away
-               from a frame the owner has just redrawn. But 29px is the bare
-               WCAG 2.5.8 floor (24) rather than a comfortable thumb, and it is
-               the only thing on this artwork you can press.
-
-               `after:` extends the hit area 5.5px above and below to 40 without
-               moving a pixel of paint: the pseudo-element is transparent,
-               inherits the button's own click, and cannot overlap anything —
-               the pill sits hard right of a copy column that ends ~150px away,
-               and the row's pb-[7px] absorbs the lower half. It needs
-               `relative`, which it now carries. */
-            className="relative flex h-[29px] shrink-0 items-center gap-[6px] rounded-[12px] border border-solid border-white bg-[rgba(241,245,249,0.28)] px-[7px] text-ink-on-color after:absolute after:inset-x-0 after:-inset-y-[5.5px] after:content-[''] hover:bg-card/30 hover:text-current [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)]"
-            data-node-id={alert ? 'I199703:30816;199703:30091' : 'I199703:31382;199703:32494'}
-          >
-            <Chart03 className="size-[16px] shrink-0" aria-hidden="true" />
-            <span
-              className={String.raw`[word-break:break-word] font-sans font-medium shrink-0 text-xs leading-[15px] whitespace-nowrap`}
-            >
-              All stats
-            </span>
-          </Button>
         ) : null}
       </div>
     </div>
+
+    {/* ── "ALL STATS" — 82x29 at (270, 129) ────────────────────────────
+        SAME CONTROL, NEW NAME AND NEW PLACE. It read "See more" under the
+        figure; both new nodes put it opposite the delta row and call it
+        "All stats". The BEHAVIOUR is untouched and is still the 2026-10-20
+        ruling — "see more is only redirect to consumption chart on the
+        dates above, so see less is not relevant, and in addition
+        consumption chart shall be always visible". It jumps to the chart,
+        puts it on the window the caption names, and turns the
+        previous-period comparison on. It opens nothing, so it still
+        carries NO aria-expanded.
+
+        The accessible name leads with the visible label (WCAG 2.5.3, so
+        voice control matches what is drawn) and then says where the button
+        goes, because "All stats" out of context does not tell a non-sighted
+        user the page is about to move.
+
+        Now bordered: a white hairline over the 28% veil, which the old
+        unbordered ghost did not have. The veil follows the same theme rule
+        as every other chip on a wave — `light` keeps the literal byte for
+        byte, every other theme computes the 28% from --ink-on-color. */}
+    {onJumpToChart ? (
+      <Button
+        type="button"
+        variant="ghost"
+        size={null}
+        onClick={onJumpToChart}
+        aria-label="All stats: go to the water consumption chart"
+        /* ── THE TAP TARGET IS 40px; THE PAINT IS STILL THE NODE'S 29 ───
+           199961:97440 measures this frame at 90.22 x 29.199 and that is
+           what is drawn — the hero's one ACTION should not be resized away
+           from a frame the owner has just redrawn. But 29px is the bare
+           WCAG 2.5.8 floor (24) rather than a comfortable thumb, and it is
+           the only thing on this artwork you can press.
+
+           `after:` extends the hit area 5.5px above and below to 40 without
+           moving a pixel of paint: the pseudo-element is transparent,
+           inherits the button's own click, and cannot overlap anything —
+           the pill sits hard right of a copy column that ends ~150px away,
+           and the row's pb-[7px] absorbs the lower half. It needs
+           `relative`, which it now carries. */
+        className="relative flex h-[29px] shrink-0 items-center gap-[6px] rounded-[12px] border border-solid border-white bg-[rgba(241,245,249,0.28)] px-[7px] text-ink-on-color after:absolute after:inset-x-0 after:-inset-y-[5.5px] after:content-[''] hover:bg-card/30 hover:text-current [[data-theme]:not([data-theme=light])_&]:bg-[color-mix(in_oklab,var(--ink-on-color)_28%,transparent)]"
+        data-node-id={alert ? 'I199703:30816;199703:30091' : 'I199703:31382;199703:32494'}
+      >
+        <Chart03 className="size-[16px] shrink-0" aria-hidden="true" />
+        <span
+          className={String.raw`[word-break:break-word] font-sans font-medium shrink-0 text-xs leading-[15px] whitespace-nowrap`}
+        >
+          All stats
+        </span>
+      </Button>
+    ) : null}
+  </div>
+  )
+
+  /* ONE SHAPE. `body` is handed straight through: this component owns the
+     coloured section's copy and nothing about what sits under it. The second
+     branch that used to be here rendered the copy bare for band mode; that
+     mode is deleted, see the file header. */
+  return (
+    <HeroCardShell tone={tone} body={body} className={className}>
+      {copy}
+    </HeroCardShell>
   )
 }

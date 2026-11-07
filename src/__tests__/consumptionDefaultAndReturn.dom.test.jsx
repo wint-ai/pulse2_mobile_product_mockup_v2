@@ -35,6 +35,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
 import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import { SYSTEMS } from '@/data/systems'
+import { getConsumptionSeries } from '@/data/consumptionSeries'
 import {
   currentGranularity,
   expectConsumptionChartMounted,
@@ -44,6 +45,28 @@ import {
 afterEach(cleanup)
 
 const sys = SYSTEMS[0]
+
+/* THE TWELVE-MONTH WINDOW, READ OFF THE SAME SOURCE THE PAGE READS.
+   This stood as the literal 'Nov 2025 - Oct 2026', which was true the day it
+   was written and false from 1 November 2026 — the window is ROLLING (§2 /
+   PLS-WC-04: the twelve months ENDING at the selection), so the caption moves
+   every month and the assertion went red while the screen was right. It is
+   the last of the frozen-clock family; consumptionSeries.test.js:396 and
+   consumptionWindow.test.js and systemHeroSeeMore.dom.test.jsx were all
+   treated the same way earlier.
+
+   THIS IS NOT THE IMPLEMENTATION RESTATED. SystemPageV2Screen.jsx:1038 calls
+   getConsumptionSeries(system.id, system.title, period, periodOffset) and
+   renders `label`; this calls the same exported function, for the same
+   system, at the same grouping and offset, and compares the string it hands
+   back to the one on screen. What is being asserted is what it always was —
+   that picking Month lands the page on the newest twelve-month window and
+   SAYS SO — with the rolling part re-derived rather than frozen.
+
+   The name is ignored for a real system (getConsumption memoises per id and
+   byId.get() resolves it), and the profile is deterministic, so this is the
+   same window object the page built. */
+const monthlyWindowLabel = () => getConsumptionSeries(sys.id, sys.name, 'M', 0).label
 
 const mountHome = () =>
   render(
@@ -128,7 +151,12 @@ describe('the default window', () => {
     pickGranularity(container, 'Month')
     expect(currentGranularity(container)).toBe('Month')
     expect(view.getAllByText('Monthly avg').length).toBeGreaterThan(0)
-    expect(view.getAllByText('Nov 2025 - Oct 2026').length).toBeGreaterThan(0)
+    /* The caption reverts to the RANGE form — Monthly carries no labelRange,
+       so the hero follows the chart back out of month-to-date. Derived, not
+       spelled: see monthlyWindowLabel above for why the literal rotted. */
+    const monthly = monthlyWindowLabel()
+    expect(monthly, 'the window label went empty').toMatch(/^[A-Z][a-z]{2} \d{4} - [A-Z][a-z]{2} \d{4}$/)
+    expect(view.getAllByText(monthly).length).toBeGreaterThan(0)
     expect(view.queryByText(/Nothing flowed in yet/i)).toBeNull()
   })
 

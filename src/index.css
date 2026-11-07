@@ -886,8 +886,15 @@
   --color-os-chrome-ink: var(--os-chrome-ink);
 }
 
-.material-symbols-outlined {
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+/* In `@layer base` for the reason spelled out at the `button` rule below: a
+   bare 0,1,0 class rule outside every layer beats a utility of the same
+   weight. No override of this exists today — MIcon and TagCelebration both
+   set font-variation-settings INLINE, which wins from any layer — so this is
+   the trap removed, not a rendering change. */
+@layer base {
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
 }
 
 /* NOTE: no `* { padding: 0 }` reset here. Tailwind v4's preflight
@@ -919,13 +926,64 @@ html, body, #root {
   user-select: none;
 }
 
-button {
-  font-family: inherit;
-}
+/* ── THESE THREE ARE IN `@layer base` AND MUST STAY THERE ──────────────────
+   2026-11-07. All three used to sit here UNLAYERED, and that is not a
+   formatting detail: in Tailwind v4 every unlayered rule beats every layered
+   one OUTRIGHT, whatever the specificity. `@layer theme, base, components,
+   utilities` is declared by `@import "tailwindcss"` above, and anything
+   outside those layers sorts AFTER all of them. So a bare `button { }` — a
+   0,0,1 element selector — was silently winning against a 0,1,0 utility class
+   on the same element.
 
-/* RTL support flip for legacy inline-styled components */
-[dir="rtl"] {
-  text-align: right;
+   WHAT THAT COST. `button { font-family: inherit }` meant EVERY `font-*`
+   family utility applied directly to a `<button>` anywhere in this repo was
+   dead: the class sat in the DOM, the computed style ignored it, and the
+   button rendered whatever the body inherits (Figtree). It cost a session on
+   2026-11-07 — a badge that read Figtree while every class string said Geist —
+   and the workaround was to move the utility onto an inner `<span>`
+   (AppHeaderBar.jsx, still there, now belt-and-braces rather than required).
+
+   WHY THE MOVE IS SAFE, measured rather than assumed. Every `<button>` in src
+   that carries a font-FAMILY utility carries `font-sans`, and `font-sans`
+   resolves to the same --font-sans-stack the inherit chain was already
+   delivering — so the fix changes no pixel today. The Geist slots
+   (`font-mono-label`, SystemHeroCard's arbitrary `font-['Geist:Medium'…]`)
+   all land on `<span>`/`<p>`/`<Input>`, never on a `<button>`. Swept across
+   20 routes x 4 themes before and after; the two sweeps are identical.
+
+   THE button RULE IS NOW REDUNDANT WITH PREFLIGHT, which is the point.
+   node_modules/tailwindcss/preflight.css:238-244 already sets `font: inherit`
+   on button/input/select/optgroup/textarea, in `base`. Layered, this rule
+   says the same thing in the same layer; unlayered, it said it LOUDER than
+   any utility. It is kept rather than deleted so the next person finds this
+   note instead of re-adding the bare rule.
+
+   THE OTHER TWO ARE THE SAME TRAP WITH NO VICTIM YET, and are moved with it
+   rather than left as the next hour someone loses:
+     · `[dir="rtl"]` is 0,1,0 — exactly a utility's weight — so unlayered it
+       beat `text-left` / `text-center` / `text-right` on any element carrying
+       the attribute. Nothing in src sets dir="rtl" (only `dir="auto"`, and
+       i18n's document.documentElement.dir, which wears no utilities), so this
+       move changes nothing today.
+     · `.material-symbols-outlined` is 0,1,0 for the same reason. The only
+       font-variation-settings overrides in the repo are INLINE styles
+       (MIcon, TagCelebration), which beat every layer either way.
+
+   NOT MOVED, deliberately, and they are a different case: `html, body, #root`
+   and `#root` above. `#root` is 1,0,0, so layering would not change who wins
+   — an ID beats a utility class in any layer. And `html, body, #root` is the
+   SOURCE of the inherit chain the button rule resolves against, not an
+   override of a utility; nothing applies Tailwind utilities to those three
+   elements, which live in index.html. Both are reported, not changed. */
+@layer base {
+  button {
+    font-family: inherit;
+  }
+
+  /* RTL support flip for legacy inline-styled components */
+  [dir="rtl"] {
+    text-align: right;
+  }
 }
 /* ── THEME SETS — Phase 2 ─────────────────────────────────────────────
    Four token sets. Three are selectable from Account -> Personal

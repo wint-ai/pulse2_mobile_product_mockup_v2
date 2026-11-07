@@ -92,6 +92,7 @@ import {
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub,
   SidebarMenuSubButton, SidebarMenuSubItem, SidebarProvider,
 } from '@/components/ui/sidebar'
+import { DRAWER_SEARCH_EVENT } from '@/components/drawerSearch'
 import { useUserContext } from '@/context/UserContext'
 import { getAccountById, getChildAccounts, getRootAccounts } from '@/data/accounts'
 import { getHierarchyForAccount } from '@/data/hierarchy'
@@ -474,7 +475,15 @@ function NodeIcon({ node, depth = 0, active = false }) {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function WintSidebarV2({ open, onClose }) {
+/**
+ * `searchOnOpen` — open with the search field already open and focused,
+ * instead of with the field collapsed behind its magnifier toggle. Added
+ * 2026-11-07 for the Search tab (src/components/TabBar.jsx), which is an
+ * ACTION rather than a destination and whose whole job is this state. It
+ * drives the `searchOpen` machinery that was already here; it does not add a
+ * second search UI.
+ */
+export default function WintSidebarV2({ open, onClose, searchOnOpen = false }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   // v1's NavigationDrawer took currentSystemId as a prop so it could highlight
@@ -511,8 +520,28 @@ export default function WintSidebarV2({ open, onClose }) {
     }
     return open
   })
-  const [searchOpen, setSearchOpen] = useState(false)
+  /* Seeded from `searchOnOpen` rather than set by an effect: a caller that
+     mounts this drawer as a SEARCH wants the field open on the first paint,
+     and `react-hooks/set-state-in-effect` is an error in this config. */
+  const [searchOpen, setSearchOpen] = useState(searchOnOpen)
   const [query, setQuery] = useState('')
+  /* SELF-OPEN, and it is a SECOND source for `open` rather than a replacement.
+     This drawer is a controlled component: every screen holds its own
+     `drawerOpen` and hands it down. The Search tab in the bottom bar is not a
+     screen and holds nothing, so it signals through the window event in
+     src/components/drawerSearch.js and whichever drawer is mounted opens
+     ITSELF. The parent's `open` still wins the moment it goes true, and
+     `close` below clears both, so the two cannot disagree for longer than one
+     click.
+
+     IT STORES THE ROUTE IT WAS OPENED AT, not a boolean, so that a route
+     change closes it WITHOUT an effect — a pure comparison, evaluated during
+     render. A boolean would need a `useEffect` to clear, which this config
+     rejects, and would leave the drawer hanging open over a page the user has
+     already left. */
+  const [selfOpenAt, setSelfOpenAt] = useState(null)
+  const selfOpen = selfOpenAt !== null && selfOpenAt === pathname
+  const isOpen = open || selfOpen
   // The favourite Star is new state with no spec behind it. PERSISTENCE IS
   // UNSPECIFIED: v1 has src/data/favoritesStore.js (localStorage), but nothing
   // says the v2 star is the same list, so it stays component-local until a PRD
@@ -558,14 +587,47 @@ export default function WintSidebarV2({ open, onClose }) {
     return new Set([...base, ...currentPath])
   }, [expandedIds, searchPaths, currentPath])
 
+  /* Closing has to clear BOTH sources, or a drawer the Search tab opened
+     would stay open after the scrim tap: the parent's `open` was false the
+     whole time, so calling only `onClose` changes nothing visible. */
+  const close = useCallback(() => { setSelfOpenAt(null); onClose?.() }, [onClose])
+
   useEffect(() => {
-    if (!open) return
-    const onKey = e => { if (e.key === 'Escape') onClose?.() }
+    if (!isOpen) return
+    const onKey = e => { if (e.key === 'Escape') close() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [isOpen, close])
 
-  useEffect(() => { if (searchOpen) searchRef.current?.focus() }, [searchOpen])
+  /* KEYED ON `isOpen` AS WELL AS `searchOpen`, and the second dependency is
+     the one that was missing. The panel carries `inert` while closed, and
+     inert refuses focus outright — so the focus() the event handler fires
+     synchronously is rejected, and on a SECOND open `searchOpen` is already
+     true and never changes, so an effect watching it alone never runs again.
+     Measured in the browser: open, Escape, open again, and the caret was in
+     the page body rather than the field. Watching the open edge instead fires
+     after React has committed the DOM and dropped `inert`. */
+  useEffect(() => { if (isOpen && searchOpen) searchRef.current?.focus() }, [isOpen, searchOpen])
+
+  /* The Search tab asking whichever drawer is on this route to open as a
+     search. preventDefault() is what tells the tab somebody answered - see
+     requestDrawerSearch() in src/components/drawerSearch.js. Without it the
+     tab would mount a second drawer on top of this one.
+
+     The focus() call covers the one case the effect above cannot see: the
+     drawer is ALREADY open with the field ALREADY open, so neither `isOpen`
+     nor `searchOpen` changes and no effect re-runs. The panel is not inert in
+     that state, so this one lands. */
+  useEffect(() => {
+    const onSearchRequest = e => {
+      e.preventDefault()
+      setSelfOpenAt(pathname)
+      setSearchOpen(true)
+      searchRef.current?.focus()
+    }
+    window.addEventListener(DRAWER_SEARCH_EVENT, onSearchRequest)
+    return () => window.removeEventListener(DRAWER_SEARCH_EVENT, onSearchRequest)
+  }, [pathname])
 
   const toggleExpanded = useCallback(id => {
     setExpandedIds(prev => {
@@ -583,7 +645,7 @@ export default function WintSidebarV2({ open, onClose }) {
     })
   }, [])
 
-  const go = useCallback(path => { navigate(path); onClose?.() }, [navigate, onClose])
+  const go = useCallback(path => { navigate(path); close() }, [navigate, close])
 
   // Row activation. No setSelectedScope anywhere — see the file header.
   const activate = useCallback(node => {
@@ -610,10 +672,10 @@ export default function WintSidebarV2({ open, onClose }) {
   return (
     <>
       <div
-        onClick={onClose}
+        onClick={close}
         aria-hidden="true"
         className="absolute inset-0 z-10 transition-opacity duration-[250ms]"
-        style={{ background: SCRIM, opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none' }}
+        style={{ background: SCRIM, opacity: isOpen ? 1 : 0, pointerEvents: isOpen ? 'auto' : 'none' }}
       />
 
       {/* Panel. Absolute inside the Phone frame (Phone.jsx's DesktopFrame is
@@ -622,8 +684,8 @@ export default function WintSidebarV2({ open, onClose }) {
       <div
         role="dialog"
         aria-label="Locations menu"
-        aria-hidden={!open}
-        inert={!open}
+        aria-hidden={!isOpen}
+        inert={!isOpen}
         /* The one chrome surface the `frosted` background blurs. It is the
            only one that OVERLAPS content — the tab bar and the header bar are
            flex siblings of the scroller and overlap nothing, so a blur there
@@ -637,7 +699,7 @@ export default function WintSidebarV2({ open, onClose }) {
           width: PANEL_WIDTH_PCT,
           maxWidth: PANEL_MAX_WIDTH,
           backgroundImage: PANEL_BG,
-          transform: open ? 'translateX(0)' : 'translateX(-100%)',
+          transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
         }}
       >
         {/* ── Header · 198378:74015 ───────────────────────────────────────
@@ -650,7 +712,7 @@ export default function WintSidebarV2({ open, onClose }) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label="Close menu"
             // 198378:74018 is a bare 16px glyph flush against the header's 12px
             // right gutter (x=317 w=16 inside Frame 1 198378:74016, x=12 w=333),

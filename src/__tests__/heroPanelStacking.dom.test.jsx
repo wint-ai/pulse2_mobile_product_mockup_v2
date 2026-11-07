@@ -32,12 +32,10 @@
  * covers both; and the pill stays hit-testable at every scroll position.
  */
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
-import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
 import { UserProvider } from '@/context/UserContext'
-import { SYSTEMS } from '@/data/systems'
 
 afterEach(cleanup)
 
@@ -52,16 +50,28 @@ const renderDashboard = () =>
     </MemoryRouter>,
   )
 
-const renderSystem = () =>
-  render(
-    <MemoryRouter initialEntries={[`/system/${SYSTEMS[0].id}`]}>
-      <UserProvider>
-        <Routes>
-          <Route path="/system/:systemId" element={<SystemPageV2Screen />} />
-        </Routes>
-      </UserProvider>
-    </MemoryRouter>,
-  )
+/* ── THE SYSTEM PAGE LEFT THIS SUITE — 2026-11-07 ─────────────────────────
+   It used to be the second row of the describe.each below, because it had
+   copied the Dashboard's chrome block verbatim: a hero window overlaid on a
+   tab row, both inside one z-[2] stacking context.
+
+   SystemPageV2Screen no longer has any of that. The restructure the owner
+   commissioned ("we are replacing tabs with the more button") deleted the
+   collapsing header from that page: there is no `hero-window`, no
+   `system-tabs`, and no chrome block for them to share. The hero is an
+   ordinary card inside the scroller now.
+
+   So the bug this file pins CANNOT HAPPEN THERE ANY MORE — not "is no longer
+   detected", cannot happen: the row that was covering the panel does not
+   exist, and the System page draws no zero-chip upsell panel to cover in the
+   first place. Asserting the mechanism still exists would be asserting that
+   the deletion did not happen.
+
+   THE DASHBOARD CASE BELOW IS UNTOUCHED BY THIS NOTE and is still the live
+   guard — it has since been rewritten against that page's own restructure,
+   which is its author's call and not this note's. Do not read this paragraph
+   as permission to delete it too: the System page left because its mechanism
+   left, not because the suite stopped being worth running. */
 
 /* A positive z-index spelled either as a Tailwind atom (z-[1], z-10) or as an
    inline style. Returns the number, or null for "none". */
@@ -72,37 +82,84 @@ const zOf = (el) => {
   return m ? Number(m[1] ?? m[2]) : null
 }
 
-describe.each([
-  ['Dashboard', renderDashboard, 'home-tabs'],
-  ['System page', renderSystem, 'system-tabs'],
-])('%s — the hero overlay outranks the tab row it shares a block with', (name, renderPage, tabsName) => {
-  it('gives the hero window a positive z-index and the tab row none', () => {
-    const { container } = renderPage()
-    const window_ = container.querySelector('[data-name="hero-window"]')
-    const tabs = container.querySelector(`[data-name="${tabsName}"]`)
+/* ── THE DASHBOARD'S HALF, RE-AIMED — 2026-11-07 ──────────────────────────
+   Agent D left the row below as "the live guard … whoever lands that page
+   decides what replaces it". This is that decision, and it is a re-aim, not a
+   deletion: the bug the owner reported is still possible, at a different
+   seam.
 
-    expect(window_, 'the collapsing header mounts a hero window').toBeTruthy()
-    expect(tabs, 'the tab row is in the chrome block').toBeTruthy()
+   WHAT CHANGED UNDER IT. HomeAllAccounts has no `hero-window`, no `home-tabs`
+   and no chrome block either — same commission, same deletion. The hero is
+   the coloured top of an inset HeroCardShell inside the scroller, and the
+   zero-chip panel still hangs 4px under the chip row and still overflows its
+   box. WHAT IT OVERFLOWS ONTO IS NOW THE CARD'S OWN WHITE BODY — System
+   health — which comes AFTER the colour section in tree order and is
+   OPAQUE. That is exactly the shape of the original bug (a later, opaque
+   sibling in the drop zone), so the guard survives with its subject swapped.
 
-    const wz = zOf(window_)
-    expect(wz, 'the hero window must carry a positive z-index').toBeGreaterThan(0)
-    expect(zOf(tabs), 'the tab row must not answer it with one of its own').toBeNull()
+   WHAT IS PINNED, and each line is one half of the bug:
+     · the panel carries a POSITIVE z-index, so it outranks the body;
+     · the hero card's body carries NONE, so there is nothing to win with;
+     · nothing between them opens a stacking context that would SEAL the
+       panel below the body — a transform, a filter or an `isolate` on the
+       card root or the colour section would do exactly that, and the deleted
+       `hero-collapse` wrapper did it with a transform.
+
+   Verified in Chromium at 393x852 in all four themes: with a zero chip open,
+   elementFromPoint at the panel's centre returns the panel, the panel's
+   bottom (301px) clears the card's (320px) so `overflow-hidden` never reaches
+   it, and the floating pill stays hit-testable. */
+describe('Dashboard — the zero-chip panel outranks what it now overlaps', () => {
+  /* The chips are buttons only when the page passes `onSelectType`, which it
+     does. Against this dataset the flood and humidity chips read 0, so the
+     LAST chip opens the zero panel with its upsell CTA — the exact state the
+     owner screenshotted. One tap arms; it never navigates at 0. */
+  const openZeroChip = (container) => {
+    const chips = [...container.querySelectorAll('[data-node-id="199531:80031"] button')]
+    expect(chips.length, 'the hero chips are no longer controls').toBe(3)
+    fireEvent.click(chips[chips.length - 1])
+    return container.querySelector('[data-name="System type explainer"]')
+  }
+
+  it('hangs the panel out of the hero box with a positive z-index', () => {
+    const { container } = renderDashboard()
+    const panel = openZeroChip(container)
+
+    expect(panel, 'the zero-chip panel did not open').toBeTruthy()
+    expect(panel.getAttribute('data-zero'), 'this chip is not the zero case').toBe('true')
+    expect(zOf(panel), 'the panel must carry a positive z-index').toBeGreaterThan(0)
   })
 
-  it('keeps that z-index inside the chrome block, which is its own stacking context', () => {
-    const { container } = renderPage()
-    const window_ = container.querySelector('[data-name="hero-window"]')
-    /* The chrome block is the nearest ancestor carrying a z-index. It has to
-       HAVE one — otherwise the window's z escapes into the page's context and
-       starts competing with the drawer and the floating tab bar's host. */
-    let chrome = window_.parentElement
-    while (chrome && zOf(chrome) === null) chrome = chrome.parentElement
-    expect(chrome, 'the hero window sits inside a stacking context').toBeTruthy()
-    const cz = zOf(chrome)
-    expect(cz).toBeGreaterThan(0)
-    /* 2, not 20: it must beat the band (1) and the scroller (auto) and lose to
-       the drawer's scrim (10) and panel (11), EventFocusOverlay (50) and
-       PushNotifications (300). */
-    expect(cz).toBeLessThan(10)
+  it('leaves the hero card body at z-auto, so the panel wins in the same context', () => {
+    const { container } = renderDashboard()
+    openZeroChip(container)
+    const body = container.querySelector('[data-name="hero-card-body"]')
+
+    expect(body, 'the hero card has no body section').toBeTruthy()
+    expect(zOf(body), 'the body must not answer the panel with a z-index of its own').toBeNull()
+  })
+
+  it('is not sealed below the body by a stacking context in between', () => {
+    /* A transform, a filter or `isolation: isolate` on any ancestor between
+       the panel and the card's common parent would pin the panel at THAT
+       element's level, and no z-index inside could reach past the body. This
+       is how the old bug actually worked: `hero-collapse` carried a transform.
+       `overflow-hidden` on the card root is fine — it clips, it does not
+       stack. */
+    const { container } = renderDashboard()
+    const panel = openZeroChip(container)
+    const card = container.querySelector('[data-name="hero-card-shell"]')
+
+    const seals = []
+    for (let el = panel.parentElement; el && el !== card; el = el.parentElement) {
+      const cls = String(el.className ?? '')
+      const style = el.getAttribute('style') ?? ''
+      if (/\btransform\b|\btranslate-|\bscale-|\brotate-/.test(cls) || /transform:/.test(style)) seals.push(cls)
+      if (/\bisolate\b/.test(cls) || /isolation:/.test(style)) seals.push(cls)
+      if (/\bfilter\b|\bblur-|\bbackdrop-blur-/.test(cls) || /filter:/.test(style)) seals.push(cls)
+    }
+    expect(seals, 'a stacking context between the panel and the card seals it below the body').toEqual([])
+    /* And the card root itself must not do it either. */
+    expect(String(card.className)).not.toMatch(/\bisolate\b/)
   })
 })

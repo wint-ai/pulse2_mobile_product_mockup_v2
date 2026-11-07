@@ -2,10 +2,45 @@
  * Home — "All accounts" (v2 mobile). Pixel rebuild of the whole page.
  *
  * Design source: Figma file YEmjkKS4xaA827Zm8w3oXx
+ *   200013:93089  Account / location              (402x907) — CURRENT, 2026-11-07
  *   198314:73471  All accounts                    (375x2155, the default state)
  *   198328:89061  Account_expanded water events   (375x874, the expanded state)
- * Both frames were fetched on their own node, never through a parent that
- * merges variants and hands back the wrong assets.
+ * Both older frames were fetched on their own node, never through a parent
+ * that merges variants and hands back the wrong assets.
+ *
+ * ── 200013:93089, FETCHED 2026-11-07, AND WHAT IT ACTUALLY SAYS ───────────
+ * The frame itself is past get_design_context's size cap, so it was read as a
+ * tree and its hero fetched on its own node. The ids, so the next person does
+ * not spend the calls again:
+ *
+ *   200013:93099  Header mobile    370x41   title `All accounts` + More badge
+ *   200013:93100  content frame    370x1934
+ *     200013:93101  Account Main header 370x261  the hero card — FETCHED
+ *     200013:93102  Water events        370x386
+ *     200013:93103  Water consumption_M 370x455
+ *     200013:93104  Insights            370x380
+ *     200013:93105  Events Timeline     370x380
+ *   hidden="true", i.e. in the file but NOT drawn:
+ *     200013:93090  the old full-bleed band raster, 410x340
+ *     200013:93091  a Button, 339x36
+ *     200013:93092 -> 200013:93098  the `Tabs` row, 339x36
+ *     I200013:93099;199511:78256    the header's own tab slot
+ *
+ * ⚠ THE FRAME IS NOT AN INVENTORY. Owner, verbatim: "Same layout for
+ *   locations screens / [200013:93089] keep wht we have now — remove the
+ *   system 'lifecycle "Active"' And keeo the locations". "Keep what we have
+ *   now" BINDS OVER THE FRAME. 200013:93100 draws five blocks; this page also
+ *   carries the triage band, the valve widget, top usage and the systems
+ *   table, and all of them STAY. The frame is the layout reference for the
+ *   header and the hero, not a list of what the page may contain. Deleting a
+ *   widget because this frame does not draw it is the Rule 0 failure
+ *   .claude/skills/v2-page-parity exists for.
+ *
+ * ⚠ THE LIFECYCLE `Active` PILL WAS ALREADY GONE before this instruction, and
+ *   is confirmed absent from 200013:93101. See SystemsOverviewHero.jsx's own
+ *   THE LIFECYCLE PILL block; nothing was re-removed and nothing re-added.
+ *   "And keeo the locations" is the eyebrow: 200013:93101 draws `12 locations`
+ *   over the headline and this page feeds it a live `locationCount`.
  *
  * ── Why the class names look like that ─────────────────────────────────────
  * Every utility below is Figma's own output, kept verbatim:
@@ -59,7 +94,7 @@
  * so the project's Phosphor caret-down is used instead of shipping a smiley.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 /* One key only — `home.switch_location`, for the header bar's scope slot.
    The rest of this page is still untranslated; this is not the start of a
@@ -81,10 +116,14 @@ import ActiveWaterEventsCard from '@/v2/components/ActiveWaterEventsCard'
    reference for that earlier reading. */
 import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
 import EventOverlayV2 from '@/v2/components/EventOverlayV2'
-/* The wave, now that it is the PAGE's and not the hero's — see THE FULL-BLEED
-   BAND at the root below. One component, two call sites, so the band and the
-   card inside it cannot drift onto two different rasters. */
-import HeroWaveArt from '@/v2/components/HeroWaveArt'
+/* ── THE WAVE WENT BACK INSIDE A CARD — 2026-11-07 ─────────────────────────
+   `HeroWaveArt` is NOT imported here any more. It was, for three days, because
+   the collapsing header painted it as a full-bleed band behind the bar
+   (199954:96290). Node 200013:93089 carries that raster as 200013:93090 and
+   draws it `hidden="true"`: the artwork is back inside an inset rounded card,
+   where HeroCardShell paints it from its own `tone`. One component, now one
+   call site on this page, so the band and the card cannot drift apart. */
+import HeroCardShell from '@/v2/components/HeroCardShell'
 import InsightsCard from '@/v2/components/InsightsCard'
 import SystemsHealthCard from '@/v2/components/SystemsHealthCard'
 import SystemsTableCard from '@/v2/components/SystemsTableCard'
@@ -110,12 +149,31 @@ import { CaretDown } from '@/v2/icons'
    is gone below) and then everywhere else. MobileHeaderBar is left on disk,
    unused. */
 import AppHeaderBar from '@/v2/components/AppHeaderBar'
-/* The pill tab row, shared with SystemPageV2Screen. It used to be a local
-   `TabTrigger` here and a near-copy of it there; the two drifted apart and the
-   owner saw one row dark-slate and the other pale-blue. PillTabs' header
-   records which Figma instance each treatment comes from and why they are one
-   component with a `tone`, not two designs. */
-import PillTabs from '@/v2/components/PillTabs'
+/* ── THE TAB ROW IS GONE, AND THE MENU IS WHAT REPLACED IT — 2026-11-07 ────
+   Owner: "we are replacing tabs with the more button / needs to open as a
+   floating component like in ios". `PillTabs` is NOT imported here any more.
+
+   THE NODE SAYS THE SAME THING TWICE. In 200013:93089 the tab row survives as
+   TWO hidden layers — 200013:93092 ("Frame 2138883552" wrapping a `Tabs`
+   instance) and the header instance's own `Frame 2138883553` — both
+   `hidden="true"`. A control the frame keeps but does not draw is a control
+   that moved, which is exactly what happened to it.
+
+   THE IDS DID NOT CHANGE. `overview` / `systems` / `general` are the same
+   three this page passed to PillTabs, so `tab`, `systemsTabScope` and the
+   filter shortcut from the hero's chips all keep working — see
+   moreMenuModel.js, which holds the labels and the ⚠ `Systems` vs the frame's
+   `Locations` conflict this page has reported since October.
+
+   ⚠ PillTabs THE COMPONENT IS NOT DELETED, AND IS NOW MOUNTED NOWHERE.
+   SystemPageV2Screen dropped it in the same restructure, so the file is on
+   disk with zero call sites and its Ruling 2 — which page gets which tab
+   treatment — is moot rather than settled. Retiring it is a separate decision
+   and the owner's; `pillTabs.dom.test.jsx`'s "the two screens draw the same
+   tab row" block is red because of exactly this and is REPORTED, not patched:
+   it asserts a design the owner himself replaced. */
+import MoreMenu from '@/v2/components/MoreMenu'
+import { locationMoreMenuItems } from '@/v2/components/moreMenuModel'
 /* The chart's window arithmetic — §3.1-§3.6 and the §4 matrix. Shared with
    SystemPageV2Screen so the two screens cannot drift apart, and kept out of
    this file because a page may only export its component. */
@@ -1352,423 +1410,198 @@ export default function HomeAllAccounts({ expanded = false }) {
 
   const consumptionSteps = stepAvailability(consumptionPeriod, consumptionOffset, consumptionBounds)
 
-  /* ── THE HERO — Figma 199954:96289 "Main header", re-read live 2026-11-04 ──
-     It is the only thing above the tab row now. The LIVE frame reorders the
-     block the morning's read had: image -> tabs -> health, not image -> health
-     -> tabs. `Header mobile` (199955:96847) is a child of `Account Main header`
-     at y=126 inside a 162-tall block, i.e. the tabs ARE the block's last 36px,
-     and the health card has moved out of the block entirely to y=178 as a
-     sibling BELOW it.
+  /* ── THE MORE MENU — the control the tab row became, 2026-11-07 ───────────
+     Owner: "we are replacing tabs with the more button / needs to open as a
+     floating component like in ios". The menu is MoreMenu.jsx; this page owns
+     only the two ids, the open state and the item list.
 
-     WHICH SETTLES WHERE THE HEALTH CARD BELONGS. Anything after the tab row is
-     the tab's panel, and `Water events` - which has only ever been Overview
-     content - is the very next sibling after the health card, at the same
-     level. So the health card is Overview's, and it is in `cards` below with
-     the rest of that panel. Not ambiguous, and so not reported as such.
+     THE TWO IDS ARE A THREE-WAY HANDSHAKE and all three legs are load-bearing:
+       moreMenuId -> the badge's `aria-controls`, and the menu's own `id`
+       labelledBy -> the BADGE's id, which MoreMenu uses for three things:
+                     `aria-labelledby` on the menu, MEASURING the real badge at
+                     open time so the card anchors under it, and returning
+                     focus to it on close.
 
-     ONLY THE HERO IS ABOVE THE TABS, which means only the hero is common to
-     all three tabs. That is a smaller claim than the morning's layout made and
-     it is the frame's.
+     BOTH TRAVEL AS PROPS — FIXED 2026-11-07. AppHeaderBar takes `moreMenuId`
+     for the menu's id and `moreBadgeId` for the badge's, so React owns both
+     and the handshake is readable at the call site below.
 
-     NOTHING WAS REMOVED to get here. The hero and the health card were the
-     first two Overview cards; the hero moved up above the tab row and the
-     health card stayed exactly where it was in the panel. The only card whose
-     owner changed is the hero, and it gained two tabs rather than losing one. */
-  /* ── THE COLLAPSING HEADER — 2026-11-04 ───────────────────────────
-     Owner, shown the fully fixed block: "Currently it takes too much place
-     when scrolling. I want only the — from the bottom, up to the header with
-     all accounts and the icon — to be kind of scrolling up. And then only
-     title, the open navigation and tabs are floating."
+     ⚠ IT USED TO BE A STAMP, and the stamp is gone on purpose. The header
+       shipped no way to set the badge's id, so this page mounted a layout
+       effect that did `querySelector('[data-name="app-more"]')` and wrote the
+       id onto the node after render; SystemPageV2Screen carried an identical
+       one. Two files, one hack, for one missing prop. Do not reintroduce it:
+       an id React does not own is an id React can overwrite, and all three
+       jobs the id does fail SILENTLY when it is missing — the card anchors
+       from MORE_MENU_FALLBACK_ANCHOR, focus does not return to the badge, and
+       `aria-labelledby` dangles. None of those show in a screenshot. */
+  const MORE_MENU_ID = 'home-more-menu'
+  const MORE_BADGE_ID = 'home-more-badge'
+  const [moreOpen, setMoreOpen] = useState(false)
 
-     So the eyebrow, the headline and the chips scroll away; the TITLE, the
-     NAV BUTTON and the TAB ROW never do; and the artwork stays behind them as
-     a short slice all the way down. It supersedes two earlier readings of the
-     same complaint on the same day — "all needs to be scrolled including the
-     waves", then "keep this area stuck" — and all three are consistent: what
-     he objected to each time was the HALF-AND-HALF, artwork holding still
-     while its own content slid off it. This is the resolution. The artwork and
-     its content collapse TOGETHER, onto a floor that keeps the controls.
+  /* `overview` / `systems` / `general`, unchanged — moreMenuModel.js holds the
+     labels and the count, and its header carries the ⚠ `Systems` vs the
+     frame's `Locations` conflict this page has reported since October. Moving
+     the control into a menu does not answer that question and must not
+     quietly decide it, so nothing is renamed here.
 
-     THE NUMBERS, measured at 393x852 rather than chosen:
-       HEADER_BAR   54  pt-[4px] + the 40px nav button + pb-[10px]
-       HERO_H      130  eyebrow + headline + chip row - what collapses
-       TAB_ROW      32  PillTabs
-       BAND_H      205  the artwork. The owner's explicit size. UNCHANGED.
-     and the two they produce:
-       COLLAPSE    138  the scroll distance the collapse runs over - near
-                        enough the hero's own height that it moves 1:1 with the
-                        finger and reads as content scrolling rather than as an
-                        effect. See BAR_TO_TABS for the extra 8.
-       the band      205 -> 109. 109 is where it has to stop: the tab row lands
-                        at y=72..104 collapsed, and the design already leaves
-                        5px of ground past the tabs at rest (band 205, tabs
-                        210). So the tabs sit ON the artwork once collapsed and
-                        on page ground at rest - new, and measured for contrast
-                        in both states. It is DERIVED from BAR_TO_TABS below,
-                        not written down, so the owner's next trim moves the
-                        band's floor with it.
+     `systemCount` is the live fleet count, null while there is no data — a 0
+     would be a measurement. It is the same value the tab row's Badge drew. */
+  const moreMenuItems = useMemo(
+    () => locationMoreMenuItems({ systemCount: live?.stats?.total ?? null }),
+    [live],
+  )
 
-     WHAT MOVES, AND WHY EACH ONE MOVES THAT WAY:
-       · the band   clip-path, inset from the BOTTOM. NOT a height and NOT a
-                    translate. Height would re-crop it every frame - the layer
-                    is object-cover object-bottom, so shrinking the box slides
-                    a different slice of raster under the title and the
-                    artwork appears to move on its own. A clip leaves every
-                    surviving pixel exactly where it was, so the wave simply
-                    gets shorter; it also makes the ground under the title and
-                    the tabs IDENTICAL in both states, which is what lets one
-                    contrast measurement answer for both (both are taken).
-       · the hero   translateY + opacity, inside a window clipped at the bar's
-                    bottom edge, so it slides UNDER the bar the way a large
-                    title does on iOS and can never paint over the controls.
-       · the tabs   translateY only. They are LAID OUT at the collapsed
-                    position and pushed DOWN at rest, which is the whole trick:
-                    the chrome column measures 104px at every scroll position,
-                    so the scroller never resizes and the handler can never
-                    feed back into its own input.
+  /* ── THE HERO CARD — 200013:93101 "Account Main header", 370x261 ──────────
+     Fetched live 2026-11-07, on its own node because 200013:93089 is past
+     get_design_context's size cap. It is ONE inset rounded card with two
+     sections, and this page owns neither half's chassis now:
 
-     NOTHING ANIMATES A LAYOUT PROPERTY AND NOTHING RE-RENDERS. The handler
-     writes ONE custom property on the root per frame; every transform is a
-     calc() off it, so React is not in the loop at all. No animation library
-     (this repo has none and is not getting one), and no `animation-timeline:
-     scroll()`, which is Chromium-only while this app ships to Safari.
+         coloured top   SystemsOverviewHero  eyebrow, headline, type chips
+         white body     SystemHealthCard     the bar and the fault tiles
 
-     THE SCROLLER'S paddingTop IS THE COLLAPSE DISTANCE, and that is the one
-     thing this pattern gets wrong when it gets wrong: without it the first
-     card starts where the collapsed header ends and jumps down by 130px the
-     moment you touch the scroll. Measured at scrollTop 0 to prove it does not.
+     HeroCardShell is the chassis. It paints HeroWaveArt itself off `tone`,
+     clips both sections under ONE `overflow-hidden rounded-[22px]`, and gives
+     NEITHER section any padding — children and body bring their own. Hence
+     `artwork={false}` on the hero, and the 17px above the eyebrow is the only
+     padding this page adds.
 
-     prefers-reduced-motion: NOT honoured, deliberately. Nothing here is
-     time-based - every pixel of movement is one the finger asked for, which
-     is what "content scrolls" means. Freezing the hero over content moving
-     underneath it would be strictly more disorienting than the collapse.
-     Revisit if the owner reports otherwise. */
-  const HEADER_BAR = 54
-  const HERO_H = 130
-  const TAB_ROW = 32
-  /* ── THE GAP UNDER THE BAR — 2026-11-04 ────────────────────────
-     Owner, on the collapsed header: "ok much better — but we still can reduce
-     a bit spacing between title/header to tabs."
+     ── WHAT THE NODE MEASURES, AND WHAT THIS GIVES IT ───────────────────
+     In the node the coloured box is `h-[173px] mb-[-30px]`, i.e. 143px of
+     VISIBLE colour with the white body overlapping its last 30, and inside it
+         eyebrow   y  17 ->  33.4
+         headline  y  37 ->  77
+         chips     y  91 -> 123       (left inset 21px = 5.68% of 370)
+         body starts at 143
+     SystemsOverviewHero's own column, measured in Chromium rather than read
+     off the class strings, runs eyebrow 0->26, headline 26->65.4, chips
+     72->106.6 inside a 130px box. Under a 17px pad that is 17 -> 123.6
+     against the node's 17 -> 123: they agree to within a pixel without
+     touching the component's internals, and the section comes out 147 against
+     the node's 143.
 
-     THE WHOLE STACK, measured at 393x852 collapsed, between the nav button's
-     lower edge and the tab track's upper edge:
+     THE 4px, AND THE 2px, ARE REPORTED RATHER THAN CHASED. The hero's own
+     inset is 23px against this node's 21, and its box leaves 23.4px under the
+     chips against the node's 20. Both sit inside the drift this frame has
+     shown while being edited live — 199954:96289 read 23 for the same inset
+     hours before 200013:93101 read 21 — and the owner's instruction for this
+     node is "keep wht we have now". Moving them would be a pixel change he
+     did not ask for, on numbers that have moved twice in a week.
 
-       10  AppHeaderBar's own pb-[10px]   node 199922:83959. UNTOUCHED - the
-           bar is 54px and the band's height is arithmetic off that, the 40x40
-           nav button is a tap target and not decoration, and this bar is on
-           five screens.
-       18  this column's gap                 -> 10. THE ONE THAT CHANGED.
-        3  PillTabs' track padding        p-[3px] inside its 32px. Untouched;
-           it is the trigger's own hit area.
-       = 28 before, 20 after. A 29% trim, which is what "a bit" bought.
+     ── THE SCRIM IS OFF, AND THAT IS A RULING, NOT AN OMISSION ──────────
+     HeroWaveArt carries an opt-in `scrim` at 0.34 alpha. That number was
+     derived for a 20px page TITLE standing ON the artwork inside the
+     full-bleed band. The title is on the page ground now and 200013:93101
+     draws no scrim layer at all, so the justification left with the band.
+     HeroCardShell passes `scrim={false}`; nothing here re-enables it.
 
-     NOT A FIGMA DEPARTURE — it is a RETURN. 199532:82461 emits gap-[10px];
-     the 18 was mine, taken an hour earlier so the hero would still land on
-     its measured y=80 when it moved into this column. The hero stays at 80
-     anyway, because its window is positioned off the bar rather than off this
-     gap (see the window's own top offset below), so the trim lands on the
-     COLLAPSED state only and the expanded layout is pixel-identical.
+     ── THE BODY IS A CARD WITH ITS CHROME OFF ───────────────────────────
+     `rounded-none border-0` is HeroCardShell's documented ask. The chassis has
+     already painted --surface-card behind this section and supplies the bottom
+     radius from its own clip, so the card's rim and rounded top corners would
+     only reveal white on white and shift the content by a pixel.
 
-     The two states genuinely wanted different treatment: collapsed, the title
-     and the tabs sit directly together and 28px read as slack; expanded, the
-     hero is between them and nothing about that gap is visible at all. */
-  const BAR_TO_TABS = 10
-  /* ── AIR UNDER THE TABS — 2026-11-04 ───────────────────────────
-     Owner, straight after the trim above: "and add padding on the bottom so
-     tabs will be a bit upper."
+     EVERY OTHER PROP IS UNCHANGED — the four counts, the three handlers and
+     the two filter shortcuts are the same calls on the same data they were
+     when this card stood first in `cards`.
 
-     It is the pinned block's bottom padding, and it was 5px. 5 was never a
-     designed value - it is what fell out of the band stopping at 205 while the
-     tab row started at 210 - and collapsed it left the row sitting on the
-     artwork's edge with no air under it at all. At 12 the row sits 12px off
-     the block's floor instead of 5, which is the "a bit upper" he is after:
-     the tabs do not move on the screen, the floor underneath them does.
+     THE NO-BAR RULE SURVIVES THE MOVE. Owner, 2026-11-04: "When all good, no
+     progress bar." That gate is SystemHealthCard's own (`attention > 0`), not
+     this page's, so slotting the card into the hero body cannot resurrect the
+     zero-state bar — the all-clear green row from 199922:85244 draws instead.
+     Checked in the browser on a persona whose whole scope is clear.
 
-     THE BLOCK DOES NOT GROW INTO THE CONTENT. Whatever this takes, the root's
-     gap below gives back - ROOT_GAP is 18 - TABS_TO_FLOOR - so the distance
-     from the tab row to the first card is the same 18 it has always been and
-     the first card still lands on y=260 at rest. All this moves is WHICH SIDE
-     of the block's edge those pixels fall on, and therefore how far the
-     artwork runs past the row.
+     ── WHY IT RENDERS ON EVERY VIEW, NOT ONLY OVERVIEW ──────────────────
+     The hero has been common to all three destinations since 2026-11-04 and
+     the health card was Overview's. Merging them into one card forces a
+     choice, and this is the side that removes nothing: the hero keeps the
+     reach it had and System health gains two. The alternative — the whole
+     card inside `cards` — would delete the hero from Systems and General
+     Info, which IS a removal and would need the owner's word first.
 
-     COLLAPSED HEIGHT: 101px -> 108px of the 852 frame. It has not crept back
-     toward the 234 the fixed block cost; it is 7px, and it is the 7px he
-     asked for.
-
-     ⚠ THE OTHER READING, so it is one number if this one is wrong. "tabs"
-     has also meant the FLOATING BOTTOM BAR in this conversation, and "add
-     padding on the bottom so tabs will be a bit upper" parses as raising that
-     pill off the frame's lower edge. That inset is TAB_BAR_BOTTOM_INSET = 12
-     in src/components/tabBarMetrics.js; 12 -> 24 would lift it by 12. It is
-     NOT done here and must not be done alone: TAB_BAR_CLEARANCE is 12 + 65 +
-     16 = 93 and seventeen scrollers hard-code that 93, with
-     tabBarFloatingClearance.dom.test.jsx holding the list. Raising the inset
-     without raising the clearance puts every screen's last row back under the
-     pill. */
-  const TABS_TO_FLOOR = 12
-  const ROOT_GAP = 18 - TABS_TO_FLOOR
-  /* The scroll distance, and the hero's travel. It is the hero's height plus
-     the 8px the tab row gives back by being laid out 8px higher, so the row
-     still comes to rest on the node's y=210 with the hero above it. */
-  const COLLAPSE = HERO_H + (18 - BAR_TO_TABS)
-  /* The chrome column is HEADER_BAR + the root gap + TAB_ROW = 104px at
-     every scroll position. It is not spelled as a constant because nothing
-     sets it: it is what the flow produces, and that is the invariant. */
-
-  const rootRef = useRef(null)
-  const scrollerRef = useRef(null)
-
-  /* THE DRIVER. rAF-throttled, passive, and it writes two things: `--hdr-t`
-     (0 expanded, 1 collapsed) and the hero's pointer-events.
-
-     The pointer-events half is not tidiness. The hero sits in an overlay above
-     the scroller's top padding; once it has travelled far enough to be
-     invisible it still occupies the strip between the bar and the tabs, so a
-     tap there would land on a hero nobody can see. It is released at the
-     half-way point, by which time the chips have fully faded.
-
-     It runs once on mount and again on every tab change, because switching
-     tabs keeps the scroll position while replacing the content: without that,
-     the variable would still describe the panel you just left. */
-  useEffect(() => {
-    const sc = scrollerRef.current
-    const root = rootRef.current
-    if (!sc || !root) return undefined
-    let frame = 0
-    const apply = () => {
-      frame = 0
-      const t = Math.min(1, Math.max(0, sc.scrollTop / COLLAPSE))
-      root.style.setProperty('--hdr-t', String(t))
-      const hero = root.querySelector('[data-name="hero-collapse"]')
-      if (hero) hero.style.pointerEvents = t < 0.5 ? 'auto' : 'none'
-    }
-    const onScroll = () => { if (!frame) frame = requestAnimationFrame(apply) }
-    apply()
-    sc.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      sc.removeEventListener('scroll', onScroll)
-      if (frame) cancelAnimationFrame(frame)
-    }
-  }, [COLLAPSE, tab])
-
-  const scopeBlock = (
-    /* 199954:96288 "Account Main header", 358x162 — the hero and the tab row as
-       ONE block, because the node makes them one and because the tabs sit flush
-       under the hero with no gap. Wrapping them is what keeps the scroller's
-       own gap-[20px] from opening between them; a negative margin would do it
-       too and would be a worse way to say "these are one thing".
-
-       358 is 390 minus a 16px gutter each side — which is exactly what this
-       page's own px-4 already produces inside the 393 shell. Nothing is
-       hard-coded to 358 or 370. */
-    /* ITS HEIGHT IS THE TAB ROW'S, 32px, not the 162 of hero+tabs. The hero
-       is an absolutely positioned overlay inside it and contributes nothing to
-       the column, which is what keeps the chrome a constant 104px while the
-       header collapses. See THE COLLAPSING HEADER above. */
-    <div className="relative shrink-0 w-full h-[32px]" data-node-id="199954:96288">
-      {/* THE HERO'S WINDOW. Its upper edge is pinned to the header bar's lower
-          edge (y=62 at 393x852) by cancelling the column gap above this block,
-          and `overflow-hidden` is what makes the hero slide UNDER the bar
-          instead of across it.
-
-          IT IS OFFSET BY THE GAP, NOT BY A LITERAL, and that is what kept the
-          expanded layout still when the owner asked for the collapsed gap to
-          be trimmed: the window moves with the gap, and the hero inside it
-          moves back by the same 18 it always sat at, so the hero stays on its
-          measured y=80 whatever BAR_TO_TABS becomes.
-
-          790px tall so its own lower edge never clips anything - the zero-chip
-          explainer panel deliberately overflows the hero's box and must
-          survive. pointer-events-none because the window spans the page; the
-          hero inside it takes its own, from the driver. */}
-      {/* ── z-[1] — THE UPSELL PANEL WAS PAINTING UNDER THE TAB ROW ────────
-          Owner, with a screenshot of the `Humidity sensors` zero-chip panel
-          with the tab row drawn across its text: "this is also broken. Tooltip
-          needs to be above everything, not below the tabs."
-
-          WHY IT BROKE. The panel hangs below the chip row and deliberately
-          overflows the hero's box — it always has, and it used to overflow
-          onto the health card, which came AFTER it in the scroller. The
-          collapsing header moved the tab row into this block, i.e. into the
-          panel's drop zone and AFTER it in tree order. Both this window and
-          the row sit at z-auto inside the chrome's stacking context, and the
-          hero's own `z-[2]` cannot help: `hero-collapse` below carries a
-          transform, which makes it a stacking context, so everything inside
-          it is sealed at that element's level.
-
-          THE FIX IS INSIDE THE CHROME'S OWN CONTEXT, not a global escalation.
-          The chrome is `relative z-[2]`, which IS a stacking context, so a
-          z-index here cannot escape it: this window outranks the tab row and
-          nothing else, and the order outside is untouched —
-            scroller auto -> TabBar host auto -> band z-[1] -> chrome z-[2]
-            -> drawer 10/11 -> EventFocusOverlay 50 -> push 300.
-          The drawer still covers the panel and the floating pill is still
-          hit-testable; both verified in the browser in all four themes.
-
-          THE HERO DOES NOT NOW PAINT OVER THE TABS, which is the thing to
-          check when raising a sibling: at rest the hero ends where the row
-          begins, and as the header collapses the hero travels AWAY from the
-          row and is at opacity 0 before it could reach it. Only the panel,
-          which hangs past the hero's box, ever overlaps. */}
-      <div
-        className="pointer-events-none absolute inset-x-0 z-[1] h-[790px] overflow-hidden"
-        style={{ top: -BAR_TO_TABS }}
-        data-name="hero-window"
-      >
-        <div
-          className="absolute inset-x-0"
-          /* 1.6 rather than 1: the hero has to be invisible BEFORE it reaches
-             the bar, not as it arrives. At 1.6 it is gone by t=0.625, with its
-             top still 1px below the frame edge. */
-          style={{
-            top: BAR_TO_TABS + 8,
-            transform: `translateY(calc(var(--hdr-t, 0) * -${COLLAPSE}px))`,
-            opacity: 'calc(1 - var(--hdr-t, 0) * 1.6)',
+     ⚠ THE ZERO-CHIP EXPLAINER OVERFLOWS THIS CARD ON PURPOSE. It hangs 4px
+     under the chip row and lands on the white body now, where it used to land
+     on the tab row. It carries `z-[2]` and the body carries no z-index, so it
+     paints over it; HeroCardShell's `overflow-hidden` does not reach it
+     because the card is taller than the panel's drop. Verified in Chromium at
+     393x852 with a zero chip open, in all four themes. */
+  const heroCard = (
+    <HeroCardShell
+      tone="brand"
+      body={
+        <SystemHealthCard
+          className="rounded-none border-0"
+          total={live?.stats?.total ?? 0}
+          /* The error-free count, NOT total minus leaks — see the note on
+             `stats` above. A system with an active water event and no fault is
+             healthy, and this card is the one that says so. */
+          healthy={live?.stats?.healthy ?? 0}
+          valveErrors={live?.issues?.valve ?? 0}
+          offline={live?.issues?.offline ?? 0}
+          noPower={live?.issues?.power ?? 0}
+          /* PRD 09's FOURTH protection check, and the one with no tile. It is
+             already inside `healthy` above — and therefore inside the card's
+             `attention` — so for a long time this screen could show three
+             empty tiles and the all-clear line above "1 / 10 need attention",
+             which is what /location/Building B does. The card draws Figma's
+             own answer to that now (199338:52997, "N other issues · N no
+             recipients"), and this is the number it draws. */
+          noRecipients={live?.issues?.recipients ?? 0}
+          /* Owner, 2026-10-22: "view all opens the wrong area / currently
+             systems tab / and it shall be open Active alerts overlay with all
+             filter". openOverlay's defaults (filter 'all', tab 'active') are
+             exactly what was asked for, so it takes no arguments. */
+          onShowAll={() => openOverlay('alerts')}
+          /* 200013:93101 draws this one as `Show past alerts ->`, which is the
+             string the card already relabels itself to in the all-clear state
+             (199417:131563). Transcription, not new copy. */
+          onShowPast={() => openOverlay('alerts', { tab: 'history' })}
+          onSelectIssue={kind => openOverlay('alerts', {
+            filter: ISSUE_FILTER[kind === 'valveErrors' ? 'valve' : kind === 'noPower' ? 'power' : kind] ?? 'all',
+          })}
+          /* Owner, 2026-10-22, on a screenshot of the bar: "make these bars
+             clcikable to systems table filtered". Each segment is a shortcut
+             into the Systems view, filtered to the half of the fleet it draws.
+             NO NEW PREDICATE: the card hands back 'attention' / 'ok', the
+             values src/data/systemFilters.js's `attention` category already
+             produces over the same `scopedSystems` the table reads. */
+          onSelectHealth={value => {
+            setSystemFilters({ attention: [value] })
+            setTab('systems')
           }}
-          data-name="hero-collapse"
-        >
-      {/* ── THE WAVE IS THE PAGE'S NOW, NOT THIS CARD'S ─────────────────────
-          Owner: "I want the image and the entire header to be with the image
-          as provided in the link in Figma." 199954:96290 is positioned OUTSIDE
-          its parent on every axis - it runs 173px up past the header bar and
-          out past both sides - so it stopped being a card's background and
-          became the ground the header and this hero sit on.
-
-          `artwork={false}` because THE BAND AT THE ROOT is already painting
-          exactly this raster behind exactly this box. Two copies would double
-          the #a0ccff multiply and draw a seam along the hero's top edge.
-
-          `z-[2]` is load-bearing, not tidiness. The hero's zero-chip explainer
-          panel hangs 4px under the chip row and deliberately overflows this
-          box - it used to overflow onto the health card and now overflows onto
-          the tab row, which is its next sibling. Siblings paint in source
-          order, so without a stacking position here the panel would be drawn
-          UNDER the tabs and read as clipped. */}
-      <SystemsOverviewHero
-        className="z-[2]"
-        artwork={false}
-        total={live?.stats?.total ?? 0}
-        /* 199955:96839. DATA, not the frame's `12` - see `locationCount`. */
-        locations={locationCount}
-        systemTypes={live?.systemTypes}
-        /* A chip is a shortcut into the Systems tab, filtered to that type.
-           The hero and the table already speak the same vocabulary —
-           SYSTEM_TYPE.FLOW / FLOOD / HUMIDITY is what the `type` filter
-           category reads through systemTypeOf — so this sets the selection
-           the filter sheet would have set, rather than inventing a parallel
-           path. Replaces the whole selection on purpose: the chip states one
-           complete intent ("show me the flood sensors"), and merging it into
-           whatever was already applied could land on an empty table for
-           reasons the user cannot see. */
-        onSelectType={type => {
-          setSystemFilters({ type: [type] })
-          setTab('systems')
-        }}
-      />
-        </div>
-      </div>
-
-      {/* ── THE TAB ROW — 199955:96847, "just below the image" ──────────────
-          Owner: "And then take the tabs just below the image and implement it
-          now." It sat in the chrome group above the scroller until 2026-11-04,
-          10px under the header bar. The live frame puts it at y=126 inside the
-          162-tall hero block, 5px under the image's bottom edge (the image
-          ends at y=121) - which is as literally "just below the image" as a
-          frame can say it.
-
-          ⚠ IT DOES NOT SCROLL, AND THAT IS THE OWNER'S, 2026-11-04. This note
-          used to say the opposite — that the row scrolling away was a cost the
-          frame's position obliged this page to pay, reported but not fixed.
-          He answered it, on a screenshot of /location/100 Meridian Plaza
-          showing the bar, the hero and this row: "all these area needs to be
-          fixed including the tabs."
-
-          So THIS WHOLE BLOCK IS CHROME, and the three readings that were open
-          an hour ago all close with it:
-            · CHROME     taken. It costs this screen 180px of scroller — 764
-                         -> 584 at 393x852, measured, with the figures in THE
-                         STUCK BLOCK below. That cost was the reason this was
-                         rejected before; the owner has now made the trade
-                         himself and the numbers are reported to him.
-            · STICKY     NOT taken, and no longer needed. It was the middle
-                         answer and it had its own defect: PillTabs draws no
-                         track, so a stuck row needs a surface this design has
-                         not got, and --app-bg is a five-stop gradient that
-                         cannot be repainted in a 32px strip without showing
-                         the wrong slice of itself. Inside the chrome the row
-                         sits on the artwork and never passes over content, so
-                         it needs no surface at all.
-            · SCROLLING  what this file did between the two rulings, and what
-                         produced "this is bad".
-          Its POSITION is untouched — still the node's, still 5px under the
-          image's bottom edge, still "just below the image".
-
-          THE ROW ITSELF IS UNTOUCHED — same PillTabs, same items, same node
-          ids, same rulings.
-
-          ⚠ AND IT IS STILL PillTabs, NOT src/components/ui/tabs.jsx.
-          199955:96847 was re-fetched live and draws the ui/tabs treatment: a
-          slate-200 track at h-[32px] radius 10, a white active pill with a 1px
-          #0b81f8 border and two stacked shadows, and a slate-400 count badge
-          reading 8. ui/tabs.jsx is that node's twin - already built from
-          199922:83970, already on three screens, down to the same 32px row. It is NOT adopted here
-          because PillTabs' Ruling 2 (2026-10-21, the owner) is still in force
-          for BOTH pages and BOTH states, ui/tabs.jsx's own header says which
-          control a pixel-matched page should use "is the owner's call, not
-          this file's", and PillTabs' says it "must not be repointed at it
-          without the owner". Swapping only the Dashboard would put a different
-          tab row on the Dashboard and the System page - the exact drift the
-          owner complained about in October and the reason PillTabs exists.
-          REPORTED, NOT RESOLVED: if the new node supersedes Ruling 2 it
-          supersedes it on both screens, and that is one ruling, not one
-          edit. */}
-      {/* PINNED. It is laid out at the COLLAPSED position (y=80, directly
-          under the bar) and translated DOWN by the collapse distance while the
-          header is open, so at rest it lands on the node's own y=210 and ends
-          up under the bar with nothing re-laid-out on the way. */}
-      <div
-        className="content-stretch flex items-center justify-between relative shrink-0 w-full"
-        style={{ transform: `translateY(calc((1 - var(--hdr-t, 0)) * ${COLLAPSE}px))` }}
-        data-node-id="199955:96847"
-        data-name="home-tabs"
-      >
-        <PillTabs
-          nodeId="199360:129743"
-          slotNodeId="I199360:129743;101485:143349"
-          value={tab}
-          onChange={setTab}
-          items={[
-            { id: 'overview', label: 'Overview' },
-            /* ── CONFLICT, REPORTED NOT RESOLVED — AND IT RECURS ────────────
-               Figma labels the middle trigger "Locations" and gives it a count
-               Badge. This tab opens the SYSTEMS table (SystemsTableCard,
-               scoped by scopedSystems), so the label is left as "Systems" and
-               the count reports what the tab actually opens. Renaming it would
-               change what the control means, not how it looks, and would break
-               anyone — including systemsTabScope — who navigates by name. The
-               owner has to decide whether the design wants a genuine Locations
-               tab. `grow: false` is the node's: this trigger is shrink-0
-               because its Badge makes it intrinsically wide.
-
-               199955:96847 REPEATS IT, badge and all, and its badge reads a
-               literal `8` — the same `8` that recurs across unrelated nodes in
-               this file on surfaces that cannot count 8. It is the frame's
-               example value, not a measurement, and the count drawn here is
-               live. One more frame drawing "Locations 8" is not new evidence;
-               it is the same unanswered question asked again. Nothing renamed,
-               no Locations tab invented.
-
-               THE HERO NOW DRAWS A REAL LOCATION COUNT four lines above this
-               row (199955:96839, `locationCount`). That is the honest reading
-               of what the design keeps asking for and it does NOT make this
-               trigger a Locations tab: the eyebrow REPORTS locations, this
-               control OPENS systems. */
-            { id: 'systems', label: 'Systems', count: live?.stats?.total ?? null, grow: false },
-            { id: 'general', label: 'General Info', pill: 'wide' },
-          ]}
+        />
+      }
+    >
+      {/* The node's 17px above the eyebrow, and nothing else: every other
+          measurement in this section belongs to the hero component, which
+          holds its own node ids for them. */}
+      <div className="pt-[17px]" data-name="home-hero-copy">
+        <SystemsOverviewHero
+          /* HeroCardShell is already painting this exact raster behind this
+             exact box. Two copies would double the #a0ccff multiply and draw
+             a seam along the join. */
+          artwork={false}
+          total={live?.stats?.total ?? 0}
+          /* "And keeo the locations" — the owner, about this node. It is DATA,
+             never the frame's example `12`. */
+          locations={locationCount}
+          systemTypes={live?.systemTypes}
+          /* A chip is a shortcut into the Systems view, filtered to that type.
+             The hero and the table already speak the same vocabulary —
+             SYSTEM_TYPE.FLOW / FLOOD / HUMIDITY is what the `type` filter
+             category reads through systemTypeOf — so this sets the selection
+             the filter sheet would have set rather than inventing a parallel
+             path. Replaces the whole selection on purpose: the chip states one
+             complete intent ("show me the flood sensors"), and merging it into
+             whatever was already applied could land on an empty table for
+             reasons the user cannot see. */
+          onSelectType={type => {
+            setSystemFilters({ type: [type] })
+            setTab('systems')
+          }}
         />
       </div>
-    </div>
+    </HeroCardShell>
   )
 
   /* The Overview cards, in the node's order. Held in a variable so the tab
@@ -1778,99 +1611,17 @@ export default function HomeAllAccounts({ expanded = false }) {
      that used to branch on `expanded` is gone with the frames it came from.
      `expanded` still selects MOCK_WATER_EVENTS when there is no dataset.
 
-     THE HERO LEFT THIS LIST on 2026-11-04 — see `scopeBlock` above. It is the
-     only thing the live frame puts ABOVE the tab row, so it renders for every
-     tab now. The health card did NOT leave: 199960:26493 sits at y=178, after
-     the tab block and immediately before `Water events`, which is Overview's
-     own card. Anything after the tab row is the panel. */
+     ── BOTH THE HERO AND THE HEALTH CARD HAVE LEFT THIS LIST ─────────────
+     The hero left on 2026-11-04, when the live frame put it above the tab
+     row. SystemHealthCard left on 2026-11-07 and went INTO it: 200013:93101
+     draws them as one card with a coloured top and a white body, so they are
+     now `heroCard` above and render on every view rather than only here.
+
+     NOTHING WAS DELETED. The card is mounted with the same props, the same
+     handlers and the same data; only its seat moved, and it moved to a seat
+     the owner's own node draws. Every other card below is untouched. */
   const cards = (
     <>
-      {/* System health — Figma 199323:12124 (alert) / 199371:137037 (calm), and
-          199960:26494 in the restructured frame; the states draw it
-          byte-identically. It carries the healthy/attention progress bar and
-          the three fault tiles the design specifies (Valve errors · Offline ·
-          No power).
-
-          IT SUPERSEDES THE TOP HALF OF TriageBand below, which answered the
-          same question before that node could be opened. The band keeps the
-          half the design ALSO has and this card does not: the worst few
-          events, with their location.
-
-          ── WHAT CHANGED ON 2026-11-04 AND WHAT DID NOT ────────────────────
-          `className="-mt-[37px] z-[1]"` IS GONE, and that is the restructure,
-          not a lost style. The 37px was the node's overlap of this card into
-          the hero's wave, from the four "Accont / location" variants where the
-          card was pinned at top-[152px] inside a 398-tall group under a
-          189-tall wave. In the live frame the card is not in that group at
-          all: `Account Main header` is the hero plus the TAB ROW, and this
-          card is the next sibling after it at y=178, with a plain 16px gap.
-          There is nothing left for it to overlap - pulling it up 37px now
-          would pull it over the tabs.
-
-          EVERY PROP BELOW IS UNCHANGED. The four counts, the three handlers
-          and the two filter shortcuts are the same calls on the same data. */}
-      <SystemHealthCard
-        total={live?.stats?.total ?? 0}
-        /* The error-free count, NOT total minus leaks — see the note on
-           `stats` above. A system with an active water event and no fault is
-           healthy, and this card is the one that says so. */
-        healthy={live?.stats?.healthy ?? 0}
-        valveErrors={live?.issues?.valve ?? 0}
-        offline={live?.issues?.offline ?? 0}
-        noPower={live?.issues?.power ?? 0}
-        /* PRD 09's FOURTH protection check, and the one with no tile. It is
-           already inside `healthy` above — and therefore inside the card's
-           `attention` — so for a long time this screen could show three empty
-           tiles and the all-clear line above "1 / 10 need attention", which is
-           what /location/Building B does. The card draws Figma's own answer to
-           that now (199338:52997, "N other issues · N no recipients"), and
-           this is the number it draws.
-           `waterEvents` STOOD HERE until 2026-10-22. It fed a three-tone
-           status sentence on that card which no Figma frame draws and which
-           the owner asked to be rid of; the prop went with the row. The
-           health/water separation is still measured, and still pinned, where
-           the numbers are: `stats.healthy` vs `stats.waterEvents` above. */
-        noRecipients={live?.issues?.recipients ?? 0}
-        /* Owner, 2026-10-22: "view all opens the wrong area / currently
-           systems tab / and it shall be open Active alerts overlay with all
-           filter". `setTab('systems')` was the odd one out — onShowPast and
-           onSelectIssue beside it already go through openOverlay, and that
-           helper's defaults (filter 'all', tab 'active') are exactly what was
-           asked for, so it takes no arguments. */
-        onShowAll={() => openOverlay('alerts')}
-        /* The card's header button already relabels itself "Show past alerts"
-           in the all-clear state (199417:131563) and had no handler to match —
-           it called onShowAll, which then opened the Systems tab. Unreachable
-           until the all-clear state itself became reachable, so the mismatch
-           had never been seen. */
-        onShowPast={() => openOverlay('alerts', { tab: 'history' })}
-        onSelectIssue={kind => openOverlay('alerts', {
-          filter: ISSUE_FILTER[kind === 'valveErrors' ? 'valve' : kind === 'noPower' ? 'power' : kind] ?? 'all',
-        })}
-        /* Owner, 2026-10-22, on a screenshot of the bar: "make these bars
-           clcikable to systems table filtered". Each segment is a shortcut
-           into the Systems tab, filtered to the half of the fleet it draws.
-
-           NO NEW PREDICATE. The card hands back 'attention' / 'ok', which are
-           the values src/data/systemFilters.js's `attention` category already
-           produces, and that category's valueOf is
-           `computeSystemHealth(s).allOk` — the same call `stats.healthy`
-           above is counted with, over the same `scopedSystems` the table
-           below is handed. The table therefore cannot disagree with the bar
-           that opened it; this sets the selection the filter sheet would have
-           set rather than inventing a parallel path.
-
-           Replaces the whole selection on purpose, for the reason the hero's
-           type chips give above: a segment states one complete intent ("show
-           me the ones that need attention"), and merging it into whatever was
-           already applied could land on an empty table for reasons the user
-           cannot see. */
-        onSelectHealth={value => {
-          setSystemFilters({ attention: [value] })
-          setTab('systems')
-        }}
-      />
-
       {/* The triage band. Answers "is anything wrong, where, how urgent" before
           anything else on the screen, because that is the only question a user
           arriving in a hurry has. See TriageBand.jsx for the research this is
@@ -1901,9 +1652,9 @@ export default function HomeAllAccounts({ expanded = false }) {
           wrote this band — History was structurally empty there — and is worth
           103 rows on this one, because overlayEvents below now builds resolved
           rows too. It is a TriageBand prop now; see its footer. */}
-      {/* THE HERO STOOD HERE and moved up above the tab row on 2026-11-04 —
-          see `scopeBlock`. It is the only card that left this list; the health
-          card above is still Overview's. */}
+      {/* THE HERO STOOD HERE until 2026-11-04 and the health card until
+          2026-11-07. Both are `heroCard` now — one card, rendered above this
+          list and outside the view switch. See the block at its definition. */}
       <TriageBand
         events={waterEvents}
         /* Opens EventFocusOverlay over this page. Row ids are system ids here
@@ -2062,367 +1813,137 @@ export default function HomeAllAccounts({ expanded = false }) {
           once at px-16 / py-8 with a gap of 18 between the chrome and the
           cards. */}
       <div
-        ref={rootRef}
         className="content-stretch flex flex-col items-start px-4 py-2 relative w-full"
-        /* rowGap, not gap-[18px]: it is 18 minus whatever the chrome block
-           above has taken as its own bottom padding, so the tab row and the
-           first card keep their 18px whatever the owner trims next. */
-        style={{ flex: 1, minHeight: 0, rowGap: ROOT_GAP }}
-        data-node-id="199323:12113"
+        /* 10, from 200013:93089's own arithmetic: the root pads 8 (py-2), the
+           header instance 200013:93099 is 41 tall and therefore ends at 49,
+           and the content frame 200013:93100 starts at 59.
+
+           `rowGap` rather than gap-[10px] because this is the ONE gap left.
+           It used to be `18 - TABS_TO_FLOOR`, giving back whatever the chrome
+           block took as its own bottom padding; there is no chrome block and
+           no tab row to pad any more. */
+        style={{ flex: 1, minHeight: 0, rowGap: 10 }}
+        data-node-id="200013:93089"
         data-name="Accont / location"
       >
-        {/* ── THE FULL-BLEED BAND — Figma 199954:96290, 2026-11-04 ───────────
-            Owner: "I want the image and the entire header to be with the image
-            as provided in the link in Figma."
+        {/* ── THE FULL-BLEED BAND IS DELETED — 2026-11-07 ───────────────────
+            A 205px `absolute inset-x-0 top-0 z-[1]` HeroWaveArt stood here,
+            cropped from the bottom by a `clip-path` as the header collapsed.
+            It is gone, with the collapsing header it existed to serve.
 
-            WHAT THE NODE SAYS. 199954:96290 is positioned OUTSIDE its 370x150
-            parent on every axis - it starts above the header bar and runs past
-            both sides - so it stopped being a card's background and became the
-            ground the header and the hero sit on. Its exact box is in flux:
-            three metadata reads twenty minutes apart gave -29/-115/417x266,
-            then -47/-210/673x409, then -74/-173/605x367. The designer is
-            dragging it right now. What is stable across all three, and what is
-            implemented here, is the INTENT: bigger than its parent, anchored
-            up and left, behind the whole header.
+            THIS IS THE INSTRUCTION, NOT AN ACCIDENT. The band came from
+            199954:96290, where the raster was positioned OUTSIDE its parent on
+            every axis and so became the ground the header sat on. Node
+            200013:93089 reverses that: the same raster is still in the file as
+            200013:93090 (410x340, at x=-2 y=0) and it is `hidden="true"`. The
+            artwork is inside the hero card now, which HeroCardShell paints.
 
-            WHY IT IS HERE AND NOT IN THE SCROLLER. The scroller is
-            `overflow-y: auto`, which computes overflow-x to auto as well, so an
-            absolutely positioned child of it with a negative top is CLIPPED at
-            the scroller's edge - the artwork could never reach the header from
-            inside. It therefore hangs off this root, which is the one box that
-            spans the shell edge to edge.
+            WHAT WENT WITH IT. The rAF scroll driver and `--hdr-t`; the
+            clip-path; every translate/opacity calc() built on that variable;
+            and the constants HEADER_BAR, HERO_H, TAB_ROW, BAR_TO_TABS,
+            TABS_TO_FLOOR, ROOT_GAP and COLLAPSE. The scroller's
+            `paddingTop: COLLAPSE` went too — there is nothing overlaying its
+            first card any more. Agent A removed the header's half of the same
+            machinery. The page ground is --app-bg, painted by the shell above,
+            which is what the node draws under this frame.
 
-            `absolute inset-x-0 top-0` is the SHELL's width, not the content's:
-            absolute insets resolve against the padding box, so this ignores the
-            root's own px-4 and bleeds the full 393 the way the node bleeds the
-            full 390. No negative margin is used anywhere, which matters -
-            check-shell-contract's `bleed-needs-a-bleeding-scroller` rule exists
-            because a negative RIGHT margin becomes scrollable width in LTR and
-            put a sideways scrollbar across this frame once already.
+            THE SCRIM QUESTION CLOSED WITH THE BAND. HeroWaveArt's 0.34 scrim
+            was derived for a 20px page title standing ON this artwork. The
+            title is on the page ground now, so neither this page nor the hero
+            card asks for one — see THE SCRIM IS OFF at `heroCard`. */}
 
-            THE HEIGHT IS ARITHMETIC, AND THEN IT IS MEASURED:
-                  8   the root's py-2
-              +  54   AppHeaderBar - pt-[4px] + the 40px nav button + pb-[10px].
-                      It was 58 while the title was a 44px pill; the owner
-                      removed that chassis, so the nav button is now the
-                      tallest thing in the bar and the bar shrank with it.
-              +  18   this root's gap-[18px]
-              + 125   where the artwork stops inside the hero block. The node
-                      puts 199954:96290 at y=-173 with h=294, i.e. ending 121px
-                      below the block's top, and the hero box here is 130 - so
-                      the artwork stops 5px short of the tab row and that 5px
-                      strip of page ground is what makes the tabs read as just
-                      BELOW the image rather than sitting on it.
-              = 205
-            Measured in Chromium at 393x852 after the change rather than
-            trusted from the arithmetic: block y=80, tabs y=210, band 0..205.
+        {/* ── THE HEADER — 200013:93099 "Header mobile", 370x41 ──────────────
+            It is an ORDINARY STATIC BAR on the page ground now. No wave behind
+            it, no collapse, no tab row under it. The node's own instance holds
+            exactly two things — a `All accounts` text and a `More` Badge — and
+            its tab slot (I200013:93099;199511:78256) is `hidden="true"`.
 
-            IT DOES NOT SCROLL, and that is the deliberate half of this. The
-            header above it is chrome and stays, so the artwork under the header
-            has to stay too or the bar is left sitting on whatever card happens
-            to be passing. The hero's own text DOES scroll, and is clipped at
-            the scroller's top edge rather than sliding up into the bar.
+            THE WRAPPER IS LAYOUT, NOT PLUMBING. It used to exist for a
+            `headerRef` that a stamping effect searched for the More badge;
+            the badge takes `moreBadgeId` now and the ref is gone with the
+            effect. What is left is the one thing the div still earns:
 
-            pointer-events-none and aria-hidden live inside HeroWaveArt: this is
-            weather, not information, and nothing under it is tappable. */}
-        {/* ── THE BAND IS CLIPPED, NOT RESIZED — 2026-11-04 ─────────────
-            One box at the full 205, holding the artwork AND its dim, eaten
-            from the bottom by a clip-path as the header collapses. Both layers
-            shorten together - the dim is 135 tall and would otherwise still be
-            fading over bare page ground once the band had gone - and neither
-            moves a pixel while it happens. WHAT MOVES, in THE COLLAPSING
-            HEADER above, is why this is a clip and not a height.
+            `shrink-0` — this is chrome and the scroller below is `flex: 1`, so
+            without it a tall scroll body would squeeze the bar. It carries no
+            padding and no gap of its own, so it stays layout-invisible; the
+            root's rowGap is the whole spacing.
 
-            ── THE LAYER ORDER, AND WHY THESE EXACT NUMBERS ────────────
-            The band was z-auto and BELOW the scroller until the header began
-            to collapse, which was correct while nothing ever scrolled past it.
-            It is not any more: once collapsed, the first card sits at y=60 and
-            the band ends at 117, so content has to pass UNDERNEATH the artwork
-            and it was painting over it.
-
-                 scroller    auto   content
-                 TabBar host auto   the floating pill (mounted after the root)
-                 band        1      artwork + dim
-                 chrome      2      bar, hero, tabs
-                 drawer      10/11  scrim, panel        WintSidebarV2:615,635
-                 overlays    50/300 EventFocusOverlay, PushNotifications
-
-            1 AND 2 RATHER THAN 10 AND 20, and that is the whole care in this
-            block. Both have to beat the scroller (auto) and both have to lose
-            to the drawer: a chrome at z-20 would paint the header OVER the
-            navigation panel. Neither ever overlaps the pill - the band stops
-            at 117 and the pill starts at 775 - so outranking the tab bar's
-            host costs nothing here, where outranking it from the SCROLLER
-            deleted the bar outright. See the scroller's own note below.
-
-            clip-path makes this a stacking context too. Harmless: its
-            children are artwork and a dim, and nothing inside needs to escape
-            it. */}
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[205px]"
-          /* THE FLOOR IS THE CHROME BLOCK'S FLOOR, to the pixel: 205 down to
-             the root's py-2 + the bar + the gap + the row + the row's air.
-             Derived rather than written down, so every spacing change above
-             moves the artwork's lower edge with it instead of leaving a strip
-             of wave hanging under the row or cutting the row off. */
-          style={{ clipPath: `inset(0 0 calc(var(--hdr-t, 0) * ${205 - (8 + HEADER_BAR + BAR_TO_TABS + TAB_ROW + TABS_TO_FLOOR)}px) 0)` }}
-          data-name="hero-band"
-        >
-        <HeroWaveArt
-          className="absolute inset-0"
-          /* NOT the hero card's four percentages. Those are relative to the
-             BOX and were measured against 370x150; in a 393x234 band they
-             resolve to a different region of the raster, and the node they came
-             from is being dragged (see above). object-cover is the honest
-             translation of "full-bleed background": no distortion, fills any
-             band height, and survives the designer's next drag. object-bottom
-             keeps the wave crests - the part of the raster the hero already
-             shows - at the hero's end of the band rather than the status bar's. */
-          imgClassName="absolute inset-0 size-full max-w-none object-cover object-bottom opacity-90"
-          data-node-id="199954:96290"
-          /* 'brand' is this page's paint and its only one: the Dashboard is a
-             fleet roll-up, not a system, so it has no event state to report.
-             The System page passes 'alert' / 'calm'. See HeroWaveArt. */
-          tone="brand"
-          /* THE EVEN SCRIM — owner: "the image looks the same on the entire
-             image". It is HeroWaveArt's now, not this page's: the gradient dim
-             that stood below was per-page and drew a horizon across a
-             photograph. The 0.34 and the per-theme table that chose it are in
-             that component; `brand` is the binding raster of the three. */
-          scrim
-        />
-
-        {/* THE HEADER DIM STOOD HERE and is gone, 2026-11-04. It was a
-            gradient — opaque to 50px, faded by 135 — and the owner saw the
-            horizon it drew: "the image on top ... is a bit darker ... Can
-            you just fix it, so the image looks the same on the entire
-            image." It is now ONE EVEN SCRIM, inside HeroWaveArt (the
-            `scrim` prop above), because "the image looks the same" is a
-            property of the artwork layer and two pages painting their own
-            was already two values to keep in step. The measured sweep that
-            chose 0.34, and why it stays off under `contrast`, are in that
-            component. */}
-        </div>
-
-        {/* 199532:82461 "Header mobile" — the chrome group: header bar, then
-            tabs, 10px apart.
-
-            THE GAP WAS 25px UNTIL 2026-10-25. Owner: "update spacing on header
-            area, now it's more compact in figma". The old node this was built
-            from, 199360:129728 / 199417:131531, NO LONGER EXISTS — a metadata
-            fetch for it returns not-found against a full 200-call budget, so
-            that is a real deletion and not a rate-limit refusal dressed up as
-            one. The header group has been promoted to a component instance
-            (199511:78247) and the column it sits in now emits gap-[10px].
-
-            Everything else in the bar re-measured identical: h-[59px], py-6,
-            the 6px column gap and the content row's gap-y-[10px] are all
-            unchanged, and the node's w-[370px] is what this page's px-4
-            already produces inside the 402px frame. The 25 -> 10 is the whole
-            of the change.
-            In Figma this is just a frame; here it is the shell contract's fixed
-            chrome, so it is shrink-0 and sits OUTSIDE the one scroller below.
-
-            ── THE TABS LEFT THIS GROUP ON 2026-11-04 ──────────────────────
-            They were here, 10px under the bar, and this comment used to say
-            that living here rather than in the scrolling body WAS the fix for
-            the "tabs are not in the right place" report. That report is
-            answered differently now, by the owner, with a new frame: "take the
-            tabs just below the image and implement it now." 199954:96287 sits
-            at y=266 in the content frame, BELOW the 250-tall hero + health
-            block, so the row is content and no longer chrome. See the tab row
-            in the scroller below, which records what that costs.
-
-            `relative z-10` is new and is what keeps this bar ON the artwork
-            rather than under it: the band above is an absolutely positioned
-            sibling, and a positioned element paints over in-flow content
-            whatever the source order. Giving the chrome and the scroller a
-            stacking position puts them back on top. The bar itself paints no
-            background, so the wave shows through it - which is the whole
-            point of the restructure. */}
-        {/* ── THE CHROME BLOCK — 2026-11-04 ────────────────────────
-            The header bar, the hero and the tab row, outside the scroller.
-            THE COLLAPSING HEADER above is what they do; this is where they
-            are. The column measures 96 + its own 12 of bottom air = 108px at
-            every scroll position (bar 54, gap 10, row 32), which is the
-            invariant the whole mechanism rests on: the scroller below never
-            resizes, so the scroll handler can never feed back into its input.
-
-            HOW IT GOT HERE, because three of the owner's notes on one day
-            read like contradictions and are not. He saw this page scrolled a
-            little way down - bar on the artwork, hero copy and tab row GONE, a
-            card's green "All of your systems are running!" row floating under
-            a bar that no longer explained anything - and said "this is bad".
-            Earlier the same day: "all needs to be scrolled including the
-            waves". Then: "keep this area stuck - don't move it with scroll at
-            all", and "all these area needs to be fixed including the tabs".
-            Then, shown that: "Currently it takes too much place when
-            scrolling."
-
-            Every one of those is the same complaint: the artwork and its own
-            content were doing DIFFERENT things. Fully stuck answered it and
-            cost 234px of an 852 frame. The collapse answers it and costs 108.
-            Both halves of what he asked for are in the collapse - the hero
-            goes away, the controls do not.
-
-            WHAT MOVED OUT OF THE SCROLLER: `scopeBlock`, and nothing else.
-            The hero, the tab row, their node ids and every ruling on them are
-            untouched - see `scopeBlock` above, which still records why the
-            tabs sit where they sit. One note inside it changed: the one
-            saying the row "scrolls away now, and that is reported" has been
-            answered by the owner and no longer applies.
-
-            `relative z-[2]` IS LOAD-BEARING THREE TIMES OVER. It keeps this
-            block ON the artwork; it keeps it ABOVE the scrolling content, which
-            now passes underneath once the header has collapsed; and it keeps
-            the hero's zero-chip explainer panel — which deliberately overflows
-            the hero's box — above that content too. It must stay BELOW the
-            drawer (scrim z-10 / panel z-[11], WintSidebarV2:615,635),
-            EventFocusOverlay (z-50) and PushNotifications (z-[300]) — which is
-            exactly why it is 2 and not 20. The full table is in the band's note
-            above.
-
-            ⚠ THE SCROLLER MUST NOT ANSWER IT WITH A z-index OF ITS OWN. See
-            the note at the scroller below: it had `z-10` and that deleted the
-            floating tab bar outright.
-
-            THE COST, MEASURED AT 393x852 ON `/`:
-                              expanded   collapsed
-              chrome block    8..242      8..116   (234px -> 108px)
-              artwork band    205         116
-              scroller        722px of viewport at BOTH, because the column
-                              is a constant 108 and only the overlay moves
-            Against the two rejected shapes: everything-in-the-scroller gave
-            764px and lost the controls; everything-fixed gave 584px and kept
-            them. This keeps the controls AND gives back 138 of the 180 the
-            fixed block had taken. The 393x205 band is the owner's explicit
-            size and is not shrunk to buy space; the collapse is where the
-            space comes from. */}
-        <div
-          className="content-stretch relative z-[2] flex flex-col items-start shrink-0 w-full"
-          style={{ rowGap: BAR_TO_TABS, paddingBottom: TABS_TO_FLOOR }}
-          data-node-id="199532:82461"
-        >
-          {/* THE HEADER BAR — Figma 199922:83959, mounted 2026-11-04.
-              house + scope pill. It replaced MobileHeaderBar
-              (199360:129729 / 199371:137022) here first, and then on every
-              other screen when the owner saw the system page and said "it
-              always needs to be the same". MobileHeaderBar is now unused and
-              left on disk.
-
-              THE LEADING SLOT IS THE ONLY THING THAT VARIES, and on this
-              page it is now `back` or nothing: /alerts holds the bell,
-              /system/:id and /valves hold their own back step. The house was
-              the one slot that was Dashboard-only and it is gone — see
-              `onHome`'s former position below.
-
-              WHAT CARRIES OVER, control for control — Rule 0, nothing is
-              dropped in a swap:
-                · scope readout      label={scopeTitle}, the same string
-                · drawer door        the pill. It was the scope slot on the
-                                     old bar and it is the scope pill here,
-                                     so the door did not move.
-                · avatar -> /account GONE, 2026-11-04, owner: "remove avatar
-                                     from the header - footer is enough". It
-                                     survived the swap and was removed after
-                                     it, once TabBar's fourth item, Profile,
-                                     reached the same /account from every
-                                     screen. Verified in the app before the
-                                     removal, because this was the
-                                     Dashboard's only route to /account.
-                · back on a location onBack below, kept
-                · house -> own top   GONE as a CONTROL, 2026-11-04, and kept
-                                     as a BEHAVIOUR: it is the Dashboard tab's
-                                     now, which is mounted on strictly more
-                                     screens than this bar is.
-
-              px-0 cancels the component's own px-[10px]. That inset is the
-              node's distance from the 393px frame edge; this page already
-              insets once at the root's px-4, and leaving both would float the
-              bar 26px in while the tab row under it and every card below sit
-              at 16px. Same reasoning, same words, as the bar it replaced:
-              no px of its own, the root's inset is the inset. The vertical
-              padding IS the node's and is kept.
-
-              THE PILL IS A READOUT, NOT A PICKER. Scope is picked "Only in
-              the drawer" (owner), which is what AppHeaderBar implements
-              and why no menu is attached here. */}
+            THE z-[2] AND THE 10px BOTTOM PADDING ARE GONE WITH THE BAND. The
+            z-index existed so the hero's upsell panel could outrank the tab
+            row inside the chrome's own stacking context; there is no tab row
+            and the panel now sits inside the hero card, over the card's own
+            white body. The padding was `TABS_TO_FLOOR`, the air under the tab
+            row. Neither has anything left to do. */}
+        <div className="relative w-full shrink-0" data-name="home-header">
           <AppHeaderBar
             className="px-0"
-            /* The route IS the scope, so the slot names the route: "All
-               Accounts" on /, the location on /location/:name. */
-            label={scopeTitle}
-            /* `Switch location`, from the catalogue, translated. This is the
-               name the drawer suites open the drawer BY
-               (drawerLocationHighlight.dom.test.jsx:66 queries the literal
-               string) and it is v1 ScopeHeader's, not a new one — the page
-               the bar replaced announced its slot as "Scope: <name>. Open the
-               navigation drawer." and carried no `Switch location` at all, so
-               this ADDS the contract name to the Dashboard rather than moving
-               it. Copy rule 0: the string already exists, it is not reworded
-               here. */
-            scopeAriaLabel={t('home.switch_location')}
-            /* The account roll-up is the real parent of a location. On / there
-               is no parent scope, so no arrow is drawn rather than one that
-               goes nowhere. */
+            /* THE TITLE IS THE SCOPE — "All Accounts" on `/`, the location on
+               /location/:name.
+
+               ⚠ CASE CONFLICT, REPORTED NOT RESOLVED. 200013:93099 spells it
+               `All accounts`, sentence case, which is also what the everyday
+               register asks for (§3b rule 1). This app has shipped
+               `All Accounts` since before this frame and three suites assert
+               that literal. Renaming it is a copy ruling with a test diff
+               attached, not a transcription, so the frame's spelling is
+               recorded here and nothing is changed. */
+            title={scopeTitle}
+            /* THE EYEBROW NAMES THE PARENT SCOPE, and only where there is one.
+               `/` is the top level and 200013:93099 draws no eyebrow there;
+               under /location/:name the parent is the all-accounts roll-up,
+               which is where `onBack` goes — one destination, named once and
+               reachable once. AppHeaderBar appends the node's trailing `›`
+               itself, so the glyph is not spelled here.
+
+               NOT NEW COPY: it is the same 'All Accounts' literal `scopeTitle`
+               resolves to on `/`, two lines above. */
+            eyebrow={locationName ? 'All Accounts' : undefined}
+            /* BACK, and only on a location: `/` is the top of this page's
+               hierarchy, so no arrow is drawn rather than one that goes
+               nowhere. Matches 200013:93099, which has no back disc. */
             onBack={locationName ? () => navigate('/') : undefined}
             backLabel={locationName ? 'Back to all accounts' : 'Back'}
-            /* THE DRAWER'S ONLY DOOR on this screen. The house was it for
-               about an hour this morning and is not any more, so if this prop
-               ever stops being passed the Dashboard loses navigation
-               entirely — Rule 0, and dashboardHeaderBar.dom.test.jsx asserts
-               it by the `Switch location` name the drawer suites use. */
-            onOpenDrawer={() => setDrawerOpen(true)}
-            /* THE TRAILING CONTROL — Figma 199954:96276, the 40x40 at x=340.
-               Owner: "I want to replace the home icon with kind of icon from
-               the design system and shadcn [that] explain[s] it's open and
-               navigation."
+            /* ── MORE — the tab row's replacement ────────────────────────
+               ⚠ THIS BAR NO LONGER CARRIES `Switch location`, AND THAT IS A
+               LATER RULING THAN THE ONE THE TESTS WERE WRITTEN AGAINST.
 
-               ⚠ IT IS THE DASHBOARD'S ONLY DOOR INTO THE DRAWER. Owner, hours
-               later, on a screenshot of the `All Accounts ⌄` pill beside it:
-               "remove this and the arrow — only the icon open the nav bar."
-               So the title above it is now an inert readout and this is the
-               one control. `onOpenDrawer` is still passed because it is what
-               AppHeaderBar hangs the door on in BOTH shapes, and the two can
-               never be live at once - the component draws the title as a
-               button only when no `onOpenNav` is given. Verified in the
-               running app: exactly one element on this screen answers to
-               `Switch location`, and it is this button.
+               The restructure's contract §4/§5 moved the drawer door off this
+               bar and INTO the More menu. The owner then redirected, the same
+               day: "replace the 'More' in buttom main nav bar With Search -
+               locate right to dashboard. Serach open the nav bar with the
+               systems and locations". So the FOOTER's Search tab is the
+               drawer's door now — it dispatches the cancelable window event in
+               src/components/drawerSearch.js and the WintSidebarV2 mounted at
+               the bottom of this file answers it and opens ITSELF.
 
-               Its glyph is lucide's PanelLeft - shadcn's own SidebarTrigger
-               icon, and WintSidebarV2 is a left sidebar. The argument, and the
-               two glyphs that were rejected, are in AppHeaderBar's
-               THE TRAILING SLOT. NO NEW COPY: the accessible name is
-               `t('home.switch_location')`, the catalogue string the drawer
-               suites already navigate by, which moved here with the door. */
-            onOpenNav={() => setDrawerOpen(true)}
-            /* The bar sits on the wave now, so its ink belongs to the artwork
-               and not to the page ground. See THE INK in AppHeaderBar. */
-            onColor
-            /* THE HOUSE STOOD HERE — `onHome` + `homeAriaLabel` — and was
-               deleted 2026-11-04 with the glyph itself. Owner: "I want to
-               completely remove the home icon. And once user clicks on
-               dashboard, it just takes him to the upper level of the scope
-               that he already have. Instead of the home button. Just remove
-               it".
+               moreMenuModel.js states the consequence in as many words: this
+               menu must NOT claim the name `Switch location`, because two
+               controls wearing one contract name is how the drawer suites get
+               handed the wrong element. Nothing here claims it, and the
+               drawer is still reachable from this route — verified in the
+               browser: Search tab -> drawer open, with the field focused.
 
-               BOTH HALVES MOVED, neither was dropped: the Dashboard tab in
-               src/components/TabBar.jsx navigates to
-               `homeTargetFor(visibleIds).path` and calls `clearSelectedScope()`
-               on the way, which is exactly what this handler did. The rule is
-               src/utils/homeTarget.js, moved verbatim out of this file.
-
-               THE LEADING SLOT IS NOW EMPTY on `/` and `back` on
-               /location/:name, so the pill takes the house's 40px and the
-               10px gap with it: measured 311 -> 361 on `/` and 261 -> 311 on
-               /location/Office at 393x852. */
+               WHAT IS STILL RED BECAUSE OF IT:
+               dashboardHeaderBar.dom.test.jsx:273 asserts the name is on
+               EXACTLY ONE element on `/`. It was written against the §5 plan
+               and the footer's Search tab is named `Search locations and
+               systems`, not `Switch location`, so the count is 0. That test is
+               Agent A's file and the reconciliation is the owner's call —
+               either the Search tab takes the contract name or the suites
+               navigate by the new one. REPORTED, NOT PATCHED. */
+            onOpenMore={() => setMoreOpen(true)}
+            moreOpen={moreOpen}
+            moreMenuId={MORE_MENU_ID}
+            /* The BADGE's own id, travelling the other way: MoreMenu measures
+               this element to anchor its card under it, names itself by it and
+               returns focus to it on close. */
+            moreBadgeId={MORE_BADGE_ID}
+            /* The catalogue entry, which is ALSO what the badge renders —
+               AppHeaderBar resolves the visible word from the same key, so
+               WCAG 2.5.3 Label in Name holds in every locale. Passing an
+               English literal here is the one way left to break that match. */
+            moreLabel={t('tabs.more')}
           />
-
-          {/* 199954:96288 "Account Main header" — the hero and the tab row, on
-              the artwork. IT IS CHROME NOW, not the first thing in the scroll:
-              see THE STUCK BLOCK above. Everything in the scroller below this
-              is the TAB PANEL and nothing else. */}
-          {scopeBlock}
         </div>
 
         {/* 199360:129787 / 199371:137036 — the cards, 20px apart. shrink-0 in
@@ -2467,23 +1988,36 @@ export default function HomeAllAccounts({ expanded = false }) {
              used to reserve its own column and now reserves nothing, so at
              maximum scroll this page's last 53.8px were behind the pill.
 
-             UNCHANGED BY THE 2026-11-04 RESTRUCTURE, deliberately. This is
-             still the screen's ONE scroller, still flex:1 / overflowY:auto /
-             minHeight:0, and still carries the 93. What changed is what is IN
-             it: the scope block and the tab row joined the cards. The hero and
-             the health card did NOT become chrome, and that was the choice -
-             making them shrink-0 would have matched the frame's fixed geometry
-             exactly and cost this scroller 259 of its 718px, which the systems
-             table and the consumption chart cannot spare.
+             UNCHANGED BY EITHER RESTRUCTURE, deliberately. This is still the
+             screen's ONE scroller, still flex:1 / overflowY:auto /
+             minHeight:0, and still carries the 93. What changed on 2026-11-07
+             is what is IN it: the hero card joined the cards and the tab row
+             left the page entirely. Only the header bar is chrome now, which
+             is what 200013:93089 draws — and it gives this scroller back every
+             pixel the fixed block and the collapse reserve had taken.
 
-             `relative z-10`: the artwork band is an absolutely positioned
-             sibling of this element, and without a stacking position of its
-             own this scroller would paint UNDER it. */
-          ref={scrollerRef}
-          /* paddingTop IS the collapse distance. See THE COLLAPSING HEADER. */
-          style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingTop: COLLAPSE, paddingBottom: 93 }}
-          data-node-id="199360:129787"
+             `relative` stays for the chart's scroll targets. It still carries
+             NO z-index, and now there is not even an artwork band to lose to:
+             the only absolutely positioned siblings left are EventFocusOverlay
+             and the More menu, both at z-50, which is where they belong.
+
+             `ref={scrollerRef}` STOOD HERE and went with the driver: the rAF
+             handler was its only reader, and a ref nobody reads is a ref that
+             reads as a hook somebody removed by accident. */
+          /* NO paddingTop. It used to be the collapse distance, reserving room
+             for a hero that overlaid this scroller's top; nothing overlays it
+             now. The 93 stays: it is the floating pill's 77px footprint plus
+             this app's 16px gutter, and seventeen scrollers hard-code it. */
+          style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 93 }}
+          data-node-id="200013:93100"
         >
+          {/* ── THE HERO CARD IS THE FIRST THING IN THE SCROLL ──────────────
+              200013:93100 puts it at the top of the content frame, above
+              `Water events`, and it SCROLLS: the only chrome in this node is
+              the header bar. It is outside the `tab` switch on purpose — see
+              WHY IT RENDERS ON EVERY VIEW at `heroCard`. */}
+          {heroCard}
+
           {tab === 'overview' ? (
             cards
           ) : tab === 'systems' ? (
@@ -2519,6 +2053,44 @@ export default function HomeAllAccounts({ expanded = false }) {
             </div>
           )}
         </div>
+
+        {/* ── THE FLOATING MORE MENU ──────────────────────────────────────
+            MOUNTED AT THE PAGE ROOT, not inside the header. It is
+            `absolute inset-0 z-50` with NO portal — Radix's DropdownMenu,
+            Popover, Select and Tooltip all portal to document.body and escape
+            Phone.jsx's fixed 393x852 frame, which is recorded as a
+            prohibition at AccountScreenV2.jsx:644-656 — so it needs a
+            positioned ancestor that spans the screen. This div is the Figma
+            frame root and already carries `relative`, the same seat
+            EventFocusOverlay below takes.
+
+            BEFORE EventFocusOverlay IN SOURCE ORDER, deliberately. Both are
+            z-50; the later one wins a tie. A full-screen event is the more
+            urgent of the two, so it paints over the menu rather than under it.
+
+            ITS z-50 BEATS THE FLOATING TAB BAR and loses to nothing it should
+            win against: the TabBar host is z-auto and CSS paints every
+            positive z-index after every auto one regardless of DOM order,
+            which is the trap that cost this file the tab bar once already.
+
+            `labelledBy` IS THE BADGE'S id, not the menu's — MoreMenu measures
+            that element to anchor the card and hands focus back to it on
+            close. See THE MORE MENU above for why the id is stamped on. */}
+        <MoreMenu
+          open={moreOpen}
+          onClose={() => setMoreOpen(false)}
+          items={moreMenuItems}
+          /* The checkmark follows the page's own `tab` state, so the menu
+             reports which view you are on rather than only offering the
+             others. `overview` is the default and is a real row — see the
+             ruling in moreMenuModel.js. */
+          value={tab}
+          /* A change of CONTROL, not of destination: the ids are the tab row's
+             own, so this is the same setter PillTabs' onChange called. */
+          onSelect={setTab}
+          id={MORE_MENU_ID}
+          labelledBy={MORE_BADGE_ID}
+        />
 
         {/* One water event, full screen — the destination the card's rows now
             open. It is `absolute inset-0 z-50` with no portal (a Radix portal

@@ -1,8 +1,9 @@
 // Shared navigation drawer — Option D design (minimal list + tree guides)
 // Used on Home (HomeUnified) and System Detail page
 
-import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { DRAWER_SEARCH_EVENT } from './drawerSearch';
 import { useTranslation } from 'react-i18next';
 import { useUserContext } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
@@ -795,11 +796,21 @@ function CollapseAllBar({ accountCount, hasAnyExpansion, onCollapseAll, theme })
 }
 
 // ── Main drawer ──
-export default function NavigationDrawer({ open, onClose, onSelectLocation, currentSystemId }) {
+/**
+ * `searchOnOpen` — put the caret in the search field as the drawer opens,
+ * added 2026-11-07 with the Search tab (src/components/TabBar.jsx). This
+ * drawer's field is ALWAYS visible (the search bar is its header, 2026-06-07),
+ * so unlike WintSidebarV2 there is no field to reveal here — only one to
+ * focus. Same prop name on both drawers so the two doors behave alike.
+ */
+export default function NavigationDrawer({ open, onClose, onSelectLocation, currentSystemId, searchOnOpen = false }) {
   const { t } = useTranslation();
   useDataRefresh();
   const { theme } = useTheme();
   const navigate = useNavigate();
+  // pathname keys the self-open state below so a route change closes the
+  // drawer without an effect. 2026-11-07, with the Search tab.
+  const { pathname } = useLocation();
   const { exploreSystems = [], exploring, toggleExplore, setSelectedScope, selectedScope } = useUserContext() || {};
   const activeSystems = exploreSystems;
   const accent = theme.drawerAccent || theme.accent;
@@ -864,6 +875,45 @@ export default function NavigationDrawer({ open, onClose, onSelectLocation, curr
   // sits at the top, so the affordance is never hidden. 2026-06-15.
   const [favoritesOpen, setFavoritesOpen] = useState(false);
 
+  /* SELF-OPEN — the Search tab's door into this drawer, 2026-11-07. See
+     src/components/drawerSearch.js for the whole argument; the short version
+     is that this drawer is controlled by whichever screen mounts it, the
+     bottom tab bar is not a screen, and nineteen screens is too many to
+     rewire for one tab. The parent's `open` still wins the moment it goes
+     true, and `closeDrawer` clears both. */
+  // It stores the ROUTE it was opened at rather than a boolean, so a route
+  // change closes it by a pure comparison instead of by an effect
+  // (`react-hooks/set-state-in-effect` is an error in this config).
+  const [selfOpenAt, setSelfOpenAt] = useState(null);
+  const isOpen = open || (selfOpenAt !== null && selfOpenAt === pathname);
+  const searchRef = useRef(null);
+
+  const closeDrawer = useCallback(() => { setSelfOpenAt(null); if (onClose) onClose(); }, [onClose]);
+
+  // Focus the field when this drawer opens as a SEARCH, by either route - the
+  // prop (a caller that mounts it in that state) or the window event (the
+  // Search tab asking whichever drawer this route has). The field is always
+  // rendered here, so there is nothing to reveal first.
+  //
+  // IT HAS TO BE AN EFFECT, not the synchronous focus() in the handler below:
+  // the panel is translated off-screen until React commits the open, and
+  // focusing a field that is not on screen yet scrolls the drawer to a place
+  // the user never asked for. The effect runs after the commit.
+  const openedAsSearch = searchOnOpen || (selfOpenAt !== null && selfOpenAt === pathname);
+  useEffect(() => { if (isOpen && openedAsSearch) searchRef.current?.focus(); }, [isOpen, openedAsSearch]);
+
+  useEffect(() => {
+    const onSearchRequest = (e) => {
+      // Claims the request so TabBar does not also mount a drawer of its own.
+      e.preventDefault();
+      setSelfOpenAt(pathname);
+      // Only lands when the drawer is ALREADY open and on screen - the case
+      // the effect above cannot see, because neither of its deps changes.
+      if (isOpen) searchRef.current?.focus();
+    };
+    window.addEventListener(DRAWER_SEARCH_EVENT, onSearchRequest);
+    return () => window.removeEventListener(DRAWER_SEARCH_EVENT, onSearchRequest);
+  }, [pathname, isOpen]);
 
   // The "current target" the drawer should focus on (used to scroll the
   // focused row into view). Mirrors the effective-system / effective-location
@@ -876,7 +926,7 @@ export default function NavigationDrawer({ open, onClose, onSelectLocation, curr
   // to a single collapsed row that demands one extra tap to reveal what
   // anyone in this scope would obviously want to see.
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     let path = [];
     if (effectiveSystemId) {
       path = findPathToSystem(rootTiles, effectiveSystemId, activeSystems);
@@ -897,7 +947,7 @@ export default function NavigationDrawer({ open, onClose, onSelectLocation, curr
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, effectiveSystemId, currentLocationId, rootTiles.length]);
+  }, [isOpen, effectiveSystemId, currentLocationId, rootTiles.length]);
 
   // Scroll the focused row into view ONLY when the drawer opens (or the focus
   // target itself changes). Earlier this also ran on every `expandedIds`
@@ -905,14 +955,14 @@ export default function NavigationDrawer({ open, onClose, onSelectLocation, curr
   // location yanked the scroll back to the currently-viewed system and pushed
   // the just-tapped row off-screen.
   useEffect(() => {
-    if (!open || !focusTarget) return;
+    if (!isOpen || !focusTarget) return;
     // Defer so the auto-expand path effect has had a chance to render.
     const id = setTimeout(() => {
       const el = document.querySelector(`[data-drawer-target="${focusTarget}"]`);
       if (el) el.scrollIntoView({ block: 'center', behavior: 'auto' });
     }, 150);
     return () => clearTimeout(id);
-  }, [open, focusTarget]);
+  }, [isOpen, focusTarget]);
 
   const toggleExpanded = (id) => setExpandedIds(prev => {
     const next = new Set(prev);
@@ -986,25 +1036,25 @@ export default function NavigationDrawer({ open, onClose, onSelectLocation, curr
 
   function handleSystemClick(id) {
     // Close drawer on the way out — system detail will open without drawer
-    if (onClose) onClose();
+    closeDrawer();
     navigate(`/system/${id}`);
   }
 
   return (
     <>
-      <div onClick={onClose} style={{
+      <div onClick={closeDrawer} style={{
         position: 'absolute', inset: 0, zIndex: 10,
         background: 'rgba(0,0,0,0.45)',
-        opacity: open ? 1 : 0, pointerEvents: open ? 'auto' : 'none',
+        opacity: isOpen ? 1 : 0, pointerEvents: isOpen ? 'auto' : 'none',
         transition: 'opacity 0.25s ease',
       }} />
       <div style={{
         position: 'absolute', top: 0, left: 0, bottom: 0,
         width: '85%', maxWidth: 340, background: theme.drawerBg, zIndex: 11,
-        transform: open ? 'translateX(0)' : 'translateX(-100%)',
+        transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
         transition: 'transform 0.25s ease',
         display: 'flex', flexDirection: 'column',
-        boxShadow: open ? '4px 0 24px rgba(0,0,0,0.3)' : 'none',
+        boxShadow: isOpen ? '4px 0 24px rgba(0,0,0,0.3)' : 'none',
       }}>
         {/* Header — drop the "Navigate" title (2026-06-07); the search bar
             is the header (its placeholder explains what it does). Just the
@@ -1016,7 +1066,9 @@ export default function NavigationDrawer({ open, onClose, onSelectLocation, curr
               {/* aria-label, not the placeholder: a placeholder is not an
                   accessible name — it disappears the moment anything is typed,
                   and several screen readers never announce it at all. */}
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('drawer.search_placeholder')}
+              {/* ref added 2026-11-07: the Search tab opens this drawer AND
+                  puts the caret here - see the selfOpen block above. */}
+              <input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)} placeholder={t('drawer.search_placeholder')}
                 aria-label={t('drawer.search_placeholder')}
                 style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 14, color: theme.drawerText || theme.text, fontFamily: 'inherit', outline: 'none', minWidth: 0 }} />
               {/* A clear control has to be reachable by keyboard and has to
@@ -1028,7 +1080,7 @@ export default function NavigationDrawer({ open, onClose, onSelectLocation, curr
                 </button>
               )}
             </div>
-            <span onClick={onClose} style={{ cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}>
+            <span onClick={closeDrawer} style={{ cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}>
               <MIcon name="close" size={22} color={theme.drawerTextSub || theme.textTertiary} />
             </span>
           </div>
@@ -1144,7 +1196,7 @@ export default function NavigationDrawer({ open, onClose, onSelectLocation, curr
                             systemIds: [],
                           });
                         }
-                        if (onClose) onClose();
+                        closeDrawer();
                         navigate('/');
                       }}
                       style={{

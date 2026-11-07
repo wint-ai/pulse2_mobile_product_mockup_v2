@@ -178,7 +178,14 @@ describe('"All stats"', () => {
 })
 
 describe('the wave', () => {
-  const waveBox = (c) => c.querySelector('[aria-hidden="true"][data-node-id]')
+  /* ── THE HANDLE MOVED, 2026-11-07 ──────────────────────────────────────
+     This read `[aria-hidden="true"][data-node-id]`, which found the layer
+     back when this component hand-rolled it and stamped the node id on it.
+     The art is HeroWaveArt inside HeroCardShell now, and a chassis has no
+     node id of its own to stamp, so the handle is the name the layer has
+     always carried. Everything asserted below is unchanged and still holds
+     — the point of the move was that the paint did not change. */
+  const waveBox = (c) => c.querySelector('[data-name="hero-wave-art"]')
 
   it('spans the card rather than a fixed 369', () => {
     /* THE ALIGNMENT BUG. The wave was `mx-auto w-[369px]` inside a component
@@ -265,5 +272,59 @@ describe('the wave', () => {
     cleanup()
     const { container: calm } = mount({ tone: 'calm' })
     expect(calm.querySelector('[data-hero-tone]').dataset.heroTone).toBe('calm')
+  })
+})
+
+/* ── THE CARD IS HeroCardShell NOW — 2026-11-07, Figma 200013:91602 ────────
+   This component used to BE the card. It is now the COPY in the coloured
+   section of a shared chassis, and the chassis carries the white body the
+   restructure needs. What is asserted here is only the seam between the two;
+   the chassis's own invariants are in heroCardShell.dom.test.jsx. */
+describe('the chassis', () => {
+  const shell = (c) => c.querySelector('[data-name="hero-card-shell"]')
+
+  it('sits in the shell and hands the body straight through', () => {
+    /* The white body is "whatever is most urgent right now" — the active
+       event when the system has one, the System type card when it is calm.
+       This component knows about water consumption and nothing else, so it
+       carries the slot rather than choosing what fills it. */
+    const { container } = mount({ body: <p>System type</p> })
+    expect(shell(container)).toBeTruthy()
+    expect(container.querySelector('[data-name="hero-card-body"]')).toBeTruthy()
+    expect(container.textContent).toContain('System type')
+    /* and the copy is still the copy */
+    expect(container.textContent).toContain('Water consumption')
+    expect(screen.getByText('5,830')).toBeTruthy()
+  })
+
+  it('is a bare coloured card when nothing urgent is passed', () => {
+    const { container } = mount()
+    expect(shell(container)).toBeTruthy()
+    expect(container.querySelector('[data-name="hero-card-body"]')).toBeNull()
+  })
+
+  /* ── `draws NO card at all in band mode` WAS HERE — REMOVED 2026-11-07 ───
+     It mounted `{ band: true }` and asserted the hero rendered its copy bare,
+     with no HeroCardShell and no wave of its own, for a full-bleed band the
+     PAGE painted behind the collapsing header.
+
+     BOTH SIDES OF THAT CONTRACT ARE GONE, which is why the test goes rather
+     than moves. The restructure deleted the collapsing header and the band
+     with it (the wave is inside the inset card now), SystemPageV2Screen — its
+     only caller — stopped passing the prop, and the prop and its three
+     effects were then deleted from SystemHeroCard. `{ band: true }` is an
+     unknown prop today: the assertions would still pass, vacuously, by
+     measuring the card path and calling it the band path.
+
+     Its own note already said "Kept only until SystemPageV2Screen stops
+     passing `band`." That happened. Nothing here is lost: the card path's
+     shell, wave and copy are all asserted above. */
+  it('still sets no horizontal margin of its own', () => {
+    /* The horizontal-scroll bug. In LTR a negative RIGHT margin becomes
+       scrollable width; the page owns the 16px gutter. Looped over the two
+       modes until band mode was deleted; there is one shape now. */
+    const { container } = mount()
+    const root = container.firstElementChild.getAttribute('class')
+    expect(root).not.toMatch(/-m[xlr]-/)
   })
 })

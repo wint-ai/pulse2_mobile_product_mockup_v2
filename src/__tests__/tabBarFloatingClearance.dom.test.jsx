@@ -190,13 +190,53 @@ const PADDED = [
    two scroll bodies each. They moved up into PADDED above. */
 const STILL_OWED = [];
 
-/* Matches the clearance however a file spells it: `paddingBottom: 93`,
-   `padding: '10px 14px 93px'`, or `pb-[93px]`. */
-const declaresClearance = src => new RegExp(
-  `paddingBottom:\\s*${TAB_BAR_CLEARANCE}\\b`
-  + `|padding:\\s*'[^']*\\s${TAB_BAR_CLEARANCE}px'`
-  + `|pb-\\[${TAB_BAR_CLEARANCE}px\\]`,
-).test(src);
+/* Matches the clearance however a file spells it.
+ *
+ * TWO ARMS, AND THE SECOND ONE IS NEW — 2026-11-07.
+ *
+ * THE LITERAL ARM: `paddingBottom: 93`, `padding: '10px 14px 93px'`,
+ * `pb-[93px]`. Built FROM `TAB_BAR_CLEARANCE`, so moving the constant turns
+ * every literal-spelling screen red at once rather than letting them drift.
+ *
+ * THE IDENTIFIER ARM: `paddingBottom: TAB_BAR_CLEARANCE`, or the same value
+ * on `marginBottom` (ValveManagementScreen's selection strip is the bottom-most
+ * element there and pays the clearance as a margin, which
+ * valveCommitReachable.dom.test.jsx asserts separately).
+ *
+ * ── WHY THE SECOND ARM EXISTS: A DOC AND A TEST THAT DISAGREED ───────────
+ * tabBarMetrics.js said, in as many words, "Pages DO import
+ * TAB_BAR_CLEARANCE, because a scroll body's bottom padding is an ordinary
+ * style value with no Tailwind involvement." That is TRUE and it is the right
+ * advice — a page that imports the constant moves with it, and a page that
+ * hard-codes 93 does not.
+ *
+ * But this check could only see the literal. A page that followed the module's
+ * own advice failed here, with a message telling the author they had not
+ * declared the padding when they had. Two screens hit it and both wrote the
+ * literal instead, each leaving a comment saying the conflict was REPORTED and
+ * that the constant would come back when this check learned to resolve it
+ * (SystemPageV2Screen's scroller and ValveManagementScreen:1490). This is that.
+ *
+ * THE IMPORT IS REQUIRED, not decorative. A bare identifier proves nothing —
+ * a file could define `const TAB_BAR_CLEARANCE = 0` locally and pass. So the
+ * arm only counts when the file really imports the name from tabBarMetrics,
+ * which is what makes the value the same value this test is built on.
+ *
+ * ⚠ A SOURCE GREP STILL CANNOT SEE WHICH ELEMENT CARRIES IT. Neither arm can;
+ *   that limitation is unchanged and is why PADDED is a hand-kept list. What
+ *   changed is only that a correct spelling stopped reading as a missing one. */
+const IMPORTS_CLEARANCE = /import\s*\{[^}]*\bTAB_BAR_CLEARANCE\b[^}]*\}\s*from\s*['"][^'"]*tabBarMetrics['"]/;
+
+const declaresClearance = (src) => {
+  const literal = new RegExp(
+    `paddingBottom:\\s*${TAB_BAR_CLEARANCE}\\b`
+    + `|padding:\\s*'[^']*\\s${TAB_BAR_CLEARANCE}px'`
+    + `|pb-\\[${TAB_BAR_CLEARANCE}px\\]`,
+  );
+  if (literal.test(src)) return true;
+  return IMPORTS_CLEARANCE.test(src)
+    && /(?:padding|margin)Bottom:\s*TAB_BAR_CLEARANCE\b/.test(src);
+};
 
 /* ─────────────────────────────────────────────────────────────────────────
  * AND IT HAS TO BE VISIBLE, not merely mounted and paid for.
@@ -299,6 +339,35 @@ describe('every screen under the pill reserves room for it', () => {
       + `PADDED: ${fixed.join(', ')}`,
     ).toEqual([]);
   });
+
+  /* THE DETECTOR'S OWN TEST, added with its second arm on 2026-11-07. Without
+     it the identifier arm could rot into a regex that matches nothing and
+     every screen using the constant would read as a screen that forgot the
+     padding - which is precisely the failure the arm was added to end, and it
+     would come back silently because the literal-spelling screens keep this
+     file green on their own. */
+  it('recognises the clearance whether a screen spells it or imports it', () => {
+    const IMPORT = "import { TAB_BAR_CLEARANCE } from '@/components/tabBarMetrics'\n";
+
+    // The three literal spellings in use across the seventeen screens.
+    expect(declaresClearance(`style={{ paddingBottom: ${TAB_BAR_CLEARANCE} }}`)).toBe(true);
+    expect(declaresClearance(`padding: '10px 14px ${TAB_BAR_CLEARANCE}px'`)).toBe(true);
+    expect(declaresClearance(`className="pb-[${TAB_BAR_CLEARANCE}px]"`)).toBe(true);
+
+    // The identifier, which the module's own header tells pages to use.
+    expect(declaresClearance(`${IMPORT}style={{ paddingBottom: TAB_BAR_CLEARANCE }}`)).toBe(true);
+    expect(declaresClearance(`${IMPORT}style={{ marginBottom: TAB_BAR_CLEARANCE }}`)).toBe(true);
+
+    // The identifier WITHOUT the import proves nothing - it could be a local 0.
+    expect(
+      declaresClearance('const TAB_BAR_CLEARANCE = 0\nstyle={{ paddingBottom: TAB_BAR_CLEARANCE }}'),
+      'an unimported identifier must not satisfy the check',
+    ).toBe(false);
+
+    // And a screen that simply has no clearance still fails.
+    expect(declaresClearance('style={{ paddingBottom: 8 }}')).toBe(false);
+    expect(declaresClearance(IMPORT), 'importing it is not using it').toBe(false);
+  });
 });
 
 /* Profile joined the pill 2026-11-04 (the owner). Four items in the same 361px
@@ -344,8 +413,9 @@ describe('four items share the pill evenly', () => {
   it('keeps the label first in every tab, Profile included', () => {
     renderShell();
     // Four other suites pick a tab by button.querySelector('span').textContent.
+    // More left the bar 2026-11-07; Search took the second slot.
     for (const b of document.querySelectorAll('button')) {
-      expect(b.querySelector('span').textContent).toMatch(/^(Dashboard|Alerts|Profile|More)$/);
+      expect(b.querySelector('span').textContent).toMatch(/^(Dashboard|Search|Alerts|Profile)$/);
     }
   });
 

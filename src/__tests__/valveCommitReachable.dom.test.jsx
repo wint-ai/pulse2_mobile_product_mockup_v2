@@ -211,23 +211,80 @@ describe('the bulk commit control clears the floating tab bar', () => {
 })
 
 /* ── THE HEADER, SAME PASS ────────────────────────────────────────────────
-   The owner, same day: "I see that we still have the old version of header
+   The owner, 2026-11-04: "I see that we still have the old version of header
    above in some places, so you need to make sure we don't use the same
    navigation on the header." /valves was drawing AppHeaderBar's OLD shape — a
-   bordered title pill with a chevron-down that opened the drawer. Passing
-   `onOpenNav` is what moves the door to the 40x40 PanelLeft button and makes
-   the title inert; there is no separate prop for either half, which is exactly
-   why it is worth pinning. */
+   bordered title pill with a chevron-down that opened the drawer. The title
+   going inert and the drawer getting its own control came out of that.
+
+   ── THE DOOR MOVED OFF THE HEADER ENTIRELY — RE-AIMED 2026-11-07 ──────────
+   READ THIS BEFORE POINTING THESE BACK AT `Switch location`.
+
+   The first two tests below asserted that exactly one element per route
+   answered to `[aria-label="Switch location"]` and that it was the header's
+   `app-nav` PanelLeft button. BOTH HALVES ARE RETIRED, in two steps on one
+   day, and neither is a regression:
+
+     1. The restructure deleted the PanelLeft button from AppHeaderBar — node
+        200013:91526 has no such control — so `app-nav` does not exist.
+     2. The owner then replaced the footer's More tab with Search: "replace
+        the 'More' in buttom main nav bar With Search ... Serach open the nav
+        bar with the systems and locations". The drawer's door is that tab.
+
+   THE NAME COULD NOT TRAVEL WITH THE DOOR. A tab whose visible label reads
+   `Search` cannot announce as `Switch location` — WCAG 2.5.3 Label in Name
+   requires the accessible name to contain the visible label. So the door is
+   named `Search locations and systems` (`drawer.search_label`, the same entry
+   WintSidebarV2's own field uses) and the SUITES moved, not the code.
+   drawerLocationHighlight.dom.test.jsx:140 made the same move and carries the
+   long version of this note.
+
+   `Switch location` now answers on NO v2 route. It survives on `/v1/` and
+   `/systems`, where v1's ScopeHeader still hangs it on its badge; both are v1
+   reference routes and neither is this screen.
+
+   WHAT IS PINNED INSTEAD — and it is MORE than before, not less:
+     · exactly one reachable drawer door on this route, by a stable name;
+     · it is in the TAB BAR, i.e. reachable from every screen, rather than in
+       one screen's header;
+     · tapping it actually OPENS the drawer. The old version of the last test
+       only checked that a `[role="dialog"]` existed, and WintSidebarV2 is
+       ALWAYS mounted — it toggles `aria-hidden` — so that assertion passed
+       whether or not the click did anything. Open state is read off
+       `aria-hidden` here, the way dashboardHeaderBar reads it. */
 describe('/valves draws the current header', () => {
-  it.each(ROUTES)('%s hangs the drawer on the nav button, once', (_label, path) => {
+  /* SCOPED TO `button` ON PURPOSE. The door and the field it opens announce
+     alike by design, so once the drawer is open TWO elements carry this name:
+     the tab (a button) and WintSidebarV2's own <input> (a textbox). A bare
+     attribute selector would pick whichever came last in the DOM. */
+  const DRAWER_DOOR = 'Search locations and systems'
+  const doors = (c) => c.querySelectorAll(`button[aria-label="${DRAWER_DOOR}"]`)
+  const drawer = (c) => c.querySelector('[role="dialog"][aria-label="Locations menu"]')
+  const drawerIsOpen = (c) => drawer(c)?.getAttribute('aria-hidden') === 'false'
+
+  it.each(ROUTES)('%s has exactly one drawer door, in the tab bar', (_label, path) => {
     const { container } = renderAt(path)
-    const doors = container.querySelectorAll('[aria-label="Switch location"]')
+
+    const found = doors(container)
     expect(
-      doors.length,
-      'exactly one element per route may answer to `Switch location` - it is what '
-        + 'drawerLocationHighlight.dom.test.jsx:66 opens the drawer by.',
+      found.length,
+      'exactly one element per route may answer to the drawer door\'s name - it is '
+        + 'what drawerLocationHighlight.dom.test.jsx:141 opens the drawer by, taking '
+        + 'the LAST match. A second one hands that suite a different control without '
+        + 'failing anything, which is how a contract name rots quietly.',
     ).toBe(1)
-    expect(doors[0].getAttribute('data-name')).toBe('app-nav')
+    expect(
+      found[0].closest('[data-name="tabbar-pill"]'),
+      'the drawer door is not in the tab bar. It is the FOOTER\'s Search tab now, '
+        + 'not a header control - that is what makes it reachable from every screen.',
+    ).not.toBeNull()
+
+    expect(
+      container.querySelectorAll('[aria-label="Switch location"]'),
+      '`Switch location` is back on a v2 route. It is retired here (see the note '
+        + 'above); two controls wearing one contract name is the failure this '
+        + 'assertion exists to catch.',
+    ).toHaveLength(0)
   })
 
   it.each(ROUTES)('%s makes the title an inert readout', (_label, path) => {
@@ -250,12 +307,25 @@ describe('/valves draws the current header', () => {
     expect(container.querySelector('[data-name="app-back"]')).not.toBeNull()
   })
 
-  it('opens the drawer from the nav button', () => {
+  it('opens the drawer from the Search tab', () => {
     const { container } = renderAt('/valves')
-    const door = container.querySelector('[aria-label="Switch location"]')
-    fireEvent.click(door)
+
     /* WintSidebarV2 is a dialog inside the page - no portal, because Phone.jsx
-       is a fixed 393x852 overflow-hidden frame. */
-    expect(container.querySelector('[role="dialog"]')).not.toBeNull()
+       is a fixed 393x852 overflow-hidden frame. It is mounted CLOSED, not
+       absent, so presence proves nothing and `aria-hidden` is the state. */
+    expect(drawer(container), 'no drawer mounted on /valves').not.toBeNull()
+    expect(drawerIsOpen(container), 'the drawer starts open').toBe(false)
+
+    /* Through the real mechanism, not a shortcut: the tab dispatches the
+       cancelable window event in src/components/drawerSearch.js and the drawer
+       this screen mounts claims it with preventDefault() and opens itself. */
+    fireEvent.click(doors(container)[0])
+
+    expect(
+      drawerIsOpen(container),
+      'nothing on /valves opens the drawer. The header lost its PanelLeft in the '
+        + '2026-11-07 restructure, so the Search tab is the ONLY door here - a dead '
+        + 'tab leaves this screen with no navigation at all.',
+    ).toBe(true)
   })
 })

@@ -66,8 +66,24 @@ function tabsByLabel() {
   return out
 }
 
-describe('More is its own destination', () => {
-  it('Profile and More no longer point at the same path', () => {
+/* ── /more IS ORPHANED AS OF 2026-11-07, AND THAT IS THE STATE PINNED HERE ──
+ *
+ * The owner: "replace the 'More' in buttom main nav bar With Search -locate
+ * right to dashboard". The More TAB was this route's only inbound link, so
+ * nothing in the running app navigates here any more.
+ *
+ * THE ROUTE AND THE SCREEN ARE DELIBERATELY STILL HERE. He asked for the tab
+ * to be replaced, not for the destination to be demolished; deleting a
+ * working screen on that inference is what rule 0 forbids, and where
+ * "reports, users, etc" finally lives is still an open question with him.
+ * routeSmoke.dom.test.jsx:220 still renders /more, and everything below still
+ * holds - the cover, the copy, the stacking order and the way off the screen.
+ *
+ * So these two cases are re-aimed at the orphaning itself rather than
+ * deleted. A tab coming back, or this screen being quietly removed, both show
+ * up here. */
+describe('/more outlives the tab that used to open it', () => {
+  it('has no tab of its own in the bar any more', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <UserProvider>
@@ -77,23 +93,23 @@ describe('More is its own destination', () => {
     )
     const tabs = tabsByLabel()
     expect(tabs.Profile, 'the bar must still carry Profile').not.toBeUndefined()
-    expect(tabs.More, 'the bar must still carry More').not.toBeUndefined()
-    // Two buttons, two buttons' worth of destinations. There is no href to
-    // read off a <button>, so the proof is that the two are distinct elements
-    // and that /more renders a screen /account does not — the next describes.
-    expect(tabs.Profile).not.toBe(tabs.More)
+    expect(tabs.More, 'More was replaced by Search 2026-11-07').toBeUndefined()
+    expect(tabs.Search, 'Search took the slot').not.toBeUndefined()
   })
 
-  it('lights More, and only More, on this screen', () => {
+  it('still renders, and lights no tab, because no tab owns it', () => {
     renderScreen()
     const tabs = tabsByLabel()
-    expect(tabs.More.className).toMatch(/\btext-primary\b/)
     expect(tabs.Profile.className).toMatch(/\btext-muted-foreground\b/)
-    // The active indicator is drawn once, on the active tab.
+    // The screen still passes activeTab="more" and no tab carries that key,
+    // so NOTHING is lit. That is the honest rendering of an orphaned route:
+    // the alternative - lighting some other tab - would tell the user they
+    // are somewhere they are not.
     const filled = [...document.querySelectorAll('button > div')]
       .filter((d) => /bg-primary\/15/.test(d.className))
-    expect(filled).toHaveLength(1)
-    expect(filled[0].closest('button').querySelector('span').textContent).toBe('More')
+    expect(filled, 'no tab owns /more, so no tab may be lit on it').toHaveLength(0)
+    // And the way off the screen is still there - the pill is the only one.
+    expect(Object.keys(tabs).sort()).toEqual(['Alerts', 'Dashboard', 'Profile', 'Search'])
   })
 })
 

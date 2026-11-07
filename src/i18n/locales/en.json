@@ -14,6 +14,7 @@
   "tabs": {
     "home": "Dashboard",
     "alerts": "Alerts",
+    "search": "Search",
     "more": "More",
     "profile": "Profile",
     "alerts_badge_one": "{{formatted}} active alert",
@@ -220,6 +221,7 @@
     }
   },
   "drawer": {
+    "search_label": "Search locations and systems",
     "search_placeholder": "Search my systems and locations",
     "no_results": "No results",
     "explore_all": "Explore All",

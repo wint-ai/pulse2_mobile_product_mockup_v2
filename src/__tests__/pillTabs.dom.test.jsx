@@ -10,9 +10,20 @@
 // owner ended up looking at a dark-slate selected tab on one screen and a pale
 // blue one on the other and asking why.
 //
+// ⚠ NEITHER SCREEN DRAWS THE ROW ANY MORE — 2026-11-07. The restructure
+//   replaced it with the More badge and a floating menu ("we are replacing
+//   tabs with the more button"), so HomeAllAccounts and SystemPageV2Screen
+//   no longer import PillTabs and the component is mounted nowhere. The
+//   describe that rendered the two real pages and compared their rows is
+//   REMOVED — its full note stands where it did, below the page helpers.
+//   Everything that renders PillTabs DIRECTLY stays and still passes: the
+//   owner's rulings on this control have not been withdrawn, only unmounted,
+//   and this file is what keeps them enforced while it is dormant.
+//
 // So the assertions here are in two groups:
 //
-//   · THE TWO SCREENS AGREE. Not "each screen matches a hard-coded hex" —
+//   · THE TWO SCREENS AGREE. ⚠ REMOVED 2026-11-07 — see above. Described
+//     here still because it is why this file is shaped the way it is. Not "each screen matches a hard-coded hex" —
 //     that would pass just as happily if both drifted together, and it would
 //     have to be rewritten the next time the designer repaints the row. The
 //     test reads the selected pill off BOTH real pages and demands they be the
@@ -37,28 +48,29 @@
 
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, cleanup, fireEvent, screen, within } from '@testing-library/react'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
 
 import PillTabs from '@/v2/components/PillTabs'
-import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
-import SystemPageV2Screen from '@/v2/pages/SystemPageV2Screen'
-import { SYSTEMS } from '@/data/systems'
+
+/* ONE COMPONENT UNDER TEST, AND THAT IS THE WHOLE STORY OF THIS FILE NOW.
+   It used to pull in the two real pages (HomeAllAccounts, SystemPageV2Screen),
+   the SYSTEMS fixture and react-router as well, for two helpers —
+   `renderLocationPage` / `renderSystemPage` — that mounted those pages so
+   their tab rows could be compared against each other. Neither page draws a
+   row since 2026-11-07; the helpers and the block that used them are gone,
+   and those four dependencies with them. Everything below renders PillTabs
+   directly.
+
+   ⚠ THIS NOTE SITS BELOW THE LINE IT DESCRIBES, NOT ABOVE IT, AND THAT IS NOT
+     A STYLE CHOICE. scripts/check-jsx-refs.mjs works out what a file DEFINES
+     with a regex that does NOT skip comments — deliberately, per its own
+     header, because stripping them ate real lines and turned one false
+     positive into eight. That regex runs from the keyword that opens a module
+     dependency to the next ` from '`, so prose using that keyword in
+     lowercase, above a real one, swallows it whole and the component reads as
+     undefined. Two drafts of this comment did exactly that. Keep prose that
+     needs the word BELOW every real one. */
 
 afterEach(cleanup)
-
-const renderLocationPage = () =>
-  render(
-    <MemoryRouter initialEntries={['/']}>
-      <Routes><Route path="/" element={<HomeAllAccounts />} /></Routes>
-    </MemoryRouter>,
-  )
-
-const renderSystemPage = () =>
-  render(
-    <MemoryRouter initialEntries={[`/system/${SYSTEMS[0].id}`]}>
-      <Routes><Route path="/system/:systemId" element={<SystemPageV2Screen />} /></Routes>
-    </MemoryRouter>,
-  )
 
 /* The fill, the border and the ink are what diverged, so they are what is
    compared. All are read as class atoms rather than computed colour: these are
@@ -92,106 +104,38 @@ const inkAtom = (el) => {
   return found ? found[0] : undefined
 }
 
-describe('the two screens draw the same tab row', () => {
-  it('paints the selected tab identically on the Location and System pages', () => {
-    renderLocationPage()
-    const locationTab = screen.getByRole('tab', { name: 'Overview' })
-    const locationFill = fillAtom(locationTab)
-    const locationInk = inkAtom(locationTab)
-    /* Both reads must actually have found something, or the comparison below
-       would pass by matching undefined against undefined — which is exactly
-       how a first draft of this test passed while the two pages still
-       differed. */
-    expect(locationFill, 'selected pill fill was not found at all').toBeDefined()
-    expect(locationInk, 'selected pill ink was not found at all').toBeDefined()
-    cleanup()
+/* ── `the two screens draw the same tab row` STOOD HERE — REMOVED 2026-11-07 ──
+   FOUR TESTS, ALL RENDERING THE TWO REAL PAGES: that the selected pill was
+   painted identically on both, that the resting pills were, that both shipped
+   ruling 3's segmented control, and that both rows came from this one module
+   rather than a per-page copy.
 
-    renderSystemPage()
-    const systemTab = screen.getByRole('tab', { name: 'Overview' })
+   WHY THEY ARE REMOVED AND NOT RE-AIMED. Their subject no longer exists. The
+   owner replaced the row itself — "we are replacing tabs with the more button
+   / needs to open as a floating component like in ios" — so HomeAllAccounts
+   and SystemPageV2Screen draw NO tab row and do not import PillTabs.
+   `getByRole('tab')` on either page throws, which is what these four were
+   doing. There is no second screen left to compare the first against, and the
+   divergence they were written to catch — two hand-rolled `TabTrigger` copies
+   drifting apart — cannot recur while zero pages draw a row.
 
-    expect(fillAtom(systemTab), 'selected pill fill').toBe(locationFill)
-    expect(inkAtom(systemTab), 'selected pill label colour').toBe(locationInk)
-  })
+   THE MOUNT LAPSED, NOT THE GUARD. If a page ever draws this row again,
+   restore this block rather than writing a new one: the property it pinned
+   (the two screens AGREE, read off the real pages, rather than each matching
+   a hard-coded hex) is still the right shape of test, and it is the one that
+   caught the real bug.
 
-  it('paints the resting tabs identically too', () => {
-    renderLocationPage()
-    const locationRest = fillAtom(screen.getByRole('tab', { name: 'General Info' }))
-    cleanup()
+   NOTHING ELSE IN THIS FILE MOVED. Every remaining test renders PillTabs
+   directly and passes, so rulings 2 and 3 stay enforced while the component
+   is dormant — including ruling 3's TRACK, whose four atoms were asserted
+   ONLY here and are re-asserted in `the one ruled treatment` below, so this
+   deletion costs no coverage. What does go with the mount is the
+   `data-name="slot"` single-source marker, which only ever meant anything
+   while two pages drew the row.
 
-    renderSystemPage()
-    expect(fillAtom(screen.getByRole('tab', { name: 'General Info' }))).toBe(locationRest)
-  })
-
-  /* THE OWNER'S RULING, pinned. Unlike the two assertions above this one is
-     deliberately treatment-SPECIFIC: it is here to fail if someone conforms
-     the app back to the pale blue that locB and sysA still draw, which is what
-     re-deriving the colour from Figma would suggest — three frames to one.
-     Changing it takes the owner's word — see PillTabs' header, ruling 2.
-
-     The values are asserted as TOKEN utilities, not as the node's hexes: the
-     row has to follow the theme, and bg-[#fafbfc] / text-[#0b81f8] could not.
-     A hex creeping back in fails here. */
-  /* ⚠ RE-POINTED AT RULING 3, 2026-11-04. Owner, on 199961:97449: "update the
-     tabs component to be exactly the same as in Figma, both on the system
-     screen and location screen ... the component needs to look like [the
-     frame]." What this pinned was ruling 2 — card surface on EVERY trigger,
-     no track, a 100px lozenge — and the node draws a segmented control
-     instead. Both halves of ruling 2 that survive are still pinned below:
-     selection is a 1px brand border rather than a fill, and the label rules
-     are unchanged. Values are still TOKEN utilities, never the node's hexes. */
-  it('ships the node segmented control the owner ruled for, on both screens', () => {
-    const expected = {
-      selectedFill: 'bg-card',          // ONLY the selected trigger is filled
-      selectedBorder: 'border-primary',
-      restingBorder: 'border-transparent', // present, so selecting costs no geometry
-      selectedInk: 'text-primary',
-      restingInk: 'text-muted-foreground',
-    }
-
-    for (const renderPage of [renderLocationPage, renderSystemPage]) {
-      renderPage()
-      const selected = screen.getByRole('tab', { name: 'Overview' })
-      const resting = screen.getByRole('tab', { name: 'General Info' })
-
-      expect(fillAtom(selected)).toBe(expected.selectedFill)
-      expect(fillAtom(resting), 'a resting trigger paints nothing — the TRACK is the ground').toBeUndefined()
-      expect(borderAtom(selected)).toBe(expected.selectedBorder)
-      expect(borderAtom(resting)).toBe(expected.restingBorder)
-      expect(inkAtom(selected)).toBe(expected.selectedInk)
-      expect(inkAtom(resting)).toBe(expected.restingInk)
-      expect(selected.className).toContain('rounded-md')
-      expect(resting.className).toContain('rounded-md')
-
-      /* THE TRACK is the whole of what ruling 3 added, so it is pinned by the
-         three atoms the node states: slate-200 at radius 10 with a 3px inset,
-         on a 32px row. The 32 is load-bearing beyond this file — both pages'
-         collapsing headers compute their collapse distance and their
-         scroller's paddingTop from it. */
-      const track = selected.closest('[data-name="Tabs"]')
-      expect(track.className).toContain('bg-slate-200')
-      expect(track.className).toContain('rounded-lg')
-      expect(track.className).toContain('p-[3px]')
-      expect(track.className).toContain('h-[32px]')
-
-      // The ruling's whole point is that this is themeable.
-      expect(selected.className).not.toMatch(/#[0-9a-fA-F]{6}/)
-      expect(track.className).not.toMatch(/#[0-9a-fA-F]{6}/)
-      cleanup()
-    }
-  })
-
-  /* The guard that the duplication does not come back: exactly one module may
-     define this row. If a page grows its own copy again, it will not be using
-     PillTabs and the shared-instance marker below will go missing. */
-  it('renders both rows from the one component', () => {
-    renderLocationPage()
-    expect(screen.getByRole('tablist').getAttribute('data-name')).toBe('slot')
-    cleanup()
-
-    renderSystemPage()
-    expect(screen.getByRole('tablist').getAttribute('data-name')).toBe('slot')
-  })
-})
+   ⚠ THE COMPONENT IS NOT DELETED, deliberately — see the DORMANT note at the
+     top of src/v2/components/PillTabs.jsx. Retiring a file that carries a
+     live owner ruling is the owner's call, not a cleanup pass's. */
 
 describe('tab semantics', () => {
   const items = [
@@ -292,6 +236,23 @@ describe('the one ruled treatment', () => {
        selected trigger read as lifted rather than merely outlined. */
     expect(selected.className).toContain('shadow-[0_1px_2px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.1)]')
     expect(resting.className).not.toContain('shadow-[')
+
+    /* THE TRACK, which is the whole of what ruling 3 added over ruling 2's
+       trackless lozenges: slate-200 at radius 10 with a 3px inset, on a 32px
+       row. Asserted here since 2026-11-07 — it used to be pinned only by the
+       removed two-screens block above, and a ruling with no test left is a
+       ruling the next re-derivation from Figma quietly loses.
+
+       TOKEN UTILITIES, NEVER THE NODE'S HEXES: the row has to follow all four
+       themes and bg-[#fafbfc] could not. A hex creeping back in fails here. */
+    const track = selected.closest('[data-name="Tabs"]')
+    expect(track, 'the segmented track is gone - ruling 3 put the triggers IN one').toBeTruthy()
+    expect(track.className).toContain('bg-slate-200')
+    expect(track.className).toContain('rounded-lg')
+    expect(track.className).toContain('p-[3px]')
+    expect(track.className).toContain('h-[32px]')
+    expect(selected.className).not.toMatch(/#[0-9a-fA-F]{6}/)
+    expect(track.className).not.toMatch(/#[0-9a-fA-F]{6}/)
   })
 
   /* The `tone` prop is gone, and Phase 4 removed the leftover tone="blue"

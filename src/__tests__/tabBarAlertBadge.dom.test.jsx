@@ -125,7 +125,7 @@ describe('TabBar Alerts count badge', () => {
     // Profile included: its glyph is PersonaAvatar, which renders a <span> of
     // its own for the initials fallback. If that span ever got ahead of the
     // label, the four scope suites would start picking tabs by "RK".
-    for (const label of ['Dashboard', 'Alerts', 'Profile', 'More']) {
+    for (const label of ['Dashboard', 'Search', 'Alerts', 'Profile']) {
       expect(tabByLabel(label), `no tab button whose first span is "${label}"`).toBeTruthy();
     }
   });
@@ -175,17 +175,63 @@ describe('the badge counts only what this user can see', () => {
 });
 
 describe('the same tabs, everywhere', () => {
-  it('renders Dashboard / Alerts / Profile / More on every screen that mounts it', () => {
+  it('renders Dashboard / Search / Alerts / Profile on every screen that mounts it', () => {
     // `hideAlerts` is gone. Passing it is now inert rather than destructive,
     // which is the point: nothing can drop the tab from the outside any more.
     //
     // Profile joined 2026-11-04 (the owner: the avatar has to be reachable
     // from every screen, and he chose the footer over the top-right corner).
-    // The ORDER is his reference image's, not alphabetical and not append:
-    // Profile sits between Alerts and More.
+    //
+    // SEARCH REPLACED MORE 2026-11-07, and the POSITION is half the
+    // instruction, not a detail: "replace the 'More' in buttom main nav bar
+    // With Search -locate right to dashboard". Search sits SECOND - it did
+    // not take More's slot at the end - and Alerts and Profile shifted right.
+    // Asserted as an ordered array rather than a set for exactly that reason:
+    // a bar carrying the right four labels in the wrong order would be a
+    // different instruction carried out.
     renderBar('/');
     const labels = [...document.querySelectorAll('button')]
       .map(b => b.querySelector('span')?.textContent);
-    expect(labels).toEqual(['Dashboard', 'Alerts', 'Profile', 'More']);
+    expect(labels).toEqual(['Dashboard', 'Search', 'Alerts', 'Profile']);
+  });
+
+  it('gives Search the drawer field s own accessible name, not "Search"', () => {
+    // WCAG 2.5.3 Label in Name: the visible label is "Search", so the
+    // accessible name has to CONTAIN it - which rules out the name this door
+    // used to travel under, `Switch location`. The string is the one the
+    // drawer's own search field already announces (WintSidebarV2.jsx:742),
+    // catalogued as `drawer.search_label` so it can be translated.
+    //
+    // THIS IS THE DOOR. With the header's PanelLeft gone there is no other
+    // control on these routes that opens the navigation drawer, so a
+    // regression here is not a naming nit - it makes the drawer unreachable.
+    renderBar('/');
+    const search = [...document.querySelectorAll('button')]
+      .find(b => b.querySelector('span')?.textContent === 'Search');
+    expect(search, 'the Search tab is missing').toBeTruthy();
+    expect(search.getAttribute('aria-label')).toBe('Search locations and systems');
+    // And it is the ONLY tab with one: an aria-label replaces content for
+    // name computation, so one on Alerts would mute its count badge.
+    const labelled = [...document.querySelectorAll('button')]
+      .filter(b => b.hasAttribute('aria-label'));
+    expect(labelled).toHaveLength(1);
+  });
+
+  it('never lights Search, because Search is an action and not a destination', () => {
+    // It opens the drawer; it changes no route. An active indicator on it
+    // would claim a location the user is not at. There is no activeTab key
+    // that names it, and `isActive` is hard-coded false for it, so neither
+    // the explicit prop nor the pathname fallback can light it.
+    for (const at of ['/', '/alerts', '/account']) {
+      cleanup();
+      renderBar(at);
+      const search = [...document.querySelectorAll('button')]
+        .find(b => b.querySelector('span')?.textContent === 'Search');
+      expect(search.className, `Search is lit at ${at}`).toMatch(/\btext-muted-foreground\b/);
+      expect(
+        [...search.querySelectorAll('div')].some(d => /bg-primary\/15/.test(d.className)),
+        `Search drew the active indicator at ${at}`,
+      ).toBe(false);
+    }
   });
 });

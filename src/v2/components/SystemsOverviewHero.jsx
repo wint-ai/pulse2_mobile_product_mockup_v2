@@ -1,6 +1,44 @@
 /**
- * SystemsOverviewHero — the blue wave at the top of the Location screen, with
- * the fleet count on it and the system-type chips under that.
+ * SystemsOverviewHero — the location count, the fleet count and the
+ * system-type chips. Since 2026-11-07 it is the COLOURED SECTION's content
+ * inside HeroCardShell rather than a box that paints its own wave.
+ *
+ * ── IT LIVES INSIDE THE HERO CARD NOW — 200013:93101, 2026-11-07 ─────
+ * Owner: "Same layout for locations screens / [200013:93089] keep wht we have
+ * now - remove the system 'lifecycle "Active"' And keeo the locations".
+ *
+ * 200013:93101 "Account Main header" (370x261) draws ONE inset rounded card:
+ * a coloured top carrying exactly what this component carries, and a white
+ * body carrying System health. HomeAllAccounts composes the two through
+ * HeroCardShell, so THE CHASSIS IS NO LONGER THIS FILE'S. What changed here:
+ * nothing but this note. The caller passes `artwork={false}` and HeroCardShell
+ * paints HeroWaveArt from its own `tone`, which is the same contract the
+ * full-bleed band already used.
+ *
+ * WHAT THE NEW NODE MEASURES, against what this component draws. Inside the
+ * node's 173px coloured box (the white body overlaps its last 30, leaving 143
+ * visible):
+ *       eyebrow  17 ->  33.4      here, under the caller's pt-17:  17 ->  43
+ *       headline 37 ->  77                                         43 ->  82.4
+ *       chips    91 -> 123                                         89 -> 123.6
+ *       inset    21px (5.68% of 370)                               23px
+ * The chip row lands within a pixel of the node and the inset is 2px wider.
+ * NEITHER IS CHANGED. 199954:96289 read 23 for that same inset hours before
+ * 200013:93101 read 21, this frame has moved four times in a week, and the
+ * owner's instruction for this node is "keep wht we have now". Reported, not
+ * chased.
+ *
+ * ⚠ THE SCRIM IS OFF AND THAT IS A RULING. HeroWaveArt's opt-in 0.34 scrim was
+ * derived for a 20px page TITLE standing on the artwork inside the collapsing
+ * header's band. The title is on the page ground now and 200013:93101 draws no
+ * scrim layer, so HeroCardShell passes `scrim={false}` and this file does not
+ * ask for one either.
+ *
+ * ⚠ THE ZERO-CHIP EXPLAINER STILL OVERFLOWS THIS BOX ON PURPOSE. It used to
+ * land on the health card, then on the tab row; it lands on the hero card's
+ * white body now. Its `z-[2]` is what keeps it on top, and HeroCardShell's
+ * `overflow-hidden rounded-[22px]` does not clip it because the card is taller
+ * than the panel's drop. Verified in Chromium at 393x852.
  *
  * ── RE-READ LIVE, 199954:96289 — 2026-11-04, LATER THE SAME DAY ──────
  * The owner's Dashboard restructure link. Fetched live rather than from the
@@ -444,6 +482,13 @@ export default function SystemsOverviewHero({
       ) : null}
 
       {/* ── THE LIFECYCLE PILL IS REMOVED, 2026-11-04 ────────────────────────
+          ✓ CONFIRMED STILL ABSENT 2026-11-07, against the owner's "remove the
+          system 'lifecycle "Active"'" on node 200013:93089. It was already
+          gone, 200013:93101 draws no such layer at any state, and nothing was
+          re-removed or re-added. The other half of that instruction — "And
+          keeo the locations" — is the eyebrow below, which stays and is fed a
+          live count.
+
           A pill reading "Active" with a chevron-down stood here
           (199531:80083, its word 199531:80085, its glyph 199531:80084), on the
           same veiled chassis as the chips, at right-[9px] top-[9px].

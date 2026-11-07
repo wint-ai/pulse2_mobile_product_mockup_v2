@@ -2,6 +2,42 @@
  * PillTabs — the one pill tab row, shared by the Location page and the System
  * page.
  *
+ * ╔═══════════════════════════════════════════════════════════════════════╗
+ * ║ ⚠ DORMANT SINCE 2026-11-07 — ZERO CALL SITES. READ BEFORE DELETING.   ║
+ * ╚═══════════════════════════════════════════════════════════════════════╝
+ *
+ * NOTHING MOUNTS THIS COMPONENT. The owner replaced the row with a badge and
+ * a floating menu — "we are replacing tabs with the more button / needs to
+ * open as a floating component like in ios" — and in the same restructure
+ * HomeAllAccounts and SystemPageV2Screen, its only two call sites, dropped
+ * the import. The destinations did not move: `overview` / `systems` /
+ * `general` are now rows in MoreMenu (see moreMenuModel.js). It is a change
+ * of CONTROL, not of destination.
+ *
+ * THE FILE IS KEPT, AND THAT IS A DELIBERATE CHOICE RATHER THAN AN OVERSIGHT.
+ * Four reasons, in order of weight:
+ *
+ *  1. IT CARRIES A LIVE OWNER RULING. Ruling 2 (2026-10-21, the outlined
+ *     treatment) and ruling 3 (2026-11-04, the segmented control) are both
+ *     recorded below and NEITHER WAS WITHDRAWN — the control was unmounted,
+ *     not overruled. Deleting a file that holds a ruling the owner has not
+ *     reversed is his call, not a cleanup pass's.
+ *  2. DELETING IT WOULD DELETE THE ENFORCEMENT. pillTabs.dom.test.jsx renders
+ *     this component directly in 13 still-green tests that pin both rulings,
+ *     the token discipline and the a11y contract. Those go with the file, and
+ *     the provenance argument below — three Figma frames still draw the pale
+ *     blue this ruling rejects — says exactly how the ruling gets lost: an
+ *     agent re-deriving the row from Figma arrives back at the superseded
+ *     treatment. The tests are what make that fail loudly.
+ *  3. THE DIRECTION HAS REVERSED BEFORE. This control's own treatment was
+ *     re-ruled twice in sixteen days. A row that returns needs this file
+ *     intact, not reconstructed from git history and a Figma re-read.
+ *  4. IT COSTS NOTHING TO SHIP. Vite tree-shakes an unreferenced module out
+ *     of the bundle; the only cost is this file on disk.
+ *
+ * SO: do not import it to "use it up", and do not delete it without the
+ * owner's word. If he retires it, the test file goes in the same commit.
+ *
  * ── WHY THIS FILE EXISTS ───────────────────────────────────────────────────
  * It replaces two near-copies of the same control:
  *   src/v2/pages/HomeAllAccounts.jsx    function TabTrigger(…)

@@ -190,10 +190,16 @@ describe('AccountScreenV2 renders every v1 section', () => {
     expect(screen.getAllByText('Coming soon')).toHaveLength(2)
   })
 
-  /* The whole point of the change: two tabs, two destinations, and the right
-     one lit. This screen used to pass activeTab="account", so the MORE tab lit
-     up even when you arrived by tapping Profile. */
-  it('lights the Profile tab, not More', () => {
+  /* The whole point of the 2026-11-04 change: two tabs, two destinations, and
+     the right one lit. This screen used to pass activeTab="account", so the
+     MORE tab lit up even when you arrived by tapping Profile.
+
+     RE-AIMED 2026-11-07: the More tab no longer exists - the owner replaced
+     it with Search, which is an ACTION and never lights. The hazard this test
+     was written for survives the rename, so it is pinned the same way: the
+     Profile tab is lit, and it is the ONLY lit tab. A key collision would
+     show up as a second indicator, whatever the other tab happens to be. */
+  it('lights the Profile tab, and nothing else', () => {
     renderScreen()
     const labelled = (name) =>
       [...document.querySelectorAll('button')].find(
@@ -201,11 +207,15 @@ describe('AccountScreenV2 renders every v1 section', () => {
       )
 
     const profile = labelled('Profile')
-    const more = labelled('More')
     expect(profile, 'the Profile tab must be in the bar').not.toBeUndefined()
-    expect(more, 'the More tab must be in the bar').not.toBeUndefined()
     expect(profile.className).toMatch(/\btext-primary\b/)
-    expect(more.className).toMatch(/\btext-muted-foreground\b/)
+
+    expect(labelled('More'), 'the More tab was replaced by Search 2026-11-07').toBeUndefined()
+
+    const lit = [...document.querySelectorAll('[data-name="tabbar-pill"] button')]
+      .filter((b) => /\btext-primary\b/.test(b.className))
+      .map((b) => b.querySelector('span')?.textContent)
+    expect(lit, 'exactly one tab may be lit').toEqual(['Profile'])
   })
 
   it('still carries a v1 capability that has no other entry point: replay onboarding', () => {
