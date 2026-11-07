@@ -2194,3 +2194,40 @@ button {
    vestibular triggers (large-area motion, parallax, zoom, spin, dolly).
    Removing it would take away the only touch feedback this app has, from the
    users who can least afford ambiguity about whether a tap registered. */
+
+/* ── EVERY CONTROL ACKNOWLEDGES A TAP ─────────────────────────────────────
+   The shadcn Button now presses, but most of this app's tappable surfaces
+   are not shadcn Buttons: the alert rows, the event rows, the system cards,
+   the timeline entries. Fifteen components carry `cursor-pointer` on a
+   hand-rolled control. Editing each one would leave the next one out.
+
+   So this is the floor, applied by element rather than by class, and it is
+   deliberately GENTLE — 1.5%, not the Button's 5%. These are large surfaces:
+   a full-width card squashing by 5% reads as the whole screen flinching,
+   and travel should be proportional to the size of the thing moving.
+
+   The Button's own `active:scale-95` still wins where it applies: a utility
+   class outranks an element selector, so small controls keep the firmer
+   press and only the big hand-rolled surfaces land here.
+
+   EXCLUSIONS, each for a reason:
+   · :disabled           — a dead control must not answer.
+   · [data-no-press]     — the escape hatch, for anything this is wrong for.
+   · [data-slot=button]  — shadcn's own; it has its own rule and its own
+                           duration, and matching both would make the
+                           transition property list fight.
+   · a[href] is NOT included. Links here are navigation, not actuation, and
+     several wrap whole rows that already carry a button inside them. */
+@layer base {
+  button:not(:disabled):not([data-slot='button']):not([data-no-press]),
+  [role='button']:not([aria-disabled='true']):not([data-no-press]) {
+    transition: scale var(--dur-medium) var(--ease-out);
+  }
+
+  button:not(:disabled):not([data-slot='button']):not([data-no-press]):active,
+  [role='button']:not([aria-disabled='true']):not([data-no-press]):active {
+    scale: 0.985;
+    transition-duration: var(--dur-fast);
+    transition-timing-function: linear;
+  }
+}
