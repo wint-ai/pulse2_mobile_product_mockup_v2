@@ -274,15 +274,65 @@ describe('the hero card — 200013:93101', () => {
     expect(eyebrow.textContent).toMatch(/^\d[\d,]*\s+Locations?$/)
   })
 
-  it('stays on screen for every destination, not only Overview', () => {
-    /* It was common to all three while it was chrome. Merging it with the
-       health card must not quietly narrow it to one view. */
+  it('is Overview-only — a More pick replaces the body, wave included', () => {
+    /* REVERSED 2026-11-08. This case read "stays on screen for every
+       destination, not only Overview" and asserted the hero on all three,
+       because while it was chrome it WAS common to all three and merging it
+       with the health card must not have narrowed it by accident.
+       The owner has since ruled the other way: "when user selecting something
+       in the more on the header, it needs to be replaced the entire screen
+       below. So waves shouldn't appear in all views, only in overview." So
+       the assertion is inverted rather than deleted — the hero must be absent
+       on Systems and on General Info, and must come back on Overview, which
+       is also what proves the pick is not a one-way door for it. */
     const { container } = mountAt('/')
-    for (const id of ['systems', 'general', 'overview']) {
+    for (const id of ['systems', 'general']) {
       openMenu(container)
       fireEvent.click(q(container, `[data-menu-item="${id}"]`))
-      expect(q(container, '[data-name="hero-card-shell"]'), `hero missing on ${id}`).toBeTruthy()
+      expect(q(container, '[data-name="hero-card-shell"]'), `the wave is still on ${id}`).toBeNull()
     }
+    openMenu(container)
+    fireEvent.click(q(container, '[data-menu-item="overview"]'))
+    expect(q(container, '[data-name="hero-card-shell"]'), 'hero missing on overview').toBeTruthy()
+  })
+
+  /* ── THE TWO HALVES OF THE HEALTH BAR GO TO TWO PLACES — 2026-11-08 ──────
+     Owner, on the red half: "When user clicks on X out of Y needs attention,
+     it doesn't need to redirect him to the system table. It needs to redirect
+     him to the health overlay, like the error overlay, which shows all the
+     errors row by row." The green half keeps the 2026-10-22 destination: an
+     error overlay opened from "All systems good" would open empty.
+     Asserted from the PAGE rather than the card, because the split lives in
+     the page's onSelectHealth — SystemHealthCard still raises the same two
+     values it always did, and its own suite still pins that. */
+  const segment = (c, which) => q(c, `[data-segment="${which}"]`)
+  const overlayRows = () => screen.queryAllByRole('button', { name: /Open this system\./ })
+
+  it('the needs-attention segment opens the alerts overlay, not the table', () => {
+    const { container } = mountAt('/')
+    const red = segment(container, 'attention')
+    expect(red, 'no attention segment on a scope with faults').toBeTruthy()
+
+    fireEvent.click(red)
+
+    /* The overlay, with one row per issue — and NOT the systems table, which
+       is the destination this control was taken off. */
+    expect(overlayRows().length, 'the overlay opened with no rows').toBeGreaterThan(0)
+    expect(
+      screen.queryByRole('columnheader', { name: 'System' }),
+      'the attention segment still lands on the systems table',
+    ).toBeNull()
+  })
+
+  it('the all-systems-good segment still opens the filtered systems table', () => {
+    const { container } = mountAt('/')
+    const green = segment(container, 'healthy')
+    expect(green, 'no healthy segment on this scope').toBeTruthy()
+
+    fireEvent.click(green)
+
+    expect(screen.getByRole('columnheader', { name: 'System' })).toBeTruthy()
+    expect(overlayRows().length, 'the green segment opened the overlay').toBe(0)
   })
 })
 

@@ -1511,13 +1511,31 @@ export default function HomeAllAccounts({ expanded = false }) {
      zero-state bar — the all-clear green row from 199922:85244 draws instead.
      Checked in the browser on a persona whose whole scope is clear.
 
-     ── WHY IT RENDERS ON EVERY VIEW, NOT ONLY OVERVIEW ──────────────────
-     The hero has been common to all three destinations since 2026-11-04 and
-     the health card was Overview's. Merging them into one card forces a
-     choice, and this is the side that removes nothing: the hero keeps the
-     reach it had and System health gains two. The alternative — the whole
-     card inside `cards` — would delete the hero from Systems and General
-     Info, which IS a removal and would need the owner's word first.
+     ── WHY IT RENDERS ON OVERVIEW ONLY — 2026-11-08 ─────────────────────
+     THIS REVERSES THE 2026-11-07 RULING, which stood right here and read
+     "WHY IT RENDERS ON EVERY VIEW, NOT ONLY OVERVIEW". That ruling reasoned
+     from Rule 0: the hero had been common to all three destinations since
+     2026-11-04, the health card was Overview's, merging them forced a choice,
+     and the side that removed nothing was to keep the merged card everywhere.
+     It explicitly said the alternative "would need the owner's word first".
+
+     The owner's word arrived: "when user selecting something in the more on
+     the header, it needs to be replaced the entire screen below. So waves
+     shouldn't appear in all views, only in overview. For example, in system
+     view, it shouldn't appear. Only system table with the right header, with
+     the right search, with the right filters."
+
+     So the More menu now swaps the WHOLE body, and this card is Overview's
+     body. It is rendered INSIDE the `tab === 'overview'` branch of the
+     scroller below, as the first thing in that branch — not above the switch.
+     The header bar is the only chrome that survives a pick; everything under
+     it belongs to the chosen view.
+
+     STILL NOTHING IS DELETED. Same component, same props, same handlers, same
+     data; only its seat moved again, and it moved to the view the owner says
+     owns it. Systems renders SystemsTableCard alone and General Info its
+     placeholder alone, which is what "replaced the entire screen below" means
+     on this page.
 
      ⚠ THE ZERO-CHIP EXPLAINER OVERFLOWS THIS CARD ON PURPOSE. It hangs 4px
      under the chip row and lands on the white body now, where it used to land
@@ -1559,13 +1577,53 @@ export default function HomeAllAccounts({ expanded = false }) {
           onSelectIssue={kind => openOverlay('alerts', {
             filter: ISSUE_FILTER[kind === 'valveErrors' ? 'valve' : kind === 'noPower' ? 'power' : kind] ?? 'all',
           })}
-          /* Owner, 2026-10-22, on a screenshot of the bar: "make these bars
-             clcikable to systems table filtered". Each segment is a shortcut
-             into the Systems view, filtered to the half of the fleet it draws.
-             NO NEW PREDICATE: the card hands back 'attention' / 'ok', the
-             values src/data/systemFilters.js's `attention` category already
-             produces over the same `scopedSystems` the table reads. */
+          /* ── THE TWO SEGMENTS GO TO TWO DIFFERENT PLACES — 2026-11-08 ────
+             Owner, on the red half: "When user clicks on X out of Y needs
+             attention, it doesn't need to redirect him to the system table.
+             It needs to redirect him to the health overlay, like the error
+             overlay, which shows all the errors row by row." That OVERRIDES
+             the 2026-10-22 ruling on this same prop ("make these bars
+             clcikable to systems table filtered") FOR THE ATTENTION HALF
+             ONLY. Nothing is deleted: the segment is still a control, it
+             still fires, it lands somewhere else.
+
+             'attention' -> openOverlay('alerts') with NO arguments, which is
+             character for character what `onShowAll` above does. Two controls
+             on one card that both mean "show me what is wrong" must land in
+             the same place, and the owner pinned that place for `onShowAll`
+             on 2026-10-22: "it shall be open Active alerts overlay with all
+             filter".
+
+             NO NARROWER FILTER EXISTS, AND NONE IS WANTED. The `alerts`
+             dataset is ALREADY health-only — EventOverlayV2's alert family is
+             exactly ['power-lost','valve-error','offline','recipients'] and
+             water events travel in the other family — and `overlayEvents`
+             above emits ONE ROW PER ISSUE (`<id>:power`, `:valve`,
+             `:offline`, `:recipients`). Filter 'all' over that family IS the
+             owner's "all the errors row by row"; each of the four chips would
+             hide three quarters of them. This is why no new overlay was
+             built: the one that answers this already exists.
+
+             'ok' STAYS ON THE SYSTEMS TABLE, deliberately. The owner's
+             instruction names the needs-attention half only, and an error
+             overlay opened from "All systems good" would open EMPTY by
+             construction — those systems emit no rows. So the green segment
+             keeps the 2026-10-22 behaviour, with no new predicate: the card
+             hands back 'ok', the value src/data/systemFilters.js's
+             `attention` category already produces over the same
+             `scopedSystems` the table reads.
+
+             ⚠ THE RED SEGMENT'S ACCESSIBLE NAME STILL ENDS "Show these
+             systems." (SystemHealthCard.jsx, the `Requires attention:` name).
+             It now names the wrong destination by ear. Rewording it is NEW
+             user-facing copy and is FLAGGED FOR THE OWNER rather than
+             shipped; the pairing is also pinned by
+             systemHealthCard.dom.test.jsx against systemFilters.js. */
           onSelectHealth={value => {
+            if (value === 'attention') {
+              openOverlay('alerts')
+              return
+            }
             setSystemFilters({ attention: [value] })
             setTab('systems')
           }}
@@ -1615,7 +1673,10 @@ export default function HomeAllAccounts({ expanded = false }) {
      The hero left on 2026-11-04, when the live frame put it above the tab
      row. SystemHealthCard left on 2026-11-07 and went INTO it: 200013:93101
      draws them as one card with a coloured top and a white body, so they are
-     now `heroCard` above and render on every view rather than only here.
+     one `heroCard` now, defined above.
+     They are still OVERVIEW-ONLY, as of 2026-11-08: `heroCard` is rendered
+     immediately before this list inside the `overview` branch rather than
+     above the switch. Same view, one node earlier in the tree.
 
      NOTHING WAS DELETED. The card is mounted with the same props, the same
      handlers and the same data; only its seat moved, and it moved to a seat
@@ -1653,8 +1714,9 @@ export default function HomeAllAccounts({ expanded = false }) {
           103 rows on this one, because overlayEvents below now builds resolved
           rows too. It is a TriageBand prop now; see its footer. */}
       {/* THE HERO STOOD HERE until 2026-11-04 and the health card until
-          2026-11-07. Both are `heroCard` now — one card, rendered above this
-          list and outside the view switch. See the block at its definition. */}
+          2026-11-07. Both are `heroCard` now — one card, rendered immediately
+          above this list and INSIDE the Overview branch of the view switch
+          since 2026-11-08. See the block at its definition. */}
       <TriageBand
         events={waterEvents}
         /* Opens EventFocusOverlay over this page. Row ids are system ids here
@@ -2021,15 +2083,32 @@ export default function HomeAllAccounts({ expanded = false }) {
           style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
           data-node-id="200013:93100"
         >
-          {/* ── THE HERO CARD IS THE FIRST THING IN THE SCROLL ──────────────
-              200013:93100 puts it at the top of the content frame, above
-              `Water events`, and it SCROLLS: the only chrome in this node is
-              the header bar. It is outside the `tab` switch on purpose — see
-              WHY IT RENDERS ON EVERY VIEW at `heroCard`. */}
-          {heroCard}
+          {/* ── A MORE-MENU PICK REPLACES EVERYTHING IN HERE — 2026-11-08 ───
+              Owner: "when user selecting something in the more on the header,
+              it needs to be replaced the entire screen below. So waves
+              shouldn't appear in all views, only in overview."
 
+              So this switch is the WHOLE body. `heroCard` used to sit above
+              it and painted on all three destinations; it is inside the
+              `overview` branch now, and Systems and General Info render their
+              own content alone. AppHeaderBar above this scroller is untouched
+              and still renders on every view — the owner's rule is about the
+              body below it, not the chrome.
+
+              NOTHING ELSE MOVED. A fragment is not a DOM node, so the
+              scroller's direct children on Overview are the same elements in
+              the same order they were, and its gap-[20px] still falls between
+              the hero card and `Water events`. */}
           {tab === 'overview' ? (
-            cards
+            <>
+              {/* ── THE HERO CARD IS THE FIRST THING IN THE OVERVIEW SCROLL ─
+                  200013:93100 puts it at the top of the content frame, above
+                  `Water events`, and it SCROLLS: the only chrome in this node
+                  is the header bar. See WHY IT RENDERS ON OVERVIEW ONLY at
+                  `heroCard`. */}
+              {heroCard}
+              {cards}
+            </>
           ) : tab === 'systems' ? (
             /* System — the table from Figma "Table 16 - Pro Application
                Block", screenSize=Small (176511:26284), carrying the content

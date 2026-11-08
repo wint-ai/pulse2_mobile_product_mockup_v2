@@ -2125,7 +2125,30 @@ export default function SystemPageV2Screen() {
 
               The raster's baked 15.5px black corner matte is covered by the
               chassis' own rounded-[22px] with room to spare — do not add a
-              radius or a clip around it here. */}
+              radius or a clip around it here.
+
+              ── IT IS OVERVIEW-ONLY AS OF 2026-11-08 ────────────────────────
+              Owner: "when user selecting something in the more on the header,
+              it needs to be replaced the entire screen below. So waves
+              shouldn't appear in all views, only in overview." This page's
+              More menu is the same control with the same two destinations, so
+              the same rule lands here: picking General Info replaces the body,
+              wave included, and leaves only InfoAccordion under the header.
+
+              THE PREDICATE IS THE SWITCH'S OWN, not a second one. The body
+              below branches on `tab === 'general'`, so this guard asks the
+              identical question and the two can never disagree about which
+              view is being drawn.
+
+              NOTHING IS REMOVED, and the component is untouched: same props,
+              same data, same handlers. On Overview — the tab this page opens
+              on — it draws exactly what it drew before.
+              ⚠ ON ALERT, the white body is the live water event (see
+              `heroBody`), so General Info no longer shows that card. It is
+              reachable from Overview and from the alerts overlay, and this is
+              the direct consequence of "replaced the entire screen below";
+              flagged for the owner rather than carved out. */}
+          {tab === 'general' ? null : (
           <SystemHeroCard
             total={heroTotal}
             unit={heroFigures.unit}
@@ -2182,6 +2205,7 @@ export default function SystemPageV2Screen() {
             }}
             body={heroBody}
           />
+          )}
 
             {tab === 'general' ? (
               /* General Info — the v1 Info tab's 11 real sections (PRD 04h),
