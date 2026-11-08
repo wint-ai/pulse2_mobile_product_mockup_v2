@@ -43,13 +43,13 @@ function initials(name) {
 function presetFor(type) {
   switch (type) {
     case 'valve-error':
-      return { icon: 'valve',         ring: '#036AB5', iconBg: 'rgba(3,106,181,0.10)',  labelKey: 'valve_error',       pillBg: 'rgba(3,106,181,0.12)',  pillColor: '#036AB5' };
+      return { icon: 'valve',         ring: 'var(--v1-pill-ink-info)', iconBg: 'rgba(3,106,181,0.10)',  labelKey: 'valve_error',       pillBg: 'rgba(3,106,181,0.12)',  pillColor: 'var(--v1-pill-ink-info)' };
     case 'power-lost':
     case 'ac-lost':
       return { icon: 'power_off',     ring: '#B5651A', iconBg: 'rgba(181,101,26,0.10)', labelKey: 'ac_unplugged',      pillBg: 'rgba(181,101,26,0.12)', pillColor: '#B5651A' };
     case 'offline':
     case 'comm':
-      return { icon: 'wifi_off',      ring: '#717684', iconBg: 'rgba(113,118,132,0.10)',labelKey: 'offline',           pillBg: 'rgba(113,118,132,0.16)',pillColor: '#4A4F5A' };
+      return { icon: 'wifi_off',      ring: '#717684', iconBg: 'rgba(113,118,132,0.10)',labelKey: 'offline',           pillBg: 'rgba(113,118,132,0.16)',pillColor: 'var(--v1-pill-ink-mute)' };
     case 'no-recipients':
       return { icon: 'group_off',     ring: '#A5455E', iconBg: 'rgba(165,69,94,0.10)',  labelKey: 'no_recipients',     pillBg: 'rgba(165,69,94,0.12)',  pillColor: '#A5455E' };
     case 'battery-low':

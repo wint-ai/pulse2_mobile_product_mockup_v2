@@ -130,13 +130,13 @@ export default function StatusWidgetsMobile({ systems, scopeIds, alertsOnly = fa
                 borderRadius: 10,
                 padding: '6px 10px',
                 minHeight: 38,
-                background: 'rgba(219,70,112,0.12)',
+                background: 'var(--v1-tile-wash-high)',
                 display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                 opacity: highFlows === 0 ? 0.5 : 1,
                 cursor: 'pointer',
               }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: '#DB4670', lineHeight: 1.1 }}>{t('home.water_events.high_flow')}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.4px', color: '#DB4670', fontVariantNumeric: 'tabular-nums', lineHeight: 1, marginTop: 2 }}>{highFlows}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--v1-tile-ink-high)', lineHeight: 1.1 }}>{t('home.water_events.high_flow')}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.4px', color: 'var(--v1-tile-ink-high)', fontVariantNumeric: 'tabular-nums', lineHeight: 1, marginTop: 2 }}>{highFlows}</div>
             </div>
             <div
               onClick={(e) => { e.stopPropagation(); goAlerts('low'); }}
@@ -145,13 +145,13 @@ export default function StatusWidgetsMobile({ systems, scopeIds, alertsOnly = fa
                 borderRadius: 10,
                 padding: '6px 10px',
                 minHeight: 38,
-                background: 'repeating-linear-gradient(45deg, rgba(229,161,0,0.10) 0 1.5px, rgba(229,161,0,0.00) 1.5px 3px), rgba(229,161,0,0.12)',
+                background: 'var(--v1-tile-wash-low)',
                 display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                 opacity: lowFlows === 0 ? 0.5 : 1,
                 cursor: 'pointer',
               }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: '#8C5A0F', lineHeight: 1.1 }}>{t('home.water_events.low_flow')}</div>
-              <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.4px', color: '#8C5A0F', fontVariantNumeric: 'tabular-nums', lineHeight: 1, marginTop: 2 }}>{lowFlows}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--v1-pill-ink-warn)', lineHeight: 1.1 }}>{t('home.water_events.low_flow')}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.4px', color: 'var(--v1-pill-ink-warn)', fontVariantNumeric: 'tabular-nums', lineHeight: 1, marginTop: 2 }}>{lowFlows}</div>
             </div>
           </div>
         </div>

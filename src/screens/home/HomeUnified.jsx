@@ -327,9 +327,9 @@ function pillFgFor(tint, theme, isLabel) {
   // Text/number color per tint.
   switch (tint) {
     case 'good':    return '#2F6112';
-    case 'info':    return '#036AB5';
+    case 'info':    return 'var(--v1-pill-ink-info)';
     case 'neutral': return theme.textSecondary;
-    case 'warn':    return '#8C5A0F';
+    case 'warn':    return 'var(--v1-pill-ink-warn)';
     case 'bad':     return '#A5455E';   // muted red — see pillBgFor note
     case 'empty':   return theme.textTertiary;
     default:        return theme.text;

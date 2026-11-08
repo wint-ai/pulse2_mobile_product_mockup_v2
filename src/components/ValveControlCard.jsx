@@ -20,10 +20,24 @@ const BRAND = {
   blue:    '#0b95f8', blueBg:    'rgba(11,149,248,0.12)',    // action buttons (Open / Close primary CTA)
   blueDeep:'#0978c6',                                        // action button hover
   error:   '#a5455e', errorBg:   'rgba(165,69,94,0.12)',     // Middle/Unknown/Disconnected/indicator errors
-  // Text + surfaces
-  navy: '#1a1d20', body: '#565c63', mute2: '#7a8189',        // tokens: text-primary / -secondary / -tertiary
-  line: '#e3e5e6', surface: '#ffffff', surfaceElev: '#f7f8f9', // tokens: border-default / bg-canvas / surface-hover
-  disabled: '#eaecef',                                       // tokens: surface-disabled
+  /* ── Text + surfaces — THE ONLY SEVEN THAT MOVE WITH THE THEME ───────
+     Measured 2026-11-08: under [data-theme=dark] this card rendered a pure
+     #ffffff slab with #1a1d20 ink on it, on an otherwise near-black /leak
+     screen -- the single remaining light slab in the app after the v1
+     theme bridge landed. The comments beside each line already said these
+     were "tokens"; they simply had no token to be.
+
+     --v1-valve-* are declared in src/index.css with these EXACT hexes in
+     :root, so `light`, `sand` and `contrast` render byte-for-byte what
+     they rendered before. Only `dark` restates them.
+
+     The five hue entries above are NOT tokenised: neutral / warn / blue /
+     error are the locked round-6 state vocabulary, and the 2026-06-08 note
+     at the top of this file is a decision about which hue means what, not
+     about which ground it sits on. They read on both. */
+  navy: 'var(--v1-valve-ink)', body: 'var(--v1-valve-ink-body)', mute2: 'var(--v1-valve-ink-mute)',
+  line: 'var(--v1-valve-line)', surface: 'var(--v1-valve-surface)', surfaceElev: 'var(--v1-valve-surface-elev)',
+  disabled: 'var(--v1-valve-disabled)',                      // tokens: surface-disabled
   // Legacy aliases — kept for the StateBadge component's `check` variant only.
   // Not used in widget chrome.
   success: '#71c454', mute: '#7a8189', muteBg: 'rgba(122,129,137,0.14)',

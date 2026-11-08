@@ -1726,6 +1726,154 @@ button {
   --bg-vignette: rgba(0, 0, 0, 0.07);
 }
 
+/* ── THE "WINT SKY" PAGE WASH, BEHIND THE WAVE ART ──────────────────────
+   src/components/PipesHeader.jsx paints /systems (HomeUnified) and the v1
+   system page with a wave SVG over a three-stop vertical gradient. Those
+   three stops used to be literal near-whites in that file, which is why
+   /systems rendered light under `dark` long after everything else had
+   moved -- the gradient is the OUTERMOST layer, so it covered the dark
+   ground rather than contradicting it.
+
+   The values below are exactly the hexes PipesHeader used to carry, so
+   `light` does not move; `sand` and `contrast` inherit them, as they did.
+   The waves themselves stay brand blue in every theme and are not here. */
+:root {
+  --sky-home-from:   #E8F2FE;
+  --sky-home-via:    #F2F7FC;
+  --sky-home-to:     #FFFFFF;
+  --sky-system-from: #F4F8FD;
+  --sky-system-via:  #FAFBFE;
+  --sky-system-to:   #FFFFFF;
+
+  /* ── The v1 valve widget's surfaces and ink ────────────────────────
+     src/components/ValveControlCard.jsx carried these seven as literals
+     in its BRAND object, each already annotated "tokens: text-primary /
+     bg-canvas / ..." -- the intent was there, the token was not. The
+     values here are those literals EXACTLY, so nothing moves in the
+     three light themes. Only `dark` restates them. */
+  --v1-valve-ink:           #1a1d20;
+  --v1-valve-ink-body:      #565c63;
+  --v1-valve-ink-mute:      #7a8189;
+  --v1-valve-line:          #e3e5e6;
+  --v1-valve-surface:       #ffffff;
+  --v1-valve-surface-elev:  #f7f8f9;
+  --v1-valve-disabled:      #eaecef;
+
+  /* ── v1 STATUS-PILL INK ────────────────────────────────────────────
+     The v1 pills are built as a translucent hue over the page plus the
+     DARK step of that same hue as ink. The tint survives a theme change
+     on its own -- it composites onto whatever is behind it -- but the
+     ink does not, and on a dark ground a dark ink over a dark tint is a
+     category error rather than a near miss: measured 2.56:1 for Offline
+     and 3.58:1 for Warning. Dark re-picks the LIGHT step of each hue,
+     which is the same move index.css already makes for --alert-ink-*.
+
+     THE TWO REDS ARE NOT HERE. #DB4670 (severity-high) and #A5455E
+     (danger) are locked product semantics -- CLAUDE.md fixes them and
+     HomeUnified.jsx:318 turns on the distinction between the "muted" red
+     and the "alarm" red -- and both measure above their floor on the dark
+     ground anyway. Moving them would be a product decision. */
+  /* ── v1 PAGE-HEADER INK (src/components/ScopeHeader.jsx) ───────────
+     ScopeHeader reads these three with the literals below as its inline
+     fallback, a pattern EventsScreen introduced by setting them on its
+     own root. Declaring them HERE instead of on each page root is what
+     lets `dark` move them without `light` moving with it -- an inline
+     style has no theme to vary by, so the same opt-in that fixed the
+     dark ground also silently re-coloured the light one (measured: the
+     /systems title shifted #14151A -> #0f172b and its sub-line
+     #4A4F5A -> #62748e). The values here are the literals exactly, so
+     every light theme renders what it rendered before.
+
+     EventsScreen still sets the first two on its own root. That is not
+     redundant -- an inline declaration outranks this one, so /alerts
+     keeps the --foreground it has shipped with in light, unchanged. */
+  --v1-scope-ink:       #14151A;
+  --v1-scope-ink-dim:   #4A4F5A;
+  --v1-scope-badge-ink: #036AB5;
+
+  --v1-pill-ink-info:   #036AB5;
+  --v1-pill-ink-warn:   #8C5A0F;
+  --v1-pill-ink-mute:   #4A4F5A;
+
+  /* ── The Water Events pair, on /systems ───────────────────────────
+     High Flow and Low Flow are PEERS -- two tiles side by side, same
+     size, same weight -- and both were written as their own hue at 12%
+     alpha, which makes them peers on a white ground. It does not on a
+     dark one: alpha is not lightness, and the amber (#E5A100, relative
+     luminance 0.43) carries more than twice the crimson's (#DB4670,
+     0.20). At equal alpha over near-black the amber tile read as a
+     solid mustard slab next to a barely-there maroon one.
+
+     So `dark` tunes the two alphas against each other rather than
+     against a number. :root is the original recipe, unchanged. */
+  --v1-tile-wash-high: rgba(219,70,112,0.12);
+  --v1-tile-wash-low:
+    repeating-linear-gradient(45deg, rgba(229,161,0,0.10) 0 1.5px, rgba(229,161,0,0.00) 1.5px 3px),
+    rgba(229,161,0,0.12);
+  --v1-tile-ink-high:  #DB4670;
+}
+
+[data-theme='dark'],
+.dark {
+  /* The same SHAPE as light's -- a tinted top settling onto the plain card
+     plane by 70% -- inverted onto this theme's own two surfaces rather
+     than onto new hexes. `to` is --card because that is where light's `to`
+     lands: #FFFFFF is `light`'s --card exactly (see --app-bg-base). The
+     top stop carries the blue the same way light's #E8F2FE does, mixed
+     from --primary so it tracks the accent instead of restating it.
+
+     The System variant is the dimmer of the two in light (a 4% blue vs a
+     9% one); here it takes half the mix, holding that relationship. */
+  --sky-home-from:   color-mix(in oklab, var(--background), var(--primary) 9%);
+  --sky-home-via:    color-mix(in oklab, var(--background), var(--card) 55%);
+  --sky-home-to:     var(--card);
+  --sky-system-from: color-mix(in oklab, var(--background), var(--primary) 4.5%);
+  --sky-system-via:  color-mix(in oklab, var(--background), var(--card) 55%);
+  --sky-system-to:   var(--card);
+
+  /* The valve widget's seven, onto this theme's own surfaces. `surface` is
+     --surface-card rather than --card for the reason index.css gives at
+     that token: dark lifts the card 4% toward the foreground so it
+     separates from the page, which a flat --card does not. `line` is the
+     SUBTLE tier -- this is a card edge, not a control boundary, and the
+     strong tier would draw a hard rule around every valve widget. */
+  --v1-valve-ink:           var(--foreground);
+  --v1-valve-ink-body:      var(--slate-600);
+  --v1-valve-ink-mute:      var(--muted-foreground);
+  --v1-valve-line:          var(--border-subtle);
+  --v1-valve-surface:       var(--surface-card);
+  --v1-valve-surface-elev:  var(--secondary);
+  --v1-valve-disabled:      var(--secondary);
+
+  /* The pill inks, re-picked as the LIGHT step of each hue. --primary and
+     --alert-ink-warning are this theme's own, already measured against it
+     (4.37:1 and 6.12:1 on their grounds), so nothing new is invented
+     here. Mute drops onto the ramp, which inverts. */
+  /* The page header, which was the worst single reading in the audit:
+     #14151A on this ground measured 1.15:1 -- a page title you cannot
+     see at all. */
+  --v1-scope-ink:       var(--foreground);
+  --v1-scope-ink-dim:   var(--muted-foreground);
+  --v1-scope-badge-ink: var(--primary);
+
+  --v1-pill-ink-info:   var(--primary);
+  --v1-pill-ink-warn:   var(--alert-ink-warning);
+  --v1-pill-ink-mute:   var(--muted-foreground);
+
+  /* The crimson goes UP and the amber comes DOWN, to meet in the middle:
+     0.18 x 0.20 = 0.036 against 0.08 x 0.43 = 0.034, so the two washes
+     now land within ~6% of each other in luminance instead of a factor
+     of 3.6 apart. The hatch drops with its base so the texture stays
+     proportional to the fill rather than becoming the fill. */
+  --v1-tile-wash-high: rgba(219,70,112,0.18);
+  --v1-tile-wash-low:
+    repeating-linear-gradient(45deg, rgba(229,161,0,0.07) 0 1.5px, rgba(229,161,0,0.00) 1.5px 3px),
+    rgba(229,161,0,0.08);
+  /* The ink lifts off the ramp's dark end for the same reason the pill
+     inks do -- #DB4670 is a mid-dark hue and this tile is now darker. */
+  --v1-tile-ink-high:  var(--alert-ink-critical);
+}
+
 [data-theme='dark'],
 .dark {
   /* DARKER than dark's blue-500, the mirror image of light's reason: the
