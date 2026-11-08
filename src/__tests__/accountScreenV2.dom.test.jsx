@@ -162,9 +162,20 @@ describe('AccountScreenV2 renders every v1 section', () => {
     renderScreen()
 
     expect(screen.getByText('Personal Information')).toBeInTheDocument()
-    expect(screen.getByText('First Name')).toBeInTheDocument()
-    expect(screen.getByText('Last Name')).toBeInTheDocument()
-    expect(screen.getByText('Phone number')).toBeInTheDocument()
+    /* THIS ASSERTED 'First Name' AND 'Last Name' UNTIL 2026-11-08, and both
+       rows are gone on purpose: they split the person's name across two
+       half-width fields sitting directly under that same name, so the card's
+       loudest string was restated twice in its quietest place. The identity
+       row above the list is the name now.
+
+       What replaces them is a stronger check of the same property — that
+       this screen lands on the real Personal Information card and not a
+       header alone. 'Email' and 'Account' are LABELS of rows that exist only
+       inside that card, and 'Account' is new here: the account the person
+       belongs to was shown nowhere on the screen before. */
+    expect(screen.getByText('Email')).toBeInTheDocument()
+    expect(screen.getByText('Account')).toBeInTheDocument()
+    expect(screen.getByText('Phone')).toBeInTheDocument()
     expect(screen.getByText('Sign out')).toBeInTheDocument()
 
     // Not an either/or any more: the old 'main' sections are on the same

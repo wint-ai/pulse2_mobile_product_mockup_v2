@@ -207,12 +207,14 @@ import { useTranslation } from 'react-i18next'
 import {
   ArrowLeftRight,
   Bell,
+  Building2,
   BellOff,
   ChevronRight,
   FileChartColumn,
   Globe,
   GraduationCap,
   Info,
+  LogOut,
   Mail,
   MessageSquare,
   Palette,
@@ -232,6 +234,7 @@ import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import TabBar from '@/components/TabBar'
+import PersonaAvatar from '@/v2/components/PersonaAvatar'
 import BackgroundPicker from '@/v2/components/BackgroundPicker'
 import { useUserContext } from '@/context/UserContext'
 import { SUPPORTED_LANGUAGES } from '@/i18n'
@@ -365,15 +368,45 @@ function SegmentedPicker({ value, options, onChange, label }) {
    is not counted as a reference to the parameter and no-unused-vars fires on
    it; varsIgnorePattern `^[A-Z_]` exempts the local. TabBar.jsx is lint-clean
    for the same reason. */
-function ProfileField({ icon, label, value }) {
+/**
+ * One line of the identity sheet: a leading glyph, the field name, and the
+ * value hard right.
+ *
+ * REPLACES ProfileField, which stacked a 13px label over a 15px value and was
+ * laid out two-across. That cost two lines per fact and, worse, put every
+ * value on a different left edge, so reading the card meant hunting for each
+ * answer under its own caption. One line per fact is the iOS Settings idiom
+ * and puts the answers in a single column the eye can run down.
+ *
+ * `min-w-0` on the value and `shrink-0` on the label are what make truncation
+ * land on the value rather than the label. At 393px the widest real value — a
+ * 24-character work email at 15px — clears the longest label with room to
+ * spare, so nothing truncates today; the classes are there so a longer
+ * address degrades to an ellipsis instead of widening the row past the card.
+ *
+ * TWO ELEMENTS, BECAUSE DIRECTION AND ALIGNMENT ARE TWO JOBS. The values are
+ * LTR data in a row that mirrors under Hebrew, and with nothing done the bidi
+ * algorithm hands the leading "+" of +972528542617 to the surrounding RTL run
+ * and draws it as 972528542617+. Measured in the RTL pass, each single-element
+ * fix failed one half: dir="ltr" or <bdi> ON THE SPAN fix the number and break
+ * the alignment, because `text-end` resolves against the element's own
+ * direction; `unicode-bidi: isolate` alone keeps the alignment and still
+ * reorders the "+", because the isolated run inherits dir=rtl. So the span
+ * keeps the document's direction and owns the alignment, and an inline <bdi>
+ * owns the direction of the text. <bdi> is dir="auto", which is what keeps
+ * this safe for content that is not Latin: "+972…" has no strong character
+ * and falls back to ltr, while a Hebrew account name still resolves rtl
+ * instead of being forced the wrong way.
+ */
+function DetailRow({ icon, label, value }) {
   const Icon = icon
   return (
-    <div className="min-w-0 flex-1">
-      <div className="mb-1 font-medium text-slate-500 text-[13px] leading-[18px]">{label}</div>
-      <div className="flex min-w-0 items-center gap-2">
-        <Icon className="size-[16px] shrink-0 text-slate-400" aria-hidden="true" />
-        <span className="truncate text-slate-900 text-[15px] leading-[20px]">{value}</span>
-      </div>
+    <div className="flex min-w-0 items-center gap-3 py-[13px]">
+      <Icon className="size-[18px] shrink-0 text-slate-400" aria-hidden="true" />
+      <span className="shrink-0 font-medium text-slate-500 text-[14px] leading-[19px]">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-end font-medium text-slate-900 text-[15px] leading-[20px]">
+        <bdi>{value}</bdi>
+      </span>
     </div>
   )
 }
@@ -479,11 +512,9 @@ export default function AccountScreenV2() {
     { key: 'systems', value: visibleSystems.length, label: t('more.scope_counts.systems') },
   ]
 
-  const initials = (persona?.name || '?')
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
+  /* `initials` STOOD HERE and went with the hand-rolled disc. PersonaAvatar
+     derives them itself from the same persona — it was extracted precisely
+     because this was the fourth private copy of `initialsOf`. */
 
   return (
     /* `relative` is load-bearing: it is what the confirm overlay below pins to,
@@ -535,56 +566,100 @@ export default function AccountScreenV2() {
             reads as a bug, not as thoroughness. */}
         <Card className={CARD}>
           <SectionTitle>{t('more.personal_information')}</SectionTitle>
+          {/* ── THE IDENTITY SHEET ──────────────────────────────────────────
+              Rebuilt 2026-11-08. The owner's word for the previous version
+              was "horrible", and the specific failures were these:
+
+                1. THE PERSON WAS A 40px INITIALS DISC on a screen the user
+                   reaches by tapping their own face in the tab bar. The
+                   portrait exists and is already drawn at 21px, 28px and
+                   38px elsewhere; this is the one screen that is ABOUT the
+                   person, and it showed the least of them.
+                2. FIRST NAME / LAST NAME split the name across two
+                   half-width fields directly under that same name, so the
+                   loudest string on the card was also restated twice in the
+                   quietest place on it. They are gone; see the test note.
+                3. STACKED LABEL-OVER-VALUE fields cost two lines each and
+                   left every value on a different left edge, so reading the
+                   card meant hunting for each answer under its own caption.
+                4. SIGN OUT FLOATED, a centred red ghost button sitting
+                   directly under the phone number with nothing around it,
+                   reading as that field's action rather than the card's.
+
+              It is still ONE card and sign out is still its one control, so
+              the structure the tests pin is intact. What changed is the
+              treatment: a real portrait, the role as a chip rather than grey
+              sub-text, one line per fact on a shared right edge, and the
+              sign-out as a bounded full-width action at the card's foot.
+
+              NOTHING WAS INVENTED. Every value was already on the persona and
+              `more.profile_fields.account` was already in en.json AND he.json
+              with no call site. Sign out still calls the same switchProfile()
+              with no confirm step — v1's behaviour, carried deliberately. */}
           <div className="px-4 pb-4 pt-[6px]">
             <div className="flex items-center gap-3 pt-[2px]">
-              <span className="flex size-[40px] shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground text-[15px] leading-[20px]">
-                {initials}
-              </span>
+              {/* dev's own PersonaAvatar, at the one size that suits a screen
+                  about this person. It draws the committed portrait over the
+                  initials on a --primary disc, so the fallback is the exact
+                  disc this card used to draw by hand. */}
+              <PersonaAvatar size={56} initialsClassName="text-[19px]" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold text-slate-900 text-[15px] leading-[20px]">
+                <span className="block truncate font-bold tracking-[-0.3px] text-slate-900 text-[18px] leading-[24px]">
                   {persona?.name || EMPTY}
                 </span>
-                <span className="mt-[1px] block truncate text-slate-400 text-[13px] leading-[17px]">
-                  {persona?.role || EMPTY}
-                </span>
+                {persona?.role ? (
+                  /* The role as a CHIP, not grey sub-text. It is the one fact
+                     here that changes what the app will let you do, and it
+                     read as a caption. */
+                  <Badge
+                    variant="secondary"
+                    className="mt-[5px] rounded-full border-primary/20 bg-secondary px-[9px] py-[2px] font-semibold text-primary text-[12px] leading-[16px]"
+                  >
+                    {persona.role}
+                  </Badge>
+                ) : null}
               </span>
             </div>
 
             <Separator className="mt-[14px]" />
-            <div className="flex gap-4 py-3">
-              <ProfileField
-                icon={User}
-                label={t('more.profile_fields.first_name')}
-                value={persona?.name?.split(' ')[0] || EMPTY}
-              />
-              <ProfileField
-                icon={User}
-                label={t('more.profile_fields.last_name')}
-                value={persona?.name?.split(' ').slice(1).join(' ') || EMPTY}
-              />
-            </div>
-
-            <Separator />
-            <div className="py-3">
-              <ProfileField icon={Mail} label={t('more.profile_fields.email')} value={persona?.email || EMPTY} />
-            </div>
-
-            <Separator />
-            <div className="pb-[18px] pt-3">
-              <ProfileField
+            {/* `divide-y` belongs to the list, so a row added later cannot
+                forget its rule and the last row cannot leave one hanging
+                above the card's edge — which is what the old per-field
+                <Separator> + pb-[18px] pairs were working around. */}
+            <div className="divide-y divide-border">
+              <DetailRow icon={Mail} label={t('more.profile_fields.email')} value={persona?.email || EMPTY} />
+              <DetailRow
                 icon={Smartphone}
-                label={t('more.profile_fields.phone_number')}
+                label={t('more.profile_fields.phone')}
                 value={persona?.phone || EMPTY}
+              />
+              <DetailRow
+                icon={Building2}
+                label={t('more.profile_fields.account')}
+                value={persona?.sub || EMPTY}
               />
             </div>
 
             {/* Sign out. v1 signs out on tap with no confirm; that is carried
-                over rather than a confirm step being invented here. */}
+                over rather than a confirm step being invented here.
+
+                `dark:` ON ALL THREE, and they are not redundant: the outline
+                variant ships dark:border-border-strong and dark:bg-input/30,
+                and tailwind-merge keeps a `dark:` utility ALONGSIDE the
+                unprefixed one rather than treating it as the same key — so
+                without these the unprefixed red simply does not apply under
+                dark and the destructive action renders as every other
+                outline button on the screen. Measured, not guessed.
+
+                --destructive, which is what this card already used. The
+                shut-off red CLAUDE.md reserves is --severity-high, a
+                different token. */}
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={switchProfile}
-              className="w-full cursor-pointer font-semibold text-destructive hover:bg-red-100 hover:text-destructive text-[15px] leading-[20px]"
+              className="mt-4 h-[46px] w-full cursor-pointer gap-2 rounded-[14px] border-destructive/35 bg-transparent font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/40 dark:bg-transparent dark:hover:bg-destructive/15 text-[15px] leading-[20px]"
             >
+              <LogOut className="size-[18px] rtl:rotate-180" aria-hidden="true" />
               {t('more.sign_out')}
             </Button>
           </div>
