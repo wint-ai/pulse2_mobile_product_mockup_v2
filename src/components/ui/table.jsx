@@ -55,7 +55,18 @@ function TableRow({ className, ...props }) {
     <tr
       data-slot="table-row"
       className={cn(
-        'border-b transition-colors data-[state=selected]:bg-muted hover:bg-muted/50',
+        /* `border-border` IS LOAD-BEARING, 2026-11-08. The registry source is a
+           bare `border-b`, which under Tailwind v3 inherited the framework's
+           default border colour (gray-200). TAILWIND V4 REMOVED THAT DEFAULT:
+           a border utility with no colour now resolves to `currentColor`, so
+           every body row here drew its divider in the row's own near-black
+           text colour. Measured in WebKit on the Systems table: `rgb(0, 0, 0)`
+           on the body rows against `oklch(0.92876 …)` on the header row, which
+           names the token at its call site and was therefore correct. The
+           result was a table of heavy black rules under one correct hairline —
+           the single loudest reason that table did not read as shadcn.
+           Both consumers (SystemsTableCard, ControlPanel) were affected. */
+        'border-b border-border transition-colors data-[state=selected]:bg-muted hover:bg-muted/50',
         className,
       )}
       {...props}

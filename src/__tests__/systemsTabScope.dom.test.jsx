@@ -103,12 +103,24 @@ describe('the System tab', () => {
     expect(screen.queryByText('Water consumption')).toBeNull()
   })
 
+  /* ── READ FROM "Showing N of M", NOT FROM A PAGE COUNT — 2026-11-08 ───────
+     These two tests used to divide by the page size and assert "Page 1 of 18".
+     The pager is gone (owner: "the pagination below ... I think something like
+     show more needs to be there"), and the readout that replaced it carries
+     the same fact more directly: M is the exact number of rows in scope rather
+     than a number of pages it has to be divided back out of. The SUBJECT of
+     both tests — which systems this screen reports on — is unchanged. */
+  const scopedTotal = (container) => {
+    const line = container.querySelector('[data-name="systems-table-count"]')
+    expect(line, 'the table should draw its Showing N of M readout').toBeTruthy()
+    return Number(/of ([\d,]+)/.exec(line.textContent)[1].replace(/,/g, ''))
+  }
+
   it('counts the whole fleet at the root scope', () => {
     const { container } = renderAt('/')
     openSystemsTab()
 
-    const pages = Math.ceil(SYSTEMS.length / 6)
-    expect(within(container).getByText(`Page 1 of ${pages}`)).toBeTruthy()
+    expect(scopedTotal(container)).toBe(SYSTEMS.length)
   })
 
   it('narrows to the systems of the location it is scoped to', () => {
@@ -126,12 +138,10 @@ describe('the System tab', () => {
        how the l1Name bug survived its first test. Assert the relation instead:
        a leaf site is a strict subset of the fleet, and every row on screen
        belongs to it. */
-    const fleetPages = Math.ceil(SYSTEMS.length / 6)
-    const shown = within(container).getByText(/^Page 1 of \d+$/).textContent
-    const scopedPages = Number(/of (\d+)/.exec(shown)[1])
+    const scoped = scopedTotal(container)
 
-    expect(scopedPages).toBeGreaterThan(0)
-    expect(scopedPages, 'a single site must be narrower than the fleet').toBeLessThan(fleetPages)
+    expect(scoped).toBeGreaterThan(0)
+    expect(scoped, 'a single site must be narrower than the fleet').toBeLessThan(SYSTEMS.length)
 
     // The identity cell's sub-line is the site, so every visible row names it.
     const rows = [...container.querySelectorAll('tbody tr')]
