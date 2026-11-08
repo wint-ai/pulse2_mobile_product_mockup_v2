@@ -1811,6 +1811,17 @@ button {
     repeating-linear-gradient(45deg, rgba(229,161,0,0.10) 0 1.5px, rgba(229,161,0,0.00) 1.5px 3px),
     rgba(229,161,0,0.12);
   --v1-tile-ink-high:  #DB4670;
+
+  /* ── TriageBand's calm state (199466:18070 / 199375:139983) ───────
+     Two pale-blue #daecff surfaces: the 90px sparkle tile and the leak
+     prevention tip under it. Both are Figma literals chosen against a
+     white card, and both are wrong on a near-black one in opposite
+     directions -- the tile is multiplied into invisibility, the tip
+     becomes the brightest thing on the screen. The hexes here are the
+     ones the component carried, so the light themes do not move. */
+  --triage-art-tint: #daecff;
+  --triage-tip-bg:   #daecff;
+  --triage-tip-ink:  var(--primary);
 }
 
 [data-theme='dark'],
@@ -1865,6 +1876,22 @@ button {
      now land within ~6% of each other in luminance instead of a factor
      of 3.6 apart. The hatch drops with its base so the texture stays
      proportional to the fill rather than becoming the fill. */
+  /* The sparkle tile becomes a PLATE rather than a wash. With the outer
+     multiply off (see TriageBand's EMPTY_ART) the tint is what the tile
+     reads as, and it has to be dark enough to sit on the card while
+     still carrying the brand blue -- the white sparkle on top is what
+     has to pop, and it cannot pop off a pale ground. The tip takes the
+     same hue much weaker, because it is a band of text, not an object.
+
+     The tip's INK moves to --ring, which is this theme's blue-300. That
+     is not a new colour: index.css picks it for the focus ring here for
+     exactly this reason, that a dark scheme's accent has to be a LIGHT
+     tone to survive on dark surfaces. --primary on the tip band measured
+     4.0:1 and fails; blue-300 clears it comfortably. */
+  --triage-art-tint: color-mix(in oklab, var(--primary) 34%, var(--card));
+  --triage-tip-bg:   color-mix(in oklab, var(--primary) 16%, var(--card));
+  --triage-tip-ink:  var(--ring);
+
   --v1-tile-wash-high: rgba(219,70,112,0.18);
   --v1-tile-wash-low:
     repeating-linear-gradient(45deg, rgba(229,161,0,0.07) 0 1.5px, rgba(229,161,0,0.00) 1.5px 3px),
