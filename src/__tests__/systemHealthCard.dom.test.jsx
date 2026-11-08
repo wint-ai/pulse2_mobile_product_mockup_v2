@@ -339,8 +339,11 @@ describe('SystemHealthCard — all healthy / empty', () => {
        `healthy` with. A card that invented its own vocabulary is how the
        table and the bar that opened it start disagreeing;
      - that the accessible NAMES carry the filter module's own labels, for
-       the same reason, and say where the press goes -- this card already has
-       three other controls that open the alerts overlay instead;
+       the same reason, and say where the press goes -- which since 2026-11-08
+       is TWO DIFFERENT PLACES: ced0553 sent the red half to the alerts
+       overlay and left the green half on the filtered table, so the red name
+       ends "Show all alerts." and the green one "Show these systems.". The
+       asymmetry is the point and is asserted, not tidied away;
      - the KEYBOARD, because a bar made of divs with onClick is the usual way
        this gets shipped and it is unreachable;
      - the NO-HANDLER case, which is the repo's standing rule: a card never
@@ -356,12 +359,12 @@ describe('SystemHealthCard — the progress bar as a pair of controls', () => {
   const ATTENTION_LABEL = FILTER_CATEGORY_BY_ID.attention.labelOf('attention')
   const OK_LABEL = FILTER_CATEGORY_BY_ID.attention.labelOf('ok')
 
-  it('opens the systems list filtered to the half it draws', async () => {
+  it('raises the half it draws, red to the alerts overlay and green to the table', async () => {
     const onSelectHealth = vi.fn()
     render(<SystemHealthCard {...ALERTING} onSelectHealth={onSelectHealth} />)
 
     const red = screen.getByRole('button', {
-      name: 'Requires attention: 3 of 48 systems. Show these systems.',
+      name: 'Requires attention: 3 of 48 systems. Show all alerts.',
     })
     const green = screen.getByRole('button', {
       name: 'All systems good: 45 of 48 systems. Show these systems.',
@@ -399,14 +402,20 @@ describe('SystemHealthCard — the progress bar as a pair of controls', () => {
     const { red, green } = segments(container)
     // 'Requires attention' / 'All systems good' -- the sheet's own wording.
     expect(red.getAttribute('aria-label')).toBe(
-      `${ATTENTION_LABEL}: 3 of 48 systems. Show these systems.`,
+      `${ATTENTION_LABEL}: 3 of 48 systems. Show all alerts.`,
     )
     expect(green.getAttribute('aria-label')).toBe(
       `${OK_LABEL}: 45 of 48 systems. Show these systems.`,
     )
-    /* The other three controls on this card go to the ALERTS overlay. The two
-       destinations have to be tellable apart by ear. */
-    expect(red.getAttribute('aria-label')).not.toMatch(/alert/i)
+    /* THE TWO HALVES NAME TWO DESTINATIONS, and that is deliberate -- see the
+       block note above. Red goes to the alerts overlay (ced0553), so its name
+       must say so, and it says it in the card's OWN words: the header button's
+       accessible name, verbatim, which is the other control onto that overlay.
+       Green still opens the filtered table and must NOT say "alert". */
+    expect(red.getAttribute('aria-label')).toMatch(/alert/i)
+    expect(red.getAttribute('aria-label')).toContain(
+      screen.getByRole('button', { name: 'Show all alerts' }).getAttribute('aria-label'),
+    )
     expect(green.getAttribute('aria-label')).not.toMatch(/alert/i)
   })
 
@@ -573,7 +582,7 @@ describe('SystemHealthCard — the progress bar as a pair of controls', () => {
     expect(red.className).toContain('after:left-[-20px]')
     expect(red.className).toContain('after:right-[-20px]')
     expect(red.getAttribute('aria-label')).toBe(
-      `${ATTENTION_LABEL}: 6 of 6 systems. Show these systems.`,
+      `${ATTENTION_LABEL}: 6 of 6 systems. Show all alerts.`,
     )
   })
 
@@ -586,7 +595,7 @@ describe('SystemHealthCard — the progress bar as a pair of controls', () => {
       <SystemHealthCard total={1} healthy={0} onSelectHealth={() => {}} />,
     )
     expect(segments(container).red.getAttribute('aria-label')).toBe(
-      `${ATTENTION_LABEL}: 1 of 1 system. Show these systems.`,
+      `${ATTENTION_LABEL}: 1 of 1 system. Show all alerts.`,
     )
   })
 })
