@@ -35,7 +35,7 @@
 // now needs router context. Both real mount sites are inside the app router.
 
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
 /* THE REAL CALL SITE. The 2026-10-29 bug ("why ignore action only available
@@ -428,7 +428,7 @@ describe('the valve', () => {
     expect(document.querySelector('[role="dialog"] footer')).toBeNull()
   })
 
-  it('commits nothing on the tap — ValveConfirmSheet gates it, with v1’s copy', () => {
+  it('commits nothing on the tap — ValveConfirmSheet gates it, with v1’s copy', async () => {
     const intents = []
     renderOverlay({
       system: valveSys,
@@ -445,10 +445,12 @@ describe('the valve', () => {
     // The card speaks state; the sheet speaks intent. The translation happens
     // here, and the PAGE commits it.
     expect(intents).toEqual(['close'])
-    expect(screen.queryByText('Close the valve?')).toBeNull()
+    /* `waitFor`: confirming closes the sheet too, and it animates out --
+       still in the DOM for ~300ms. See the note in "cancels cleanly". */
+    await waitFor(() => expect(screen.queryByText('Close the valve?')).toBeNull())
   })
 
-  it('cancels cleanly, committing nothing', () => {
+  it('cancels cleanly, committing nothing', async () => {
     const intents = []
     renderOverlay({ system: valveSys, valve: { state: 'open', onIntent: a => intents.push(a) } })
     fireEvent.click(screen.getByRole('button', { name: /^close valve now$/i }))
@@ -457,7 +459,12 @@ describe('the valve', () => {
     const cancels = screen.getAllByRole('button', { name: /^cancel$/i })
     fireEvent.click(cancels[cancels.length - 1])
     expect(intents).toEqual([])
-    expect(screen.queryByText('Close the valve?')).toBeNull()
+    /* `waitFor`, not a synchronous query: the sheet ANIMATES OUT now, so for
+       ~300ms after Cancel it is still in the DOM, travelling. Asserting on
+       the same tick tests the frame the user never sees. What matters is
+       that it leaves and commits nothing on the way. */
+    await waitFor(() => expect(screen.queryByText('Close the valve?')).toBeNull())
+    expect(intents).toEqual([])
   })
 
   it('reflects the state the PAGE holds, and offers the opposite action', () => {
@@ -524,7 +531,7 @@ describe('the valve', () => {
     expect(screen.getByRole('button', { name: /^assign to me$/i })).toBeInTheDocument()
   })
 
-  it('lets Escape cancel the confirmation without closing the event behind it', () => {
+  it('lets Escape cancel the confirmation without closing the event behind it', async () => {
     let closed = 0
     renderOverlay({
       system: valveSys,
@@ -533,7 +540,9 @@ describe('the valve', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /^close valve now$/i }))
     fireEvent.keyDown(window, { key: 'Escape' })
-    expect(screen.queryByText('Close the valve?')).toBeNull()
+    /* `waitFor`: the confirm sheet animates out, so it is still in the DOM
+       for ~300ms after it is dismissed. See the note in "cancels cleanly". */
+    await waitFor(() => expect(screen.queryByText('Close the valve?')).toBeNull())
     expect(closed).toBe(0)
     // And the event itself is still dismissible once the sheet is gone.
     fireEvent.keyDown(window, { key: 'Escape' })

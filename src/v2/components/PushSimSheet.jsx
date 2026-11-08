@@ -106,7 +106,11 @@ export default function PushSimSheet({ open, system, onClose, onFireCard, onLock
         className="absolute inset-0 cursor-default bg-scrim"
       />
 
-      <div className="relative flex max-h-[78%] flex-col overflow-hidden rounded-t-[18px] border-t border-solid border-border bg-surface-card">
+      {/* Entrance via the shadcn animation classes, which compiled to nothing
+          until tw-animate-css was wired in this pass. Entrance only: this
+          component returns null when closed, so there is no element left to
+          animate out. */}
+      <div className="relative flex max-h-[78%] flex-col overflow-hidden rounded-t-[18px] border-t border-solid border-border bg-surface-card animate-in fade-in-0 slide-in-from-bottom-[100%] duration-500 ease-(--ease-ios) motion-reduce:slide-in-from-bottom-0">
         {/* Grab area — swipe down here closes, the way the other sheets do.
             Scoped to the header so it never competes with the list's scroll. */}
         <div

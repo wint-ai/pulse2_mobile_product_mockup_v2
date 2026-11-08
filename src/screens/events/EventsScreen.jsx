@@ -85,7 +85,13 @@ function SwipeableAlertTabs({ children, activeTab, onSwipe }) {
       <div style={{
         display: 'flex', width: `${ALERT_TABS.length * 100}%`,
         transform: `translateX(-${idx * (100 / ALERT_TABS.length)}%)`,
-        transition: 'transform 0.25s ease', height: '100%',
+        /* The tab carousel. This was a hardcoded `0.25s ease` -- the
+           browser's default curve, which decelerates far too little to read
+           as a deliberate slide. It takes the token scale now: --dur-slow
+           because the panel travels the full frame width, and --ease-standard
+           because it both starts and ends on screen (M3 reserves the
+           emphasized pair for things entering or leaving). */
+        transition: 'transform var(--dur-slow) var(--ease-standard)', height: '100%',
       }}>
         {children.map((child, i) => (
           /* NO paddingBottom. TabBar's host reserves TAB_BAR_CLEARANCE of

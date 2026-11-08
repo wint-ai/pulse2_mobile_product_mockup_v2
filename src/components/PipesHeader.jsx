@@ -81,14 +81,32 @@ const _WAVE_SYSTEM_SVG =
   "<path d='M0,300 C100,260 180,360 280,290 C320,265 360,305 380,280 L380,390 C320,430 220,340 140,420 C80,460 30,400 0,440 Z' fill='rgba(11,149,248,0.02)'/>" +
   "</svg>";
 
+/* ── THE GRADIENT UNDER THE WAVES IS TOKENISED; THE WAVES ARE NOT ───────
+ * Measured 2026-11-08: /systems rendered almost entirely LIGHT under
+ * [data-theme=dark] even after the v1 theme context was bridged, because
+ * this gradient is the outermost thing the page paints and it was three
+ * literal near-whites. The dark ground was underneath the whole time,
+ * covered up.
+ *
+ * Only the GRADIENT moves. The wave paths keep their brand blue at
+ * 10/6/4% (home) and 5/3/2% (system) in every theme -- CLAUDE.md fixes the
+ * water art as product semantics, and a translucent blue composites
+ * correctly over a dark ground as readily as over a pale one, so there is
+ * nothing to fix and no licence to repaint it.
+ *
+ * `light` IS BYTE-FOR-BYTE UNCHANGED: --sky-* in :root are the same three
+ * hexes that were written here. `sand` and `contrast` inherit those, which
+ * is what they rendered before this change. Only `dark` declares its own.
+ */
+
 /** Wint Sky Home variant - saturated blue gradient + waves at full opacity. */
 export const WINT_SKY_HOME_BG =
-  `url("${_WAVE_HOME_SVG}"), linear-gradient(180deg, #E8F2FE 0%, #F2F7FC 30%, #FFFFFF 70%)`;
+  `url("${_WAVE_HOME_SVG}"), linear-gradient(180deg, var(--sky-home-from) 0%, var(--sky-home-via) 30%, var(--sky-home-to) 70%)`;
 export const WINT_SKY_HOME_BG_SIZE = '100% 100%, 100% 100%';
 
 /** Wint Sky System variant - dimmer gradient + waves at half opacity. */
 export const WINT_SKY_SYSTEM_BG =
-  `url("${_WAVE_SYSTEM_SVG}"), linear-gradient(180deg, #F4F8FD 0%, #FAFBFE 30%, #FFFFFF 70%)`;
+  `url("${_WAVE_SYSTEM_SVG}"), linear-gradient(180deg, var(--sky-system-from) 0%, var(--sky-system-via) 30%, var(--sky-system-to) 70%)`;
 export const WINT_SKY_SYSTEM_BG_SIZE = '100% 100%, 100% 100%';
 
 export default function PipesHeader({ children, style = {}, glow = false }) {

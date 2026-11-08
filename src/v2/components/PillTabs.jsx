@@ -357,8 +357,25 @@ function TabTrigger({ label, count, active, pill, grow, onSelect, onKeyDown, tri
 
            THE BORDER IS TRANSPARENT AT REST, not absent, so selecting costs no
            geometry: preflight sets box-sizing:border-box, the border is drawn
-           inside the box, and neither the trigger nor its neighbours move. */
-        String.raw`border border-solid`,
+           inside the box, and neither the trigger nor its neighbours move.
+
+           ── SELECTION EASES ──────────────────────────────────────────────
+           Carried over from the motion pass on main, and it composes with
+           this ruling rather than fighting it: the always-present transparent
+           border that Ruling 3 keeps is exactly the precondition the motion
+           needed, because a border that does not exist cannot animate. Only
+           COLOUR changes, which is compositor-friendly.
+
+           `box-shadow` is in the list where main's was not: Ruling 3's active
+           state also lifts the trigger onto bg-card with two stacked shadows,
+           and a shadow that appears instantly under a fading border is the
+           same half-finished swap the border fix was for.
+
+           --dur-fast: tabs are high-frequency, and Apple is explicit that
+           frequent interactions must not be made to wait on motion. `press`
+           gives the tap its own acknowledgement — these are not shadcn
+           Buttons, so they do not inherit the one added there. */
+        String.raw`border border-solid press transition-[border-color,color,background-color,box-shadow] duration-(--dur-fast) ease-linear`,
         /* ONE border-colour atom per state, never two. This list is a plain
            join, not tailwind-merge, so emitting `border-transparent` and then
            `border-primary` would ship both and let CSS SOURCE order decide

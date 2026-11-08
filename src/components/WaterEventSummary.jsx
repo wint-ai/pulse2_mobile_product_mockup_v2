@@ -74,13 +74,13 @@ export default function WaterEventSummary({ event, onClick, highlight }) {
     if (isIgnored)  return { background: 'rgba(20,21,26,0.06)', color: '#717684' };
     if (isResolved) return { background: 'rgba(92,158,26,0.14)', color: '#2F6112' };
     if (sys?.valve === 'closed') return { background: 'rgba(20,21,26,0.06)', color: theme.text };
-    return { background: 'rgba(229,161,0,0.18)', color: '#8C5A0F' };
+    return { background: 'rgba(229,161,0,0.18)', color: 'var(--v1-pill-ink-warn)' };
   })();
 
   // Valve pill (hide for resolved/ignored — already implied)
   const valvePillEl = (() => {
     if (isResolved || isIgnored) return null;
-    if (sys?.valve === 'open') return { label: t('alerts.row.valve_open'), style: { background: 'rgba(4,173,239,0.14)', color: '#036AB5' } };
+    if (sys?.valve === 'open') return { label: t('alerts.row.valve_open'), style: { background: 'rgba(4,173,239,0.14)', color: 'var(--v1-pill-ink-info)' } };
     if (sys?.valve === 'closed') return { label: t('alerts.row.valve_closed'), style: { background: 'rgba(113,118,132,0.14)', color: theme.textSecondary } };
     if (sys?.valve === 'error')  return { label: t('alerts.row.valve_error'), style: { background: 'rgba(219,70,112,0.12)', color: '#DB4670' } };
     return null;

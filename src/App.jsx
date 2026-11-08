@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'motion/react';
+
+/* Aliased to a capitalised name: no eslint-plugin-react here, so an
+   identifier referenced only inside JSX is reported as unused. The config's
+   no-unused-vars already exempts /^[A-Z_]/ for exactly this reason. */
+const MotionDiv = motion.div;
 import { ChevronRight, Eye, EyeOff, Info, Link2, QrCode, X } from 'lucide-react';
 import Phone from './components/Phone';
 import { Button } from '@/components/ui/button';
@@ -31,7 +37,6 @@ import SystemPageV2 from './v2/pages/SystemPage';
 import HomeAllAccounts from './v2/pages/HomeAllAccounts';
 import SystemPageV2Screen from './v2/pages/SystemPageV2Screen';
 import HomeAccountOverview from './v2/pages/HomeAccountOverview';
-import ValveManagementScreen from './v2/pages/ValveManagementScreen';
 import LeakDetail from './screens/leak/LeakDetail';
 import EventHistory from './screens/EventHistory';
 import AccountScreenV2 from './v2/pages/AccountScreenV2';
@@ -65,8 +70,40 @@ function SystemsRouter() {
   return <HomeUnified />;
 }
 
+/* ── PAGE TRANSITION ──────────────────────────────────────────────────────
+   The incoming screen fades and lifts into place. ~200ms, decelerating.
+
+   WHAT THIS DELIBERATELY IS NOT: a cross-fade, or a slide. Both require the
+   outgoing and incoming screens to occupy the same space at once, which means
+   absolutely positioning them — and every screen in this app is a flex child
+   of the 393x852 Phone frame that MUST stay `flex:1 / minHeight:0 / column`
+   or its scroll container stops working. Stacking two pages would trade a
+   transition for broken scrolling on all nineteen routes. The shell contract
+   in .claude/skills/v2-page-parity exists because that has happened before.
+
+   So only the arriving screen animates, and the wrapper keeps the contract
+   exactly. The 8px lift is what makes it read as "arriving" rather than
+   "blinking" — pure opacity reads as a flicker at this duration.
+
+   A SLIDE WOULD ALSO BE WRONG HERE even if it were free. Most navigation in
+   this app is lateral — bottom-tab switches between Home, Alerts and More —
+   and lateral moves have no spatial relationship to animate along. M3 uses
+   fade-through for exactly this and reserves shared-axis for ordered steps;
+   iOS does not animate tab content at all.
+
+   `key` on the pathname is what re-triggers it: React remounts the subtree on
+   a route change, so `initial` runs again. No AnimatePresence, because
+   nothing needs to animate OUT — the outgoing screen simply goes. */
 function AppRoutes() {
+  const location = useLocation();
   return (
+    <MotionDiv
+      key={location.pathname}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: [0.05, 0.7, 0.1, 1] }}
+      style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}
+    >
       <Routes>
         {/* Entry — persona selector */}
         <Route path="/select" element={<PersonaSelect />} />
@@ -91,19 +128,6 @@ function AppRoutes() {
         <Route path="/pixel/system/:systemId" element={<SystemPageV2Screen />} />
         {/* Figma "Location opt b" (198328:88654) — same screen, scoped title. */}
         <Route path="/location/:locationName" element={<HomeAllAccounts />} />
-
-        {/* ── Valve management ─────────────────────────────────────────────
-            ADDITIVE. The overview's valve widget is a READOUT; this is the
-            screen where valves are selected, filtered and commanded — the
-            owner's "i want to open a dedicated screen so user can
-            select/deselect specific valves can filter per location / etc".
-            No existing route is repointed: that is the functionality change
-            Rule 0 covers (.claude/skills/v2-page-parity/SKILL.md:12-21).
-            /valves/:locationName mirrors /location/:locationName exactly —
-            same param, same by-NAME scope resolution, same empty-scope rule
-            for a name that matches nothing. */}
-        <Route path="/valves" element={<ValveManagementScreen />} />
-        <Route path="/valves/:locationName" element={<ValveManagementScreen />} />
         <Route path="/home-clear" element={<HomeClear />} />
         <Route path="/tenant" element={<TenantHome />} />
         <Route path="/home-multi" element={<HomeMultiAccount />} />
@@ -146,6 +170,7 @@ function AppRoutes() {
         {/* Default — go to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+    </MotionDiv>
   );
 }
 

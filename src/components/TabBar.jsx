@@ -875,6 +875,19 @@ export default function TabBar({ activeTab }) {
                     `[&_svg:not([class*='size-'])]:size-4`, which would otherwise
                     shrink it to 16px. */}
                 <div className="relative size-[21px]">
+                  {/* THE FILL EASES WITH THE COLOUR, on the <Icon> branch
+                      below. Carried over from the motion pass on main, which
+                      this tab bar predates: the Button preset transitions
+                      `color`, but `fill` is set per-element here and is not in
+                      that list, so the glyph filled INSTANTLY while its tint
+                      faded. The two have to move together or the swap looks
+                      broken at the halfway point.
+
+                      --dur-fast, not slower: this is a high-frequency control,
+                      and Apple is explicit that frequent interactions should
+                      not be made to wait on motion. iOS cuts tab content with
+                      no animation at all; easing the glyph's own state is as
+                      far as this should go. */}
                   {tab.Avatar ? (
                     /* The face, in the same 21px box the line icons get.
                        `text-[8px]` is the initials fallback scaled off
@@ -884,7 +897,7 @@ export default function TabBar({ activeTab }) {
                     <PersonaAvatar size={21} initialsClassName="text-[8px]" />
                   ) : (
                     <Icon
-                      className="size-[21px]"
+                      className="size-[21px] transition-[fill] duration-(--dur-fast) ease-linear"
                       strokeWidth={1.8}
                       fill={isActive ? 'currentColor' : 'none'}
                     />

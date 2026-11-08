@@ -25,7 +25,10 @@ function MIcon({ name, size = 18, fill = false, color, style = {} }) {
 
 export default function ScopeHeader({
   badgeIcon = 'home_work',
-  badgeIconColor = '#036AB5',
+  /* Same opt-in shape as --v1-scope-ink below: the literal is the FALLBACK,
+     so a screen that sets nothing renders exactly as it did. #036AB5 is a
+     dark blue and measured 3.73:1 on the dark ground. */
+  badgeIconColor = 'var(--v1-scope-badge-ink, #036AB5)',
   badgeBgColor = 'rgba(11,149,248,0.12)',
   badgeBorderColor = 'rgba(11,149,248,0.20)',
   subLine = null,

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useSyncExternalStore } from 'react';
 
 const DARK = {
   mode: 'dark',
@@ -418,25 +418,170 @@ const PORTAL = {
   leakIconColor: '#20294C',
 };
 
-export const THEMES = { dark: DARK, light: LIGHT, wint: WINT, gradient: GRADIENT, ocean: OCEAN, midnight: MIDNIGHT, portal: PORTAL };
+/* ── WINT_DARK — what the v1 screens wear when the app is in dark mode ──
+ *
+ * THE BUG THIS FIXES. Measured 2026-11-08 by rendering every live route in
+ * `light` and in `dark` and diffing the COMPUTED colour of every element:
+ * five routes -- /systems, /alerts, /events, /leak/:id, /kpi/:type -- came
+ * back byte-identical in both themes. They are v1 screens, they take their
+ * colour from this React context, and this context has never known that
+ * `data-theme` exists. It read one localStorage key, found 'wint', and
+ * painted a light theme onto a black app. The result was a near-black page
+ * chrome with pure-white cards sitting on it, and ~100 text nodes under
+ * 4.5:1. `card: '#F7FAFC'` on line 122 alone painted 31 of those slabs.
+ *
+ * WHY THE VALUES ARE var() AND NOT HEXES. There is already a complete,
+ * measured dark palette in src/index.css -- the one the v2 pages use. A
+ * second set of dark hexes here would be a second source of truth that
+ * drifts the first time either is touched, and the whole point of the token
+ * work was to stop having two. So every value below POINTS AT that palette.
+ * This is not a new pattern: WINT itself already sets `bgSolid` and
+ * `phoneBg` to var(--app-bg), because inline styles resolve custom
+ * properties at paint time like any other declaration.
+ *
+ * It follows that this object is not really "a dark theme" -- it is a view
+ * onto whatever [data-theme] is current. It is wired to `dark` ONLY, and
+ * that restraint is deliberate: pointing `light` at it too would change how
+ * the v1 screens look in light mode, which nobody asked for. `sand` and the
+ * `contrast` diagnostic therefore still get WINT, unchanged. That leaves
+ * sand's v1 screens cool-blue rather than warm -- a real but pre-existing
+ * mismatch, and a light theme on a light theme, so nothing is invisible.
+ *
+ * `mode` IS 'dark', AND THAT IS LOAD-BEARING. Nine places across the v1
+ * screens branch on `theme.mode === 'dark'` to pick a white-alpha fill over
+ * a light hex (NavigationDrawer, HomeUnified, StatusWidgetsMobile and the
+ * rest). Those branches have been dead since the v1 picker was removed --
+ * there is no remaining call site for this context's own setTheme. Naming
+ * the mode 'dark' is what switches them all back on.
+ */
+const WINT_DARK = {
+  mode: 'dark',
+  label: 'Dark', icon: '🌙', preview: '#09090b',
+  // Backgrounds — the themed wash, the same one the v2 pages stand on.
+  bg: 'var(--app-bg)',
+  bgSolid: 'var(--app-bg)',
+  bgFlat: 'var(--background)',
+  /* --surface-card, not --card: dark lifts the card 4% toward the
+     foreground so it separates from the page at ~1.1:1. See index.css. */
+  card: 'var(--surface-card)',
+  cardBorder: '1px solid var(--border-subtle)',
+  cardHover: 'var(--accent)',
+  headerBg: 'var(--primary)',
+  headerBorder: '1px solid var(--border-subtle)',
+  /* Dark ink on the blue header, not white: index.css measured white on
+     this theme's --primary at 3.60:1 and --primary-foreground at 4.71:1. */
+  headerText: 'var(--primary-foreground)',
+  headerTextSub: 'color-mix(in oklab, var(--primary-foreground) 78%, transparent)',
+  inputBg: 'var(--secondary)',
+  // Drawer — the sidebar token family exists for exactly this.
+  drawerBg: 'var(--sidebar)',
+  drawerText: 'var(--sidebar-foreground)',
+  drawerTextSub: 'var(--muted-foreground)',
+  drawerTextDim: 'var(--border-strong)',
+  drawerAccent: 'var(--sidebar-primary)',
+  drawerDivider: 'var(--sidebar-border)',
+  drawerInput: 'var(--secondary)',
+  drawerCard: 'var(--sidebar-accent)',
+  drawerCardBorder: '1px solid var(--sidebar-border)',
+  /* Text — five steps down the ramp, which INVERTS under dark, so these
+     walk from near-white to near-ground without restating a single hex. */
+  text: 'var(--foreground)',
+  textSecondary: 'var(--slate-700)',
+  textTertiary: 'var(--muted-foreground)',
+  textMuted: 'var(--slate-400)',
+  textFaint: 'var(--slate-300)',
+  textDimmest: 'var(--slate-200)',
+  // Borders & dividers
+  divider: 'var(--border-subtle)',
+  separator: '0.5px solid var(--border-subtle)',
+  /* Accent and the status hues. The severity four are product semantics and
+     CLAUDE.md fixes them, so they do NOT move between themes -- they are
+     named here so the v1 screens stop carrying their own near-duplicates
+     (#CF2E2E, #00D084) alongside the real ones. --destructive is the
+     exception and is the right one to use: it is shadcn's dark red, chosen
+     to be read as INK on a dark ground, which is how theme.red is used. */
+  accent: 'var(--primary)',
+  green: 'var(--success)',
+  red: 'var(--destructive)',
+  orange: 'var(--severity-low)',
+  gray: 'var(--muted-foreground)',
+  // Specific
+  sheetBg: 'var(--popover)',
+  modalBg: 'var(--popover)',
+  tabBarBg: 'var(--card)',
+  tabBarBorder: '1px solid var(--border-subtle)',
+  tabInactive: 'var(--muted-foreground)',
+  // Glow orbs
+  glowOrb1: 'radial-gradient(circle, color-mix(in oklab, var(--primary) 14%, transparent) 0%, transparent 60%)',
+  glowOrb2: 'radial-gradient(circle, color-mix(in oklab, var(--primary) 7%, transparent) 0%, transparent 60%)',
+  // Clear status
+  clearBg: 'color-mix(in oklab, var(--success) 12%, transparent)',
+  clearBorder: '1px solid color-mix(in oklab, var(--success) 28%, transparent)',
+  // Badges
+  badgeBg: 'var(--secondary)',
+  badgeText: 'var(--muted-foreground)',
+  /* Status bar — transparent so the wash runs to the top edge, matching
+     what WINT does and what the Figma frames show. */
+  statusBarBg: 'transparent',
+  statusBarColor: 'var(--foreground)',
+  phoneBg: 'var(--app-bg)',
+};
+
+export const THEMES = { dark: DARK, light: LIGHT, wint: WINT, wintDark: WINT_DARK, gradient: GRADIENT, ocean: OCEAN, midnight: MIDNIGHT, portal: PORTAL };
 
 const ThemeContext = createContext(null);
+
+/** What [data-theme] says right now. SSR and jsdom have no <html>.
+ *  Returns a STRING (or null), so successive snapshots compare equal by
+ *  value and useSyncExternalStore does not re-render on every check. */
+function readDocTheme() {
+  if (typeof document === 'undefined') return null;
+  return document.documentElement.getAttribute('data-theme');
+}
+
+/** Module scope, so the subscription identity is stable across renders. */
+function subscribeToDocTheme(onChange) {
+  if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') {
+    return () => {};
+  }
+  const obs = new MutationObserver(onChange);
+  obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  return () => obs.disconnect();
+}
 
 export function ThemeProvider({ children }) {
   const [mode, setMode] = useState(() => {
     try { return localStorage.getItem('pulse2-theme') || 'wint'; } catch { return 'wint'; }
   });
 
+  /* The bridge. src/theme/index.js stamps [data-theme] on <html> and is the
+     only thing in the app that changes it, but it is NOT a React store --
+     the v2 side reads it straight off the element. <html> is therefore an
+     external store, and useSyncExternalStore is the primitive for exactly
+     that: it subscribes, it reads through getSnapshot on every render so
+     the value can never be stale, and it needs no effect. Writing this as
+     useState + a MutationObserver in an effect instead costs a
+     setState-during-effect, which this repo's eslint rejects and which is
+     the cascading-render hazard the rule is named after. */
+  const docTheme = useSyncExternalStore(subscribeToDocTheme, readDocTheme, () => null);
+
   useEffect(() => {
     try { localStorage.setItem('pulse2-theme', mode); } catch {}
   }, [mode]);
 
-  const theme = THEMES[mode] || DARK;
+  /* [data-theme=dark] WINS over the stored v1 mode. Nothing in the app calls
+     this context's setTheme any more, so there is no preference being
+     overridden here -- only the 'wint' default, which is what painted the
+     light cards onto the dark app. */
+  const theme = docTheme === 'dark' ? WINT_DARK : (THEMES[mode] || DARK);
   const toggleTheme = () => setMode(m => m === 'dark' ? 'light' : 'dark');
   const setTheme = (id) => setMode(id);
 
+  /* The exposed `mode` is the EFFECTIVE one, so it can never disagree with
+     the palette being handed out. Every consumer reads theme.mode today,
+     but a context reporting 'wint' while serving the dark set is a trap. */
   return (
-    <ThemeContext.Provider value={{ theme, mode, toggleTheme, setTheme, themes: THEMES }}>
+    <ThemeContext.Provider value={{ theme, mode: theme.mode, toggleTheme, setTheme, themes: THEMES }}>
       {children}
     </ThemeContext.Provider>
   );

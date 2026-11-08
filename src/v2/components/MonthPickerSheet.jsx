@@ -317,7 +317,23 @@ function MonthPickerSheetBody({
         aria-labelledby={titleId}
         aria-describedby={isWindow ? helpId : undefined}
         tabIndex={-1}
-        className="absolute bottom-0 left-0 right-0 bg-popover border border-neutral-200 border-solid content-stretch flex flex-col gap-4 items-start justify-end overflow-clip pb-7 pt-0 px-0 rounded-[18px] shadow-[0px_-25px_50px_-12px_rgba(0,0,0,0.1)]"
+        /* ENTRANCE ONLY, and via the shadcn animation classes rather than
+           SheetShell. This panel carries role="dialog" ITSELF, with
+           aria-labelledby, aria-describedby and a ref the focus trap uses;
+           SheetShell owns those on its outer wrapper, so adopting it here
+           would mean moving the dialog semantics and the focus management
+           with them. Not worth the risk for a sheet whose entrance is the
+           part anyone sees.
+
+           There is no exit animation because the component returns null when
+           closed — the same unmount-on-the-tick problem the other sheets had.
+           Fixing that means restructuring, which is the next step for this
+           file and not this one.
+
+           These classes produced NOTHING until this pass: tw-animate-css was
+           unwired, so every `animate-in` in the repo compiled to zero bytes.
+           They work now. */
+        className="absolute bottom-0 left-0 right-0 bg-popover border border-neutral-200 border-solid content-stretch flex flex-col gap-4 items-start justify-end overflow-clip pb-7 pt-0 px-0 rounded-[18px] shadow-[0px_-25px_50px_-12px_rgba(0,0,0,0.1)] animate-in fade-in-0 slide-in-from-bottom-[100%] duration-500 ease-(--ease-ios) motion-reduce:slide-in-from-bottom-0"
       >
         <div className="content-stretch flex flex-col gap-1 items-center justify-center p-0 relative shrink-0 w-full">
           <div className="content-stretch flex flex-col gap-0 items-start p-0 relative rounded-[26px] shrink-0 w-full">

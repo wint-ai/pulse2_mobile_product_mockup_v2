@@ -94,8 +94,12 @@
  * so the project's Phosphor caret-down is used instead of shipping a smiley.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+
+/* Pull to refresh. Wraps this page's ONE scroller rather than replacing it,
+   so the shell contract is untouched; see the mount below. */
+import PullToRefresh from '@/v2/components/PullToRefresh'
 /* One key only — `home.switch_location`, for the header bar's scope slot.
    The rest of this page is still untranslated; this is not the start of a
    pass, it is the accessible name the drawer suites navigate by, and it has
@@ -691,6 +695,11 @@ export default function HomeAllAccounts({ expanded = false }) {
      one. Every other card here (the table, the consumption chart, valve
      management, insights) already reads this same set, which is the property
      that makes the screen agree with itself. */
+  /* Handed to PullToRefresh so the gesture can read the scroller's own
+     scrollTop — a drag may only begin at the very top, or pulling down while
+     scrolled would fight the scroll instead of refreshing. */
+  const homeScrollRef = useRef(null)
+
   const alertScope = useAlertScope()
   const scopedSystems = useMemo(() => {
     const all = SYSTEMS ?? []
@@ -2039,7 +2048,29 @@ export default function HomeAllAccounts({ expanded = false }) {
             band above is `absolute` and comes FIRST in the DOM, so with both
             at z-auto tree order already paints this over it. `relative` stays
             for the chart's scroll targets; only the `z-10` goes. */}
+        {/* PULL TO REFRESH WRAPS THE SCROLLER, IT DOES NOT REPLACE IT, which
+            is what lets it survive the restructure above untouched: the div
+            below is still this screen's ONE scroller and still carries
+            `flex:1 / minHeight:0 / overflowY:auto`, exactly as the shell
+            contract and the notes under it require. PullToRefresh reads it
+            through `scrollRef` and draws its indicator as an absolutely
+            positioned sibling, so nothing joins the scroll flow — wrapping
+            INSIDE the flex child would change content height mid-gesture and
+            fight the very scroll it is measuring.
+
+            It carries NO z-index either, for the reason the block above
+            gives: a positive one here would paint over the floating tab bar.
+
+            `onRefresh` is deliberately a settle with no refetch behind it.
+            This dataset is generated and there is nothing to re-fetch; the
+            gesture exists so the interaction is right for when there is. */}
+        <PullToRefresh
+          scrollRef={homeScrollRef}
+          className="flex min-h-0 flex-1 flex-col"
+          onRefresh={async () => {}}
+        >
         <div
+          ref={homeScrollRef}
           className="content-stretch relative flex flex-col gap-[20px] items-start w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           /* NO paddingBottom — REMOVED 2026-11-08, and the removal is the
              bug fix rather than a tidy-up.
@@ -2142,6 +2173,7 @@ export default function HomeAllAccounts({ expanded = false }) {
             </div>
           )}
         </div>
+        </PullToRefresh>
 
         {/* ── THE FLOATING MORE MENU ──────────────────────────────────────
             MOUNTED AT THE PAGE ROOT, not inside the header. It is

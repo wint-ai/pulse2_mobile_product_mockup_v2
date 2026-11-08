@@ -357,6 +357,14 @@ function SegmentedPicker({ value, options, onChange, label }) {
    is not counted as a reference to the parameter and no-unused-vars fires on
    it; varsIgnorePattern `^[A-Z_]` exempts the local. TabBar.jsx is lint-clean
    for the same reason. */
+
+/* ── personal information ────────────────────────────────────────────────── */
+
+/* `icon` is taken as a prop and re-bound to a capitalised local before use.
+   This repo runs eslint WITHOUT eslint-plugin-react, so a bare <Icon /> in JSX
+   is not counted as a reference to the parameter and no-unused-vars fires on
+   it; varsIgnorePattern `^[A-Z_]` exempts the local. TabBar.jsx is lint-clean
+   for the same reason. */
 function ProfileField({ icon, label, value }) {
   const Icon = icon
   return (

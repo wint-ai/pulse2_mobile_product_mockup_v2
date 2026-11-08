@@ -258,7 +258,23 @@ const EMPTY_COPY = String.raw`[word-break:break-word] content-stretch flex flex-
    #daecff through mix-blend-multiply. Same raster as the consumption hero
    (Figma's 9c2cf.png), so no new asset: this is the product's own wave at
    thumbnail size, not a stock illustration. */
-const EMPTY_ART = String.raw`h-[89.308px] mix-blend-multiply relative rounded-[14.608px] shrink-0 w-[90px]`
+/* 199466:18070 — the 90px art tile.
+ *
+ * `isolate` + the non-light `mix-blend-normal` are the pair SystemsOverviewHero
+ * and SystemHeroCard already carry, and this tile needed them for the reason
+ * those two document: `multiply` against a NEAR-BLACK card crushes the whole
+ * group to black. Measured against the real stylesheet: in `dark` the tile was
+ * a barely-there grey square and the white sparkle on it a dark-grey ghost —
+ * the illustration was still being drawn, and then multiplied away.
+ *
+ * `isolate` is what makes dropping the outer blend safe. An element with
+ * mix-blend-mode other than `normal` already forms an isolated group, so the
+ * inner #daecff multiply currently blends only against the raster beneath it.
+ * Turning the outer blend off would dissolve that stacking context and let the
+ * tint blend with the PAGE instead; `isolate` keeps the group. In `light` it
+ * is therefore a no-op — the group was isolated already — which is why light
+ * stays pixel-identical. */
+const EMPTY_ART = String.raw`h-[89.308px] isolate mix-blend-multiply [[data-theme]:not([data-theme=light])_&]:mix-blend-normal relative rounded-[14.608px] shrink-0 w-[90px]`
 /* 199466:18074 "Huge Icons / ai-magic", 57px, absolutely placed ON the tile.
    Two white four-point stars; the node flips them with -rotate-180 and
    -scale-x-100, which together are a vertical mirror. */
@@ -267,7 +283,7 @@ const EMPTY_TITLE = String.raw`font-semibold relative shrink-0 text-slate-800 te
 const EMPTY_SUB = String.raw`flex flex-col font-normal justify-center leading-[0] relative shrink-0 text-muted-foreground text-sm`
 
 /* 199375:139983 / 139984 — the tip. */
-const TIP = String.raw`bg-[#daecff] content-stretch flex gap-[10px] h-[65px] items-center px-[7px] relative rounded-[14px] shrink-0 w-full`
+const TIP = String.raw`bg-(color:--triage-tip-bg) content-stretch flex gap-[10px] h-[65px] items-center px-[7px] relative rounded-[14px] shrink-0 w-full`
 /* 199375:139984 is a WRAPPER around a <p>, and the distinction is the whole
    bug. Figma's vertical-centring idiom for a text node is
    `flex flex-col justify-center leading-[0] text-[0px]`, and it works there
@@ -280,7 +296,7 @@ const TIP = String.raw`bg-[#daecff] content-stretch flex gap-[10px] h-[65px] ite
    Resolved against the tokenization branch 2026-10-21: the STRUCTURE is the
    fix, the CLASSES are the token layer's (text-primary, leading-5). */
 const TIP_TEXT = String.raw`[word-break:break-word] flex flex-col justify-center leading-[0] relative shrink-0 text-[0px] w-[214px]`
-const TIP_P = String.raw`font-normal text-primary`
+const TIP_P = String.raw`font-normal text-(color:--triage-tip-ink)`
 /* 199375:139972 "Huge Icons / token-circle", 33px. It was missing entirely —
    the tip rendered as a bare band of text. Inlined rather than referenced
    from figma.com, whose asset URLs expire in about a week. */
@@ -556,7 +572,7 @@ export default function TriageBand({
                       className="absolute h-[108.78%] left-[-33.52%] max-w-none top-[-4.54%] w-[166.97%]"
                     />
                   </div>
-                  <div className="absolute bg-[#daecff] inset-0 mix-blend-multiply rounded-[14.608px]" />
+                  <div className="absolute bg-(color:--triage-art-tint) inset-0 mix-blend-multiply rounded-[14.608px]" />
                 </div>
                 <span className={EMPTY_SPARK} data-node-id="199466:18074" data-name="Huge Icons / ai-magic">
                   <span className="absolute inset-[12.5%] block -rotate-180 -scale-x-100">
@@ -592,7 +608,7 @@ export default function TriageBand({
                     must be a CLASS and the attributes must go: a declared
                     presentation attribute on the child beats an inherited CSS
                     value, and var() does not resolve in one anyway. */}
-                <svg viewBox="0 0 29.5625 29.5625" fill="none" className="absolute inset-[8.33%] block size-[83.34%] stroke-primary">
+                <svg viewBox="0 0 29.5625 29.5625" fill="none" className="absolute inset-[8.33%] block size-[83.34%] stroke-(color:--triage-tip-ink)">
                   <path
                     d="M9.59863 13.2912L8.25468 14.1465C7.79011 14.4422 7.79011 15.1203 8.25468 15.416L9.59863 16.2713C11.0848 17.2172 12.3453 18.4777 13.2912 19.9639L14.1465 21.3078C14.4422 21.7724 15.1203 21.7724 15.416 21.3078L16.2713 19.9639C17.2172 18.4777 18.4777 17.2172 19.9639 16.2713L21.3078 15.416C21.7724 15.1203 21.7724 14.4422 21.3078 14.1465L19.9639 13.2912C18.4777 12.3453 17.2172 11.0848 16.2713 9.59863L15.416 8.25468C15.1203 7.79011 14.4422 7.79011 14.1465 8.25468L13.2912 9.59863C12.3453 11.0848 11.0848 12.3453 9.59863 13.2912Z"
                     strokeWidth="2.0625" strokeLinejoin="round"

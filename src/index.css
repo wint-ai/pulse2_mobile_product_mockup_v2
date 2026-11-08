@@ -14,6 +14,26 @@
 
 @import "tailwindcss";
 
+/* ── THE SHADCN ANIMATIONS, FINALLY COMPILED ──────────────────────────────
+   Every shadcn component in src/components/ui/ already carries the motion
+   classes it shipped with -- `animate-in`, `animate-out`, `fade-in-0`,
+   `zoom-in-95`, `slide-in-from-bottom`. Twenty-odd of them, across dialog,
+   sheet, dropdown, tooltip and popover.
+
+   NONE OF THEM PRODUCED A SINGLE BYTE OF CSS. `tailwindcss-animate` is in
+   package.json, but it is a Tailwind v3 PLUGIN and this project is on v4,
+   where a plugin must be loaded from CSS rather than from a JS config that
+   no longer exists. It was referenced nowhere. Measured on the built
+   stylesheet before this line was added: `animate-in`, `animate-out`,
+   `@keyframes enter` and `@keyframes exit` were all absent from 157KB of
+   output. That is why every dialog and sheet in this app appears instantly
+   -- the markup says it animates and the build emits nothing.
+
+   `tw-animate-css` is the v4 successor shadcn itself moved to. Importing it
+   revives all of that markup at once, which is why it is the first thing in
+   this file rather than part of the token block below. */
+@import "tw-animate-css";
+
 /* This app is single-theme. Binding `dark:` to an explicit `.dark` class
    — which nothing ever sets — is deliberate: it stops the dark: utilities
    that ship inside the stock shadcn components (button, sidebar, sheet)
@@ -326,70 +346,6 @@
      the same convention as --red-* / --orange-* / --neutral-*: a ramp
      step, named by its step, so a theme can move it. */
   --blue-800: oklch(0.424 0.199 265.638);       /* #193cb8 — tw blue-800 */
-
-  /* ── VALVE STATE — A FOURTH DATA PALETTE, AND WHY IT HAS TO BE ──
-     The valve widget draws a donut of Open / Closed / Valve Error over a
-     scope of systems, and those three marks have to stay three marks in
-     every theme. Nothing already in this file does that:
-
-       --chart-1/2/3 are a GREYSCALE ramp under `sand` (stone-300/500/600
-       in that block), so a "closed" blue taken from the chart ramp comes
-       out a grey wedge there, next to two other grey wedges.
-       --primary — the brand blue both `light` (#0b81f8, :153) and `dark`
-       (blue-500) carry — is stone-900 under `sand`: a near-BLACK closed
-       wedge. --data-blue-* is a sequential ramp of ONE quantity, which
-       is the opposite of three categories.
-
-     NO EXISTING TOKEN IS A BLUE IN ALL FOUR THEMES. That is the same
-     hole --data-blue-* was opened for one case earlier ("--chart-1/2/3
-     are three blues, which is two short", :286) arriving from the other
-     direction, so this gets a triplet of its own, declared in all four
-     blocks rather than inherited — a theme that cannot see the token
-     cannot flatten it by accident either.
-
-     VALIDATED AS A SET, NOT PICKED. The three hexes are the output of
-     the dataviz skill's scripts/validate_palette.js and pass its six
-     checks in light, dark and sand (ALL CHECKS PASS, exit 0). Two of
-     them are deliberately the same hex a semantic token already carries
-     and are NOT aliased to it: var(--success) would hand the palette's
-     validity to whoever next retunes --success. Do not retune one of
-     these three without re-running the validator on all three.
-
-     THE ONE STANDING WARN, AND THE CONDITION IT CARRIES. --valve-error
-     against --valve-open is ΔE 7.6 under deuteranopia — inside the 6–8
-     floor band, not above it. That is legal ONLY WITH SECONDARY
-     ENCODING. The status icon and the text label beside each swatch are
-     therefore MANDATORY and must never be dropped to tighten a layout:
-     the compliance is carried by them, not by the colour. (An
-     independent Viénot-1999 + CIEDE2000 check run while writing this
-     measures 14.8 for the same pair. The two simulations disagree; the
-     stricter number is the one recorded, and the icon-and-label rule
-     holds under either.)
-
-     WHY ERROR IS #db4670 AND NOT --destructive. On that same check,
-     #5c9e1a against --destructive (= --red-500 #fb2c36, :163) is
-     ΔE 2.3 under deuteranopia — to a deuteranope they are ONE colour,
-     which is the worst available pairing for "this one is broken" vs
-     "this one is fine". #db4670 is --severity-high's hex (:215) and
-     clears the same green by 7.6.
-
-     NOT TAKEN, AND NAMED HERE SO IT IS NOT RE-DISCOVERED AS A FIX:
-     --danger (:217) is commented "valve errors" and is #A5455E. It is
-     not the validated value and this palette does not use it. Moving
-     the widget onto it is a re-run, not an edit.
-
-     PLAIN HEX, DELIBERATELY, in a file that is otherwise all oklch.
-     These three are a validator's output and get compared back against
-     it byte for byte; this file's own oklch round-trip has already
-     moved a value by one level once (the #dcfce7 / #dbfce7 note at
-     :277-281), and a palette that must survive a re-run cannot afford
-     that. Plain hex is also the safest thing to add here — see the
-     color-mix() warning at the foot of this file: one invalid custom
-     property takes the whole --wash-* chain with it and blanks the page
-     root with no console warning. Nothing here is wrapped in a mix. */
-  --valve-open: #5c9e1a;
-  --valve-closed: #0b81f8;
-  --valve-error: #db4670;
 
   /* ── FLEET HEALTH BAR — A FILL IS NOT AN INK ──────────────────
      The bar's red was `bg-red-700`, and --red-700 has to LIGHTEN under
@@ -854,19 +810,6 @@
   --color-data-blue-5: var(--data-blue-5);
   --color-blue-800: var(--blue-800);
 
-  /* Registered here, and in `inline` rather than plain @theme, on exactly
-     the rule the two blocks above state: `inline` writes var(--valve-*)
-     into the utility, so `bg-valve-open` on a card follows whichever
-     theme is set on an ancestor. A theme-dependent COLOUR always wants
-     `inline`; only the font and the radius wanted the other block.
-     Without these three lines `bg-valve-open` binds to nothing at all
-     (there is no stock Tailwind `valve-open`), which is a silently
-     uncoloured wedge rather than an error — the same trap the
-     --color-orange-100 note above records. */
-  --color-valve-open: var(--valve-open);
-  --color-valve-closed: var(--valve-closed);
-  --color-valve-error: var(--valve-error);
-
   --color-bar-fill-risk: var(--bar-fill-risk);
   --color-bar-fill-ok-from: var(--bar-fill-ok-from);
   --color-bar-fill-ok-to: var(--bar-fill-ok-to);
@@ -1313,17 +1256,6 @@ html, body, #root {
      the four swatches stay four colours. */
   --blue-800: oklch(0.707 0.165 254.624);         /* blue-400 */
 
-  /* Valve palette — see the :root block for why the triplet exists and
-     why it is literals rather than aliases. Only CLOSED moves here: this
-     theme's brand blue is blue-500 (--primary above) and the validator
-     was run against that, so the closed wedge takes the theme's own blue
-     instead of carrying light's #0b81f8 onto a dark card. Open and error
-     are product semantics, which `dark` inherits unchanged everywhere
-     else in this block, and they are unchanged here too. */
-  --valve-open: #5c9e1a;
-  --valve-closed: #2b7fff;
-  --valve-error: #db4670;
-
   /* A fill, not an ink — see :root. --red-600's own dark value is the
      alert ink, so the step is written out rather than aliased. */
   --bar-fill-risk: oklch(0.58304 0.23867 28.476); /* #e7000b */
@@ -1477,17 +1409,6 @@ html, body, #root {
   --chart-1: oklch(0.869 0.005 56.366);
   --chart-2: oklch(0.553 0.013 58.071);
   --chart-3: oklch(0.444 0.011 73.639);
-
-  /* Valve palette — see :root. THIS THEME IS THE REASON THE TRIPLET
-     EXISTS: the chart ramp immediately above is stone-300/500/600, i.e.
-     greyscale, and this block's --primary is stone-900, so every token
-     the valve donut could plausibly have reused collapses to a grey or a
-     black right here. The values are :root's, unchanged — restated and
-     not inherited so that the set is visible in the block that would
-     otherwise have broken it. */
-  --valve-open: #5c9e1a;
-  --valve-closed: #0b81f8;
-  --valve-error: #db4670;
 
   /* --chart-grid comes free off --neutral-200 (stone-200). The axis
      does not: :root's is the literal #d4d4d4, a true grey, which is the
@@ -1919,6 +1840,181 @@ html, body, #root {
   --bg-vignette: rgba(0, 0, 0, 0.07);
 }
 
+/* ── THE "WINT SKY" PAGE WASH, BEHIND THE WAVE ART ──────────────────────
+   src/components/PipesHeader.jsx paints /systems (HomeUnified) and the v1
+   system page with a wave SVG over a three-stop vertical gradient. Those
+   three stops used to be literal near-whites in that file, which is why
+   /systems rendered light under `dark` long after everything else had
+   moved -- the gradient is the OUTERMOST layer, so it covered the dark
+   ground rather than contradicting it.
+
+   The values below are exactly the hexes PipesHeader used to carry, so
+   `light` does not move; `sand` and `contrast` inherit them, as they did.
+   The waves themselves stay brand blue in every theme and are not here. */
+:root {
+  --sky-home-from:   #E8F2FE;
+  --sky-home-via:    #F2F7FC;
+  --sky-home-to:     #FFFFFF;
+  --sky-system-from: #F4F8FD;
+  --sky-system-via:  #FAFBFE;
+  --sky-system-to:   #FFFFFF;
+
+  /* ── The v1 valve widget's surfaces and ink ────────────────────────
+     src/components/ValveControlCard.jsx carried these seven as literals
+     in its BRAND object, each already annotated "tokens: text-primary /
+     bg-canvas / ..." -- the intent was there, the token was not. The
+     values here are those literals EXACTLY, so nothing moves in the
+     three light themes. Only `dark` restates them. */
+  --v1-valve-ink:           #1a1d20;
+  --v1-valve-ink-body:      #565c63;
+  --v1-valve-ink-mute:      #7a8189;
+  --v1-valve-line:          #e3e5e6;
+  --v1-valve-surface:       #ffffff;
+  --v1-valve-surface-elev:  #f7f8f9;
+  --v1-valve-disabled:      #eaecef;
+
+  /* ── v1 STATUS-PILL INK ────────────────────────────────────────────
+     The v1 pills are built as a translucent hue over the page plus the
+     DARK step of that same hue as ink. The tint survives a theme change
+     on its own -- it composites onto whatever is behind it -- but the
+     ink does not, and on a dark ground a dark ink over a dark tint is a
+     category error rather than a near miss: measured 2.56:1 for Offline
+     and 3.58:1 for Warning. Dark re-picks the LIGHT step of each hue,
+     which is the same move index.css already makes for --alert-ink-*.
+
+     THE TWO REDS ARE NOT HERE. #DB4670 (severity-high) and #A5455E
+     (danger) are locked product semantics -- CLAUDE.md fixes them and
+     HomeUnified.jsx:318 turns on the distinction between the "muted" red
+     and the "alarm" red -- and both measure above their floor on the dark
+     ground anyway. Moving them would be a product decision. */
+  /* ── v1 PAGE-HEADER INK (src/components/ScopeHeader.jsx) ───────────
+     ScopeHeader reads these three with the literals below as its inline
+     fallback, a pattern EventsScreen introduced by setting them on its
+     own root. Declaring them HERE instead of on each page root is what
+     lets `dark` move them without `light` moving with it -- an inline
+     style has no theme to vary by, so the same opt-in that fixed the
+     dark ground also silently re-coloured the light one (measured: the
+     /systems title shifted #14151A -> #0f172b and its sub-line
+     #4A4F5A -> #62748e). The values here are the literals exactly, so
+     every light theme renders what it rendered before.
+
+     EventsScreen still sets the first two on its own root. That is not
+     redundant -- an inline declaration outranks this one, so /alerts
+     keeps the --foreground it has shipped with in light, unchanged. */
+  --v1-scope-ink:       #14151A;
+  --v1-scope-ink-dim:   #4A4F5A;
+  --v1-scope-badge-ink: #036AB5;
+
+  --v1-pill-ink-info:   #036AB5;
+  --v1-pill-ink-warn:   #8C5A0F;
+  --v1-pill-ink-mute:   #4A4F5A;
+
+  /* ── The Water Events pair, on /systems ───────────────────────────
+     High Flow and Low Flow are PEERS -- two tiles side by side, same
+     size, same weight -- and both were written as their own hue at 12%
+     alpha, which makes them peers on a white ground. It does not on a
+     dark one: alpha is not lightness, and the amber (#E5A100, relative
+     luminance 0.43) carries more than twice the crimson's (#DB4670,
+     0.20). At equal alpha over near-black the amber tile read as a
+     solid mustard slab next to a barely-there maroon one.
+
+     So `dark` tunes the two alphas against each other rather than
+     against a number. :root is the original recipe, unchanged. */
+  --v1-tile-wash-high: rgba(219,70,112,0.12);
+  --v1-tile-wash-low:
+    repeating-linear-gradient(45deg, rgba(229,161,0,0.10) 0 1.5px, rgba(229,161,0,0.00) 1.5px 3px),
+    rgba(229,161,0,0.12);
+  --v1-tile-ink-high:  #DB4670;
+
+  /* ── TriageBand's calm state (199466:18070 / 199375:139983) ───────
+     Two pale-blue #daecff surfaces: the 90px sparkle tile and the leak
+     prevention tip under it. Both are Figma literals chosen against a
+     white card, and both are wrong on a near-black one in opposite
+     directions -- the tile is multiplied into invisibility, the tip
+     becomes the brightest thing on the screen. The hexes here are the
+     ones the component carried, so the light themes do not move. */
+  --triage-art-tint: #daecff;
+  --triage-tip-bg:   #daecff;
+  --triage-tip-ink:  var(--primary);
+}
+
+[data-theme='dark'],
+.dark {
+  /* The same SHAPE as light's -- a tinted top settling onto the plain card
+     plane by 70% -- inverted onto this theme's own two surfaces rather
+     than onto new hexes. `to` is --card because that is where light's `to`
+     lands: #FFFFFF is `light`'s --card exactly (see --app-bg-base). The
+     top stop carries the blue the same way light's #E8F2FE does, mixed
+     from --primary so it tracks the accent instead of restating it.
+
+     The System variant is the dimmer of the two in light (a 4% blue vs a
+     9% one); here it takes half the mix, holding that relationship. */
+  --sky-home-from:   color-mix(in oklab, var(--background), var(--primary) 9%);
+  --sky-home-via:    color-mix(in oklab, var(--background), var(--card) 55%);
+  --sky-home-to:     var(--card);
+  --sky-system-from: color-mix(in oklab, var(--background), var(--primary) 4.5%);
+  --sky-system-via:  color-mix(in oklab, var(--background), var(--card) 55%);
+  --sky-system-to:   var(--card);
+
+  /* The valve widget's seven, onto this theme's own surfaces. `surface` is
+     --surface-card rather than --card for the reason index.css gives at
+     that token: dark lifts the card 4% toward the foreground so it
+     separates from the page, which a flat --card does not. `line` is the
+     SUBTLE tier -- this is a card edge, not a control boundary, and the
+     strong tier would draw a hard rule around every valve widget. */
+  --v1-valve-ink:           var(--foreground);
+  --v1-valve-ink-body:      var(--slate-600);
+  --v1-valve-ink-mute:      var(--muted-foreground);
+  --v1-valve-line:          var(--border-subtle);
+  --v1-valve-surface:       var(--surface-card);
+  --v1-valve-surface-elev:  var(--secondary);
+  --v1-valve-disabled:      var(--secondary);
+
+  /* The pill inks, re-picked as the LIGHT step of each hue. --primary and
+     --alert-ink-warning are this theme's own, already measured against it
+     (4.37:1 and 6.12:1 on their grounds), so nothing new is invented
+     here. Mute drops onto the ramp, which inverts. */
+  /* The page header, which was the worst single reading in the audit:
+     #14151A on this ground measured 1.15:1 -- a page title you cannot
+     see at all. */
+  --v1-scope-ink:       var(--foreground);
+  --v1-scope-ink-dim:   var(--muted-foreground);
+  --v1-scope-badge-ink: var(--primary);
+
+  --v1-pill-ink-info:   var(--primary);
+  --v1-pill-ink-warn:   var(--alert-ink-warning);
+  --v1-pill-ink-mute:   var(--muted-foreground);
+
+  /* The crimson goes UP and the amber comes DOWN, to meet in the middle:
+     0.18 x 0.20 = 0.036 against 0.08 x 0.43 = 0.034, so the two washes
+     now land within ~6% of each other in luminance instead of a factor
+     of 3.6 apart. The hatch drops with its base so the texture stays
+     proportional to the fill rather than becoming the fill. */
+  /* The sparkle tile becomes a PLATE rather than a wash. With the outer
+     multiply off (see TriageBand's EMPTY_ART) the tint is what the tile
+     reads as, and it has to be dark enough to sit on the card while
+     still carrying the brand blue -- the white sparkle on top is what
+     has to pop, and it cannot pop off a pale ground. The tip takes the
+     same hue much weaker, because it is a band of text, not an object.
+
+     The tip's INK moves to --ring, which is this theme's blue-300. That
+     is not a new colour: index.css picks it for the focus ring here for
+     exactly this reason, that a dark scheme's accent has to be a LIGHT
+     tone to survive on dark surfaces. --primary on the tip band measured
+     4.0:1 and fails; blue-300 clears it comfortably. */
+  --triage-art-tint: color-mix(in oklab, var(--primary) 34%, var(--card));
+  --triage-tip-bg:   color-mix(in oklab, var(--primary) 16%, var(--card));
+  --triage-tip-ink:  var(--ring);
+
+  --v1-tile-wash-high: rgba(219,70,112,0.18);
+  --v1-tile-wash-low:
+    repeating-linear-gradient(45deg, rgba(229,161,0,0.07) 0 1.5px, rgba(229,161,0,0.00) 1.5px 3px),
+    rgba(229,161,0,0.08);
+  /* The ink lifts off the ramp's dark end for the same reason the pill
+     inks do -- #DB4670 is a mid-dark hue and this tile is now darker. */
+  --v1-tile-ink-high:  var(--alert-ink-critical);
+}
+
 [data-theme='dark'],
 .dark {
   /* DARKER than dark's blue-500, the mirror image of light's reason: the
@@ -2209,4 +2305,227 @@ html, body, #root {
 @keyframes bannerIn {
   from { transform: translateY(-110%); }
   to   { transform: translateY(0); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOTION
+   ══════════════════════════════════════════════════════════════════════════
+   Researched 2026-11-07 against Apple HIG + WWDC23 "Animate with springs",
+   Material 3's motion tokens, and the practitioner literature (NN/g, Carbon,
+   Atlassian, WebKit). Where the three disagree, the choice is recorded.
+
+   THE ONE RULE THAT MATTERS MOST, because it is what this app got wrong:
+   a tappable thing must acknowledge the tap inside 100ms. Mobile web has no
+   hover, so a component styled only for :hover has NO touch feedback at all.
+   That -- not the absence of page transitions -- is the usual reason an app
+   "feels static".
+
+   Second rule: animate `transform` and `opacity` and nothing else. They are
+   the only two properties the compositor can run without laying out or
+   painting. `transition: all` is banned here; it will eventually catch a
+   layout property and drop the whole app to the main thread.
+
+   ── DURATIONS ───────────────────────────────────────────────────────────
+   One scale, no raw numbers at call sites. Sized by the ELEMENT, per Carbon:
+   a chip moves a short distance and should be quick; a full-height sheet
+   travels the screen and is allowed to take its time. */
+:root {
+  --dur-fast: 100ms;      /* presses, chips, toggles -- anything frequent */
+  --dur-base: 150ms;      /* opacity and colour. M3 `short3`; also the exit  */
+  --dur-medium: 200ms;    /* small cards, menus, most exits                  */
+  --dur-slow: 300ms;      /* cards, drawer, accordion                        */
+  --dur-sheet: 500ms;     /* full-height sheets and page pushes -- see below */
+
+  /* ── EASINGS ──────────────────────────────────────────────────────────
+     Entrances decelerate, exits accelerate. That asymmetry is the single
+     most legible thing in a motion system: something arriving should settle,
+     something leaving should get out of the way.
+
+     The three M3 curves are used by name because they are properly specified
+     and we are already a Material-adjacent shadcn app. M3's `emphasized` is
+     deliberately NOT here: it is not a cubic-bezier at all but a two-segment
+     SVG path, and its official single-curve fallback deviates from the real
+     thing by 16% of the travel. Where we want that character we use the iOS
+     curve below, which is a better approximation of the same intent. */
+  --ease-out: cubic-bezier(0.05, 0.7, 0.1, 1);    /* M3 emphasized-decelerate */
+  --ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);     /* M3 emphasized-accelerate */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);    /* moves, stays on screen   */
+
+  /* THE iOS CURVE. Not published by Apple -- derived independently by two
+     shipping iOS-on-web libraries (Ionic's page/modal transitions and Vaul's
+     drawer) which converged on the same four numbers. It is a bezier
+     approximation of a critically damped spring: fast off the mark, long
+     decelerating tail, zero overshoot. Sheets and page pushes use it. */
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Opacity-only crossfades. Linear is right here and almost nowhere else:
+     an eased fade reads as a flicker because perceived brightness is not
+     linear in alpha. */
+  --ease-linear: linear;
+
+  /* NO `linear()` SPRINGS ANYWHERE IN THIS FILE, AND THAT IS DELIBERATE.
+     CSS can express a real spring via the `linear()` easing function, and on
+     paper it is the obvious way to get iOS physics with no JavaScript. It is
+     the wrong choice HERE specifically because this app is installed as an
+     iOS home-screen PWA, which makes WebKit the only runtime that matters.
+
+     WebKit bug 312407: `linear()` forces an animation onto the MAIN THREAD
+     in released Safari -- even when the animation touches nothing but
+     transform and opacity, which are otherwise composited. Every other
+     easing stays off it. The fix landed in July 2026 behind "Time-based
+     Threaded Animations" but is not confirmed in a shipped Safari release.
+
+     So a `linear()` spring would trade a perfectly composited animation for
+     a janky one on the one device the owner reviews this on. `--ease-ios`
+     above is a bezier approximation of a critically damped spring and stays
+     on the compositor. Real springs -- the kind that carry velocity out of a
+     gesture -- are done in JS by Motion, where they belong anyway, because
+     no CSS easing can be interrupted mid-flight with velocity preserved. */
+
+  /* ── SCRIM ────────────────────────────────────────────────────────────
+     M3 specifies 0.32 for the dialog scrim. Adopted as one token so every
+     dimmed surface in the app dims by the same amount. */
+  --scrim: rgba(15, 23, 43, 0.32);
+
+  /* ── STAGGER ──────────────────────────────────────────────────────────
+     Per item, for a list's FIRST paint only. Neither M3 nor Apple publishes
+     a stagger value -- every number in circulation is third-party -- so this
+     is Carbon's 30ms with a hard budget: the whole sequence must finish
+     inside --dur-stagger-max, which means long lists stop staggering rather
+     than making the last card wait. A staggered RE-render reads as a bug,
+     so this is keyed to mount and never to data. */
+  --stagger-step: 30ms;
+  --stagger-max: 300ms;
+}
+
+/* ── REDUCED MOTION ───────────────────────────────────────────────────────
+   NOT the `animation-duration: 0.01ms !important` reset that circulates.
+   That nukes the thing Apple actually asks for.
+
+   Apple's guidance is a SUBSTITUTION list, not an off switch: "replacing
+   transitions in x-, y-, and z-axes with fades", "tightening animation
+   springs to reduce bounce", and -- the one everybody misses -- "tracking
+   animations directly with people's gestures". Reduce Motion targets
+   AUTOMATIC and REPETITIVE motion. A sheet following your finger is listed
+   as a REMEDY, not a problem.
+
+   So: keep the transition, change its channel. Opacity survives at full
+   duration; translate, scale and stagger do not. Gesture-driven drag is
+   untouched -- it lives in JS and is deliberately not switched off there.
+
+   `--motion-ok` is the multiplier spatial animations scale by, so a single
+   token disables transforms app-wide without disabling fades. */
+:root { --motion-ok: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-ok: 0;
+    --stagger-step: 0ms;
+    --stagger-max: 0ms;
+  }
+
+  /* Spatial motion is removed; the effects family keeps running. */
+  *, *::before, *::after {
+    animation-delay: 0ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  /* tw-animate-css builds its enter/exit from these four custom properties.
+     Zeroing the spatial three leaves the opacity channel intact, so a sheet
+     still fades in -- it just stops travelling. This is the whole policy in
+     four lines. */
+  *, *::before, *::after {
+    --tw-enter-translate-x: 0 !important;
+    --tw-enter-translate-y: 0 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+    --tw-enter-scale: 1 !important;
+    --tw-exit-scale: 1 !important;
+    --tw-enter-rotate: 0 !important;
+    --tw-exit-rotate: 0 !important;
+  }
+}
+
+/* ── PRESS FEEDBACK ───────────────────────────────────────────────────────
+   The fix for the complaint. `:active` fires on touch, `:hover` does not.
+
+   95% rather than a deeper squash: the control must read as pressed without
+   appearing to move away from the finger. Down is instant (`--dur-fast` and
+   a linear curve -- the press should feel like contact, not like an
+   animation); the release decelerates over --dur-medium, which is what makes
+   it feel sprung rather than snapped.
+
+   `@media (hover: none)` is NOT used to gate this: a mouse user should get
+   the same acknowledgement. What IS gated is the hover styling elsewhere.
+
+   Applied by a utility rather than globally, so a press state is a decision
+   per component -- a whole-page `:active` rule would squash scroll
+   containers and list rows that are not controls. */
+@utility press {
+  transition: transform var(--dur-medium) var(--ease-out);
+  &:active { transform: scale(0.95); transition-duration: var(--dur-fast); transition-timing-function: var(--ease-linear); }
+}
+
+/* A gentler press for large surfaces -- a full-width card squashing by 5%
+   reads as the whole screen flinching. Travel is proportional to size, so
+   the bigger the target the smaller the scale change. */
+@utility press-soft {
+  transition: transform var(--dur-medium) var(--ease-out);
+  &:active { transform: scale(0.985); transition-duration: var(--dur-fast); transition-timing-function: var(--ease-linear); }
+}
+
+/* PRESS SURVIVES REDUCED MOTION, and that is a considered exception rather
+   than an oversight. Apple's Reduce Motion targets AUTOMATIC and REPETITIVE
+   motion, and its own remedy list includes "tracking animations directly
+   with people's gestures" -- a press response is the purest example of one.
+   It is also tiny, instantaneous, user-initiated and confined to the control
+   under the finger, which is none of the five things WebKit names as
+   vestibular triggers (large-area motion, parallax, zoom, spin, dolly).
+   Removing it would take away the only touch feedback this app has, from the
+   users who can least afford ambiguity about whether a tap registered. */
+
+/* ── EVERY CONTROL ACKNOWLEDGES A TAP ─────────────────────────────────────
+   The shadcn Button now presses, but most of this app's tappable surfaces
+   are not shadcn Buttons: the alert rows, the event rows, the system cards,
+   the timeline entries. Fifteen components carry `cursor-pointer` on a
+   hand-rolled control. Editing each one would leave the next one out.
+
+   So this is the floor, applied by element rather than by class, and it is
+   deliberately GENTLE — 1.5%, not the Button's 5%. These are large surfaces:
+   a full-width card squashing by 5% reads as the whole screen flinching,
+   and travel should be proportional to the size of the thing moving.
+
+   The Button's own `active:scale-95` still wins where it applies: a utility
+   class outranks an element selector, so small controls keep the firmer
+   press and only the big hand-rolled surfaces land here.
+
+   EXCLUSIONS, each for a reason:
+   · :disabled           — a dead control must not answer.
+   · [data-no-press]     — the escape hatch, for anything this is wrong for.
+   · [data-slot=button]  — shadcn's own; it has its own rule and its own
+                           duration, and matching both would make the
+                           transition property list fight.
+   · a[href] is NOT included. Links here are navigation, not actuation, and
+     several wrap whole rows that already carry a button inside them. */
+@layer base {
+  button:not(:disabled):not([data-slot='button']):not([data-no-press]),
+  [role='button']:not([aria-disabled='true']):not([data-no-press]) {
+    transition: scale var(--dur-medium) var(--ease-out);
+  }
+
+  button:not(:disabled):not([data-slot='button']):not([data-no-press]):active,
+  [role='button']:not([aria-disabled='true']):not([data-no-press]):active {
+    scale: 0.985;
+    transition-duration: var(--dur-fast);
+    transition-timing-function: linear;
+  }
+}
+
+/* The pull-to-refresh spinner. A looping indicator is the ONE place linear is
+   correct: an eased rotation visibly stutters at each cycle boundary. It is
+   also the one piece of this app's motion that is automatic and repetitive,
+   which is why PullToRefresh stops it under Reduce Motion while leaving the
+   gesture itself completely intact. */
+@keyframes ptr-spin {
+  to { transform: rotate(360deg); }
 }
