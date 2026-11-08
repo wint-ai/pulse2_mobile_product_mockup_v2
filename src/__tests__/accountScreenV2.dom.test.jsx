@@ -145,7 +145,15 @@ describe('AccountScreenV2 renders every v1 section', () => {
     // is picked by the email it alone renders.
     fireEvent.click(screen.getByText('rami.kletshevsky@wint.ai').closest('button'))
     expect(screen.getAllByText('Personal Information').length).toBeGreaterThan(0)
-    expect(screen.getByText('First Name')).toBeInTheDocument()
+    /* This asserted 'First Name' until 2026-11-08. The sub-view no longer
+       splits the name into two half-width fields — the name is the heading of
+       the identity card now, so a "First Name" row would restate it — and the
+       labelled rows are the things the heading cannot say. Role and Account
+       are asserted instead: they are rendered ONLY on this sub-view, so they
+       prove we are on it at least as well as the old pair did, and unlike
+       'Sign out' they would not survive a half-rendered card. */
+    expect(screen.getByText('Role')).toBeInTheDocument()
+    expect(screen.getByText('Account')).toBeInTheDocument()
     expect(screen.getByText('Sign out')).toBeInTheDocument()
 
     fireEvent.click(screen.getByLabelText('Back'))

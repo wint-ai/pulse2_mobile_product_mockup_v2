@@ -152,16 +152,20 @@ import {
   Globe,
   GraduationCap,
   Info,
+  Building2,
+  LogOut,
   Mail,
   MessageSquare,
   Palette,
   Ruler,
+  ShieldCheck,
   Smartphone,
   User,
   Wallpaper,
   X,
 } from 'lucide-react'
 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -170,6 +174,7 @@ import { Toggle } from '@/components/ui/toggle'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import TabBar from '@/components/TabBar'
+import avatarUrl from '@/assets/avatar.jpg'
 import BackgroundPicker from '@/v2/components/BackgroundPicker'
 import { useUserContext } from '@/context/UserContext'
 import { SUPPORTED_LANGUAGES } from '@/i18n'
@@ -290,15 +295,59 @@ function SegmentedPicker({ value, options, onChange, label }) {
    is not counted as a reference to the parameter and no-unused-vars fires on
    it; varsIgnorePattern `^[A-Z_]` exempts the local. TabBar.jsx is lint-clean
    for the same reason. */
-function ProfileField({ icon, label, value }) {
+/**
+ * One line of the identity sheet: a leading glyph, the field name, and the
+ * value hard right.
+ *
+ * WHY THE VALUE IS RIGHT-ALIGNED AND ON THE SAME LINE. The previous layout
+ * stacked a 13px label over a 15px value and put two of them side by side, so
+ * five fields cost ten lines and still left the screen two-thirds empty below
+ * them. One line per field is the iOS Settings idiom, it halves the height,
+ * and — the part that actually matters here — it puts every value on the same
+ * right edge, so the eye reads a column of answers rather than hunting for
+ * each one under its own caption.
+ *
+ * `min-w-0` on the value and `shrink-0` on the label are what make the
+ * truncation land on the right side of the row. At 393px the widest real
+ * value (a 24-character work email at 15px) clears the longest label with
+ * room to spare, so nothing truncates today; the classes are there so a
+ * longer address degrades to an ellipsis instead of pushing the row wider
+ * than the card. The text stays selectable either way.
+ */
+function DetailRow({ icon, label, value }) {
   const Icon = icon
   return (
-    <div className="min-w-0 flex-1">
-      <div className="mb-1 font-medium text-slate-500 text-[13px] leading-[18px]">{label}</div>
-      <div className="flex min-w-0 items-center gap-2">
-        <Icon className="size-[16px] shrink-0 text-slate-400" aria-hidden="true" />
-        <span className="truncate text-slate-900 text-[15px] leading-[20px]">{value}</span>
-      </div>
+    <div className="flex min-w-0 items-center gap-3 px-4 py-[13px]">
+      <Icon className="size-[18px] shrink-0 text-slate-400" aria-hidden="true" />
+      <span className="shrink-0 font-medium text-slate-500 text-[14px] leading-[19px]">{label}</span>
+      {/* TWO ELEMENTS, BECAUSE TWO DIFFERENT THINGS NEED TWO DIFFERENT
+          DIRECTIONS. These values are LTR data (an email, an E.164 phone
+          number) in a row that mirrors under Hebrew, and with nothing done
+          the bidi algorithm hands the leading "+" of +972528542617 to the
+          surrounding RTL run and draws it as 972528542617+.
+
+          Measured in the RTL pass, each single-element attempt failed one
+          half of the problem:
+
+            dir="ltr" on the span   number correct, ALIGNMENT WRONG —
+                                    `text-end` resolves against the element's
+                                    own direction, so every value jumped back
+                                    against its label.
+            <bdi> as the span       same, since <bdi> is isolation PLUS
+                                    dir="auto" and auto lands on ltr here.
+            unicode-bidi: isolate   alignment correct, NUMBER STILL WRONG —
+              on the span           an isolated run that inherits dir=rtl
+                                    still reorders a leading "+".
+
+          So the span keeps the document's direction and owns the ALIGNMENT,
+          and an inline <bdi> inside it owns the DIRECTION of the text. <bdi>
+          is dir="auto" by default, which is what makes this safe for content
+          that is not Latin: "+972…" has no strong character and falls back to
+          ltr, Latin text resolves ltr, and a Hebrew role or account name
+          would resolve rtl instead of being forced the wrong way. */}
+      <span className="min-w-0 flex-1 truncate text-end font-medium text-slate-900 text-[15px] leading-[20px]">
+        <bdi>{value}</bdi>
+      </span>
     </div>
   )
 }
@@ -452,47 +501,127 @@ export default function AccountScreenV2() {
           accountScreenV2.dom.test.jsx. */}
       <div className="flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[14px] pb-8 pt-[10px] [&>*]:shrink-0">
         {profileView ? (
-          <Card className={CARD}>
-            <SectionTitle>{t('more.personal_information')}</SectionTitle>
-            <div className="px-4 pb-4 pt-[6px]">
-              <div className="mb-[14px] flex gap-4">
-                <ProfileField
-                  icon={User}
-                  label={t('more.profile_fields.first_name')}
-                  value={persona?.name?.split(' ')[0] || EMPTY}
-                />
-                <ProfileField
-                  icon={User}
-                  label={t('more.profile_fields.last_name')}
-                  value={persona?.name?.split(' ').slice(1).join(' ') || EMPTY}
-                />
-              </div>
+          /* ── THE IDENTITY SHEET ────────────────────────────────────────
+             Rebuilt 2026-11-08. The owner's words were that it looked
+             horrible, and the specific failures were these:
 
-              <Separator />
-              <div className="py-3">
-                <ProfileField icon={Mail} label={t('more.profile_fields.email')} value={persona?.email || EMPTY} />
-              </div>
+               1. THE TITLE WAS PRINTED TWICE. The chrome above already says
+                  "Personal Information"; the card said it again, 40px below.
+               2. THERE WAS NO PERSON ON IT. A profile screen that never
+                  shows a face, and never states the role or the account the
+                  name belongs to, is a form with the form taken out —
+                  especially in a demo whose whole point is that you are
+                  looking at the app AS somebody.
+               3. SIGN OUT FLOATED IN THE MIDDLE OF THE CARD, a centred red
+                  ghost button directly under the phone number, reading as
+                  the field's own action rather than the screen's.
+               4. IT ENDED A THIRD OF THE WAY DOWN and left 500px of empty
+                  wash, which is what made it read as unfinished.
 
-              <Separator />
-              <div className="pb-[18px] pt-3">
-                <ProfileField
-                  icon={Smartphone}
-                  label={t('more.profile_fields.phone_number')}
-                  value={persona?.phone || EMPTY}
-                />
-              </div>
+             The shape now is the one every mobile settings screen converges
+             on and the shadcn profile blocks model: an avatar-first identity
+             header, then a single-column list of the details, then the
+             destructive action alone at the end, nowhere near the data.
 
-              {/* Sign out. v1 signs out on tap with no confirm; that is carried
-                  over rather than a confirm step being invented here. */}
-              <Button
-                variant="ghost"
-                onClick={switchProfile}
-                className="w-full cursor-pointer font-semibold text-destructive hover:bg-red-100 hover:text-destructive text-[15px] leading-[20px]"
-              >
-                {t('more.sign_out')}
-              </Button>
-            </div>
-          </Card>
+             NOTHING WAS INVENTED. Every value on this screen already existed
+             on the persona, `more.profile_fields.role` and `.account` were
+             already in en.json and he.json and simply had no call site, and
+             sign-out still calls the same switchProfile() with no confirm
+             step — v1's behaviour, carried.
+
+             NO FIGMA NODE EXISTS FOR THIS SCREEN. See the file header: the
+             delivery file has no More/Account frame, so unlike every other
+             v2 page this layout is not a transcription and is not pinned to
+             one. If a node appears, re-derive from it. */
+          <>
+            <Card className={cn(CARD, 'px-4 pb-5 pt-6')}>
+              <div className="flex flex-col items-center gap-[14px]">
+                {/* The portrait is one fixed asset shared with
+                    MobileHeaderBar — it illustrates the slot rather than
+                    belonging to a persona, which is why the fallback below
+                    carries the persona's real initials and is what shows if
+                    the image ever fails to decode. */}
+                <Avatar className="size-[84px] ring-4 ring-primary/15">
+                  <AvatarImage src={avatarUrl} alt="" />
+                  <AvatarFallback className="bg-primary font-bold text-primary-foreground text-[26px]">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="flex min-w-0 flex-col items-center gap-[6px] text-center">
+                  <h2 className="min-w-0 max-w-full truncate font-bold tracking-[-0.4px] text-slate-900 text-[21px] leading-[27px]">
+                    {persona?.name || EMPTY}
+                  </h2>
+                  {persona?.role ? (
+                    <Badge
+                      variant="secondary"
+                      className="rounded-full border-primary/20 bg-secondary px-[10px] py-[3px] font-semibold text-primary text-[12px] leading-[16px]"
+                    >
+                      {persona.role}
+                    </Badge>
+                  ) : null}
+                  {persona?.sub ? (
+                    <p className="min-w-0 max-w-full truncate text-slate-500 text-[13px] leading-[18px]">
+                      {persona.sub}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </Card>
+
+            {/* The details. `divide-y` rather than a <Separator> between each
+                pair: the rule then belongs to the list and cannot be
+                forgotten when a row is added, and it stops at the last row
+                on its own instead of leaving a hanging line above the card
+                edge — which is what the old pb-[18px] block was working
+                around. */}
+            <Card className={cn(CARD, 'divide-y divide-border')}>
+              {/* NO "Full name" ROW. It was here and came straight back out:
+                  the heading 40px above is that same string at 21px bold, so
+                  the row restated the loudest thing on the screen in the
+                  quietest place on it. The header carries the identity; this
+                  list carries what the header cannot say. */}
+              <DetailRow icon={Mail} label={t('more.profile_fields.email')} value={persona?.email || EMPTY} />
+              <DetailRow
+                icon={Smartphone}
+                label={t('more.profile_fields.phone')}
+                value={persona?.phone || EMPTY}
+              />
+              <DetailRow
+                icon={ShieldCheck}
+                label={t('more.profile_fields.role')}
+                value={persona?.role || EMPTY}
+              />
+              <DetailRow
+                icon={Building2}
+                label={t('more.profile_fields.account')}
+                value={persona?.sub || EMPTY}
+              />
+            </Card>
+
+            {/* Sign out, on its own, below the card rather than inside it.
+                Still `switchProfile` and still no confirm — v1's behaviour,
+                carried deliberately rather than a confirm step invented. It
+                keeps --destructive, which is what this screen already used;
+                the shut-off red CLAUDE.md reserves is --severity-high, a
+                different token.
+
+                THE THREE `dark:` CLASSES ARE NOT REDUNDANT. The outline
+                variant ships dark:border-border-strong and dark:bg-input/30,
+                and tailwind-merge keeps a `dark:` utility ALONGSIDE the
+                unprefixed one rather than treating it as the same key — so
+                without these the button rendered grey-bordered and
+                grey-filled under dark, reading as every other outline button
+                on the screen instead of as the destructive one. */}
+            <Button
+              variant="outline"
+              onClick={switchProfile}
+              className="mt-1 h-[48px] w-full cursor-pointer gap-2 rounded-[14px] border-destructive/35 bg-transparent font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/40 dark:bg-transparent dark:hover:bg-destructive/15 text-[15px] leading-[20px]"
+            >
+              <LogOut className="size-[18px] rtl:rotate-180" aria-hidden="true" />
+              {t('more.sign_out')}
+            </Button>
+          </>
         ) : (
           <>
             {/* Both-off banner. The ⓘ v1 drew was inert — cursor:pointer and no
