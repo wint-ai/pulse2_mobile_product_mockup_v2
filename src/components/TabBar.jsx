@@ -112,7 +112,23 @@ export default function TabBar({ activeTab, hideAlerts = false }) {
               // Home tap, then wiped again on the Alerts tap). 2026-06-15.
               navigate(tab.path);
             }}
-            className={cn(TAB, isActive ? 'text-primary' : 'text-slate-400')}
+            /* `dark:text-muted-foreground` is ONE STEP UP THE RAMP, and it is
+               here because the inactive label was the only piece of chrome on
+               every single route that still failed in dark. Measured 2026-11-08
+               across eight routes: --slate-400 on the dark tab bar is 3.09:1,
+               and this is 12px text, which wants 4.5.
+
+               The ramp INVERTS under dark, so --slate-500 (what
+               --muted-foreground aliases) is LIGHTER here than --slate-400,
+               not darker — the token names read backwards for a moment and
+               the direction is right. --slate-400 under dark resolves to
+               zinc-500, which index.css picks as --border-strong on the
+               stated grounds that it is the BORDER tier at 3.40:1; using it
+               as ink was an oversight carried over from the v1 mapping at the
+               top of this file, which was chosen against the light tab bar.
+
+               `light` and `sand` keep --slate-400 untouched. */
+            className={cn(TAB, isActive ? 'text-primary' : 'text-slate-400 dark:text-muted-foreground')}
           >
             {/* size-[22px] also opts the glyph out of the Button preset's
                 `[&_svg:not([class*='size-'])]:size-4`, which would otherwise
