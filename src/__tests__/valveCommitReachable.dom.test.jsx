@@ -29,14 +29,24 @@
 //
 // SO THE INVARIANT IS PINNED STRUCTURALLY, AND IT IS ONE SENTENCE:
 //
-//     WHATEVER IS LAST IN THE PAGE COLUMN RESERVES AT LEAST
-//     TAB_BAR_CLEARANCE BELOW ITSELF — and when the screen has a commit
-//     control, the commit control is inside that last element.
+//     THE COMMIT CONTROL IS INSIDE WHATEVER IS LAST IN THE PAGE COLUMN, AND
+//     THE BAR ITSELF RESERVES TAB_BAR_CLEARANCE BELOW THAT COLUMN.
 //
 // Both halves are needed. The reservation alone would pass on a screen that
 // put its buttons somewhere else; the containment alone would pass on the
 // broken screen. Every number is read from `tabBarMetrics`, so moving the pill
 // moves this test with it.
+//
+// *** THE SECOND HALF MOVED OFF THIS SCREEN ON 2026-11-08. *** It used to
+// read "whatever is last in the page column reserves at least
+// TAB_BAR_CLEARANCE BELOW ITSELF", and this screen paid it as
+// `marginBottom: TAB_BAR_CLEARANCE` on the strip. That fixed the strip and
+// left the general case broken — bottom spacing only protects the END of a
+// column, so ordinary rows still came to rest under the pill mid-scroll, and
+// the owner hit it again on /location/Office ("I can't click any water events
+// from location"). TabBar's host is `h-[93px]` now and reserves the strip as
+// real column for every screen, so this page reserves NOTHING and the three
+// tests that measured its margin assert zero. See the block above them.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, cleanup, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -156,22 +166,47 @@ describe('the bulk commit control clears the floating tab bar', () => {
     ).toBe(strip(container))
   })
 
-  it.each(ROUTES)('%s reserves the full clearance under the strip', (_label, path) => {
+  /* ── WHO PAYS THE CLEARANCE INVERTED ON 2026-11-08 ────────────────────
+     These three tests used to require TAB_BAR_CLEARANCE of margin under the
+     strip (and under the scroller when no strip is mounted). They require
+     ZERO now, and that is the same defect being fixed properly rather than a
+     regression.
+
+     The 2026-11-04 fix moved the strip out of the pill's band with
+     `marginBottom: TAB_BAR_CLEARANCE`. It worked for the strip and left the
+     general case broken: bottom spacing only protects whatever is at the END
+     of a column, so ordinary scrolled content still came to rest under the
+     opaque pill at intermediate offsets. The owner hit it again on
+     /location/Office - "I can't click any water events from location. It just
+     doesn't click" - and the fix moved into TabBar itself: the host is
+     `h-[93px]` and reserves the strip as real column for EVERY screen.
+
+     So the bottom-most element of this page column is above the pill by
+     construction, and the old margin would now DOUBLE the gap - the strip
+     floating 93px up from a bar already sitting 93px below the column.
+     Re-measured in Chromium at 393x852 after the move: strip y 682 -> 759,
+     pill y 775 -> 840, 16px of daylight, and `elementFromPoint` at the Close
+     button's centre still returns the Close button.
+
+     THE TWO ASSERTIONS THAT ACTUALLY PROTECT THE BUTTON ARE UNCHANGED, and
+     they are the ones above: the commit buttons live INSIDE the strip, and
+     the strip is LAST in the page column. What moved is only which element
+     reserves the room. */
+  it.each(ROUTES)('%s leaves the clearance to the bar, not to the strip', (_label, path) => {
     const { container } = renderAt(path)
     selectAll(container)
 
     const reserved = reservedBelow(strip(container))
     expect(
       reserved,
-      `the selection strip reserves ${reserved}px below itself. The pill covers the `
-        + `bottom ${TAB_BAR_FOOTPRINT}px of the frame and the strip is the bottom-most `
-        + `element of the page column, so anything under ${TAB_BAR_CLEARANCE} leaves the `
-        + 'commit buttons behind the tab bar - which is exactly how this screen '
-        + 'shipped unusable on 2026-11-04. Take the number from tabBarMetrics.',
-    ).toBeGreaterThanOrEqual(TAB_BAR_CLEARANCE)
+      `the selection strip reserves ${reserved}px below itself. TabBar's host `
+        + `already reserves ${TAB_BAR_CLEARANCE}px of real column for the pill, so `
+        + 'this is reserved twice and the strip floats a whole bar-height above '
+        + 'the bar. Delete it; the bar pays for itself (tabBarMetrics.js).',
+    ).toBe(0)
   })
 
-  it('still pays the clearance on the SCROLLER when no strip is mounted', () => {
+  it('leaves it to the bar on the SCROLLER too, when no strip is mounted', () => {
     expect(ZERO_VALVE_SCOPE, 'no zero-valve scope in the catalog to test with').toBeTruthy()
     const { container } = renderAt(`/valves/${ZERO_VALVE_SCOPE}`)
 
@@ -179,19 +214,34 @@ describe('the bulk commit control clears the floating tab bar', () => {
     expect(lastInColumn(container)).toBe(scroller(container))
     expect(
       reservedBelow(scroller(container)),
-      'with no strip the SCROLLER is the bottom-most element, so it owes the full '
-        + 'clearance itself - this is the house rule every other screen follows.',
-    ).toBeGreaterThanOrEqual(TAB_BAR_CLEARANCE)
+      'with no strip the SCROLLER is the bottom-most element - and like every '
+        + 'other scroll body in the app it reserves nothing, because the bar does.',
+    ).toBe(0)
   })
 
-  it('does not double-pay: the scroller drops its padding once the strip has it', () => {
-    /* Not tidiness. The strip takes TAB_BAR_CLEARANCE of column for its
-       clearance; if the scroller kept its own on top, the list would lose that
-       height twice and ~2 rows of a 44px list with it. Measured at 393x852:
-       484px of usable scroll on /valves before the fix and 488px after. */
+  it('reserves it exactly once, and that once is the tab bar host', () => {
+    /* Not tidiness, and it is why the conditional padding this screen used to
+       carry is gone on BOTH branches. The host takes TAB_BAR_CLEARANCE of
+       column; anything the page adds comes straight out of the list. Measured
+       at 393x852: 484px of usable scroll on /valves before and after. */
     const { container } = renderAt('/valves')
     selectAll(container)
     expect(reservedBelow(scroller(container))).toBe(0)
+    expect(reservedBelow(strip(container))).toBe(0)
+
+    const host = container.querySelector('[data-name="tabbar-host"]')
+    expect(host, 'the bar is not mounted on /valves').not.toBeNull()
+    expect(
+      host.className,
+      `the host must declare h-[${TAB_BAR_CLEARANCE}px]. It is the only thing `
+        + 'keeping the commit buttons out of the pill\'s band now that neither '
+        + 'the strip nor the scroller reserves anything.',
+    ).toMatch(new RegExp(`(?:^|\\s)h-\\[${TAB_BAR_CLEARANCE}px\\](?:\\s|$)`))
+    expect(
+      TAB_BAR_CLEARANCE,
+      'the reserved column is smaller than the band the pill fills, so the pill '
+        + 'hangs out of its own host and back over this strip',
+    ).toBeGreaterThanOrEqual(TAB_BAR_FOOTPRINT)
   })
 
   it('fixes the overlap by position, never by stacking', () => {

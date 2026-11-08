@@ -39,7 +39,7 @@ export default function HomeClear() {
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 93px', background: theme.bgFlat }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 0', background: theme.bgFlat }}>
         {/* All clear */}
         <div style={{
           background: theme.clearBg, borderRadius: 11, padding: '11px 13px',

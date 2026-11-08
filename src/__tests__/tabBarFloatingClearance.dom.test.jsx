@@ -1,27 +1,52 @@
 // @vitest-environment happy-dom
 //
-// The floating tab bar overlays every screen. Every scroll body has to pay for
-// that, or its last row comes to rest underneath the pill and cannot be read.
+// The floating tab bar sits at the bottom of every screen. THE BAR PAYS FOR
+// ITSELF: its host reserves TAB_BAR_CLEARANCE of real column, and no screen
+// pays it again.
 //
-// THE INVARIANT FLIPPED ON 2026-11-04. It used to be "content must never reach
-// the pill": the bar reserved 77px of the flex column and nothing was allowed
-// behind it. Then the owner: "and it needs to be completely floating". So the
-// bar now reserves NOTHING (`h-0`), the pill is absolute off that anchor,
-// content scrolls UNDER it - and the rule became "content must be able to
-// scroll PAST the pill and still be fully readable when it stops".
+// ── THE INVARIANT HAS FLIPPED TWICE. READ BOTH BEFORE CHANGING IT. ───────
+//
+// Until 2026-11-04 it was "content must never reach the pill": the bar
+// reserved 77px of the flex column and nothing was allowed behind it.
+//
+// 2026-11-04, the owner: "and it needs to be completely floating". The host
+// went `h-0`, the pill became absolute off that anchor, content scrolled UNDER
+// it, and seventeen scroll bodies were each given TAB_BAR_CLEARANCE of bottom
+// padding. The rule became "content must be able to scroll PAST the pill and
+// still be fully readable when it stops".
+//
+// *** THAT RULE WAS WRONG, AND IT SHIPPED A DEAD SCREEN. 2026-11-08. ***
+// The owner: "I can't click any water events from location. It just doesn't
+// click." Measured in WebKit at 390x664 on /location/Office:
+//
+//     water-event row   y 568 -> 634
+//     pill              y 587 -> 652, background oklab(1 0 0 / .96) - 96%
+//                       OPAQUE - backdrop-blur(10px), pointer-events: auto
+//     elementsFromPoint(195, 601)  ->  div[data-name=tabbar-pill] FIRST,
+//                                      then the row's spans, then the button
+//
+// Bottom padding only governs where the END of a list comes to rest. At every
+// intermediate scroll offset - including the one the screen OPENS at - rows
+// still sat inside the pill's band: painted, with their top ~19px peeking
+// above the bar so they read as live rows, and completely untappable.
+// /location/Office and /location/967 Alder Dr were dead on arrival; the other
+// locations worked only because their rows happen to start higher.
+//
+// SO THE HOST RESERVES THE STRIP AGAIN - `h-[93px]`, TAB_BAR_CLEARANCE - and
+// the per-screen padding is gone. The pill did not move: it is still
+// `absolute inset-x-[16px] bottom-[12px] h-[65px]` inside that host, so 77 of
+// the 93 is pill and 12px inset, and the remaining 16px is a strip of page
+// background above it. The float is intact; what changed is that the strip is
+// reserved ONCE, by the bar, instead of seventeen times by the screens.
+//
+// WHAT THIS FILE PINS NOW:
+//   · the host declares the full clearance as height (not `h-0`);
+//   · the pill still hangs off it with its insets and its height unchanged;
+//   · NO screen declares the clearance itself - that is a double-reserve;
+//   · the one documented exception still does (see EXEMPT below).
 //
 // Phone.jsx is a fixed 393x852 flex column with overflow:hidden, so
-// `position: fixed` is banned and the scroll body is the `flex:1` sibling that
-// grew by the bar's whole height when the reservation went. Measured in a real
-// browser at 393x852, scrolled to the very bottom, BEFORE the padding existed,
-// as the gap between the deepest painted content and the bar's top edge:
-//
-//     /              24.3px      /account        32px
-//     /system/:id     8.5px      /valves         88px
-//     /alerts            0px   <- EventsScreen's list ended flush against it
-//
-// Every one of those is now short by the pill's whole footprint, which is why
-// this file checks the padding rather than trusting it.
+// `position: fixed` is banned and the host is an ordinary flex sibling.
 //
 // happy-dom has no layout engine, so the geometry is checked on what the
 // classes and styles DECLARE. That is the right level: the numbers are the
@@ -37,6 +62,7 @@ import {
   TAB_BAR_SIDE_INSET,
   TAB_BAR_FOOTPRINT,
   TAB_BAR_CLEARANCE,
+  TAB_BAR_GAP,
 } from '../components/tabBarMetrics';
 
 afterEach(cleanup);
@@ -48,15 +74,16 @@ function px(className, utility) {
 }
 
 /* The app shell, reduced to the two things that matter: one scrolling body
-   carrying the clearance, and the bar floating over it. This is the shape
-   .claude/skills/v2-page-parity/SKILL.md requires of every screen. */
+   with NO bottom padding of its own, and the bar below it reserving its own
+   strip. This is the shape .claude/skills/v2-page-parity/SKILL.md requires of
+   every screen. */
 function renderShell() {
   return render(
     <MemoryRouter initialEntries={['/']}>
       <div data-name="phone-column" style={{ display: 'flex', flexDirection: 'column', height: 852, overflow: 'hidden' }}>
         <div
           data-name="scroll-body"
-          style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
         >
           {Array.from({ length: 40 }, (_, i) => (
             <div key={i} data-name={i === 39 ? 'last-row' : 'row'}>row {i}</div>
@@ -71,8 +98,8 @@ function renderShell() {
 const host = () => document.querySelector('[data-name="tabbar-host"]');
 const pill = () => document.querySelector('[data-name="tabbar-pill"]');
 
-describe('the tab bar completely floats', () => {
-  it('reserves no column at all - the scroll body runs the full frame', () => {
+describe('the tab bar floats, and reserves its own strip', () => {
+  it('reserves the full clearance as real column, so nothing scrolls under it', () => {
     renderShell();
     const cls = host().className;
     // `fixed` is banned inside the 393x852 frame outright.
@@ -80,9 +107,34 @@ describe('the tab bar completely floats', () => {
     expect(cls).toMatch(/(?:^|\s)relative(?:\s|$)/);
     expect(
       cls,
-      'the host must be h-0: any reserved height means content stops short of '
-      + 'the frame edge and the bar is not completely floating',
-    ).toMatch(/(?:^|\s)h-0(?:\s|$)/);
+      'the host is h-0 again. That is the 2026-11-08 bug: a zero-height host '
+      + 'lets the scroll body run the full frame, and the pill is 96% opaque '
+      + 'with pointer-events:auto, so every row inside its band is painted and '
+      + 'dead. Bottom padding on the screens does NOT fix it - it only governs '
+      + 'where the end of a list comes to rest.',
+    ).not.toMatch(/(?:^|\s)h-0(?:\s|$)/);
+    expect(
+      px(cls, 'h'),
+      'the host must reserve exactly TAB_BAR_CLEARANCE: less and content comes '
+      + 'back under the pill, more and every page grows dead space.',
+    ).toBe(TAB_BAR_CLEARANCE);
+    // `shrink-0`, or a greedy sibling compresses the strip back to nothing.
+    expect(cls).toMatch(/(?:^|\s)shrink-0(?:\s|$)/);
+  });
+
+  /* The pill must stay INSIDE the strip the host reserves. If it hung lower or
+     taller than the host, content would be back underneath it and the fix
+     would be undone without this file noticing. */
+  it('keeps the pill wholly inside the reserved strip', () => {
+    renderShell();
+    const cls = pill().className;
+    const occupies = px(cls, 'bottom') + px(cls, 'h');
+    expect(occupies).toBe(TAB_BAR_FOOTPRINT);
+    expect(
+      occupies,
+      `the pill occupies ${occupies}px of a ${TAB_BAR_CLEARANCE}px host, so it `
+      + 'sticks out of the strip and overlaps the scroll body again',
+    ).toBeLessThanOrEqual(TAB_BAR_CLEARANCE);
   });
 
   it('hangs the pill off that anchor, clear of all three edges', () => {
@@ -96,42 +148,44 @@ describe('the tab bar completely floats', () => {
     expect(cls).toMatch(/(?:^|\s)border(?:\s|$)/);
   });
 
-  it('lets content pass behind it, which is what the blur is for', () => {
+  it('keeps the translucent fill and the blur it was drawn with', () => {
     renderShell();
-    // A translucent fill and a backdrop blur are only meaningful once
-    // something moves underneath. Both were inert while the bar reserved a
-    // column; neither is now.
+    /* Both are INERT as of 2026-11-08 - nothing scrolls under the pill for
+       them to blur - and both are kept deliberately. They are the pill's
+       declared appearance, the 4% translucency still samples the page
+       background behind it, and dropping them would change the look, which
+       the 2026-11-08 fix explicitly must not. */
     expect(pill().className).toMatch(/backdrop-blur-\[\d+px\]/);
     expect(pill().className).toMatch(/bg-card\/\d+/);
   });
 
-  it('agrees with tabBarMetrics about how much of the screen it covers', () => {
+  it('agrees with tabBarMetrics about how much of the strip it fills', () => {
     renderShell();
     const declared = px(pill().className, 'bottom') + px(pill().className, 'h');
     expect(
       declared,
-      'the pill covers a different band than TAB_BAR_FOOTPRINT says it does, '
-      + 'so every scroll body in the app is now padded by the wrong amount',
+      'the pill fills a different band than TAB_BAR_FOOTPRINT says it does, '
+      + 'so the host is reserving the wrong amount of column',
     ).toBe(TAB_BAR_FOOTPRINT);
   });
 
-  it('asks every scroll body for a real gap, not a hairline', () => {
-    const gap = TAB_BAR_CLEARANCE - TAB_BAR_FOOTPRINT;
+  it('leaves a real gap above the pill, not a hairline', () => {
+    expect(TAB_BAR_GAP, 'TAB_BAR_GAP must stay derived from the other two')
+      .toBe(TAB_BAR_CLEARANCE - TAB_BAR_FOOTPRINT);
     expect(
-      gap,
-      `TAB_BAR_CLEARANCE leaves only ${gap}px between the last row and the `
-      + 'pill. A row that just touches the pill reads as clipped even when it '
-      + 'is not.',
+      TAB_BAR_GAP,
+      `the host reserves only ${TAB_BAR_GAP}px above the pill. A row that just `
+      + 'touches the pill reads as clipped even when it is not.',
     ).toBeGreaterThanOrEqual(12);
   });
 });
 
 /* ── the other half of the contract: the screens ──────────────────────────
-   The structural checks above cannot see a screen that forgot its padding,
-   and that is the failure this whole file exists to prevent. So the source is
-   read directly. It is the only way to assert something about twenty files
-   from one test, and the alternative - twenty render tests - would not catch
-   the twenty-first screen somebody adds. */
+   The structural checks above cannot see a screen that pays the clearance a
+   second time, and that is the failure this half exists to prevent now. So
+   the source is read directly. It is the only way to assert something about
+   twenty files from one test, and the alternative - twenty render tests -
+   would not catch the twenty-first screen somebody adds. */
 
 /* The sources come in through Vite's `?raw`, NOT through node:fs.
    `process` is not a declared global in this repo's eslint config, and
@@ -156,8 +210,15 @@ function read(file) {
   return src;
 }
 
-/** Every screen that mounts TabBar and whose scroll body sits under the pill. */
-const PADDED = [
+/**
+ * Every screen that mounts TabBar as an in-flow sibling of its scroll body.
+ *
+ * THE LIST IS THE SAME SEVENTEEN; WHAT IS ASSERTED ABOUT IT INVERTED on
+ * 2026-11-08. It was PADDED - each of these had to DECLARE the clearance.
+ * They must now declare NONE of it: the host reserves it, and a second
+ * helping is ~186px of dead space at the bottom of the page.
+ */
+const UNDER_THE_BAR = [
   'src/screens/events/EventsScreen.jsx',
   'src/v2/pages/SystemPageV2Screen.jsx',
   'src/v2/pages/ValveManagementScreen.jsx',
@@ -172,62 +233,59 @@ const PADDED = [
   'src/screens/systems/L4Screen.jsx',
   'src/screens/systems/SystemDetail.jsx',
   'src/v2/pages/AccountScreenV2.jsx',
-  /* Promoted out of STILL_OWED 2026-11-04 — see the note below it. */
   'src/v2/pages/HomeAllAccounts.jsx',
   'src/v2/pages/HomeAccountOverview.jsx',
   'src/v2/pages/SystemPage.jsx',
 ];
 
 /**
- * Screens that still owe the padding, with the reason they were not done in
- * the same pass. These are NOT exempt - they trap their last row today. The
- * second test below fails the moment one of them is fixed, which is the
- * prompt to delete it from this list.
+ * The ONE screen that still pays the clearance itself, and why.
+ *
+ * MoreComingSoonScreen's content lives in a cover that is `absolute inset-0`:
+ * it is OUT OF FLOW, spans the whole frame including the host's column, and
+ * the pill still paints over its bottom TAB_BAR_FOOTPRINT. Reserved column
+ * does not move an out-of-flow box, so that scroller owes the clearance on
+ * its own. moreComingSoon.dom.test.jsx:182 asserts the class; this list is
+ * what stops the sweep below from calling it a double-reserve.
+ *
+ * ⚠ THIS IS NOT A PLACE TO PARK A SCREEN YOU DID NOT WANT TO FIX. The only
+ *   qualifying reason is an out-of-flow (absolute/fixed) scroll region that
+ *   the host's column cannot push. An ordinary in-flow scroll body belongs in
+ *   UNDER_THE_BAR.
  */
-/* EMPTIED 2026-11-04. All three were paid in the header-unification pass:
-   HomeAllAccounts (which measured -53.8px of clearance at maximum scroll -
-   the worst of the fourteen), and the two /old preview routes, which carry
-   two scroll bodies each. They moved up into PADDED above. */
-const STILL_OWED = [];
+const EXEMPT = ['src/v2/pages/MoreComingSoonScreen.jsx'];
 
 /* Matches the clearance however a file spells it.
  *
- * TWO ARMS, AND THE SECOND ONE IS NEW — 2026-11-07.
- *
  * THE LITERAL ARM: `paddingBottom: 93`, `padding: '10px 14px 93px'`,
- * `pb-[93px]`. Built FROM `TAB_BAR_CLEARANCE`, so moving the constant turns
- * every literal-spelling screen red at once rather than letting them drift.
+ * `pb-[93px]`. Built FROM `TAB_BAR_CLEARANCE`, so moving the constant moves
+ * the check with it rather than letting a screen drift.
  *
- * THE IDENTIFIER ARM: `paddingBottom: TAB_BAR_CLEARANCE`, or the same value
- * on `marginBottom` (ValveManagementScreen's selection strip is the bottom-most
- * element there and pays the clearance as a margin, which
- * valveCommitReachable.dom.test.jsx asserts separately).
+ * THE IDENTIFIER ARM: `paddingBottom: TAB_BAR_CLEARANCE`, or the same value on
+ * `marginBottom` (ValveManagementScreen's selection strip paid it as a margin
+ * until 2026-11-08). The import is REQUIRED, not decorative: a bare identifier
+ * proves nothing, since a file could define `const TAB_BAR_CLEARANCE = 0`
+ * locally.
  *
- * ── WHY THE SECOND ARM EXISTS: A DOC AND A TEST THAT DISAGREED ───────────
- * tabBarMetrics.js said, in as many words, "Pages DO import
- * TAB_BAR_CLEARANCE, because a scroll body's bottom padding is an ordinary
- * style value with no Tailwind involvement." That is TRUE and it is the right
- * advice — a page that imports the constant moves with it, and a page that
- * hard-codes 93 does not.
+ * ⚠ COMMENTS ARE STRIPPED FIRST, AND THAT IS LOAD-BEARING NOW. While this
+ *   detector was used to assert the POSITIVE, a stray `93` in prose only ever
+ *   let a broken screen pass. Used to assert the NEGATIVE it does the
+ *   opposite: these files document the padding they used to carry in as many
+ *   words ("It was `paddingBottom: 93`"), and matching raw source would fail
+ *   three correct screens for describing their own history. Same stripper as
+ *   scripts/check-shell-contract.mjs, and for the same reason.
  *
- * But this check could only see the literal. A page that followed the module's
- * own advice failed here, with a message telling the author they had not
- * declared the padding when they had. Two screens hit it and both wrote the
- * literal instead, each leaving a comment saying the conflict was REPORTED and
- * that the constant would come back when this check learned to resolve it
- * (SystemPageV2Screen's scroller and ValveManagementScreen:1490). This is that.
- *
- * THE IMPORT IS REQUIRED, not decorative. A bare identifier proves nothing —
- * a file could define `const TAB_BAR_CLEARANCE = 0` locally and pass. So the
- * arm only counts when the file really imports the name from tabBarMetrics,
- * which is what makes the value the same value this test is built on.
- *
- * ⚠ A SOURCE GREP STILL CANNOT SEE WHICH ELEMENT CARRIES IT. Neither arm can;
- *   that limitation is unchanged and is why PADDED is a hand-kept list. What
- *   changed is only that a correct spelling stopped reading as a missing one. */
+ * ⚠ A SOURCE GREP CANNOT SEE WHICH ELEMENT CARRIES IT. That limitation is
+ *   unchanged and is why UNDER_THE_BAR is a hand-kept list. */
 const IMPORTS_CLEARANCE = /import\s*\{[^}]*\bTAB_BAR_CLEARANCE\b[^}]*\}\s*from\s*['"][^'"]*tabBarMetrics['"]/;
 
-const declaresClearance = (src) => {
+/** Block, line and JSX comments out, so prose about the padding is not code. */
+const stripComments = (src) => src
+  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+  .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+
+const declaresClearance = (raw) => {
+  const src = stripComments(raw);
   const literal = new RegExp(
     `paddingBottom:\\s*${TAB_BAR_CLEARANCE}\\b`
     + `|padding:\\s*'[^']*\\s${TAB_BAR_CLEARANCE}px'`
@@ -246,18 +304,17 @@ const declaresClearance = (src) => {
  * always [be] floating — it's gone now."
  *
  * The Dashboard restructure had given its scroll body `relative z-10`, so the
- * artwork band behind it would sit underneath. TabBar's host is `relative
- * shrink-0 h-0` at z-index:AUTO on purpose (TabBar.jsx:244 — it is how the
- * z-50 and z-[300] overlays cover the bar), and CSS paints EVERY positive
- * z-index in a later step than EVERY auto one, regardless of DOM order. So a
- * scroll body at z-10 paints over a tab bar mounted after it, and the pill is
- * simply not on the screen.
+ * artwork band behind it would sit underneath. TabBar's host is at
+ * z-index:AUTO on purpose (it is how the z-50 and z-[300] overlays cover the
+ * bar), and CSS paints EVERY positive z-index in a later step than EVERY auto
+ * one, regardless of DOM order. So a scroll body at z-10 paints over a tab bar
+ * mounted after it, and the pill is simply not on the screen.
  *
  * EVERY CHECK IN THIS FILE STAYED GREEN THROUGH IT. TabBar was still mounted,
- * the host was still h-0, the pill still hung off it with the right insets,
- * the clearance padding was still declared and check-shell-contract still
- * passed. The suite measured that room had been RESERVED under the bar and
- * never that the bar was painted in it.
+ * the host still carried its declared height, the pill still hung off it with
+ * the right insets and check-shell-contract still passed. The suite measured
+ * that room had been RESERVED under the bar and never that the bar was
+ * painted in it.
  *
  * WHY THIS IS A SOURCE CHECK. happy-dom has no layout engine and does not
  * resolve a Tailwind class to a z-index, so the stacking cannot be observed in
@@ -267,10 +324,11 @@ const declaresClearance = (src) => {
  * panel z-11, and a host above those punches the pill through the navigation
  * drawer (the floating-bar work verified drawerCoversTheBar explicitly).
  *
- * v2 pages only. The v1 screens in PADDED predate this shell and spell their
- * scroll bodies several different ways; widening this is a separate pass.
+ * v2 pages only. The v1 screens in UNDER_THE_BAR predate this shell and spell
+ * their scroll bodies several different ways; widening this is a separate
+ * pass.
  */
-const V2_PADDED = PADDED.filter(f => f.startsWith('src/v2/pages/'));
+const V2_UNDER_THE_BAR = UNDER_THE_BAR.filter(f => f.startsWith('src/v2/pages/'));
 
 /**
  * The className literal on the element that declares the scroll.
@@ -301,7 +359,7 @@ function scrollBodyClasses(src) {
 const POSITIVE_Z = /(?:^|\s)z-(?:\[(\d+)px?\]|([1-9]\d*))(?:\s|$)/;
 
 describe('the pill is painted, not merely mounted', () => {
-  it.each(V2_PADDED)('%s does not outrank the tab bar from its scroll body', file => {
+  it.each(V2_UNDER_THE_BAR)('%s does not outrank the tab bar from its scroll body', file => {
     /* Not asserted non-empty: a page may spell its scroller with no className
        at all (AccountScreenV2 carries the overflow in the style object alone),
        and that is not a violation - there is simply nothing to outrank with. */
@@ -319,33 +377,40 @@ describe('the pill is painted, not merely mounted', () => {
   });
 });
 
-describe('every screen under the pill reserves room for it', () => {
-  it.each(PADDED)('%s pads its scroll body by the full clearance', file => {
+describe('no screen reserves the bar\'s strip a second time', () => {
+  it.each(UNDER_THE_BAR)('%s leaves the clearance to the bar', file => {
     const src = read(file);
     expect(
       declaresClearance(src),
-      `${file} does not declare ${TAB_BAR_CLEARANCE}px of bottom padding on its `
-      + `scroll body. The pill covers the bottom ${TAB_BAR_FOOTPRINT}px of the `
-      + 'frame, so without it the last row of this screen comes to rest under '
-      + 'the bar and there is no way to scroll it clear.',
+      `${file} declares ${TAB_BAR_CLEARANCE}px of bottom spacing of its own. `
+      + `TabBar's host already reserves that strip as real column, so this `
+      + `screen now ends ${TAB_BAR_CLEARANCE * 2}px above the frame's bottom `
+      + 'edge and the bottom of the page is dead space. Delete it; the bar '
+      + 'pays for itself (src/components/tabBarMetrics.js).',
+    ).toBe(false);
+  });
+
+  /* The exemption has to stay TRUE, not merely listed. If MoreComingSoonScreen
+     ever drops its padding - or its cover stops being absolute - this fails
+     and whoever changed it has to decide which list the file belongs in. */
+  it.each(EXEMPT)('%s still pays it, because its cover is out of flow', file => {
+    const src = read(file);
+    expect(
+      declaresClearance(src),
+      `${file} is listed EXEMPT but declares no clearance. Its scroll region is `
+      + 'inside an `absolute inset-0` cover, which reserved column cannot push, '
+      + 'so the pill paints over its bottom rows unless it pads itself.',
+    ).toBe(true);
+    expect(
+      /absolute\s+inset-0/.test(stripComments(src)),
+      `${file} no longer has an out-of-flow cover, so the exemption's only `
+      + 'justification is gone. Move it into UNDER_THE_BAR and drop the padding.',
     ).toBe(true);
   });
 
-  it('keeps the list of screens that still owe it honest', () => {
-    const fixed = STILL_OWED.filter(f => declaresClearance(read(f)));
-    expect(
-      fixed,
-      `these now declare the clearance and should move from STILL_OWED into `
-      + `PADDED: ${fixed.join(', ')}`,
-    ).toEqual([]);
-  });
-
-  /* THE DETECTOR'S OWN TEST, added with its second arm on 2026-11-07. Without
-     it the identifier arm could rot into a regex that matches nothing and
-     every screen using the constant would read as a screen that forgot the
-     padding - which is precisely the failure the arm was added to end, and it
-     would come back silently because the literal-spelling screens keep this
-     file green on their own. */
+  /* THE DETECTOR'S OWN TEST. It now backs a NEGATIVE assertion, which makes a
+     detector that matches nothing far more dangerous than before: every screen
+     would read as clean and a real double-reserve would ship. */
   it('recognises the clearance whether a screen spells it or imports it', () => {
     const IMPORT = "import { TAB_BAR_CLEARANCE } from '@/components/tabBarMetrics'\n";
 
@@ -367,6 +432,20 @@ describe('every screen under the pill reserves room for it', () => {
     // And a screen that simply has no clearance still fails.
     expect(declaresClearance('style={{ paddingBottom: 8 }}')).toBe(false);
     expect(declaresClearance(IMPORT), 'importing it is not using it').toBe(false);
+
+    /* COMMENTS ARE NOT CODE — the arm added 2026-11-08 with the inverted
+       assertion. Three screens describe the padding they used to carry, and
+       reading raw source would fail every one of them for saying so. */
+    expect(
+      declaresClearance(`/* it was paddingBottom: ${TAB_BAR_CLEARANCE} and it is gone */`),
+      'prose about the old padding must not read as the padding',
+    ).toBe(false);
+    expect(declaresClearance(`{/* NO pb-[${TAB_BAR_CLEARANCE}px] any more */}`)).toBe(false);
+    expect(declaresClearance(`// padding: '10px 14px ${TAB_BAR_CLEARANCE}px'`)).toBe(false);
+    // ...but a real declaration next to that prose still counts.
+    expect(
+      declaresClearance(`/* it was ${TAB_BAR_CLEARANCE} */\nstyle={{ paddingBottom: ${TAB_BAR_CLEARANCE} }}`),
+    ).toBe(true);
   });
 });
 

@@ -454,15 +454,10 @@ import {
 } from '@/components/ui/item'
 import { Separator } from '@/components/ui/separator'
 import TabBar from '@/components/TabBar'
-/* THE PILL'S FOOTPRINT, AS A NUMBER THIS FILE DOES NOT GET TO PICK.
-   `TAB_BAR_CLEARANCE` is 12 + 65 + 16 = 93: the inset the pill floats at, the
-   pill's own height, and this app's 16px gutter. It is imported rather than
-   written down because the SELECTION STRIP below is new ground - no other
-   screen puts a bottom-pinned control under the floating bar, so there is no
-   second site and no test holding a literal here honest. See the strip's own
-   note for what it is used for and the scroller's for why THAT one is still
-   spelled as a literal. */
-import { TAB_BAR_CLEARANCE } from '@/components/tabBarMetrics'
+/* `TAB_BAR_CLEARANCE` WAS IMPORTED HERE, for the selection strip's margin and
+   the scroller's conditional padding. Both are gone as of 2026-11-08: TabBar's
+   host reserves the pill's strip as real column, so no screen spells the
+   clearance any more. See the strip's own note. */
 /* THE header — one bar on every screen, 2026-11-04 (owner: "It always needs
    to be the same"). Replaces MobileHeaderBar, which is left on disk unused.
    This screen's `<h1>` is still the sr-only one below; the bar names the
@@ -1471,42 +1466,24 @@ export default function ValveManagementScreen() {
 
         {/* ── THE ONE SCROLLING REGION ────────────────────────────────────
 
-            THE CLEARANCE IS ONLY OWED WHEN THIS IS THE BOTTOM-MOST ELEMENT.
-            The pill covers the bottom 93px of the frame and every scroll body
-            in the app pays for that — but on THIS screen the selection strip
-            is mounted BELOW the scroller and is itself what clears the pill
-            (see its own note). When the strip is there the scroller's bottom
-            edge borders the STRIP, not the bar, so 93px of padding would be
-            93px of blank between the last row and the strip. It measured
-            exactly that: scroller 361x577 with 484px of usable column on
-            /valves, i.e. ~2 rows of a 44px list spent on nothing.
+            NO BOTTOM CLEARANCE AT ALL — 2026-11-08, AND NOT ON EITHER BRANCH.
 
-            SO IT IS CONDITIONAL, AND THE NET COST OF FIXING THE OVERLAP IS
-            ZERO ROWS: the strip takes 93px of column for its clearance and
-            the scroller takes the same 93px back out of its own padding.
-            Measured before and after at 393x852 — 484px of usable scroll on
-            /valves both times.
+            It used to be `paddingBottom: showStrip ? 0 : TAB_BAR_CLEARANCE`:
+            93px when this was the bottom-most element of the page column, and
+            0 when the selection strip below it carried the same 93 as margin
+            instead. BOTH ARE GONE, because neither element pays the clearance
+            any more — TabBar's HOST is `h-[93px]` and reserves the strip as
+            real column (src/components/tabBarMetrics.js). The scroller and
+            the strip both end above the pill by construction, and paying it
+            here as well would leave ~93px of blank under the list again,
+            which is the exact waste the conditional existed to avoid.
 
-            ✔ IT IS THE CONSTANT NOW — 2026-11-07, and this note records why
-            it was a literal `93` until then. `tabBarFloatingClearance.dom.
-            test.jsx` greps the SOURCE of all seventeen padded screens — it is
-            the only way one test can assert something about seventeen files —
-            and its regex could match the literal only, so `TAB_BAR_CLEARANCE`
-            here used to read as a screen that forgot its padding and fail.
-            That contradicted tabBarMetrics.js, which says in as many words
-            that pages DO import the constant.
-
-            THE CHECK WAS FIXED, not the advice: it now has a second arm that
-            accepts the identifier when the file genuinely imports it from that
-            module, with its own coverage so the arm cannot rot back into
-            matching nothing. The literal arm is still BUILT from
-            TAB_BAR_CLEARANCE, so the screens that still spell 93 stay honest
-            — moving the constant turns them red at once. This screen and
-            SystemPageV2Screen's scroller are the first two on the constant;
-            see the strip below, which was already on it. */}
+            The usable column is unchanged by this: 484px on /valves before
+            and after, because the 93 simply moved from inside the page to the
+            bar's own host. */}
         <div
           className="w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: showStrip ? 0 : TAB_BAR_CLEARANCE }}
+          style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
           data-name="valve-rows"
         >
           {result ? <ResultBanner result={result} onDismiss={() => setResult(null)} /> : null}
@@ -1723,8 +1700,8 @@ export default function ValveManagementScreen() {
             thing this screen exists to do could not be done.
 
             WHY IT HAPPENED. The strip is the last child of the page column and
-            the column runs to the frame's bottom edge, because TabBar's host
-            is `relative shrink-0 h-0` and reserves NOTHING (2026-11-04, the
+            the column ran to the frame's bottom edge, because TabBar's host
+            was `relative shrink-0 h-0` and reserved NOTHING (2026-11-04, the
             owner: "and it needs to be completely floating"). Before that the
             bar was a 77px full-bleed slab that held its own column and
             anything sitting at the bottom of the page was automatically above
@@ -1732,16 +1709,23 @@ export default function ValveManagementScreen() {
             that pass; a bottom-pinned CONTROL is a different element and a
             different problem, and this one was missed.
 
-            THE FIX IS THE SAME NUMBER ON THE RIGHT ELEMENT. `TAB_BAR_CLEARANCE`
-            of margin under the strip puts its bottom edge where a scroll body's
-            last row comes to rest. Measured after, both routes, both themes:
-            the strip ends at y 751 against a pill at 775, so 24px of daylight
-            (93 of margin over the column's own py-2, which is the same 101px
-            above the frame edge a padded scroller already rests at), and
-            `elementFromPoint` at the Close button's centre now returns the
-            Close button. Driven end to end with real pointer clicks: select
-            all -> Close N -> the sheet's escape hatch -> commit -> the result
-            banner, on /valves and /valves/100 Meridian Plaza.
+            THE FIX WAS `marginBottom: TAB_BAR_CLEARANCE` HERE, AND IT IS GONE
+            AGAIN — 2026-11-08, SUPERSEDED, NOT REVERTED. The same defect
+            turned out to be general: bottom spacing only protects what is at
+            the END of a column, so the owner hit it again on ordinary content
+            ("I can't click any water events from location. It just doesn't
+            click") where rows sat under the pill at intermediate scroll
+            offsets. TabBar's host is `h-[93px]` now and reserves the strip as
+            real column, so EVERY bottom-most element — this one included —
+            is above the pill by construction. The margin would double it:
+            the strip would float 93px up from a bar that already sits 93px
+            below the column. Re-measured in WebKit at 390x664 after the move,
+            both routes, select-all pressed: strip y 418 -> 563, pill
+            y 587 -> 652, so 24px of daylight (the page column's own py-2 plus
+            the host's 16px gap), `elementFromPoint` at each commit button's
+            centre returns that button, and a real touch tap on `Close N`
+            opens the confirmation sheet on /valves and on
+            /valves/100 Meridian Plaza.
 
             NOT DONE, DELIBERATELY: z-index. Raising the strip over the pill
             would make the button paintable and still leave it under the bar's
@@ -1753,7 +1737,6 @@ export default function ValveManagementScreen() {
         {showStrip ? (
           <div
             className={cn(LOCATION_CARD, 'shrink-0')}
-            style={{ marginBottom: TAB_BAR_CLEARANCE }}
             data-name="valve-selection-strip"
           >
             {showSelectAll ? (

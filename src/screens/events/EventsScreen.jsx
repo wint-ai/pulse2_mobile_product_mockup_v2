@@ -88,7 +88,11 @@ function SwipeableAlertTabs({ children, activeTab, onSwipe }) {
         transition: 'transform 0.25s ease', height: '100%',
       }}>
         {children.map((child, i) => (
-          <div key={i} style={{ width: `${100 / ALERT_TABS.length}%`, height: '100%', overflowY: 'auto', flexShrink: 0, paddingBottom: 93 }}>
+          /* NO paddingBottom. TabBar's host reserves TAB_BAR_CLEARANCE of
+             real column as of 2026-11-08 (src/components/tabBarMetrics.js), so
+             this pane already ends above the pill; the `93` that stood here
+             would reserve the strip a second time. */
+          <div key={i} style={{ width: `${100 / ALERT_TABS.length}%`, height: '100%', overflowY: 'auto', flexShrink: 0 }}>
             {child}
           </div>
         ))}

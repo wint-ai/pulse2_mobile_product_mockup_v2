@@ -34,7 +34,7 @@ export default function HomeMultiAccount() {
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 93px', background: theme.bgFlat }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 0', background: theme.bgFlat }}>
         {/* Combined widgets */}
         <div style={{ background: theme.card, borderRadius: 14, border: theme.cardBorder, overflow: 'hidden', marginBottom: 12 }}>
           {[

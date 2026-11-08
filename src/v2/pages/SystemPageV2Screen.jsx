@@ -134,9 +134,9 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import TabBar from '@/components/TabBar'
-/* The floating pill's footprint plus a gutter. Imported rather than spelled as
-   93, which is what tabBarMetrics.js asks callers to do — see the scroller. */
-import { TAB_BAR_CLEARANCE } from '@/components/tabBarMetrics'
+/* `TAB_BAR_CLEARANCE` WAS IMPORTED HERE and is not any more — 2026-11-08. The
+   bar reserves its own strip now (TabBar's host is `h-[93px]`), so no screen
+   spells the clearance at all; see the scroller below and tabBarMetrics.js. */
 import WintSidebarV2 from '@/v2/components/WintSidebarV2'
 import AlertCard from '@/v2/components/AlertCard'
 import EventFocusOverlay from '@/v2/components/EventFocusOverlay'
@@ -2072,25 +2072,17 @@ export default function SystemPageV2Screen() {
             hero is the first thing INSIDE it now, so reserving height for it
             would push the page down by its own height.
 
-            `paddingBottom: TAB_BAR_CLEARANCE` is the floating pill's
-            footprint plus a gutter (src/components/tabBarMetrics.js = 12 + 65
-            + 16 = 93), and every scroller in the app carries it.
-
-            ✔ THE CONSTANT, NOT THE LITERAL — CHANGED 2026-11-07. This line
-            used to spell `93`, with a note saying the module and the test
-            contradicted each other: tabBarMetrics.js said "Pages DO import
-            TAB_BAR_CLEARANCE" while tabBarFloatingClearance.dom.test.jsx was
-            a source-text grep that could only match the literal, so following
-            the module's advice read as a screen that had forgotten its
-            padding. THE TEST WAS FIXED rather than the advice: it now has a
-            second arm that accepts the identifier when the file genuinely
-            imports it from that module, and that arm has its own coverage so
-            it cannot rot back. This scroller is its first real user.
-
-            Most of the other sixteen still spell the literal and are still
-            correct — the test's literal arm is BUILT from the constant, so
-            moving it turns all of them red at once. Converting them is a
-            separate pass, not a prerequisite for this one.
+            NO `paddingBottom` ANY MORE — REMOVED 2026-11-08. It was
+            `TAB_BAR_CLEARANCE`, the floating pill's footprint plus a gutter
+            (src/components/tabBarMetrics.js = 12 + 65 + 16 = 93), carried by
+            every scroller in the app for the four days TabBar's host was
+            `h-0`. Bottom padding only governs where the END of the scroll
+            comes to rest, so rows at intermediate offsets still sat inside
+            the pill's band and were untappable — the owner: "I can't click
+            any water events from location. It just doesn't click." The HOST
+            is `h-[93px]` now and reserves that strip as real column, so this
+            scroller ends above the pill at every offset and paying it here
+            as well would reserve it twice.
 
             ⚠ NO z-index ON THIS ELEMENT, deliberately, and it is the one
             thing this layout could most easily get wrong. TabBar's host is
@@ -2106,7 +2098,7 @@ export default function SystemPageV2Screen() {
         <div
           ref={scrollerRef}
           className="content-stretch flex flex-col gap-[22px] items-start -mx-[16px] w-[calc(100%+32px)] px-[16px] pt-[10px] relative [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', minHeight: 0, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', minHeight: 0 }}
           data-node-id="200013:91527"
         >
           {/* ── THE HERO CARD — 200013:91525 on HeroCardShell ────────────────

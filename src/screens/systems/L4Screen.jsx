@@ -44,7 +44,7 @@ export default function L4Screen() {
       </div>
 
       {/* Systems list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 93px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 0' }}>
         <div style={{ background: theme.card, borderRadius: 12, overflow: 'hidden', border: theme.cardBorder }}>
           {systems.map((sys, i) => (
             <div key={sys.id}>

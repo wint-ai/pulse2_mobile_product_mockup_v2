@@ -811,7 +811,10 @@ function SwipePanel({ children, activeIndex, onSwipe }) {
         transition: 'transform 0.25s ease', height: '100%',
       }}>
         {children.map((child, i) => (
-          <div key={i} style={{ width: `${100 / children.length}%`, height: '100%', overflowY: 'auto', flexShrink: 0, paddingBottom: 93 }}>
+          /* NO paddingBottom — TabBar's host reserves TAB_BAR_CLEARANCE of
+             real column as of 2026-11-08 (src/components/tabBarMetrics.js);
+             the `93` that stood here would reserve the strip twice. */
+          <div key={i} style={{ width: `${100 / children.length}%`, height: '100%', overflowY: 'auto', flexShrink: 0 }}>
             {child}
           </div>
         ))}

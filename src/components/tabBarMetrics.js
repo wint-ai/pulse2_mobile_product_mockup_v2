@@ -1,5 +1,5 @@
 /**
- * The numbers the floating tab bar and every scroll body have to agree on.
+ * The numbers the floating tab bar is built from.
  *
  * TabBar.jsx cannot import these INTO its class strings — Tailwind's scanner
  * only sees literal class text, so a template-built `h-[${n}px]` emits no CSS
@@ -9,33 +9,41 @@
  * classes against. Change a number here and the test tells you which class
  * string disagrees.
  *
- * Pages DO import TAB_BAR_CLEARANCE, because a scroll body's bottom padding is
- * an ordinary style value with no Tailwind involvement.
+ * ── THE BAR PAYS ITS OWN CLEARANCE NOW — 2026-11-08 ──────────────────────
  *
- * ── BOTH SPELLINGS ARE LEGAL, AND THE IMPORT IS THE BETTER ONE ───────────
- * `paddingBottom: TAB_BAR_CLEARANCE` and `paddingBottom: 93` both satisfy
- * tabBarFloatingClearance.dom.test.jsx. Prefer the import: a screen that
- * hard-codes 93 does not move when this file does, and the only thing keeping
- * the seventeen literal-spelling screens honest is that the test's regex is
- * BUILT from this constant, so changing it turns all of them red at once
- * rather than letting one drift.
+ * THE BUG. The owner: *"I can't click any water events from location. It just
+ * doesn't click."* Measured in WebKit at 390x664 on /location/Office: the
+ * first water-event row sat at y 568->634 and the pill at y 587->652, 96%
+ * OPAQUE with `pointer-events: auto`. `document.elementsFromPoint` at the
+ * row's own centre returned the PILL first, so every tap landed on the bar.
+ * The row's top ~19px peeked out above the pill, so it still read as a live
+ * row. Scroll the same row to the middle of the screen and it opened fine.
  *
- * ⚠ THE TWO USED TO CONTRADICT EACH OTHER — FIXED 2026-11-07. This paragraph
- *   said "pages DO import" while that test was a source-text grep that could
- *   only match the literal `93` and could not resolve an identifier. A page
- *   following this file's advice therefore FAILED, with a message saying it
- *   had not declared the padding when it had. Two screens hit it and wrote
- *   the literal instead, each leaving a note saying so. The test now has a
- *   second arm that accepts the identifier when the file genuinely imports it
- *   from this module; the arm has its own coverage in that file
- *   (`recognises the clearance whether a screen spells it or imports it`), so
- *   it cannot rot back into matching nothing.
+ * WHY THE PADDING DID NOT SAVE IT. Between 2026-11-04 and 2026-11-08 the host
+ * was `h-0` and seventeen scroll bodies each carried TAB_BAR_CLEARANCE as
+ * BOTTOM PADDING. Bottom padding only governs where the END of a list comes
+ * to rest. At every intermediate scroll position — including the one a screen
+ * opens at — rows still sat inside the pill's band, fully visible and
+ * completely untappable. Two of five locations were dead on arrival.
  *
- * ⚠ STILL TRUE, AND NOT THE SAME THING: a Tailwind CLASS must carry the
- *   literal — `pb-[93px]`, never `pb-[${TAB_BAR_CLEARANCE}px]`. The scanner
- *   reads source text and emits no CSS for a template-built class. The
- *   distinction is the one at the top of this file: style VALUES may be
- *   imported, class TEXT may not.
+ * THE FIX, AND WHAT IT MOVED. The HOST now reserves TAB_BAR_CLEARANCE of real
+ * height in the Phone column (`h-[93px]`), so the scroll body simply ends
+ * above the bar and NO content can ever be under it, at any scroll offset.
+ * The pill stays `absolute` inside that host with its insets untouched, so
+ * the floating look — detached, inset 16px each side, 12px off the bottom
+ * edge, 65 tall — is pixel-identical. 12 + 65 = 77 of the 93, leaving a 16px
+ * strip of page background above the pill: the same gutter the padding used
+ * to buy, now paid once by the bar instead of seventeen times by the screens.
+ *
+ * ⚠ SCREENS MUST NOT PAY IT AGAIN. A scroll body carrying
+ *   `paddingBottom: TAB_BAR_CLEARANCE` on top of this reserves the strip
+ *   TWICE and leaves ~186px of dead space under the last row.
+ *   `tabBarFloatingClearance.dom.test.jsx` fails any screen that does.
+ *
+ * ⚠ A Tailwind CLASS must carry the literal — `h-[93px]`, never
+ *   `h-[${TAB_BAR_CLEARANCE}px]`. The scanner reads source text and emits no
+ *   CSS for a template-built class. Style VALUES may be imported; class TEXT
+ *   may not.
  */
 
 /** The pill's own height. TabBar PILL: `h-[65px]`. */
@@ -48,23 +56,30 @@ export const TAB_BAR_BOTTOM_INSET = 12
 export const TAB_BAR_SIDE_INSET = 16
 
 /**
- * The band at the bottom of the frame that the pill covers, measured up from
- * the frame's bottom edge. Content inside this band is BEHIND the pill.
+ * The band at the bottom of the frame that the pill occupies, measured up from
+ * the frame's bottom edge: the inset it floats at plus its own height.
  */
 export const TAB_BAR_FOOTPRINT = TAB_BAR_BOTTOM_INSET + TAB_BAR_PILL_HEIGHT
 
 /**
- * What a scroll body must carry as bottom padding so its last row comes to
- * rest clear of the pill instead of under it.
+ * The column the bar's HOST reserves in the Phone flex column. TabBar HOST:
+ * `h-[93px]`.
  *
  * The footprint plus a real gap, not a hairline: 16px is this app's own
  * gutter, the same figure the pill is inset by and the same one the home
  * screen's cards use, so a row at the end of a list sits the same distance
  * from the pill as it does from the frame's sides.
  *
- * 2026-11-04, the owner: "and it needs to be completely floating". Before
- * that the bar reserved 77px of column and nothing was allowed behind it; the
- * cost of a real float is that this padding now has to be on EVERY scroll
- * body, because the bar no longer reserves anything for itself.
+ * 2026-11-08: this is the HOST's height, not a per-screen padding. It was the
+ * padding seventeen scroll bodies carried while the host was `h-0`, and that
+ * is exactly what failed — see the header of this file. A screen that adds it
+ * back on top of the host double-pays and gains ~186px of dead space.
  */
 export const TAB_BAR_CLEARANCE = TAB_BAR_FOOTPRINT + 16
+
+/**
+ * The strip of page background left visible ABOVE the pill, between it and
+ * the last row of the scroll body. It is the difference the host reserves
+ * over the pill's own footprint, and the reason the host is 93 and not 77.
+ */
+export const TAB_BAR_GAP = TAB_BAR_CLEARANCE - TAB_BAR_FOOTPRINT

@@ -142,8 +142,11 @@ export default function HomeAccountOverview() {
           </TabsList>
         </div>
 
-        {/* Body — the scrolling region */}
-        <TabsContent value="overview" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: 93 }}>
+        {/* Body — the scrolling region. NO paddingBottom: TabBar's host
+            reserves TAB_BAR_CLEARANCE of real column as of 2026-11-08
+            (src/components/tabBarMetrics.js), so both panes already end above
+            the pill; the `93` that stood here would reserve it twice. */}
+        <TabsContent value="overview" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {/* Demo controls — quick toggles so we can switch states in the mockup */}
           <DemoToggle healthy={healthy} setHealthy={setHealthy} expanded={expanded} setExpanded={setExpanded} />
 
@@ -168,7 +171,7 @@ export default function HomeAccountOverview() {
         {/* NOT DESIGNED. The delivery canvas has the tab but no content frame
             for it anywhere, and Rule 0 forbids inventing one. Honest placeholder
             until a comp exists — do not fill this with plausible-looking fields. */}
-        <TabsContent value="general" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: 93 }}>
+        <TabsContent value="general" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           <Card>
             <div className="py-10 px-4 text-center">
               <div className="text-sm font-medium text-slate-600">General Info</div>

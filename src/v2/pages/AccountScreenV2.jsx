@@ -503,8 +503,14 @@ export default function AccountScreenV2() {
           scroll, and `overflow-hidden` on the cards then eats the content that
           no longer fits. Setting it here means a section added later cannot
           reintroduce the bug by forgetting a class. Pinned by
-          accountScreenV2.dom.test.jsx. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[14px] pb-[93px] pt-[10px] [&>*]:shrink-0">
+          accountScreenV2.dom.test.jsx.
+
+          NO `pb-[93px]` ANY MORE — 2026-11-08. TabBar's host reserves
+          TAB_BAR_CLEARANCE of real column now (src/components/tabBarMetrics.js),
+          so this region already ends above the pill at EVERY scroll offset,
+          not just at the end of the list. Keeping the class as well would
+          reserve the strip twice and leave ~186px of dead space. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[14px] pt-[10px] [&>*]:shrink-0">
         {/* PERSONAL INFORMATION IS FIRST, because this screen IS what the
             Profile tab opens. Until 2026-11-04 it was a SUB-VIEW behind a
             tap on the persona card — see THE TWO VIEWS ARE ONE SCREEN in

@@ -432,7 +432,7 @@ export default function KPIDetailScreen() {
       )}
 
       {/* Body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 93px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 0' }}>
         {isStatusFilter ? (
           <GroupedStatusList
             systems={filtered}

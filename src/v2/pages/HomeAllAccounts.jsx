@@ -1979,18 +1979,28 @@ export default function HomeAllAccounts({ expanded = false }) {
             for the chart's scroll targets; only the `z-10` goes. */}
         <div
           className="content-stretch relative flex flex-col gap-[20px] items-start w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          /* paddingBottom 93 = the floating pill's 77px footprint (12 inset +
-             65 tall) plus this app's own 16px gutter, so the last card comes
-             to rest the same distance from the pill as from the frame's
-             sides. src/components/tabBarMetrics.js is where that is written
-             down; the literal is repeated here because the guard test reads
-             sources rather than the DOM. It REPLACES the old pb-4 - the bar
-             used to reserve its own column and now reserves nothing, so at
-             maximum scroll this page's last 53.8px were behind the pill.
+          /* NO paddingBottom — REMOVED 2026-11-08, and the removal is the
+             bug fix rather than a tidy-up.
+
+             It was `paddingBottom: 93`: the floating pill's 77px footprint
+             (12 inset + 65 tall) plus this app's own 16px gutter, added when
+             the bar stopped reserving a column of its own. That only governed
+             where the END of this list came to rest. The owner, on
+             /location/Office: "I can't click any water events from location.
+             It just doesn't click." At the scroll offset the page OPENS at,
+             the first water-event row sat inside the pill's band - visible,
+             with its top 19px peeking above the bar, and completely dead,
+             because the pill is 96% opaque with pointer-events:auto.
+
+             TabBar's host is `h-[93px]` now and reserves that strip itself
+             (src/components/tabBarMetrics.js), so this scroller ends above
+             the pill at EVERY offset. Paying it here as well would reserve
+             the strip twice and leave ~186px of dead space under the last
+             card.
 
              UNCHANGED BY EITHER RESTRUCTURE, deliberately. This is still the
              screen's ONE scroller, still flex:1 / overflowY:auto /
-             minHeight:0, and still carries the 93. What changed on 2026-11-07
+             minHeight:0. What changed on 2026-11-07
              is what is IN it: the hero card joined the cards and the tab row
              left the page entirely. Only the header bar is chrome now, which
              is what 200013:93089 draws — and it gives this scroller back every
@@ -2006,9 +2016,9 @@ export default function HomeAllAccounts({ expanded = false }) {
              reads as a hook somebody removed by accident. */
           /* NO paddingTop. It used to be the collapse distance, reserving room
              for a hero that overlaid this scroller's top; nothing overlays it
-             now. The 93 stays: it is the floating pill's 77px footprint plus
-             this app's 16px gutter, and seventeen scrollers hard-code it. */
-          style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 93 }}
+             now. And no paddingBottom either, as of 2026-11-08 — the bar
+             reserves its own strip; see the block above. */
+          style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}
           data-node-id="200013:93100"
         >
           {/* ── THE HERO CARD IS THE FIRST THING IN THE SCROLL ──────────────

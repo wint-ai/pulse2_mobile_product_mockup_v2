@@ -281,11 +281,14 @@ export default function SystemPageV2() {
           </TabsList>
         </div>
 
-        {/* Body — the scrolling region */}
-        <TabsContent value="overview" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: 93 }}>
+        {/* Body — the scrolling region. NO paddingBottom: TabBar's host
+            reserves TAB_BAR_CLEARANCE of real column as of 2026-11-08
+            (src/components/tabBarMetrics.js), so both panes already end above
+            the pill; the `93` that stood here would reserve it twice. */}
+        <TabsContent value="overview" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           <OverviewBody sys={sys} />
         </TabsContent>
-        <TabsContent value="general" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: 93 }}>
+        <TabsContent value="general" className="px-4 pt-4 flex flex-col gap-3" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           <GeneralInfoStub />
         </TabsContent>
       </Tabs>

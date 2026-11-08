@@ -313,35 +313,57 @@ import { homeTargetFor } from '../utils/homeTarget';
  * 2026-11-04, the owner: *"and it needs to be completely floating"*.
  *
  * Phone.jsx is a fixed 393x852 flex column with overflow:hidden, so
- * `position: fixed` is banned in here. A real float therefore means the bar
- * reserves NO column at all: HOST is `h-0`, the pill is `absolute` off it, and
- * every screen's scroll body now runs the full height of the frame with its
- * content passing UNDER the pill. `backdrop-blur-[10px]` has been in this file
- * since the Figma rebuild waiting for exactly this; it is finally doing work.
+ * `position: fixed` is banned in here. The float is therefore a pill that is
+ * `absolute` inside its own host: detached from all three edges, with the page
+ * visible around it.
  *
- * THE COST IS REAL AND IT IS PAID PER SCREEN. The bar used to reserve 77px and
- * nothing was allowed behind it. Now the bottom 77px of every screen is
- * covered, so every scroll body must carry TAB_BAR_CLEARANCE (93px =
- * TAB_BAR_FOOTPRINT 77 + a 16px gap, this app's own gutter) as bottom padding
- * or its last row comes to rest underneath the pill and cannot be read.
- * tabBarMetrics.js holds those numbers; `tabBarFloatingClearance.dom.test.jsx`
- * checks the rendered classes against them.
+ * ── THE BAR RESERVES ITS OWN STRIP — 2026-11-08 ──────────────────────────
  *
- * Fifteen scroll bodies across fourteen files were given that padding in the
- * same change: EventsScreen, SystemPageV2Screen, ValveManagementScreen,
- * EventHistory, HomeClear, HomeManager, HomeMultiAccount, HomeUnified,
- * KPIDetailScreen, ErrorAlertDetail, LeakDetail, L4Screen, SystemDetail (two)
- * and AccountScreenV2.
+ * *** THIS REVERSES HALF OF THE 2026-11-04 FLOAT, AND IT IS A BUG FIX. ***
  *
- * DELIBERATELY NOT PADDED, because the bar is not visible on them: the
- * PushNotifications OS simulations and EventFocusOverlay are `absolute inset-0`
- * at z-[300] and z-50, both above this bar's `z-index: auto`, so they cover it
- * entirely and 93px there would be a gap under nothing.
+ * The owner: *"I can't click any water events from location. It just doesn't
+ * click."* Measured in WebKit at 390x664 on /location/Office: the first
+ * water-event row at y 568->634, the pill at y 587->652,
+ * `background: oklab(1 0 0 / 0.96)` — 96% OPAQUE — and `pointer-events: auto`.
+ * `document.elementsFromPoint` at the row's own centre returned the PILL
+ * first. The row's top ~19px peeked above the bar so it still read as live.
+ * /location/Office and /location/967 Alder Dr were dead on arrival; the other
+ * locations worked only because their rows happen to open higher up.
  *
- * STILL OWED, and they will trap their last row until someone does it:
- * HomeAllAccounts (another agent held the file), HomeAccountOverview and
- * SystemPage (the /old and /old/system/:id preview routes, dirty in the tree at
- * the time). One line each, the same 93.
+ * WHY THE PADDING DID NOT COVER IT. `h-0` plus TAB_BAR_CLEARANCE of bottom
+ * padding on every scroll body only governs where the END of a list comes to
+ * rest. At every intermediate scroll offset — the one a screen OPENS at,
+ * above all — rows still sat inside the pill's band, visible and untappable.
+ *
+ * SO THE HOST IS `h-[93px]` NOW: it occupies TAB_BAR_CLEARANCE of the Phone
+ * column as an ordinary flex sibling, the scroll body ends above it, and no
+ * content is ever behind the pill at any scroll position. The pill itself did
+ * not move — same `inset-x-[16px] bottom-[12px] h-[65px]`, same radius, same
+ * ring, same shadow — so the floating look is unchanged; 12 + 65 = 77 of the
+ * 93 leaves a 16px strip of page background above it.
+ *
+ * NOT DONE, AND IT MUST NOT BE: `pointer-events-none` on the pill. The four
+ * tab buttons span ~100% of its width, so taps would simply hit the wrong tab
+ * instead of the row. And no z-index: the host stays `z-index: auto` so the
+ * drawer (10/11) and the overlays (50/300) keep covering it.
+ *
+ * THE PER-SCREEN PADDING IS GONE WITH IT. Seventeen scroll bodies carried
+ * `paddingBottom: 93` / `pb-[93px]` / `padding: '10px 14px 93px'` for the four
+ * days the host was `h-0`; keeping it on top of a 93px host would reserve the
+ * strip twice and leave ~186px of dead space under every page. They were
+ * cleared in the same change — EventsScreen, SystemPageV2Screen,
+ * ValveManagementScreen (scroller AND selection strip), EventHistory,
+ * HomeClear, HomeManager, HomeMultiAccount, HomeUnified, KPIDetailScreen,
+ * ErrorAlertDetail, LeakDetail, L4Screen, SystemDetail, AccountScreenV2,
+ * HomeAllAccounts, HomeAccountOverview, SystemPage and MoreComingSoonScreen.
+ * `tabBarFloatingClearance.dom.test.jsx` now fails any screen that pays it
+ * again.
+ *
+ * WHAT IT COST. `backdrop-blur-[10px]` and `bg-card/96` are inert again —
+ * nothing scrolls under the pill for them to blur. Both are KEPT: they are
+ * the pill's declared appearance, the 4% translucency still samples the page
+ * background behind it, and removing them would change the look, which this
+ * fix explicitly must not.
  *
  * ── NO CIRCULAR ACTION BUTTON (STILL TRUE), BUT SEARCH IS IN THE BAR ──────
  *
@@ -429,8 +451,11 @@ import { homeTargetFor } from '../utils/homeTarget';
  * reading is 65 CSS px — these are the printed boundingBox values, not pixel
  * counts off a screenshot):
  *
- *   host    [0, 852, 393, 0]      zero height, on the frame's bottom edge
- *   pill    [16, 775, 361, 65]    radius 26, bottom edge at 840
+ *   host    [0, 759, 393, 93]     TAB_BAR_CLEARANCE of reserved column, its
+ *                                 bottom edge on the frame's bottom edge
+ *                                 (it was [0, 852, 393, 0] while `h-0`)
+ *   pill    [16, 775, 361, 65]    radius 26, bottom edge at 840 — UNCHANGED
+ *                                 by the host taking height; 759 + 16 = 775
  *   column  89.75 x4              361 minus the 1px ring each side, / 4
  *   capsule [39.9, 784.3, 44, 28] radius 14, i.e. a true stadium
  *   glyph   21                    2px gap, then an 11px/16.5px label
@@ -516,8 +541,10 @@ import { homeTargetFor } from '../utils/homeTarget';
  * panel and the Button, whose base class is `transition-all`.
  *
  * LAYOUT CONTRACT: the HOST is a shrink-0 sibling inside the Phone column
- * (393x852, overflow hidden), 77px tall. It is NOT fixed and needs no spacer.
- * The pill inside it is absolute and fully contained — see the arithmetic above.
+ * (393x852, overflow hidden), TAB_BAR_CLEARANCE (93px) tall. It is NOT fixed
+ * and needs no spacer, and the screens need no bottom padding — the host IS
+ * the spacer. The pill inside it is absolute and fully contained — see the
+ * arithmetic above.
  *
  * THE SAME TABS EVERYWHERE, and the `hideAlerts` prop is gone (2026-11-04, the
  * owner, reversing 875c560 of 2026-09-29). That commit dropped the Alerts tab
@@ -533,21 +560,31 @@ import { homeTargetFor } from '../utils/homeTarget';
  * Those pre-filtered entry points from Home are untouched and still work.
  */
 
-/* The anchor. ZERO HEIGHT, by design: it reserves no column at all, so the
-   scroll body above it runs the full height of the frame and its content
-   passes UNDER the pill. `relative` makes this the pill's positioning context
-   — a zero-height box sitting on the frame's bottom edge, so the pill's
-   `bottom-[12px]` is measured from that edge rather than from whichever
-   ancestor happens to be positioned. `shrink-0` is kept because a flex item
-   of height 0 can still be given a negative-ish share by a greedy sibling. */
-const HOST = 'relative shrink-0 h-0';
+/* The anchor. IT RESERVES THE WHOLE STRIP — TAB_BAR_CLEARANCE, 93px — as a
+   real flex sibling of the scroll body, so content ends ABOVE the bar and
+   nothing can ever come to rest underneath it. That is the 2026-11-08 fix;
+   the long version is in tabBarMetrics.js and in THE BAR RESERVES ITS OWN
+   STRIP above.
 
-/* The slab. It now floats over the scroll body: 12 up from the frame's bottom
-   edge, 65 tall, so it covers the bottom 77px of every screen (TAB_BAR_FOOTPRINT
-   in tabBarMetrics.js). Every scroll body pays for that with
-   TAB_BAR_CLEARANCE (93px) of bottom padding — the footprint plus a 16px gap,
-   the app's own gutter — so its last row comes to rest clear of the pill
-   rather than under it.
+   `h-0` STOOD HERE AND WAS THE BUG. A zero-height host let the scroll body
+   run the full frame with its content passing under the pill, and the pill is
+   96% opaque with `pointer-events: auto`, so every row inside its band was
+   visible and dead. Do not put it back: `pointer-events-none` on the pill is
+   not the alternative either — the four tab buttons span the pill's whole
+   width, so taps would land on the wrong tab.
+
+   `relative` makes this the pill's positioning context, so the pill's
+   `bottom-[12px]` is measured from the frame's bottom edge rather than from
+   whichever ancestor happens to be positioned. `shrink-0` keeps a greedy
+   sibling from compressing the strip back to nothing. */
+const HOST = 'relative shrink-0 h-[93px]';
+
+/* The slab. Absolutely positioned INSIDE the 93px host, which is what keeps
+   the floating look while the host does the reserving: 12 up from the frame's
+   bottom edge, 65 tall (TAB_BAR_FOOTPRINT = 77), inset 16 each side. 93 - 77
+   leaves a 16px strip of page background above it — the app's own gutter, and
+   the same distance a last row used to rest at when every scroll body paid
+   the clearance itself.
 
    No `overflow-hidden`: the Alerts badge is deliberately hung off the top-right
    corner of its glyph and pokes a few px past the active capsule. */
@@ -706,9 +743,10 @@ export default function TabBar({ activeTab }) {
      query state drift apart. Nothing is rendered until a tap goes unanswered,
      so on a route with its own drawer this stays null forever.
 
-     It is a SIBLING of the host, never a child of it: HOST is `h-0` and
-     `relative`, so a panel with `inset-y-0` inside it would collapse to zero
-     height. Out here the drawer pins to the page root or to the Phone frame,
+     It is a SIBLING of the host, never a child of it: HOST is `relative` and
+     only TAB_BAR_CLEARANCE tall, so a panel with `inset-y-0` inside it would
+     be 93px tall instead of full height (and zero, back when the host was
+     `h-0`). Out here the drawer pins to the page root or to the Phone frame,
      which is what WintSidebarV2 expects. Its scrim is z-10 and its panel
      z-[11], both above this bar's z-index:auto, so the open drawer covers the
      pill exactly as a screen-owned drawer does.

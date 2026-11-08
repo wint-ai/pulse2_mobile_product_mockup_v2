@@ -89,6 +89,16 @@
  * pb-[93px] is TAB_BAR_CLEARANCE (src/components/tabBarMetrics.js) - the pill
  * covers the bottom 77px of every screen plus a 16px gutter. It keeps the
  * centred block clear of the bar rather than optically centred under it.
+ *
+ * *** AND IT IS THE ONE PLACE THAT STILL PAYS IT — 2026-11-08. *** The bar's
+ * host became `h-[93px]` that day and now reserves that strip as real column,
+ * so every OTHER screen dropped this padding; paying it twice would leave
+ * ~186px of dead space. This cover is the exception because it is `absolute
+ * inset-0`: it is out of flow, spans the WHOLE frame including the host's
+ * column, and the pill still paints over its bottom 77px. Reserved column
+ * does not move an out-of-flow box, so this scroller owes the clearance
+ * itself. tabBarFloatingClearance.dom.test.jsx lists it as the exemption and
+ * moreComingSoon.dom.test.jsx:182 still asserts the class.
  */
 import { useTranslation } from 'react-i18next'
 import { Hourglass } from 'lucide-react'
@@ -104,15 +114,14 @@ export default function MoreComingSoonScreen() {
 
        SO IS `justify-end`, AND IT IS NOT TIDINESS. The cover is `absolute`,
        so it is OUT OF FLOW and this flex column has exactly ONE in-flow
-       child: TabBar's host, which is `h-0` by design (it reserves no column
-       at all so content can pass under the floating pill). On every other
-       screen the host is pushed to the frame's bottom edge by the scroll
-       body's `flex-1` ahead of it; here there is nothing in flow to push it,
-       so it lands at the TOP and the pill hangs at y -77, off the top of the
-       frame. Measured exactly that way in the browser before this class
-       existed: host [0, 0, 393, 0], pill [16, -77, 361, 65]. With it:
-       host [0, 852, 393, 0], pill [16, 775, 361, 65], which is the geometry
-       TabBar.jsx documents. */
+       child: TabBar's host. On every other screen the host is pushed to the
+       frame's bottom edge by the scroll body's `flex-1` ahead of it; here
+       there is nothing in flow to push it, so without this class it lands at
+       the TOP and the pill hangs off the top of the frame. Measured that way
+       in the browser before this class existed, while the host was still
+       `h-0`: host [0, 0, 393, 0], pill [16, -77, 361, 65]. With it, and with
+       the host now `h-[93px]` (2026-11-08): host [0, 759, 393, 93], pill
+       [16, 775, 361, 65], which is the geometry TabBar.jsx documents. */
     <div className="relative flex min-h-0 flex-1 flex-col justify-end bg-[image:var(--app-bg)]">
       {/* THE COVER. Opaque, edge to edge, no z-index - see the header. */}
       <div className="absolute inset-0 flex flex-col bg-[image:var(--app-bg)]">

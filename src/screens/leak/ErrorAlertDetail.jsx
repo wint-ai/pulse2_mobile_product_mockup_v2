@@ -130,7 +130,7 @@ export default function ErrorAlertDetail({ sys }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 93px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 0' }}>
 
         {/* Alert Summary (inline — no flow rate, severity pill instead of state) */}
         <div style={{

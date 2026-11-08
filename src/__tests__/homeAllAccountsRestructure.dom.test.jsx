@@ -92,9 +92,24 @@ describe('the collapsing header this page owned is deleted', () => {
     )
     expect(scrollers.length, 'the app shell wants exactly one scroll container').toBe(1)
     const style = scrollers[0].getAttribute('style')
-    /* The 93 is the floating pill's clearance and MUST stay; the paddingTop
-       was the collapse distance and must not. */
-    expect(style).toMatch(/padding-bottom:\s*93px/)
+    /* NEITHER PADDING BELONGS HERE ANY MORE.
+
+       The paddingTop was the collapse distance and never came back.
+
+       The paddingBottom was the floating pill's 93px clearance, and this
+       assertion used to REQUIRE it. It is required to be ABSENT now
+       (2026-11-08): TabBar's host reserves TAB_BAR_CLEARANCE of real column
+       itself, because bottom padding only governed where the END of the list
+       came to rest and rows at intermediate scroll offsets still sat under
+       the opaque pill, untappable - the owner, on /location/Office: "I can't
+       click any water events from location. It just doesn't click." Paying
+       it here as well would reserve the strip twice, ~186px of dead space.
+       tabBarFloatingClearance.dom.test.jsx carries the whole contract. */
+    expect(
+      style,
+      'the scroller pays the pill clearance again. The bar reserves it now '
+      + '(TabBar HOST is h-[93px]), so this would double it.',
+    ).not.toMatch(/padding-bottom:\s*93px/)
     expect(style, 'the collapse padding is back on the scroller').not.toMatch(/padding-top/)
   })
 })
