@@ -959,14 +959,24 @@ export default function SystemHealthCard({
                            pairing is pinned in systemHealthCard.dom.test.jsx
                            against the filter module itself, so it cannot
                            drift.
-                           "Show these systems" is also how this app's other
-                           health capsule names the same destination
-                           (SystemsHealthCard's IssueTile), and it deliberately
-                           does NOT say "alerts": the header button and the
-                           three counter tiles on this same card open the
-                           alerts overlay instead, and two destinations on one
-                           card have to be tellable apart by ear. */
-                        name={`Requires attention: ${fmt(attention)} of ${fmt(fleet)} ${unit}. Show these systems.`}
+
+                           ── THE TWO SEGMENTS END DIFFERENTLY ON PURPOSE,
+                           2026-11-08. DO NOT "FIX" THEM BACK TO SYMMETRY.
+                           ced0553 repointed THIS half only, on the owner's
+                           word: HomeAllAccounts' onSelectHealth answers
+                           'attention' with openOverlay('alerts') and 'ok'
+                           with the filtered systems table. Two destinations,
+                           so two names - the trailing sentence IS the
+                           destination, and until 2026-11-08 this one still
+                           said "Show these systems" and named a table the tap
+                           no longer opened.
+                           "Show all alerts." IS NOT NEW COPY: it is character
+                           for character the aria-label of this same card's
+                           header button (see it above), which is the other
+                           control that opens this same overlay. The green
+                           segment keeps "Show these systems." because it
+                           keeps the table. */
+                        name={`Requires attention: ${fmt(attention)} of ${fmt(fleet)} ${unit}. Show all alerts.`}
                         onSelect={redIsControl ? () => onSelectHealth('attention') : undefined}
                       />
                     ) : null}
@@ -977,7 +987,10 @@ export default function SystemHealthCard({
                         grow={well || 1}
                         nodeId="199360:129781"
                         segment="healthy"
-                        /* labelOf('ok') === 'All systems good'. */
+                        /* labelOf('ok') === 'All systems good'. THIS HALF
+                           STILL OPENS THE SYSTEMS TABLE, so "Show these
+                           systems." is still true here and stays; the red
+                           one's note says why the pair reads asymmetric. */
                         name={`All systems good: ${fmt(well)} of ${fmt(fleet)} ${unit}. Show these systems.`}
                         onSelect={greenIsControl ? () => onSelectHealth('ok') : undefined}
                       />
