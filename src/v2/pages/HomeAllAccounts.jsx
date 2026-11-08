@@ -1622,12 +1622,15 @@ export default function HomeAllAccounts({ expanded = false }) {
              `attention` category already produces over the same
              `scopedSystems` the table reads.
 
-             ⚠ THE RED SEGMENT'S ACCESSIBLE NAME STILL ENDS "Show these
-             systems." (SystemHealthCard.jsx, the `Requires attention:` name).
-             It now names the wrong destination by ear. Rewording it is NEW
-             user-facing copy and is FLAGGED FOR THE OWNER rather than
-             shipped; the pairing is also pinned by
-             systemHealthCard.dom.test.jsx against systemFilters.js. */
+             THE NAMES MATCH THE DESTINATIONS, and they are asymmetric on
+             purpose. 6305b77 ended the red segment's accessible name with
+             "Show all alerts." — reusing, character for character, the
+             aria-label of this card's own header button, the other control
+             onto this same overlay. The green segment still opens the
+             filtered systems table and still ends "Show these systems."
+             Do not "fix" the pair back to symmetry: two destinations, two
+             names. Both halves carry the matching note in
+             SystemHealthCard.jsx. */
           onSelectHealth={value => {
             if (value === 'attention') {
               openOverlay('alerts')

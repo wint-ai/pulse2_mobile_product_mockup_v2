@@ -60,9 +60,26 @@ const buttonVariants = cva(
         /* `dark:border-input` composites white-@15% onto the card and lands at
            ~1.58:1 — a control boundary you cannot see. WCAG 1.4.11 wants 3:1
            for a UI component boundary, which is what --border-strong is for.
-           Light keeps `border` → --border untouched. */
+
+           `border-border` IS LOAD-BEARING, 2026-11-08 — the same bug fixed in
+           ui/table.jsx's TableRow by 0c684fc, and fixed here the same way. The
+           registry source is a bare `border`, which under Tailwind v3
+           inherited the framework's default border colour (gray-200). TAILWIND
+           V4 REMOVED THAT DEFAULT: a border utility with no colour resolves to
+           `currentColor`, so every outline button drew its edge in its own
+           near-black text colour. Measured in WebKit before the fix:
+           `oklch(0.2084 0.04166 266.359009)` on the /alerts filter chip, on
+           /valves' Filters button and on FilterSheet's Cancel, and a flat
+           `rgb(0, 0, 0)` on /valves' Show more — against the correct
+           `oklch(0.92876 0.01262 255.507996)` on SystemsTableCard's own
+           outline buttons, which name the token at their call site and were
+           therefore right all along. ~31 call sites app-wide (AlertCard,
+           ControlPanel, App, FilterSheet and more); the owner approved the
+           sweep. Call sites that set their own border colour (AlertCard's
+           `border-primary`, AccountScreenV2's Sign out) are unaffected —
+           theirs still wins. `dark:` keeps --border-strong, as above. */
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-border-strong dark:bg-input/30 dark:hover:bg-input/50",
+          "border border-border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-border-strong dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         /* The `/50` is dropped under dark. Stock shadcn softens the ghost

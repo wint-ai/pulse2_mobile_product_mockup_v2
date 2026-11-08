@@ -22,7 +22,7 @@
  * like a React failure.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, within } from '@testing-library/react'
 import App from '@/App'
 import { SYSTEMS } from '@/data/systems'
 
@@ -199,6 +199,15 @@ describe('every route in App.jsx mounts', () => {
     ['/pixel/location/:locationName', () => `/pixel/location/${encodeURIComponent(LOCATION)}`],
     ['/pixel/system/:systemId', () => `/pixel/system/${SYSTEM.id}`],
     ['/location/:locationName', () => `/location/${encodeURIComponent(LOCATION)}`],
+    /* /valves and /valves/:locationName are NOT in this list, and their
+       absence is deliberate rather than an oversight. They are covered by
+       their own describe block at the bottom of this file, which mounts the
+       same two paths and asserts everything smoke() would plus the two things
+       it cannot: WHICH screen arrived, and that no redirect happened. Listing
+       them here as well would mount ValveManagementScreen — 103 systems
+       through the full App — twice more for a strictly weaker check, and this
+       suite already runs close to its 30s per-test timeout on a loaded
+       machine. */
     ['/home-clear', () => '/home-clear'],
     ['/home-multi', () => '/home-multi'],
     ['/home-legacy', () => '/home-legacy'],
@@ -249,5 +258,57 @@ describe('every route in App.jsx mounts', () => {
       smoke('/', { personaId: id })
       cleanup()
     }
+  })
+})
+
+/* ── THE /valves ROUTES REACH THE REAL SCREEN ──────────────────────────────
+   RESTORED 2026-11-08, and this block is why the restoration is the last one.
+   45b4362 ("Merge main into dev") kept every valve component file on dev's
+   side, exactly as its own message ruled, but took src/App.jsx's hunk from
+   main — where valve management had been reverted. The import and both
+   <Route> lines went with it. 2,220 tests stayed green, because all 62 cases
+   in valveManagementScreen.dom.test.jsx mount <ValveManagementScreen />
+   inside their own MemoryRouter and never read App.jsx's route table at all.
+   The screen was unreachable in the product and nothing said so.
+
+   smoke() ABOVE CANNOT CATCH THIS ON ITS OWN. A path with no <Route> falls
+   into `<Route path="*" element={<Navigate to="/" replace />} />`, and Home
+   renders perfectly: real content, clean console, well past minText. So the
+   assertion has to be about WHICH screen arrived — the sr-only <h1> that
+   only ValveManagementScreen renders — and about not having been moved off
+   the requested path on the way. */
+describe('/valves resolves to ValveManagementScreen, not to the catch-all', () => {
+  const VALVE_H1 = { level: 1, name: 'Valve management' }
+
+  for (const [label, makePath] of [
+    ['/valves', () => '/valves'],
+    ['/valves/:locationName', () => `/valves/${encodeURIComponent(LOCATION)}`],
+  ]) {
+    it(`${label} renders the valve screen`, () => {
+      const path = makePath()
+      const { container } = mountAt(path)
+      const bad = reactFailures()
+      expect(bad.map((b) => `[${b.level}] ${b.text}`), `${path} logged a React failure`).toEqual([])
+      expect(
+        within(container).queryByRole('heading', VALVE_H1),
+        /* No angle bracket on "Route" here on purpose: scripts/check-jsx-refs.mjs
+           reads JSX usages out of the raw source and does NOT strip string
+           literals, so `<Route` written in this message is reported as an
+           undefined component and fails `npm test` before vitest even runs. */
+        `${path} did not render ValveManagementScreen — if it fell through to the ` +
+          `catch-all, App.jsx has lost its Route for "${label}" again`,
+      ).toBeTruthy()
+      expect(window.location.pathname, `${path} was redirected away`).toBe(path)
+    })
+  }
+
+  /* THE NEGATIVE CONTROL. Without it the two cases above prove only that the
+     heading exists somewhere in the app — not that the ROUTE is what put it
+     there. If the catch-all's destination ever started rendering this screen,
+     both would pass while the routes stayed missing. */
+  it('a path with no route redirects to / and does NOT render the valve screen', () => {
+    const { container } = mountAt('/valves-but-not-a-route')
+    expect(within(container).queryByRole('heading', VALVE_H1)).toBeNull()
+    expect(window.location.pathname).toBe('/')
   })
 })
