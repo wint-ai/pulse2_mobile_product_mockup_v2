@@ -29,6 +29,20 @@ const {
   recordBulkValveCommand,
   getBulkValveHistory,
   clearValveCommands,
+  // The transient phase — 2026-11-08.
+  VALVE_SEND_MS,
+  VALVE_ACT_MS,
+  VALVE_TRANSITION_MS,
+  BULK_SETTLE_MS,
+  valvePhaseAt,
+  startValveCommand,
+  getValveTransition,
+  getAllValveTransitions,
+  settleValveCommand,
+  cancelValveCommand,
+  bulkValvePhaseAt,
+  getActiveBulkValveBatch,
+  dismissBulkValveBatch,
 } = await import('../data/valveCommandStore.js');
 
 beforeEach(() => {
@@ -253,5 +267,209 @@ describe('clearValveCommands', () => {
     expect(getAllValveCommands()).toEqual({});
     expect(getBulkValveHistory()).toEqual([]);
     expect(getValveCommand('sys-a')).toBeUndefined();
+  });
+});
+
+/* ── THE TRANSIENT PHASE — 2026-11-08 ─────────────────────────────────────
+ * Owner: "When shutting off valve [...] there is no any feedback that
+ * something was happens." The three Figma frames (199683:25832 / :25851 /
+ * :25870) are a sequence, and the load-bearing property is the one every
+ * valve surface here already has: THE VALVE MUST NOT READ AS CLOSED UNTIL IT
+ * IS. A command in flight leaves the position alone.
+ *
+ * The phase is DERIVED from elapsed time, so every assertion below is a pure
+ * function of a number — no timers, no clock mocks, no flake.
+ */
+describe('the transient phase — valvePhaseAt', () => {
+  it('walks the three Figma frames in order and then settles', () => {
+    expect(valvePhaseAt(0)).toBe('sending');
+    expect(valvePhaseAt(VALVE_SEND_MS - 1)).toBe('sending');
+    expect(valvePhaseAt(VALVE_SEND_MS)).toBe('acting');
+    expect(valvePhaseAt(VALVE_SEND_MS + VALVE_ACT_MS - 1)).toBe('acting');
+    expect(valvePhaseAt(VALVE_SEND_MS + VALVE_ACT_MS)).toBe('verifying');
+    expect(valvePhaseAt(VALVE_TRANSITION_MS - 1)).toBe('verifying');
+    expect(valvePhaseAt(VALVE_TRANSITION_MS)).toBe('settled');
+    expect(valvePhaseAt(VALVE_TRANSITION_MS * 10)).toBe('settled');
+  });
+
+  it('refuses a figure that does not place on the timeline', () => {
+    expect(valvePhaseAt(-1)).toBeNull();
+    expect(valvePhaseAt(NaN)).toBeNull();
+    expect(valvePhaseAt('1200')).toBeNull();
+    expect(valvePhaseAt(undefined)).toBeNull();
+  });
+});
+
+describe('the transient phase — a command in flight', () => {
+  it('does NOT move the valve while it is running', () => {
+    const sys = { id: 'sys-flight', valve: 'open' };
+    startValveCommand({ systemId: sys.id, action: 'close' });
+
+    const now = Date.now();
+    for (const t of [0, VALVE_SEND_MS, VALVE_SEND_MS + VALVE_ACT_MS, VALVE_TRANSITION_MS - 1]) {
+      expect(effectiveValveState(sys, now + t)).toBe('open');
+    }
+    // And no commanded state has been written behind the scenes.
+    expect(getValveCommand(sys.id)).toBeUndefined();
+  });
+
+  it('reads as commanded once the window has run, even before it is settled', () => {
+    const sys = { id: 'sys-done', valve: 'open' };
+    startValveCommand({ systemId: sys.id, action: 'close' });
+    expect(effectiveValveState(sys, Date.now() + VALVE_TRANSITION_MS)).toBe('closed');
+  });
+
+  it('reports each phase through getValveTransition', () => {
+    startValveCommand({ systemId: 'sys-seq', action: 'close' });
+    const at = Date.now();
+    const phaseAt = (t) => getValveTransition('sys-seq', at + t)?.phase;
+    expect(phaseAt(0)).toBe('sending');
+    expect(phaseAt(VALVE_SEND_MS + 1)).toBe('acting');
+    expect(phaseAt(VALVE_SEND_MS + VALVE_ACT_MS + 1)).toBe('verifying');
+    expect(phaseAt(VALVE_TRANSITION_MS)).toBe('settled');
+
+    const live = getValveTransition('sys-seq', at);
+    expect(live.action).toBe('close');
+    expect(live.state).toBe('closed');
+    expect(getValveTransition('nobody')).toBeNull();
+  });
+
+  it('survives being read back from storage — the reload case', async () => {
+    startValveCommand({ systemId: 'sys-reload', action: 'close' });
+    // A fresh module instance over the SAME storage is what a reload is.
+    const fresh = await import('../data/valveCommandStore.js?reload=' + Math.random());
+    const live = fresh.getValveTransition('sys-reload');
+    expect(live).not.toBeNull();
+    expect(live.phase).toBe('sending');
+    expect(live.action).toBe('close');
+  });
+
+  it('settles exactly once and is idempotent after that', () => {
+    startValveCommand({ systemId: 'sys-settle', action: 'close' });
+    const at = Date.now();
+    // Too early: nothing happens.
+    expect(settleValveCommand('sys-settle', at)).toBeNull();
+    expect(getValveCommand('sys-settle')).toBeUndefined();
+
+    expect(settleValveCommand('sys-settle', at + VALVE_TRANSITION_MS)).toBe('closed');
+    expect(getValveCommand('sys-settle')).toBe('closed');
+    // The second caller — the other mounted card — gets null and breaks nothing.
+    expect(settleValveCommand('sys-settle', at + VALVE_TRANSITION_MS)).toBeNull();
+    expect(getValveCommand('sys-settle')).toBe('closed');
+    expect(getValveTransition('sys-settle')).toBeNull();
+  });
+
+  it('opens as well as closes', () => {
+    const sys = { id: 'sys-open', valve: 'closed' };
+    startValveCommand({ systemId: sys.id, action: 'open' });
+    expect(getValveTransition(sys.id).state).toBe('open');
+    expect(effectiveValveState(sys, Date.now() + 10)).toBe('closed');
+    expect(settleValveCommand(sys.id, Date.now() + VALVE_TRANSITION_MS)).toBe('open');
+    expect(effectiveValveState(sys)).toBe('open');
+  });
+
+  it('rejects a start it cannot describe', () => {
+    expect(startValveCommand({ systemId: 'x', action: 'toggle' })).toBeNull();
+    expect(startValveCommand({ systemId: '', action: 'close' })).toBeNull();
+    expect(startValveCommand({ action: 'close' })).toBeNull();
+    expect(startValveCommand()).toBeNull();
+    expect(getAllValveTransitions()).toEqual({});
+  });
+
+  /* THE HOUSE RULE: a stored value that does not validate is REJECTED, never
+     repaired. A half-written pending entry must not drive a progress
+     indicator, and must never be promoted into a commanded state. */
+  it('rejects a stored pending entry that does not validate', () => {
+    const stored = {
+      states: {},
+      pending: {
+        'bad-action': { action: 'spin', at: Date.now() },
+        'bad-at': { action: 'close', at: 'soon' },
+        'from-the-future': { action: 'close', at: Date.now() + 60000 },
+        'long-abandoned': { action: 'close', at: Date.now() - 60 * 60 * 1000 },
+        'not-an-object': 'close',
+      },
+      batches: [],
+    };
+    globalThis.localStorage.setItem(KEY, JSON.stringify(stored));
+
+    expect(getAllValveTransitions()).toEqual({});
+    for (const id of Object.keys(stored.pending)) {
+      expect(getValveTransition(id)).toBeNull();
+      // Not promoted — swept.
+      expect(settleValveCommand(id)).toBeNull();
+      expect(getValveCommand(id)).toBeUndefined();
+    }
+  });
+
+  it('cancels without recording a state', () => {
+    startValveCommand({ systemId: 'sys-cancel', action: 'close' });
+    cancelValveCommand('sys-cancel');
+    expect(getValveTransition('sys-cancel')).toBeNull();
+    expect(getValveCommand('sys-cancel')).toBeUndefined();
+  });
+
+  it('keeps the bulk batches when a single command is started', () => {
+    recordBulkValveCommand({ action: 'close', systemIds: ['sys-a'], scopeLabel: 'HQ' });
+    startValveCommand({ systemId: 'sys-b', action: 'close' });
+    expect(getBulkValveHistory()).toHaveLength(1);
+    expect(getValveCommand('sys-a')).toBe('closed');
+  });
+
+  it('is wiped by clearValveCommands', () => {
+    startValveCommand({ systemId: 'sys-wipe', action: 'close' });
+    clearValveCommands();
+    expect(getValveTransition('sys-wipe')).toBeNull();
+    expect(getAllValveTransitions()).toEqual({});
+  });
+});
+
+/* ── THE BULK BATCH'S TWO PHASES ──────────────────────────────────────────
+ * Owner: "on bulk actio keep it simple -dont need allstates". Running, then
+ * settled. Nothing per system.
+ */
+describe('the bulk batch phase', () => {
+  it('is running, then settled, and nothing else', () => {
+    expect(bulkValvePhaseAt(0)).toBe('running');
+    expect(bulkValvePhaseAt(BULK_SETTLE_MS - 1)).toBe('running');
+    expect(bulkValvePhaseAt(BULK_SETTLE_MS)).toBe('settled');
+    expect(bulkValvePhaseAt(NaN)).toBeNull();
+  });
+
+  it('reports the batch just written, with its elapsed figure', () => {
+    const batch = recordBulkValveCommand({
+      action: 'close',
+      systemIds: ['a', 'b', 'c'],
+      skipped: { offline: ['d'], noValve: ['e'] },
+      scopeLabel: 'Tel Aviv HQ',
+    });
+    const view = getActiveBulkValveBatch(batch.at + 100);
+    expect(view.id).toBe(batch.id);
+    expect(view.phase).toBe('running');
+    expect(view.systemIds).toEqual(['a', 'b', 'c']);
+    expect(getActiveBulkValveBatch(batch.at + BULK_SETTLE_MS).phase).toBe('settled');
+  });
+
+  it('stops reporting a batch once it has been dismissed', () => {
+    const batch = recordBulkValveCommand({ action: 'close', systemIds: ['a'] });
+    expect(getActiveBulkValveBatch()).not.toBeNull();
+    dismissBulkValveBatch(batch.id);
+    expect(getActiveBulkValveBatch()).toBeNull();
+    // The record itself survives — the history is not the banner.
+    expect(getBulkValveHistory()).toHaveLength(1);
+  });
+
+  it('stops reporting a batch that is simply old news', () => {
+    const batch = recordBulkValveCommand({ action: 'close', systemIds: ['a'] });
+    expect(getActiveBulkValveBatch(batch.at + 60 * 60 * 1000)).toBeNull();
+  });
+
+  it('survives a reload mid-batch', async () => {
+    recordBulkValveCommand({ action: 'close', systemIds: ['a', 'b'], scopeLabel: 'HQ' });
+    const fresh = await import('../data/valveCommandStore.js?bulk=' + Math.random());
+    const view = fresh.getActiveBulkValveBatch();
+    expect(view).not.toBeNull();
+    expect(view.phase).toBe('running');
+    expect(view.scopeLabel).toBe('HQ');
   });
 });

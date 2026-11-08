@@ -131,7 +131,7 @@
  * duration. AlertCard is another file's and is untouched here.
  */
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import TabBar from '@/components/TabBar'
 /* `TAB_BAR_CLEARANCE` WAS IMPORTED HERE and is not any more — 2026-11-08. The
@@ -156,6 +156,11 @@ import ValveStatusCard from '@/v2/components/ValveStatusCard'
 /* What a valve state MEANS, asked rather than re-derived — see `valveState`
    below and the module's own header on why it exists. */
 import { valveCategoryOf } from '@/v2/components/valveScope'
+/* THE COMMAND IN FLIGHT LIVES IN THE STORE, NOT ON THIS PAGE — 2026-11-08.
+   `startValveCommand` opens the Sending / Closing / Verifying sequence the
+   card draws; `getValveCommand` is what makes a settled command survive a
+   navigation away and back, which `closedValves` alone never did. */
+import { getValveCommand, startValveCommand } from '@/data/valveCommandStore'
 import ActivePolicyCard from '@/v2/components/ActivePolicyCard'
 import InsightsCard from '@/v2/components/InsightsCard'
 import ValveConfirmSheet from '@/v2/components/ValveConfirmSheet'
@@ -1546,6 +1551,34 @@ export default function SystemPageV2Screen() {
   /* The sheet's "Yes" lands here. Still optimistic and still local — there is
      no valve mutation in this app and ValveControlCard keeps its state in
      component-local useState too — but it is now a decision, not a twitch. */
+  /* ── WHAT "COMMITTED" MEANS NOW — 2026-11-08 ───────────────────────────
+     It used to mean "the valve is closed, this instant, with no sign that
+     anything happened in between". The owner's report is exactly that gap.
+
+     The whole-system case now STARTS A COMMAND in `valveCommandStore` and
+     writes nothing else. The card reads that store, draws Sending -> Closing
+     -> Verifying over the button, and calls `applySettledValve` below when
+     the window has run — which is where `closedValves` finally moves.
+
+     WHY NOT SET `closedValves` HERE ANYWAY, optimistically: the three Figma
+     busy frames all keep the position word at `Open`, and this map is what
+     `valveState` reads to draw that word. Setting it at press time would show
+     the valve closed while the card beside it says it is still closing.
+
+     THE TWO DEAD BRANCHES BELOW ARE UNCHANGED and stay immediate: they have
+     no producer on this page (see the note), so wiring a transition into code
+     nothing calls would be inventing a behaviour nobody can see. */
+  const applySettledValve = useCallback(
+    (state) => {
+      setClosedValves(
+        state === 'closed'
+          ? Object.fromEntries((system.devices ?? []).filter(d => d.valve).map(d => [d.id, true]))
+          : {},
+      )
+    },
+    [system.devices],
+  )
+
   const commitValveIntent = () => {
     if (!valveIntent) return
     const { action, device } = valveIntent
@@ -1561,11 +1594,13 @@ export default function SystemPageV2Screen() {
     } else if (device) {
       setClosedValves(v => ({ ...v, [device.id]: action === 'close' }))
     } else {
-      setClosedValves(
-        action === 'close'
-          ? Object.fromEntries(valves.map(d => [d.id, true]))
-          : {},
-      )
+      /* THE WHOLE-SYSTEM CASE — the only one with a producer. The store takes
+         it from here; see the block above. */
+      startValveCommand({ systemId: system.id, action })
+      /* Repaint: the card reads the store on mount and this write happened in
+         the same tab, where `storage` does not fire (valveCommandStore.js,
+         "REPAINT IS THE CALLER'S JOB"). */
+      bump()
     }
     setValveIntent(null)
   }
@@ -1725,12 +1760,31 @@ export default function SystemPageV2Screen() {
      what the user asked for on this screen, and on a faulted valve no such
      request can be made any more — `ValveStatusCard` renders the action
      unavailable — so there is nothing for it to carry. */
+  /* ── AND THE STORE IS CONSULTED BEFORE THE DEVICES — 2026-11-08 ────────
+     `closedValves` is component state and dies on navigation; the commanded
+     state in `valveCommandStore` does not. Without this read, a user who
+     closed the valve, went to the drawer and came back found it reading Open
+     again — a card contradicting a command the app had already recorded and
+     shown a three-step progress sequence for.
+
+     IT IS READ AFTER THE FAULT CHECK AND BEFORE THE DEVICE DERIVATION: a
+     faulted valve is not commandable at all, so no command of ours can
+     describe it, and a recorded command is newer than the seeded device
+     state it overrides.
+
+     NOTHING IS READ FOR A COMMAND STILL IN FLIGHT. `getValveCommand` returns
+     only SETTLED commands — `startValveCommand` writes no state — so the
+     position word stays `Open` through Sending / Closing / Verifying, which
+     is what 199683:25832 / :25851 / :25870 draw. */
+  const commandedValve = getValveCommand(system.id)
   const valveState =
     valveCategoryOf(system) === 'error'
       ? 'error'
-      : valves.length && valves.every(d => closedValves[d.id] || d.valve === 'closed')
-        ? 'closed'
-        : 'open'
+      : commandedValve !== undefined
+        ? commandedValve
+        : valves.length && valves.every(d => closedValves[d.id] || d.valve === 'closed')
+          ? 'closed'
+          : 'open'
 
   /* "1 Valve | 1 Meters" in the comp — counted from the system's own devices
      rather than printed from the frame. */
@@ -2251,6 +2305,29 @@ export default function SystemPageV2Screen() {
                           className="shrink-0"
                           tone={alerting ? 'alert' : 'calm'}
                           state={valveState}
+                          /* THE CARD'S ROUTE TO THE COMMAND IN FLIGHT. With a
+                             systemId it reads `valveCommandStore` and draws
+                             the Sending / Closing / Verifying sequence in the
+                             action's place; without one it behaves exactly as
+                             it did before. It still never WRITES — see
+                             commitValveIntent. */
+                          systemId={system.id}
+                          /* Fires once, when the window has run and the store
+                             has recorded the state. */
+                          onSettled={applySettledValve}
+                          /* THE AUTO-SHUTOFF STRIP IS STATE-BEARING NOW
+                             (199683:26016) and needs the real policy, not the
+                             card's "On" default. The vocabulary is the card's
+                             own shipped pair plus ActivePolicyCard's `N/A`,
+                             which is real: buildTree records 20 MRG systems
+                             as metering-only. */
+                          autoCloseState={
+                            system.policy?.autoShutoff === 'Enabled'
+                              ? 'On'
+                              : system.policy?.autoShutoff === 'Disabled'
+                                ? 'Disabled'
+                                : 'N/A'
+                          }
                           /* Asks; does not act. commitValveIntent does. */
                           /* The card speaks state ('open'|'closed'); the sheet
                              speaks intent ('open'|'close'). Translate here. */
@@ -2658,14 +2735,29 @@ export default function SystemPageV2Screen() {
              branch below is commitValveIntent's no-device case, verbatim
              (same file, search `const commitValveIntent`): close every valve,
              or clear the map to open them all. The two must not drift. */
+          /* ── WHEN `onIntent` APPLIES CHANGED — 2026-11-08 ───────────────
+             It used to move `closedValves` the instant the overlay's confirm
+             sheet said yes. It cannot any more, and the reason is the whole
+             point of this pass: `closedValves` is what `valveState` reads to
+             draw the position word, and all three Figma busy frames keep that
+             word at `Open` while the command is in flight. Moving it at press
+             time drew a CLOSED valve beside a chip reading "Closing…".
+
+             NOTHING STOPPED WORKING. The overlay now starts the command in
+             `valveCommandStore`; this page's own ValveStatusCard watches the
+             same store and calls `applySettledValve` when the window has run,
+             which is the line that used to live here. The valve still closes
+             from the overlay — with the progress sequence in front of it
+             instead of nothing.
+
+             THE BUMP IS NOT DECORATION. The overlay's write happens in this
+             same tab, where the `storage` event does not fire
+             (valveCommandStore.js, "REPAINT IS THE CALLER'S JOB"), so this is
+             what makes the card behind the overlay pick the command up on the
+             next paint rather than on its next 250ms tick. */
           valve={{
             state: valveState,
-            onIntent: action =>
-              setClosedValves(
-                action === 'close'
-                  ? Object.fromEntries(valves.map(d => [d.id, true]))
-                  : {},
-              ),
+            onIntent: () => bump(),
           }}
         />
       </div>

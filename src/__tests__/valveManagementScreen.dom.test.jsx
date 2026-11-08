@@ -47,7 +47,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { UserProvider } from '@/context/UserContext'
 import ValveManagementScreen from '@/v2/pages/ValveManagementScreen'
 import { SYSTEMS } from '@/data/systems'
-import { clearValveCommands, getBulkValveHistory } from '@/data/valveCommandStore'
+import { BULK_SETTLE_MS, clearValveCommands, getBulkValveHistory } from '@/data/valveCommandStore'
 import {
   VALVE_CATEGORIES,
   canActuate,
@@ -1663,6 +1663,129 @@ describe('ValveManagementScreen - project copy standard', () => {
         new RegExp(`Showing [\\d,]+ of ${SYSTEMS.length.toLocaleString('en-US')}\\b`),
       ),
     ).toBeTruthy()
+    expectNoReactError()
+  })
+})
+
+/* ── THE BULK FEEDBACK — 2026-11-08 ──────────────────────────────────────
+ * Owner: "Like when doing bulk actions, at least I want to see some
+ * confirmation or something or progress", and, in the same breath, "on bulk
+ * actio keep it simple -dont need allstates".
+ *
+ * So this screen gets exactly TWO phases where the System page gets four:
+ * running, then settled. No per-system machine, no Verifying, no spinner per
+ * row. These tests pin both halves of that — that the progress is there, and
+ * that the four-state sequence is NOT.
+ *
+ * The commit path is the long one on purpose (arming delay, the non-drag
+ * escape hatch, the acknowledgement, the cancel window), because that is the
+ * path a user takes and none of it was touched.
+ */
+function commitClose(container, { systems = [] } = {}) {
+  for (const sys of systems) fireEvent.click(rowFor(container, sys.id))
+  const label = new RegExp(`^Close \\d+ valves?$`)
+  fireEvent.click(within(actionBar(container)).getByRole('button', { name: label }))
+  act(() => {
+    vi.advanceTimersByTime(ARMING_DELAY_MS + 50)
+  })
+  const sheet = screen.getByRole('alertdialog')
+  fireEvent.click(within(sheet).getByRole('button', { name: 'Cannot slide?' }))
+  fireEvent.click(within(sheet).getByRole('checkbox'))
+  fireEvent.click(within(sheet).getByRole('button', { name: /^Close \d+ valves?/ }))
+  /* Spend the cancel window, stopping at the FIRST thing the screen draws —
+     which is now the progress banner, not the result. */
+  for (let i = 0; i < 40; i += 1) {
+    if (container.querySelector('[data-name="valve-progress"]')) return
+    if (container.querySelector('[data-name="valve-result"]')) return
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+  }
+}
+
+describe('ValveManagementScreen — the bulk action reports progress, then settles', () => {
+  it('shows a running banner with a real progressbar before the result', () => {
+    vi.useFakeTimers()
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    commitClose(container, { systems: [ACTIONABLE_SYS, OFFLINE_SYS] })
+
+    const progress = container.querySelector('[data-name="valve-progress"]')
+    expect(progress).toBeTruthy()
+    /* SENDING, not closing — this app records a command and never hears back
+       from the hardware. Same rule the result banner already obeys. */
+    expect(progress.textContent).toMatch(/^Sending the close command to 1 valve…/)
+    expect(progress.getAttribute('role')).toBe('status')
+
+    const bar = within(progress).getByRole('progressbar')
+    expect(Number(bar.getAttribute('aria-valuenow'))).toBeGreaterThanOrEqual(0)
+    expect(Number(bar.getAttribute('aria-valuenow'))).toBeLessThanOrEqual(100)
+    // The result is NOT up yet — one banner at a time.
+    expect(container.querySelector('[data-name="valve-result"]')).toBeNull()
+    expectNoReactError()
+  })
+
+  it('settles into the result banner on its own, with the skips intact', () => {
+    vi.useFakeTimers()
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    commitClose(container, { systems: [ACTIONABLE_SYS, OFFLINE_SYS] })
+
+    act(() => {
+      vi.advanceTimersByTime(BULK_SETTLE_MS + 500)
+    })
+    expect(container.querySelector('[data-name="valve-progress"]')).toBeNull()
+
+    const banner = container.querySelector('[data-name="valve-result"]')
+    expect(banner).toBeTruthy()
+    expect(banner.textContent).toContain('commanded to close')
+    // The offline system is still excluded, and still reported as skipped.
+    expect(banner.textContent).toMatch(/not commanded/)
+    expect(banner.textContent).toContain('offline')
+    expectNoReactError()
+  })
+
+  /* SIMPLE MEANS SIMPLE. The System page's vocabulary must not leak onto this
+     screen — no Verifying, no per-system phase, no "Up to 8 minutes". */
+  it('draws none of the system page\'s four states', () => {
+    vi.useFakeTimers()
+    const { container } = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    commitClose(container, { systems: [ACTIONABLE_SYS] })
+    for (const word of [/Verifying/, /Up to 8 minutes/, /Closing…/, /Sending…$/]) {
+      expect(container.textContent).not.toMatch(word)
+    }
+    expectNoReactError()
+  })
+
+  /* THE PROGRESS IS IN THE STORE, WHICH IS WHY A REMOUNT KEEPS IT. A
+     `useState` here would have snapped the screen back to idle on the first
+     navigation — the exact "no feedback" the owner reported. */
+  it('still reports the batch after the screen is remounted mid-flight', () => {
+    vi.useFakeTimers()
+    const first = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    commitClose(first.container, { systems: [ACTIONABLE_SYS] })
+    expect(first.container.querySelector('[data-name="valve-progress"]')).toBeTruthy()
+    cleanup()
+
+    const again = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    expect(again.container.querySelector('[data-name="valve-progress"]')).toBeTruthy()
+    expectNoReactError()
+  })
+
+  it('dismissing the result stops it coming back on the next mount', () => {
+    vi.useFakeTimers()
+    const first = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    commitClose(first.container, { systems: [ACTIONABLE_SYS] })
+    act(() => {
+      vi.advanceTimersByTime(BULK_SETTLE_MS + 500)
+    })
+    fireEvent.click(within(first.container.querySelector('[data-name="valve-result"]')).getByRole('button', { name: 'Dismiss' }))
+    expect(first.container.querySelector('[data-name="valve-result"]')).toBeNull()
+    cleanup()
+
+    const again = renderAt(`/valves/${encodeURIComponent(SCOPE)}`)
+    expect(again.container.querySelector('[data-name="valve-result"]')).toBeNull()
+    expect(again.container.querySelector('[data-name="valve-progress"]')).toBeNull()
+    // The record itself survives — the history is not the banner.
+    expect(getBulkValveHistory()).toHaveLength(1)
     expectNoReactError()
   })
 })

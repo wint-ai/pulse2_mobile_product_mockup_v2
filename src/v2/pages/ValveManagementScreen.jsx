@@ -435,7 +435,7 @@
  * to `document.body` and would escape Phone.jsx's 393x852 `overflow:hidden`
  * frame, so both sheets here are `absolute inset-0` inside the page.
  */
-import { Fragment, useCallback, useId, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { DropletOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -480,7 +480,23 @@ import {
   targetsForSelection,
   valveCategoryOf,
 } from '@/v2/components/valveScope'
-import { effectiveValveState, recordBulkValveCommand } from '@/data/valveCommandStore'
+/* ── THE BATCH'S PROGRESS LIVES IN THE STORE — 2026-11-08 ─────────────────
+   Owner: "Like when doing bulk actions, at least I want to see some
+   confirmation or something or progress", and, separately, "on bulk actio
+   keep it simple -dont need allstates". So this screen gets TWO phases, not
+   the system page's four: running, then settled.
+
+   `getActiveBulkValveBatch` is read rather than a `useState` held here,
+   because the progress and the result are a promise the screen made about a
+   command the user pressed — and a reload or a tab change in the middle of
+   one used to snap this screen straight back to idle. */
+import {
+  BULK_SETTLE_MS,
+  dismissBulkValveBatch,
+  effectiveValveState,
+  getActiveBulkValveBatch,
+  recordBulkValveCommand,
+} from '@/data/valveCommandStore'
 import { formatLastSeen } from '@/utils/format'
 import { publish } from '@/lib/pushBridge'
 import { SYSTEMS } from '@/data/systems'
@@ -935,7 +951,11 @@ export default function ValveManagementScreen() {
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [renderLimit, setRenderLimit] = useState(PAGE_SIZE)
   const [pending, setPending] = useState(null)
-  const [result, setResult] = useState(null)
+  /* THE ONLY RESULT STILL HELD ON THIS SCREEN: the one with no record behind
+     it. If `recordBulkValveCommand` returns null the store has nothing to
+     read back, so the screen has to say so itself. Every other result is
+     derived from the batch record — see `batchView`. */
+  const [unrecorded, setUnrecorded] = useState(null)
   const [tick, setTick] = useState(0)
 
   /* `?state=` RE-SEEDS THE STATE GROUP AND LEAVES THE SELECTION ALONE. Seeded
@@ -1227,6 +1247,36 @@ export default function ValveManagementScreen() {
     navigate(scopeName ? `/location/${encodeURIComponent(scopeName)}` : '/')
   }, [historyKey, navigate, scopeName])
 
+  /* ── WHAT THIS SCREEN IS REPORTING RIGHT NOW ────────────────────────────
+     DERIVED FROM THE STORE, NOT HELD HERE. The owner asked for "some
+     confirmation or something or progress" on a bulk action; a `useState`
+     holding it would have been lost by the first navigation, and the screen
+     would have gone back to looking as though nothing had been pressed.
+
+     TWO PHASES ONLY — "on bulk actio keep it simple -dont need allstates".
+     No per-system machine, no Verifying, no spinner per row.
+
+     `progressTick` is SEPARATE from `tick` on purpose: `tick` re-resolves
+     every scoped system's valve state, which is a map over the whole scope,
+     and the progress bar does not need that ten times a second. */
+  const [progressTick, setProgressTick] = useState(0)
+  const batchView = useMemo(() => {
+    void tick
+    void progressTick
+    return getActiveBulkValveBatch()
+  }, [tick, progressTick])
+  const batchRunning = batchView?.phase === 'running'
+
+  /* One interval, alive only while a batch is running. It advances NOTHING —
+     the store derives the phase from the batch's own timestamp — it only asks
+     for a repaint, which is what moves the bar and what flips the banner over
+     to the result. */
+  useEffect(() => {
+    if (!batchRunning) return undefined
+    const id = setInterval(() => setProgressTick((n) => n + 1), 100)
+    return () => clearInterval(id)
+  }, [batchRunning])
+
   const commit = useCallback(() => {
     if (!pending || !pendingTargets) return
     const { action } = pending
@@ -1244,16 +1294,26 @@ export default function ValveManagementScreen() {
       scopeLabel: batchScopeLabel,
     })
 
-    /* A persistent, addressable record — NOT a toast. */
-    setResult({
-      action,
-      recorded: batch !== null,
-      commanded: willAct.length,
-      attemptedOver: selected.length,
-      buckets: Object.entries(skipped)
-        .filter(([, list]) => list.length > 0)
-        .map(([bucket, list]) => ({ bucket, count: list.length })),
-    })
+    /* A persistent, addressable record — NOT a toast.
+
+       THE RECORDED CASE IS NO LONGER HELD HERE. `batchView` reads the batch
+       the store just wrote, which is what lets the progress and the result
+       survive a navigation away. Only the case where the store could NOT
+       record anything is kept in component state: there is nothing to read
+       back, and the screen still owes the user that sentence. */
+    setUnrecorded(
+      batch
+        ? null
+        : {
+            action,
+            recorded: false,
+            commanded: willAct.length,
+            attemptedOver: selected.length,
+            buckets: Object.entries(skipped)
+              .filter(([, list]) => list.length > 0)
+              .map(([bucket, list]) => ({ bucket, count: list.length })),
+          },
+    )
     setPending(null)
     setSelectedIds(new Set())
 
@@ -1486,7 +1546,32 @@ export default function ValveManagementScreen() {
           style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}
           data-name="valve-rows"
         >
-          {result ? <ResultBanner result={result} onDismiss={() => setResult(null)} /> : null}
+          {/* ── THE FEEDBACK THE OWNER ASKED FOR ─────────────────────────
+              "Like when doing bulk actions, at least I want to see some
+              confirmation or something or progress."
+
+              Running -> a progress banner. Settled -> the result banner this
+              screen always had. The unrecorded case is its own branch,
+              because there is no batch record to describe it with.
+
+              IT SITS INSIDE THE SCROLLER, at the top of the rows, exactly
+              where the result banner already sat. It is not a toast and not
+              a fixed overlay: `position: fixed` is banned inside this frame,
+              and a bulk action over a thousand valves does not deserve
+              something that disappears on its own. */}
+          {batchRunning ? (
+            <BulkProgressBanner batch={batchView} />
+          ) : batchView ? (
+            <ResultBanner
+              result={resultFromBatch(batchView)}
+              onDismiss={() => {
+                dismissBulkValveBatch(batchView.id)
+                setTick((n) => n + 1)
+              }}
+            />
+          ) : unrecorded ? (
+            <ResultBanner result={unrecorded} onDismiss={() => setUnrecorded(null)} />
+          ) : null}
 
           {summary.total === 0 ? (
             /* NEW COPY. An empty scope is a real state — the drawer
@@ -2006,6 +2091,85 @@ const BUCKET_WORD = {
   faulted: 'in Valve Error',
   closing: 'already closing',
   alreadyInState: 'already in that state',
+}
+
+/**
+ * A batch record, read back as the shape `ResultBanner` already draws.
+ *
+ * `attemptedOver` is rebuilt rather than stored: the record holds the systems
+ * acted on and every skip bucket, and their sum IS what the user selected.
+ * Keeping a second copy of a number that is already derivable is how two
+ * counts on one screen start disagreeing.
+ */
+function resultFromBatch(batch) {
+  const buckets = SKIP_ORDER.map((bucket) => ({
+    bucket,
+    count: Array.isArray(batch.skipped?.[bucket]) ? batch.skipped[bucket].length : 0,
+  })).filter((b) => b.count > 0)
+  const commanded = Array.isArray(batch.systemIds) ? batch.systemIds.length : 0
+  const skipped = buckets.reduce((total, b) => total + b.count, 0)
+  return {
+    action: batch.action,
+    recorded: true,
+    commanded,
+    attemptedOver: commanded + skipped,
+    buckets,
+  }
+}
+
+/** The order the confirm sheet lists exclusions in, and so the order the
+ *  result sentence names them. The store's own SKIP_BUCKETS is not exported;
+ *  this is the same list and `BUCKET_WORD` below is keyed on it. */
+const SKIP_ORDER = ['offline', 'noValve', 'faulted', 'closing', 'alreadyInState']
+
+/* THE PROGRESS BAR'S ONLY MOVING PART is a width, tweened by a CSS
+   transition. No keyframes, no animation library, and nothing that runs
+   forever: the width comes from the batch's own elapsed figure, so a reload
+   mid-batch resumes at the right place instead of restarting at zero.
+
+   `motion-reduce:transition-none` removes the tween under
+   `prefers-reduced-motion` and leaves the bar STEPPING rather than sliding —
+   the progress is still visible, which a bar frozen at 100% would not be. */
+const PROGRESS_TRACK = 'h-[6px] w-full overflow-hidden rounded-full bg-muted'
+const PROGRESS_FILL =
+  'h-full rounded-full bg-primary transition-[width] duration-150 ease-linear motion-reduce:transition-none'
+
+/**
+ * NEW COPY, both lines.
+ *
+ * "Sending the close command to 12 valves…" — SENDING, not closing. This app
+ * records a command and never hears back from the hardware; `BUCKET_WORD`'s
+ * own note ("COMMANDED, never closed") is the same rule, and the result
+ * banner this turns into obeys it too. The second line is the batch's own
+ * recorded scope label, which is not new copy.
+ */
+function BulkProgressBanner({ batch }) {
+  const verb = batch.action === 'close' ? 'close' : 'open'
+  const count = Array.isArray(batch.systemIds) ? batch.systemIds.length : 0
+  /* Clamped: a clock adjustment must not paint a bar past its track. */
+  const pct = Math.max(0, Math.min(100, Math.round((batch.elapsed / BULK_SETTLE_MS) * 100)))
+  return (
+    <Card role="status" aria-live="polite" className="mb-2.5 w-full gap-2 py-3" data-name="valve-progress">
+      <CardContent className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-foreground">
+          {`Sending the ${verb} command to ${num(count)} ${plural(count, 'valve', 'valves')}…`}
+        </p>
+        <div
+          className={PROGRESS_TRACK}
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={pct}
+          data-name="valve-progress-bar"
+        >
+          <div className={PROGRESS_FILL} style={{ width: `${pct}%` }} />
+        </div>
+        {batch.scopeLabel ? (
+          <p className="text-xs text-muted-foreground">{batch.scopeLabel}</p>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
 }
 
 function ResultBanner({ result, onDismiss }) {

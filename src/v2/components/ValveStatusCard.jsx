@@ -129,11 +129,13 @@
  * (pale, dashed) among them; they are reused as they stand.
  */
 
-import { useEffect, useId, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { ChevronDown, LoaderCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LocationDot } from '@/v2/icons'
 import ValveStatus from '@/v2/components/ValveStatus'
+import ValveAutoShutoffStrip from '@/v2/components/ValveAutoShutoffStrip'
+import { getValveTransition, settleValveCommand } from '@/data/valveCommandStore'
 
 /* ── THE 2026-10-26 REDRAW — 199703:38726 / 199703:41537 ──────────────────
    Two states of one card, and the pair is what makes the layout make sense:
@@ -423,7 +425,9 @@ const NODE = {
   glyph: '199383:141559',
   value: '199383:141565',
   button: '199383:141566',
-  strip: '199383:141567',
+  /* `strip: '199383:141567'` STOOD HERE and is gone with the two-line warning
+     block it named. The card's strip is 199683:26037 now, and it carries that
+     id itself — see ValveAutoShutoffStrip. */
 }
 
 // 199383:141553
@@ -657,25 +661,12 @@ function LiveCountdown({ minutes, seconds, label }) {
 /* Two digits a side; a 7 would otherwise read as 0:7. */
 const pad2 = (n) => String(n).padStart(2, '0')
 
-/* 199383:141567 — the handling strip. The old red/50 fill is gone; the node
-   paints the page's own two-layer gradient, carried as an inline style because
-   Figma emits it as one (an arbitrary Tailwind value cannot hold the commas). */
-const STRIP = String.raw`content-stretch flex flex-col gap-[8px] h-[80px] items-start justify-center px-[13px] relative rounded-[11px] shrink-0 w-full max-w-full`
-/* The wash, themed. The angle stays here, the colours come from the shipped
-   stop list — under `light` that token IS the rgba literal this carried, so
-   `light` is byte-identical. NOT var(--chip-bg)/var(--app-bg): those bake one
-   angle in at :root and a call-site angle override cannot reach them. See
-   WintSidebarV2.jsx for the full note. */
-const WASH_BASE = 'linear-gradient(90deg, var(--card) 0%, var(--card) 100%)'
-
-/* Painted as literals this strip stayed #edf1f9 under `dark` while its own
-   text followed the theme: "Valve handling: Auto shut-off" measured 1.08:1. */
-const STRIP_GRADIENT = {
-  /* --app-bg-stops, not --chip-bg-stops: this strip's stops are the page
-     root's set (29.24 / 12.35 / 17.588 / 76.864), not the chip set. */
-  backgroundImage:
-    `linear-gradient(168.92503170733684deg, var(--app-bg-stops)), ${WASH_BASE}`,
-}
+/* 199383:141567's chassis and its two-layer gradient STOOD HERE and were
+   deleted on 2026-11-08 with the block they painted — see the strip's mount
+   below. The gradient note is not lost: the same `--app-bg-stops` reasoning
+   (and the `dark`-theme defect that forced it) is still recorded verbatim at
+   WintSidebarV2.jsx, which is where it was copied from. 199683:26016 draws a
+   flat `bg-slate-100` tile and needs none of it. */
 
 // Phosphor Icons / warning 199383:141570 — export verbatim (12x12). The
 // shipped #FB2C36 is colors/red/500, so the strokes and the dot are
@@ -706,6 +697,197 @@ function WarningGlyph() {
       />
     </svg>
   )
+}
+
+/* ── THE BUSY SEQUENCE — 199683:25832 / :25851 / :25870 ───────────────────
+   Owner, 2026-11-08: "When shutting off valve [...] there is no any feedback
+   that something was happens." Three frames answer it, and they replace the
+   ACTION, not the readout: through all three the position word still says
+   `Open` and only 199683:25891 says `Closed`. A valve that reports closed
+   while it is still being asked to close is a lie the user will act on.
+
+     199683:25832  "Sending…"           + spinner        161px
+     199683:25851  "Closing…"           + spinner        161px
+     199683:25870  "Verifying Closed"   + spinner        auto width,
+                                        + caption "Up to 8 minutes" under it,
+                                        and the row switches to items-start
+
+   GEOMETRY — THE FRAME'S CHIP IS 161x48 AT rounded-[8px], AND THAT IS NOT
+   WHAT SHIPS HERE. This card draws two different buttons already (the V2
+   full-width rounded-full pill and the legacy flex-1 rounded-[26px] one), and
+   the chip REPLACES the button in place. Taking the frame's box literally
+   would make the card resize and the control jump shape the instant it is
+   pressed, which reads as a glitch rather than as progress. So the chip
+   inherits each branch's own button geometry — exactly the adaptation
+   199683:25996 (the unavailable button) and 199683:25974 (the two short
+   actions) already took in this file. The frame's INK, GROUND, BORDER, GAP
+   and type are transcribed unchanged.
+
+   bg #f2f6ff IS --accent, to the hex (index.css:115), and this card's own
+   legacy BTN already paints `bg-accent`. slate/300 is the hairline tier, so
+   --border; this chip is not focusable and owes no 3:1 boundary. slate/600 on
+   the label takes --muted-foreground, the repo's one muted-ink ROLE, for the
+   reason V2_VALUE_MUTED spells out — a frozen slate step does not move under
+   `dark`, `sand` or `contrast`. */
+const BUSY_BASE = String.raw`bg-accent border border-border border-solid content-stretch flex gap-[4px] items-center justify-center relative`
+const BUSY_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-6 relative shrink-0 text-base text-muted-foreground whitespace-nowrap`
+/* 199683:25870's caption — 14px / --text/sm/lh-relaxed 22.75px, weight 500.
+   `pt-[7px]` is the frame's gap between the chip and the line under it. */
+const BUSY_CAPTION = String.raw`[word-break:break-word] font-sans font-medium leading-[22.75px] pt-[7px] relative shrink-0 text-center text-sm text-muted-foreground`
+
+/* THE SPINNER TURNS, AND IT STOPS TURNING WHEN THE READER ASKS IT TO.
+   A component-scoped <style>, the house pattern (BulkValveConfirmSheet.jsx
+   :566, WaterEventFeedbackSheet.jsx:375) — no animation library, CSS only.
+
+   Under `prefers-reduced-motion: reduce` the rotation is removed outright
+   rather than slowed: an element that never stops moving is the motion
+   problem, and a still spinner beside a label that already says "Sending…"
+   loses nothing. The LABEL is what carries the meaning in both cases, which
+   is also why the glyph is aria-hidden. */
+const BUSY_CSS = `
+.vsc-spin { animation: vsc-spin 900ms linear infinite; }
+@keyframes vsc-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .vsc-spin { animation: none; }
+}
+`
+
+/**
+ * The busy chip. `caption` is 199683:25870's "Up to 8 minutes" and is the one
+ * thing that makes that frame taller than the other two.
+ *
+ * `role="status"` + `aria-live="polite"`: the sequence changes under the
+ * user's hands after they pressed a button and the button vanished, so it has
+ * to be announced. Polite, not assertive — nothing here interrupts.
+ */
+function BusyChip({ label, caption, shape, captionId, nodeId }) {
+  return (
+    <div
+      className={cn(
+        'content-stretch flex flex-col items-center',
+        shape === 'pill' ? 'w-full' : 'min-w-0 shrink',
+      )}
+      data-name="Valve busy"
+    >
+      <style>{BUSY_CSS}</style>
+      <div
+        className={cn(
+          BUSY_BASE,
+          shape === 'pill'
+            ? 'h-[54px] rounded-full shrink-0 w-full'
+            : 'min-w-fit px-2.5 py-[12px] rounded-[26px] shrink-0',
+        )}
+        role="status"
+        aria-live="polite"
+        data-node-id={nodeId}
+        data-busy={label}
+      >
+        <LoaderCircle
+          size={16}
+          aria-hidden="true"
+          focusable="false"
+          className="vsc-spin shrink-0 text-muted-foreground"
+        />
+        <p className={BUSY_TEXT}>{label}</p>
+      </div>
+      {caption ? (
+        <p className={BUSY_CAPTION} id={captionId} data-node-id="199683:25877">
+          {caption}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * The in-flight command for `systemId`, re-read on a tick.
+ *
+ * THE STORE OWNS THE STATE, NOT THIS HOOK. `valveCommandStore` holds the
+ * command and DERIVES the phase from elapsed time, so a navigation away, a
+ * tab switch or a reload re-derives rather than resumes — the progress this
+ * card promised cannot be lost by unmounting it. All the hook does is decide
+ * when to look again.
+ *
+ * ONE interval, at 250ms, and it runs for as long as a `systemId` is set —
+ * NOT only while something is in flight. The System page mounts this card AND
+ * mounts EventFocusOverlay beside it, which mounts a second one for the same
+ * system; a command confirmed in the overlay is a store write the page's own
+ * card never hears about by any other route. An interval armed only on a
+ * transition it can already see could never learn about that one.
+ *
+ * IT COSTS ALMOST NOTHING. The tick reads one small localStorage key, and it
+ * only calls setState when the PHASE actually changes — so the idle case is
+ * four reads a second and zero renders, and the busy case is exactly three
+ * renders for the three frames.
+ *
+ * `Date.now()` is read inside the effect and inside the tick, never in the
+ * render body — this repo's eslint flags an impure read during render
+ * (react-hooks/purity) and it is right to.
+ *
+ * ── WHY `onSettled` IS FIRED FROM A REMEMBERED STATE ──────────────────────
+ * Two mounted cards race to settle the same command. `settleValveCommand` is
+ * idempotent, so the WRITE is safe — but the loser's read comes back empty
+ * and its return value is null, so a caller that fired on the return value
+ * would notify from one card and not the other. Each mount therefore
+ * remembers the state its own last in-flight read was heading for, and
+ * reports THAT. Both callers are told, exactly once each.
+ */
+function useValveTransition(systemId, onSettled) {
+  const [transition, setTransition] = useState(null)
+  /* What the command this mount is watching will settle to, remembered so the
+     notification survives losing the settle race. Null whenever nothing is in
+     flight, which is what stops a settled command being announced twice. */
+  const headingForRef = useRef(null)
+  /* The latest callback, without making it a dependency — callers pass inline
+     arrows and re-arming the interval on every parent render would be a timer
+     that restarts four times a second. Written in an EFFECT, not in the
+     render body: this repo's eslint rejects a ref write during render
+     (react-hooks/refs) and it is right to. */
+  const onSettledRef = useRef(onSettled)
+  useEffect(() => {
+    onSettledRef.current = onSettled
+  }, [onSettled])
+
+  useEffect(() => {
+    /* No systemId is the opted-out card, which is most of them. Nothing is
+       armed and nothing is cleared here — a synchronous setState in an effect
+       body is a cascading render and this repo's eslint rejects it. The
+       RETURN below is what makes the opted-out case read as idle. */
+    if (!systemId) {
+      headingForRef.current = null
+      return undefined
+    }
+
+    const read = () => {
+      const next = getValveTransition(systemId)
+
+      if (next && next.phase !== 'settled') {
+        headingForRef.current = next.state
+        /* Only the PHASE is a render. The elapsed figure changes every tick
+           and nothing on this card draws it. */
+        setTransition((cur) =>
+          cur && cur.phase === next.phase && cur.action === next.action ? cur : next,
+        )
+        return
+      }
+
+      /* Either the window has run, or another mount has already swept it. */
+      const resolved = next ? next.state : headingForRef.current
+      if (next) settleValveCommand(systemId)
+      headingForRef.current = null
+      setTransition(null)
+      if (resolved) onSettledRef.current?.(resolved)
+    }
+
+    read()
+    const id = setInterval(read, 250)
+    return () => clearInterval(id)
+  }, [systemId])
+
+  /* Gated on `systemId` rather than cleared in the effect — see above. A card
+     that stops opting in reads as idle on the very same render, with no
+     cascading setState to get there. */
+  return systemId ? transition : null
 }
 
 export default function ValveStatusCard({
@@ -816,9 +998,51 @@ export default function ValveStatusCard({
      (a) leads with what the user just tried to do, which is what an
      accessible name on a button is for. */
   unavailableReason = 'This action is not available. The valve reports an error.',
+  /* ── THE BUSY SEQUENCE ──────────────────────────────────────────────────
+     `systemId` is what turns it on. A card mounted without one behaves
+     exactly as it did before this pass — which is what keeps every existing
+     mount, and every existing test, byte-identical. The two pages that gate a
+     valve change behind a confirm sheet pass it; nothing else does.
+
+     THE CARD DOES NOT START A COMMAND. `onToggle` still only ASKS — the page
+     opens its ValveConfirmSheet and calls `startValveCommand` on confirm, so
+     the gate cannot be bypassed by this card acquiring a store write. The
+     card only RENDERS what the store says is in flight. */
+  systemId = null,
+  /* Fired once, when the window has run and the commanded state has been
+     written. The page uses it to bring its own optimistic map in line; the
+     store has already recorded the state either way. */
+  onSettled,
+  /* 199683:25832 / :25851 / :25870, transcribed. The frame mixes `...` in
+     "Sending..." with `…` in "Closing…"; ONE is picked — the single-character
+     ellipsis `…`, which is what the repo's rendered copy already uses and
+     what the frame itself spells for the longer-running state. FLAGGED.
+
+     Only the CLOSE direction has frames. The open wording is derived the same
+     way "Open valve" and the closed state word are, and is still a prop. */
+  sendingLabel = 'Sending…',
+  closingLabel = 'Closing…',
+  openingLabel = 'Opening…',
+  verifyingClosedLabel = 'Verifying Closed',
+  verifyingOpenLabel = 'Verifying Open',
+  /* 199683:25870's caption, verbatim. It is the HARDWARE's worst case, not
+     this app's timer — see VALVE_TRANSITION_MS in valveCommandStore.js. */
+  verifyingCaption = 'Up to 8 minutes',
   stateLabel,
-  handlingLabel = 'Valve handling:',
-  handling = 'Auto shut-off',
+  /* ── THE AUTO-SHUTOFF SENTENCE, NOW BEHIND A TAP — 199683:26016 ─────────
+     Owner, 2026-11-08: "replace this with how it show in figam - this
+     sentence can be added as a tool tip if someone clicks".
+
+     `handlingLabel` ("Valve handling:") and `handling` ("Auto shut-off")
+     ARE GONE WITH THE BLOCK THEY FED. That is a Rule 0 removal under the
+     owner's own instruction, and nothing is lost: the strip that replaces it
+     carries the same fact in the frame's own vocabulary — `autoCloseLabel`
+     over a state badge reading `autoCloseState`.
+
+     THE SENTENCE SURVIVES, VERBATIM. It is kept exactly as it shipped,
+     em-dash and mid-sentence capital and all. Both are against standing copy
+     rules and NEITHER is fixed here: re-punctuating a shipped string is the
+     owner's call. FLAGGED. */
   handlingDescription = 'In case a Leak is detected — the valve will automatically shut off',
   tone = 'calm',
   className,
@@ -886,7 +1110,37 @@ export default function ValveStatusCard({
      which is the state the owner asked for; the heading stays visible either
      way, so nothing is hidden that carries the warning itself. */
   const [attentionOpen, setAttentionOpen] = useState(false)
-  const attentionBodyId = `${useId()}-attention`
+  const uid = useId()
+  const attentionBodyId = `${uid}-attention`
+
+  /* ── WHAT IS IN FLIGHT, AND WHAT THE CARD DOES ABOUT IT ─────────────────
+     The chip replaces the ACTION and nothing else. The glyph, the position
+     word and the auto-shutoff strip are all left alone, because none of them
+     has changed yet — 199683:25832 / :25851 / :25870 all still read `Open`.
+
+     A FAULT OUTRANKS A COMMAND IN FLIGHT. `error` means the valve has already
+     failed to respond to one; drawing "Closing…" over that would be the card
+     asserting progress it has been told is not happening. Same for `unknown`,
+     where the position is not knowable and a direction-specific busy label
+     would claim one. */
+  const transition = useValveTransition(systemId, onSettled)
+  const busy = isError || isUnknown ? null : transition
+  const busyLabel = busy
+    ? busy.phase === 'sending'
+      ? sendingLabel
+      : busy.phase === 'acting'
+        ? (busy.action === 'close' ? closingLabel : openingLabel)
+        : (busy.action === 'close' ? verifyingClosedLabel : verifyingOpenLabel)
+    : null
+  /* Only 199683:25870 carries the caption — the frame draws it under
+     Verifying and under nothing else. */
+  const busyCaption = busy && busy.phase === 'verifying' ? verifyingCaption : null
+  const busyCaptionId = `${uid}-verifying`
+  /* One frame per phase, named, so the chip on screen can be traced back to
+     the node it came from the way every other element on this card can. */
+  const busyNodeId = busy
+    ? { sending: '199683:25832', acting: '199683:25851', verifying: '199683:25870' }[busy.phase]
+    : undefined
 
   /* ── THE 2026-10-26 CARD — 199703:38726 / 199703:41537 ──────────────────
      A SEPARATE RETURN, not more branches below. The element ORDER changed
@@ -1051,7 +1305,20 @@ export default function ValveStatusCard({
               reads as "you may do this here", and the point is that the
               control lives elsewhere on that surface. */}
           {interactive ? (
-            isUnknown ? (
+            busy ? (
+              /* THE ACTION SLOT WHILE A COMMAND IS IN FLIGHT. The button is
+                 GONE, not disabled: a greyed "Close valve" beside a valve
+                 that still reads Open is exactly the idle-looking control the
+                 owner reported, and the three frames draw a chip in its
+                 place, never a dead button. */
+              <BusyChip
+                shape="pill"
+                label={busyLabel}
+                caption={busyCaption}
+                captionId={busyCaptionId}
+                nodeId={busyNodeId}
+              />
+            ) : isUnknown ? (
               /* 199683:25974 — TWO actions, both LIVE. The position is
                  unknown, so neither direction is the obvious one and both are
                  meaningful. The frame sets them side by side at 82px each;
@@ -1114,7 +1381,14 @@ export default function ValveStatusCard({
 
   return (
     <div className={cn(chassis, className)} data-node-id={NODE.card} data-name="IOT overview" {...props}>
-      <div className={ROW} data-node-id={NODE.row}>
+      {/* 199683:25870 switches the row to `items-start`, because the
+          Verifying state hangs a caption under its chip and a centred row
+          would push the readout down with it. Every other state is centred,
+          as it always was. */}
+      <div
+        className={cn(ROW, busyCaption ? 'items-start' : null)}
+        data-node-id={NODE.row}
+      >
         <div className={STACK} data-node-id={NODE.stack}>
           <div className={TITLE_BOX} data-node-id={NODE.titleBox}>
             <p className={TITLE} dir="auto" data-node-id={NODE.title}>
@@ -1152,7 +1426,17 @@ export default function ValveStatusCard({
             greyed button still reads as "you may do this here", and the point
             is that the control lives elsewhere on that surface. */}
         {interactive ? (
-          isUnknown ? (
+          busy ? (
+            /* See the V2 branch above: the chip takes the action's slot, with
+               this branch's own geometry rather than the frame's 161px box. */
+            <BusyChip
+              shape="inline"
+              label={busyLabel}
+              caption={busyCaption}
+              captionId={busyCaptionId}
+              nodeId={busyNodeId}
+            />
+          ) : isUnknown ? (
             /* 199683:25974 on this card's geometry — two short outline pills
                where the single action sits. */
             <div className={BTN_PAIR} data-node-id="199683:25974" data-name="Buttons">
@@ -1275,34 +1559,56 @@ export default function ValveStatusCard({
           </div>
         </div>
         ) : (
-        <div className={STRIP} style={STRIP_GRADIENT} data-node-id={NODE.strip}>
-          <div
-            className="content-stretch flex gap-[8px] items-start relative shrink-0 w-full"
-            data-node-id="199383:141568"
-          >
-            <div
-              className={String.raw`bg-red-200 content-stretch flex items-center justify-center relative rounded-[20px] shrink-0 size-[16px]`}
-              data-node-id="199383:141569"
-              data-name="rightIcon"
-            >
-              <div
-                className="relative shrink-0 size-[12px] text-red-500"
-                data-node-id="199383:141570"
-                data-name="Phosphor Icons / warning"
-              >
-                <WarningGlyph />
-              </div>
-            </div>
-            <p
-              className={String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`}
-              data-node-id="199383:141571"
-            >{`${handlingLabel} ${handling} `}</p>
-          </div>
-          <p
-            className={String.raw`[word-break:break-word] font-sans font-normal leading-5 relative shrink-0 text-gray-700 text-sm tracking-normal w-full`}
-            data-node-id="199383:141572"
-          >{`${handlingDescription} `}</p>
-        </div>
+        /* ── 199683:26016 REPLACES 199383:141567 ────────────────────────────
+           What stood here was an 80px two-line warning block on the page's
+           own gradient: a red warning disc, "Valve handling: Auto shut-off",
+           and the sentence under it. The owner replaced it by name.
+
+           The frame draws one 38px strip with a label and a state badge, and
+           it marks the sentence `hidden="true"` (199683:26038) — the design
+           retires it from the card face. The owner's "can be added as a tool
+           tip if someone clicks" is what brings it back, behind a tap, which
+           is the whole reason ValveAutoShutoffStrip exists rather than a
+           plain <p>. Everything about why that is not a Radix Tooltip is in
+           that file's header.
+
+           NOTE THE WRAPPER. The strip is `w-full` inside this card's
+           `flex-col` chassis and needs no box of its own; it is mounted
+           directly, the same way the redraw branch mounts STRIP_REDRAW. */
+        <ValveAutoShutoffStrip
+          label={autoCloseLabel}
+          state={autoCloseState}
+          /* ── THE SENTENCE FOLLOWS THE STATE, AND IT HAS TO ──────────────
+             Caught in the browser on 2026-11-08: the strip read
+             "Auto-shutoff · Disabled" and the tapped sentence read "the
+             valve will automatically shut off". The panel contradicting its
+             own badge.
+
+             THIS IS THE SAME DEFECT THE OLD BLOCK HAD, and it is the one
+             `valveStatusCard.dom.test.jsx` has a test for: the headline was
+             switched on the policy while the sentence stayed at the card's
+             default, so a manual system read "Valve handling: Manual only —
+             ... the valve will automatically shut off". EventFocusOverlay
+             fixed it for the redraw card by driving both halves off one
+             branch. This is that branch, for this card.
+
+             NEITHER SENTENCE IS NEW. `handlingDescription` is the shipped
+             auto-shutoff sentence and `attentionBody` is 199703:42050, the
+             shipped sentence for auto-shutoff being off.
+
+             AND `N/A` GETS NEITHER. A metering-only system has no such
+             setting, so there is no honest sentence to put behind the tap —
+             and `ValveAutoShutoffStrip` draws no trigger at all without one,
+             which is what it should do rather than explain a setting that
+             does not exist. */
+          description={
+            autoCloseOff
+              ? attentionBody
+              : String(autoCloseState).trim().toLowerCase() === 'n/a'
+                ? undefined
+                : handlingDescription
+          }
+        />
         )
       ) : null}
     </div>

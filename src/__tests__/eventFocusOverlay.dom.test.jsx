@@ -52,6 +52,7 @@ import { getActivePolicy, getSystemUnits } from '@/data/systemDetails'
 import { canActuate } from '@/v2/components/valveScope'
 import { isIgnored, ignoreIncident, clearIgnored } from '@/data/ignoredIncidents'
 import { isInvestigating, startInvestigating, stopInvestigating } from '@/data/investigatingStore'
+import { clearValveCommands } from '@/data/valveCommandStore'
 import { getCurrentActor } from '@/data/currentUser'
 
 const WATER = new Set(['leak-high', 'leak-low'])
@@ -127,10 +128,22 @@ function resetStores(id) {
   clearIgnored(id)
 }
 
+/* THIS SURFACE NOW WRITES A THIRD STORE — 2026-11-08. Confirming the valve
+   sheet calls `startValveCommand`, which persists an in-flight command to
+   localStorage; the card then draws the Sending / Closing / Verifying chip IN
+   PLACE OF the "Close valve now" button for as long as that command runs.
+   Without this wipe, one test's commit left the next five looking for a
+   button the card had deliberately replaced. Cleared with the other two,
+   before AND after, so neither order of execution can leak. */
+function resetValveCommands() {
+  clearValveCommands()
+}
+
 const ALL_IDS = [leakSys?.id, faultSys?.id, valveSys?.id, noValveSys?.id, autoOffValveSys?.id]
 
 beforeEach(() => {
   ALL_IDS.forEach(resetStores)
+  resetValveCommands()
 })
 
 /* THE CLAIM CONTROLS WERE RENAMED on 2026-10-28, by Figma 199703:42941 /
@@ -154,6 +167,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   ALL_IDS.forEach(resetStores)
+  resetValveCommands()
 })
 
 const renderOverlay = (props = {}) =>

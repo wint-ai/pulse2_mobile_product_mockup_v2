@@ -305,6 +305,9 @@ import {
   setNotes,
 } from '@/data/locationInfoStore'
 import { isIgnored } from '@/data/ignoredIncidents'
+/* THE COMMAND IN FLIGHT. This overlay opens one; `ValveStatusCard` draws the
+   Sending / Closing / Verifying sequence off the same store. */
+import { startValveCommand } from '@/data/valveCommandStore'
 import { acceptsIgnore, eventStateFor } from '@/v2/components/ignoreGate'
 import {
   isInvestigating,
@@ -1714,14 +1717,35 @@ export default function EventFocusOverlay({
 
   /* The ONLY place a valve change is committed from, and only ever after the
      sheet's confirm. The page is told; this overlay remembers it solely so a
-     mount that owns no valve state still shows the user what they just did. */
+     mount that owns no valve state still shows the user what they just did.
+
+     ── IT NO LONGER FLIPS THE READOUT AT PRESS TIME — 2026-11-08 ──────────
+     Owner: "use it on the system screen and in the event screen when user can
+     shut off valve from water events." The three Figma busy frames all keep
+     the position word at `Open` and hand the ACTION slot to a Sending ->
+     Closing -> Verifying chip; only 199683:25891 reads `Closed`.
+
+     So this starts a command in `valveCommandStore` and sets NOTHING locally.
+     `confirmedValve` moves in `settleValve` below, when the card reports the
+     window has run — which is also the moment the store writes the state, so
+     a mount that re-reads instead of remembering gets the same answer.
+
+     THE PAGE IS STILL TOLD IMMEDIATELY. `valve.onIntent` is the seam
+     SystemPageV2Screen owns and it has its own view of what a commit means;
+     delaying it here would make this overlay the arbiter of a state it does
+     not hold. The page's own handler is what decides when ITS map moves. */
   const commitValve = () => {
     const action = pendingValve
     setPendingValve(null)
     if (!action) return
-    setConfirmedValve(action === 'close' ? 'closed' : 'open')
+    startValveCommand({ systemId: sys.id, action })
     valve?.onIntent?.(action)
   }
+
+  /* Fired once by the card, when the sequence has run and the store has
+     recorded the state. Only the local fallback moves here: the page's own
+     `onSettled` wiring is what moves the page. */
+  const settleValve = (state) => setConfirmedValve(state)
 
   const breadcrumb = [sys.l4Name, sys.l3Name].filter(Boolean).join(' · ')
 
@@ -2723,6 +2747,13 @@ export default function EventFocusOverlay({
               redraw
               interactive
               onToggle={(next) => setPendingValve(next === 'closed' ? 'close' : 'open')}
+              /* THE BUSY SEQUENCE, on this surface too. Owner, 2026-11-08:
+                 "use it on the system screen and in the event screen when
+                 user can shut off valve from water events." It is the same
+                 card and the same store, so it is the same three frames —
+                 nothing is re-implemented here. */
+              systemId={sys.id}
+              onSettled={settleValve}
               autoCloseState={autoShutoffOn ? 'On' : 'Disabled'}
               /* THE ATTENTION DISCLOSURE IS OFF ON THIS SURFACE — 2026-11-03.
                  Owner, on a screenshot of this card: "Remove the attention

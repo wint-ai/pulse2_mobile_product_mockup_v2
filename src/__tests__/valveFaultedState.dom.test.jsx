@@ -145,10 +145,16 @@ describe.each(VARIANTS)('ValveStatusCard · $name', ({ props }) => {
   })
 
   describe('state="unknown" — 199683:25974', () => {
+    /* SCOPED TO THE ACTION GROUP, 2026-11-08. It used to count every button
+       in the card. The auto-shutoff strip that replaced the two-line warning
+       block (199683:26016) is a tap target of its own on the alert tone, so
+       a bare count now reads 3 — and would keep reading 3 if the two actions
+       became one. The group the frame draws them in is what is asserted. */
     it('offers TWO actions, both live', () => {
       const close = vi.fn()
       const { container } = mount({ state: 'unknown', onToggle: close })
-      const buttons = [...container.querySelectorAll('button')]
+      const group = container.querySelector('[data-node-id="199683:25974"]')
+      const buttons = [...group.querySelectorAll('button')]
       expect(buttons).toHaveLength(2)
       expect(buttons.map((b) => b.textContent)).toEqual(['Close', 'Open'])
       buttons.forEach((b) => expect(b.getAttribute('aria-disabled')).toBeNull())

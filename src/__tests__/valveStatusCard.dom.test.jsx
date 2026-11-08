@@ -55,7 +55,7 @@ describe('ValveStatusCard — the row the owner flagged', () => {
     render(<ValveStatusCard tone="alert" />)
     const card = node('199383:141553')
     const row = node('199383:141554')
-    const strip = node('199383:141567')
+    const strip = node('199683:26037')
     expect(card.contains(row)).toBe(true)
     expect(card.contains(strip)).toBe(true)
     // The Button is IN the row, beside the state — not below it, not in the strip.
@@ -67,13 +67,23 @@ describe('ValveStatusCard — the row the owner flagged', () => {
 describe('ValveStatusCard — one control, and it only asks', () => {
   /* Owner, 2026-10-17: "now we have 2 valve CTA." The overlay mounts this card
      read-only because its footer already carries the primary. */
-  it('draws no action at all when it is a readout', () => {
+  /* UPDATED 2026-11-08. It used to assert `queryByRole('button')` is null
+     outright. The auto-shutoff strip (199683:26016) that replaced the
+     two-line warning block is a TAP TARGET — the owner's "this sentence can
+     be added as a tool tip if someone clicks" — so there is now one button on
+     a readout card, and it is not a valve action. The assertion is narrowed
+     to what the test was actually about: this card offers no way to move the
+     valve when it is a readout. */
+  it('draws no VALVE action at all when it is a readout', () => {
     render(<ValveStatusCard interactive={false} tone="alert" />)
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.queryByRole('button', { name: /valve$/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open' })).toBeNull()
     // Everything else the design draws is still there.
     expect(screen.getByText('Valve status')).toBeTruthy()
     expect(screen.getByText('Open')).toBeTruthy()
-    expect(screen.getByText(/Valve handling: Auto shut-off/)).toBeTruthy()
+    // The strip, with its state badge — the block's replacement.
+    expect(screen.getByRole('button', { name: /^Auto-shutoff: On\./ })).toBeTruthy()
   })
 
   it('reports the next state and mutates nothing of its own', () => {
@@ -92,30 +102,143 @@ describe('ValveStatusCard — one control, and it only asks', () => {
   })
 })
 
-describe('ValveStatusCard — the handling panel', () => {
-  it('only draws the panel on the alert tone', () => {
+/* ── THE HANDLING PANEL IS NOW THE AUTO-SHUTOFF STRIP — 199683:26016 ──────
+   Owner, 2026-11-08, on a screenshot of the two-line warning block: "replace
+   this with how it show in figam - this sentence can be added as a tool tip
+   if someone clicks".
+
+   The block drew "Valve handling: Auto shut-off" over its sentence. The frame
+   draws one 38px strip with a label and a state badge, and marks the sentence
+   hidden. These tests moved with it: the strip still only appears on the
+   alert tone, and the sentence is still the caller's to state — it just takes
+   a tap to see it now. */
+describe('ValveStatusCard — the auto-shutoff strip', () => {
+  it('only draws the strip on the alert tone', () => {
     const { rerender } = render(<ValveStatusCard tone="calm" />)
-    expect(node('199383:141567')).toBeNull()
+    expect(node('199683:26037')).toBeNull()
     rerender(<ValveStatusCard tone="alert" />)
-    expect(node('199383:141567')).toBeTruthy()
+    expect(node('199683:26037')).toBeTruthy()
   })
 
-  /* The panel used to contradict itself on the overlay: the headline was
-     switched on the real policy while the sentence stayed at the card's
-     auto-shutoff default, so a manual system read "Valve handling: Manual only
-     — ... the valve will automatically shut off". Both halves are props, and
-     EventFocusOverlay now drives them off one branch. */
-  it('lets the caller state handling and its sentence together', () => {
+  /* THE OLD BLOCK'S DEFECT, KEPT AS A TEST — and it RECURRED on the strip
+     before it shipped. Caught in the browser on 2026-11-08: the badge read
+     "Disabled" and the tapped sentence read "the valve will automatically
+     shut off", which is the same panel-contradicts-its-own-headline bug the
+     overlay had. The sentence now follows the state.
+
+     Both sentences are the card's own shipped props, and the caller may
+     still set either. */
+  it('puts the ENABLED sentence behind the tap when auto-shutoff is on', () => {
     render(
       <ValveStatusCard
         tone="alert"
-        handling="Manual only"
+        autoCloseState="On"
         handlingDescription="Nothing will close the valve for you."
       />,
     )
-    const strip = node('199383:141567')
-    expect(strip.textContent).toContain('Valve handling: Manual only')
-    expect(strip.textContent).toContain('Nothing will close the valve for you.')
-    expect(strip.textContent).not.toMatch(/automatically shut off/)
+    const strip = node('199683:26037')
+    expect(strip.textContent).toContain('Auto-shutoff')
+    // The sentence is behind the tap, so it is NOT on the card face.
+    expect(strip.textContent).not.toContain('Nothing will close the valve for you.')
+    fireEvent.click(screen.getByRole('button', { name: /^Auto-shutoff: On\./ }))
+    expect(screen.getByText('Nothing will close the valve for you.')).toBeTruthy()
+  })
+
+  it('never says the valve WILL shut off while the badge reads Disabled', () => {
+    render(<ValveStatusCard tone="alert" autoCloseState="Disabled" />)
+    fireEvent.click(screen.getByRole('button', { name: /^Auto-shutoff: Disabled\./ }))
+    const panel = node('199683:26038')
+    expect(panel.textContent).toContain('will not automatically shut off')
+    expect(panel.textContent).not.toMatch(/In case a Leak is detected/)
+  })
+
+  /* A metering-only system has no such setting, so there is no honest
+     sentence to put behind a tap. The badge still states the fact. */
+  it('offers no explanation at all for N/A', () => {
+    render(<ValveStatusCard tone="alert" autoCloseState="N/A" />)
+    expect(screen.queryByRole('button', { name: /What does this mean/ })).toBeNull()
+    expect(node('199683:26043').textContent).toContain('N/A')
+  })
+
+  /* The two-line block is GONE, by name. A regression here would be the
+     owner's instruction being quietly undone. */
+  it('no longer draws the two-line "Valve handling" warning block', () => {
+    render(<ValveStatusCard tone="alert" />)
+    expect(screen.queryByText(/Valve handling/)).toBeNull()
+    // And the sentence is not on the face either — it is behind the tap.
+    expect(screen.queryByText(/In case a Leak is detected/)).toBeNull()
+  })
+
+  /* THE DOT IS STATE-BEARING. Red when auto-shutoff will NOT fire, green when
+     it will, muted for the metering-only systems that have no such setting.
+     Asserted through `data-tone` rather than a class, so a token rename does
+     not silently turn this into a test of nothing. */
+  it('reads the badge state through the dot, in three tones', () => {
+    const { rerender } = render(<ValveStatusCard tone="alert" autoCloseState="On" />)
+    expect(node('199683:26043').getAttribute('data-tone')).toBe('on')
+    rerender(<ValveStatusCard tone="alert" autoCloseState="Disabled" />)
+    expect(node('199683:26043').getAttribute('data-tone')).toBe('off')
+    rerender(<ValveStatusCard tone="alert" autoCloseState="N/A" />)
+    expect(node('199683:26043').getAttribute('data-tone')).toBe('muted')
+  })
+
+  /* A BARE STATUS DOT IS NOT AN ACCESSIBLE NAME. The trigger has to say what
+     it is, what state it is in and that it opens something. */
+  it('gives the trigger a real name and a real aria-expanded', () => {
+    render(<ValveStatusCard tone="alert" autoCloseState="On" />)
+    const trigger = screen.getByRole('button', { name: 'Auto-shutoff: On. What does this mean?' })
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(trigger)
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    // aria-controls must point at an element that actually exists.
+    expect(document.getElementById(trigger.getAttribute('aria-controls'))).toBeTruthy()
+  })
+
+  /* THREE WAYS OUT, AND FOCUS COMES BACK EVERY TIME. An in-frame panel gets
+     none of this for free — a Radix popover would have, and a Radix popover
+     portals out of the 393x852 frame. */
+  it('dismisses on a second tap, on Escape and on the scrim, returning focus', () => {
+    render(<ValveStatusCard tone="alert" />)
+    const trigger = screen.getByRole('button', { name: /^Auto-shutoff: On\./ })
+    const sentence = () => screen.queryByText(/In case a Leak is detected/)
+
+    // 1. second tap
+    fireEvent.click(trigger)
+    expect(sentence()).toBeTruthy()
+    fireEvent.click(trigger)
+    expect(sentence()).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+
+    // 2. Escape
+    fireEvent.click(trigger)
+    expect(sentence()).toBeTruthy()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(sentence()).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+
+    // 3. the scrim
+    fireEvent.click(trigger)
+    expect(sentence()).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Close explanation' }))
+    expect(sentence()).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+  })
+
+  /* NOT A PORTAL. The panel and its scrim must live inside the card, or they
+     escape Phone.jsx's fixed frame the way every Radix overlay does. */
+  it('keeps the panel and the scrim inside the card, not in a portal', () => {
+    render(<ValveStatusCard tone="alert" />)
+    fireEvent.click(screen.getByRole('button', { name: /^Auto-shutoff: On\./ }))
+    const card = node('199383:141553')
+    expect(card.contains(screen.getByText(/In case a Leak is detected/))).toBe(true)
+    expect(card.contains(screen.getByRole('button', { name: 'Close explanation' }))).toBe(true)
+  })
+
+  /* No sentence, no disclosure. A trigger that opens an empty panel is worse
+     than a plain readout. */
+  it('draws no trigger at all when there is nothing to explain', () => {
+    render(<ValveStatusCard tone="alert" handlingDescription="" />)
+    expect(screen.queryByRole('button', { name: /What does this mean/ })).toBeNull()
+    expect(node('199683:26043')).toBeTruthy()
   })
 })
