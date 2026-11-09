@@ -111,6 +111,7 @@ import { useTranslation } from 'react-i18next'
    for the same chevron-left glyph. */
 import { ChevronDown, ChevronLeft } from 'lucide-react'
 import TabBar from '@/components/TabBar'
+import { useStatusBarBleed } from '@/components/phoneStatusBar'
 import ActiveWaterEventsCard from '@/v2/components/ActiveWaterEventsCard'
 /* EventOverlayV2, not EventOverlay. Both were rebuilt from the same five
    frames, but V2 is the corrected one: the Active/History switch is a
@@ -128,6 +129,7 @@ import EventOverlayV2 from '@/v2/components/EventOverlayV2'
    where HeroCardShell paints it from its own `tone`. One component, now one
    call site on this page, so the band and the card cannot drift apart. */
 import HeroCardShell from '@/v2/components/HeroCardShell'
+import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import InsightsCard from '@/v2/components/InsightsCard'
 import SystemsHealthCard from '@/v2/components/SystemsHealthCard'
 import SystemsTableCard from '@/v2/components/SystemsTableCard'
@@ -647,6 +649,20 @@ function matchesAccountName(s, name) {
    unchanged and now holds at every grouping: offsets are measured from the
    last reading in the series, never from "now" (PLS-WC-06). */
 
+/* ── THE HERO HEADER TINT — 200067:38981's veil fill ──────────────────────
+   #9dbbd9, the colour the node paints under `mix-blend-multiply` over the
+   hero artwork.
+
+   A RAW STRING ON PURPOSE, AND NOT A TOKEN. AppHeaderBar takes `surfaceTint`
+   as an INLINE STYLE, never as a utility class, which is the whole reason the
+   prop exists in that shape: this colour is not registered as `--color-9dbbd9`
+   or anything else in `@theme inline`, and in Tailwind v4 a utility naming an
+   unregistered colour emits NO CSS and NO error — it fails silently and has
+   broken this repo three times. An inline style cannot fail that way. So no
+   new token is requested here and none is needed; if this colour ever has to
+   reach a utility class, THAT is the point at which it must be registered. */
+const HERO_HEADER_TINT = '#9dbbd9'
+
 export default function HomeAllAccounts({ expanded = false }) {
   /* Figma "Location opt b" (198328:88654) is this screen retitled, so scope is
      a route param rather than a second page. */
@@ -1014,6 +1030,41 @@ export default function HomeAllAccounts({ expanded = false }) {
   // holding data the card only displays.
   const [topUsageDays, setTopUsageDays] = useState(30)
   const [tab, setTab] = useState('overview')
+
+  /* ── THE STATUS BAND BLEEDS INTO THE HERO — 200067:38971, 2026-11-09 ──────
+     200067:38969 runs the artwork BEHIND the clock and battery: its StatusBar
+     node sits at y=0..48 inside the raster's y=-170..305 span, and paints its
+     glyphs WHITE. 200059:35849, the System page's, is the same strip with
+     `#1e2a3b` ink - so the ink is per screen, not per shell, which is why the
+     hook takes it as a parameter.
+
+     ⚠ ONLY ON `overview`, AND THAT GATE IS NOT COSMETIC. The bleed drops the
+     seat so the route's own first pixel fills the band - which is only safe
+     where there IS artwork there. Systems and General Info render no hero (a
+     More pick replaces the whole body), so their band would be the plain page
+     ground, and `--ink-on-color` is WHITE: the clock and battery would vanish
+     into it. Those two views keep the seat and the default
+     `--status-bar-ink`, which is what passing `bleed: false` restores. The
+     hook is still CALLED every render - only its arguments change - so no
+     rule of hooks is bent.
+
+     CONTRAST IS THIS PAGE'S PROBLEM, by the hook's own documentation: the
+     shell cannot check glyphs it does not know the backdrop of. Measured from
+     the page side instead - the composited band pixel against white - and
+     asserted rather than assumed. See the browser pass. */
+  const heroBleeds = tab === 'overview'
+  /* `inset` IS THE SHELL'S ANSWER, AND IT REPLACED A MIRROR OF Phone.jsx.
+     This page used to carry its own copy of Phone's `innerWidth <= 500 ||
+     mobile UA` rule, because it has to know whether a band is drawn before it
+     pays 44px back as padding, and `@/hooks/use-mobile` is the wrong
+     predicate for that (`< 768`, so the two disagree between 501 and 767).
+     The shell reports it now: `inset` is already both halves - the shell path
+     AND whether this screen asked to bleed - so there is no predicate and no
+     55 left here. See THE TOP INSET below for what the 11 is. */
+  const { inset: statusBandInset } = useStatusBarBleed({
+    bleed: heroBleeds,
+    ink: heroBleeds ? 'var(--ink-on-color)' : undefined,
+  })
   /* System tab filters. Held here rather than in the card because the sheet is
      an overlay and every wrapper Figma emits is `relative` — rendered inside
      the tab body it would be trapped there instead of covering the frame. */
@@ -1552,100 +1603,392 @@ export default function HomeAllAccounts({ expanded = false }) {
      paints over it; HeroCardShell's `overflow-hidden` does not reach it
      because the card is taller than the panel's drop. Verified in Chromium at
      393x852 with a zero chip open, in all four themes. */
+  /* ── THE HEADER BAR — 200067:38981 "content", 370x47 ────────────────────
+     ONE DEFINITION, TWO SEATS. `onHero` picks the seat and the seat picks
+     everything else about the bar's surface.
+
+     WHY IT MOVED. 200067:38969 paints this bar ON the hero. The frame's
+     artwork (200067:38970, an 870x475 raster at x=-240 y=-170) runs y=-170
+     to y=305 and the bar sits at y=59..106 inside that span, so the node does
+     not FILL the bar, it TINTS what is already behind it: a #9dbbd9 veil
+     under `mix-blend-multiply` with a 3.5px backdrop blur, and slate/50
+     (#f8fafc) title ink. That composite is exactly AppHeaderBar's `onColor`
+     surface plus `surfaceTint`. Both props landed additive and optional, so
+     the other call sites render what they always rendered.
+
+     ⚠ `px-0` IS DROPPED ON THE HERO SEAT, AND THAT IS THE POINT, not a
+     tidy-up. `onColor` is a chip surface, so AppHeaderBar puts
+     `relative rounded-full px-[8px] backdrop-blur-[3.5px]` on its own root
+     and merges `className` AFTER it. A `px-0` from here therefore WINS
+     through tailwind-merge and flattens the chip's 8px to zero, which pulls
+     the veil hard against the title's glyphs. The ground seat keeps `px-0`:
+     it is what this page has always passed and what the other call sites
+     still pass.
+
+     ⚠ INSIDE THE HERO IT MUST COME AFTER THE ARTWORK IN DOM ORDER.
+     HeroWaveArt is `absolute` and HeroCardShell's children wrapper is
+     `relative`, so a bar inserted as the hero's FIRST child is painted over
+     by the raster and renders COMPLETELY INVISIBLE. It goes in `children`,
+     which the shell already places after the art - verified in the browser,
+     not reasoned about.
+
+     THE 15px WRAPPER IS AN ALIGNMENT, NOT A GUESS. The node puts the bar and
+     the hero copy on one left edge (bar x=16+11=27, hero copy x=16+10=26).
+     Here the bar carries its own 8px chip padding and SystemsOverviewHero
+     pins its column at `left-[23px]`, so 15+8=23 lands the title exactly on
+     the headline's edge.
+
+     THE GROUND SEAT STILL EXISTS, AND DELETING IT WOULD BE A REGRESSION.
+     `heroCard` renders on `overview` ONLY - the owner's rule that a More pick
+     replaces the whole body. Systems and General Info have no hero to sit on,
+     and `onColor` without a hero is meaningless by AppHeaderBar's own note:
+     `mix-blend-multiply` against the plain page ground just darkens the page.
+     So those two views keep the bar they have always had, as chrome above the
+     scroller, unchanged down to the `px-0`.
+
+     ⚠ WHAT THIS DOES NOT DO: BRING THE FULL-BLEED BAND BACK. 200067:38970 is
+     positioned outside its parent on every axis, the same shape as
+     199954:96290 - the band this page DELETED on 2026-11-07 under "THIS IS
+     THE INSTRUCTION, NOT AN ACCIDENT" (the block still stands in the render
+     below). Nothing here reinstates it. The hero CARD owns artwork of its
+     own, HeroCardShell paints it, and the bar is seated on that instead. The
+     frame's band is recorded as a conflict for the owner, not acted on. */
+  const renderHeaderBar = onHero => (
+    <AppHeaderBar
+      className={onHero ? undefined : 'px-0'}
+      surface={onHero ? 'onColor' : 'ground'}
+      surfaceTint={onHero ? HERO_HEADER_TINT : undefined}
+      /* THE TITLE IS THE SCOPE — "All Accounts" on `/`, the location on
+         /location/:name.
+
+         ⚠ CASE CONFLICT, REPORTED NOT RESOLVED - and 200067:38983 is the
+         SECOND frame to spell it `All accounts`, sentence case, which is also
+         what the everyday register asks for (§3b rule 1). This app has
+         shipped `All Accounts` since before either frame and three suites
+         assert that literal. Renaming it is a copy ruling with a test diff
+         attached, not a transcription, so both frames' spelling is recorded
+         here and nothing is changed. */
+      title={scopeTitle}
+      /* THE EYEBROW NAMES THE PARENT SCOPE, and only where there is one. `/`
+         is the top level and neither 200013:93099 nor 200067:38981 draws an
+         eyebrow there; under /location/:name the parent is the all-accounts
+         roll-up, which is where `onBack` goes — one destination, named once
+         and reachable once. AppHeaderBar appends the trailing `›` itself.
+
+         NOT NEW COPY: the same 'All Accounts' literal `scopeTitle` resolves
+         to on `/`. */
+      eyebrow={locationName ? 'All Accounts' : undefined}
+      /* BACK, and only on a location — never an X. `/` is the top of this
+         page's hierarchy, so no arrow is drawn rather than one that goes
+         nowhere. Matches both frames, neither of which has a back disc on
+         the all-accounts view. */
+      onBack={locationName ? () => navigate('/') : undefined}
+      backLabel={locationName ? 'Back to all accounts' : 'Back'}
+      /* ── MORE — the tab row's replacement ────────────────────────────
+         ⚠ THIS BAR NO LONGER CARRIES `Switch location`, AND THAT IS A LATER
+         RULING THAN THE ONE THE TESTS WERE WRITTEN AGAINST.
+
+         The restructure's contract §4/§5 moved the drawer door off this bar
+         and INTO the More menu. The owner then redirected, the same day:
+         "replace the 'More' in buttom main nav bar With Search - locate right
+         to dashboard. Serach open the nav bar with the systems and
+         locations". So the FOOTER's Search tab is the drawer's door now - it
+         dispatches the cancelable window event in src/components/drawerSearch.js
+         and the WintSidebarV2 mounted at the bottom of this file answers it.
+
+         moreMenuModel.js states the consequence: this menu must NOT claim the
+         name `Switch location`, because two controls wearing one contract
+         name is how the drawer suites get handed the wrong element.
+
+         WHAT IS STILL RED BECAUSE OF IT: dashboardHeaderBar.dom.test.jsx:273
+         asserts the name is on EXACTLY ONE element on `/`. The footer's
+         Search tab is named `Search locations and systems`, so the count is
+         0. That is Agent A's file and the reconciliation is the owner's call.
+         REPORTED, NOT PATCHED - and still failing at baseline, unchanged by
+         anything here. */
+      onOpenMore={() => setMoreOpen(true)}
+      moreOpen={moreOpen}
+      moreMenuId={MORE_MENU_ID}
+      /* The BADGE's own id, travelling the other way: MoreMenu measures this
+         element to anchor its card under it, names itself by it and returns
+         focus to it on close. It is `getElementById`, not a ref, so the badge
+         answers from either seat without the menu knowing which one it is
+         in - which is what makes the two seats safe. */
+      moreBadgeId={MORE_BADGE_ID}
+      /* The catalogue entry, which is ALSO what the badge renders —
+         AppHeaderBar resolves the visible word from the same key, so WCAG
+         2.5.3 Label in Name holds in every locale. Passing an English literal
+         here is the one way left to break that match. */
+      moreLabel={t('tabs.more')}
+    />
+  )
+
+  /* ── SYSTEM HEALTH IS ITS OWN CARD AGAIN — 200067:41981, 2026-11-09 ──
+     IT LEFT THE HERO. 200013:93101 welded it on as the hero's white body on
+     2026-11-07; 200067:38985 draws it as a STANDALONE card, 370x118, sitting
+     16px below the hero copy with its own `rounded-[22px]` edge and its own
+     `bg-[#fafbfc]` ground. The owner looked at the welded version running and
+     said the upper screen "is not even similar" to the frame, so the frame
+     wins and the weld is undone.
+
+     THE `rounded-none border-0` OVERRIDE WENT WITH IT. That pair existed only
+     to strip the card's own chrome where it met the hero's coloured top. As a
+     sibling it wants SystemHealthCard's own CARD shell back, which is already
+     `bg-surface-card border border-solid border-card rounded-[22px] w-full` -
+     the same 22px radius 200067:41981 draws. Nothing is passed instead.
+
+     ⚠ ONLY THE SEAT MOVED. The CONTENTS are untouched: same props, same
+     handlers, same data, and the fault tiles stay box-free exactly as the
+     owner instructed ("drop the chrome, keep the data"). 200067:41981 draws
+     only the progress bar and "3 / 48 need attention" with NO icon/count/label
+     trio at all - that is the open question awaiting his ruling and it is
+     REPORTED, not acted on. Moving a card is layout; emptying it is not. */
+  const healthCard = (
+    <SystemHealthCard
+      total={live?.stats?.total ?? 0}
+      /* The error-free count, NOT total minus leaks — see the note on
+         `stats` above. A system with an active water event and no fault is
+         healthy, and this card is the one that says so. */
+      healthy={live?.stats?.healthy ?? 0}
+      valveErrors={live?.issues?.valve ?? 0}
+      offline={live?.issues?.offline ?? 0}
+      noPower={live?.issues?.power ?? 0}
+      /* `noRecipients` STOOD HERE and went with the breakdown on
+         2026-11-09 - owner: "remoive the error type from here / keep onlt
+         the x out of y as in figma". It fed the other-issues row
+         (199338:52997, "N other issues - N no recipients"), which
+         200067:41981 does not draw. The count is NOT lost from the screen:
+         it is already inside `healthy` and therefore inside the card's
+         `attention`, so it is still counted in "x / y need attention" - it
+         is only no longer itemised. The card no longer accepts the prop. */
+      /* Owner, 2026-10-22: "view all opens the wrong area / currently
+         systems tab / and it shall be open Active alerts overlay with all
+         filter". openOverlay's defaults (filter 'all', tab 'active') are
+         exactly what was asked for, so it takes no arguments. */
+      onShowAll={() => openOverlay('alerts')}
+      /* 200013:93101 draws this one as `Show past alerts ->`, which is the
+         string the card already relabels itself to in the all-clear state
+         (199417:131563). Transcription, not new copy. */
+      onShowPast={() => openOverlay('alerts', { tab: 'history' })}
+      /* ⚠ `onSelectIssue` STOOD HERE, and its removal is the one real cost
+         of the 2026-11-09 ruling. It was every fault tile's onClick and it
+         opened the alerts overlay PRE-FILTERED to that kind:
+             openOverlay('alerts', { filter: ISSUE_FILTER[...] })
+         With the tiles gone there is no caller. The filtered views are
+         still REACHABLE - `onShowAll` below and the red bar segment both
+         open the same overlay, and its own funnel menu offers AC Unplugged
+         / Valve error / Offline / No recipients - so the journey is two
+         taps instead of one rather than a dead end. Verified in the
+         browser. ISSUE_FILTER is kept: it is the map those filter keys come
+         from and the tiles may well come back. */
+      /* ── THE TWO SEGMENTS GO TO TWO DIFFERENT PLACES — 2026-11-08 ────
+         Owner, on the red half: "When user clicks on X out of Y needs
+         attention, it doesn't need to redirect him to the system table.
+         It needs to redirect him to the health overlay, like the error
+         overlay, which shows all the errors row by row." That OVERRIDES
+         the 2026-10-22 ruling on this same prop ("make these bars
+         clcikable to systems table filtered") FOR THE ATTENTION HALF
+         ONLY. Nothing is deleted: the segment is still a control, it
+         still fires, it lands somewhere else.
+
+         'attention' -> openOverlay('alerts') with NO arguments, which is
+         character for character what `onShowAll` above does. Two controls
+         on one card that both mean "show me what is wrong" must land in
+         the same place, and the owner pinned that place for `onShowAll`
+         on 2026-10-22: "it shall be open Active alerts overlay with all
+         filter".
+
+         NO NARROWER FILTER EXISTS, AND NONE IS WANTED. The `alerts`
+         dataset is ALREADY health-only — EventOverlayV2's alert family is
+         exactly ['power-lost','valve-error','offline','recipients'] and
+         water events travel in the other family — and `overlayEvents`
+         above emits ONE ROW PER ISSUE (`<id>:power`, `:valve`,
+         `:offline`, `:recipients`). Filter 'all' over that family IS the
+         owner's "all the errors row by row"; each of the four chips would
+         hide three quarters of them. This is why no new overlay was
+         built: the one that answers this already exists.
+
+         'ok' STAYS ON THE SYSTEMS TABLE, deliberately. The owner's
+         instruction names the needs-attention half only, and an error
+         overlay opened from "All systems good" would open EMPTY by
+         construction — those systems emit no rows. So the green segment
+         keeps the 2026-10-22 behaviour, with no new predicate: the card
+         hands back 'ok', the value src/data/systemFilters.js's
+         `attention` category already produces over the same
+         `scopedSystems` the table reads.
+
+         THE NAMES MATCH THE DESTINATIONS, and they are asymmetric on
+         purpose. 6305b77 ended the red segment's accessible name with
+         "Show all alerts." — reusing, character for character, the
+         aria-label of this card's own header button, the other control
+         onto this same overlay. The green segment still opens the
+         filtered systems table and still ends "Show these systems."
+         Do not "fix" the pair back to symmetry: two destinations, two
+         names. Both halves carry the matching note in
+         SystemHealthCard.jsx. */
+      onSelectHealth={value => {
+        if (value === 'attention') {
+          openOverlay('alerts')
+          return
+        }
+        setSystemFilters({ attention: [value] })
+        setTab('systems')
+      }}
+    />
+  )
+
   const heroCard = (
     <HeroCardShell
       tone="brand"
-      body={
-        <SystemHealthCard
-          className="rounded-none border-0"
-          total={live?.stats?.total ?? 0}
-          /* The error-free count, NOT total minus leaks — see the note on
-             `stats` above. A system with an active water event and no fault is
-             healthy, and this card is the one that says so. */
-          healthy={live?.stats?.healthy ?? 0}
-          valveErrors={live?.issues?.valve ?? 0}
-          offline={live?.issues?.offline ?? 0}
-          noPower={live?.issues?.power ?? 0}
-          /* PRD 09's FOURTH protection check, and the one with no tile. It is
-             already inside `healthy` above — and therefore inside the card's
-             `attention` — so for a long time this screen could show three
-             empty tiles and the all-clear line above "1 / 10 need attention",
-             which is what /location/Building B does. The card draws Figma's
-             own answer to that now (199338:52997, "N other issues · N no
-             recipients"), and this is the number it draws. */
-          noRecipients={live?.issues?.recipients ?? 0}
-          /* Owner, 2026-10-22: "view all opens the wrong area / currently
-             systems tab / and it shall be open Active alerts overlay with all
-             filter". openOverlay's defaults (filter 'all', tab 'active') are
-             exactly what was asked for, so it takes no arguments. */
-          onShowAll={() => openOverlay('alerts')}
-          /* 200013:93101 draws this one as `Show past alerts ->`, which is the
-             string the card already relabels itself to in the all-clear state
-             (199417:131563). Transcription, not new copy. */
-          onShowPast={() => openOverlay('alerts', { tab: 'history' })}
-          onSelectIssue={kind => openOverlay('alerts', {
-            filter: ISSUE_FILTER[kind === 'valveErrors' ? 'valve' : kind === 'noPower' ? 'power' : kind] ?? 'all',
-          })}
-          /* ── THE TWO SEGMENTS GO TO TWO DIFFERENT PLACES — 2026-11-08 ────
-             Owner, on the red half: "When user clicks on X out of Y needs
-             attention, it doesn't need to redirect him to the system table.
-             It needs to redirect him to the health overlay, like the error
-             overlay, which shows all the errors row by row." That OVERRIDES
-             the 2026-10-22 ruling on this same prop ("make these bars
-             clcikable to systems table filtered") FOR THE ATTENTION HALF
-             ONLY. Nothing is deleted: the segment is still a control, it
-             still fires, it lands somewhere else.
+      /* ── THE HERO IS FULL-BLEED — 200067:38969, 2026-11-09 ──────────────
+         THE BLUE RUNS EDGE TO EDGE AND UP TO THE TOP OF THE PAGE. The frame
+         has no page-ground gutter above or beside the hero, no rounded card
+         edge and no side margin: 200067:38970, the 870x475 raster, is placed
+         at x=-240 y=-170 and spans y=-170..305 across the whole 402 width.
 
-             'attention' -> openOverlay('alerts') with NO arguments, which is
-             character for character what `onShowAll` above does. Two controls
-             on one card that both mean "show me what is wrong" must land in
-             the same place, and the owner pinned that place for `onShowAll`
-             on 2026-10-22: "it shall be open Active alerts overlay with all
-             filter".
+         THIS REVERSES THE 2026-11-07 DELETION, and the reversal is the
+         owner's. That block ("THIS IS THE INSTRUCTION, NOT AN ACCIDENT")
+         still stands below as the record of why the band went; it is no
+         longer the current ruling. The owner looked at the inset-card version
+         running and said the upper screen "is not even similar" to the frame.
+         These frames are newer, so the frame wins.
 
-             NO NARROWER FILTER EXISTS, AND NONE IS WANTED. The `alerts`
-             dataset is ALREADY health-only — EventOverlayV2's alert family is
-             exactly ['power-lost','valve-error','offline','recipients'] and
-             water events travel in the other family — and `overlayEvents`
-             above emits ONE ROW PER ISSUE (`<id>:power`, `:valve`,
-             `:offline`, `:recipients`). Filter 'all' over that family IS the
-             owner's "all the errors row by row"; each of the four chips would
-             hide three quarters of them. This is why no new overlay was
-             built: the one that answers this already exists.
+         HOW IT BLEEDS, AND WHY NO WIDTH IS SPELLED. The page root carries
+         `px-4 py-2`, so this card sits 16px in from each screen edge and 8px
+         down. `-mx-4 -mt-2` cancels exactly that padding - the page's own
+         gutter, not a guess about the viewport - and `self-stretch w-auto`
+         lets the flex container compute the width:
+           width = contentWidth - marginLeft - marginRight
+         which is 361-(-16)-(-16) = 393 at this shell and 370+32 = 402 at the
+         frame's. NO 393 AND NO 402 IS WRITTEN ANYWHERE. `w-auto` is required
+         because HeroCardShell's root declares `w-full`, and an explicit
+         width:100% would beat the stretch and leave a 16px strip of page
+         ground down the right-hand side.
 
-             'ok' STAYS ON THE SYSTEMS TABLE, deliberately. The owner's
-             instruction names the needs-attention half only, and an error
-             overlay opened from "All systems good" would open EMPTY by
-             construction — those systems emit no rows. So the green segment
-             keeps the 2026-10-22 behaviour, with no new predicate: the card
-             hands back 'ok', the value src/data/systemFilters.js's
-             `attention` category already produces over the same
-             `scopedSystems` the table reads.
+         ⚠ THE GUTTER HAD TO MOVE FOR THIS, AND THAT IS THE WHOLE TRICK.
+         The 16px gutter used to live on the page ROOT. A bleeding child then
+         overhung the SCROLLER's content edge, and a negative right margin
+         does NOT give that overhang back: measured in Chromium at the frame's
+         402, `scrollWidth` was 386 against a `clientWidth` of 370, i.e. a
+         16px horizontal scroll inside the body - invisible, because this
+         scroller hides its scrollbars, and draggable. Chrome computes
+         scrollable overflow from a child's BORDER box and ignores the
+         negative margin.
 
-             THE NAMES MATCH THE DESTINATIONS, and they are asymmetric on
-             purpose. 6305b77 ended the red segment's accessible name with
-             "Show all alerts." — reusing, character for character, the
-             aria-label of this card's own header button, the other control
-             onto this same overlay. The green segment still opens the
-             filtered systems table and still ends "Show these systems."
-             Do not "fix" the pair back to symmetry: two destinations, two
-             names. Both halves carry the matching note in
-             SystemHealthCard.jsx. */
-          onSelectHealth={value => {
-            if (value === 'attention') {
-              openOverlay('alerts')
-              return
-            }
-            setSystemFilters({ attention: [value] })
-            setTab('systems')
-          }}
-        />
-      }
+         So `px-4` moved from the root onto this scroller. A child that
+         reaches into its scroll container's PADDING box creates no scrollable
+         overflow, because `clientWidth` already includes that padding - so
+         the same -mx-4 now lands the hero exactly on the padding edge and
+         `scrollWidth === clientWidth`. The other cards are unaffected: they
+         are `w-full` of the content box, which is the same 361 it always was.
+         The root kept `pb-2`; its `pt-2` went to the chrome seat, which is
+         the only child that still wants it, and losing it is what lets this
+         hero start at y=0 with no negative top margin to be clipped by
+         `overflow-y: auto`.
+
+         A bleeding child is precisely the shape that clipped this screen
+         yesterday, so it is asserted in the browser, not reasoned about.
+
+         `rounded-none` beats HeroCardShell's own `rounded-[22px]`: the shell
+         merges `className` last, so tailwind-merge drops the 22. The frame
+         draws no radius on this hero at all - not at the top, where it meets
+         the status bar, and not at the bottom, where System health sits.
+
+         ⚠ WHAT THIS CANNOT REACH: THE STATUS BAR. The frame runs the blue
+         BEHIND the clock and battery - in 200067:38969 the status bar sits on
+         the raster. It cannot be done from inside this page: Phone.jsx
+         renders a 44px status strip as a `flexShrink: 0` flex SIBLING above
+         the route, with its own `theme.statusBarBg`, and the phone frame is
+         `overflow: hidden`, so nothing in here can paint over or under it. A
+         negative margin on this page's root would pull the page up and paint
+         OVER the clock instead of behind it, which is worse. The hero
+         therefore bleeds to the top of the PAGE and the strip above it stays
+         the status bar's own colour. REPORTED - it needs Phone.jsx. */
+      /* ⚠ THE CARD MUST NOT CLIP, ONLY ITS ARTWORK — and this is a bug fix,
+         found by measurement after System health left the hero.
+
+         SystemsOverviewHero's zero-count chip drops a 114px upsell panel out
+         of the hero box (`absolute top-[111px] z-[2]`). While the white body
+         was welded underneath, the card was tall enough that the root's
+         `overflow-hidden` never reached it - the note that stood at
+         `heroCard` said exactly that. With the body gone the hero is 210px
+         and the panel spans 191..305, so the card cut 95 of its 114px off:
+         measured in Chromium at 393x852, only a 19px sliver survived and the
+         wint.ai CTA was gone entirely. A zero chip is a SALES SURFACE, never
+         an empty state, so that is a real loss.
+
+         `clip="art"` moves the clip onto a box around the raster instead. The
+         raster still needs clipping - `brand` crops it to
+         `top-[-102.1%] bottom-[-76.8%]` and would otherwise paint over the
+         cards below - but the CARD had no reason to clip once its radius went
+         to `rounded-none`. The prop is additive and defaults to `'card'`, so
+         SystemHeroCard and the System page render byte-identically. */
+      clip="art"
+      className="-mx-4 w-auto self-stretch rounded-none"
     >
-      {/* The node's 17px above the eyebrow, and nothing else: every other
+      {/* ── THE HEADER, SEATED ON THE HERO — 200067:38981 ─────────────────
+          FIRST IN `children`, WHICH IS AFTER THE ARTWORK. HeroCardShell
+          renders HeroWaveArt (`absolute`) and then a `relative` children
+          wrapper, so everything here paints over the raster. First child of
+          the SHELL would have been invisible; first child of `children` is
+          the top of the coloured region, which is where the node puts it.
+
+          `pt-[4px]` + the bar's own `py-[8px]` puts the title 12px below the
+          card's top edge; the node has it at 11 (content starts at y=59, the
+          title at y=70). The 15px inset is the alignment explained at
+          `renderHeaderBar`. */}
+      {/* 16px FROM THE SCREEN EDGE NOW, not from a card that was itself inset.
+          The frame insets the bar 16 from its own 402 edge (200067:38981 is at
+          x=16, 370 wide); with the hero bleeding, this card's edge IS the
+          screen edge, so the 16 is stated once, here. It lands the chip at
+          x=16 w=361 at this shell and x=16 w=370 at the frame's.
+
+          The TITLE then sits at 16+8=24, the bar's own chip padding included,
+          against SystemsOverviewHero's headline at `left-[23px]`. That 1px is
+          the frame's own relationship, not drift: it puts the title at 27 and
+          the hero copy at 26.
+
+          ── THE TOP INSET PAYS THE STATUS BAND BACK — 2026-11-09 ───────────
+          `statusBandInset + 11`, and ONLY the 11 is this page's.
+
+          THE 11 IS THE NODE'S OWN band-to-chip gap: 200067:38971 is the
+          StatusBar frame at y=0 and it is 48 tall, and the content frame
+          200067:38980 starts at y=59, so 59 - 48 = 11. That is a fact about
+          the design and it belongs here.
+
+          THE 44 IS THE SHELL'S AND IS NO LONGER SPELLED. `inset` is 44 where
+          a band is drawn and this screen asked to bleed, and 0 otherwise -
+          both on MobileLayout, which draws no band at all, and on the views
+          that keep their seat. So one expression is right on every width and
+          both shell paths:
+
+            desktop + overview   44 + 11 = 55
+            mobile  + overview    0 + 11 = 11   (nothing overlays the top)
+
+          WHAT THIS REPLACED, and why it is better than a tidy-up: a ternary
+          over `pt-[55px]` / `pt-[11px]` driven by this page's own copy of
+          Phone's `innerWidth <= 500 || mobile UA` predicate. Both the magic
+          55 and the duplicated breakpoint are gone with it.
+
+          AN INLINE STYLE, NOT A UTILITY, because the value is computed. A
+          `pt-[${n}px]` template would emit no CSS at all - Tailwind scans
+          source text and cannot see a runtime number, which is the same
+          silent-failure class as an unregistered colour utility. The
+          horizontal 16 stays a class because it is a constant. */}
+      <div
+        className="px-[16px]"
+        style={{ paddingTop: statusBandInset + 11 }}
+        data-name="home-hero-header"
+      >
+        {renderHeaderBar(true)}
+      </div>
+
+      {/* 200067:38981 ends at y=47 and the hero copy 200067:38986 starts at
+          y=75, so the node's gap here is 28, not the 17 this carried when the
+          bar was chrome on the page ground above the card. Every other
           measurement in this section belongs to the hero component, which
           holds its own node ids for them. */}
-      <div className="pt-[17px]" data-name="home-hero-copy">
+      <div className="pt-[28px]" data-name="home-hero-copy">
         <SystemsOverviewHero
           /* HeroCardShell is already painting this exact raster behind this
              exact box. Two copies would double the #a0ccff multiply and draw
@@ -1693,8 +2036,98 @@ export default function HomeAllAccounts({ expanded = false }) {
      NOTHING WAS DELETED. The card is mounted with the same props, the same
      handlers and the same data; only its seat moved, and it moved to a seat
      the owner's own node draws. Every other card below is untouched. */
+  /* ── THE EVENTS TIMELINE'S ROWS — for 200067:39018 ───────────────────────
+     REAL RECORDS, NOT THE NODE'S SAMPLE ROWS. The node draws six mock rows
+     ("High Flow Anomaly", "Apr 02, 2026 08:13:15", "Flow 1180"). Those are
+     sample DATA, not copy, so they are not transcribed: the card is fed the
+     same CURRENT_EVENTS / HISTORY_EVENTS records every other surface on this
+     page reads, scoped to `scopedSystems` exactly as the health card and the
+     Systems tab are. A timeline that agreed with the frame and disagreed
+     with the Alerts list would be the worse outcome.
+
+     ONE RECORD, NOT A RE-ROLL — the same rule generateEvents.js states about
+     `sys.event`: these are the records themselves, so this card cannot
+     disagree with the event overlay about an instant or a duration.
+
+     NEWEST FIRST, then capped. `timestamp` is a full ISO instant
+     (`detectedAtIso`), so the sort is on real time rather than on the
+     "2h ago" string the record also carries - which
+     docs/wint-format-standards.md bans from the screen anyway, and which is
+     why `at` below is formatted from the instant instead. */
+  const TIMELINE_ROW_CAP = 6
+  const timelineEvents = useMemo(() => {
+    const ids = new Set(scopedSystems.map(s => s.id))
+    return [...CURRENT_EVENTS, ...HISTORY_EVENTS]
+      .filter(ev => ids.has(ev.system))
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+  }, [scopedSystems])
+
+  const timelineRows = useMemo(
+    () =>
+      timelineEvents.slice(0, TIMELINE_ROW_CAP).map(ev => {
+        const meta = ev.metadata ?? {}
+        /* `water` vs `network` IS THE CARD'S OWN VOCABULARY (KIND_TONE), and
+           it is what colours the avatar chip red-100 or slate-100 - the same
+           two chips 200067:39018 draws. The leak types are the water ones;
+           everything else (offline, power, valve, battery) takes the neutral
+           chip rather than being guessed into one. */
+        const water = ev.type === 'leak-high' || ev.type === 'leak-low'
+        return {
+          id: ev.id,
+          kind: water ? 'water' : 'network',
+          title: ev.title,
+          /* `Ended` is drawn only where it is TRUE. Every row in 200067:39018
+             carries it because the node's sample list is all history; a live
+             event has not ended, and labelling it so would be the invented
+             state label wint-ui-copy Rule 0 forbids. CURRENT_EVENTS are
+             always `resolved: false`, so they take no chip - which is also
+             what gives the card's own "All" filter two real options to offer
+             instead of one. */
+          ...(ev.resolved ? { badge: { label: 'Ended', tone: 'ended' } } : null),
+          /* THE CARD'S THREE METRIC LABELS, which are already 200067:39018's
+             own - EventsTimelineCard was built from the System page's
+             instance of this same component and spells them identically.
+             Pairs with no value drop out: a non-leak record carries only
+             Duration and Detection, and an empty metric is noise. */
+          metrics: [
+            { label: 'Flow', value: meta['Flow Rate'] },
+            { label: 'L/h·Volume', value: meta['Volume Lost'] },
+            { label: 'Duration', value: meta.Duration },
+          ].filter(m => m.value),
+          description: ev.detail,
+          /* FORMAT SUBSTITUTION - the node prints "Apr 02, 2026 08:13:15",
+             zero-padding the day, and the card's own MOCK_EVENTS copy that
+             string. wint-format-standards.md's full-precision form is
+             "Mar 4, 2026 14:35:07", which is exactly what
+             formatDate(.., 'tooltip') emits - 24-hour, unpadded. The
+             standard wins on format, so the record's real instant goes
+             through the repo's own formatter rather than the node's literal.
+             It also keeps relative time off the screen: the record carries a
+             "2h ago" string too, which the standard bans past one minute. */
+          timestamp: formatDate(ev.timestamp, 'tooltip'),
+          notifications: ev.notifications,
+          /* ── THE DRILL-DOWN — the owner's 2026-11-02 ruling, same predicate
+             the System page uses: WATER ROWS ONLY. Not for the chip's reason
+             but for the destination's - EventFocusOverlay resolves a live
+             event from `sys.alert` and a concluded one from
+             `concludedEventFor`, and both only ever return a leak. A
+             connectivity row would open an overlay about something else.
+             `systemId` rides along because the card hands the ROW back to
+             onOpenEvent and the overlay is keyed by system. */
+          ...(water ? { drillable: true, systemId: ev.system } : null),
+        }
+      }),
+    [timelineEvents],
+  )
+
   const cards = (
     <>
+      {/* FIRST IN THE STACK, which is where 200067:38985 puts it: hero copy,
+          then System health 16px below it, then Water events. It is a sibling
+          of the triage band now rather than the hero's body - see the ruling
+          at `healthCard`. */}
+      {healthCard}
+
       {/* The triage band. Answers "is anything wrong, where, how urgent" before
           anything else on the screen, because that is the only question a user
           arriving in a hurry has. See TriageBand.jsx for the research this is
@@ -1762,7 +2195,7 @@ export default function HomeAllAccounts({ expanded = false }) {
 
           It takes the SAME `scopedSystems` every other card here reads, so it
           cannot report on a different set than the health card above it, and
-          it inherits the stack's gap-[20px] and full width from the scroller;
+          it inherits the stack's gap-[16px] and full width from the scroller;
           no className is passed, because a `w-[...]` on this root would beat
           its own `w-full` and reintroduce the resizing-widget bug
           (homeWidgetWidth.dom.test.jsx:80-82).
@@ -1866,6 +2299,55 @@ export default function HomeAllAccounts({ expanded = false }) {
         onSelect={id => navigate(`/system/${id}`)}
         onPeriodChange={p => setTopUsageDays(p.days)}
       />
+
+      {/* ── THE EVENTS TIMELINE — 200067:39018, NEW on 2026-11-09 ───────────
+          LAST IN THE STACK, which is where the frame puts it: 200067:38985
+          orders its children hero, System health, Water events, Water
+          consumption, Insights, Events Timeline, and this is the sixth.
+
+          It sits after TopUsageCard rather than after Insights because
+          TopUsage is one of the two cards the frame does not draw at all (the
+          valve widget is the other) and both are kept under Rule 0. Dropping
+          this card in at the frame's INDEX would have pushed a card the owner
+          asked to keep below a card he has not reviewed yet; appending it
+          keeps the frame's "timeline is last" intent and leaves the two
+          kept-but-undrawn cards exactly where they were.
+
+          ⚠ THIS IS THE EXISTING COMPONENT, NOT A NEW ONE, and that is the
+          whole point. EventsTimelineCard already implements this node: it
+          was built from the System page's instance of the same component
+          (198379:80615 / 199532:*) and spells 200067:39018's anatomy
+          already - the red-100 / slate-100 avatar chips, the `Ended` badge,
+          the `Flow` / `L/h·Volume` / `Duration` metric labels, the step
+          list, the Tag chip and the drill-down chevron. It is mounted here
+          with Home-scoped rows rather than reimplemented; a second card
+          would have been two things to keep in step and would have
+          disagreed with the System page's timeline the first time either
+          moved.
+
+          NO `onTagEvent`, SO NO TAG CHIP. The card gates that chip on the
+          handler, so nothing renders dead. The System page's tag flow ends
+          in WaterEventFeedbackSheet with a verdict about a water event;
+          Home has no such flow for a history row and inventing one is not
+          this task. REPORTED.
+
+          THE FILTER IS THE CARD'S OWN. It builds its options from the badge
+          labels the rows actually carry, so with a mix of live and ended
+          events it offers All / Ended and with one kind it renders inert -
+          which is why no filter props are passed from here.
+
+          THE CAP IS 6, the node's own row count. ⚠ The card has no slot for
+          a truncation line and is not mine to extend, so on a fleet with
+          more than six events this list is a SILENT cut, which
+          wint-ui-copy §4 forbids. REPORTED, not patched. */}
+      <EventsTimelineCard
+        events={timelineRows}
+        /* The same destination the water-event rows above already open, so a
+           timeline row and a triage row lead to one place. */
+        onOpenEvent={(id, ev) => {
+          if (ev?.systemId) setFocusedEventSystemId(ev.systemId)
+        }}
+      />
     </>
   )
 
@@ -1887,7 +2369,7 @@ export default function HomeAllAccounts({ expanded = false }) {
           once at px-16 / py-8 with a gap of 18 between the chrome and the
           cards. */}
       <div
-        className="content-stretch flex flex-col items-start px-4 py-2 relative w-full"
+        className="content-stretch flex flex-col items-start pb-2 relative w-full"
         /* 10, from 200013:93089's own arithmetic: the root pads 8 (py-2), the
            header instance 200013:93099 is 41 tall and therefore ends at 49,
            and the content frame 200013:93100 starts at 59.
@@ -1948,84 +2430,63 @@ export default function HomeAllAccounts({ expanded = false }) {
             and the panel now sits inside the hero card, over the card's own
             white body. The padding was `TABS_TO_FLOOR`, the air under the tab
             row. Neither has anything left to do. */}
-        <div className="relative w-full shrink-0" data-name="home-header">
-          <AppHeaderBar
-            className="px-0"
-            /* THE TITLE IS THE SCOPE — "All Accounts" on `/`, the location on
-               /location/:name.
+        {/* ── THE GROUND SEAT, FOR THE VIEWS WITH NO HERO ──────────────────
+            2026-11-09: on `overview` this bar is INSIDE the hero card now,
+            seated on its artwork under a #9dbbd9 multiply veil, because that
+            is where 200067:38969 paints it. See `renderHeaderBar` for the
+            whole ruling, including why `px-0` is dropped on that seat and why
+            it must come after the artwork in DOM order.
 
-               ⚠ CASE CONFLICT, REPORTED NOT RESOLVED. 200013:93099 spells it
-               `All accounts`, sentence case, which is also what the everyday
-               register asks for (§3b rule 1). This app has shipped
-               `All Accounts` since before this frame and three suites assert
-               that literal. Renaming it is a copy ruling with a test diff
-               attached, not a transcription, so the frame's spelling is
-               recorded here and nothing is changed. */
-            title={scopeTitle}
-            /* THE EYEBROW NAMES THE PARENT SCOPE, and only where there is one.
-               `/` is the top level and 200013:93099 draws no eyebrow there;
-               under /location/:name the parent is the all-accounts roll-up,
-               which is where `onBack` goes — one destination, named once and
-               reachable once. AppHeaderBar appends the node's trailing `›`
-               itself, so the glyph is not spelled here.
+            IT IS STILL CHROME HERE, AND THAT IS NOT A LEFTOVER. Systems and
+            General Info render no hero - the owner's rule is that a More pick
+            replaces the entire body - so there is no artwork for `onColor` to
+            tint, and AppHeaderBar's own note is explicit that the variant is
+            meaningless without one: `mix-blend-multiply` against the plain
+            page ground just darkens the page. Dropping this seat would leave
+            those two views with no title, no Back and no More at all, which
+            is the silent-removal this page's Rule 0 exists to forbid.
 
-               NOT NEW COPY: it is the same 'All Accounts' literal `scopeTitle`
-               resolves to on `/`, two lines above. */
-            eyebrow={locationName ? 'All Accounts' : undefined}
-            /* BACK, and only on a location: `/` is the top of this page's
-               hierarchy, so no arrow is drawn rather than one that goes
-               nowhere. Matches 200013:93099, which has no back disc. */
-            onBack={locationName ? () => navigate('/') : undefined}
-            backLabel={locationName ? 'Back to all accounts' : 'Back'}
-            /* ── MORE — the tab row's replacement ────────────────────────
-               ⚠ THIS BAR NO LONGER CARRIES `Switch location`, AND THAT IS A
-               LATER RULING THAN THE ONE THE TESTS WERE WRITTEN AGAINST.
+            `shrink-0` is the one thing the wrapper still earns: this is
+            chrome and the scroller below is `flex: 1`, so without it a tall
+            body would squeeze the bar.
 
-               The restructure's contract §4/§5 moved the drawer door off this
-               bar and INTO the More menu. The owner then redirected, the same
-               day: "replace the 'More' in buttom main nav bar With Search -
-               locate right to dashboard. Serach open the nav bar with the
-               systems and locations". So the FOOTER's Search tab is the
-               drawer's door now — it dispatches the cancelable window event in
-               src/components/drawerSearch.js and the WintSidebarV2 mounted at
-               the bottom of this file answers it and opens ITSELF.
-
-               moreMenuModel.js states the consequence in as many words: this
-               menu must NOT claim the name `Switch location`, because two
-               controls wearing one contract name is how the drawer suites get
-               handed the wrong element. Nothing here claims it, and the
-               drawer is still reachable from this route — verified in the
-               browser: Search tab -> drawer open, with the field focused.
-
-               WHAT IS STILL RED BECAUSE OF IT:
-               dashboardHeaderBar.dom.test.jsx:273 asserts the name is on
-               EXACTLY ONE element on `/`. It was written against the §5 plan
-               and the footer's Search tab is named `Search locations and
-               systems`, not `Switch location`, so the count is 0. That test is
-               Agent A's file and the reconciliation is the owner's call —
-               either the Search tab takes the contract name or the suites
-               navigate by the new one. REPORTED, NOT PATCHED. */
-            onOpenMore={() => setMoreOpen(true)}
-            moreOpen={moreOpen}
-            moreMenuId={MORE_MENU_ID}
-            /* The BADGE's own id, travelling the other way: MoreMenu measures
-               this element to anchor its card under it, names itself by it and
-               returns focus to it on close. */
-            moreBadgeId={MORE_BADGE_ID}
-            /* The catalogue entry, which is ALSO what the badge renders —
-               AppHeaderBar resolves the visible word from the same key, so
-               WCAG 2.5.3 Label in Name holds in every locale. Passing an
-               English literal here is the one way left to break that match. */
-            moreLabel={t('tabs.more')}
-          />
+            ⚠ CONSEQUENCE OF THE MOVE, REPORTED NOT RESOLVED: on `overview`
+            the bar now scrolls with the hero, so the More badge and the scope
+            title leave the viewport once the user scrolls. 200067:38984 is
+            exported with `sticky top-0`, i.e. the designer marked the badge
+            "fix position when scrolling" in Figma, so the frame itself wants
+            that control pinned. Pinning it is a behavioural ruling with a
+            visual cost (a multiply veil floating over white cards), so it is
+            flagged for the owner rather than invented here. */}
+        {tab === 'overview' ? null : (
+        <div className="relative w-full shrink-0 px-4 pt-2" data-name="home-header">
+          {renderHeaderBar(false)}
         </div>
+        )}
 
-        {/* 199360:129787 / 199371:137036 — the cards, 20px apart. shrink-0 in
-            Figma only because a Figma frame has no scroll model; here it is the
-            screen's ONE scroller.
-            The 20px gap is both states' — the 14px/10px split this page used to
-            branch on belonged to the superseded 198314:73492 / 198328:89082
-            Body wrappers, and the current node draws one gap for both.
+        {/* 200067:38985 — the cards, 16px apart. shrink-0 in Figma only
+            because a Figma frame has no scroll model; here it is the screen's
+            ONE scroller.
+
+            ── 20px → 16px, 2026-11-09 ───────────────────────────────────
+            MEASURED OFF THE NODE, not nudged. 200067:38985 stacks its six
+            children at a uniform 16: hero copy ends 107.85 and System health
+            starts 123.85; health ends 375.85 and Water events starts 391.85;
+            and the same 16 falls between every pair after that, to the
+            Events Timeline. The old 20 came from the superseded
+            199360:129787 / 199371:137036 pair, which this frame replaces.
+
+            ONE GAP FOR EVERY CARD, STILL. The 14px/10px split this page used
+            to branch on belonged to the even older 198314:73492 /
+            198328:89082 Body wrappers; neither this node nor its predecessor
+            draws two.
+
+            valveWidgetMount.dom.test.jsx:237 reads this literal, because the
+            valve card's whole width/spacing contract is that it is a DIRECT
+            CHILD of this stack and inherits whatever gap the stack declares.
+            It was updated with this change; the direct-child assertion it
+            actually guards is untouched.
+
             pb-16 is the only value here the node cannot state: a frame has no
             scroll padding, and without it the last card sits flush against the
             TabBar. */}
@@ -2090,7 +2551,7 @@ export default function HomeAllAccounts({ expanded = false }) {
         >
         <div
           ref={homeScrollRef}
-          className="content-stretch relative flex flex-col gap-[20px] items-start w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="content-stretch relative flex flex-col gap-[16px] items-start w-full px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           /* NO paddingBottom — REMOVED 2026-11-08, and the removal is the
              bug fix rather than a tidy-up.
 
@@ -2147,7 +2608,7 @@ export default function HomeAllAccounts({ expanded = false }) {
 
               NOTHING ELSE MOVED. A fragment is not a DOM node, so the
               scroller's direct children on Overview are the same elements in
-              the same order they were, and its gap-[20px] still falls between
+              the same order they were, and its gap-[16px] still falls between
               the hero card and `Water events`. */}
           {tab === 'overview' ? (
             <>

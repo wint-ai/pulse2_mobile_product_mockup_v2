@@ -14,9 +14,26 @@
  * and picking `General Info` must swap the body to the same view the tab
  * swapped to.
  *
- * No Figma frame in this set draws the menu open, so its CONTENTS are derived
- * rather than transcribed — and every label in it is still a string the tab
- * row already ships. Nothing here was authored. See moreMenuModel.js.
+ * ── THE FRAME ARRIVED, 2026-11-08 ────────────────────────────────────────
+ * This used to say "No Figma frame in this set draws the menu open, so its
+ * CONTENTS are derived rather than transcribed." That is no longer true.
+ * `200047:135363` — the `SelectContent` instance, 204x165, right-aligned under
+ * the More badge — draws it. `get_design_context` on that node is in the shared
+ * cache, so re-deriving any of this costs no Figma call.
+ *
+ * WHAT THE FRAME CHANGED HERE: a heading row (`Select preview`), a LEADING
+ * 16px icon on every row where the gutter used to be the checkmark's, the tick
+ * moved to the TRAILING edge, a count badge in place of a bare number, and the
+ * chassis (204 wide, 18px radius, slate-100 + `--primary` on the row in
+ * effect). Points 6 and 8 below were written when no frame existed and are
+ * marked where the frame has since overruled them.
+ *
+ * WHAT IT DID NOT CHANGE: the three row labels. The frame says `Locations`
+ * where this ships `Systems`, and `General info` where this ships
+ * `General Info`; both renames are pinned by suites this change does not own
+ * and the `Locations` one would misdescribe what the row opens. moreMenuModel.js
+ * carries the evidence. The labels are still strings the tab row already ships
+ * — nothing in this menu except the heading was authored for it.
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * THE iOS PATTERN — WHAT WAS TAKEN, AND WHAT WAS REJECTED
@@ -64,12 +81,16 @@
  *     groups at all; the prop stays because the orphaned `/more` destinations
  *     may arrive as a second one.
  *
- *  6. A CHECKMARK ON THE ITEM IN EFFECT, ON THE LEADING EDGE. HIG, Menus,
- *     Toggled items: "Consider using a checkmark to show that an attribute is
- *     currently in effect", illustrated as "a checkmark icon on the leading
- *     edge of the second item". That is `UIMenuElement.State.on`. The gutter
- *     is reserved on every row so the labels stay aligned whichever one is
- *     checked, which is what UIKit does.
+ *  6. A CHECKMARK ON THE ITEM IN EFFECT. HIG, Menus, Toggled items: "Consider
+ *     using a checkmark to show that an attribute is currently in effect".
+ *     That is `UIMenuElement.State.on`.
+ *     ⚠ OVERRULED IN PART BY THE FRAME, 2026-11-08 — THE EDGE. HIG
+ *     illustrates this as "a checkmark icon on the leading edge of the second
+ *     item", and that is where this put it until the frame drew the tick on
+ *     the TRAILING edge and gave the leading gutter to a per-row icon. The
+ *     frame is the design and wins; HIG is what was followed in its absence.
+ *     A gutter is still reserved on every row so labels stay aligned — it is
+ *     now the ICON's gutter. See THE LEADING SLOT in the row markup.
  *
  *  7. ROWS AT OR OVER 44px, Apple's minimum target. The number lives in
  *     moreMenuModel.js so a test can hold this file to it.
@@ -77,10 +98,14 @@
  *  8. ICONS SPARINGLY, AND UNIFORM WITHIN A GROUP. HIG, Menus: "Use menu item
  *     icons sparingly and with purpose... Don't display an icon if you can't
  *     find one that clearly represents the menu item", and "provide icons for
- *     all menu items in a group, or none of them." The `icon` prop exists per
- *     item; today nothing passes one, because none of Overview / Systems /
- *     General Info has a glyph that clearly means it. A future group that
- *     wants icons must give one to every row in that group.
+ *     all menu items in a group, or none of them."
+ *     ⚠ SATISFIED IN THE OTHER DIRECTION SINCE 2026-11-08. This used to read
+ *     "today nothing passes one, because none of Overview / Systems / General
+ *     Info has a glyph that clearly means it" — that was the honest reading of
+ *     "none of them" while no frame existed. The frame picks all three
+ *     (dashboard-square-02 / location-06 / an information circle), so the rule
+ *     is now met by every row having one rather than no row having one. The
+ *     obligation on a future group is unchanged: all of its rows, or none.
  *
  *  9. A SHORT MENU, IMPORTANT ITEMS FIRST. HIG: "Aim for a small number of
  *     menu items"; "Prefer listing important or frequently used menu items
@@ -203,7 +228,11 @@ import { useTranslation } from 'react-i18next'
 import { Check } from 'lucide-react'
 
 import { Separator } from '@/components/ui/separator'
-import { MORE_MENU_ANCHOR_GAP, MORE_MENU_FALLBACK_ANCHOR } from '@/v2/components/moreMenuModel'
+import {
+  MORE_MENU_ANCHOR_GAP,
+  MORE_MENU_FALLBACK_ANCHOR,
+  MORE_MENU_HEADING,
+} from '@/v2/components/moreMenuModel'
 
 /* ── MOTION ────────────────────────────────────────────────────────────────
    There is NO animation library in this repo — not framer-motion, not motion —
@@ -237,9 +266,28 @@ const KEYFRAMES = `
 }
 `
 
-/* 250px is the width of a system menu on an iPhone. Inside a 393px frame with
-   the page's 16px gutters that leaves 361 of room, so the max-w only bites on
-   a narrower host. */
+/* ── THE CHASSIS IS THE FRAME'S, 2026-11-08 (200047:135363) ───────────────
+   204px is the SelectContent instance's own width. It replaces the 250 that
+   stood here, which was "the width of a system menu on an iPhone" — a sensible
+   guess made when no frame drew this menu. One now does.
+
+   `max-w-[calc(100%-32px)]` STAYS AND IS THE WHOLE OF REQUIREMENT 5. The frame
+   is 402 wide and puts the card at x=172; the app shell is 393. Neither number
+   is written anywhere here. The card is `absolute`, right-anchored off the
+   measured badge (see THE ANCHOR), so 402-vs-393 resolves itself and the
+   max-w only bites on a host narrower than 236. Nothing hard-codes x=172.
+
+   18px radius and the 4px pad are `--component/select/content/radius` and
+   `--spacing/1` from the node. The border is the node's
+   `--component/popover/ring` (rgba(10,10,10,0.05)), carried by this repo's
+   own `border` token rather than re-typed as a literal, so it themes.
+
+   THE SHADOW NEEDED NO WORK AND NO NEW TOKEN. The node's popover shadow is
+   `0 25px 50px -12px rgba(0,0,0,0.1)` (layer-1; layer-2 is 0 0 0 0 and fully
+   transparent, i.e. a disabled slot). `--shadow-overlay` at src/index.css:518
+   is byte-identical to it and is already themed for the other three themes.
+   Verified before assuming — this is the one place a "new token" would have
+   been reached for by reflex. */
 /* THE HEIGHT CAP IS NOT DECORATION. The card is `absolute` inside the
    `inset-0` layer, so its 100% is the phone frame's 852px; 64 is the ~48px it
    starts at plus a 16px gutter at the bottom. Today's menus are two and three
@@ -249,11 +297,26 @@ const KEYFRAMES = `
    menu is too long... People expect such a menu to accommodate all the items
    they add to it, so a long menu is fine, and scrolling is acceptable." */
 const CARD = [
-  'absolute flex w-[250px] max-w-[calc(100%-32px)] max-h-[calc(100%-64px)] flex-col',
+  'absolute flex w-[204px] max-w-[calc(100%-32px)] max-h-[calc(100%-64px)] flex-col',
   'overflow-y-auto overflow-x-hidden overscroll-contain',
-  'rounded-[14px] border border-solid border-border bg-popover p-[5px]',
+  'rounded-[18px] border border-solid border-border bg-popover p-[4px]',
   'text-popover-foreground [box-shadow:var(--shadow-overlay)]',
 ].join(' ')
+
+/* `section01` — the frame's one visible slot, holding the heading and the three
+   rows at gap-[3px] inside a 4px pad. It is a real `role="group"` rather than a
+   bare <div> for an ARIA reason: `role="menu"` restricts its children to
+   menuitem / group / separator, so the heading cannot be a direct child of the
+   menu. Inside a group it can, and `aria-labelledby` then makes it the group's
+   accessible name — which is how the heading reaches a screen reader at all.
+   section02 and section03 are `hidden="true"` in the node and are shadcn's
+   default slot content, so there is exactly one of these. */
+const SECTION = 'flex w-full flex-col gap-[3px] p-[4px]'
+
+/* The `SelectLabel`. px/py are `--spacing/2` and `--spacing/1,5` from the node.
+   Not a heading element: it labels a group, and an <h*> inside a menu would
+   put a spurious landmark in the page's outline. */
+const HEADING = 'flex w-full items-center px-[8px] py-[6px] text-sm leading-5 text-slate-900'
 
 /* min-h, not h: a label that wraps grows its row rather than overflowing it.
    44 is Apple's minimum target and is restated in moreMenuModel.js, where a
@@ -271,11 +334,64 @@ const CARD = [
    `Figtree, Inter, -apple-system, BlinkMacSystemFont, sans-serif` at 500/14px,
    identical to the page's own body text. If a family is ever wanted here it
    goes on the inner <span>, never on the <button>. */
+/* ── THE ONE PLACE THE FRAME IS NOT FOLLOWED, AND WHY ─────────────────────
+   The node's SelectItem is a FIXED `h-[36px]`. That is 8px under Apple's
+   minimum touch target, and this file's own constant — exported so a test can
+   reach it — is 44. `moreMenu.dom.test.jsx` asserts the class on every row.
+
+   36 is not taken. A 36px row on a 393px phone is a real miss-rate, the number
+   was written down here deliberately before any frame existed, and shrinking a
+   touch target is a silent accessibility regression of exactly the kind Rule 0
+   exists to stop. The card therefore stands ~24px taller than the frame's 165
+   (44*3 + 32 + gaps + pads), which is REPORTED to the owner rather than
+   resolved in either direction.
+
+   Everything else on the row IS the frame's: gap `--spacing/2` (8px), radius
+   `--component/select/item/radius` (14px), and the node's 12px item padding,
+   kept on the x axis where it sets the label's inset and relaxed on the y
+   axis so `min-h` can do its job without the row growing past it. */
 const ROW = [
-  'flex min-h-[44px] w-full cursor-pointer items-center gap-[10px] rounded-[10px]',
-  'px-[10px] py-[8px] text-left outline-none transition-colors duration-150',
-  'hover:bg-accent focus-visible:bg-accent motion-reduce:transition-none',
+  'flex min-h-[44px] w-full cursor-pointer items-center gap-[8px] rounded-[14px]',
+  'px-[12px] py-[8px] text-left outline-none transition-colors duration-150',
+  'motion-reduce:transition-none',
+  /* FOCUS IS A RING, NOT A FILL. The row in effect already carries a
+     slate-100 fill, so the old `focus-visible:bg-accent` was invisible on
+     exactly the row that takes focus first when the menu opens — see the
+     focus effect below. `ring-ring` is the repo's own focus token (App.jsx:361
+     and three more). `ring-inset` keeps it inside the 4px card pad instead of
+     being clipped by the card's `overflow-y-auto`. */
+  'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
 ].join(' ')
+
+/* The row in effect: `--colors/slate/100` fill, and a label in the node's
+   `--wint-blue-accent` (#0b81f8). That hex is NOT a registered colour token —
+   `--color-wint-blue-accent` does not exist, and a `text-wint-blue-accent`
+   utility would emit NO CSS and NO error (the Tailwind v4 trap that has broken
+   this repo three times). It is carried by `--primary`, src/index.css:173,
+   which is commented with that exact hex. So: `text-primary`. Checked in the
+   stylesheet before it was written, not after. */
+const ROW_SELECTED = 'bg-slate-100 text-primary'
+const ROW_IDLE = 'bg-popover text-slate-900 hover:bg-accent'
+
+/* The count badge. The node paints a two-layer gradient wash and 12px/16px
+   Medium slate-800 text at a 14px radius.
+
+   THE WASH IS TAKEN FROM PillTabs' `BADGE_WASH`, NOT FROM THE NODE'S LITERAL
+   rgba STOPS. PillTabs:254 solved this badge already, and it solved a bug the
+   literals cause: painted as rgba literals the same badge read 4.22:1 as a
+   light sticker on a dark bar under `dark`. Its stops come from
+   `--app-bg-stops` so all four themes work. Re-typing Figma's rgba here would
+   reintroduce that exact defect on a second surface. */
+const BADGE = [
+  'flex h-[20px] shrink-0 items-center justify-center overflow-clip',
+  'rounded-[14px] px-[8px] py-[2px]',
+  'text-[12px] font-medium leading-4 tabular-nums text-slate-800',
+].join(' ')
+
+const BADGE_WASH = {
+  backgroundImage:
+    'linear-gradient(145.43317186803606deg, var(--app-bg-stops)), linear-gradient(90deg, var(--card) 0%, var(--card) 100%)',
+}
 
 /**
  * @param {object}   props
@@ -289,11 +405,15 @@ const ROW = [
  *                                                     it never abuts the label
  *                                                     in textContent.
  *                                   `icon`            a component (lucide), in
- *                                                     the TRAILING slot, which
- *                                                     is where UIKit puts a
- *                                                     UIAction's image. The
- *                                                     leading gutter is the
- *                                                     checkmark's.
+ *                                                     the LEADING slot, which
+ *                                                     is where the frame puts
+ *                                                     it. The slot is reserved
+ *                                                     whether or not an item
+ *                                                     passes one. The tick
+ *                                                     trails. (Until
+ *                                                     2026-11-08 this was the
+ *                                                     other way round — see
+ *                                                     point 6.)
  *                                   `onSelect`        an item that ACTS rather
  *                                                     than navigates. When it
  *                                                     is present the menu's
@@ -354,6 +474,11 @@ export default function MoreMenu({
      has something to point at. A real call site passes both. */
   const fallbackId = useId()
   const menuId = id ?? fallbackId
+
+  /* The heading's own id, so the frame's `Select preview` can be the section
+     group's accessible name. Derived from the menu's id rather than a second
+     useId so it stays stable and readable in a DOM dump. */
+  const headingId = `${menuId}-heading`
 
   const focusItemAt = useCallback((index) => {
     const nodes = itemRefs.current.filter(Boolean)
@@ -522,81 +647,134 @@ export default function MoreMenu({
         className={CARD}
         data-name="more-menu-card"
       >
-        {items.map((item, index) => {
-          const selected = item.id === value
-          const Icon = item.icon ?? null
-          return (
-            <Fragment key={item.id}>
-              {/* A hairline between GROUPS, never between every row. Radix's
-                  Separator is a plain <div> and does not portal. `decorative`
-                  false so it is a real `role="separator"`, which is a valid
-                  child of role="menu"; the default `true` would emit
-                  `role="none"` and the group break would not be announced.
-                  Suppressed in first position: a rule above the top row is a
-                  group break with nothing on the other side of it. */}
-              {item.separatorBefore && index > 0 ? (
-                <Separator decorative={false} className="my-[5px]" />
-              ) : null}
+        {/* `section01`. See SECTION — the group exists so the heading can be
+            announced without being an invalid child of role="menu". */}
+        <div className={SECTION} role="group" aria-labelledby={headingId} data-name="more-menu-section">
+          {/* The frame's SelectLabel. `MORE_MENU_HEADING` is transcribed, and
+              is flagged NEW COPY in moreMenuModel.js because it is a string
+              this product has never shipped and is not in the catalogue. */}
+          <p id={headingId} className={HEADING} data-name="more-menu-heading">
+            {MORE_MENU_HEADING}
+          </p>
 
-              <button
-                ref={(node) => { itemRefs.current[index] = node }}
-                type="button"
-                role="menuitem"
-                /* The selected state, announced. NOT `aria-checked` — see
-                   REJECTED F. The checkmark glyph alone would make colour and
-                   shape the only cue, which this repo's accessibility rule
-                   forbids outright. */
-                aria-current={selected ? 'true' : undefined}
-                /* THE ACCESSIBLE NAME IS THE LABEL ALONE, and the count is
-                   said separately below. Folding the number in once renamed
-                   "Systems" to "Systems 103", which broke systemsTabScope's
-                   lookup — the long version is on PillTabs' CountBadge, whose
-                   rule this follows so the two controls stay queryable the
-                   same way. It also keeps two numbers from abutting in
-                   textContent, which the copy standard §4 forbids. */
-                aria-label={item.label}
-                onClick={() => {
-                  /* An item with its own handler ACTS; one without NAVIGATES.
-                     Never both, so a page never sees an id that is not one of
-                     its destinations. */
-                  if (item.onSelect) item.onSelect(item.id)
-                  else onSelect?.(item.id)
-                  onClose?.()
-                }}
-                className={ROW}
-                data-name="more-menu-item"
-                data-menu-item={item.id}
-              >
-                {/* The checkmark gutter, reserved on every row so the labels
-                    stay on one left edge whichever row is checked. UIKit does
-                    the same; a gutter that appears and disappears shifts the
-                    whole menu sideways as you use it. */}
-                <span className="flex size-[18px] shrink-0 items-center justify-center" aria-hidden="true">
-                  {selected ? <Check className="size-[16px] text-primary" strokeWidth={2.5} /> : null}
-                </span>
+          {items.map((item, index) => {
+            const selected = item.id === value
+            const Icon = item.icon ?? null
+            return (
+              <Fragment key={item.id}>
+                {/* A hairline between GROUPS, never between every row. Radix's
+                    Separator is a plain <div> and does not portal. `decorative`
+                    false so it is a real `role="separator"`, which is a valid
+                    child of a group; the default `true` would emit
+                    `role="none"` and the group break would not be announced.
+                    Suppressed in first position: a rule above the top row is a
+                    group break with nothing on the other side of it. */}
+                {item.separatorBefore && index > 0 ? (
+                  <Separator decorative={false} className="my-[5px]" />
+                ) : null}
 
-                <span className="min-w-0 flex-1 truncate font-medium text-sm leading-5">
-                  {item.label}
-                </span>
+                <button
+                  ref={(node) => { itemRefs.current[index] = node }}
+                  type="button"
+                  role="menuitem"
+                  /* The selected state, ANNOUNCED. NOT `aria-checked` — see
+                     REJECTED F. The frame marks this row with a tick glyph and
+                     a blue label, i.e. with shape and colour only, which this
+                     repo's accessibility rule forbids outright. The glyph is
+                     transcribed AND the state is announced; the frame cannot
+                     draw the second half, so it is added rather than taken. */
+                  aria-current={selected ? 'true' : undefined}
+                  /* THE ACCESSIBLE NAME IS THE LABEL ALONE, and the count is
+                     said separately below. Folding the number in once renamed
+                     "Systems" to "Systems 103", which broke systemsTabScope's
+                     lookup — that suite pins `aria-label === 'Systems'` at :78
+                     and this change does not own it. It also keeps two numbers
+                     from abutting in textContent, which copy standard §4
+                     forbids. */
+                  aria-label={item.label}
+                  onClick={() => {
+                    /* An item with its own handler ACTS; one without
+                       NAVIGATES. Never both, so a page never sees an id that
+                       is not one of its destinations. */
+                    if (item.onSelect) item.onSelect(item.id)
+                    else onSelect?.(item.id)
+                    onClose?.()
+                  }}
+                  className={`${ROW} ${selected ? ROW_SELECTED : ROW_IDLE}`}
+                  data-name="more-menu-item"
+                  data-menu-item={item.id}
+                >
+                  {/* ── THE LEADING SLOT IS THE ICON'S NOW, NOT THE TICK'S ───
+                      This is the one structural inversion the frame makes. The
+                      previous build reserved the leading gutter for the
+                      checkmark and put `icon` in the TRAILING slot, on Apple's
+                      "a checkmark icon on the leading edge" and UIKit's
+                      placement of a UIAction image. The frame does the
+                      opposite: a 16px glyph leads every row and the tick
+                      trails the one in effect. The frame wins — it is the
+                      design, and HIG is what was followed in its absence.
 
-                {item.count != null ? (
+                      RESERVED ON EVERY ROW, icon or not, so labels stay on one
+                      left edge. All three of today's rows carry one, which
+                      finally satisfies Apple's "icons for all menu items in a
+                      group, or none of them" in the affirmative; a future row
+                      without one still lines up. The glyph inherits the row's
+                      text colour, so it goes blue with the label on the
+                      selected row exactly as the node draws it. */}
                   <span
-                    className="tabular-nums text-muted-foreground text-sm leading-5"
-                    /* Said in the caller's own units rather than as a bare
-                       number: "244 systems", not "244". */
-                    aria-label={`${item.count} ${String(item.label).toLowerCase()}`}
+                    className="flex size-[16px] shrink-0 items-center justify-center"
+                    aria-hidden="true"
+                    data-name="more-menu-item-icon"
                   >
-                    {item.count}
+                    {Icon ? <Icon className="size-[16px]" strokeWidth={1.5} /> : null}
                   </span>
-                ) : null}
 
-                {Icon ? (
-                  <Icon className="size-[18px] shrink-0 text-muted-foreground" aria-hidden="true" />
-                ) : null}
-              </button>
-            </Fragment>
-          )
-        })}
+                  <span className="min-w-0 flex-1 truncate text-sm leading-5">
+                    {item.label}
+                  </span>
+
+                  {/* The count badge. Bound to live data by the call site —
+                      the frame's literal `8` is Figma's default component
+                      content and is NOT transcribed. moreMenuModel.js carries
+                      the evidence for that call. */}
+                  {item.count != null ? (
+                    <span
+                      className={BADGE}
+                      style={BADGE_WASH}
+                      /* Said in the caller's own units rather than as a bare
+                         number: "244 systems", not "244". systemsTabScope:78
+                         pins this shape as /^\d+ systems$/. */
+                      aria-label={`${item.count} ${String(item.label).toLowerCase()}`}
+                      data-name="more-menu-item-count"
+                    >
+                      {item.count}
+                    </span>
+                  ) : null}
+
+                  {/* The trailing tick — `Huge Icons / tick-02` in the node.
+                      aria-hidden because `aria-current` above is what actually
+                      announces the state; this is the sighted cue only.
+
+                      A SELECTED ROW THAT ALSO HAS A COUNT DRAWS BOTH. The
+                      frame never draws that state — its selected row is
+                      Overview, which has no badge — but it is reachable the
+                      moment a user picks Systems, and both suites that open
+                      this menu exercise it. Dropping either one would drop
+                      information rather than transcribe an absence, so both
+                      render and the stacking is reported. */}
+                  {selected ? (
+                    <Check
+                      className="size-[16px] shrink-0"
+                      strokeWidth={2}
+                      aria-hidden="true"
+                      data-name="more-menu-item-check"
+                    />
+                  ) : null}
+                </button>
+              </Fragment>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

@@ -873,11 +873,15 @@ export default function SystemHealthCard({
   valveErrors = 0,
   offline = 0,
   noPower = 0,
-  noRecipients = 0,
+  /* `noRecipients` and `onSelectIssue` WENT WITH THE BREAKDOWN - 2026-11-09.
+     The first fed the other-issues row, the second was every tile's onClick.
+     Neither has a reader left, and HomeAllAccounts stopped passing them in the
+     same change. They come back together if the tiles ever do; see the ruling
+     in the render, and IssueTile / ISSUE_ORDER / OTHER_ORDER below, which are
+     DELIBERATELY KEPT for that. */
   unitLabel = 'systems',
   onShowAll,
   onShowPast,
-  onSelectIssue,
   onSelectHealth,
   className,
 }) {
@@ -915,11 +919,6 @@ export default function SystemHealthCard({
      VISIBLE rather than merely unclaimed is the other-issues row below,
      which is the design's own answer. */
   const allClear = hotKinds.length === 0 && attention === 0
-
-  /* The kinds the tiles do not show — see WHAT "OTHER ISSUES" MEANS HERE. */
-  const otherCounts = { noRecipients: clampInt(noRecipients) }
-  const otherKinds = OTHER_ORDER.filter((k) => otherCounts[k] > 0)
-  const otherTotal = otherKinds.reduce((n, k) => n + otherCounts[k], 0)
 
   /* Both segments drop out at zero so a 1px sliver never implies a system that
      is not there; with the fleet empty the track reads as all-well. */
@@ -1158,7 +1157,14 @@ export default function SystemHealthCard({
           </div>
           ) : null}
 
-          {/* ----------------------------------------------- counter tiles */}
+          {/* ── THE LOWER BLOCK IS GATED ON ITS ONE REMAINING CHILD ────────
+              This wrapper held the tiles and the other-issues row. With both
+              removed its only child is the all-clear row, so in a FAULT state
+              it rendered empty - and an empty flex child still takes the
+              card's `gap-[15px]`. Measured at 393x852: the card came out
+              144px against 200067:41981's 118. Gating it closes that gap
+              instead of leaving a block of air under the attention line. */}
+          {allClear ? (
           <div className={GAP_10_COL} data-node-id="199360:129786">
             {/* ------------------------------------------------- the variants
                 Three of them, and which one shows is decided by the data:
@@ -1247,47 +1253,47 @@ export default function SystemHealthCard({
               </div>
             ) : null}
 
-            {/* The tiles say WHICH kind. Not drawn in the all-clear state —
-                199417:131529 puts the row above where they would be — and not
-                drawn when nothing is in them, which is a reachable state now
-                that the row above is gated on `allClear`: a recipients-only
-                fault has no tile to draw, and the other-issues row below is
-                what reports it. */}
-            {hotKinds.length === 1 ? (
-              <IssueTile
-                solo
-                issue={hotKinds[0]}
-                count={counts[hotKinds[0]]}
-                onSelect={onSelectIssue}
-              />
-            ) : hotKinds.length > 1 ? (
-              <div className={TILE_ROW} data-node-id="199323:13029">
-                {ISSUE_ORDER.map((key) => (
-                  <IssueTile key={key} issue={key} count={counts[key]} onSelect={onSelectIssue} />
-                ))}
-              </div>
-            ) : null}
 
-            {/* ────────────────── THE OTHER-ISSUES ROW, 199338:52997
-                Under the tiles, full width, in both frames that draw more than
-                one tile; 199417:134233 has no such row because its solo-tile
-                scope has nothing left over. That is reproduced by the DATA
-                rather than by the variant: the row draws when `otherTotal` is
-                non-zero, which in the solo case it is not.
-                See WHAT "OTHER ISSUES" MEANS HERE for the derivation, and
-                OTHER_ROW for the slate-vs-pink reading of the two frames. */}
-            {otherTotal > 0 ? (
-              <div className={OTHER_ROW} data-node-id="199338:52997" data-other-issues={otherTotal}>
-                <p className={cn('font-sans', OTHER_TEXT)} dir="auto">
-                  <span className={cn(OTHER_RUN, 'font-semibold')}>{fmt(otherTotal)}</span>
-                  <span className={OTHER_RUN}>
-                    {` other ${otherTotal === 1 ? 'issue' : 'issues'} · `}
-                    {otherKinds.map((k) => `${fmt(otherCounts[k])} ${OTHER_LABEL[k]}`).join(', ')}
-                  </span>
-                </p>
-              </div>
-            ) : null}
+            {/* ── THE FAULT BREAKDOWN IS GONE — 200067:41981, 2026-11-09 ─────
+                Owner, over a screenshot of this card showing the bar,
+                "2 / 5 need attention" and a "No power 2" tile beneath it:
+                "remoive the error type from here / keep onlt the x out of y as
+                in figma".
+
+                WHAT WENT: the three IssueTiles (valve errors / offline / no
+                power, 199323:13029) and the other-issues row under them
+                (199338:52997, "4 other issues - 4 no recipients"). Node
+                200067:41981 refetched 2026-11-09 and confirmed: heading,
+                "Show past alerts ->", one progress bar, one
+                "3 / 48 need attention" line, and NOTHING else.
+
+                ⚠ THIS REVERSES THIS MORNING'S INSTRUCTION, which is why the
+                tiles existed and why they were stripped of their boxes
+                yesterday ("we are not showin wht the erros any more on main
+                screens just how many of them" -> "remove boxes here" -> "drop
+                the chrome, keep the data"). The newest ruling wins. The boxes
+                question is moot now: there are no tiles to put boxes around.
+
+                ⚠ WHAT THE REMOVAL COSTS, recorded so it is not rediscovered
+                as a bug: each tile was a <button> that opened the alerts
+                overlay PRE-FILTERED to its fault kind, via onSelectIssue.
+                Those one-tap doors are gone. The filtered views are still
+                reachable - "Show all ->" and the red bar segment open the
+                alerts overlay, whose own funnel menu offers AC Unplugged /
+                Valve error / Offline / No recipients - so it is two taps now
+                rather than one, not a dead end. Verified in the browser.
+
+                The per-fault COUNTS leave the accessibility tree with the
+                tiles, by instruction. The aggregate is still announced: the
+                bar carries `${well} of ${fleet} systems healthy`, its red
+                segment `Requires attention: ${attention} of ${fleet}`, and
+                the line below it is real text.
+
+                `valveErrors` / `offline` / `noPower` ARE STILL READ, and the
+                props stay: `hotKinds` is half the `allClear` gate, which is
+                the owner's standing "when all good, no progress bar" rule. */}
           </div>
+          ) : null}
         </div>
       </div>
     </div>

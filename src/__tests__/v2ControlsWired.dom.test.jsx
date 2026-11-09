@@ -243,10 +243,27 @@ describe('water event actions reach the stores — from the incident, not the ca
       </MemoryRouter>,
     )
 
-  /** Tap the card body — the title text, which is inside no control. */
+  /** Tap the card body — its title text, which is inside no control.
+   *
+   *  ⚠ SCOPED TO THE CARD, NOT FOUND BY `alert.label` — 2026-11-09. The card
+   *  draws the node's SHORT title now (200059:35901 spells `High flow event`,
+   *  and `alertCardsFor` asks `eventAlertRow` for `titleForm: 'short'`), so
+   *  `getAllByText(sys.alert.label)` no longer matches anything inside the
+   *  card. It still matched — the Events Timeline row carries the canonical
+   *  label — and clicking THAT opened nothing, which is how this helper
+   *  started reporting "tapping the card did not open the event overlay" on a
+   *  card that opens perfectly well.
+   *
+   *  The intent is unchanged: tap the card's own title, inside no control.
+   *  `198379:80460` is the card's wrapper and is the hook two suites already
+   *  address it by, so the query is scoped to it and the title is matched by
+   *  shape rather than by a literal that now lives somewhere else. The
+   *  CANONICAL label is still asserted — it is this card's opener's accessible
+   *  name, which the three cases below look the control up by. */
   const openEvent = (container) => {
-    const view = within(container)
-    fireEvent.click(view.getAllByText(sys.alert.label)[0])
+    const card = container.querySelector('[data-node-id="198379:80460"]')
+    expect(card, 'the event card is not on the page').toBeTruthy()
+    fireEvent.click(within(card).getByText(/(High|Low) flow event/i))
     const overlay = container.querySelector('[role="dialog"][aria-modal="true"]')
     expect(overlay, 'tapping the card did not open the event overlay').toBeTruthy()
     return within(overlay)
@@ -414,8 +431,13 @@ describe('the System page alert card is WATER EVENTS ONLY', () => {
     expect(isIgnored(leak.id), 'the pill un-ignored the event').toBe(true)
     expect(overlayIn(container), 'the pill opened the overlay').toBeNull()
 
-    // ...and the card body still opens the event.
-    fireEvent.click(view.getAllByText(leak.alert.label)[0])
+    // ...and the card body still opens the event. Scoped to the card and
+    // matched by shape for the same reason as `openEvent` above: the card
+    // draws the node's SHORT title, so `leak.alert.label` is no longer inside
+    // it — it is on the Events Timeline row, which opens nothing.
+    const ignoredCard = container.querySelector('[data-node-id="198379:80460"]')
+    expect(ignoredCard, 'the ignored event card is not on the page').toBeTruthy()
+    fireEvent.click(within(ignoredCard).getByText(/(High|Low) flow event/i))
     expect(overlayIn(container)).toBeTruthy()
   })
 })

@@ -80,18 +80,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { CaretDown, Funnel, LocationDot, MessageBlocked, Waves, WifiDisconnected02 } from '@/v2/icons'
-import { Check, ChevronLeft } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import AppHeaderBar from './AppHeaderBar'
 import ValveStatus from './ValveStatus'
 
 // ── Wint tokens, as the Figma variables on these frames name them ──────────
 // Used only where a value has to reach an inline style (a two-state bit, or an
 // SVG fill). Everything static keeps its var(...) class instead.
-// The close glyph's fill. Node 198328:89906 binds exactly one colour,
-// --foreground #0a0a0a (confirmed by get_variable_defs and by its b5b2b.svg
-// export, `fill="#0A0A0A"`) — the same token the row's system name uses. It is
-// NOT slate-900; an earlier pass painted it #0f172b.
-const FOREGROUND = 'var(--neutral-950)'
+// The close glyph's fill (--foreground #0a0a0a, node 198328:89906) used to be
+// declared here for this overlay's hand-rolled back disc. That disc is gone —
+// AppHeaderBar draws the control now and owns its own ink — so the constant
+// went with it rather than sit unreferenced.
 const SLATE_800 = 'var(--slate-800)'
 const SLATE_600 = 'var(--slate-600)'
 const SLATE_500 = 'var(--slate-500)'
@@ -491,21 +491,49 @@ export default function EventOverlayV2({
   // in every frame (checked against both exported assets).
   const titleDotColor = isHistory ? SLATE_400 : RED_500
 
-  /* Figma 199375:138276 "Mobile Header Bar" — the overlay dismisses with a
-     circular BACK control, not a close X: a 30px disc on #fafbfc with a white
-     border, carrying a 24px chevron-left. The old X is kept as the accessible
-     name's sense ("Close") because that is still what the control does to this
-     overlay — it closes it — but the affordance the design draws is back. */
-  const closeButton = (
-    <button
-      type="button"
-      onClick={onClose}
-      aria-label="Close"
-      className="flex shrink-0 cursor-pointer items-center justify-center rounded-[120.833px] border border-solid border-card bg-surface-card pr-[2px] size-[30px]"
-      style={{ color: FOREGROUND }}
-    >
-      <ChevronLeft size={24} aria-hidden="true" />
-    </button>
+  /* ── THE HEADER IS THE SHARED BAR — 2026-11-09 ──────────────────────────
+     The owner, on a screenshot of this overlay: "why no header here". He was
+     right. This surface drew a BARE 30px chevron disc of its own (Figma
+     199375:138276 "Mobile Header Bar", transcribed here as a hand-rolled
+     button) while every other surface in the app draws <AppHeaderBar>. That
+     contradicts the settled 2026-11-04 ruling: "One header component for every
+     surface... It always needs to be the same."
+
+     SO THE HAND-ROLLED DISC IS GONE and this mounts the real bar. Note that
+     the disc was never wrong to LOOK at: AppHeaderBar draws the same 30px
+     white disc with a 24px chevron-left (see THE BACK DISC IS BACK in that
+     file). What it was missing is the text column — the scope the user is
+     looking at — and the single owner for all three slots.
+
+     WHAT IT GETS, AND WHY NOTHING MORE:
+       title    `scopeName`, the CURRENT scope, exactly as HomeAllAccounts and
+                SystemPageV2Screen pass it. NOT this overlay's own `title`
+                ("12 water events"), which is a COUNT, not a scope, and which
+                keeps its own h2 below.
+       onBack   `onClose`. Back, never X — "x and back can't live in parallel,
+                only one exists. It needs to be back." The control dismisses
+                the overlay and reveals the page underneath, which IS a back
+                step, so the accessible name moves from the old "Close" to the
+                bar's own "Back".
+       eyebrow  OMITTED. It names the PARENT scope and this overlay is not
+                told one: HomeAllAccounts mounts it with `scope="account"`,
+                the top of that hierarchy, where node 200013:93089 draws no
+                eyebrow either. A crumb invented here would be a guess.
+       onOpenMore OMITTED, deliberately and reported. The badge is drawn only
+                when a caller passes a handler, and this overlay has no More
+                menu today. Mounting MoreMenu here would be NEW BEHAVIOUR, not
+                the header fix the owner asked for. Flagged for a ruling.
+
+     ⚠ EXACTLY ONE BACK DOOR. The old disc is deleted rather than left
+       alongside, and the location branch below had its own copy of it — that
+       one is gone too. Two controls that both go back is the "x and back in
+       parallel" failure wearing one glyph. */
+  const headerBar = (
+    <AppHeaderBar
+      className="px-0"
+      title={scopeName}
+      onBack={onClose}
+    />
   )
 
   return (
@@ -541,12 +569,18 @@ export default function EventOverlayV2({
           {/* Account scope gets a bare close, top right. Location scope puts the
               breadcrumb on the left, because the scope is what the row no longer
               repeats. */}
+          {/* ONE header, on every scope, as the ruling says — so it is drawn
+              here unconditionally rather than once per branch. */}
+          {headerBar}
+
           {isLocation ? (
             <div className="content-stretch flex gap-2 items-center relative shrink-0 w-full">
-              {/* Back FIRST, then the breadcrumb. The node draws no breadcrumb
-                  at all — it is this app's, and it keeps its place — but the
-                  disc goes where the other two screens put it. */}
-              {closeButton}
+              {/* THE BREADCRUMB KEEPS ITS PLACE, ITS BACK DISC DOES NOT. This
+                  row used to lead with a second copy of the chevron disc; the
+                  header above now owns back, and two back doors on one surface
+                  is the thing the standing rule forbids. The crumbs themselves
+                  are untouched (and still deliberately inert — this overlay
+                  takes no navigation callback). */}
               <div className="content-stretch flex flex-[1_0_0] gap-2 h-[44px] items-center min-w-px py-0 relative">
                 <nav
                   aria-label="Breadcrumb"
@@ -586,17 +620,7 @@ export default function EventOverlayV2({
                 </nav>
               </div>
             </div>
-          ) : (
-            /* 199375:138280 > :138281 — the header bar's content row and its
-               flex-1 left group, which is what lands the disc on the left. */
-            <div className="content-stretch flex flex-col h-[59px] items-center justify-center py-6 relative shrink-0 w-full">
-              <div className="content-center flex flex-wrap gap-[10px] items-center justify-center relative shrink-0 w-full">
-                <div className="content-stretch flex flex-[1_0_0] items-center min-w-px relative">
-                  {closeButton}
-                </div>
-              </div>
-            </div>
-          )}
+          ) : null}
 
           <div className="content-stretch flex flex-col gap-[22px] items-start relative shrink-0 w-full">
 

@@ -239,6 +239,77 @@ export default function SystemHeroCard({
    * it.
    */
   body,
+  /**
+   * ── THE HEADER BAR, SEATED ON THE ARTWORK — 2026-11-09, Figma 200059:35860 ─
+   * A SLOT, and additive: omit it and this component renders byte for byte
+   * what it rendered before the prop existed, which is what every other
+   * caller and `systemHeroCard.dom.test.jsx` still get.
+   *
+   * WHY IT IS A SLOT HERE AND NOT A BAR THIS FILE BUILDS. The bar is one
+   * component for the whole app (AppHeaderBar, the owner's 2026-11-04 "it
+   * always needs to be the same"), and only the PAGE knows the scope it
+   * names, the destination its back disc goes to and the id handshake the
+   * More menu needs. This component knows about water consumption. So the
+   * page builds the bar and hands it over; the hero only says WHERE it sits.
+   *
+   * ⚠ IT MUST BE RENDERED AFTER THE ARTWORK, AND THAT IS THE WHOLE TRICK.
+   * HeroWaveArt is `absolute` and HeroCardShell wraps `children` in a
+   * `relative` div placed after it, so anything in `children` paints over the
+   * raster. A bar handed to the SHELL as its own first child instead renders
+   * COMPLETELY INVISIBLE — the raster paints over it, because CSS paints
+   * positioned siblings in document order. Measured in the browser on
+   * /system/ws-10024, not reasoned about.
+   *
+   * IT GROWS THE COLOURED SECTION RATHER THAN FLOATING OVER IT. The children
+   * wrapper is in flow, so the section's height becomes bar + copy and
+   * HeroWaveArt's `min-h-full` art box grows with it: 159px -> 221.8px on a
+   * 393 frame. That is why no padding is reserved anywhere and why the copy
+   * below keeps its own `pt-[17px]` untouched. HomeAllAccounts.jsx:1789 seats
+   * its bar the same way against the same chassis.
+   */
+  header,
+  /**
+   * ── 'card' | 'bleed' — 2026-11-09, Figma 200059:35848 ────────────────────
+   * WHICH GEOMETRY THE COPY IS MEASURED IN, and it is additive: `'card'` is
+   * what shipped before this prop and what every existing render still gets.
+   *
+   *   'card'   the inset hero: a 16px page gutter outside it, so the copy's
+   *            own gutters are the node's 18/17 and its top padding is 17.
+   *   'bleed'  200059:35848's hero, which has NO page gutter because the card
+   *            is full-bleed. Measured off the node: the header chip is
+   *            `w-full` inside `content`'s `px-[16px]` (200059:35858), the
+   *            consumption block carries `px-[10px]` INSIDE that same 16, and
+   *            `content`'s `gap-[19px]` separates them. So the chip is inset
+   *            16 and the copy 26 FROM THE SCREEN EDGE, and the two numbers
+   *            must not be confused - 16+10 is the copy's inset, not 26 of
+   *            padding on a card that still has a gutter.
+   *
+   * THE 78px BOTTOM PAD IS THE OVERLAP BUDGET, not whitespace. In the node
+   * the red is an absolutely-positioned backdrop (200059:35859, h-[323px] at
+   * top-[-75px]) that simply runs 78px past the consumption block, and the
+   * event card - a FLOW sibling - starts 13px below the block and ends 27px
+   * below the red. Our red is the coloured section's own height, so that 78px
+   * has to be real padding or there is nothing for the event card to overlap.
+   * The page pulls the card back up by 65 of it; 78 - 65 = the node's 13.
+   * Change one of those two numbers and you must change the other.
+   */
+  layout = 'card',
+  /**
+   * The `bleed` layout's top padding on the header seat, in px, supplied by
+   * the PAGE from `useStatusBarBleed().inset + 11`.
+   *
+   * It is a number and not a class because only the shell knows the answer:
+   * `inset` is 44 where Phone.jsx draws a status band and this screen asked to
+   * paint behind it, and 0 on MobileLayout, which draws no band at all. This
+   * file used to spell the pair as `pt-[55px] [.mobile-shell_&]:pt-[11px]` -
+   * a mirror of Phone's own `innerWidth <= 500 || mobile UA` predicate, keyed
+   * on a class name, with the 44 hard-coded as 55 minus 11. The shell reports
+   * it now, so the mirror is deleted.
+   *
+   * Defaulted to the node's own 11 so the component is correct standalone, and
+   * ignored entirely by the `card` layout, which keeps its measured `pt-[4px]`.
+   */
+  headerInsetTop = 11,
   /** Fires the jump to the consumption chart. See the control below. */
   onJumpToChart,
   className,
@@ -321,13 +392,20 @@ export default function SystemHeroCard({
   const copy = (
   <div
     className={cn(
-      'relative flex w-full items-end justify-between pb-[7px]',
+      'relative flex w-full items-end justify-between',
+      layout === 'bleed' ? null : 'pb-[7px]',
       /* The card's two inner gutters and its top padding. The 17 is the
          node's padding inside a card whose top edge is the wave's top edge;
          the 18/17 are the card's own gutters, inside the page's 16. Band mode
          used to zero all three together — it is deleted, see the file
          header. */
-      'pl-[18px] pr-[17px] pt-[17px]',
+      /* 200059:35848's hero has no page gutter to sit inside, so the copy
+         carries the whole inset itself: 16 (content's px) + 10 (the
+         consumption block's own px) = 26. The 19 is `content`'s gap below
+         the header chip, and the 78 is the overlap budget - see `layout`. */
+      layout === 'bleed'
+        ? 'px-[26px] pt-[19px] pb-[78px]'
+        : 'pl-[18px] pr-[17px] pt-[17px]',
     )}
     data-node-id={alert ? '199703:30816' : '199703:31382'}
   >
@@ -359,11 +437,26 @@ export default function SystemHeroCard({
         the bottom, which is exactly what "cramped at the bottom, loose in
         the middle" looks like and exactly why it had to be measured.
         See the row's pb-[7px] above for the other half. */}
-    <div className="flex min-w-0 flex-col items-start gap-[7px]">
+    {/* `gap-[7px]` is the INSET node's, measured. 200059:35871 has no gap at
+        all — 24 (caption) + 80 (figure box) = its whole 104 — so the bleed
+        layout takes 0 and lands on the node's height. */}
+    <div className={cn('flex min-w-0 flex-col items-start', layout === 'bleed' ? null : 'gap-[7px]')}>
       {/* Caption over date range — 145x48, two 24px lines, no gap.
           199820:58505 y=0 h=24, 199820:58506 y=24 h=24. */}
       <div
-        className="[word-break:break-word] flex flex-col items-start justify-center text-base text-white"
+        /* 200059:35872 puts the caption and the range SIDE BY SIDE on one
+           24px line, `flex gap-[5px] items-center`; the inset node stacks
+           them as two 24px lines. `flex-wrap` is ours and is a guard, not the
+           node: the node's example range is "1-23 Aug, 26" but this caption
+           is fed real windows, and "Nov 2025 - Oct 2026" on one nowrap line
+           would run under the "All stats" pill opposite. Wrapping costs the
+           24px back only in the window that needs it. */
+        className={cn(
+          '[word-break:break-word] flex text-base text-white',
+          layout === 'bleed'
+            ? 'flex-wrap items-center gap-x-[5px]'
+            : 'flex-col items-start justify-center',
+        )}
         data-node-id={alert ? 'I199703:30816;199703:30077' : 'I199703:31382;199703:32480'}
       >
         <p
@@ -518,6 +611,26 @@ export default function SystemHeroCard({
      mode is deleted, see the file header. */
   return (
     <HeroCardShell tone={tone} body={body} className={className}>
+      {/* 200059:35860 — the bar at the top of the coloured region.
+          `px-[15px]` + the bar's own 8px chip padding = 23px, which lands the
+          title on the consumption copy's own left edge (the copy's `pl-[18px]`
+          plus its 5px optical inset). `pt-[4px]` with the bar's `py-[8px]`
+          puts the eyebrow 12px below the card's top edge; the node has it at
+          11. The same two numbers HomeAllAccounts uses, for the same reason. */}
+      {/* Under `bleed` the chip is `w-full` inside 200059:35858's own
+          `px-[16px]`, and its top padding pays the status band back. That
+          number is `headerInsetTop` and comes from the PAGE, which is the only
+          place that can ask the shell for it - see the prop. The inset-card
+          geometry keeps the 15/4 it was measured at. */}
+      {header ? (
+        <div
+          className={layout === 'bleed' ? 'px-[16px]' : 'px-[15px] pt-[4px]'}
+          style={layout === 'bleed' ? { paddingTop: headerInsetTop } : undefined}
+          data-name="system-hero-header"
+        >
+          {header}
+        </div>
+      ) : null}
       {copy}
     </HeroCardShell>
   )

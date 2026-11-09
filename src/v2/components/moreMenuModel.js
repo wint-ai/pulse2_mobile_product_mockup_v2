@@ -59,7 +59,37 @@
  * be until he says so — but the shape is already right: a second group is an
  * item carrying `separatorBefore: true`, which is the only thing a new group
  * needs. Do not collapse that prop just because today's lists do not use it.
+ *
+ * ── THE 2026-11-08 FRAME (200047:135363), AND THE TWO NAMES IT DISAGREES ──
+ * The menu now has a design: the `SelectContent` instance, 204x165, drawn
+ * right-aligned under the header's More badge. `get_design_context` on it is
+ * cached, so re-deriving this costs no Figma call.
+ *
+ * What the frame ADDED, and is transcribed below and in MoreMenu.jsx:
+ *   · a `SelectLabel` heading — `Select preview`. See MORE_MENU_HEADING.
+ *   · a LEADING 16px icon on every row (dashboard-square-02 / location-06 /
+ *     an information circle). Apple's "icons for all items in a group, or
+ *     none" is now satisfied in the first direction rather than the second.
+ *   · the chassis: 18px card radius, 14px row radius, a slate-100 fill and a
+ *     `--primary` label on the row in effect, and a TRAILING tick.
+ *
+ * ⚠ WHAT IT DISAGREES WITH, REPORTED AND NOT RESOLVED HERE. Two labels in the
+ * frame are not the labels this menu ships, and BOTH are pinned by suites this
+ * change does not own:
+ *
+ *   frame `Locations`      vs shipped `Systems`
+ *   frame `General info`   vs shipped `General Info`
+ *
+ * `systemsTabScope.dom.test.jsx:65` and `valveWidgetMount.dom.test.jsx:593`
+ * both do `getByRole('menuitem', { name })` over
+ * `['Overview', 'Systems', 'General Info']`, and systemsTabScope:78 further
+ * pins `aria-label === 'Systems'` and a count announced as `/^\d+ systems$/`.
+ * Taking either rename would fail those two files, which only their owners may
+ * edit — and the `Locations` one would additionally make the row misdescribe
+ * what it opens, which is still the SYSTEMS table. So the shipped strings
+ * stand, the frame's are recorded here, and the rename stays the owner's.
  */
+import { LayoutGrid, MapPin, Info } from 'lucide-react'
 
 /**
  * Every id the menu can carry today.
@@ -102,6 +132,49 @@ export const MORE_MENU_LABELS = Object.freeze({
   overview: 'Overview',
   systems: 'Systems',
   general: 'General Info',
+})
+
+/**
+ * The menu's heading, transcribed from the frame's `SelectLabel`.
+ *
+ * NEW COPY — AWAITING THE OWNER'S SIGN-OFF. It is transcribed, not authored:
+ * `Select preview` is the literal text of node
+ * I200047:135363;2757:10157;200047:135366. But it is a string this product has
+ * never shipped and it is NOT in the locale catalogue, so like the three row
+ * labels above it does not translate, and unlike them it has no tab-row
+ * ancestor to inherit approval from.
+ *
+ * It also reads oddly against what the rows do: they do not change a "preview",
+ * they swap the page's body. `Select view` would describe the control; so would
+ * no heading at all, which is what shipped until today. Per §0 of
+ * .claude/skills/wint-ui-copy/SKILL.md the alternative is NOT chosen here — the
+ * frame's own string ships and the question goes to the owner.
+ *
+ * Sentence case, which is §3b-correct as transcribed. No change was needed.
+ */
+export const MORE_MENU_HEADING = 'Select preview'
+
+/**
+ * The frame's row icons, as lucide equivalents of its Huge Icons set.
+ *
+ *   dashboard-square-02  -> LayoutGrid   (the 4-square grid, Overview)
+ *   location-06          -> MapPin       (the pin, Systems/"Locations")
+ *   information-line     -> Info         (the circled i, General Info)
+ *
+ * The third is the frame's own confusion, transcribed by its ARTWORK rather
+ * than its layer name: the layer is called `Huge Icons / smile` but the asset
+ * it actually draws is `RemixIconsInformationLine`, rotated 180 and flipped.
+ * The screenshot shows a circled `i`. A smiley on `General Info` would be
+ * nonsense, so the artwork wins over the name here.
+ *
+ * NOT exported as a map, deliberately: `react-refresh/only-export-components`
+ * is an ERROR in this config, and an exported object of PascalCase components
+ * is the shape that rule looks for. The builders below attach them instead.
+ */
+const ROW_ICONS = Object.freeze({
+  overview: LayoutGrid,
+  systems: MapPin,
+  general: Info,
 })
 
 /**
@@ -150,6 +223,7 @@ export const MORE_MENU_ROW_MIN_HEIGHT = 44
 const OVERVIEW_ITEM = Object.freeze({
   id: MORE_MENU_IDS.overview,
   label: MORE_MENU_LABELS.overview,
+  icon: ROW_ICONS.overview,
 })
 
 /**
@@ -167,7 +241,7 @@ const OVERVIEW_ITEM = Object.freeze({
 export function systemMoreMenuItems({ includeOverview = true } = {}) {
   return [
     ...(includeOverview ? [OVERVIEW_ITEM] : []),
-    { id: MORE_MENU_IDS.general, label: MORE_MENU_LABELS.general },
+    { id: MORE_MENU_IDS.general, label: MORE_MENU_LABELS.general, icon: ROW_ICONS.general },
   ]
 }
 
@@ -187,6 +261,16 @@ export function systemMoreMenuItems({ includeOverview = true } = {}) {
  *   answer that question and must not quietly decide it.
  *
  * @param {object}      [o]
+ * ⚠ THE FRAME'S `8` IS NOT TRANSCRIBED, AND THAT IS DELIBERATE. The badge in
+ *   200047:135363 reads a literal `8`. The same `8`-on-a-Locations-row appears
+ *   across unrelated nodes in that file, including on surfaces that cannot
+ *   count 8 of anything, so it is Figma's default component content and not a
+ *   measurement. Transcribing it would put a fabricated number on the face of
+ *   the UI — the one thing §4 of the copy standard is most explicit about.
+ *   The count is therefore BOUND TO LIVE DATA, which is what this parameter is
+ *   and what it already was: HomeAllAccounts.jsx:1460 passes
+ *   `live?.stats?.total`. Nothing here hard-codes a count.
+ *
  * @param {number|null} [o.systemCount]  how many systems the Systems view
  *                                       opens. `null` draws no count, which is
  *                                       the honest state while the data is
@@ -196,8 +280,13 @@ export function systemMoreMenuItems({ includeOverview = true } = {}) {
 export function locationMoreMenuItems({ systemCount = null, includeOverview = true } = {}) {
   return [
     ...(includeOverview ? [OVERVIEW_ITEM] : []),
-    { id: MORE_MENU_IDS.systems, label: MORE_MENU_LABELS.systems, count: systemCount ?? null },
-    { id: MORE_MENU_IDS.general, label: MORE_MENU_LABELS.general },
+    {
+      id: MORE_MENU_IDS.systems,
+      label: MORE_MENU_LABELS.systems,
+      count: systemCount ?? null,
+      icon: ROW_ICONS.systems,
+    },
+    { id: MORE_MENU_IDS.general, label: MORE_MENU_LABELS.general, icon: ROW_ICONS.general },
   ]
 }
 

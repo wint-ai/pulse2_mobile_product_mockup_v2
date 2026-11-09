@@ -130,13 +130,57 @@ describe('Dashboard — the zero-chip panel outranks what it now overlaps', () =
     expect(zOf(panel), 'the panel must carry a positive z-index').toBeGreaterThan(0)
   })
 
-  it('leaves the hero card body at z-auto, so the panel wins in the same context', () => {
-    const { container } = renderDashboard()
-    openZeroChip(container)
-    const body = container.querySelector('[data-name="hero-card-body"]')
+  /* ── REWRITTEN 2026-11-09, BECAUSE WHAT THE PANEL OVERLAPS CHANGED ────────
+     This asserted that `hero-card-body` sat at z-auto. There is no body any
+     more: 200067:38969 makes the hero full-bleed and System health a
+     standalone card, so the panel now drops out of the hero and over a later
+     SIBLING of it in the scroller rather than over the hero's own body.
 
-    expect(body, 'the hero card has no body section').toBeTruthy()
-    expect(zOf(body), 'the body must not answer the panel with a z-index of its own').toBeNull()
+     The z-auto half of the guard still holds and is kept - what the panel has
+     to beat is still "a later, opaque element in the drop zone with no
+     z-index of its own". Only the element is different.
+
+     AND A SECOND HALF IS ADDED, because removing the body broke the panel in
+     a way nothing here could see. The body used to make the hero tall enough
+     that the card's `overflow-hidden` never reached the drop; without it the
+     card cut 95 of the panel's 114px off, CTA included. Winning the stacking
+     contest is worthless if the card clips the winner, so the clip is pinned
+     too. */
+  it('leaves what it overlaps at z-auto, and is not clipped by the hero card', () => {
+    const { container } = renderDashboard()
+    const panel = openZeroChip(container)
+    const card = container.querySelector('[data-name="hero-card-shell"]')
+
+    expect(
+      container.querySelector('[data-name="hero-card-body"]'),
+      'System health is welded back into the hero - this guard is about the wrong element',
+    ).toBeNull()
+
+    /* The next card down is what the panel drops onto now. It must not answer
+       with a z-index of its own. */
+    const overlapped = card.nextElementSibling
+    expect(overlapped, 'nothing follows the hero, so the panel overlaps nothing').toBeTruthy()
+    expect(
+      zOf(overlapped),
+      'the card under the drop answers the panel with a z-index of its own',
+    ).toBeNull()
+
+    /* THE CLIP. happy-dom has no layout, so this is asserted structurally:
+       the card must not be the thing that clips, and the raster must still be
+       clipped by a box of its own. `clip="art"` is what buys both. */
+    expect(
+      card.className,
+      'the hero card clips again - the upsell panel loses its CTA to overflow-hidden',
+    ).not.toMatch(/(?:^|\s)overflow-hidden(?:\s|$)/)
+    expect(card.getAttribute('data-hero-clip')).toBe('art')
+    expect(
+      container.querySelector('[data-name="hero-card-art-clip"]'),
+      'the raster lost its own clip and will paint over the cards below',
+    ).toBeTruthy()
+
+    /* The panel still has to be a descendant of the card it hangs out of -
+       if it ever moves, the two assertions above stop meaning anything. */
+    expect(card.contains(panel), 'the panel left the hero card').toBe(true)
   })
 
   it('is not sealed below the body by a stacking context in between', () => {

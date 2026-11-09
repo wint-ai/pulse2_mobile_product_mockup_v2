@@ -48,11 +48,12 @@
 // real column for every screen, so this page reserves NOTHING and the three
 // tests that measured its margin assert zero. See the block above them.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, cleanup, fireEvent } from '@testing-library/react'
+import { render, cleanup, fireEvent, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 import { UserProvider } from '@/context/UserContext'
 import ValveManagementScreen from '@/v2/pages/ValveManagementScreen'
+import SearchScreen from '@/v2/pages/SearchScreen'
 import { SYSTEMS } from '@/data/systems'
 import { clearValveCommands } from '@/data/valveCommandStore'
 import { summariseValves } from '@/v2/components/valveScope'
@@ -94,6 +95,12 @@ function renderAt(path) {
           <Route path="/valves/:locationName" element={<ValveManagementScreen />} />
           <Route path="/location/:locationName" element={<div>LOCATION OVERVIEW</div>} />
           <Route path="/" element={<div>HOME</div>} />
+          {/* THE REAL SCREEN, not a stand-in, and that is the point: the last
+              test below asserts that the Search tab reaches a scope tree WITH
+              ROWS IN IT. A placeholder here would pass for a tab that
+              navigates to an empty page, which is the failure mode this file
+              exists to catch one level down from the valve buttons. */}
+          <Route path="/search" element={<SearchScreen />} />
         </Routes>
       </MemoryRouter>
     </UserProvider>,
@@ -301,31 +308,95 @@ describe('the bulk commit control clears the floating tab bar', () => {
        only checked that a `[role="dialog"]` existed, and WintSidebarV2 is
        ALWAYS mounted — it toggles `aria-hidden` — so that assertion passed
        whether or not the click did anything. Open state is read off
-       `aria-hidden` here, the way dashboardHeaderBar reads it. */
+       `aria-hidden` here, the way dashboardHeaderBar reads it.
+
+   ── THE DOOR CHANGED WHAT IT OPENS — 2026-11-09 NAVIGATION REDESIGN ───────
+   *** THE OWNER HAS NOT RULED ON THIS. IT MUST STAY CHEAP TO REVERSE. ***
+
+   THE OLD CONTRACT, in the words of the assertion that carried it:
+
+       it('opens the drawer from the Search tab')
+         fireEvent.click(doors(container)[0])
+         expect(drawerIsOpen(container),
+           'nothing on /valves opens the drawer. The header lost its PanelLeft
+            in the 2026-11-07 restructure, so the Search tab is the ONLY door
+            here - a dead tab leaves this screen with no navigation at all.',
+         ).toBe(true)
+
+   WHAT CHANGED. The Search tab stopped dispatching requestDrawerSearch() and
+   became an ordinary link to the new route `/search`, which renders
+   src/v2/pages/SearchScreen.jsx — a FULL-SCREEN scope tree. So on this screen
+   the tab no longer opens WintSidebarV2; it navigates to the same tree as a
+   page. The drawer this screen still mounts has no door left on /valves.
+
+   WHY THE TEST IS RE-AIMED AND NOT DELETED, AND WHY THE INTENT SURVIVES. The
+   message above names its own intent exactly: *a dead tab leaves this screen
+   with no navigation at all*. That is what this file protects, and it is still
+   protected — arguably better. The tab is not dead: it leads to the account /
+   location / system tree, and it does so from EVERY route, including the ten
+   that mount this bar and no drawer at all (/account, /alerts,
+   /alerts/system/:id, /kpi/:type, /leak/:id, /l4/:l4id, /more, /home-clear,
+   /home-multi, /home-legacy — the sweep is in src/components/drawerSearch.js).
+   The old door opened a drawer that on those ten routes was never mounted; the
+   tab had to lazily mount one of its own to fake it. So the assertion below
+   pins the INVARIANT the old one was a proxy for — every screen that mounts
+   <TabBar> has a reachable navigation surface, and the Search tab reaches the
+   scope tree — at full strength, through a real click, reading the tree's own
+   rows rather than a dialog's aria-hidden.
+
+   NOTHING IS DEMOLISHED, AND REVERSING IT IS ONE IMPORT PLUS TWO LINES:
+     · src/components/drawerSearch.js is UNTOUCHED, and still exports both
+       DRAWER_SEARCH_EVENT and requestDrawerSearch().
+     · BOTH listeners are untouched and still answer the event:
+       WintSidebarV2.jsx:628 and NavigationDrawer.jsx:914.
+     · this screen still mounts its WintSidebarV2, and every route below still
+       exists. Nothing was removed from the app.
+   To put the old door back: re-add `import { requestDrawerSearch } from
+   '@/components/drawerSearch'` to TabBar.jsx and the two lines in the Search
+   tab's onClick that call it and skip the navigate. That is the whole revert.
+
+   THE ANSWER TO "DID ANYTHING BECOME UNREACHABLE", recorded here because this
+   test is where it would show up. No user-facing FUNCTION did. Everything
+   WintSidebarV2 can do, /search can do: browse and navigate the same tree
+   (buildTree, now literally the same exported function), search it, pin and
+   unpin rows (persisted here rather than reset on unmount), expand and
+   collapse, collapse-all. Its one other control is the footer bell to
+   /alerts, and the Alerts TAB sits in the same bar on every screen. Its
+   `Filter locations (not implemented)` button was never implemented. What IS
+   lost is the drawer as a SURFACE on the routes whose only door was this tab,
+   and one convenience: the drawer's scrim put you back on /valves with one
+   tap, whereas /search draws no Back (its Figma frame has none) and returning
+   here means Dashboard -> overview -> Valves. Flagged, not hidden. */
 describe('/valves draws the current header', () => {
-  /* SCOPED TO `button` ON PURPOSE. The door and the field it opens announce
-     alike by design, so once the drawer is open TWO elements carry this name:
-     the tab (a button) and WintSidebarV2's own <input> (a textbox). A bare
-     attribute selector would pick whichever came last in the DOM. */
-  const DRAWER_DOOR = 'Search locations and systems'
-  const doors = (c) => c.querySelectorAll(`button[aria-label="${DRAWER_DOOR}"]`)
+  /* SCOPED TO `button` ON PURPOSE. The door and the field on the other side of
+     it announce alike by design, so two elements can carry this name on one
+     page: the tab (a button) and a search <input> (a textbox) - the drawer's
+     own field while it was the destination, SearchScreen's field now. A bare
+     attribute selector would pick whichever came last in the DOM.
+
+     THE CONSTANT IS STILL CALLED THE DOOR. Since 2026-11-09 it opens /search
+     rather than the drawer (see the note above the describe), but it is still
+     the one control that gets a user off this screen and the one accessible
+     name four suites navigate by. */
+  const NAV_DOOR = 'Search locations and systems'
+  const doors = (c) => c.querySelectorAll(`button[aria-label="${NAV_DOOR}"]`)
   const drawer = (c) => c.querySelector('[role="dialog"][aria-label="Locations menu"]')
   const drawerIsOpen = (c) => drawer(c)?.getAttribute('aria-hidden') === 'false'
 
-  it.each(ROUTES)('%s has exactly one drawer door, in the tab bar', (_label, path) => {
+  it.each(ROUTES)('%s has exactly one navigation door, in the tab bar', (_label, path) => {
     const { container } = renderAt(path)
 
     const found = doors(container)
     expect(
       found.length,
-      'exactly one element per route may answer to the drawer door\'s name - it is '
-        + 'what drawerLocationHighlight.dom.test.jsx:141 opens the drawer by, taking '
-        + 'the LAST match. A second one hands that suite a different control without '
-        + 'failing anything, which is how a contract name rots quietly.',
+      'exactly one element per route may answer to the navigation door\'s name - it '
+        + 'is what drawerLocationHighlight.dom.test.jsx navigates by, taking the LAST '
+        + 'match. A second one hands that suite a different control without failing '
+        + 'anything, which is how a contract name rots quietly.',
     ).toBe(1)
     expect(
       found[0].closest('[data-name="tabbar-pill"]'),
-      'the drawer door is not in the tab bar. It is the FOOTER\'s Search tab now, '
+      'the navigation door is not in the tab bar. It is the FOOTER\'s Search tab, '
         + 'not a header control - that is what makes it reachable from every screen.',
     ).not.toBeNull()
 
@@ -357,25 +428,53 @@ describe('/valves draws the current header', () => {
     expect(container.querySelector('[data-name="app-back"]')).not.toBeNull()
   })
 
-  it('opens the drawer from the Search tab', () => {
+  it('the Search tab reaches the scope tree, so this screen is never stranded', () => {
     const { container } = renderAt('/valves')
 
     /* WintSidebarV2 is a dialog inside the page - no portal, because Phone.jsx
        is a fixed 393x852 overflow-hidden frame. It is mounted CLOSED, not
-       absent, so presence proves nothing and `aria-hidden` is the state. */
-    expect(drawer(container), 'no drawer mounted on /valves').not.toBeNull()
+       absent. IT IS ASSERTED STILL MOUNTED, and that is deliberate: the
+       2026-11-09 change took away its door on this route, it did NOT take away
+       the drawer, and re-adding two lines to TabBar.jsx is the whole revert.
+       If somebody deletes the drawer on the theory that nothing opens it, this
+       line is where the owner's unmade decision gets made for him. */
+    expect(
+      drawer(container),
+      'the drawer has been removed from /valves. The 2026-11-09 redesign only '
+        + 'moved its DOOR - the owner has not ruled on the drawer itself, and '
+        + 'deleting it is what makes the change expensive to reverse.',
+    ).not.toBeNull()
     expect(drawerIsOpen(container), 'the drawer starts open').toBe(false)
 
-    /* Through the real mechanism, not a shortcut: the tab dispatches the
-       cancelable window event in src/components/drawerSearch.js and the drawer
-       this screen mounts claims it with preventDefault() and opens itself. */
+    /* A REAL CLICK ON THE REAL CONTROL, as before. What changed is where it
+       goes: the tab navigates to /search instead of dispatching the drawer
+       event, so the end state is read off the tree's own rows rather than off
+       the dialog's aria-hidden. Both are "the user can get to the navigation
+       tree from this screen"; only the surface moved. */
     fireEvent.click(doors(container)[0])
 
     expect(
-      drawerIsOpen(container),
-      'nothing on /valves opens the drawer. The header lost its PanelLeft in the '
-        + '2026-11-07 restructure, so the Search tab is the ONLY door here - a dead '
-        + 'tab leaves this screen with no navigation at all.',
-    ).toBe(true)
+      screen.queryByText('Select system to show'),
+      'the Search tab did not reach the scope picker. It is the only navigation '
+        + 'control on /valves - the header lost its PanelLeft in the 2026-11-07 '
+        + 'restructure and the drawer lost its door on 2026-11-09 - so a tab that '
+        + 'goes nowhere leaves this screen with no navigation at all.',
+    ).not.toBeNull()
+
+    /* AND THE TREE HAS TO HAVE SOMETHING IN IT. A screen that renders its
+       heading over an empty list is the same dead end with a title on it,
+       and it is a live failure mode here: UserContext derives the tree from
+       the persona, so a broken persona builds nothing. */
+    const treeRows = container.querySelectorAll('[data-scope-row]')
+    expect(
+      treeRows.length,
+      'the scope picker rendered with no rows, so the Search tab leads to an '
+        + 'empty screen. Reaching a blank page is not reaching navigation.',
+    ).toBeGreaterThan(1)
+
+    /* NOT ASSERTED HERE: the drawer's state after the click. /valves has
+       unmounted by now, so `drawerIsOpen` would read undefined and pass for
+       any reason at all. Its presence was asserted BEFORE the click, which is
+       the half that can regress. */
   })
 })

@@ -1,16 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, LayoutGrid, Search } from 'lucide-react';
+import { Bell, House, Search } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import PersonaAvatar from '@/v2/components/PersonaAvatar';
-import WintSidebarV2 from '@/v2/components/WintSidebarV2';
-/* The Search tab's whole mechanism. Read that file before touching the
-   onClick below — the cancelable dispatch is the part that is easy to
-   simplify into a dead button. */
-import { requestDrawerSearch } from './drawerSearch';
+/* src/components/drawerSearch.js IS NO LONGER IMPORTED HERE, and that is the
+   single largest consequence of the 2026-11-09 frame — see SEARCH IS A
+   DESTINATION NOW below. The module is untouched and still exported; its two
+   LISTENERS (WintSidebarV2.jsx:628 and NavigationDrawer.jsx:914) are untouched
+   as well, so the signal still works for anyone who sends it. What is gone is
+   this file's SEND: the Search tab navigates to /search instead of asking the
+   drawer on this route to open. Read drawerSearch.js before restoring it. */
 import { useAlertScope, useScopedActiveAlerts } from '../hooks/useActiveAlerts';
 import { useUserContext } from '../context/UserContext';
 /* WHERE THIS USER'S TOP LEVEL IS. Moved here from HomeAllAccounts.jsx with
@@ -27,6 +29,95 @@ import { homeTargetFor } from '../utils/homeTarget';
  * (navigation redesign, component 1 of 4). The slab is not: a full-bleed bar
  * welded to the bottom edge by a hairline became a detached, heavily rounded
  * pill inset from all three edges, with the page visible around it.
+ *
+ * ── THE 2026-11-09 FRAME: node 200067:39019, `nav` ───────────────────────
+ *
+ * Design source: Figma YEmjkKS4xaA827Zm8w3oXx node 200067:39019 (`nav`),
+ * fetched with get_design_context and cached. It is 335 x 66 at x=33, y=756
+ * inside a 402 x 844 artboard: four items of 79.25 x 48 at y=9, each holding
+ * ONE 28 x 28 glyph and nothing else.
+ *
+ * WHAT IT CHANGES, and every one of these is measured off the emitted code
+ * rather than off the screenshot:
+ *
+ *   1. THE DASHBOARD GLYPH IS A HOUSE. `Huge Icons / home-03`, whose Figma
+ *      component description is the single word "house". lucide `House` is
+ *      the repo-available equivalent and is the right shape rather than the
+ *      right name: a roof path plus a door rect at bottom centre
+ *      ("M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"), which is what home-03
+ *      draws. NOT `Home`, which lucide 1.43.0 carries only as an ALIAS of
+ *      house. This replaces LayoutGrid, whose four-rounded-squares reasoning
+ *      is kept below because it is the record of why the old glyph was that
+ *      glyph and not Grid2x2.
+ *   2. THE PILL IS 66 TALL, INSET 33 EACH SIDE, 22 OFF THE BOTTOM, and is a
+ *      true stadium (`rounded-[120px]` in the frame, which CSS clamps to
+ *      half the height — 33 — at this size, so the literal here is 33). The
+ *      geometry block near the bottom of this file carries the arithmetic and
+ *      the fluid-vs-fixed decision.
+ *   3. THE ACTIVE INDICATOR IS THE WHOLE ITEM BOX, not a capsule inside it.
+ *      The frame's active item is `flex-[1_0_0] h-full rounded-[100px]
+ *      bg-[rgba(11,129,248,0.16)]` — i.e. 79.25 x 48, radius 24 after the
+ *      clamp, filled at 16% of --primary. The 44 x 28 capsule it replaces is
+ *      documented below and was a WhatsApp reading, not a Figma one.
+ *   4. THERE ARE NO VISIBLE LABELS. The frame holds four glyphs and no text
+ *      node at all. The labels go back to `sr-only`, which is where the
+ *      2026-11-04 WhatsApp pass had already put them — see FLAG ONE below,
+ *      which this frame now SETTLES in favour of no labels.
+ *   5. THE FILL ON THE ACTIVE GLYPH IS GONE. The frame draws the active house
+ *      and the active magnifier as OUTLINES in --primary on the tinted panel.
+ *      M3's "filled icon PLUS indicator" pairing (below) is therefore
+ *      overruled by the owner's own frame: the indicator carries the state
+ *      alone now, which is what Profile already did because a photograph
+ *      cannot fill. `fill` and the `transition-[fill]` that eased it are both
+ *      removed rather than set to a constant.
+ *   6. THE PILL IS 57% OPAQUE, not 96%. `rgba(255,255,255,0.57)` over
+ *      `backdrop-blur-[8px]` (was 10). This is SAFE ONLY BECAUSE THE HOST
+ *      RESERVES THE STRIP — see the warning in the next block. The frame
+ *      draws live tree rows showing through the bar; a Figma frame cannot
+ *      express scroll behaviour, and reproducing that literally is the
+ *      2026-11-08 dead-tap bug.
+ *
+ * ── SEARCH IS A DESTINATION NOW — 2026-11-09 ─────────────────────────────
+ *
+ * *** THIS REVERSES THE WHOLE OF `THE SEARCH TAB REPLACES MORE` BELOW. ***
+ *
+ * The Search tab carries `path: '/search'` and navigates. It is an ordinary
+ * destination with an `activeTab` key, it TAKES the active indicator, and the
+ * frame says so: 200067:39019's sibling state (the owner's `figma-search`
+ * reference) draws the tinted panel behind the MAGNIFIER. The block below
+ * argues at length that an indicator on Search "would be a lie about where you
+ * are" and hard-codes `isActive` false for it. That argument was correct while
+ * Search opened a drawer and changed no route. It is simply not the same
+ * control any more.
+ *
+ * *** FLAG FOR THE OWNER: THE DRAWER LOST ITS LAST DOOR ON TEN ROUTES. ***
+ * requestDrawerSearch() and the lazily-mounted fallback WintSidebarV2 are both
+ * gone from this file. On the ten routes that mount this bar and no drawer of
+ * their own — /account, /alerts, /alerts/system/:id, /kpi/:type, /leak/:id,
+ * /l4/:l4id, /more, /home-clear, /home-multi, /home-legacy (the sweep is in
+ * drawerSearch.js) — this tab WAS the only way into the navigation drawer, and
+ * nothing in this file replaces it. Whether /search covers that job is a
+ * question about SearchScreen, which is not this file's to answer; the header
+ * redesign landing in the same round is the other place a door could live.
+ * drawerSearch.js is untouched and both drawer listeners still answer the
+ * event, so restoring the old behaviour is re-adding the import and the two
+ * lines in onClick — nothing was demolished.
+ *
+ * WHAT THIS BREAKS, NAMED RATHER THAN DISCOVERED. Four suites open the drawer
+ * by the Search tab's accessible name and expect a click on it to open one:
+ * dashboardHeaderBar.dom.test.jsx:328 (which asserts "exactly one reachable
+ * drawer door, and tapping it opens the drawer"), drawerLocationHighlight,
+ * drawerNestedLocationHighlight and scopePersistsThroughDrawer. They are not
+ * wrong; they pin the old contract. They are NOT edited from here — they are
+ * not this file's, and silently relaxing somebody else's regression test is
+ * how the 2026-11-08 bug shipped.
+ *
+ * THE ACCESSIBLE NAME IS KEPT AS IT WAS: `drawer.search_label`, "Search
+ * locations and systems". It is catalogued, approved copy, it still describes
+ * a surface that searches locations and systems, and with the visible label
+ * now sr-only there is no Label-in-Name constraint left to satisfy. Coining a
+ * new one would be exactly the invention wint-ui-copy §0 forbids. It remains
+ * the only aria-label in this file, for the reason stated at the Button.
  *
  * ── WHATSAPP / MATERIAL 3, 2026-11-04 ────────────────────────────────────
  *
@@ -57,6 +148,17 @@ import { homeTargetFor } from '../utils/homeTarget';
  * 600/500 weight pair in place of `sr-only`, and put the pill back to
  * h-[65px] with a 32x32 radius-11 indicator.
  *
+ *   >> SETTLED 2026-11-09, AND THE FLAG IS CLOSED. The labels HAD come back
+ *      as visible 11px text at some point after this was written (the file
+ *      shipped `order-2 text-[11px] leading-[16.5px]` with a h-[65px] pill,
+ *      which is the revert this flag describes), so the WhatsApp reading and
+ *      the Figma frame had in fact disagreed twice. Node 200067:39019 holds
+ *      four glyphs and NO text node, so the owner's own newest frame now
+ *      agrees with the WhatsApp pass: labels are `sr-only` again. They are
+ *      NOT deleted - they are the four tabs' accessible names, five suites
+ *      pick a tab by `button.querySelector('span').textContent`, and sr-only
+ *      is a class, not a removal.
+ *
  * *** FLAG FOR THE OWNER, TWO: M3 SAYS NO SHADOW, AND I KEPT ONE. ***
  * M3 drops M2's elevation because its navigation bar is DOCKED to the screen
  * edge and separates by surface-container colour instead. This one is not
@@ -64,6 +166,14 @@ import { homeTargetFor } from '../utils/homeTarget';
  * sand separation measured weak without help. WhatsApp's own floating bar
  * casts a shadow. So `--shadow-overlay` stays, which is a deliberate
  * divergence from M3 and not an oversight. Dropping it is deleting one class.
+ *
+ *   >> SETTLED 2026-11-09, IN FAVOUR OF THE SHADOW. Node 200067:39019 carries
+ *      `shadow-[0px_4px_4px_0px_#e2e8f0]` on the bar itself, so the owner's
+ *      frame wants an elevation and the divergence from M3 is now his call
+ *      rather than mine. The TOKEN is still `--shadow-overlay` and NOT that
+ *      literal: a hardcoded slate-200 shadow would be identical on all four
+ *      themes, and a near-black-on-near-black shadow is not a shadow (see the
+ *      elevation note in TOKEN MAPPING).
  *
  * FILLED ICONS - WHAT IS ACTUALLY AVAILABLE, not what M3 asks for.
  * lucide-react 1.43.0 ships 6224 exports and NO filled variants: the only
@@ -342,6 +452,15 @@ import { homeTargetFor } from '../utils/homeTarget';
  * ring, same shadow — so the floating look is unchanged; 12 + 65 = 77 of the
  * 93 leaves a 16px strip of page background above it.
  *
+ * *** THE NUMBERS MOVED ON 2026-11-09 AND THE MODEL DID NOT. *** The frame's
+ * pill is `inset-x-[33px] bottom-[22px] h-[66px]`, so 22 + 66 = 88 of a 104px
+ * host, and the 16px strip above it is the same 16px strip. THE RESERVED-STRIP
+ * MODEL IS THE WHOLE POINT OF THIS BLOCK AND IT IS NOT NEGOTIABLE: node
+ * 200067:39019 draws the pill OVER live tree rows and at 57% opacity, which
+ * makes it look like the bar floats above scrolling content. It does not, and
+ * it must not. A Figma frame cannot express scroll behaviour; reproducing that
+ * one literally is how the owner ended up with a screen he could not tap.
+ *
  * NOT DONE, AND IT MUST NOT BE: `pointer-events-none` on the pill. The four
  * tab buttons span ~100% of its width, so taps would simply hit the wrong tab
  * instead of the row. And no z-index: the host stays `z-index: auto` so the
@@ -404,6 +523,11 @@ import { homeTargetFor } from '../utils/homeTarget';
  *   bar fill      rgba(255,255,255,0.96) -> bg-card/96      (--card is #FFFFFF
  *                                           in :root and sand, near-black in
  *                                           dark, green in contrast)
+ *                 >> 2026-11-09: 200067:39019 says rgba(255,255,255,0.57), so
+ *                    it is `bg-card/57` now. Same token, same role, 39 points
+ *                    more of the page showing through. The blur went 10 -> 8
+ *                    with it. Both remain INERT (nothing scrolls under the
+ *                    pill) and both remain the declared appearance.
  *   border        #e3e8f0 -> border-border      (--border = --slate-200 #e2e8f0)
  *                            Now a full ring rather than a top hairline: a
  *                            detached slab has four edges.
@@ -425,7 +549,12 @@ import { homeTargetFor } from '../utils/homeTarget';
  *                            instrument — a 12% white ring plus a near-black
  *                            pool — because a black shadow on a black ground is
  *                            not a shadow.
- *   active panel  -> bg-primary/15, i.e. color-mix of the ACTIVE INK itself.
+ *   active panel  -> bg-primary/16 (was /15), i.e. color-mix of the ACTIVE INK.
+ *                 >> 2026-11-09: the frame states it outright -
+ *                    `bg-[rgba(11,129,248,0.16)]`, and #0b81f8 IS --primary,
+ *                    so the derivation below was right and the exact alpha is
+ *                    16%. One point of alpha moves the measured contrast by
+ *                    ~0.01 and the table below still stands.
  *                    The reference's panel is "lighter than the pill", which is
  *                    a dark-theme statement and inverts on light and sand, so
  *                    "lighter" cannot be the rule. Deriving the panel from the
@@ -459,6 +588,50 @@ import { homeTargetFor } from '../utils/homeTarget';
  *   column  89.75 x4              361 minus the 1px ring each side, / 4
  *   capsule [39.9, 784.3, 44, 28] radius 14, i.e. a true stadium
  *   glyph   21                    2px gap, then an 11px/16.5px label
+ *
+ * ── GEOMETRY, RE-DERIVED FROM 200067:39019 — 2026-11-09 ───────────────────
+ *
+ * THE FRAME IS 402 WIDE AND THE APP SHELL IS 393 (Phone.jsx), so one of the
+ * frame's three numbers has to give. 335 wide at x=33 inside 402 is a 33 left
+ * inset and a 34 right inset - i.e. the designer insets the bar, he does not
+ * size it.
+ *
+ * SO THE SIDE INSET IS FIXED AT 33px AND THE WIDTH IS FLUID. Deliberately,
+ * and the alternative was a fixed `w-[335px]`:
+ *   · the inset is what the frame actually expresses (33 and 34, not a round
+ *     335), and it is symmetrical where the frame is 1px off;
+ *   · a fixed 335 overflows any frame narrower than ~343, and this bar is
+ *     mounted inside a shell whose width has already changed twice;
+ *   · `inset-x-[Npx]` is the idiom this file already used, so nothing else in
+ *     the pill's layout had to change.
+ * The result at both widths:
+ *       393 shell   pill 327 wide, 33 each side, column (327-2-16)/4 = 77.25
+ *       402 frame   pill 336 wide, 33 each side, column (336-2-16)/4 = 79.50
+ * 79.50 against the frame's own 79.25 is the 1px asymmetry, split. Nothing in
+ * the pill has a minimum width - the items are grid fractions and the glyph is
+ * 28 - so 77.25 is not tight: 24.6px of air each side of the glyph.
+ *
+ *   host    0, 748, 393, 104      TAB_BAR_CLEARANCE, bottom edge on the
+ *                                 frame's bottom edge (748 + 104 = 852)
+ *   pill    33, 764, 327, 66      radius 33 (the frame's 120 clamped to half
+ *                                 the height), 22 off the bottom edge,
+ *                                 748 + 16 = 764
+ *   item    77.25 x 48            (327 - 2px ring - 16px padding) / 4, and
+ *                                 66 - 16 padding - 2 ring = 48 tall
+ *   glyph   28                    centred, no label in flow
+ *
+ * THE 8px PADDING IS WHAT MAKES THE ITEM 48. The frame says `p-[8px]` on the
+ * bar and `h-full` on each item: 66 - 8 - 8 - 2 (the ring is inside the box) =
+ * 48, which is the frame's own item height to the pixel. It is spelled as
+ * padding here for the same reason, so the item height falls out of the pill
+ * height instead of being a second number to keep in step.
+ *
+ * 327 IS NO LONGER THE CONTENT GUTTER, and that is a real loss worth stating:
+ * the pill used to be 361 wide, exactly the width of the home screen's cards,
+ * so its edges lined up with them. At a 33px inset it is 34px narrower than
+ * the content above it. That is what the frame draws, and since the host
+ * reserves the strip nothing passes behind the bar for the misalignment to
+ * read against - but if the owner asks why the bar looks narrow, this is why.
  *
  * 361 is also the content gutter the home screen's scroller already uses, so
  * the pill's edges line up with the cards passing behind it. The tab is 57
@@ -510,11 +683,23 @@ import { homeTargetFor } from '../utils/homeTarget';
  * scripts/check-text-overflow.mjs, which is green on this file).
  *
  * ICONS are lucide-react, picked on the frame's shapes rather than its names:
- *   Dashboard  LayoutGrid       four 7x7 rects at rx=1 in a 2x2 — the frame's
+ *   Dashboard  House            2026-11-09, node 200067:39019: `Huge Icons /
+ *                               home-03`, described in Figma as "house". A
+ *                               roof path plus a door rect at bottom centre,
+ *                               which is what home-03 draws. NOT `Home` -
+ *                               lucide 1.43.0 carries that only as an alias
+ *                               of house (icons/house.mjs `aliases: ["home"]`)
+ *                               and importing an alias hides which glyph you
+ *                               asked for. NOT HousePlug / HouseWifi /
+ *                               HouseHeart, which all add a second statement.
+ *              (was LayoutGrid) four 7x7 rects at rx=1 in a 2x2 — the frame's
  *                               "four rounded squares". NOT Grid2x2 (one big
  *                               square cut by a crosshair) and NOT
  *                               LayoutDashboard (2x2 but of UNEQUAL heights,
  *                               9/5/9/5 — a dashboard mosaic, not a grid).
+ *                               Kept because it is the record of why the old
+ *                               glyph was that one, and the owner has moved
+ *                               this slot's glyph twice.
  *   Alerts     Bell             unchanged.
  *   Search     Search           <circle cx=11 cy=11 r=8> plus the handle
  *                               "m21 21-4.34-4.34". The plain magnifier, and
@@ -534,6 +719,16 @@ import { homeTargetFor } from '../utils/homeTarget';
  * the 1.8 stroke. That mechanism predates this frame and is untouched - and
  * Search is outside it entirely, never being active.
  *
+ *   >> BOTH CLAUSES ARE DEAD AS OF 2026-11-09, and the paragraph is kept for
+ *      the record only. The frame draws the active glyph as an OUTLINE in
+ *      --primary on the tinted panel, so there is no fill left to ease and
+ *      `fill` / `transition-[fill]` are removed rather than pinned to a
+ *      constant. "Goes semibold" went with the visible label. The stroke is
+ *      2, not 1.8: the frame's glyph assets overflow their 28px box by
+ *      ~5.4% on each side, which is half a stroke of ~2.3, and 2 is the
+ *      nearest round weight that reads the same at 28px as 1.8 did at 21.
+ *      Search CAN be active now - see SEARCH IS A DESTINATION NOW.
+ *
  * MOTION is one 200ms colour fade on the active panel, and nothing else. No
  * transform, so there is no layout jank and no animation library — the repo has
  * none and is not getting one here. `motion-reduce:transition-none` is the
@@ -541,7 +736,8 @@ import { homeTargetFor } from '../utils/homeTarget';
  * panel and the Button, whose base class is `transition-all`.
  *
  * LAYOUT CONTRACT: the HOST is a shrink-0 sibling inside the Phone column
- * (393x852, overflow hidden), TAB_BAR_CLEARANCE (93px) tall. It is NOT fixed
+ * (393x852, overflow hidden), TAB_BAR_CLEARANCE (104px since 2026-11-09, 93
+ * before it) tall. It is NOT fixed
  * and needs no spacer, and the screens need no bottom padding — the host IS
  * the spacer. The pill inside it is absolute and fully contained — see the
  * arithmetic above.
@@ -574,49 +770,72 @@ import { homeTargetFor } from '../utils/homeTarget';
    width, so taps would land on the wrong tab.
 
    `relative` makes this the pill's positioning context, so the pill's
-   `bottom-[12px]` is measured from the frame's bottom edge rather than from
+   `bottom-[22px]` is measured from the frame's bottom edge rather than from
    whichever ancestor happens to be positioned. `shrink-0` keeps a greedy
-   sibling from compressing the strip back to nothing. */
-const HOST = 'relative shrink-0 h-[93px]';
+   sibling from compressing the strip back to nothing.
 
-/* The slab. Absolutely positioned INSIDE the 93px host, which is what keeps
-   the floating look while the host does the reserving: 12 up from the frame's
-   bottom edge, 65 tall (TAB_BAR_FOOTPRINT = 77), inset 16 each side. 93 - 77
+   104, NOT 93, SINCE 2026-11-09: the frame's pill is 66 tall and floats 22 up,
+   so the footprint went 77 -> 88 and the clearance 93 -> 104 with the same
+   16px gap above it. tabBarMetrics.js is the statement of that arithmetic and
+   tabBarFloatingClearance.dom.test.jsx checks this literal against it. */
+const HOST = 'relative shrink-0 h-[104px]';
+
+/* The slab. Absolutely positioned INSIDE the 104px host, which is what keeps
+   the floating look while the host does the reserving: 22 up from the frame's
+   bottom edge, 66 tall (TAB_BAR_FOOTPRINT = 88), inset 33 each side. 104 - 88
    leaves a 16px strip of page background above it — the app's own gutter, and
    the same distance a last row used to rest at when every scroll body paid
    the clearance itself.
 
+   `rounded-[33px]` IS the frame's `rounded-[120px]`. CSS scales a radius down
+   proportionally when opposite radii overflow the box, so 120 on a 66-tall
+   pill paints as 33 — a true stadium. The literal is written at the value it
+   actually renders at, because 120 reads like a number somebody could change
+   the height against.
+
+   `p-[8px]` is the frame's own padding and is what makes each item 48 tall
+   inside the 66: 66 - 16 - 2 (the ring is inside the box) = 48.
+
    No `overflow-hidden`: the Alerts badge is deliberately hung off the top-right
-   corner of its glyph and pokes a few px past the active capsule. */
+   corner of its glyph and pokes a few px past the active panel. */
 const PILL =
-  'absolute inset-x-[16px] bottom-[12px] grid h-[65px] grid-cols-4 items-center ' +
-  'rounded-[26px] border border-border bg-card/96 backdrop-blur-[10px] ' +
+  'absolute inset-x-[33px] bottom-[22px] grid h-[66px] grid-cols-4 items-center ' +
+  'p-[8px] rounded-[33px] border border-border bg-card/57 backdrop-blur-[8px] ' +
   '[box-shadow:var(--shadow-overlay)]';
 
 /* One tab. Built on the shadcn ghost Button so the focus ring and the hover
    handling come from the design system rather than being hand-rolled;
-   `h-[57px]` / `p-0` / `w-full` and the column direction undo the size="default"
-   preset. font-sans is Figtree. */
+   `h-[48px]` / `p-0` / `w-full` undo the size="default" preset. font-sans is
+   Figtree.
+
+   48 AND radius 24 SO IT IS THE SAME BOX AS THE INDICATOR. With the active
+   panel now filling the whole item (2026-11-09), a tab of any other shape
+   would make the hover highlight and the active state two different shapes on
+   one control. The column direction and the 2px gap are gone with the visible
+   label: the only in-flow child is the indicator, and an sr-only span is
+   position:absolute and out of flow. */
 const TAB =
-  'h-[57px] w-full cursor-pointer flex-col gap-[2px] rounded-[20px] p-0 font-sans ' +
+  'h-[48px] w-full cursor-pointer rounded-[24px] p-0 font-sans ' +
   'motion-reduce:transition-none';
 
-/* THE ACTIVE INDICATOR, reshaped from the owner's WhatsApp screenshot
-   (2026-11-04): a CAPSULE hugging the glyph - 44x28 at radius 14, which is
-   half the height, so the ends are true semicircles rather than a
-   rounded-rectangle's corners. It replaced a 32x32 rounded square: the
-   screenshot's indicator is noticeably wider than tall, and the label sits
-   OUTSIDE it, below.
+/* THE ACTIVE INDICATOR IS THE ITEM BOX, from node 200067:39019: the frame's
+   active item is `flex-[1_0_0] h-full rounded-[100px]` filled at 16% of
+   --primary, i.e. the full 79.25 x 48 cell rather than a shape inside it.
+   `w-full` and not a literal width because the cell is a grid fraction and
+   has to stay fluid between the 402 frame and the 393 shell — 77.25 here,
+   79.50 at the frame's own width.
 
-   44 wide against a 21px glyph leaves 11.5px either side - snug, which is what
-   "hugging the icon" means; and inside an 89.75px column it leaves 22.9px
-   either side, so two adjacent indicators never come close to touching. 28
-   tall keeps glyph + 2px gap + 16.5px label inside the 57px tab.
+   `rounded-[24px]` is the frame's `rounded-[100px]` clamped to half of 48,
+   the same stadium arithmetic as the pill.
+
+   IT REPLACED A 44x28 CAPSULE, which was read off the owner's WhatsApp
+   screenshot on 2026-11-04 and is described in the block above; that reading
+   is superseded by his own frame, not wrong at the time.
 
    No `overflow-hidden`: the Alerts badge hangs off its glyph's top-right and
-   is allowed to cross the capsule's edge. */
+   is allowed to cross the panel's edge. */
 const INDICATOR =
-  'order-1 flex h-[28px] w-[44px] items-center justify-center rounded-[14px] ' +
+  'flex h-[48px] w-full items-center justify-center rounded-[24px] ' +
   'transition-colors duration-200 motion-reduce:transition-none';
 
 export default function TabBar({ activeTab }) {
@@ -656,19 +875,24 @@ export default function TabBar({ activeTab }) {
      is the same drawer - so both entries are identical in each and are
      declared once here rather than retyped three times.
 
-     `action: true` IS THE WHOLE DIFFERENCE between Search and the other
-     three. It carries no `path` and no route, so:
-       · the click handler opens the drawer instead of navigating;
-       · `isActive` is forced false, so it can never take the indicator;
-       · `activeTab` has no key that names it, and no screen passes one.
-     See THE SEARCH TAB REPLACES MORE at the top of this file.
+     `action: true` IS GONE — 2026-11-09. Search carries `path: '/search'` and
+     is an ordinary destination: it navigates, it can be lit, and `activeTab`
+     has a key that names it. SearchScreen owns that route. The three bullets
+     this comment used to carry (no path, forced-false isActive, no key) were
+     the old contract and are reversed in SEARCH IS A DESTINATION NOW at the
+     top of this file, together with what it costs the drawer.
+
+     THE KEY IS UNCHANGED at 'search', which is what keeps every existing
+     consumer working with zero edits: no screen passed `activeTab="search"`
+     before (the tab could not be lit), so adding a destination to the key
+     cannot change what any of the ~25 mounts already does.
 
      MORE IS GONE FROM THIS BAR as of 2026-11-07, replaced here by Search on
      the owner's instruction. /more and MoreComingSoonScreen are NOT deleted -
      see the orphaning flag at the top. Its key was 'more' and nothing else in
      the repo passes `activeTab="more"` except MoreComingSoonScreen itself,
      which now lights no tab at all. */
-  const SEARCH = { key: 'search', label: t('tabs.search'), a11yLabel: t('drawer.search_label'), action: true, Icon: Search };
+  const SEARCH = { key: 'search', label: t('tabs.search'), a11yLabel: t('drawer.search_label'), path: '/search', Icon: Search };
   const PROFILE = { key: 'profile', label: t('tabs.profile'), path: '/account', Avatar: true };
 
   const TABS_FULL = [
@@ -686,7 +910,7 @@ export default function TabBar({ activeTab }) {
       label: t('tabs.home'),
       path: homeTarget.path,
       match: p => p === '/' || p.startsWith('/location/'),
-      Icon: LayoutGrid,
+      Icon: House,
     },
     /* SECOND, immediately right of Dashboard - the owner said where, not just
        what: "replace the 'More' ... With Search -locate right to dashboard".
@@ -696,7 +920,7 @@ export default function TabBar({ activeTab }) {
     PROFILE,
   ];
   const TABS_TENANT = [
-    { key: 'home',    label: t('tabs.home'),   path: '/tenant',  Icon: LayoutGrid },
+    { key: 'home',    label: t('tabs.home'),   path: '/tenant',  Icon: House },
     SEARCH,
     { key: 'events',  label: t('tabs.alerts'), path: '/alerts',  Icon: Bell },
     PROFILE,
@@ -716,7 +940,7 @@ export default function TabBar({ activeTab }) {
      The CLEAR in onClick still applies to them; only the destination differs. */
   const tenantTabs = isTenant && visibleSystems.length === 1
     ? [
-        { key: 'home',    label: t('tabs.home'),   path: `/system/${visibleSystems[0].id}`, Icon: LayoutGrid },
+        { key: 'home',    label: t('tabs.home'),   path: `/system/${visibleSystems[0].id}`, Icon: House },
         SEARCH,
         { key: 'events',  label: t('tabs.alerts'), path: '/alerts',                          Icon: Bell },
         PROFILE,
@@ -725,50 +949,28 @@ export default function TabBar({ activeTab }) {
 
   const tabs = isTenant ? tenantTabs : TABS_FULL;
 
-  /* THE FALLBACK DRAWER, and it is the honest half of the Search tab.
-     requestDrawerSearch() returns false on the TEN live routes that mount
-     this bar and no drawer at all — /account, /alerts, /alerts/system/:id,
-     /kpi/:type, /leak/:id, /l4/:l4id, /more, /home-clear, /home-multi and
-     /home-legacy. (Measured in the running app, 2026-11-07; the full
-     twenty-route sweep is in drawerSearch.js.) Without this, Search would be
-     a button that does nothing on all ten — and since it is the drawer's only
-     door, the drawer would be unreachable on half the app. Rule 0 of the
-     contract and §0 of wint-ui-copy both forbid shipping that.
+  /* THE FALLBACK DRAWER IS GONE — 2026-11-09, with the Search tab's route.
+     It existed because Search was an ACTION that asked the drawer on this
+     route to open, and ten live routes mount this bar and no drawer at all
+     (/account, /alerts, /alerts/system/:id, /kpi/:type, /leak/:id, /l4/:l4id,
+     /more, /home-clear, /home-multi, /home-legacy — the twenty-route sweep is
+     in drawerSearch.js). On those ten the tab would have been dead, so it
+     mounted a WintSidebarV2 of its own, lazily, keyed on the route it was
+     opened at so a route change closed it with no useEffect.
 
-     MOUNTED LAZILY, and that is not an optimisation. A drawer that is always
-     in the tree would be a SECOND drawer on the ten routes that already
-     have one: duplicate [data-drawer-target] rows (four suites read those
-     with querySelector, which takes the first match), a second copy of the
-     103-system tree on every screen, and two drawers whose expansion and
-     query state drift apart. Nothing is rendered until a tap goes unanswered,
-     so on a route with its own drawer this stays null forever.
+     *** NOTHING IN THIS FILE REPLACES IT. *** Search navigates to /search now,
+     so the drawer has no door here at all — on those ten routes it has no door
+     anywhere unless the header provides one. That is flagged for the owner at
+     the top of this file under SEARCH IS A DESTINATION NOW, with the four
+     suites it breaks named. The mechanism is not demolished: drawerSearch.js
+     is untouched, both listeners still answer, and restoring the old behaviour
+     is one import plus the two lines in onClick.
 
-     It is a SIBLING of the host, never a child of it: HOST is `relative` and
-     only TAB_BAR_CLEARANCE tall, so a panel with `inset-y-0` inside it would
-     be 93px tall instead of full height (and zero, back when the host was
-     `h-0`). Out here the drawer pins to the page root or to the Phone frame,
-     which is what WintSidebarV2 expects. Its scrim is z-10 and its panel
-     z-[11], both above this bar's z-index:auto, so the open drawer covers the
-     pill exactly as a screen-owned drawer does.
-
-     THE STATE IS THE ROUTE IT WAS OPENED AT, not a boolean, and that single
-     choice does three jobs with no `useEffect` at all (which this config
-     rejects outright — react-hooks/set-state-in-effect is an error):
-       · a route change closes it, by a comparison evaluated during render;
-       · it unmounts when closed, so it can never still be listening for the
-         Search event after the user walks onto a route that HAS a drawer —
-         two drawers answering one tap would open both;
-       · nothing is in the tree until the first unanswered tap.
-     THE COST, stated because it is visible: mounting already-open means no
-     250ms slide-in and no slide-out, so on those ten routes the drawer
-     appears and disappears rather than sliding. A screen-owned drawer stays
-     mounted and does slide. Accepted over the alternative, which is a second
-     drawer that is sometimes live on a route that already has one. */
-  const [fallbackAt, setFallbackAt] = useState(null);
-  const fallbackOpen = fallbackAt !== null && fallbackAt === location.pathname;
+     WHY IT IS NOT KEPT ALONGSIDE THE NAVIGATION. One control, one outcome. A
+     tab that both opened a drawer and changed the route would do the thing the
+     owner replaced AND the thing he asked for, on every tap. */
 
   return (
-    <>
     <div className={HOST} data-name="tabbar-host">
       <div className={PILL} data-name="tabbar-pill">
         {tabs.map(tab => {
@@ -776,12 +978,13 @@ export default function TabBar({ activeTab }) {
              per-user while its routes are fixed — see TABS_FULL. Everything
              else keeps the original exact-path test.
 
-             AN ACTION TAB IS NEVER ACTIVE, checked first so neither branch
-             below can reach it. Search changes no route, so an indicator on
-             it would claim a location the user is not at. */
-          const isActive = tab.action
-            ? false
-            : activeTab
+             THE `tab.action` ARM IS GONE, 2026-11-09: there is no action tab
+             any more. All four destinations are ordinary, so all four light
+             by the same two rules — the explicit `activeTab` prop when a
+             screen passes one, the pathname otherwise. Search falls out of
+             that with no special case: its path is '/search', so SearchScreen
+             can pass `activeTab="search"` or let the fallback light it. */
+          const isActive = activeTab
             ? activeTab === tab.key
             : (tab.match ? tab.match(location.pathname) : location.pathname === tab.path);
           const Icon = tab.Icon;
@@ -792,27 +995,19 @@ export default function TabBar({ activeTab }) {
             <Button
               key={tab.key}
               variant="ghost"
-              /* THE ONLY aria-label IN THIS FILE, and only on the action tab.
+              /* THE ONLY aria-label IN THIS FILE, and still only on Search.
                  An aria-label REPLACES content for name computation, which is
                  why the other three must not have one — it would mute the
                  Alerts badge (see the span below). Search carries no badge
                  and no count, so there is nothing here for it to swallow.
-                 `Search locations and systems` rather than `Search`: WCAG
-                 2.5.3 Label in Name is satisfied (the visible "Search" is
-                 contained in it) and wint-ui-copy §5 wants the control named
-                 for what it acts on. */
+                 `Search locations and systems` is kept verbatim through the
+                 2026-11-09 change: it is catalogued copy (drawer.search_label)
+                 that still describes the destination, and wint-ui-copy §0
+                 forbids coining a replacement. WCAG 2.5.3 Label in Name no
+                 longer constrains it either way - with the labels back to
+                 sr-only there is no visible label to contain. */
               aria-label={tab.a11yLabel}
               onClick={() => {
-                /* SEARCH ACTS; IT DOES NOT NAVIGATE. It asks the drawer on
-                   this route to open with its search field open and focused,
-                   and only mounts one of its own if this route has none. No
-                   navigate(), and deliberately no clearSelectedScope() —
-                   opening a search is not going home, and the scope rule
-                   below applies to the Dashboard tab alone. */
-                if (tab.action) {
-                  if (!requestDrawerSearch()) setFallbackAt(location.pathname);
-                  return;
-                }
                 // Bottom-tab tap NEVER mutates scope. Scope is owned by the
                 // drawer (set by drill-down) and the breadcrumb (cleared via
                 // 'My Systems' tap). Dashboard and Alerts share one scope and
@@ -845,62 +1040,68 @@ export default function TabBar({ activeTab }) {
               className={cn(TAB, isActive ? 'text-primary' : 'text-muted-foreground')}
             >
               {/* The label is deliberately the FIRST child and the FIRST <span>
-                  in the button; `order-2` is what puts it back UNDER the glyph.
-                  Four DOM tests pick the tab by
+                  in the button. FIVE DOM suites pick the tab by
                   `button.querySelector('span').textContent`
                   (scopePersistsAcrossTabs, scopePersistsThroughDrawer,
-                  systemImplicitScope, drawerLocationHighlight), and the count
-                  badge has to live INSIDE the glyph box to be positioned off its
-                  corner — so the glyph box moved behind the label rather than
-                  the badge being bent into some other element. Line-height goes
-                  AFTER the font size — twMerge drops a leading-* that precedes
-                  one.
+                  systemImplicitScope, drawerLocationHighlight,
+                  accountScreenV2), and the count badge has to live INSIDE the
+                  glyph box to be positioned off its corner — so the glyph box
+                  sits behind the label rather than the badge being bent into
+                  some other element.
 
-                  It is also the tab's ACCESSIBLE NAME, which is why there is no
-                  `aria-label` on the Button: an aria-label REPLACES an
-                  element's content for name computation, so the Alerts tab
-                  would stop announcing its count - the badge's own aria-label
-                  composes into the name only while that name comes from
-                  content. */}
-              <span className={cn('order-2 text-[11px] leading-[16.5px]', isActive ? 'font-semibold' : 'font-medium')}>
+                  `sr-only` SINCE 2026-11-09, AND IT IS NOT A DELETION. Node
+                  200067:39019 holds four glyphs and no text node, so the
+                  labels come out of the layout - but they are still the four
+                  tabs' ACCESSIBLE NAMES, which is why there is no `aria-label`
+                  on the Button: an aria-label REPLACES an element's content
+                  for name computation, so the Alerts tab would stop announcing
+                  its count - the badge's own aria-label composes into the name
+                  only while that name comes from content. The strings are
+                  unchanged and still come from the catalogue (`tabs.*`), so
+                  nothing here needs the owner's approval. Making them visible
+                  again is `order-2 text-[11px] leading-[16.5px]` plus the
+                  600/500 weight pair in place of `sr-only` - and line-height
+                  goes AFTER the font size, because twMerge drops a leading-*
+                  that precedes one.
+
+                  sr-only is `position: absolute`, so the span is out of flow
+                  and the indicator below is the button's only in-flow child.
+                  That is what centres the glyph without a flex-col. */}
+              <span className="sr-only">
                 {tab.label}
               </span>
-              {/* M3's active indicator. Drawn ONLY for the active tab — four
-                  indicators would be no active state at all. The inner 21px
-                  box, not this one, stays the badge's positioning context, so
-                  the frame's left-15 / top--7 are still measured off the GLYPH
+              {/* THE ACTIVE INDICATOR, which is now the item box itself —
+                  79.25 x 48 in the frame, h-[48px] w-full here. Drawn ONLY for
+                  the active tab; four indicators would be no active state at
+                  all. The inner 28px box, not this one, stays the badge's
+                  positioning context, so the badge is measured off the GLYPH
                   and did not have to move when the indicator grew around it. */}
-              <div className={cn(INDICATOR, isActive && 'bg-primary/15')}>
-                {/* size-[21px] also opts the glyph out of the Button preset's
+              <div className={cn(INDICATOR, isActive && 'bg-primary/16')}>
+                {/* size-[28px] also opts the glyph out of the Button preset's
                     `[&_svg:not([class*='size-'])]:size-4`, which would otherwise
-                    shrink it to 16px. */}
-                <div className="relative size-[21px]">
-                  {/* THE FILL EASES WITH THE COLOUR, on the <Icon> branch
-                      below. Carried over from the motion pass on main, which
-                      this tab bar predates: the Button preset transitions
-                      `color`, but `fill` is set per-element here and is not in
-                      that list, so the glyph filled INSTANTLY while its tint
-                      faded. The two have to move together or the swap looks
-                      broken at the halfway point.
-
-                      --dur-fast, not slower: this is a high-frequency control,
-                      and Apple is explicit that frequent interactions should
-                      not be made to wait on motion. iOS cuts tab content with
-                      no animation at all; easing the glyph's own state is as
-                      far as this should go. */}
+                    shrink it to 16px. 28 is the frame's glyph box. */}
+                <div className="relative size-[28px]">
+                  {/* NO `fill`, AND NO `transition-[fill]` — 2026-11-09.
+                      200067:39019 draws the active glyph as an OUTLINE in
+                      --primary on the tinted panel, so there is no fill to
+                      ease any more and the colour fade on the Button's own
+                      `transition-all` is the whole motion. The block this
+                      replaces is kept at ICONS above: it explained that the
+                      fill eased with the colour because the Button preset
+                      transitions `color` and not `fill`, which is still true
+                      of anyone who puts a fill back. */}
                   {tab.Avatar ? (
-                    /* The face, in the same 21px box the line icons get.
+                    /* The face, in the same 28px box the line icons get.
                        `text-[8px]` is the initials fallback scaled off
                        MobileHeaderBar's 11px-at-28 and AlertsHeaderBar's
                        13px-at-38 - it is only ever seen if the portrait
-                       fails to load. */
-                    <PersonaAvatar size={21} initialsClassName="text-[8px]" />
+                       fails to load. The frame's own avatar is 31x32 inside
+                       the 48px item; 28 keeps the row even with the three
+                       glyphs beside it, which is the rule this bar has
+                       followed since Profile joined. */
+                    <PersonaAvatar size={28} initialsClassName="text-[8px]" />
                   ) : (
-                    <Icon
-                      className="size-[21px] transition-[fill] duration-(--dur-fast) ease-linear"
-                      strokeWidth={1.8}
-                      fill={isActive ? 'currentColor' : 'none'}
-                    />
+                    <Icon className="size-[28px]" strokeWidth={2} />
                   )}
                   {showBadge && (
                     /* A bare "4" announces as nothing, so the badge carries its
@@ -924,7 +1125,15 @@ export default function TabBar({ activeTab }) {
                     <span
                       data-name="alerts-count"
                       aria-label={t('tabs.alerts_badge', { count: alertCount, formatted })}
-                      className="absolute left-[15px] top-[-7px] flex h-[16px] min-w-[16px] items-center justify-center rounded-[8px] bg-destructive px-[4px] text-center text-[10px] leading-none font-bold text-destructive-foreground tabular-nums"
+                      /* `left-[22px]` tracks the 28px glyph box the way
+                         `left-[15px]` tracked the 21px one: the badge's left
+                         edge sits 6px inside the box's right edge, so 6px of
+                         it overlaps the glyph and 10px hangs off. It stays
+                         inside the pill - the glyph is centred in a 77.25px
+                         column, so the badge's right edge lands ~63.6px in,
+                         and `top-[-7px]` against the item's own 10px of top
+                         padding keeps it 3px clear of the pill's inner edge. */
+                      className="absolute left-[22px] top-[-7px] flex h-[16px] min-w-[16px] items-center justify-center rounded-[8px] bg-destructive px-[4px] text-center text-[10px] leading-none font-bold text-destructive-foreground tabular-nums"
                     >
                       {formatted}
                     </span>
@@ -936,11 +1145,5 @@ export default function TabBar({ activeTab }) {
         })}
       </div>
     </div>
-    {/* Mounted only while open — see the FALLBACK block above for why that is
-        a correctness requirement here and not a tidiness one. */}
-    {fallbackOpen && (
-      <WintSidebarV2 open searchOnOpen onClose={() => setFallbackAt(null)} />
-    )}
-    </>
   );
 }

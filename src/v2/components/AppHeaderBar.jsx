@@ -328,11 +328,96 @@ export default function AppHeaderBar({
       coming back rather than because it is live. Everything else should use
       `onBack` rather than hand-rolling a control into this slot. */
   leading,
+  /** THE SURFACE TREATMENT — ADDITIVE, 2026-11-09, from nodes 200067:38981 /
+      200047:135462 / 200067:37938. The skeleton does NOT vary: same row, same
+      three slots, same order, same `py-[8px]`. Only the ground under it and
+      the ink on it do. This is the owner's 2026-11-04 ruling expressed as
+      variants of the one bar - "It always needs to be the same" - and not as
+      a second component.
+
+        'ground'  DEFAULT, and it is today's bar byte for byte: no container,
+                  no radius, no blur, no veil, slate-800 title, the outline
+                  Badge. Every existing call site resolves here and renders
+                  exactly what it rendered before this prop existed.
+
+        'muted'   Node 200047:135462, the General info screen: a rounded-full
+                  bar with an OPAQUE tint and dark (slate-600) ink. No
+                  multiply. The tint colour comes from `surfaceTint`.
+
+        'onColor' Nodes 200067:38981 (Home) and 200067:37938 (System): a
+                  translucent rounded-full veil over a COLOURED HERO, with
+                  light ink (--ink-on-color). The veil is `mix-blend-multiply`
+                  and its colour comes from `surfaceTint`.
+
+      ⚠ 'onColor' NEEDS A COLOURED HERO BEHIND IT, and today no page puts one
+        there. Both frames paint this bar ON the hero; the shipped pages mount
+        it as a `shrink-0` sibling ABOVE their one scroll container, with the
+        hero as the first thing INSIDE that scroller (SystemPageV2Screen.jsx
+        :2158). `mix-blend-multiply` over the plain page ground darkens the
+        page, not a hero. Moving the bar onto the hero is a change to
+        SystemPageV2Screen.jsx / HomeAllAccounts.jsx, which this component
+        does not own and must not make. Until a page does it, 'onColor' is
+        available and unused - which is why the default is 'ground'. */
+  surface = 'ground',
+  /** The veil / tint colour, as a RAW CSS COLOUR passed to an inline style -
+      deliberately NOT a Tailwind utility.
+
+      WHY NOT A UTILITY. Tailwind v4 emits NO CSS and NO error for a utility
+      naming a colour that is not registered as `--color-<name>` in
+      `@theme inline`, and that has silently broken this repo three times.
+      None of the three frames' surface colours are registered (#9dbbd9,
+      #dae1eb, rgba(217,96,100,0.76)), so there is no safe utility to write.
+      An inline style sidesteps the whole class of failure: it either paints
+      or it is visibly absent.
+
+      WHY THE PAGE OWNS IT AND NOT THIS FILE. The veil is a tint of the HERO
+      it sits on - blue on Home, red on System. A header that hard-codes two
+      hero colours knows about screens, which is exactly what "one header"
+      argues against, and it goes wrong the moment a hero is recoloured. The
+      page knows its hero, so the page passes the colour, ideally as
+      `var(--some-token)` rather than a literal.
+
+      Omitted, NO veil and NO tint is painted: the bar still takes its radius,
+      padding and blur, and nothing invents a colour. That is deliberate - a
+      missing tint must look unfinished, not plausible. */
+  surfaceTint,
   className,
 }) {
   /* `label` is the old spelling. `??` and not `||` so a caller may legitimately
      render an empty title without it silently falling back to the alias. */
   const scopeName = title ?? label
+
+  /* ── THE THREE SURFACES, RESOLVED ONCE ──────────────────────────────────
+     `onColor` and `muted` both take the frames' rounded-full chip; `ground`
+     takes nothing, so the default className string below is unchanged from
+     before this block existed and the suite's `py-[8px]` / no-`absolute`
+     assertions on the bar still describe it.
+
+     THE PADDING IS WRITTEN `px-[8px] py-[8px]` AND NOT `p-[8px]`, even though
+     200067:37938 spells the shorthand and the two compute identically.
+     appHeaderBar.dom.test.jsx:473 asserts the bar's class string MATCHES
+     /py-\[8px\]/ - the collapsing-header regression guard - and `p-[8px]`
+     does not match that pattern. Same pixels, and the guard keeps working.
+
+     THE SIDE PADDING DISAGREES BETWEEN THE FRAMES: 11px on 200067:38981 and
+     200047:135462, 8px on 200067:37938. 8 is taken for both because the
+     trailing badge's own px-2 already stands the word off the edge, and
+     because a 3px difference between two variants of one bar is the kind of
+     thing that reads as a bug later. Recorded, not silently normalised. */
+  const onColor = surface === 'onColor'
+  const chip = onColor || surface === 'muted'
+
+  /* The ink. `text-ink-on-color` is #fafbfc, which is 200067:37938's
+     `text-[#fafbfc]` EXACTLY. 200067:38981 spells #f8fafc (slate-50) for the
+     same job - a different hex, imperceptibly (slate-50 is not registered in
+     @theme inline, so there is no `text-slate-50` to write even if it were
+     wanted). One token covers both on-colour frames. */
+  const titleInk = onColor ? 'text-ink-on-color' : surface === 'muted' ? 'text-slate-600' : 'text-slate-800'
+  /* 200067:37938 puts the eyebrow in the SAME ink as the title - the whole
+     text column is `text-[#fafbfc]` - rather than the muted grey it takes on
+     the page ground. On a tinted hero there is no muted grey that stays
+     legible, so the column goes one colour, as the frame has it. */
+  const eyebrowInk = onColor ? 'text-ink-on-color' : 'text-muted-foreground'
 
   /* THE BADGE'S VISIBLE WORD COMES FROM THE CATALOGUE, not from the node's
      literal, and this is the ONE string this file resolves for itself.
@@ -360,15 +445,109 @@ export default function AppHeaderBar({
 
   return (
     <div
-      className={cn('flex w-full items-center justify-between gap-[8px] py-[8px]', className)}
+      className={cn(
+        'flex w-full items-center justify-between gap-[8px] py-[8px]',
+        /* `relative` is POSITION ONLY - no z-index - so it creates no stacking
+           context and the drawer (10/11) and overlay (50/300) tiers are
+           untouched. It is here because the veil is `absolute inset-0` and
+           needs a positioned ancestor. It is added only on a chip surface, so
+           the default class string stays exactly what it was. */
+        chip && 'relative rounded-full px-[8px]',
+        /* ⚠ THE BLUR LIVES ON THE VEIL, NEVER ON THIS ROOT — FIXED 2026-11-09.
+           DO NOT "TIDY" IT BACK UP HERE. It was on the root for both chip
+           surfaces for exactly one afternoon and it silently killed the blend
+           on every on-colour surface.
+
+           WHY. `backdrop-filter` makes an element a BACKDROP ROOT and a
+           stacking context, and that ISOLATES a descendant's `mix-blend-mode`.
+           With the blur here, the veil no longer had the hero in its backdrop
+           group - it multiplied against this root's own transparent
+           background, and multiplying against nothing emits the source colour
+           unchanged. So the veil painted its raw tint as a flat band and the
+           hero showed through nowhere.
+
+           MEASURED, not reasoned: over HomeAllAccounts' `#1267fa` hero the bar
+           read `#9dbbd9` - the raw tint, flat, and LIGHTER than the hero, which
+           a multiply can never be. Predicted multiply `#0b4cd5`; with this
+           blur removed the bar reads `#0c4fd4`. Three samples, one variable
+           each, pinned it to this class and not to the veil's own blur.
+
+           ⚠ A CLASS-STRING ASSERTION CANNOT SEE THIS. Every class was spelled
+             correctly and every computed style was correct; only the composited
+             pixel was wrong. That is how it shipped. The guard is the pixel
+             test, not this comment.
+
+           THE NODES AGREE AND ALWAYS DID. 200067:38981 and 200067:37938 put
+           `backdrop-blur-[3.5px]` on the VEIL CHILD and nothing on the root.
+           Hoisting it here was my invention, not the frames'.
+
+           `muted` IS THE EXCEPTION, and it is the frame's exception, not a
+           workaround: 200047:135462 has NO veil child and NO blend at all - it
+           paints `#dae1eb` opaquely - so its blur has to be on the root, and
+           with no `mix-blend-mode` anywhere beneath it there is nothing for the
+           backdrop root to isolate. */
+        surface === 'muted' && 'backdrop-blur-[3.5px]',
+        className,
+      )}
+      /* `muted` paints its tint DIRECTLY and opaquely (200047:135462 has no
+         veil child and no multiply); `onColor` paints nothing here and lets
+         the veil child below do it under `mix-blend-multiply`. */
+      style={surface === 'muted' && surfaceTint ? { backgroundColor: surfaceTint } : undefined}
+      data-surface={surface}
       data-node-id="200013:91526"
       data-name="app-header-bar"
     >
+      {/* ── THE VEIL — 200067:38981's and 200067:37938's own child ──────────
+          `aria-hidden` + `pointer-events-none`, both the frames', and both
+          load-bearing rather than decorative: this element covers the whole
+          bar, so without `pointer-events-none` it would eat every tap meant
+          for the back disc and the More badge, and a screenshot would look
+          perfect while nothing in the header answered. It is the same class of
+          invisible dead-tap the tab bar's opaque strip caused.
+
+          NO z-index. It is `absolute inset-0` and it comes FIRST in DOM
+          order, so the two controls after it paint over it by document order
+          alone. Giving it a negative z-index would also work and would also
+          create the one thing this file is not allowed to introduce.
+
+          `mix-blend-multiply` is the frames'. It is what makes the veil read
+          as a tint OF the hero rather than a sheet ON it - and it is also why
+          this variant is meaningless without a hero: multiply against the
+          plain page ground just darkens the page. */}
+      {onColor && surfaceTint ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-full mix-blend-multiply backdrop-blur-[3.5px]"
+          style={{ backgroundColor: surfaceTint }}
+          data-name="app-header-veil"
+        />
+      ) : null}
+
       {/* THE LEADING GROUP. `min-w-0 flex-1` is what lets the title's ellipsis
           engage at all: without it this group lays out at its intrinsic width,
           shoves the badge off the right edge, and `truncate` never fires —
           the failure scripts/check-text-overflow.mjs exists to catch. */}
-      <div className="flex min-w-0 flex-1 items-center gap-[8px]" data-name="app-header-leading">
+      {/* ⚠ `relative` WHEN THERE IS A VEIL, AND IT IS NOT COSMETIC. CSS paints
+          positioned descendants AFTER non-positioned ones within a stacking
+          context, REGARDLESS OF DOM ORDER - the same rule that deletes the
+          floating tab bar when a scroller takes a z-index. The veil above is
+          `position: absolute`; this group and the badge are flex items, i.e.
+          non-positioned. So without `relative` here the veil paints OVER the
+          text, `mix-blend-multiply` multiplies the white title by the tint,
+          and the title disappears into the hero.
+
+          `relative` makes these two positioned as well, at z-index auto, so
+          they paint after the veil by document order - which is why BOTH
+          Figma frames put `relative` on their content children too
+          (200067:38982, 200067:37939). No z-index is added: that is the one
+          thing this file may not introduce, and it is not needed.
+
+          Conditional on `chip` so the default surface's class string is
+          unchanged from before this prop existed. */}
+      <div
+        className={cn('flex min-w-0 flex-1 items-center gap-[8px]', chip && 'relative')}
+        data-name="app-header-leading"
+      >
         {/* I200013:91526;199999:97404 — a 30px disc, `bg-white border
             border-solid border-white`, holding a 24px Tabler chevron-left
             (I200013:91526;199999:97405). lucide's ChevronLeft is this repo's
@@ -457,7 +636,10 @@ export default function AppHeaderBar({
               shows. */}
           {eyebrow ? (
             <p
-              className="w-full truncate text-left font-sans font-normal text-muted-foreground text-[12px] leading-[18px]"
+              className={cn(
+                'w-full truncate text-left font-sans font-normal text-[12px] leading-[18px]',
+                eyebrowInk,
+              )}
               dir="auto"
               data-node-id="I200013:91526;199999:97325"
               data-name="app-eyebrow"
@@ -493,7 +675,10 @@ export default function AppHeaderBar({
               class is explicit rather than inherited so a parent change
               cannot quietly re-centre it. */}
           <p
-            className="w-full truncate text-left font-mono-label font-semibold text-slate-800 text-[18px] leading-[24.75px] tracking-[-0.45px]"
+            className={cn(
+              'w-full truncate text-left font-mono-label font-semibold text-[18px] leading-[24.75px] tracking-[-0.45px]',
+              titleInk,
+            )}
             dir="auto"
             data-node-id="I200013:91526;199999:97327"
             data-name="app-scope"
@@ -565,6 +750,40 @@ export default function AppHeaderBar({
             badgeVariants({ variant: 'outline' }),
             'h-[24px] shrink-0 cursor-pointer rounded-[26px] border-slate-600',
             'outline-none focus:ring-0 focus-visible:ring-[3px] focus-visible:ring-ring/50 active:opacity-60',
+            /* ── THE BADGE ON A CHIP SURFACE ──────────────────────────────
+               A WHITE PILL WITH DARK INK, which is what 200067:38981 (Home)
+               and 200047:135462 (General info) both draw: `bg-white` with
+               `--colors/black` ink, no border.
+
+               ⚠ 200067:37938 (System) DISAGREES AND IS NOT FOLLOWED HERE.
+                 That frame gives the badge NO background at all and WHITE
+                 ink - it even ships a differently-stroked menu-01 asset
+                 (ad2b3.svg, white) where the other two use c1ac9.svg
+                 (black). Two of the three frames draw the pill, including
+                 the OTHER on-colour frame, so the pill is taken and the
+                 disagreement is reported rather than quietly resolved. If
+                 the owner wants the bare treatment on System, that is one
+                 more surface value, not an edit to this one.
+
+               `bg-card` / `text-card-foreground` rather than the frames'
+               literal `white` / `black`: those are the repo's registered
+               tokens for this exact pairing, they are what the back disc
+               beside it already uses (`border-card bg-card`), and they stay
+               correct in dark mode where a hard-coded white pill would not.
+               `--card-foreground` is a near-black slate rather than #000, a
+               deliberate 1-step substitution recorded here.
+
+               `border-transparent` overrides `border-slate-600` above -
+               tailwind-merge keeps the later colour - because none of the
+               three frames draws a border on the badge. The border BOX stays,
+               so the pill still measures 24px tall inside and out.
+
+               `relative` is the same painting-order fix as on the leading
+               group above - position only, no z-index - without which the
+               veil paints over this control and multiplies it away. The frames
+               carry it too (200067:38984 is `sticky top-0`, 200047:135467 and
+               200067:37948 are `relative`). */
+            chip && 'relative border-transparent bg-card text-card-foreground',
           )}
           data-node-id="I200013:91526;199999:97301"
           data-name="app-more"

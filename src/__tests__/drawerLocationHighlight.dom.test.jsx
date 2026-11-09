@@ -54,6 +54,37 @@ function ContextProbe() {
   return null;
 }
 
+/* `/search` IS A ROUTE IN THESE ROUTERS AS OF 2026-11-09, AND IT HAS TO BE.
+   READ THIS BEFORE DELETING IT.
+
+   The Search tab stopped dispatching the drawer event that day and became an
+   ordinary link to `/search` (TabBar.jsx, src/v2/pages/SearchScreen.jsx). A
+   `<MemoryRouter>` with no such path answers the tab's navigate() with
+   "No routes matched location /search" and renders NOTHING, so HomeUnified -
+   and with it the drawer this file is entirely about - is torn off the page
+   mid-test. Every failure here read as `header.click()` on null at
+   pickFirstAccountCardHeader, which is a missing route wearing the costume of
+   a broken drawer.
+
+   WHY THE ELEMENT IS HomeUnified AND NOT SearchScreen, stated plainly because
+   it is the one thing here that is not literally true of the app. The real
+   /search renders SearchScreen, which mounts NO drawer at all - that is the
+   whole point of the redesign, and it is pinned where it belongs, in
+   dashboardHeaderBar.dom.test.jsx and valveCommitReachable.dom.test.jsx. This
+   file's subject is the drawer's selected-location HIGHLIGHT, so what it needs
+   from /search is only that the tab's navigation does not demolish the screen
+   under test. The same screen stands in, and the suite goes on measuring the
+   one thing it was written to measure.
+
+   WHAT THAT COSTS, so nobody discovers it as a surprise: the tab no longer
+   OPENS the drawer, here or in the app, so these cases now read the highlight
+   off a drawer that is mounted and closed rather than mounted and open. No
+   assertion is weaker for it - the stripe chrome is rendered from
+   `selectedScope` / `currentSystemId` and never from the open state, and
+   happy-dom has no layout engine, so presence of the chrome is what every
+   assertion below has always measured. HomeUnified's own v1 `Switch location`
+   badge (ScopeHeader.jsx:48) is still a live door if a future pass wants the
+   open state back; see the note at openDrawer(). */
 function renderApp(personaId, startRoute = '/') {
   localStorage.setItem('pulse2-persona-id', personaId);
   return render(
@@ -64,6 +95,7 @@ function renderApp(personaId, startRoute = '/') {
           <Routes>
             <Route path="/" element={<div><HomeUnified /></div>} />
             <Route path="/alerts" element={<div><EventsScreen /></div>} />
+            <Route path="/search" element={<div><HomeUnified /></div>} />
           </Routes>
         </UserProvider>
       </ThemeProvider>
@@ -130,6 +162,26 @@ function findTabButton(label) {
    The tap goes through the real mechanism, not a shortcut: the Search tab
    dispatches the cancelable window event in src/components/drawerSearch.js
    and the drawer this screen mounts claims it and opens itself.
+
+   *** THE THIRD BULLET STOPPED BEING TRUE ON 2026-11-09, AND THE PARAGRAPH
+       ABOVE IT WITH IT. *** The navigation redesign made the Search tab an
+       ordinary link to `/search` (TabBar.jsx; SearchScreen.jsx), so it no
+       longer dispatches anything and no longer opens any drawer. The two
+       paragraphs above are kept as the record of what this helper was for -
+       the name is still the one contract name, and the count assertion below
+       still stops a second control claiming it - but what `openDrawer()` does
+       now is NAVIGATE. The routers below answer that navigation with a
+       HomeUnified of their own so the drawer stays mounted; the reasoning, and
+       what it costs, is at renderApp().
+
+       THE NAME IS STILL CORRECT AND IS NOT RE-AIMED. `Search locations and
+       systems` is the Search tab's accessible name before and after the
+       change, and this file reaching the drawer through the tab is still the
+       honest description of where a user's finger goes. If the open state is
+       ever needed here again, HomeUnified's v1 ScopeHeader badge
+       (`Switch location`, ScopeHeader.jsx:48) is a live door on exactly the
+       screens this file renders - which is why that name is asserted absent
+       only on EventsScreen below, and not globally.
 
    SCOPED TO `button` ON PURPOSE. The door and the field it opens deliberately
    announce alike, so once a v2 drawer is open TWO elements carry this name -
@@ -320,6 +372,12 @@ describe('Drawer location-highlight parity with system-highlight', () => {
             <Routes>
               <Route path="/" element={<div><HomeUnified /></div>} />
               <Route path="/system/:systemId" element={<div><SystemDetail /></div>} />
+              {/* Same reason as renderApp() - and here it STRENGTHENS the
+                  closing assertion rather than merely unblocking it. Without
+                  this route the final openDrawer() navigated to nothing, the
+                  drawer went with the page, and `row == null` made the last
+                  expect pass without ever looking at a drawer. */}
+              <Route path="/search" element={<div><HomeUnified /></div>} />
             </Routes>
             <TabBar />
           </UserProvider>

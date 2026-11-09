@@ -249,10 +249,12 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft,
   ArrowRight,
+  Check,
   ChevronDown,
+  Copy,
   ImagePlus,
   MapPin,
   PowerOff,
@@ -268,6 +270,7 @@ import { Button } from '@/components/ui/button'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { Separator } from '@/components/ui/separator'
 import AlertCard from '@/v2/components/AlertCard'
+import AppHeaderBar from '@/v2/components/AppHeaderBar'
 import EventsTimelineCard from '@/v2/components/EventsTimelineCard'
 import { MessageBlocked, PhotoSensor3, Waves } from '@/v2/icons'
 import wave from '@/assets/system-hero-wave.png'
@@ -401,8 +404,30 @@ const CHANNEL_LABEL = { push: 'Push', email: 'Email', sms: 'SMS' }
 
 /* The house card chassis — SystemTypeCard / ValveStatusCard / ActivePolicyCard
    / InsightsCard / EventsTimelineCard all draw this shell, at this radius. */
+/* RADIUS 22, NOT 18 — 2026-11-09. Every card node in 200067:37395 spells
+   `rounded-[var(--rounded-3xl,22px)]`: the section cards (:37453, :37454,
+   :37456), the Manage-event rows and the valve card. 18 was this file's own
+   earlier reading and it is visibly rounder in the frame. CARD_SHELL has
+   exactly one consumer in this file (<Section>), so this is a change to this
+   surface only and no other page's cards move. */
 const CARD_SHELL =
-  'w-full shrink-0 rounded-[18px] border border-solid border-card bg-surface-card'
+  'w-full shrink-0 rounded-[22px] border border-solid border-card bg-surface-card'
+
+/* The System-details chips — I200067:37453;199772:158733 and ;200067:38535,
+   the same Button instance twice: `h-[24px] px-[7px] rounded-[26px] gap-[4px]`
+   on #eef2fb, label `Figtree Medium 500 / 12 / lh 12 / #314158`, led by a 16px
+   glyph.
+
+   ⚠ THE GROUND IS `bg-accent`, WHICH IS #f2f6ff, NOT THE NODE'S #eef2fb.
+     Four units apart on two channels and imperceptible side by side, and
+     --accent is the registered pale-blue chip ground this app already uses.
+     Recorded rather than silently matched, and NOT worth a new token — a
+     utility naming an unregistered colour emits no CSS and no error, which is
+     the trap this file is under instruction to avoid.
+   The INK moves from `text-primary` (the brand blue) to slate-700 #314158,
+   which is the node's and is a real, visible change. */
+const SYS_CHIP =
+  'inline-flex h-[24px] shrink-0 cursor-pointer items-center gap-[4px] rounded-[26px] bg-accent px-[7px] text-[12px] font-medium leading-[12px] text-slate-700 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
 
 /* ── The collapsing hero, 2026-10-26 ─────────────────────────────────────────
    Owner: "stop make this area floating — I mean the red waves." The wave band
@@ -419,10 +444,46 @@ const CARD_SHELL =
    the Figma geometry below rather than guessed. Their DIFFERENCE is the point
    at which the wave's bottom edge clears the header: before it, content slides
    under a red band and reads as intended; after it, the header would float
-   over bare cards, so that is exactly when the bar takes a background. */
-const HERO_H = 207
+   over bare cards, so that is exactly when the bar takes a background.
+
+   ── REFETCHED 2026-11-09: THE GEOMETRY CHANGED IN FIGMA ────────────────────
+   Owner: "Layout and components completely doesn't look as in Figma." He is
+   right, and this band is one of the reasons. These numbers were derived from
+   node 199431:138924 — a 745x347 rect at (-172,-140) on a 402 frame, whose
+   bottom edge lands at y=207. THAT NODE IS NOT WHAT THIS FRAME DRAWS ANY MORE.
+
+   200067:37396, refetched from 200067:37395 today, is:
+
+       absolute h-[239px] left-[-56px] top-[-62px] w-[513px]
+       mix-blend-multiply rounded-[20px]
+
+   on the same 402-wide frame. So the art is SMALLER and sits HIGHER, and its
+   bottom edge lands at -62 + 239 = 177, not 207. The band is 30px shorter and
+   the red now ends directly under the hero title instead of running down
+   behind the stat tiles.
+
+   IT IS FULL-BLEED, which is the owner's own headline complaint and the same
+   one he raised on Home: left:-56 puts the art 56px LEFT of the frame and
+   513 - 56 = 457 puts its right edge 55px PAST a 402 frame, so it bleeds off
+   both sides; top:-62 bleeds it off the top, behind the status bar. The band
+   therefore takes NO page gutter and NO radius of its own — the root's
+   px-[16px] applies to the CONTENT above it, never to the art.
+
+   FLUID, NOT 402. The horizontal numbers are re-expressed as percentages of
+   the frame's own width so the bleed survives the 393 shell (and any other):
+   left -56/402 = -13.930%, width 513/402 = 127.612%. The VERTICAL numbers stay
+   in px — the shell is 2% narrower, not 2% shorter, and scaling a 239px band
+   by a width ratio would be arithmetic with no meaning behind it. */
+const HERO_H = 177
 const BAR_H = 59
 const BAR_SOLID_AT = HERO_H - BAR_H
+/* 200067:37396's own box, as percentages of the frame width (see above). */
+const HERO_ART = {
+  left: '-13.930%',
+  width: '127.612%',
+  top: -62,
+  height: 239,
+}
 
 /* ── Pure helpers (module-local: a component file may only export its
       component, per the react-refresh rule this repo lints with) ─────────── */
@@ -988,6 +1049,46 @@ function EventFlowChart({ points, peak, milestones = [], mode = 'day', lastReadi
  * neither what the control is called nor what anyone would say to a voice
  * assistant (WCAG 2.5.3). The consequence travels in aria-describedby.
  */
+/* ── REBUILT 2026-11-09 AGAINST 200067:37450 ────────────────────────────────
+   The old drawing was a HALF-WIDTH tile: `flex-[1_0_0]` inside a horizontal
+   row, so Ignore and Assign sat side by side at ~175px each, the sub-label
+   truncated to "Mark as e..." and the title had no room. The refetched frame
+   draws them STACKED and FULL-WIDTH, one under the other, 12px apart
+   (I200067:37450;199792:162493 is a `flex flex-col gap-[12px]`).
+
+   The node, atom for atom (I200067:37450;199792:162493;199898:84959):
+
+     card   bg #fafbfc, 1px white border, rounded-[22px], p-[8px],
+            h-[79px] for Ignore and h-[71px] for Assign
+     row    flex gap-[8px] h-[61px] items-center
+     ├ disc bg slate/100 #f1f5f9, rounded-[32.787px], size-[50px],
+     │      holding a 28.571px glyph (message-blocked / user)
+     └ text flex-col justify-center
+        · title  Figtree SemiBold 600 / 20 / lh 32.5 / tracking -0.5 / #1d293d
+        · sub    Figtree Medium 500 / 14 / lh 20 / #62748e
+     pill   h-[24px], px-[10px], rounded-[26px], gap-[4px], 1px BLACK border,
+            label Figtree Medium 12 / lh 12 / #0a0a0a, then a 16px
+            arrow-right-02
+
+   THE PILL IS `left-[275px]` AND ABSOLUTE IN THE EMIT, which is Figma's way of
+   saying "right-aligned": 275 + its own ~76px of content is 351, and the
+   card's inner width is 370 - 16 = 354. It is laid out here as the row's last
+   flex child with the text column taking `flex-1` instead, which lands it in
+   the same place WITHOUT hardcoding 275 or 370 — the frame is 402 wide and
+   this shell is 393, so an absolute 275 would be 9px wrong here and wrong
+   again on the next width.
+
+   ⚠ THE PILL'S BORDER IS BLACK AND ITS GROUND IS TRANSPARENT in the node
+     (`border border-black border-solid`, no bg-). It was `bg-slate-200` with
+     no border. THIS IS THE "Ignore drawn as a plain outline button" the owner
+     queued AGAINST on 2026-11-02 ("make the Ignore CTA read as dangerous").
+     The frame is implemented and the conflict stays flagged, per instruction.
+
+   THE HEIGHT IS `min-h-`, NOT `h-`. The node's 79/71 differ by 8px for
+   content reasons it does not explain, and a fixed height on a card whose
+   sub-label can wrap at 393 is how text gets clipped. The disc (50) plus the
+   card's own padding (8+8) is 66, so min-h-[71px] is the node's smaller value
+   and content drives anything taller. */
 function ManageTile({ icon, title, sub, pill, label, describedBy, onClick }) {
   return (
     <button
@@ -995,29 +1096,259 @@ function ManageTile({ icon, title, sub, pill, label, describedBy, onClick }) {
       onClick={onClick}
       aria-label={label}
       aria-describedby={describedBy}
-      className="flex h-[85px] min-w-0 flex-[1_0_0] flex-col justify-center gap-[9px] rounded-[22px] border border-solid border-card bg-surface-card px-[12px] py-[11px] text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="flex min-h-[71px] w-full shrink-0 items-center gap-[8px] rounded-[22px] border border-solid border-card bg-surface-card p-[8px] text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      data-node-id="199898:84959"
     >
-      {/* 199772:145469 — the 28px chip and the title, 2px apart. */}
-      <span className="flex w-full items-center gap-[2px]">
-        <span className="flex size-[28px] shrink-0 items-center justify-center rounded-[18.361px] bg-slate-100 text-slate-700">
-          {icon}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[20px] font-semibold leading-[32.5px] tracking-[-0.5px] text-slate-800">
+      {/* The 50px disc and its 28.571px glyph. */}
+      <span className="flex size-[50px] shrink-0 items-center justify-center rounded-[32.787px] bg-slate-100 text-slate-700">
+        {icon}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col justify-center">
+        <span className="min-w-0 truncate text-[20px] font-semibold leading-[32.5px] tracking-[-0.5px] text-slate-800">
           {title}
         </span>
-      </span>
-      {/* 199772:145476 + 199772:145475 — the sub-label, and the pill the emit
-          floated off the card, on one row. */}
-      <span className="flex w-full items-center justify-between gap-[8px]">
         <span className="min-w-0 truncate text-[14px] font-medium leading-[20px] text-slate-500">
           {sub}
         </span>
-        <span className="inline-flex h-[24px] shrink-0 items-center gap-[4px] rounded-[26px] bg-slate-200 px-[10px] text-[12px] font-medium leading-[12px] text-foreground">
-          {pill}
-          <ArrowRight size={16} aria-hidden="true" />
-        </span>
+      </span>
+      <span className="inline-flex h-[24px] shrink-0 items-center gap-[4px] rounded-[26px] border border-solid border-foreground px-[10px] text-[12px] font-medium leading-[12px] text-foreground">
+        {pill}
+        <ArrowRight size={16} aria-hidden="true" />
       </span>
     </button>
+  )
+}
+
+/* ── THE GREY SECTION LABEL — 200067:37450 / :37452 ─────────────────────────
+   A label that sits OUTSIDE and ABOVE the card it introduces, on the page
+   ground. Two of them in this frame, both identical:
+   `Figtree Medium 500 / 16 / lh 26 / tracking -0.4 / #62748e`.
+
+   ⚠ "Valve status" IS NOT ONE OF THESE, and the brief for this pass said it
+     was. I200067:37450;199792:162861;199792:162537 is
+     `Figtree SemiBold 600 / 18 / lh 24.75 / tracking -0.45 / slate-800` and it
+     sits INSIDE a white card (that card's own classes are
+     `bg-[#fafbfc] border border-white rounded-[22px] pt-[12px] pb-[16px]
+     px-[16px]`). So the frame draws exactly TWO outside-the-card grey labels,
+     "Manage event" and "Event details", and Valve status is a card heading.
+     The frame is implemented and the discrepancy reported. */
+function SectionLabel({ children, nodeId }) {
+  return (
+    <p
+      className="w-full shrink-0 text-[16px] font-medium leading-[26px] tracking-[-0.4px] text-slate-500"
+      data-node-id={nodeId}
+    >
+      {children}
+    </p>
+  )
+}
+
+/* ── THE HERO MARK — 200067:37406 ───────────────────────────────────────────
+   NEW 2026-11-09, and it is the thing the frame has that this screen simply
+   did NOT draw. Between the header chip and the stat tiles the frame puts a
+   centred 39px disc holding a 24px waves glyph, then the event's name in
+   white underneath it:
+
+     200067:37406   flex flex-col gap-[10px] items-center justify-center w-full
+     200067:37408   flex flex-col gap-[11px] items-center justify-center
+     200067:37409   bg red/100 #ffe2e2, rounded-[30px], size-[39px]
+     200067:37410   Phosphor "waves", 24px
+     200067:37411   Figtree Medium 500 / 24 / lh 24 / tracking -0.6 / #fafbfc,
+                    in a 170px box, centred
+
+   THE TITLE IS NOT NEW COPY. `alertRow.title` already resolves to the frame's
+   own short form ("High flow event" / "Low flow event") through
+   eventAlertRow's `titleForm: 'short'` — the exact string the frame prints.
+   The canonical long label still reaches the dialog's accessible name through
+   `fullTitle`, unchanged.
+
+   `w-[170px]` IS THE NODE'S and it is kept, because it is what makes the
+   title WRAP to two centred lines rather than run the width of the screen.
+   The ink is #fafbfc = `text-ink-on-color`, the same token AppHeaderBar uses
+   for its on-colour title, so the two agree on this hero.
+
+   NOT A BUTTON. Nothing in 200067:37406 is interactive and nothing here is
+   given a handler — it is the event's identity, drawn on the red. */
+function EventHeroMark({ title, glyph }) {
+  return (
+    <div
+      className="flex w-full shrink-0 flex-col items-center justify-center gap-[10px]"
+      data-node-id="200067:37406"
+    >
+      <div className="flex flex-col items-center justify-center gap-[11px]">
+        <span
+          className="flex size-[39px] items-center justify-center rounded-[30px] bg-red-100 text-red-600"
+          data-node-id="200067:37409"
+        >
+          {glyph}
+        </span>
+        <p
+          className="w-[170px] text-center text-[24px] font-medium leading-[24px] tracking-[-0.6px] text-ink-on-color"
+          data-node-id="200067:37411"
+        >
+          {title}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* ── THE STAT BLOCK — 200067:37413 "Alert card" ─────────────────────────────
+   REBUILT 2026-11-09 and this is the second big reason the owner said the
+   screen "completely doesn't look as in Figma".
+
+   ⚠ THE CARD HAS NO BACKGROUND. 200067:37413's own class string is
+     `flex flex-col gap-[20px] items-start px-[18px] py-[12px] rounded-[18px]`
+     — no `bg-`, no `border`. The WHITE is on the three tiles inside it, each
+     `bg-[#fafbfc] rounded-[16px]`. What this surface drew instead was
+     <AlertCard variant="overlay">: one bordered white card with a red hairline
+     wrapping everything, carrying the event title and an "Ongoing" pill. The
+     frame has no such wrapper and no pill here at all — the title moved up
+     onto the red as the hero mark, and the tiles float on the page ground.
+
+   The node, atom for atom:
+
+     row      200067:37416  flex gap-[12px] h-[57px] items-center w-full
+     ├ tile   200067:37417  bg #fafbfc, flex-1, rounded-[16px], pb-[3px],
+     │                      column, centred
+     │  · figure  Figtree SemiBold 600 / 21.833 / lh 35.479 / red-600 #e7000b
+     │  · unit    Figtree Medium 500 / 14 / lh 20 / #62748e, 5px after it
+     │  · caption Figtree Regular 400 / 12 / lh 16.5 / #62748e
+     └ tile   200067:37422  the same, "13,564 L / Total"
+     duration 200067:37427  bg #fafbfc, rounded-[16px], h-[35px], FULL WIDTH,
+                            gap-[2px], centred — figure and the word "Duration"
+                            on ONE row, not stacked
+     meta     200067:37431  flex items-center justify-between w-full
+        · "Detected" 12px regular #62748e, then the stamp 14px medium #0f172b
+        · "Event ID" 12px regular, then a slate/100 rounded-[5px] pill holding
+          the id at 14px medium, then a 16px copy glyph
+
+   TWO TILES THEN A FULL-WIDTH ROW, which is the shape the brief called out:
+   the duration is NOT a third equal tile.
+
+   ⚠ THE META ROW IS WHERE THE CLIPPING BUG SHOWED. At 393 the rendered line
+     read "Event IL / LK-6206763" with the copy glyph sliced off the right
+     edge — the frame's `w-[58px]` id pill assumes a 5-character id like
+     `Ik-6598` and this app's are longer (`LK-6206763`). So the pill is
+     `min-w-[58px]` with its own `truncate`, the two halves of the row are
+     `min-w-0`, and the LEFT half shrinks first: a stamp is readable truncated,
+     an id is not. Asserted by the right-edge check rather than eyeballed. */
+function EventStatBlock({ row }) {
+  /* The copy affordance, behaviour-for-behaviour the same as AlertCard's
+     <CopyEventId> (AlertCard.jsx:608) — clipboard write, a Check on success,
+     and the confirmation also announced for anyone not watching the icon.
+     It is RE-STATED rather than imported because a component file in this repo
+     may only export its own component (the react-refresh lint rule), so
+     AlertCard cannot hand this out without a second export. Flagged as the
+     one knowing duplication in this change: if a third surface needs it, it
+     should move to its own module rather than be copied again. */
+  const [copyState, setCopyState] = useState('idle')
+  const copyId = async () => {
+    try {
+      await navigator.clipboard.writeText(String(row.eventId))
+      setCopyState('done')
+    } catch {
+      setCopyState('failed')
+    }
+  }
+
+  const tiles = [
+    { figure: row.value, unit: row.unit, caption: 'Flow Rate', nodeId: '200067:37417' },
+    { figure: row.total, unit: row.totalUnit, caption: 'Total', nodeId: '200067:37422' },
+  ].filter(t => t.figure !== null && t.figure !== undefined && t.figure !== '')
+
+  return (
+    <div
+      className="flex w-full shrink-0 flex-col items-start gap-[20px] px-[18px] py-[12px]"
+      data-node-id="200067:37413"
+    >
+      <div className="flex w-full flex-col gap-[12px]">
+        {tiles.length ? (
+          <div className="flex h-[57px] w-full items-center gap-[12px]" data-node-id="200067:37416">
+            {tiles.map(t => (
+              <div
+                key={t.caption}
+                className="flex h-full min-w-0 flex-[1_0_0] flex-col items-center justify-center rounded-[16px] bg-surface-card pb-[3px]"
+                data-node-id={t.nodeId}
+              >
+                <span className="flex items-center gap-[5px]">
+                  <span className="truncate text-[21.833px] font-semibold leading-[35.479px] text-red-600">
+                    {t.figure}
+                  </span>
+                  {t.unit ? (
+                    <span className="truncate text-[14px] font-medium leading-[20px] text-slate-500">
+                      {t.unit}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="truncate text-[12px] font-normal leading-[16.5px] text-slate-500">
+                  {t.caption}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {row.duration ? (
+          <div
+            className="flex h-[35px] w-full items-center justify-center gap-[2px] rounded-[16px] bg-surface-card"
+            data-node-id="200067:37427"
+          >
+            <span className="whitespace-nowrap text-[21.833px] font-semibold leading-[35.479px] text-red-600">
+              {row.duration}
+            </span>
+            <span className="whitespace-nowrap text-[12px] font-normal leading-[16.5px] text-slate-500">
+              Duration
+            </span>
+          </div>
+        ) : null}
+
+        <div className="flex w-full items-center justify-between gap-[8px]" data-node-id="200067:37431">
+          <div className="flex min-w-0 items-center gap-[4px]">
+            <span className="shrink-0 pt-[3px] text-[12px] font-normal leading-[16.5px] text-slate-500">
+              {row.detectedLabel}
+            </span>
+            <span className="min-w-0 truncate text-[14px] font-medium leading-[20px] text-slate-900">
+              {row.detectedAt}
+            </span>
+          </div>
+          {row.eventId ? (
+            <div className="flex shrink-0 items-center gap-[4px]">
+              <span className="shrink-0 text-[12px] font-normal leading-[16.5px] text-slate-500">
+                Event ID
+              </span>
+              <span
+                className="flex h-[20px] min-w-[58px] max-w-[120px] items-center justify-center rounded-[5px] bg-slate-100 px-[4px]"
+                data-node-id="200067:37438"
+              >
+                <span className="truncate text-[14px] font-medium leading-[20px] text-slate-900">
+                  {row.eventId}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={copyId}
+                aria-label={`Copy event ID ${row.eventId}`}
+                className={`flex size-[16px] shrink-0 cursor-pointer items-center justify-center rounded-[4px] outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 ${
+                  copyState === 'done' ? 'text-success' : 'text-slate-500 hover:text-slate-700'
+                }`}
+                data-node-id="200067:37440"
+                data-copy-state={copyState}
+              >
+                {copyState === 'done' ? <Check size={16} /> : <Copy size={16} />}
+              </button>
+              <span aria-live="polite" className="sr-only">
+                {copyState === 'done'
+                  ? 'Event ID copied'
+                  : copyState === 'failed'
+                    ? 'Press and hold to copy'
+                    : ''}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1063,7 +1394,16 @@ function Section({ id, title, meta, defaultOpen = false, children }) {
            header is px-[20px] py-[12px] on a 62px row and ActivePolicyCard is
            p-[18px]; six rows at that size ate half a sheet that is already
            capped at 85%, so these take the 16/10 step instead. */
-        className="h-auto w-full justify-between rounded-none px-[16px] py-[10px] text-[14px] font-semibold text-slate-900 hover:bg-slate-100 hover:text-slate-900"
+        /* ── THE FRAME'S CARD HEADER — I200067:37454;199772:158610 ─────────
+           2026-11-09. This row was `py-[10px] text-[14px] font-semibold
+           text-slate-900` with no rule under it. The node is a 46px row,
+           `px-[16px]`, with a `border-b` in slate/200 #e2e8f0, and its title
+           is `Figtree Medium 500 / 18 / lh 28 / #45556c` — a full 4px larger,
+           a weight lighter, and grey rather than near-black. Every section
+           card in the frame carries the same header, so this one change moves
+           What should I do, Event graph, Who was notified and Device details
+           together. */
+        className="h-[46px] w-full justify-between rounded-none border-b border-solid border-slate-200 px-[16px] py-0 text-[18px] font-medium leading-[28px] text-slate-600 hover:bg-slate-100 hover:text-slate-600"
       >
         <span className="min-w-0 truncate">{title}</span>
         <span className="flex shrink-0 items-center gap-[6px] text-slate-500">
@@ -1079,7 +1419,8 @@ function Section({ id, title, meta, defaultOpen = false, children }) {
         role="region"
         aria-labelledby={headerId}
         hidden={!open}
-        className="px-[16px] pb-[14px]"
+        /* I200067:37454;199772:158611 "App" — pt-[12px] pb-[19px] px-[16px]. */
+        className="px-[16px] pb-[19px] pt-[12px]"
       >
         {/* A FUNCTION child is rendered only while the section is open. One
             section needs that: a recharts chart measured inside a `hidden`
@@ -1418,6 +1759,11 @@ export default function EventFocusOverlay({
   /* The stores are module-level and localStorage-backed, so a write does not
      re-render anything by itself. This is the repaint request, same device the
      System page uses (`bump`) and v1 uses (`forceTick`). */
+  /* The router this component already sits inside — both hosts are routed
+     pages and every test wraps it in a MemoryRouter. Added 2026-11-09 for
+     the frame's "Go to system page" chip, which neither host can pass a
+     handler for (both are do-not-edit on this pass). */
+  const navigate = useNavigate()
   const [, bump] = useState(0)
   const repaint = () => bump(n => n + 1)
 
@@ -2084,10 +2430,14 @@ export default function EventFocusOverlay({
       <div
         ref={waveRef}
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[207px] overflow-hidden will-change-transform"
-        data-node-id="199431:138924"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 overflow-hidden will-change-transform"
+        style={{ height: HERO_H }}
+        data-node-id="200067:37396"
       >
-        <div className="absolute left-[-42.79%] top-[-140px] h-[347px] w-[185.32%]">
+        <div
+          className="absolute"
+          style={{ left: HERO_ART.left, width: HERO_ART.width, top: HERO_ART.top, height: HERO_ART.height }}
+        >
           <img alt="" src={wave} className="absolute inset-0 size-full max-w-none object-cover" />
           {/* THE TINT IS THE STATE'S, 2026-10-29. The live event's two layers
               are 199431:138924's own, in the node's order: #ff7b7d blended as
@@ -2142,116 +2492,94 @@ export default function EventFocusOverlay({
             moved to the System details card (199683:24906), which is the
             owner's own 2026-10-18 requirement ("Apartment 5 alone does not say
             which building") answered a different way rather than dropped. */}
-        <header className="relative flex h-[59px] shrink-0 items-center gap-[8px] px-[16px]">
-          {/* ── ONE CONTROL, NEVER TWO — 2026-10-31 ────────────────────────
-              Owner, on a screenshot of this row carrying both a back arrow
-              and an ×: "x and back can't live in parallel, only one exists.
-              It needs to be back. If back is an option, and x if not. Use
-              best practices for that."
+        {/* ── THE SHARED BAR, NOT A FOURTH HEADER — 2026-11-09 ─────────────
+            200067:38944 (this frame's `content` row) is AppHeaderBar, atom for
+            atom: a 30px white back disc, a text column of eyebrow-over-title,
+            and the `More ☰` badge, all inside a rounded-full tinted chip over
+            the hero. So this surface stops hand-rolling its own row and mounts
+            the one bar, per the settled 2026-11-04 ruling ("One header
+            component for every surface... It always needs to be the same").
 
-              So this is the node's own 30px disc (199683:24856) — surface-card
-              on a white hairline, which is what makes it read on the wave —
-              rendered ONCE, in the LEADING slot, wearing whichever glyph the
-              surface has earned. The × that used to sit in a `flex-1
-              justify-end` wrapper on the right is gone; it did not take a
-              destination with it, which is the only reason this is a one-line
-              change rather than a Rule 0 conversation. Back and × both called
-              `onClose`, and so do the scrim and Escape: three ways out
-              survive, and the row that drew two of them now draws one.
+            WHAT MOVED, AND WHY NOTHING IS LOST:
 
-              199683:24853 drew only the back control all along. The × was
-              added on 2026-10-17 on the reasoning that "a redundant way out
-              is a small deviation, a missing one is discovered by a user who
-              is stuck" — the owner has now overruled that, and the redundancy
-              was never free: two discs on one row ask the user which one is
-              the way out.
+            THE SYSTEM NAME IS STILL HERE — it moved from an absolutely
+            positioned CENTRED <p> (199703:42952, the 2026-10-28 ruling "the
+            first thing you need on a surface you arrive at from a list: WHICH
+            system is this") into the bar's `title` slot, which draws it
+            LEFT-aligned. The 2026-10-28 requirement was that the name be on
+            this row; it is, and it now truncates through the bar's own
+            `min-w-0 flex-1` ellipsis machinery instead of a hand-tuned
+            px-[46px] inset. ⚠ THE ALIGNMENT IS A REAL CHANGE and is reported:
+            centred -> left is the node's construction, not a preference.
 
-              WHY LEADING, AND WHY ONE. The platforms agree on the shape even
-              where they disagree on the vocabulary:
+            ⚠ THE FRAME'S OWN TEXT IS `Meridian Realty ›` / `Meridian Realty
+              Group` — AN ACCOUNT, not a system. Those are the frame's EXAMPLE
+              VALUES (AppHeaderBar says so of its own nodes' strings) and this
+              surface's real hierarchy is location-over-system, so the mapping
+              is SystemPageV2Screen's exactly: eyebrow = the parent location,
+              title = the system. Transcribing the literals would have put the
+              account name on an event screen and dropped the system name the
+              2026-10-28 ruling put here.
 
-              • Material 3, top app bar (m3.material.io/components/app-bars/
-                guidelines, content rev. 2026-07-22): "The leading button
-                should be used for navigating the product. It typically is one
-                of the following: A menu icon … A back arrow, which returns to
-                the previous screen." ONE leading slot. M3's app-bar guidance
-                never puts a close glyph in it at all.
-              • Flutter, Google's own Material implementation (api.flutter.dev
-                CloseButton): "Use a CloseButton instead of a BackButton on
-                fullscreen dialogs or pages that may solicit additional actions
-                to close." *Instead of* — the choice this prop makes, made for
-                you by how the route was presented.
-              • Apple HIG, Sheets (developer.apple.com/design/
-                human-interface-guidelines/sheets, rev. 2026-03-24): the Back
-                button "lets people navigate to a previous step in a multi-step
-                flow or to a parent view in a hierarchy. It isn't intended to
-                dismiss a sheet", and on a multi-step sheet "the Back button
-                REPLACES the Cancel button". Replaces — not joins.
-              • Apple HIG, Modality: "avoid including buttons that people might
-                mistake for the button that dismisses the modal view", and
-                "Always give people an obvious way to dismiss" — singular.
-              • Material 1 (m1.material.io/components/dialogs.html) is the
-                clearest on the semantics: the × "differs from an up arrow,
-                which indicates the view's state is constantly being saved".
-                THIS SURFACE COMMITS LIVE — claim, ignore and the valve all
-                write on tap, there is no Save and nothing is discarded on the
-                way out — which is M1's own test for the arrow rather than the
-                ×, and is a second reason `canGoBack` defaults to true here.
+            THE × BRANCH SURVIVES INTACT. AppHeaderBar draws a BACK disc and
+            has no × of its own, so `canGoBack === false` hands the same disc
+            through the bar's documented `leading` slot, which WINS over the
+            back disc. Same glyph, same 30px, same handler, same aria-label —
+            "x and back can't live in parallel, only one exists. It needs to be
+            back. If back is an option, and x if not." Still exactly one
+            control, and `leading` is the slot the component provides for
+            precisely this.
 
-              HONEST ABOUT THE EVIDENCE: no guideline we found says in so many
-              words that a back arrow and an × together in one bar is wrong,
-              and M3's modal side sheet documents an optional back icon beside
-              a close icon. The case for one control is the convergence above
-              plus the owner's ruling, not a citable prohibition — and where
-              the two documented ways out DO coexist they sit on opposite
-              edges or in a replace relationship, never adjacent as a pair of
-              matching discs.
+            ⚠ THE `More ☰` BADGE IS NOT WIRED, AND THAT IS REPORTED, NOT
+              SOLVED. The frame draws it. The badge is drawn only when a caller
+              passes `onOpenMore`, and giving this surface a More menu means
+              mounting MoreMenu with its two-id handshake and deciding what its
+              rows do from inside a modal overlay that sits OVER the page they
+              would navigate — new behaviour on a live-commit surface, not the
+              header unification this change is. Left for an owner ruling.
 
-              The glyph is the only thing that changes. Same disc, same slot,
-              same 30px, same hairline, same handler, and both aria-labels are
-              the ones these controls already carried — no new copy. `pr-[2px]`
-              optically centres the arrow's stem and belongs to the arrow
-              alone; the × is already centred. */}
-          <Button
-            type="button"
-            variant="ghost"
-            aria-label={canGoBack ? 'Back' : 'Close'}
-            onClick={onClose}
-            className={`flex size-[30px] shrink-0 items-center justify-center rounded-full border border-solid border-white bg-surface-card text-slate-900 hover:bg-card${canGoBack ? ' pr-[2px]' : ''}`}
-          >
-            {canGoBack ? <ArrowLeft size={18} /> : <X size={18} />}
-          </Button>
+            THE CHIP IS THE LIVE STATE'S ONLY. 200067:38944's veil is
+            `bg-[rgba(217,96,100,0.76)] backdrop-blur-[3.5px]
+            mix-blend-multiply rounded-[120px]`, which is AppHeaderBar's
+            `surface="onColor"` + `surfaceTint` exactly. An IGNORED or ENDED
+            event's hero is the GREY band (slate/500, see the tint note above),
+            and no frame in this set draws the chip over grey — so those two
+            branches keep the plain ground surface they draw today rather than
+            wear an invented grey tint. Reported.
 
-          {/* ── THE SYSTEM'S NAME IS BACK, CENTRED — 199703:42952 ───────────
-              2026-10-28. The name was removed from this row on the reading
-              that 199683:24853 drew no title and that the System details card
-              carried it instead. All three of the latest frames put it back,
-              centred between the controls, and it is the first thing you need
-              on a surface you arrive at from a list: WHICH system is this.
+            THE 16px GUTTER IS THE WRAPPER'S, NOT THE BAR'S. The chip carries
+            its own `px-[8px]`; passing px-[16px] as className would let
+            tailwind-merge drop that 8 and flatten the chip's inset. */}
+        <div className="px-[16px]">
+          <AppHeaderBar
+            surface={ignored || isEnded ? 'ground' : 'onColor'}
+            surfaceTint={ignored || isEnded ? undefined : 'rgba(217,96,100,0.76)'}
+            eyebrow={sys.parentName || undefined}
+            title={sys.name}
+            onBack={canGoBack ? onClose : undefined}
+            backLabel="Back"
+            leading={canGoBack ? undefined : (
+              <Button
+                type="button"
+                variant="ghost"
+                aria-label="Close"
+                onClick={onClose}
+                className="flex size-[30px] shrink-0 items-center justify-center rounded-full border border-solid border-white bg-surface-card text-slate-900 hover:bg-card"
+              >
+                <X size={18} />
+              </Button>
+            )}
+          />
+        </div>
 
-              ABSOLUTELY POSITIONED, which is the node's own construction
-              (`left-[calc(50%-66px)]`) and is also what keeps it centred on
-              the ROW rather than on the space left between two discs of
-              different widths. `pointer-events-none` so it can never swallow
-              a tap meant for the back control under it, and px-[46px] so a
-              long system name truncates before it reaches either disc.
-
-              The sr-only <h2> STAYS and keeps the full sentence. It is the
-              dialog's aria-labelledby target, and the visible title is only
-              the system's name — a dialog announcing "Fire Riser 2" and
-              nothing else would not say what happened to it. */}
-          <p
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 truncate px-[46px] text-center text-[18px] font-semibold leading-[24px] tracking-[-0.45px] text-slate-900"
-            data-node-id="199703:42952"
-          >
-            {sys.name}
-          </p>
-
-          <h2 id={titleId} className="sr-only">
-            {evt.label || meta.label} — {sys.name}
-            {breadcrumb ? `, ${breadcrumb}` : ''}
-          </h2>
-        </header>
+        {/* The dialog's aria-labelledby target. It STAYS, and it keeps the
+            full sentence: the bar's visible title is only the system's name,
+            and a dialog announcing "Fire Riser 2" and nothing else would not
+            say what happened to it. */}
+        <h2 id={titleId} className="sr-only">
+          {evt.label || meta.label} - {sys.name}
+          {breadcrumb ? `, ${breadcrumb}` : ''}
+        </h2>
 
         {/* ── EVENT IGNORED — 199755:29744 ──────────────────────────────────
             The ignored state's second header bar, and it REPLACES the orange
@@ -2350,7 +2678,22 @@ export default function EventFocusOverlay({
            12px gutters the frame draws it in, and NOTHING changes in the
            live, fault or concluded branches, where `ignored` is false and no
            dim is emitted at all. */
-        className={`relative z-10 flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto px-[12px] pb-[12px] pt-[10px] [&>*]:transition-opacity [&>*]:duration-200${ignored ? ' [&>*]:opacity-70' : ''}`}
+        /* ── THE FRAME'S OWN RHYTHM — 200067:37395 ──────────────────────────
+           2026-11-09. The root frame is `px-[16px] py-[14px]` with a
+           `gap-[24px]` column (200067:37398), and this scroller was
+           `px-[12px] pt-[10px] gap-[10px]` — every section 14px too tight and
+           4px too far left, which is a good part of "completely doesn't look
+           as in Figma".
+
+           pt IS 24, NOT 14. The frame's 14px is the padding above the HEADER
+           CHIP, and this app pins that chip outside the scroller (it must not
+           scroll away — see the HERO_H note). So the first thing this box
+           contains is the hero mark, and what belongs above it is the frame's
+           own 24px gap between the chip and the hero, not the root's padding.
+
+           NO BOTTOM PADDING FOR THE TAB BAR. pb is the frame's 14; the host
+           reserves the 104px clearance and adding it here would double it. */
+        className={`relative z-10 flex min-h-0 flex-1 flex-col gap-[24px] overflow-y-auto px-[16px] pb-[14px] pt-[24px] [&>*]:transition-opacity [&>*]:duration-200${ignored ? ' [&>*]:opacity-70' : ''}`}
         data-ignored={ignored ? 'true' : 'false'}
       >
         {/* ── The event summary ─────────────────────────────────────────────
@@ -2369,7 +2712,34 @@ export default function EventFocusOverlay({
             its content and the ignored card's text drew on top of the block
             under it. (The `mobile` shell is min-h-[178px] and never had the
             bug; the class is carried on both so the two cannot diverge.) */}
-        {alertRow ? (
+        {/* ── THE HERO MARK AND THE STAT BLOCK — 200067:37406 + :37413 ──────
+            2026-11-09. The refetched frame does NOT draw a bordered white
+            summary card here. It draws the event's glyph and name centred on
+            the red, and then three un-wrapped tiles on the page ground. See
+            <EventHeroMark> and <EventStatBlock> for both nodes atom for atom.
+
+            ⚠ ALERTCARD IS STILL MOUNTED FOR EVERY OTHER BRANCH, and that is
+              deliberate rather than tidiness. The frame I have is the LIVE
+              "Auto Shut Off Enabled" variant and says nothing about an ignored
+              or a concluded event. `ignored-overlay` is a real drawing of a
+              real state (slate/500 border, slate avatar and chips, an
+              `Ignored` pill) and the fault branch has its own summary; binning
+              them on the authority of a frame that does not cover them would
+              be exactly the silent removal Rule 0 forbids. So the frame's new
+              block is drawn where the frame speaks — a LIVE water event — and
+              the card keeps every other case.
+
+              The two `overlay` variants in AlertCard.jsx are therefore now
+              reached only by the ignored branch. They are NOT deleted. */}
+        {alertRow && isWater && !ignored && !isEnded ? (
+          <>
+            <EventHeroMark
+              title={alertRow.title}
+              glyph={<Waves size={24} aria-hidden="true" />}
+            />
+            <EventStatBlock row={alertRow} />
+          </>
+        ) : alertRow ? (
           <AlertCard
             /* 'overlay', not 'mobile'. The 2026-10-25 redraw is THIS
                surface's only; SystemPageV2Screen keeps `mobile`.
@@ -2517,88 +2887,6 @@ export default function EventFocusOverlay({
           </div>
         ) : null}
 
-        {/* ── System details ───────────────────────────────────────────────
-            199683:24906, the second card in both frames and the one thing in
-            them this surface did not draw at all. It names WHAT is leaking
-            and WHERE, which until now you had to open an accordion to learn.
-
-            Three lines, each dropped rather than faked when its value is
-            missing. `locationAddress` is the real street address off the
-            upstream snapshot and 50 of 103 systems carry one — the rest get
-            the location name alone, never a placeholder. The frame's third
-            line is a city; the dataset has no city field, so it is not
-            invented and the address carries the location on its own.
-
-            "Find this system" is the node's own pill (199683:24919). It is an
-            action, not a heading — which is why the accordion that used to
-            own that title is now "Device details", the thing it actually
-            lists. */}
-        <section
-          aria-label="System details"
-          className="w-full shrink-0 rounded-[18px] border border-solid border-card bg-surface-card px-[16px] py-[12px]"
-          data-node-id="199683:24906"
-        >
-          <p className="text-[13px] font-semibold text-slate-900" data-node-id="199683:24910">
-            System details
-          </p>
-          <div className="mt-[6px] flex flex-col gap-[8px]">
-            {/* 199683:24912 — a 26px sensor glyph, then the name 33px tall at
-                x=33, i.e. a 7px gap. PhotoSensor3 is the same Tabler mark the
-                node names. */}
-            <div className="flex items-center gap-[7px]" data-node-id="199683:24912">
-              <PhotoSensor3 size={26} className="shrink-0 text-slate-500" />
-              <p className="min-w-0 truncate text-[17px] font-medium text-foreground" data-node-id="199683:24914">
-                {sys.name}
-              </p>
-            </div>
-            {/* 199683:24915 — location and address on ONE row, separated by
-                the node's own 14px hairline (199683:24917). The dataset has
-                no city field, so the first slot takes the location name,
-                which is what it would otherwise be captioned with; where
-                there is no street address the rule collapses to one value and
-                the divider is not drawn. */}
-            {sys.l4Name || sys.locationAddress ? (
-              <div className="flex min-w-0 items-center gap-[6px]" data-node-id="199683:24915">
-                {sys.l4Name ? (
-                  <p className="shrink-0 text-[13px] leading-[17px] text-slate-600" data-node-id="199683:24916">
-                    {sys.l4Name}
-                  </p>
-                ) : null}
-                {sys.l4Name && sys.locationAddress ? (
-                  <span
-                    aria-hidden="true"
-                    className="h-[14px] w-px shrink-0 bg-slate-300"
-                    data-node-id="199683:24917"
-                  />
-                ) : null}
-                {sys.locationAddress ? (
-                  <p className="min-w-0 truncate text-[13px] leading-[17px] text-slate-500" data-node-id="199683:24918">
-                    {sys.locationAddress}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            /* Section owns its own open state, so there is no setter to
-               call from out here — but its header is a real button with a
-               known id, which is enough: open it if it is shut, then bring it
-               into view. A pill that scrolls to a closed accordion would be
-               the kind of half-wired control v2-page-parity exists to stop. */
-            onClick={() => {
-              const header = document.getElementById(`event-find-${sysId}-header`)
-              if (!header) return
-              if (header.getAttribute('aria-expanded') === 'false') header.click()
-              header.scrollIntoView({ block: 'center', behavior: 'smooth' })
-            }}
-            className="mt-[10px] inline-flex h-[24px] cursor-pointer items-center gap-[4px] rounded-[26px] bg-accent px-[8px] text-[12px] font-medium text-primary outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            data-node-id="199683:24919"
-          >
-            Find this system
-          </button>
-        </section>
-
         {/* ── MANAGE EVENT — 199772:145464 ─────────────────────────────────
             WAS the full-width "Event handling" card (199703:43037): one
             eyebrow + title + chevron row holding Ignore alone, drawn BELOW
@@ -2632,7 +2920,12 @@ export default function EventFocusOverlay({
             >
               Manage event
             </p>
-            <div className="flex items-start gap-[12px]" data-node-id="199772:145466">
+            {/* STACKED, NOT 2-UP — 2026-11-09. This was `flex items-start`,
+                so Ignore and Assign sat side by side at ~175px each inside a
+                393 frame and the sub-label rendered as "Mark as e...".
+                I200067:37450;199792:162493 is a `flex flex-col gap-[12px]`:
+                one full-width row per action, one under the other. */}
+            <div className="flex w-full flex-col gap-[12px]" data-node-id="199792:162493">
               {showIgnore ? (
                 /* A CARD-SIZED TAP TARGET for a destructive action is a
                    deliberate trade, carried over from the card this replaces:
@@ -2745,6 +3038,15 @@ export default function EventFocusOverlay({
                 ValveConfirmSheet, the same gate the footer used. */}
             <ValveStatusCard
               redraw
+              /* THE EVENT FRAME'S CHASSIS — 2026-11-09. The refetched
+                 I200067:37450;199792:162861 draws this card at rounded-[22px]
+                 with pt-[12px] pb-[16px] px-[16px] and an 11px gap, against
+                 V2_CARD's 18/18/18. Opted into rather than edited in place so
+                 no other `redraw` caller can inherit it — see V2_CARD_EVENT in
+                 ValveStatusCard.jsx. The System page passes no `redraw` at
+                 all, so it draws a different branch entirely and is measurably
+                 unaffected. */
+              chrome="event"
               interactive
               onToggle={(next) => setPendingValve(next === 'closed' ? 'close' : 'open')}
               /* THE BUSY SEQUENCE, on this surface too. Owner, 2026-11-08:
@@ -2862,6 +3164,146 @@ export default function EventFocusOverlay({
           </p>
         ) : null}
 
+        {/* ── System details ───────────────────────────────────────────────
+            199683:24906, the second card in both frames and the one thing in
+            them this surface did not draw at all. It names WHAT is leaking
+            and WHERE, which until now you had to open an accordion to learn.
+
+            Three lines, each dropped rather than faked when its value is
+            missing. `locationAddress` is the real street address off the
+            upstream snapshot and 50 of 103 systems carry one — the rest get
+            the location name alone, never a placeholder. The frame's third
+            line is a city; the dataset has no city field, so it is not
+            invented and the address carries the location on its own.
+
+            "Find this system" is the node's own pill (199683:24919). It is an
+            action, not a heading — which is why the accordion that used to
+            own that title is now "Device details", the thing it actually
+            lists. */}
+        <section
+          aria-label="System details"
+          className="w-full shrink-0 rounded-[22px] border border-solid border-card bg-surface-card px-[16px] py-[12px]"
+          data-node-id="200067:37453"
+        >
+          {/* RETYPED 2026-11-09 against 200067:37453. The label was 13px
+              semibold near-black; the node is
+              `Figtree Medium 500 / 14 / lh 20 / #0a0a0a`. */}
+          <p
+            className="text-[14px] font-medium leading-[20px] text-foreground"
+            data-node-id="199772:158724"
+          >
+            System details
+          </p>
+          <div className="mt-[6px] flex flex-col gap-[8px]">
+            {/* 199683:24912 — a 26px sensor glyph, then the name 33px tall at
+                x=33, i.e. a 7px gap. PhotoSensor3 is the same Tabler mark the
+                node names. */}
+            <div className="flex items-center gap-[7px]" data-node-id="199683:24912">
+              <PhotoSensor3 size={26} className="shrink-0 text-slate-500" />
+              {/* 199772:158728 — SemiBold 600 / 20 / lh 32.5 / slate-800. Was
+                  17px medium. */}
+              <p
+                className="min-w-0 truncate text-[20px] font-semibold leading-[32.5px] text-slate-800"
+                data-node-id="199772:158728"
+              >
+                {sys.name}
+              </p>
+            </div>
+            {/* 199683:24915 — location and address on ONE row, separated by
+                the node's own 14px hairline (199683:24917). The dataset has
+                no city field, so the first slot takes the location name,
+                which is what it would otherwise be captioned with; where
+                there is no street address the rule collapses to one value and
+                the divider is not drawn. */}
+            {sys.l4Name || sys.locationAddress ? (
+              <div className="flex min-w-0 items-center gap-[6px]" data-node-id="199683:24915">
+                {/* 199772:158730 / :158732 — Regular 400 / 12 / lh 16.5 /
+                    #45556c for BOTH halves of this row. Was 13/17, and two
+                    different greys. */}
+                {sys.l4Name ? (
+                  <p className="shrink-0 text-[12px] font-normal leading-[16.5px] text-slate-600" data-node-id="199772:158730">
+                    {sys.l4Name}
+                  </p>
+                ) : null}
+                {sys.l4Name && sys.locationAddress ? (
+                  <span
+                    aria-hidden="true"
+                    className="h-[14px] w-px shrink-0 bg-slate-300"
+                    data-node-id="199683:24917"
+                  />
+                ) : null}
+                {sys.locationAddress ? (
+                  <p className="min-w-0 truncate text-[12px] font-normal leading-[16.5px] text-slate-600" data-node-id="199772:158732">
+                    {sys.locationAddress}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          {/* I200067:37453;200067:38646 — the chip row, `flex gap-[7px]`, 19px
+              under the text column (the node's own `gap-[19px]`). */}
+          <div className="mt-[19px] flex flex-wrap items-start gap-[7px]" data-node-id="200067:38646">
+          <button
+            type="button"
+            /* Section owns its own open state, so there is no setter to
+               call from out here — but its header is a real button with a
+               known id, which is enough: open it if it is shut, then bring it
+               into view. A pill that scrolls to a closed accordion would be
+               the kind of half-wired control v2-page-parity exists to stop. */
+            onClick={() => {
+              const header = document.getElementById(`event-find-${sysId}-header`)
+              if (!header) return
+              if (header.getAttribute('aria-expanded') === 'false') header.click()
+              header.scrollIntoView({ block: 'center', behavior: 'smooth' })
+            }}
+            className={SYS_CHIP}
+            data-node-id="199772:158733"
+          >
+            <MapPin size={16} aria-hidden="true" className="shrink-0" />
+            Find this system
+          </button>
+
+          {/* ── GO TO SYSTEM PAGE — I200067:37453;200067:38535 ──────────────
+              NEW 2026-11-09. The frame draws TWO chips in this row and this
+              surface drew one. `#38535` is the same Button instance as
+              "Find this system" beside it, relabelled.
+
+              WHERE IT GOES. The overlay is mounted over BOTH hosts, and
+              neither can be edited to pass a handler, so the destination is
+              resolved here with the router this component already sits inside
+              (HomeAllAccounts and SystemPageV2Screen are both routed pages,
+              and every test wraps this component in a MemoryRouter). The
+              overlay closes FIRST so the page it reveals is not left under a
+              modal — the same order HomeAllAccounts uses for its own row taps.
+
+              ON THE SYSTEM PAGE IT IS NOT A NO-OP AND NOT A TRAP: navigating
+              to the route you are already on is inert in React Router, so
+              what the user gets is the overlay closing onto the system page
+              they asked for, which is the correct outcome from either host.
+
+              ⚠ THE ICON IS A GUESS AND IS FLAGGED. 200067:38535's glyph is
+                "Huge Icons / smile", which is Figma's ICON PLACEHOLDER (the
+                same mark sits in the CardAction2 slots of :37454 and :37455,
+                where nothing is drawn at all). So the frame does not say what
+                this chip's icon is. ArrowRight is used because the chip is a
+                navigation, and it is the glyph the Manage-event pills already
+                use for the same meaning on this screen. Replace it the moment
+                the frame says otherwise. */}
+          <button
+            type="button"
+            onClick={() => {
+              onClose?.()
+              if (sysId) navigate(`/system/${sysId}`)
+            }}
+            className={SYS_CHIP}
+            data-node-id="200067:38535"
+          >
+            <ArrowRight size={16} aria-hidden="true" className="shrink-0" />
+            Go to system page
+          </button>
+          </div>
+        </section>
+
         {!isWater ? (
         <Section id={`event-facts-${sysId}`} title="Event details" defaultOpen>
           <div className="grid grid-cols-2 gap-x-[12px] gap-y-[10px]">
@@ -2956,6 +3398,21 @@ export default function EventFocusOverlay({
         ) : null}
 
 
+        {/* ── What should I do ──────────────────────────────────────────────
+            Owner-requested 2026-10-17. NEW COPY, FOR SIGN-OFF — all of it
+            lives in `advice` above, in one block. Next to "What happens next"
+            on purpose: this is the USER's actions, that one is the SYSTEM's.
+            Renders nothing for an event type with nothing concrete to say. */}
+        {adviceSteps.length ? (
+          <Section id={`event-advice-${sysId}`} title="What should I do">
+            <ul className="flex list-disc flex-col gap-[8px] pl-[18px] text-[13px] text-slate-600 leading-[1.45]">
+              {adviceSteps.map(step => (
+                <li key={step}>{step}</li>
+              ))}
+            </ul>
+          </Section>
+        ) : null}
+
         {/* ── Event graph ───────────────────────────────────────────────────
             Owner-requested 2026-10-17. Sits with the factual sections, right
             under the facts it charts. See EventFlowChart / eventFlowSeries.js
@@ -2971,21 +3428,6 @@ export default function EventFocusOverlay({
             />
           )}
         </Section>
-
-        {/* ── What should I do ──────────────────────────────────────────────
-            Owner-requested 2026-10-17. NEW COPY, FOR SIGN-OFF — all of it
-            lives in `advice` above, in one block. Next to "What happens next"
-            on purpose: this is the USER's actions, that one is the SYSTEM's.
-            Renders nothing for an event type with nothing concrete to say. */}
-        {adviceSteps.length ? (
-          <Section id={`event-advice-${sysId}`} title="What should I do">
-            <ul className="flex list-disc flex-col gap-[8px] pl-[18px] text-[13px] text-slate-600 leading-[1.45]">
-              {adviceSteps.map(step => (
-                <li key={step}>{step}</li>
-              ))}
-            </ul>
-          </Section>
-        ) : null}
 
         {/* "What happens next" lived here and was removed on the owner's
             call, 2026-10-18 — the screen was overwhelming at six accordions.

@@ -114,56 +114,66 @@ describe('SystemHealthCard — progress bar', () => {
   })
 })
 
-describe('SystemHealthCard — counters', () => {
-  it('renders all three with their counts', () => {
-    render(<SystemHealthCard {...ALERTING} valveErrors={4} offline={2} noPower={7} />)
-    expect(screen.getByRole('button', { name: 'Valve errors: 4' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Offline systems: 2' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Disconnected power: 7' })).toBeTruthy()
+describe('SystemHealthCard — the fault breakdown is GONE', () => {
+  /* ── 2026-11-09, AND THIS DESCRIBE REPLACES ITS OPPOSITE ─────────────────
+     What stood here asserted the three fault counters: their node order
+     (valve errors, offline, no power), that each fired `onSelectIssue` with
+     its key, and that each was a real button with a 43px tap box.
 
-    // The label is real text, not a colour cue.
-    expect(screen.getByText('Valve errors')).toBeTruthy()
-    expect(screen.getByText('Offline')).toBeTruthy()
-    expect(screen.getByText('No power')).toBeTruthy()
-  })
+     Owner, over a screenshot of this card showing the bar, "2 / 5 need
+     attention" and a "No power 2" tile beneath it: "remoive the error type
+     from here / keep onlt the x out of y as in figma". Node 200067:41981,
+     refetched the same day, draws the heading, the header action, one bar and
+     one "x / y need attention" line - nothing else.
 
-  it('keeps the node order: valve errors, offline, no power', () => {
-    const { container } = render(<SystemHealthCard {...ALERTING} />)
-    const row = container.querySelector('[data-node-id="199323:13029"]')
-    const names = [...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))
-    expect(names).toEqual(['Valve errors: 1', 'Offline systems: 1', 'Disconnected power: 1'])
-  })
-
-  it('fires onSelectIssue with the issue key', async () => {
-    const onSelectIssue = vi.fn()
-    render(<SystemHealthCard {...ALERTING} onSelectIssue={onSelectIssue} />)
-
-    await userEvent.click(screen.getByRole('button', { name: 'Valve errors: 1' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Offline systems: 1' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Disconnected power: 1' }))
-
-    expect(onSelectIssue.mock.calls.map(([k]) => k))
-      .toEqual(['valveErrors', 'offline', 'noPower'])
-  })
-
-  it('does not throw when no handler is wired', async () => {
-    render(<SystemHealthCard {...ALERTING} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Offline systems: 1' }))
-  })
-
-  it('every counter is a real button with a tappable box', () => {
-    const { container } = render(<SystemHealthCard {...ALERTING} />)
-    const row = container.querySelector('[data-node-id="199323:13029"]')
-    const tiles = [...row.querySelectorAll('button')]
-    expect(tiles).toHaveLength(3)
-    for (const tile of tiles) {
-      expect(tile.getAttribute('type')).toBe('button')
-      // 3 + (43 - 8) + 20 + 7 = 65px, past the 48dp minimum. Asserted on the
-      // classes because happy-dom does not lay anything out.
-      expect(tile.className).toContain('pt-[3px]')
-      expect(tile.className).toContain('pb-[7px]')
-      expect(tile.querySelector('[class*="h-[43px]"]')).toBeTruthy()
+     ⚠ THIS IS THE THIRD RULING ON THESE TILES IN TWO DAYS: show how many but
+     not which ("we are not showin wht the erros any more on main screens just
+     how many of them") -> drop the boxes, keep the data -> drop the tiles.
+     The newest wins, and the assertions below are what stops the previous two
+     being restored from an older frame by someone reading this file's
+     history. They are inverted on purpose, not deleted, for exactly that. */
+  it('draws no fault counters at all, in any fault combination', () => {
+    for (const props of [
+      { valveErrors: 4, offline: 2, noPower: 7 },
+      { valveErrors: 0, offline: 3, noPower: 0 },
+      { valveErrors: 1, offline: 0, noPower: 0 },
+    ]) {
+      cleanup()
+      const { container } = render(<SystemHealthCard {...ALERTING} {...props} />)
+      for (const name of ['Valve errors', 'Offline systems', 'Disconnected power']) {
+        expect(
+          screen.queryByRole('button', { name: new RegExp(`^${name}:`) }),
+          `${name} is back as a counter`,
+        ).toBeNull()
+      }
+      expect(container.querySelector('[data-node-id="199323:13029"]'), 'the tile row is back').toBeNull()
+      expect(container.textContent, 'a fault label is back on the card').not.toMatch(
+        /Valve errors|Offline systems|Disconnected power/,
+      )
     }
+  })
+
+  it('draws no other-issues row, whatever it is handed', () => {
+    /* The row read "N other issues - N no recipients" off `noRecipients`.
+       The prop is gone from the component, so passing it must be inert
+       rather than quietly re-growing the row. */
+    const { container } = render(
+      <SystemHealthCard {...ALERTING} noRecipients={4} valveErrors={2} />,
+    )
+    expect(container.querySelector('[data-other-issues]')).toBeNull()
+    expect(container.textContent).not.toMatch(/other issue|no recipients/i)
+  })
+
+  it('still announces the aggregate, so the bar is not the only cue', () => {
+    /* The per-fault counts left the accessibility tree with the tiles, by
+       instruction. What must NOT go with them is the fleet figure: colour and
+       bar length are not an accessible cue on their own (wint-ui-copy §5). */
+    const { container } = render(
+      <SystemHealthCard {...ALERTING} total={48} healthy={45} valveErrors={3} />,
+    )
+    const bar = container.querySelector('[data-name="Progress Bar"]')
+    expect(bar.getAttribute('aria-label')).toBe('45 of 48 systems healthy')
+    expect(container.textContent).toMatch(/3\s*\/\s*48 need attention/)
   })
 })
 
@@ -272,126 +282,11 @@ describe('SystemHealthCard — all healthy / empty', () => {
     expect(screen.getByRole('button', { name: 'Show past alerts' })).toBeTruthy()
   })
 
-  /* 199417:134216 — one kind with a count is drawn alone, across the card,
-     rather than beside two zeros. See the variant note in the component for
-     why this frame was followed over 199417:132861. */
-  it('draws a lone fault kind on its own, full width', () => {
-    const { container } = render(<SystemHealthCard total={48} healthy={47} valveErrors={1} />)
-    const tiles = [...container.querySelectorAll('button')]
-      .filter((b) => /: \d+$/.test(b.getAttribute('aria-label') || ''))
-    expect(tiles).toHaveLength(1)
-    expect(tiles[0].getAttribute('aria-label')).toBe('Valve errors: 1')
-    expect(tiles[0].className).toContain('w-full')
-  })
-
-  /* THE INK IS THE COUNT: red when a counter has something in it, slate when
-     it does not. Both frames that draw three tiles agree on the SWITCH; what
-     carries it stopped being the ground on 2026-11-09, when the owner asked
-     for the boxes off these tiles. The test moved with it rather than being
-     dropped — the switch is the assertion, the ground was only ever how it
-     was drawn. */
-  it('inks a counter by whether it has anything in it', () => {
-    const { container } = render(
-      <SystemHealthCard total={48} healthy={46} valveErrors={1} offline={1} />,
-    )
-    const by = (name) => [...container.querySelectorAll('button')]
-      .find((b) => b.getAttribute('aria-label') === name)
-    /* The hot tile used to be pinned to `from-[#fff1f1]`, the literal half
-       of a frozen light-red gradient. It is now the alert surface token, so
-       the assertion pins the TOKEN — which is the thing that must not be
-       lost — rather than a hex that only ever described `light`.
-
-       WARNING FOR A FEW HOURS ON 2026-10-22, AND BACK TO CRITICAL. The split
-       was argued from TriageBand painting a live leak in the same red; the
-       owner saw the result on `/` -- "why i still see this wierd boxes and
-       not as in figma" -- and no frame draws amber here. 199417:134233,
-       199417:132878 and 199414:130115 all paint the hot tile
-       `from-[#fff1f1] to-[#ffe3e3]`, and --alert-surface-critical resolves
-       through --red-100 to #ffe2e2 at `light`: that gradient's own end stop.
-       The `not.toContain` is the half that matters, and it has swapped sides
-       with its partner -- it fails if anyone repaints these tiles amber.
-
-       2026-11-09: THE GROUND IS GONE, THE SWITCH IS NOT. `bg-*` became
-       `text-*` on the same semantic family -- --alert-ink-critical is the
-       ink-weight sibling of the surface token argued for above, registered
-       as --color-alert-ink-critical in src/index.css -- so every sentence
-       above still holds, one token name over. The amber guard is kept
-       verbatim in its new spelling. */
-    expect(by('Valve errors: 1').className).toContain('text-alert-ink-critical')
-    expect(by('Offline systems: 1').className).toContain('text-alert-ink-critical')
-    expect(by('Valve errors: 1').className).not.toContain('text-alert-ink-warning')
-    expect(by('Disconnected power: 0').className).toContain('text-slate-400')
-    expect(by('Disconnected power: 0').className).not.toContain('text-alert-ink-critical')
-
-    /* The count is the other half of the pair: the ink has to reach the
-       number, not just the glyph, or a chrome-less tile says nothing. */
-    const countOf = (name) => [...by(name).querySelectorAll('span')]
-      .find((s) => s.children.length === 0 && /^[\d,]+$/.test(s.textContent.trim()))
-    expect(countOf('Valve errors: 1').className).toContain('text-alert-ink-critical')
-    expect(countOf('Disconnected power: 0').className).toContain('text-foreground')
-
-    /* AND THE BOX IS REALLY GONE — this is the half of the owner's request a
-       future "restore the Figma chassis" pass would quietly undo. */
-    for (const n of ['Valve errors: 1', 'Offline systems: 1', 'Disconnected power: 0']) {
-      const cls = by(n).className
-      expect(cls).not.toContain('bg-alert-surface-critical')
-      expect(cls).not.toContain('bg-slate-100')
-      expect(cls).not.toContain('inset-ring')
-      expect(cls).not.toContain('rounded-[18px]')
-    }
-  })
-
-  /* THE BOX WAS ALSO THE AFFORDANCE. Removing it is a visual change only, so
-     the three things the box was doing for the control have to survive it:
-     the element is still a button with its handler and its accessible name,
-     it still carries enough padding to be a 44px target once laid out, and
-     it still shows focus. jsdom has no layout, so the target is asserted as
-     the geometry that produces it and measured for real in the browser pass
-     (65px tall x 98px wide on WebKit at 390, 319px wide solo). */
-  it('keeps the control the box used to draw', async () => {
-    const seen = []
-    const { container } = render(
-      <SystemHealthCard
-        total={48}
-        healthy={46}
-        valveErrors={1}
-        offline={1}
-        onSelectIssue={(k) => seen.push(k)}
-      />,
-    )
-    const tiles = [...container.querySelectorAll('button')]
-      .filter((b) => /: \d+$/.test(b.getAttribute('aria-label') || ''))
-    expect(tiles).toHaveLength(3)
-    for (const t of tiles) {
-      expect(t.tagName).toBe('BUTTON')
-      expect(t.getAttribute('type')).toBe('button')
-      // the padding that holds the hit box open now that no ground does
-      expect(t.className).toContain('pt-[3px]')
-      expect(t.className).toContain('pb-[7px]')
-      // a focus state that does not depend on the ground
-      expect(t.className).toContain('focus-visible:ring-[3px]')
-      expect(t.className).toContain('focus-visible:ring-ring/50')
-    }
-    await userEvent.click(tiles[1])
-    expect(seen).toEqual(['offline'])
-  })
-
-  it('keeps the control on the solo tile too', async () => {
-    const seen = []
-    const { container } = render(
-      <SystemHealthCard total={48} healthy={47} offline={5} onSelectIssue={(k) => seen.push(k)} />,
-    )
-    const solo = [...container.querySelectorAll('button')]
-      .find((b) => b.getAttribute('aria-label') === 'Offline systems: 5')
-    expect(solo).toBeTruthy()
-    expect(solo.className).toContain('w-full')
-    expect(solo.className).toContain('focus-visible:ring-[3px]')
-    expect(solo.className).not.toContain('bg-alert-surface-critical')
-    expect(solo.className).not.toContain('rounded-[18px]')
-    expect(solo.className).toContain('text-alert-ink-critical')
-    await userEvent.click(solo)
-    expect(seen).toEqual(['offline'])
-  })
+  /* THREE COMMENT BLOCKS STOOD HERE, one per removed test: the solo-tile
+     variant (199417:134216), the red/slate ink switch, and the box-less
+     affordance check from 2026-11-08. All three described the fault tiles,
+     which 200067:41981 no longer draws - see the inverted assertions in
+     'the fault breakdown is GONE' above. */
 
   it('renders an empty fleet with no bar at all, not a placeholder track', () => {
     /* An empty fleet was the one case where a zero-attention track was still
@@ -739,10 +634,14 @@ describe('SystemHealthCard — Figma class fidelity', () => {
     const { container } = render(<SystemHealthCard {...ALERTING} />)
     expect(container.querySelectorAll('img')).toHaveLength(0)
     expect(container.innerHTML).not.toContain('figma.com')
-    /* Every glyph is a local inline SVG: valve, wifi, power, arrow. Was five
-       — the fifth was the fleet row's sensor, which went to the hero with the
-       count. The hero's own test makes the same assertion over there. */
-    expect(container.querySelectorAll('svg').length).toBeGreaterThanOrEqual(4)
+    /* Every glyph is a local inline SVG. The count has fallen twice: five →
+       four when the fleet row's sensor went to the hero, and four → ONE on
+       2026-11-09, when the valve, wifi and power glyphs went with the fault
+       tiles. The arrow in the header action is the only glyph this card still
+       draws in its fault state; the all-clear state adds the location dot.
+       What this test is actually for is unchanged and is the line above: no
+       figma.com asset URL, ever. */
+    expect(container.querySelectorAll('svg').length).toBeGreaterThanOrEqual(1)
   })
 })
 
@@ -788,7 +687,7 @@ describe('SystemHealthCard — Figma class fidelity', () => {
    WHAT REPLACES THEM is the design's own answer: the all-clear row
    (199417:131529) drawn only when nothing is wrong, and the other-issues row
    (199338:52997) naming the fault kinds the three tiles do not show. */
-describe('SystemHealthCard — the all-clear row and the other-issues row', () => {
+describe('SystemHealthCard — the all-clear row', () => {
   const textOf = (c) => (c.textContent || '').replace(/\s+/g, ' ')
   const clearRow = (c) => c.querySelector('[data-status="clear"]')
   const otherRow = (c) => c.querySelector('[data-other-issues]')
@@ -924,93 +823,34 @@ describe('SystemHealthCard — the all-clear row and the other-issues row', () =
         valveErrors={0}
         offline={0}
         noPower={0}
-        noRecipients={1}
       />,
     )
     expect(clearRow(container)).toBeNull()
     expect(textOf(container)).not.toContain('All of your systems are running!')
 
-    /* NOT CLAIMING ALL-CLEAR IS ONLY HALF OF IT. The fault also has to be
-       VISIBLE, and with no tile for it the card would otherwise draw a bar
-       and three nothings. Figma's own answer is this row. */
-    expect(otherRow(container)).toBeTruthy()
-    expect(textOf(container)).toContain('1 other issue · 1 no recipients')
+    /* ── UPDATED 2026-11-09, AND THE GUARD IS INTACT ────────────────────────
+       `noRecipients={1}` used to set the scenario up; the card no longer
+       takes that prop. The scenario is unchanged and is now stated the way
+       the card actually sees it: 9 healthy of 10 with all three TILED counts
+       at zero. That is precisely the shape of the bug - `attention` is 1 and
+       `hotKinds` is empty - so the gate is still under test, and still has
+       to be `hotKinds.length === 0 && attention === 0` rather than
+       `hotKinds.length === 0` alone.
+
+       WHAT WENT: the second half asserted the other-issues row carried the
+       untiled fault ("1 other issue - 1 no recipients"). 200067:41981 draws
+       no such row. The fault is still VISIBLE - it is inside `attention`, so
+       the bar and the line below it both count it - it is simply no longer
+       itemised, which is the whole of the owner's ruling. */
+    expect(container.querySelector('[data-other-issues]'), 'the other-issues row is back').toBeNull()
     expect(container.querySelector('[data-node-id="199360:129783"]').textContent)
       .toBe('1 / 10 need attention')
-    // and still no tiles, because no tiled kind has anything in it
     expect(allButtons(container).filter((n) => /: \d+$/.test(n || ''))).toHaveLength(0)
   })
 
-  it('names what the tiles do not, beside tiles that are drawn', () => {
-    /* 199414:130115 / 199417:132878 both draw tiles AND this row. "Other" is
-       the kinds with no tile — see WHAT "OTHER ISSUES" MEANS HERE — so the
-       three tiled counts never appear in it, however large they get. */
-    const { container } = render(
-      <SystemHealthCard
-        total={48}
-        healthy={34}
-        valveErrors={1}
-        offline={1}
-        noPower={10}
-        noRecipients={4}
-      />,
-    )
-    const row = otherRow(container)
-    expect(row).toBeTruthy()
-    expect(row.getAttribute('data-node-id')).toBe('199338:52997')
-    expect(textOf(row)).toBe('4 other issues · 4 no recipients')
-    /* THE FRAME'S CONTRADICTION IS NOT REPRODUCED: 199338:52997 reads "10 no
-       power" above a "No power 0" tile. No power has a tile here — it is
-       showing 10 — so it is not "other" and gets no clause. */
-    expect(textOf(row)).not.toContain('no power')
-    expect(container.querySelector('[data-node-id="199323:13029"]')).toBeTruthy()
-  })
 
-  it('is centred, unboxed and not a control', () => {
-    const { container } = render(
-      <SystemHealthCard total={10} healthy={8} offline={1} valveErrors={1} noRecipients={1} />,
-    )
-    const row = otherRow(container)
-    /* THE GROUND WENT WITH THE TILES', 2026-11-09. This used to pin
-       199417:132878's measured ground (`bg-slate-100`) and its 16px radius.
-       The owner pointed at the tiles AND this bar and asked for the boxes
-       off, so what is pinned now is the absence — the two classes that would
-       come back if the bar did. The row's own text, its node id and its
-       not-a-control rule are asserted unchanged above and below. */
-    expect(row.className).not.toContain('bg-slate-100')
-    expect(row.className).not.toContain('rounded-[16px]')
-    expect(row.className).toContain('justify-center')
-    // No affordance in the node, so no affordance here.
-    expect(row.querySelector('button')).toBeNull()
-    expect(row.tagName).toBe('DIV')
-    // 14px slate-600, the leading count semibold. Line-height AFTER the size
-    // atom or tailwind-merge drops it — the repo's standing trap.
-    const text = row.querySelector('p')
-    expect(text.className).toContain('text-sm')
-    expect(text.className).toContain('text-slate-600')
-    expect(text.firstElementChild.className).toContain('font-semibold')
-    expect(text.firstElementChild.className).toContain('leading-[20px]')
-    expect(text.firstElementChild.textContent).toBe('1')
-  })
 
-  it('has no other-issues row when nothing is left over', () => {
-    /* 199417:134233 — a solo tile and nothing under it. The row is gated on
-       the DATA, not on the tile variant, which is what makes that frame and
-       199417:132878 the same component. */
-    const { container } = render(
-      <SystemHealthCard total={48} healthy={47} valveErrors={1} noRecipients={0} />,
-    )
-    expect(otherRow(container)).toBeNull()
-    expect(allButtons(container).filter((n) => /: \d+$/.test(n || ''))).toHaveLength(1)
-  })
 
-  it('pluralises the row on its own count', () => {
-    const one = render(<SystemHealthCard total={10} healthy={9} noRecipients={1} />)
-    expect(textOf(otherRow(one.container))).toBe('1 other issue · 1 no recipients')
-    cleanup()
-    const many = render(<SystemHealthCard total={10} healthy={7} noRecipients={3} />)
-    expect(textOf(otherRow(many.container))).toBe('3 other issues · 3 no recipients')
-  })
 
   it('the all-clear header control goes to the history it names', () => {
     /* The label switched to "Show past alerts" at 199417:131563 and kept

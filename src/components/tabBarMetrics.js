@@ -40,20 +40,59 @@
  *   TWICE and leaves ~186px of dead space under the last row.
  *   `tabBarFloatingClearance.dom.test.jsx` fails any screen that does.
  *
- * ⚠ A Tailwind CLASS must carry the literal — `h-[93px]`, never
+ * ⚠ A Tailwind CLASS must carry the literal — `h-[104px]`, never
  *   `h-[${TAB_BAR_CLEARANCE}px]`. The scanner reads source text and emits no
  *   CSS for a template-built class. Style VALUES may be imported; class TEXT
  *   may not.
+ *
+ * ── THE NUMBERS MOVED, THE MODEL DID NOT — 2026-11-09 ────────────────────
+ *
+ * Figma node 200067:39019 (`nav`, file YEmjkKS4xaA827Zm8w3oXx) re-draws the
+ * bar: 335 x 66 at x=33, y=756 inside a 402 x 844 artboard. So
+ *
+ *      pill height    65 -> 66        side inset   16 -> 33
+ *      bottom inset   12 -> 22        footprint    77 -> 88
+ *      clearance      93 -> 104       gap          16 -> 16  (unchanged)
+ *
+ * THE RESERVED-STRIP MODEL ABOVE IS UNCHANGED AND MUST STAY. The frame draws
+ * the pill over live rows and fills it at 57% rather than 96%, so it LOOKS
+ * like a bar floating above scrolling content. A Figma frame cannot express
+ * scroll behaviour; the appearance is the design and the behaviour is the bug
+ * that was fixed in b3f5a31.
+ *
+ * ⚠ ONE SCREEN STILL CARRIES THE OLD LITERAL.
+ *   src/v2/pages/MoreComingSoonScreen.jsx:128 is the ONE documented EXEMPT
+ *   screen (its scroll region is inside an `absolute inset-0` cover, which
+ *   reserved column cannot push) and it spells the clearance as `pb-[93px]`.
+ *   That is now 11px short of TAB_BAR_CLEARANCE - still clear of the 88px
+ *   footprint, so nothing is under the pill and nothing is dead, but the last
+ *   row rests 5px above the bar instead of 16. The one-line fix is
+ *   `pb-[93px]` -> `pb-[104px]` there, plus its comment at :89 and the
+ *   assertion at moreComingSoon.dom.test.jsx:182 which builds its regex from
+ *   this constant. Neither file belongs to the tab bar, so neither was
+ *   touched here.
  */
 
-/** The pill's own height. TabBar PILL: `h-[65px]`. */
-export const TAB_BAR_PILL_HEIGHT = 65
+/** The pill's own height. TabBar PILL: `h-[66px]`. */
+export const TAB_BAR_PILL_HEIGHT = 66
 
-/** How far the pill floats above the frame's bottom edge. PILL: `bottom-[12px]`. */
-export const TAB_BAR_BOTTOM_INSET = 12
+/** How far the pill floats above the frame's bottom edge. PILL: `bottom-[22px]`. */
+export const TAB_BAR_BOTTOM_INSET = 22
 
-/** How far the pill floats in from each side. PILL: `inset-x-[16px]`. */
-export const TAB_BAR_SIDE_INSET = 16
+/**
+ * How far the pill floats in from EACH SIDE. PILL: `inset-x-[33px]`.
+ *
+ * THE INSET IS FIXED AND THE WIDTH IS FLUID, deliberately. Node 200067:39019
+ * draws a 335-wide bar at x=33 inside a 402-wide artboard - a 33px left inset
+ * and a 34px right one - while the app shell (Phone.jsx) is 393 wide. One of
+ * those three numbers has to give, and it is the width:
+ *   · 33/34 is what the frame actually expresses; 335 is the consequence.
+ *   · a fixed `w-[335px]` overflows any frame narrower than ~343.
+ *   · `inset-x-[Npx]` is the idiom the pill already used.
+ * At 393 the pill is 327 wide (column 77.25); at 402 it is 336 (column 79.50
+ * against the frame's 79.25, the 1px asymmetry split).
+ */
+export const TAB_BAR_SIDE_INSET = 33
 
 /**
  * The band at the bottom of the frame that the pill occupies, measured up from
@@ -63,7 +102,7 @@ export const TAB_BAR_FOOTPRINT = TAB_BAR_BOTTOM_INSET + TAB_BAR_PILL_HEIGHT
 
 /**
  * The column the bar's HOST reserves in the Phone flex column. TabBar HOST:
- * `h-[93px]`.
+ * `h-[104px]`.
  *
  * The footprint plus a real gap, not a hairline: 16px is this app's own
  * gutter, the same figure the pill is inset by and the same one the home

@@ -205,6 +205,15 @@ describe('the same tabs, everywhere', () => {
     // THIS IS THE DOOR. With the header's PanelLeft gone there is no other
     // control on these routes that opens the navigation drawer, so a
     // regression here is not a naming nit - it makes the drawer unreachable.
+    //
+    // >> 2026-11-09: IT IS NO LONGER THE DOOR - the tab navigates to /search
+    //    and opens no drawer (see TabBar.jsx, SEARCH IS A DESTINATION NOW).
+    //    THE STRING IS KEPT ANYWAY, and deliberately: it is catalogued,
+    //    approved copy that still describes a surface which searches locations
+    //    and systems, and wint-ui-copy §0 says propose, do not pick. With the
+    //    labels back to sr-only there is no visible label left for Label in
+    //    Name to constrain either. What this now pins is that the name did not
+    //    quietly change and that it is still the file's ONLY aria-label.
     renderBar('/');
     const search = [...document.querySelectorAll('button')]
       .find(b => b.querySelector('span')?.textContent === 'Search');
@@ -217,11 +226,19 @@ describe('the same tabs, everywhere', () => {
     expect(labelled).toHaveLength(1);
   });
 
-  it('never lights Search, because Search is an action and not a destination', () => {
-    // It opens the drawer; it changes no route. An active indicator on it
-    // would claim a location the user is not at. There is no activeTab key
-    // that names it, and `isActive` is hard-coded false for it, so neither
-    // the explicit prop nor the pathname fallback can light it.
+  /* *** THIS TEST WAS INVERTED ON 2026-11-09, AND THE OLD ONE IS QUOTED HERE
+         BECAUSE IT WAS RIGHT WHEN IT WAS WRITTEN. ***
+     It read "never lights Search, because Search is an action and not a
+     destination": the tab opened the navigation drawer, changed no route, had
+     no `path`, no `activeTab` key and a hard-coded `isActive` of false, so an
+     indicator on it would have claimed a location the user was not at.
+
+     Node 200067:39019's sibling state draws the tinted panel behind the
+     MAGNIFIER, and the tab's destination is now the `/search` route. It is an
+     ordinary destination and lights like one. What is pinned is the pair:
+     unlit everywhere else, lit on its own route - because "lights on /search"
+     alone would also pass for a tab that lights everywhere. */
+  it('lights Search on /search and nowhere else', () => {
     for (const at of ['/', '/alerts', '/account']) {
       cleanup();
       renderBar(at);
@@ -229,9 +246,66 @@ describe('the same tabs, everywhere', () => {
         .find(b => b.querySelector('span')?.textContent === 'Search');
       expect(search.className, `Search is lit at ${at}`).toMatch(/\btext-muted-foreground\b/);
       expect(
-        [...search.querySelectorAll('div')].some(d => /bg-primary\/15/.test(d.className)),
+        [...search.querySelectorAll('div')].some(d => /bg-primary\/16/.test(d.className)),
         `Search drew the active indicator at ${at}`,
       ).toBe(false);
     }
+
+    cleanup();
+    render(
+      <MemoryRouter initialEntries={['/search']}>
+        <TabBar />
+      </MemoryRouter>,
+    );
+    const search = [...document.querySelectorAll('button')]
+      .find(b => b.querySelector('span')?.textContent === 'Search');
+    expect(search.className, 'Search is not lit on its own route').toMatch(/\btext-primary\b/);
+    expect(
+      [...search.querySelectorAll('div')].some(d => /bg-primary\/16/.test(d.className)),
+      'Search has no active indicator on /search',
+    ).toBe(true);
+  });
+
+  /* The explicit prop, which is how SearchScreen will light it: every real
+     screen passes `activeTab` and only the bare <TabBar /> the drawer suites
+     mount falls through to the pathname. 'search' was already the key while
+     the tab was an action, so no existing consumer changed meaning. */
+  it('takes activeTab="search" as well as the route', () => {
+    render(
+      <MemoryRouter initialEntries={['/alerts']}>
+        <TabBar activeTab="search" />
+      </MemoryRouter>,
+    );
+    const lit = [...document.querySelectorAll('button')]
+      .filter(b => /\btext-primary\b/.test(b.className))
+      .map(b => b.querySelector('span')?.textContent);
+    expect(lit, 'exactly one tab may be lit, and it is Search').toEqual(['Search']);
+  });
+
+  /* THE OLD KEYS STILL ANSWER. ~25 files mount this bar and pass one of
+     home / events / systems / profile / more; the 2026-11-09 redesign changed
+     no key, so the three that matched a tab still match the same tab and the
+     two that never matched one (systems, more) still light nothing. A key
+     rename would show up here as a bar with nothing lit. */
+  it('keeps every activeTab value its consumers already pass', () => {
+    const lit = (value) => {
+      cleanup();
+      render(
+        <MemoryRouter initialEntries={['/']}>
+          <TabBar activeTab={value} />
+        </MemoryRouter>,
+      );
+      return [...document.querySelectorAll('button')]
+        .filter(b => /\btext-primary\b/.test(b.className))
+        .map(b => b.querySelector('span')?.textContent);
+    };
+    expect(lit('home'), 'HomeUnified and 12 others').toEqual(['Dashboard']);
+    expect(lit('events'), 'EventsScreen, tabBarAlertBadge').toEqual(['Alerts']);
+    expect(lit('profile'), 'AccountScreenV2').toEqual(['Profile']);
+    // Never matched a tab, and still must not - EventHistory, L4Screen,
+    // SystemDetail and SystemPage pass 'systems'; MoreComingSoonScreen passes
+    // 'more'. Both light nothing rather than lighting the wrong thing.
+    expect(lit('systems')).toEqual([]);
+    expect(lit('more')).toEqual([]);
   });
 });

@@ -200,19 +200,66 @@ describe('the alerts overlay opens its rows (PRD 05a)', () => {
         </Routes>
       </MemoryRouter>,
     )
-    // The health card's issue tiles open the alerts overlay.
-    const tile = screen.getAllByRole('button', { name: /Offline systems:/ })[0]
-    fireEvent.click(tile)
+    /* ⚠ RETARGETED 2026-11-09 — the door this used changed, not the journey.
+       This clicked SystemHealthCard's "Offline systems:" tile, which seeded
+       `initialFilter` through HomeAllAccounts' openOverlay(). The owner ruled
+       that card down to its bar and its "x / y need attention" line
+       ("remoive the error type from here / keep onlt the x out of y as in
+       figma", 200067:41981) and the breakdown tiles went with it, so that
+       button no longer exists.
+
+       `Show all alerts` is the header action, and it is the surviving door to
+       the same overlay — see SystemHealthCard.jsx, where `onSelectIssue` is
+       recorded as removed. ANCHORED on purpose: the red bar segment's own
+       accessible name ENDS with "Show all alerts." ("Requires attention: N of
+       M systems. Show all alerts."), so an unanchored match would hit two
+       controls and the [0] would be silently load-bearing on DOM order.
+       Same selector overlayFilterMenu.dom.test.jsx:163 settled on. */
+    const door = screen.getAllByRole('button', { name: /^Show all alerts$/ })[0]
+    fireEvent.click(door)
   }
 
-  it('renders the offline rows the tile counts, not an unfiltered list', () => {
-    /* `ISSUE_FILTER` sent `offline` to the catch-all `all` because no row of
-       that type was ever emitted. The tile showed a number and then opened a
-       list that had nothing to do with it. */
+  it('opens the alerts overlay unfiltered, on the whole Active tab', () => {
+    /* ⚠ RENAMED, AND THE OLD NAME WAS ALREADY WRITING A CHEQUE THIS TEST DID
+       NOT CASH. It read "renders the offline rows the tile counts, not an
+       unfiltered list" over this assertion:
+
+           expect(screen.getByRole('dialog') || rows.length >= 0).toBeTruthy()
+
+       `getByRole` THROWS when it finds nothing, so the right-hand side of the
+       `||` never evaluated - and `rows.length >= 0` is true for an empty list
+       anyway. The only thing ever asserted here was "a dialog is open". It
+       never compared a count to the tile's, under either name.
+
+       So nothing is weakened by the retarget: the entry is unfiltered now, the
+       title says so, and the assertion is spelled out rather than hidden
+       behind a dead disjunct. The count comparison the old title implied lives
+       in overlayFilterMenu.dom.test.jsx, which owns the filter and still
+       asserts that an overlay opened already narrowed names its filter and
+       agrees with "Showing N of M".
+
+       ⚠ `[data-overlay-row]` WAS A DEAD SELECTOR and is not reinstated: it
+       appears nowhere in src/, so the `rows` it read was always an empty
+       NodeList. The overlay's real row probe is the one the next test uses,
+       `byRole('button', { name: /Open this system\./ })`. */
     openOverlay()
-    const rows = document.querySelectorAll('[data-overlay-row]')
-    // The overlay is open and showing something.
-    expect(screen.getByRole('dialog') || rows.length >= 0).toBeTruthy()
+    const dialog = screen.getByRole('dialog')
+    expect(dialog, 'the alerts overlay did not open').toBeTruthy()
+
+    /* STRENGTHENED, not narrowed, and tied to exactly what the retarget
+       changed: this door passes NO filter, so the overlay must open on the
+       whole Active tab. `Showing N of M` with N === M is the one assertion
+       that can tell the unfiltered door from a filtered one, and it is not
+       what the next test checks (that one is about the rows being controls),
+       so this is not a duplicate of it either. The filtered counterpart is
+       overlayFilterMenu.dom.test.jsx's business. */
+    const showing = within(dialog).getByText(/^Showing \d+ of \d+$/).textContent
+    const [, shown, total] = /^Showing (\d+) of (\d+)$/.exec(showing)
+    expect(Number(total), 'the Active tab is empty, so this proves nothing').toBeGreaterThan(0)
+    expect(
+      Number(shown),
+      `opened as "${showing}" - this door passes no filter, so it must show the whole tab`,
+    ).toBe(Number(total))
   })
 
   it('makes each row a real control', () => {

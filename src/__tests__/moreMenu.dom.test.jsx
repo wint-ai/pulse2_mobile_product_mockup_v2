@@ -34,6 +34,7 @@ import MoreMenu from '@/v2/components/MoreMenu'
 import {
   MORE_MENU_IDS,
   MORE_MENU_LABELS,
+  MORE_MENU_HEADING,
   MORE_MENU_ROW_MIN_HEIGHT,
   systemMoreMenuItems,
   locationMoreMenuItems,
@@ -422,5 +423,172 @@ describe('moreMenuModel', () => {
   it('reports a missing count as null rather than inventing a zero', () => {
     const [, systems] = locationMoreMenuItems({})
     expect(systems.count).toBeNull()
+  })
+})
+
+// ── The 2026-11-08 frame ────────────────────────────────────────────────────
+//
+// 200047:135363 — the `SelectContent` instance, 204x165, right-aligned under
+// the More badge. These pin the parts of it that a later "tidy" would silently
+// undo, and the two places the frame was deliberately NOT followed.
+
+describe('MoreMenu — the frame (200047:135363)', () => {
+  it('draws the frame’s heading, and makes it the section group’s name', () => {
+    /* The frame's SelectLabel. It is NOT a direct child of role="menu": that
+       role restricts its children to menuitem / group / separator, so a bare
+       <p> there would be invalid and the heading would reach a screen reader
+       as nothing at all. It labels a real group instead. */
+    const { container } = mount(<Harness items={systemMoreMenuItems()} />)
+
+    const heading = container.querySelector('[data-name="more-menu-heading"]')
+    expect(heading, 'the frame’s SelectLabel is missing').toBeTruthy()
+    expect(heading.textContent).toBe(MORE_MENU_HEADING)
+    expect(MORE_MENU_HEADING).toBe('Select preview')
+
+    const group = screen.getByRole('group')
+    expect(group.getAttribute('aria-labelledby')).toBe(heading.getAttribute('id'))
+    /* Announced as the group's name, not merely present in the DOM. */
+    expect(screen.getByRole('group', { name: MORE_MENU_HEADING })).toBeTruthy()
+  })
+
+  it('reserves a leading icon slot on every row, and fills all three today', () => {
+    /* The frame's structural inversion: the leading gutter is the ICON's and
+       the tick trails. The slot is reserved whether or not an item passes an
+       icon, so labels stay on one left edge — a gutter that appears and
+       disappears shifts the menu sideways as you use it.
+
+       Apple: "provide icons for all menu items in a group, or none of them."
+       The frame picks all, so an empty slot on any of today's three rows is a
+       regression, not a choice. */
+    mount(<Harness items={locationMoreMenuItems({ systemCount: 244 })} />)
+
+    for (const row of rows()) {
+      const id = row.getAttribute('data-menu-item')
+      const slot = row.querySelector('[data-name="more-menu-item-icon"]')
+      expect(slot, `${id} has no leading icon slot`).toBeTruthy()
+      expect(slot.querySelector('svg'), `${id} lost its glyph`).toBeTruthy()
+    }
+  })
+
+  it('puts the tick on the TRAILING edge, on the row in effect only', () => {
+    const { container } = mount(
+      <Harness items={systemMoreMenuItems()} value={MORE_MENU_IDS.overview} />,
+    )
+    const ticks = container.querySelectorAll('[data-name="more-menu-item-check"]')
+    expect(ticks).toHaveLength(1)
+
+    const row = screen.getByRole('menuitem', { name: MORE_MENU_LABELS.overview })
+    expect(row.contains(ticks[0])).toBe(true)
+
+    /* TRAILING: the tick is the last element child of the row, after the
+       label. Until 2026-11-08 it was the first. */
+    expect(row.lastElementChild).toBe(ticks[0])
+    expect(row.firstElementChild.getAttribute('data-name')).toBe('more-menu-item-icon')
+  })
+
+  it('paints the row in effect with the frame’s fill and a --primary label', () => {
+    /* #0b81f8 is the node's `--wint-blue-accent`, and there is NO
+       `--color-wint-blue-accent` registered in @theme inline — a
+       `text-wint-blue-accent` utility would emit no CSS and no error. The hex
+       is carried by `--primary` (src/index.css:173). This test is the tripwire
+       for anyone who "restores" the Figma name. */
+    mount(<Harness items={systemMoreMenuItems()} value={MORE_MENU_IDS.overview} />)
+
+    const on = screen.getByRole('menuitem', { name: MORE_MENU_LABELS.overview })
+    const off = screen.getByRole('menuitem', { name: MORE_MENU_LABELS.general })
+
+    expect(on.getAttribute('class')).toContain('bg-slate-100')
+    expect(on.getAttribute('class')).toContain('text-primary')
+    expect(on.getAttribute('class')).not.toContain('wint-blue-accent')
+    expect(off.getAttribute('class')).not.toContain('bg-slate-100')
+  })
+
+  it('carries the frame’s chassis: 204 wide, 18px radius, fluid, never x=172', () => {
+    /* The frame is 402 wide and puts the card at x=172; the shell is 393.
+       Neither the 402 nor the 172 may appear here — the card is right-anchored
+       off the measured badge, so the difference resolves itself. */
+    const { container } = mount(<Harness items={systemMoreMenuItems()} />)
+    const card = container.querySelector('[data-name="more-menu-card"]')
+
+    const cls = card.getAttribute('class')
+    expect(cls).toContain('w-[204px]')
+    expect(cls).toContain('rounded-[18px]')
+    /* Fluid: it never exceeds the host, whatever the host is. */
+    expect(cls).toContain('max-w-[calc(100%-32px)]')
+    expect(cls).not.toContain('w-[402px]')
+    expect(card.outerHTML).not.toContain('172px')
+    expect(card.style.left, 'the card is right-anchored, never left-positioned').toBe('')
+  })
+
+  it('draws the count as the frame’s badge, bound to live data not the frame’s 8', () => {
+    /* The node's badge reads a literal `8`. The same 8-on-a-Locations-row turns
+       up across unrelated nodes in that file on surfaces that cannot count 8 of
+       anything, so it is Figma's default component content. Transcribing it
+       would put a fabricated number on the face of the UI. */
+    mount(<Harness items={locationMoreMenuItems({ systemCount: 244 })} />)
+
+    const systems = screen.getByRole('menuitem', { name: MORE_MENU_LABELS.systems })
+    const badgeEl = systems.querySelector('[data-name="more-menu-item-count"]')
+    expect(badgeEl).toBeTruthy()
+    expect(badgeEl.textContent).toBe('244')
+    expect(badgeEl.getAttribute('class')).toContain('rounded-[14px]')
+    /* Themed, not Figma's rgba literals: PillTabs' BADGE_WASH reads
+       --app-bg-stops because the literals measured 4.22:1 under `dark`. */
+    expect(badgeEl.getAttribute('style')).toContain('--app-bg-stops')
+    expect(badgeEl.getAttribute('style')).not.toContain('233, 238, 248')
+  })
+
+  it('draws BOTH the tick and the badge on a selected row that has a count', () => {
+    /* The frame never draws this state — its selected row is Overview, which
+       has no badge — but it is one tap away and both suites that open this
+       menu reach it. Dropping either would drop information rather than
+       transcribe an absence. */
+    mount(
+      <Harness
+        items={locationMoreMenuItems({ systemCount: 8 })}
+        value={MORE_MENU_IDS.systems}
+      />,
+    )
+    const systems = screen.getByRole('menuitem', { name: MORE_MENU_LABELS.systems })
+    expect(systems.querySelector('[data-name="more-menu-item-count"]')).toBeTruthy()
+    expect(systems.querySelector('[data-name="more-menu-item-check"]')).toBeTruthy()
+    /* And the state is still ANNOUNCED, not left to the glyph. */
+    expect(systems.getAttribute('aria-current')).toBe('true')
+  })
+
+  it('keeps a visible focus ring, including on the row that opens focused', () => {
+    /* The old `focus-visible:bg-accent` was invisible on exactly the row that
+       takes focus first: the one in effect already carries a slate-100 fill. */
+    mount(<Harness items={systemMoreMenuItems()} value={MORE_MENU_IDS.overview} />)
+    const focused = document.activeElement
+    expect(focused.getAttribute('data-menu-item')).toBe(MORE_MENU_IDS.overview)
+    expect(focused.getAttribute('class')).toContain('focus-visible:ring-2')
+    expect(focused.getAttribute('class')).toContain('focus-visible:ring-ring')
+  })
+
+  it('does NOT take the frame’s two renames, which other suites pin', () => {
+    /* systemsTabScope:65 and valveWidgetMount:593 both do
+       getByRole('menuitem', { name }) over these three, and systemsTabScope:78
+       further pins aria-label === 'Systems' and a count read as N systems. The
+       frame says `Locations` and `General info`. Taking either rename fails two
+       files this change does not own, and `Locations` would also misdescribe
+       the row, which still opens the SYSTEMS table. RAISED, not resolved. */
+    mount(<Harness items={locationMoreMenuItems({ systemCount: 244 })} />)
+
+    expect(screen.getByRole('menuitem', { name: 'Systems' })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: 'General Info' })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: 'Locations' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: 'General info' })).toBeNull()
+  })
+
+  it('holds the 44px floor rather than the frame’s 36px row', () => {
+    /* The node's SelectItem is a fixed h-[36px] — 8px under Apple's minimum.
+       The floor is kept and the ~24px of extra card height is reported. */
+    mount(<Harness items={locationMoreMenuItems({ systemCount: 8 })} />)
+    for (const row of rows()) {
+      const cls = row.getAttribute('class')
+      expect(cls).toContain(`min-h-[${MORE_MENU_ROW_MIN_HEIGHT}px]`)
+      expect(cls, 'a fixed 36px height would cap the row under the floor').not.toContain('h-[36px]')
+    }
   })
 })

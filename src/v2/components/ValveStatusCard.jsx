@@ -196,6 +196,38 @@ import { getValveTransition, settleValveCommand } from '@/data/valveCommandStore
    one), so the chassis belongs to the overlay's Section, which another agent
    is mid-edit in. Owner's call. */
 const V2_CARD = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[18px] items-start justify-center p-[18px] relative rounded-[18px] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
+
+/* ── THE EVENT SCREEN'S CHASSIS — I200067:37450;199792:162861 ───────────────
+   ADDED 2026-11-09, ADDITIVELY. The Water Event frame draws this card with a
+   different chassis from the one above, and only on that surface:
+
+       V2_CARD (unchanged)      rounded-[18px]  p-[18px]                gap-[18px]
+       V2_CARD_EVENT (this)     rounded-[22px]  pt-12 pr-16 pb-16 pl-16 gap-[11px]
+
+   `rounded-[22px]` is `--rounded-3xl`, which EVERY card node in 200067:37395
+   spells — the section cards, the Manage-event rows and this one. The 12/16
+   split is the node's own `pt-[12px] pb-[16px] px-[16px]`, and the 11px gap is
+   its inner column (;199792:162535 `flex flex-col gap-[11px]`); the card's own
+   children here are the label, the tile row and the action, so the column's
+   gap and the card's are the same measurement.
+
+   WHY A VARIANT AND NOT AN EDIT TO V2_CARD. `redraw` already gates this whole
+   branch to one caller — its own note says "Default false: the System page
+   passes nothing and keeps what it draws today. Only EventFocusOverlay opts
+   in" — and SystemPageV2Screen:2578 indeed passes no `redraw`, which is why
+   that page draws the CARD branch further down and cannot reach these classes
+   at all. So editing V2_CARD in place would ALSO have left the System page
+   untouched. This is defence in depth rather than the thing that makes it
+   safe: a FUTURE caller that opts into `redraw` keeps today's geometry unless
+   it also asks for the event chrome. Proven by measurement either way, not
+   asserted — see the report.
+
+   PADDING IS SPELLED pt/pr/pb/pl, NOT pt+pb+px. tailwind-merge resolves `p-*`
+   against `px-*`/`py-*` and this string never passes through cn() beside
+   V2_CARD, but the four explicit sides cannot be partially overridden by a
+   caller's `className` either, which `px-` plus `p-` could be. Same pixels,
+   no ambiguity. */
+const V2_CARD_EVENT = String.raw`bg-surface-card border border-solid border-card content-stretch flex flex-col gap-[11px] items-start justify-center pt-[12px] pr-[16px] pb-[16px] pl-[16px] relative rounded-[22px] shrink-0 w-full max-w-full min-w-0 overflow-hidden`
 /* 199772:145490 — gap-[11px], and the frame holds the heading, the row AND
    the button in that one stack, so the row->button gap is 11 too, not 10. */
 const V2_COL = String.raw`content-stretch flex flex-col gap-[11px] items-start relative shrink-0 w-full`
@@ -481,6 +513,28 @@ const VALUE = String.raw`[word-break:break-word] flex flex-col font-sans font-me
 const BTN = String.raw`bg-accent border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex flex-[1_0_0] gap-1 items-center justify-center min-w-fit px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 
 // I199383:141566;100985:11132
+/* ── WIDTH-ONLY, 2026-11-09 — the frame's 161px action ──────────────────────
+   BTN above is `flex-[1_0_0] … min-w-fit`, so it takes whatever the row has
+   left: the System page measured it at 103.5px against the node's fixed 161.
+
+   THIS IS BTN WITH TWO CLASSES SWAPPED AND NOTHING ELSE. `flex-[1_0_0]` and
+   `min-w-fit` come out, `w-[161px]` and `shrink-0` go in. Paint, border,
+   radius, padding, gap, shadow, focus ring and hover are character-for-
+   character BTN's — diff the two strings and only the sizing differs.
+
+   WHY NOT JUST SET `redraw` ON THE SYSTEM PAGE, which already selects
+   BTN_REDRAW. Because `redraw` is not a width switch: it returns a different
+   card entirely (the `if (redraw)` branch at the foot of this file), with its
+   own chassis, its own tile row and its own auto-shutoff panel. BTN_REDRAW
+   also drops BTN's `bg-accent` for a transparent ground, which is a paint
+   change the System page did not ask for. The frame's button on THAT page is
+   BTN's paint at BTN_REDRAW's width, so that is exactly what this is.
+
+   AND `flex-1` IS NOT HARMLESS TO LEAVE IN. A fluid button changes width with
+   the frame; the node's does not. On a 393 shell the two happen to differ by
+   57.5px, and on any other width they differ by something else — which is why
+   this is a fixed measure and not a wider `min-w`. */
+const BTN_FIXED = String.raw`bg-accent border border-slate-900 border-solid content-stretch cursor-pointer drop-shadow-[0px_0px_0px_transparent,0px_0px_0px_transparent] flex shrink-0 gap-1 items-center justify-center w-[161px] px-2.5 py-[12px] relative rounded-[26px] outline-none transition-[filter] hover:brightness-95 focus-visible:ring-[3px] focus-visible:ring-ring/50`
 const BTN_TEXT = String.raw`[word-break:break-word] font-sans font-semibold leading-5 relative shrink-0 text-foreground text-sm whitespace-nowrap`
 
 /* The same two states on the ORIGINAL (non-`redraw`) card, which the System
@@ -918,6 +972,27 @@ export default function ValveStatusCard({
   /* OPT-IN to the 2026-10-25 redraw. Default false: the System page passes
      nothing and keeps what it draws today. Only EventFocusOverlay opts in. */
   redraw = false,
+  /** THE CARD CHASSIS — 'default' | 'event'. `redraw` only; ignored by the
+      branch the System page draws, which has its own shell.
+
+      'default' keeps V2_CARD exactly as it has always been (rounded-18,
+      p-18, gap-18) so no existing caller moves. 'event' takes the Water Event
+      frame's own chassis, I200067:37450;199792:162861 — rounded-22, pt-12
+      pr-16 pb-16 pl-16, gap-11. EventFocusOverlay is the only caller that
+      passes it; see V2_CARD_EVENT for the node and for why this is additive
+      rather than an edit to V2_CARD. */
+  chrome = 'default',
+  /** THE ACTION'S WIDTH — 'fluid' | 'fixed'. Default branch only.
+
+      'fluid' is BTN as it has always been: `flex-[1_0_0]`, taking the width
+      the row has left. 'fixed' is the frame's own measure, `w-[161px]`
+      `shrink-0`, and changes NOTHING else about the button — see BTN_FIXED.
+
+      It exists because the System page's pixel pass needs the node's 161px
+      without inheriting the `redraw` branch, which swaps the whole card.
+      EventFocusOverlay never reads it: that surface takes the `redraw` branch,
+      which draws its own full-width action and returns before this is used. */
+  actionWidth = 'fluid',
   /* `redraw` only. 199683:24813 names the SETTING where the original named
      the behaviour, and the badge carries its state — "On" (199683:24849) or
      "Disabled" (199394:78935), which are what policy.autoShutoff returns. */
@@ -1159,7 +1234,13 @@ export default function ValveStatusCard({
     const showClock = !autoCloseOff && activatesIn != null
     const panelLabel = showClock ? autoCloseInLabel : autoCloseLabel
     return (
-      <div className={cn(V2_CARD, className)} data-node-id="199703:38726" data-name="Topology" {...props}>
+      <div
+        className={cn(chrome === 'event' ? V2_CARD_EVENT : V2_CARD, className)}
+        data-node-id="199703:38726"
+        data-name="Topology"
+        data-chrome={chrome}
+        {...props}
+      >
         <div className={V2_COL} data-node-id="199703:38728">
           <div className={V2_HEAD} data-node-id="199703:38729">
             <p className={V2_TITLE} dir="auto" data-node-id="199703:38730">
@@ -1475,7 +1556,10 @@ export default function ValveStatusCard({
             <button
               type="button"
               onClick={() => onToggle?.(isOpen ? 'closed' : 'open')}
-              className={redraw ? BTN_REDRAW : BTN}
+              /* `redraw` cannot be true here — the branch above returns first
+                 — so that arm is the dead-but-kept one this repo keeps on
+                 purpose. `actionWidth` is the live switch. */
+              className={redraw ? BTN_REDRAW : actionWidth === 'fixed' ? BTN_FIXED : BTN}
               data-node-id={NODE.button}
               data-name="Button"
             >

@@ -1,7 +1,47 @@
 /**
  * System page — v2 (mobile), pixel rebuild.
  *
- * Design source: Figma node 198379:80447 "System tab_mobile" (375x2763).
+ * ── THE CURRENT FRAME — 200059:35848 "System with event" (402x1891) ─────────
+ * Read 2026-11-09. 200047:136010 is THE SAME SCREEN cropped to 844px — the
+ * identical 67 text nodes and the identical child ids from 200067:37936 down —
+ * so it carries no information but where the fold falls, and is not fetched.
+ *
+ * WHAT THE FRAME IS MADE OF, top to bottom inside `content` (200059:35858):
+ *   200059:35859  the RED hero — a 592x323 rounded-rectangle at (-101,-75)
+ *                 whose fill is a pasted bitmap, "Screenshot 2026-08-19 at
+ *                 23.50.31 3". It is a BACKDROP, not designed artwork: it is a
+ *                 screenshot of this app scaled 1.47x and positioned outside
+ *                 its parent on every axis. The hero this page actually draws
+ *                 is HeroWaveArt's `alert` raster, which is what that
+ *                 screenshot is a picture of.
+ *   200059:35860  the header bar, ON that red. ADOPTED — see `renderHeaderBar`.
+ *   200059:35870  the consumption KPI, also on the red. Already shipped:
+ *                 SystemHeroCard draws 42.222px/-1.0556px figure, 20px unit,
+ *                 20px delta with the triangle, "vs." caption and the
+ *                 "All stats" pill at 12/15 behind rgba(241,245,249,0.28).
+ *   200059:35901  the Event card (component 199999:96629), overlapping the
+ *                 hero's bottom edge. NOT ADOPTED — see THE HERO'S WHITE BODY.
+ *   200059:35903  the Tabs row — hidden="true". The frame draws NO tab strip,
+ *                 which agrees with the More menu that replaced it.
+ *   200067:37898  "IOT overview" = the System type card. Already shipped.
+ *   200059:35939  "Topology" = the VALVE STATUS card. Already shipped.
+ *   200059:35959  "Topology" = the ACTIVE POLICY card. Already shipped EXCEPT
+ *                 its header Button (I200059:35959;199532:96298, 99x36, not
+ *                 hidden) — "Show all ->". ActivePolicyCard carries the
+ *                 `onShowAll` prop for it and this page does not pass one,
+ *                 because THERE IS NO POLICY LIST ROUTE in App.jsx to send it
+ *                 to. A control with nowhere to go is the dead-button defect
+ *                 v2-page-parity exists to prevent, so it stays unpassed and
+ *                 is reported rather than wired to a placeholder.
+ *   200059:35960  Events Timeline. Already shipped (its 62x36 header Button is
+ *                 this page's "Filter events" control).
+ *   200059:35961  Water consumption_M. Already shipped.
+ * Hidden in the frame and therefore NOT drawn, but all three are live states
+ * this page already implements and none was removed: 200059:35948 (the valve
+ * error band), 200059:35954 ("Verifying closure (allow a few min)"),
+ * 200059:35900 / 200059:35903 (a Button and the Tabs row).
+ *
+ * Previous design source: Figma node 198379:80447 "System tab_mobile" (375x2763).
  * The screen was rebuilt in Figma under new ids. The frame this file was
  * first traced from, 198378:74090, has been deleted — get_metadata on it now
  * answers "node ID was not found" — so every id below was re-derived from the
@@ -133,6 +173,11 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { cn } from '@/lib/utils'
+/* THE STATUS BAND, PAINTED BEHIND — 2026-11-09. See the call below; the hook
+   and STATUS_BAR_HEIGHT live beside Phone.jsx rather than in it because that
+   file may export only its component. */
+import { useStatusBarBleed } from '@/components/phoneStatusBar'
 import TabBar from '@/components/TabBar'
 /* `TAB_BAR_CLEARANCE` WAS IMPORTED HERE and is not any more — 2026-11-08. The
    bar reserves its own strip now (TabBar's host is `h-[93px]`), so no screen
@@ -257,6 +302,14 @@ import { LocationDot } from '@/v2/icons'
    gone. Do not bring either back — an id React does not own is an id React
    can overwrite, and the three things MoreMenu needs it for all fail SILENTLY
    (see `moreBadgeId` in AppHeaderBar for the list). */
+/* The veil over the RED hero, 200059:35860's own fill. A RAW CSS COLOUR in an
+   inline style, never a Tailwind utility: v4 emits NO CSS and NO error for a
+   utility naming a colour that is not registered as `--color-<name>` in
+   `@theme inline`, and this value is not registered. The page owns it rather
+   than AppHeaderBar because the veil is a tint OF THIS PAGE'S hero — blue on
+   Home, red here — and a header that hard-codes two hero colours knows about
+   screens, which is what "one header" argues against. */
+const HERO_HEADER_TINT = 'rgba(217,96,100,0.76)'
 const MORE_MENU_ID = 'system-more-menu'
 const MORE_BADGE_ID = 'system-more-badge'
 
@@ -429,9 +482,29 @@ function alertCardsFor(alert, systemId) {
   if (!alert) return []
   if (!isWaterEvent(alert)) return []
   return [eventAlertRow(alert, systemId, {
-    /* The canonical label. This card's title box is not the hero's one-line
-       170px box, so nothing is shortened here. */
-    titleForm: 'full',
+    /* ── THE SHORT FORM — 2026-11-09, Figma 200059:35901 ──────────────────
+       The node's string is `High flow event`, and its title box is a ONE-LINE
+       170px measure at 24px/-0.6. `full` resolves to `alert.label`
+       ("High Flow Water Event"), which does not fit it: against AlertCard's
+       `mobile-compact` variant — the one this page now mounts, at the node's
+       92px — it rendered `High Flow Wat…`.
+
+       FLIPPED GLOBALLY RATHER THAN SPLIT, having checked. `alertCardsFor` is
+       called in exactly one place (`alerts:` in the system memo), its result
+       is `system.alerts`, and `heroEvent` is the only reader — three uses: the
+       card's `event`, its `variant`, and the overlaid opener's accessible
+       name. Nothing else on this page or any other wants the full form from
+       HERE.
+
+       AND THE CANONICAL LABEL IS NOT LOST. `eventAlertRow` returns
+       `fullTitle: alert.label` ALWAYS, whichever form `title` took, precisely
+       so a caller that needs the long one can have it without a second call.
+       AND THE OPENER TAKES IT. The overlaid opener's `aria-label` reads
+       `fullTitle`, not `title` — see the ⚠ at that attribute for the WCAG
+       2.5.3 tension that creates and why it is flagged rather than resolved.
+       So `titleForm` governs the VISIBLE title only, which is the whole point
+       of the helper returning both. */
+    titleForm: 'short',
     detectedFormat: 'tooltip',
     /* The page's own long-standing behaviour, preserved rather than quietly
        dropped — the overlay's copy stopped doing this on 2026-11-02 and
@@ -2000,7 +2073,33 @@ export default function SystemPageV2Screen() {
      the 4px inset makes the radii concentric — 22 - 4 = 18, the card's own.
      Flagged for the owner rather than quietly resolved: if he wants the alert
      state to read as two separate cards, this is the line that changes. */
-  const heroBody = heroEvent ? (
+  /* ── THE OVERLAPPING EVENT CARD — 200059:35901, 2026-11-09 ───────────────
+     IT IS ITS OWN CARD NOW, not the hero's white body. 200059:35899 draws it
+     as the FIRST FLOW CHILD of the card column, and the red is an absolutely
+     positioned backdrop behind that column, so the card simply overlaps the
+     red where the two spans cross: the backdrop ends at content y=248, the
+     card runs 183..275, i.e. 65 of its 92px sit on red and 27px hang below.
+
+     WE HAVE NO ABSOLUTE BACKDROP - our red IS the hero's coloured section -
+     so the overlap is paid in two halves that must agree: SystemHeroCard's
+     `bleed` layout adds 78px of red below the consumption copy, and the card
+     column is pulled back up over 65 of it. 78 - 65 = the node's own 13px
+     between the copy and the card. Change one, change the other.
+
+     ⚠ THE WRAPPER AND ITS DIRECT CHILD ARE LOAD-BEARING AND UNCHANGED.
+     `[data-node-id="198379:80460"] > div` is how eventScreenWaterOnly
+     .dom.test.jsx:194 finds the pointer target and how v2ControlsWired
+     .dom.test.jsx:352 counts the cards. Only the wrapper's own padding
+     changed - the 4px inset existed to make the radii concentric inside the
+     hero body (22 - 4 = 18) and there is no hero body to be inset in any
+     more; the node gives this card the column's full width.
+
+     THE CARD ITSELF IS AlertCard AND IS NOT TOUCHED. 200059:35901 is
+     component 199999:96629, which is what AlertCard's `mobile` variant
+     already draws (red-500 border, rounded-18, the 61px red-100 waves disc,
+     the inline Ongoing badge). Its chip set differs from this node's two and
+     that file belongs to the event-surfaces agent - reported, not edited. */
+  const eventCard = heroEvent ? (
     /* `data-node-id="198379:80460"` IS KEPT ON PURPOSE. It named the alert
        carousel that used to live in the card stack, and two suites still
        reach the event card through it — `[data-node-id="198379:80460"] > div`
@@ -2010,7 +2109,7 @@ export default function SystemPageV2Screen() {
        direct child, so the hook keeps pointing at the same thing it always
        did. Renaming it would have broken two suites that test a function
        this change did not touch. */
-    <div className="p-[4px]" data-node-id="198379:80460" data-name="hero-body-event">
+    <div className="w-full shrink-0" data-node-id="198379:80460" data-name="hero-body-event">
       {/* The wrapper's onClick IS the card's tap target; the button below is
           its keyboard twin. See openEventOnCardTap for why the pointer lives
           on the wrapper and the keyboard on a SIBLING button — nothing inside
@@ -2036,7 +2135,25 @@ export default function SystemPageV2Screen() {
             setEventFocus(null)
             setEventFocusOpen(true)
           }}
-          aria-label={`Open ${heroEvent.title || 'event'}`}
+          /* ── `fullTitle`, NOT `title` — THE SPLIT, 2026-11-09 ─────────────
+             The card's VISIBLE title took the node's short form, which is why
+             `eventAlertRow` returns `fullTitle: alert.label` as well: its own
+             comment says "the hero's dialog needs it for its accessible name
+             even when the card draws the short one". This is that dialog's
+             opener, and three cases in v2ControlsWired.dom.test.jsx address
+             the card BY this name ("Open Low Flow Water Event"). So the form
+             is split at the two call sites rather than flipped globally.
+
+             ⚠ WCAG 2.5.3 TENSION, REPORTED NOT RESOLVED. Label in Name asks
+             that the accessible name CONTAIN the visible label, and
+             "Open Low Flow Water Event" does not contain "Low flow event" —
+             the word "Water" intervenes. Against that: the canonical label is
+             the unambiguous one in a list of controls, it is what the event
+             screen this opens is titled, and it is what the suites pin. A
+             name that satisfied both would have to carry the short form too
+             ("Open Low flow event - Low Flow Water Event"), which reads badly
+             and breaks the exact-match queries. Flagged for the owner. */
+          aria-label={`Open ${heroEvent.fullTitle || heroEvent.title || 'event'}`}
           className="absolute inset-0 z-10 pointer-events-none rounded-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         />
         {/* PRD 04a:146-154, locked 2026-06-15: an ignored event renders muted,
@@ -2045,57 +2162,144 @@ export default function SystemPageV2Screen() {
             to be handled from the incident." On it and Ignore live only in
             EventFocusOverlay, which the tap above opens. */}
         <AlertCard
-          variant={heroEvent.ignored ? 'ignored' : 'mobile'}
+          /* 'mobile-compact', not 'mobile' — 2026-11-09, and a PROP CHANGE
+             ONLY. 200059:35901 draws this card at 92px: a one-line title, the
+             duration folded into a second chip beside the flow rate, and no
+             "Detected" row. `mobile` measured 138px here, which shows now that
+             the card sits on its own over the hero. The ignored branch is
+             untouched — the frame covers only the live state. See
+             AlertCard.jsx for the node, and for the two things it reports
+             rather than decides: the absolute stamp is sr-only at this size,
+             and the title needs `titleForm: 'short'` (alertCardsFor, this
+             file) to read as the frame's text instead of ellipsizing. */
+          variant={heroEvent.ignored ? 'ignored' : 'mobile-compact'}
           event={heroEvent}
           onAction={handleAlertAction}
           actions={false}
         />
       </div>
     </div>
-  ) : typeCardInHero ? (
+  ) : null
+
+  /* The hero's white body is the System type card on a CALM system and
+     nothing at all on an event one — see the event card above and the note at
+     `body={heroBody}`. `typeCardInHero` is already `!heroEvent && …`, so the
+     two states cannot both be true. */
+  const heroBody = typeCardInHero ? (
     <div className="p-[4px]" data-name="hero-body-type">{systemTypeCard}</div>
   ) : undefined
 
-  /* Phone.jsx is a fixed 393x852 frame with overflow:hidden, so this screen
-     owns its scroll: the Content column is the single flex:1 / overflowY:auto /
-     minHeight:0 element and the header bar is a shrink-0 sibling. The Figma
-     frame's 2763px height is a canvas artefact, never a page height. */
-  return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
-      {/* Figma root 200013:91524 — `px-[16px] py-[8px]` over the page wash.
-          The five-stop wash lives in --app-bg on the OUTER shell so TabBar
-          stands on the same ground.
+  /* ── ONE BAR, TWO SEATS — 2026-11-09, Figma 200059:35860 ────────────────
+     `onHero` picks the seat and the seat picks everything about the surface.
+     One definition, so the two seats cannot drift apart in what they name,
+     where Back goes or which ids the More menu is handed.
 
-          ── WHAT USED TO BE ON THIS ELEMENT — deleted 2026-11-07 ───────────
-          A full-bleed 205px wave band, a rAF scroll driver writing `--hdr-t`
-          here, a `clip-path: inset(...)` cropping the band as you scrolled,
-          and two `calc()` transforms sliding the hero up and the tab row
-          down past each other. Deleted by the owner's own commission: the
-          collapse reclaimed height from a full-bleed band, and 200013:91524
-          has no band. The wave moved INSIDE the hero card. */}
-      <div
-        className="content-stretch flex flex-col items-start px-4 py-2 relative w-full"
-        style={{ flex: 1, minHeight: 0 }}
-        data-node-id="200013:91524"
-      >
-        {/* ── THE HEADER — 200013:91526, static, on the page ground ─────────
-            Back disc, a two-line eyebrow/title block, and the More badge. A
-            `shrink-0` sibling of the scroller, never sticky and never inside
-            it: this screen owns exactly one scroll container and it is below.
+     WHY IT MOVED ONTO THE HERO. 200059:35848 paints this bar ON the red hero:
+     the frame's artwork (200059:35859) spans content y=-75..248 and the bar
+     sits at y=0..47 inside that span, so the node does not FILL the bar, it
+     TINTS what is already behind it — an rgba(217,96,100,0.76) veil under
+     `mix-blend-multiply` with a 3.5px backdrop blur, and #fafbfc title ink.
+     That composite is exactly AppHeaderBar's `onColor` surface plus
+     `surfaceTint`, both of which landed additive on 2026-11-09.
 
-            ⚠ THE BACK CONTROL IS A WHITE DISC AGAIN. 200013:91526 draws a
-            30px white circle around the chevron, REVERSING the 2026-11-04
-            ruling that made it a bare glyph ("It needs to be less
-            highlighted", against 199922:83762). This node is the newer
-            instruction and the owner handed it over as the target, so the
-            disc stands. Recorded so the next person does not "fix" it back.
-            The disc is AppHeaderBar's; this page only says whether there is
-            one, by passing `onBack` or not.
+     ⚠ `px-0` IS DROPPED ON THE HERO SEAT, AND THAT IS THE POINT, not a
+     tidy-up. `onColor` is a chip surface, so AppHeaderBar puts
+     `relative rounded-full px-[8px] backdrop-blur-[3.5px]` on its own root and
+     merges `className` AFTER it — a `px-0` from here therefore WINS through
+     tailwind-merge and flattens the chip's 8px to zero, pulling the veil hard
+     against the title's glyphs. The GROUND seat keeps `px-0`: it is what this
+     page has always passed.
 
-            `eyebrow` names the PARENT scope and AppHeaderBar appends the `›`
-            itself, so it is passed bare; `title` names the current scope. */}
+     ⚠ THE GROUND SEAT IS NOT DEAD CODE AND DELETING IT WOULD BE A REGRESSION.
+     The hero renders on Overview ONLY (the owner's 2026-11-08 rule that a More
+     pick replaces the whole body below), so General Info has no artwork for
+     `onColor` to tint — and `onColor` without a hero is meaningless by
+     AppHeaderBar's own note: `mix-blend-multiply` against the plain page
+     ground just darkens the page. General Info therefore keeps the bar it has
+     always had, as `shrink-0` chrome above the scroller, down to the `px-0`.
+
+     ⚠ THIS MOVES THE BAR INSIDE THE ONE SCROLL CONTAINER, which contradicts
+     the 2026-11-04 note this block replaced ("a `shrink-0` sibling of the
+     scroller, never sticky and never inside it"). The frame is why: the bar is
+     a child of the scrolling `content` frame (200059:35858), not page chrome.
+     Nothing about the shell contract changes — there is still exactly one
+     flex:1 / overflowY:auto / minHeight:0 element and the bar is INSIDE it, so
+     it scrolls away with the hero. It is NOT sticky, and no scroll driver,
+     clip-path or transform came back with it: the collapsing header deleted on
+     2026-11-07 is still deleted. Flagged for the owner, because "the header
+     scrolls away now" is a behaviour change a frame cannot authorise on its
+     own — see the report.
+
+     ⚠ WHAT THIS DOES NOT DO: BRING THE FULL-BLEED BAND BACK. 200059:35859 is
+     positioned outside its parent on every axis (x=-101..491 in a 402 frame),
+     the same shape as the 205px band this app DELETED on 2026-11-07 when the
+     wave moved into the hero card (eaf8096). Nothing here reinstates it: the
+     hero CARD owns artwork of its own, HeroCardShell paints it, and the bar is
+     seated on that instead. The frame's band is recorded as a conflict for the
+     owner, not acted on. HomeAllAccounts.jsx made the identical call against
+     its own frame on the same day. */
+  /* ── WHICH SEAT, AND WHY IT IS GATED ON THE RED HERO ────────────────────
+     Two conditions, both necessary:
+
+       · OVERVIEW. The hero renders on Overview only (2026-11-08), so General
+         Info has no artwork to tint.
+       · THE HERO MUST BE **RED**. `surfaceTint` is the tint of THIS frame's
+         hero and the frame is "System with event" — 200059:35848 is the ALERT
+         state and there is no calm node for this screen. On a calm system
+         SystemHeroCard paints the `calm` BLUE raster, and multiplying a red
+         veil over blue artwork is a colour nobody designed. `waterAlerting`
+         is the same predicate that chooses the red raster one screen down, so
+         the veil and the artwork under it cannot disagree about which hero is
+         on screen.
+
+     A calm system therefore keeps the bar exactly where it has always been,
+     as chrome on the page ground, and nothing about that view changes. When a
+     calm node arrives, this is the line that takes its tint — not a guessed
+     blue. */
+  const heroSeatsHeader = tab !== 'general' && waterAlerting
+
+  /* ── THE STATUS BAND IS THIS PAGE'S HERO NOW — 200059:35849 ──────────────
+     The node puts NO background on the strip and paints the clock and battery
+     `#1e2a3b`: the frame runs the red artwork to the top edge of the screen,
+     behind the glyphs. `bleed: true` drops Phone.jsx's in-flow 44px seat so
+     the route starts at y=0 and this page's artwork fills the band; the
+     glyphs are an absolute overlay, last in DOM, so they draw ON the artwork
+     rather than being covered by it.
+
+     ⚠ ONE PREDICATE WITH THE VEIL AND THE BLEED, deliberately. Off Overview
+     there is no hero at all, and on a calm system the hero is the BLUE calm
+     raster with the bar on the page ground above it — dropping the seat in
+     either case pulls the route up under the clock with nothing behind it.
+     `heroSeatsHeader` already answers exactly that question for the veil, so
+     it answers it here too and the two cannot disagree. Resetting is the
+     hook's own job: it restores the seat on unmount and whenever `bleed`
+     goes false, so leaving Overview or clearing the event puts the band back.
+
+     ⚠ INK IS PER SCREEN. `--color-slate-800` is #1d293d against the node's
+     #1e2a3b — within 2 per channel. It is NOT `--status-bar-ink` (#0f172b),
+     which is the default the hook restores. Home's equivalent node paints the
+     same glyphs WHITE, which is why this is a parameter and not a constant.
+
+     ⚠ DARK GLYPHS ON A RED HERO IS THE RISKY PAIRING and the shell cannot
+     check it — nothing there knows what is behind them. Measured from this
+     side instead; see the report. */
+  const { inset: statusBarInset } = useStatusBarBleed({
+    bleed: heroSeatsHeader,
+    /* ⚠ THE INK IS GATED TOO, AND IT HAS TO BE. Passing it unconditionally
+       set the glyphs to slate-800 on a CALM system and on General Info as
+       well - states where the seat is kept and the band wears
+       `theme.statusBarBg`, so there is no hero under the clock and no reason
+       to move its colour off the shell's own `--status-bar-ink` (#0f172b).
+       Measured: the clock read #1d293d on every state, including the two that
+       do not bleed. `undefined` is what makes the hook restore the default. */
+    ink: heroSeatsHeader ? 'var(--color-slate-800)' : undefined,
+  })
+
+  const renderHeaderBar = onHero => (
         <AppHeaderBar
-          className="px-0"
+          className={onHero ? undefined : 'px-0'}
+          surface={onHero ? 'onColor' : 'ground'}
+          surfaceTint={onHero ? HERO_HEADER_TINT : undefined}
           eyebrow={system.parentName || undefined}
           title={system.title || system.parentName || 'System'}
           onBack={system.parentName
@@ -2115,11 +2319,82 @@ export default function SystemPageV2Screen() {
              (WCAG 2.5.3 Label in Name). Never a hand-written literal. */
           moreLabel={t('tabs.more')}
         />
+  )
+
+  /* Phone.jsx is a fixed 393x852 frame with overflow:hidden, so this screen
+     owns its scroll: the Content column is the single flex:1 / overflowY:auto /
+     minHeight:0 element and the header bar is a shrink-0 sibling. The Figma
+     frame's 2763px height is a canvas artefact, never a page height. */
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
+      {/* Figma root 200013:91524 — `px-[16px] py-[8px]` over the page wash.
+          The five-stop wash lives in --app-bg on the OUTER shell so TabBar
+          stands on the same ground.
+
+          ── WHAT USED TO BE ON THIS ELEMENT — deleted 2026-11-07 ───────────
+          A full-bleed 205px wave band, a rAF scroll driver writing `--hdr-t`
+          here, a `clip-path: inset(...)` cropping the band as you scrolled,
+          and two `calc()` transforms sliding the hero up and the tab row
+          down past each other. Deleted by the owner's own commission: the
+          collapse reclaimed height from a full-bleed band, and 200013:91524
+          has no band. The wave moved INSIDE the hero card. */}
+      <div
+        className="content-stretch flex flex-col items-start pb-2 relative w-full"
+        style={{ flex: 1, minHeight: 0 }}
+        data-node-id="200013:91524"
+      >
+        {/* ── THE HEADER — 200013:91526, static, on the page ground ─────────
+            Back disc, a two-line eyebrow/title block, and the More badge. A
+            `shrink-0` sibling of the scroller, never sticky and never inside
+            it: this screen owns exactly one scroll container and it is below.
+
+            ⚠ THE BACK CONTROL IS A WHITE DISC AGAIN. 200013:91526 draws a
+            30px white circle around the chevron, REVERSING the 2026-11-04
+            ruling that made it a bare glyph ("It needs to be less
+            highlighted", against 199922:83762). This node is the newer
+            instruction and the owner handed it over as the target, so the
+            disc stands. Recorded so the next person does not "fix" it back.
+            The disc is AppHeaderBar's; this page only says whether there is
+            one, by passing `onBack` or not.
+
+            `eyebrow` names the PARENT scope and AppHeaderBar appends the `›`
+            itself, so it is passed bare; `title` names the current scope. */}
+        {/* ── THE GROUND SEAT ──────────────────────────────────────────────
+            `shrink-0` chrome above the scroller, exactly where this page's bar
+            has always been and exactly what it has always rendered. It is what
+            General Info gets, and what a CALM system gets; see
+            `heroSeatsHeader` and the ⚠ at `renderHeaderBar` for why this
+            branch may not be deleted. */}
+        {/* `px-4 pt-2` is the padding that used to be on the root. It moved
+            here because the bleeding hero needs the SCROLLER to own the
+            gutter (see the scroller) and because this is now the only child
+            that still wants a top inset. */}
+        {heroSeatsHeader ? null : (
+          <div className="w-full shrink-0 px-4 pt-2" data-name="system-header-ground">
+            {renderHeaderBar(false)}
+          </div>
+        )}
 
         {/* ── THE ONE SCROLL CONTAINER ─────────────────────────────────────
             flex:1 / overflowY:auto / minHeight:0, per the app-shell contract.
-            `-mx-[16px]` + `px-[16px]` keeps the scrollbar gutter off the
-            cards while letting focus rings reach the frame edge.
+
+            ⚠ THIS SCROLLER OWNS THE 16px PAGE GUTTER — moved off the root
+            2026-11-09, and it is the whole trick behind the full-bleed hero.
+            A child that bleeds past the scroller's CONTENT edge creates real
+            scrollable overflow: Chrome computes it from the child's BORDER
+            box and does NOT give a negative right margin back. With the
+            gutter on the root, Home measured `scrollWidth` 386 against a
+            `clientWidth` of 370 at the frame's 402 - a 16px sideways scroll,
+            invisible because this scroller hides its scrollbars, and
+            draggable. A child that reaches into its scroll container's
+            PADDING box adds none, because `clientWidth` already counts that
+            padding. So the gutter lives here and the hero's `-mx-4` lands
+            exactly on the padding edge.
+
+            It also replaced `-mx-[16px] w-[calc(100%+32px)] px-[16px]`, which
+            was the same gutter spelled as a bleed. `w-full px-4` measures the
+            same 361px content box without the negative margin that was
+            producing the overflow.
 
             NO `paddingTop` ANY MORE. It used to be the collapse distance,
             reserving height for a hero that floated above this element; the
@@ -2151,7 +2426,7 @@ export default function SystemPageV2Screen() {
             card group; the group inside is gap-[14px] — 200013:91530. */}
         <div
           ref={scrollerRef}
-          className="content-stretch flex flex-col gap-[22px] items-start -mx-[16px] w-[calc(100%+32px)] px-[16px] pt-[10px] relative [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="content-stretch flex flex-col gap-[22px] items-start w-full px-4 relative [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ flex: 1, overflowY: 'auto', overflowX: 'clip', minHeight: 0 }}
           data-node-id="200013:91527"
         >
@@ -2204,6 +2479,79 @@ export default function SystemPageV2Screen() {
               flagged for the owner rather than carved out. */}
           {tab === 'general' ? null : (
           <SystemHeroCard
+            /* ── FULL-BLEED ON THE EVENT STATE — 200059:35848, 2026-11-09 ───
+               The owner, against the inset-card version running: "Layout and
+               components completely doesn't look as in Figma." The node is
+               unambiguous — 200059:35859 is `absolute left-[-101px] top-[-75px]
+               w-[592px] h-[323px]` inside a 402 frame, i.e. positioned outside
+               its parent on every axis, with no radius and no gutter.
+
+               HOW IT BLEEDS, AND WHY NO WIDTH IS SPELLED. The scroller carries
+               `px-4`, so `-mx-4` cancels exactly that gutter — the page's own
+               number, not a guess about the viewport — and `self-stretch
+               w-auto` lets the flex container compute the width:
+                 width = contentWidth - marginLeft - marginRight
+               = 361-(-16)-(-16) = 393 on this shell and 370+32 = 402 on the
+               frame's. NO 393, NO 402, NO 370 IS WRITTEN. `w-auto` is required
+               because HeroCardShell's root declares `w-full`, and an explicit
+               width:100% beats the stretch and leaves a 16px strip of page
+               ground down the right-hand side.
+
+               `rounded-none` beats the shell's own `rounded-[22px]` — the
+               shell merges `className` last, so tailwind-merge drops the 22.
+               The node draws no radius on this hero at either edge.
+
+               CLIP STAYS `'card'` (the default). HeroCardShell's `'art'` exists
+               for a hero with something hanging outside its box — Home's
+               zero-count upsell panel. Nothing on this hero does: the "All
+               stats" pill is a FLOW child of the copy row, not an absolute
+               one, and the event card is a SIBLING pulled up over this card
+               rather than a child of it, so the root's `overflow-hidden`
+               cannot reach it. Verified by measuring the event card's painted
+               height, not assumed.
+
+               ⚠ GATED ON THE EVENT STATE, like the veil. 200059:35848 is
+               "System with event" and there is no calm node for this screen;
+               a calm system keeps the inset card, its white System type body
+               and its ground-seat header, all byte-identical to what shipped.
+               Reported, because a full-bleed calm hero is a guess until a calm
+               node says so.
+
+               ⚠ WHAT THIS CANNOT REACH: THE STATUS BAR. The node runs the red
+               BEHIND the clock and battery. Phone.jsx renders its own status
+               strip as a `flexShrink: 0` SIBLING above the route and the frame
+               is `overflow: hidden`, so nothing in this page can paint under
+               it. The hero bleeds to the top of the PAGE and the strip keeps
+               its own colour. REPORTED — it needs Phone.jsx, which an agent
+               is live in. */
+            {...(heroSeatsHeader
+              ? { layout: 'bleed', className: '-mx-4 w-auto self-stretch rounded-none' }
+              : null)}
+            /* ── THE HEADER, SEATED ON THE ARTWORK — 200059:35860 ───────────
+               Handed to the hero as a slot so HeroCardShell places it inside
+               the coloured region, AFTER HeroWaveArt. The shell's children
+               wrapper is `relative` and the art is `absolute`, so the bar
+               paints over the raster; given to the shell as its own first
+               child it would render completely invisible. The slot is in
+               SystemHeroCard, which documents the whole mechanism. */
+            header={heroSeatsHeader ? renderHeaderBar(true) : undefined}
+            /* ── THE BAND'S INSET, FROM THE SHELL ITSELF — 2026-11-09 ───────
+               `inset` is what must be added back to content that should NOT
+               bleed. It already accounts for the shell path (44 where a band
+               is drawn, 0 on MobileLayout, which draws none) AND for whether
+               this screen asked to bleed, so one expression is right at every
+               width on both paths.
+
+               THE 11 IS THIS NODE'S OWN. 200059:35849 is a 48px band and
+               200059:35860's chip sits at y=59, so the node's gap between the
+               band and the chip is 59 - 48 = 11.
+
+               IT REPLACED `pt-[55px] [.mobile-shell_&]:pt-[11px]`. That pair
+               re-derived Phone.jsx's private `innerWidth <= 500 || mobile UA`
+               rule by keying on the class MobileLayout happens to render, and
+               it hard-coded the 44 as the difference between 55 and 11. Both
+               are gone: no 55, no selector, no second predicate. */
+            headerInsetTop={statusBarInset + 11}
             total={heroTotal}
             unit={heroFigures.unit}
             /* SIGNED NUMBER, not the formatted string this used to pass.
@@ -2257,6 +2605,14 @@ export default function SystemPageV2Screen() {
               setTab('overview')
               jumpToChartFromHero()
             }}
+            /* ── THE EVENT CARD IS NOT IN HERE ANY MORE — 2026-11-09 ───────
+               `heroBody` is the System type card on a calm system and NOTHING
+               on an event one: 200059:35899 draws the event card as a FLOW
+               SIBLING below the hero, overlapping the red backdrop, not as a
+               white section welded under it. That reverses contract §6 for
+               this screen, on the owner's instruction and against this frame;
+               the line this file's old note called "the line that changes" is
+               this one. See THE OVERLAPPING EVENT CARD below. */
             body={heroBody}
           />
           )}
@@ -2276,9 +2632,34 @@ export default function SystemPageV2Screen() {
                except that it is now a tab panel rather than the whole
                scroll body. */
             <div
-              className="content-stretch flex flex-col gap-[14px] items-start justify-center pb-4 px-0 relative shrink-0 w-full"
-              data-node-id="198379:80459"
+              className={cn(
+                'content-stretch flex flex-col items-start justify-center pb-4 px-0 relative shrink-0 w-full',
+                /* 200059:35899's own gap, between the event card and the card
+                   stack. Without an event card there is only the stack, so the
+                   gap has nothing to measure and the stack's own 14 governs. */
+                eventCard ? 'gap-[16px]' : 'gap-[14px]',
+                /* ── THE OVERLAP ────────────────────────────────────────────
+                   65px of the event card sits on the red (see `eventCard`),
+                   and the scroller's own `gap-[22px]` stands between this
+                   column and the hero, so the pull is 22 + 65. `relative` is
+                   what makes this column paint OVER the hero: both are
+                   positioned at z-index auto, so they paint in document order
+                   and this one comes second. No z-index — a positive one here
+                   would paint over the floating tab bar. */
+                eventCard ? '-mt-[87px]' : null,
+              )}
+              data-node-id={eventCard ? '200059:35899' : '198379:80459'}
+              data-name="system-content"
             >
+              {eventCard}
+              {/* 200059:35902 — the card stack's own column, gap 14. It is a
+                  level of its own because the node has two gaps here, 16 above
+                  the stack and 14 inside it, and one element cannot carry
+                  both. */}
+              <div
+                className="content-stretch flex flex-col gap-[14px] items-start relative shrink-0 w-full"
+                data-node-id="200059:35902"
+              >
                   {/* THE ALERT CAROUSEL IS GONE — 2026-11-07. The event it
                       drew is the HERO'S WHITE BODY now (see `heroBody`), which
                       is what 200013:91524 draws and what contract §6 rules.
@@ -2303,6 +2684,13 @@ export default function SystemPageV2Screen() {
                         <ValveStatusCard
                           key={key}
                           className="shrink-0"
+                          /* THE FRAME FIXES THIS BUTTON AT 161px — 2026-11-09,
+                             and a PROP CHANGE ONLY. BTN is `flex-1`, so it
+                             measured 103.5px here. `actionWidth` swaps the
+                             width and nothing else; it is deliberately NOT
+                             `redraw`, which would exchange the whole card for
+                             the event screen's. See BTN_FIXED. */
+                          actionWidth="fixed"
                           tone={alerting ? 'alert' : 'calm'}
                           state={valveState}
                           /* THE CARD'S ROUTE TO THE COMMAND IN FLIGHT. With a
@@ -2690,6 +3078,7 @@ export default function SystemPageV2Screen() {
 
                     return null
                   })}
+              </div>
 
             </div>
             )}

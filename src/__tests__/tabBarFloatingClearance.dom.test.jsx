@@ -39,6 +39,20 @@
 // background above it. The float is intact; what changed is that the strip is
 // reserved ONCE, by the bar, instead of seventeen times by the screens.
 //
+// ── THE NUMBERS MOVED, THE INVARIANT DID NOT - 2026-11-09 ────────────────
+//
+// Figma node 200067:39019 re-draws the bar at 335 x 66, x=33, y=756 in a
+// 402 x 844 artboard, so the host is `h-[104px]` and the pill is
+// `inset-x-[33px] bottom-[22px] h-[66px]` - footprint 88, gap still 16.
+// NOTHING IN THIS FILE IS RELAXED BY THAT. Every assertion below reads the
+// numbers off tabBarMetrics.js rather than hardcoding them, which is exactly
+// why a redesign moves the contract instead of breaking the test.
+//
+// AND THE FRAME ITSELF ARGUES FOR THE BUG. It draws the pill over live tree
+// rows at 57% opacity - which is appearance. A Figma frame has no scroll
+// model. If a future pass "makes it match the design" by floating the pill
+// over the scroller again, the first test here fails, and it is right to.
+//
 // WHAT THIS FILE PINS NOW:
 //   · the host declares the full clearance as height (not `h-0`);
 //   · the pill still hangs off it with its insets and its height unchanged;
@@ -152,9 +166,15 @@ describe('the tab bar floats, and reserves its own strip', () => {
     renderShell();
     /* Both are INERT as of 2026-11-08 - nothing scrolls under the pill for
        them to blur - and both are kept deliberately. They are the pill's
-       declared appearance, the 4% translucency still samples the page
-       background behind it, and dropping them would change the look, which
-       the 2026-11-08 fix explicitly must not. */
+       declared appearance, the translucency still samples the page background
+       behind it, and dropping them would change the look, which the 2026-11-08
+       fix explicitly must not.
+
+       2026-11-09: node 200067:39019 says rgba(255,255,255,0.57) over an 8px
+       blur, so the fill went /96 -> /57 and the blur 10 -> 8. Matched loosely
+       on purpose - the TOKEN is the contract (`--card`, so all four themes
+       move with it), the alpha is the designer's. A literal hex here would
+       freeze identically across every theme. */
     expect(pill().className).toMatch(/backdrop-blur-\[\d+px\]/);
     expect(pill().className).toMatch(/bg-card\/\d+/);
   });
@@ -296,6 +316,32 @@ const declaresClearance = (raw) => {
     && /(?:padding|margin)Bottom:\s*TAB_BAR_CLEARANCE\b/.test(src);
 };
 
+/**
+ * How much bottom spacing a screen declares, whatever number it names.
+ *
+ * WHY THIS EXISTS AS WELL AS `declaresClearance` — 2026-11-09. The negative
+ * sweep wants "does this screen pay the clearance AGAIN", which is an exact
+ * question and stays exact. The EXEMPT screen's question is different: its
+ * scroll region is out of flow, so what it owes is enough padding to clear the
+ * PILL, and an exact match on the constant turns a 1px redesign into a failure
+ * in a file the tab bar does not own.
+ *
+ * ⚠ IT IS NOT A LOOSENING. Zero still fails, and anything under the pill's
+ *   footprint still fails - which is the condition that would actually put
+ *   rows under a 57%-opaque, pointer-events:auto bar.
+ */
+const declaredBottomPx = (raw) => {
+  const src = stripComments(raw);
+  const found = [];
+  for (const m of src.matchAll(/paddingBottom:\s*(\d+)\b/g)) found.push(Number(m[1]));
+  for (const m of src.matchAll(/padding:\s*'[^']*\s(\d+)px'/g)) found.push(Number(m[1]));
+  for (const m of src.matchAll(/pb-\[(\d+)px\]/g)) found.push(Number(m[1]));
+  if (IMPORTS_CLEARANCE.test(src) && /(?:padding|margin)Bottom:\s*TAB_BAR_CLEARANCE\b/.test(src)) {
+    found.push(TAB_BAR_CLEARANCE);
+  }
+  return found.length ? Math.max(...found) : 0;
+};
+
 /* ─────────────────────────────────────────────────────────────────────────
  * AND IT HAS TO BE VISIBLE, not merely mounted and paid for.
  *
@@ -395,12 +441,36 @@ describe('no screen reserves the bar\'s strip a second time', () => {
      and whoever changed it has to decide which list the file belongs in. */
   it.each(EXEMPT)('%s still pays it, because its cover is out of flow', file => {
     const src = read(file);
+    const declared = declaredBottomPx(src);
     expect(
-      declaresClearance(src),
-      `${file} is listed EXEMPT but declares no clearance. Its scroll region is `
-      + 'inside an `absolute inset-0` cover, which reserved column cannot push, '
-      + 'so the pill paints over its bottom rows unless it pads itself.',
-    ).toBe(true);
+      declared,
+      `${file} is listed EXEMPT but declares no bottom clearance. Its scroll `
+      + 'region is inside an `absolute inset-0` cover, which reserved column '
+      + 'cannot push, so the pill paints over its bottom rows unless it pads '
+      + 'itself.',
+    ).toBeGreaterThan(0);
+    expect(
+      declared,
+      `${file} declares ${declared}px, which is less than the pill's own `
+      + `${TAB_BAR_FOOTPRINT}px footprint. Its bottom rows are UNDER a bar that `
+      + 'is 57% opaque with pointer-events:auto - painted and dead.',
+    ).toBeGreaterThanOrEqual(TAB_BAR_FOOTPRINT);
+    /* THE DRIFT THIS CHECK WAS LOOSENED FOR IS CLOSED — 2026-11-09, and the
+       loosening stands on its own merits rather than on that drift. When node
+       200067:39019 moved the bar (footprint 77 -> 88, clearance 93 -> 104),
+       MoreComingSoonScreen still spelled `pb-[93px]` and this case was an
+       exact match on TAB_BAR_CLEARANCE, so it went red against a screen on
+       which nothing was actually wrong: 93 still cleared the 88px footprint,
+       so no row was ever under the pill - the last one simply rested 5px above
+       the bar instead of 16. The screen now carries `pb-[104px]` and
+       moreComingSoon.dom.test.jsx agrees with it on the same at-least-the-
+       footprint bar, so there is NO outstanding failure here and nothing left
+       to fix. What is kept is the BOUND, not the exact literal: an exact
+       literal turns every future re-draw of the bar into a red test on a
+       correct screen, and a red test on a correct screen is how a suite gets
+       relaxed for the wrong reason. Below the footprint is the case that can
+       really ship broken - bottom rows under a bar that is 57% opaque with
+       pointer-events:auto, painted and dead, which is the 2026-11-08 bug. */
     expect(
       /absolute\s+inset-0/.test(stripComments(src)),
       `${file} no longer has an out-of-flow cover, so the exemption's only `
@@ -468,18 +538,36 @@ describe('four items share the pill evenly', () => {
     for (const b of document.querySelectorAll('button')) expect(pill().contains(b)).toBe(true);
   });
 
-  it('gives every tab the same capsule, so the row stays even', () => {
+  it('gives every tab the same indicator box, so the row stays even', () => {
     renderShell();
     const caps = [...pill().querySelectorAll('button > div')];
     expect(caps).toHaveLength(4);
-    const shapes = caps.map(c => `${px(c.className, 'w')}x${px(c.className, 'h')}`);
-    expect(new Set(shapes).size, `capsules differ: ${shapes.join(', ')}`).toBe(1);
-    // Wider than tall - the owner's WhatsApp screenshot, not a rounded square.
-    const [w, h] = [px(caps[0].className, 'w'), px(caps[0].className, 'h')];
-    expect(w, `the active indicator is ${w}x${h}; it must be a capsule, wider than tall`).toBeGreaterThan(h);
+
+    /* THE INDICATOR IS THE ITEM BOX NOW - 2026-11-09, node 200067:39019,
+       whose active item is `flex-[1_0_0] h-full rounded-[100px]` at 79.25 x
+       48. It used to be a 44x28 capsule INSIDE the item, read off the owner's
+       WhatsApp screenshot; "wider than tall" was the assertion that pinned
+       that reading and it is gone with it.
+
+       The WIDTH is no longer a literal and must not become one: the item is a
+       grid fraction, 77.25 in the 393 shell and 79.50 at the frame's own 402,
+       so `w-full` is the only spelling that is right at both. What is pinned
+       is that all four agree, and that the height is the frame's 48. */
+    const heights = caps.map(c => px(c.className, 'h'));
+    expect(new Set(heights).size, `indicator heights differ: ${heights.join(', ')}`).toBe(1);
+    expect(
+      heights[0],
+      'the indicator must be the full item box: pill height minus the 8px '
+      + 'padding each side and the 1px ring each side',
+    ).toBe(TAB_BAR_PILL_HEIGHT - 16 - 2);
+    for (const c of caps) {
+      expect(c.className, 'the indicator must stay fluid, not a literal width').toMatch(/(?:^|\s)w-full(?:\s|$)/);
+      // A stadium, like the frame's rounded-[100px] clamped to half of 48.
+      expect(px(c.className, 'rounded')).toBe(heights[0] / 2);
+    }
   });
 
-  it('draws the avatar as the Profile glyph, inside that capsule', () => {
+  it('draws the avatar as the Profile glyph, inside that indicator', () => {
     renderShell();
     const avatar = pill().querySelector('[data-name="persona-avatar"]');
     expect(avatar, 'the Profile tab must draw the persona avatar, not an icon').not.toBeNull();
@@ -493,16 +581,40 @@ describe('four items share the pill evenly', () => {
     renderShell();
     // Four other suites pick a tab by button.querySelector('span').textContent.
     // More left the bar 2026-11-07; Search took the second slot.
+    //
+    // THE LABELS WENT `sr-only` ON 2026-11-09 (node 200067:39019 holds four
+    // glyphs and no text node) AND THAT IS NOT A DELETION. They are the four
+    // tabs' accessible names and the handle five suites navigate by, so the
+    // span, its position and its text are all still pinned here.
     for (const b of document.querySelectorAll('button')) {
-      expect(b.querySelector('span').textContent).toMatch(/^(Dashboard|Search|Alerts|Profile)$/);
+      const span = b.querySelector('span');
+      expect(span.textContent).toMatch(/^(Dashboard|Search|Alerts|Profile)$/);
+      expect(
+        span.className,
+        'the label must be hidden visually, not removed - it is the accessible name',
+      ).toMatch(/(?:^|\s)sr-only(?:\s|$)/);
     }
   });
 
-  it('gives the active capsule its fill, and only the active one', () => {
+  it('gives the active indicator its fill, and only the active one', () => {
     renderShell();
+    /* 16%, not 15: the frame states `bg-[rgba(11,129,248,0.16)]` and #0b81f8
+       IS --primary, so the alpha is the designer's own. */
     const filled = [...pill().querySelectorAll('button > div')]
-      .filter(d => /bg-primary\/15/.test(d.className));
+      .filter(d => /bg-primary\/16/.test(d.className));
     expect(filled).toHaveLength(1);
     expect(filled[0].closest('button').querySelector('span').textContent).toBe('Dashboard');
+  });
+
+  /* THE GLYPH IS 28, FROM THE FRAME, and the size has to be a literal on the
+     svg: the shadcn Button preset carries
+     `[&_svg:not([class*='size-'])]:size-4`, so a glyph that does not name its
+     own size is silently shrunk to 16px. */
+  it('draws every glyph at the frame s 28px', () => {
+    renderShell();
+    for (const b of document.querySelectorAll('button')) {
+      const box = b.querySelector('div > div');
+      expect(box.className, 'the glyph box must be 28px').toMatch(/(?:^|\s)size-\[28px\](?:\s|$)/);
+    }
   });
 });

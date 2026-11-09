@@ -308,6 +308,37 @@ export default function HeroCardShell({
    * them would be wrong on the other two.
    */
   children,
+  /**
+   * WHERE THE CLIP LIVES. Additive, and `'card'` is exactly what this shell
+   * did before the prop existed - every current call site keeps that default
+   * and renders byte-identically.
+   *
+   * - `'card'`  the ROOT clips. One continuous 22px radius over the artwork,
+   *             the join and the body, and anything a child hangs outside the
+   *             card is cut with it.
+   * - `'art'`   only the ARTWORK is clipped, by a box the same size as the
+   *             coloured section, and the root clips nothing.
+   *
+   * WHY `'art'` EXISTS — a bug, not a preference. The Home hero
+   * (200067:38969) is full-bleed and square, so it has no radius to clip, and
+   * it lost the white body that used to make it tall. SystemsOverviewHero's
+   * zero-count chip drops a 114px upsell panel out of the hero box; against
+   * the shorter card the root's `overflow-hidden` cut 95px off it, measured
+   * in Chromium at 393x852, taking the whole wint.ai CTA with it. A zero chip
+   * is a sales surface, so that is a real loss and not a cosmetic one.
+   *
+   * The raster still has to be clipped either way: `brand` crops it to
+   * `top-[-102.1%] bottom-[-76.8%]`, so unclipped it paints far outside the
+   * hero and over the cards below. `'art'` keeps that clip and moves it off
+   * the card, which is the only part that was ever load-bearing for the
+   * artwork.
+   *
+   * NOT A STACKING CONTEXT EITHER WAY. The wrapper is `absolute` with no
+   * `z-index`, `transform`, `filter` or `isolation`, so it cannot seal the
+   * panel below the body - the failure heroPanelStacking.dom.test.jsx exists
+   * to catch. `overflow-hidden` clips; it does not stack.
+   */
+  clip = 'card',
 }) {
   return (
     <div
@@ -325,10 +356,15 @@ export default function HeroCardShell({
          (transparent) background instead of the page ground, which is where
          the wave has always multiplied. The card root paints NO background for
          the same reason; only the body section does. */
-      className={cn('relative w-full shrink-0 overflow-hidden rounded-[22px]', className)}
+      className={cn(
+        'relative w-full shrink-0 rounded-[22px]',
+        clip === 'card' && 'overflow-hidden',
+        className,
+      )}
       data-name="hero-card-shell"
       data-hero-tone={tone}
       data-hero-body={body ? 'true' : 'false'}
+      data-hero-clip={clip}
     >
       <div className="relative" data-name="hero-card-colour">
         {/* Consumed as-is. The chassis supplies the box and the crop; every
@@ -339,12 +375,28 @@ export default function HeroCardShell({
         {/* An unknown tone falls back to the brand crop, matching the fallback
             HeroWaveArt makes on the same key: a typo in a prop should look
             wrong, not blank the artwork by resolving the box to `undefined`. */}
-        <HeroWaveArt
-          tone={tone}
-          className={ART_BOX[tone] ?? ART_BOX.brand}
-          imgClassName={ART_IMG}
-          scrim={false}
-        />
+        {/* Under `clip="art"` the raster gets a clipping box of its own, the
+            same size as the coloured section, so the crop still happens and
+            the CARD stops clipping. `absolute inset-0` and nothing else — no
+            z-index, so the `relative` children below still paint over it by
+            document order alone, exactly as they do under `clip="card"`. */}
+        {clip === 'art' ? (
+          <div className="absolute inset-0 overflow-hidden" aria-hidden data-name="hero-card-art-clip">
+            <HeroWaveArt
+              tone={tone}
+              className={ART_BOX[tone] ?? ART_BOX.brand}
+              imgClassName={ART_IMG}
+              scrim={false}
+            />
+          </div>
+        ) : (
+          <HeroWaveArt
+            tone={tone}
+            className={ART_BOX[tone] ?? ART_BOX.brand}
+            imgClassName={ART_IMG}
+            scrim={false}
+          />
+        )}
         {/* In flow and after the art, so it paints over it without needing a
             z-index. The copy is the only thing in this card that is not
             artwork, and nothing here may be `absolute` — the coloured

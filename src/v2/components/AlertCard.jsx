@@ -316,6 +316,15 @@ const SHELL_WATER_EVENT = `${SHELL} max-w-[440px]`
    all — the frame hugs its content now. min-h-[178px] went with it: the node
    sets none, and the three unit chips below already carry the card past 178. */
 const SHELL_MOBILE = String.raw`bg-surface-card border border-red-500 border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[18px] shrink-0 w-full`
+/* 199999:96629 / 200059:35901 — the 92px compact event card. Same paint and
+   same radius as SHELL_MOBILE; what differs is the box: a FIXED h-[92px], and
+   pt-[14px] pb-[12px] px-[12px] against the uniform px-[18px] py-[12px].
+   `w-full`, not the node's `w-[370px]`, for the reason given on SHELL_MOBILE.
+   The height is fixed because the node fixes it and because the whole point of
+   this variant is a card whose height is predictable against the hero it
+   overlaps; its two rows are 24 + 27 inside a 61px column, which fits with the
+   padding exactly. */
+const SHELL_MOBILE_COMPACT = String.raw`bg-surface-card border border-red-500 border-solid content-stretch flex flex-col h-[92px] items-start justify-center pb-[12px] pt-[14px] px-[12px] relative rounded-[18px] shrink-0 w-full`
 /* 199683:24868 — the overlay shell. Same chassis as SHELL_MOBILE today, kept
    separate so the two can diverge without the System page following. */
 const SHELL_OVERLAY = String.raw`bg-surface-card border border-red-500 border-solid content-stretch flex flex-col gap-[20px] items-start px-[18px] py-[12px] relative rounded-[18px] shrink-0 w-full`
@@ -657,8 +666,22 @@ export default function AlertCard({
   /* The card shell itself is inert by design — the Figma frame marks no tap
      target on it, only on the pills inside — so a caller that wants
      "tap the card to open the event" wraps it. */
+  /* `data-name` / `data-variant` added 2026-11-09. They paint nothing — they
+     are the handle this card did not have: every shell here is chosen by
+     class string alone, so a test or a measurement had to match on
+     `border-red-500` and hope no other card on the page carried it. The
+     System page's pixel pass measured this card at 138px against a 92px node
+     and could only address it by geometry; naming it is what makes a
+     before/after on one specific card provable. No class changes, so no
+     surface moves. */
   const shell = (cls, children) => (
-    <div className={className ? `${cls} ${className}` : cls}>{children}</div>
+    <div
+      className={className ? `${cls} ${className}` : cls}
+      data-name="alert-card"
+      data-variant={variant}
+    >
+      {children}
+    </div>
   )
 
   if (variant === 'empty') {
@@ -900,6 +923,180 @@ export default function AlertCard({
           </div>
         </div>
       </>
+    ))
+  }
+
+  /* ── 'mobile-compact' — 200059:35901 / 199999:96629, THE 92px EVENT CARD ──
+     ADDED 2026-11-09, ADDITIVELY. `mobile` is untouched and still the default
+     for every caller that does not ask for this.
+
+     WHY. The System page's pixel pass put this card on its own, overlapping
+     the red hero, so its height became visible against the band and measured
+     138px against the node's 92. The 46px are two rows this variant does not
+     draw: the title wraps to two lines, and "Detected …" takes a row of its
+     own. The node folds the duration into a SECOND CHIP beside the flow rate
+     and gives the right-hand column the pill over a 30px chevron disc.
+
+     The node, atom for atom:
+
+       card    bg #fafbfc, 1px red/500, rounded-[18px], h-[92px],
+               pt-[14px] pb-[12px] px-[12px]
+       row     flex items-start justify-between, w-full
+       ├ left  flex gap-[11px] items-center
+       │  ├ disc  red/100, rounded-[35px], size-[61px], 37px waves
+       │  └ col   flex-col h-full justify-between
+       │     · title  Figtree Medium 500 / 24 / lh 24 / tracking -0.6 /
+       │              slate-900, in a 170px measure
+       │     · chips  flex gap-[3px]; each h-[27px] px-[8px] py-[4px]
+       │              rounded-[12px] on the sheen gradient, holding a 16/600
+       │              figure and a 14/500 #62748e word
+       └ right flex-col h-[61px] items-end justify-between
+          · pill    red/500, h-[24px], px-2.5, rounded-[26px], 12/500 on #fafbfc
+          · chevron 30px #fafbfc disc on a white hairline, 24px glyph
+
+     ⚠ THE FRAME'S SECOND CHIP READS "6h 36m ago" AND THIS ONE DOES NOT SAY
+       "ago". Relative time past one minute is banned project-wide
+       (wint-ui-copy §2: "Never `2h ago`") and the System page's current
+       rendering — an absolute "Detected Nov 9, 2026 16:04:46" plus a "2h 10m"
+       DURATION — is the compliant one. A duration is not a relative time, so
+       the figure itself transcribes directly; only the frame's trailing word
+       is dropped, and no replacement word is invented for it. The chip reads
+       `2h 10m` beside `13,564 L/H`, which is unambiguous.
+
+     ⚠ AND THE ABSOLUTE STAMP IS NOT DRAWN HERE AT ALL, WHICH IS REPORTED, NOT
+       DECIDED. The node has no row for it — that row IS the 46px. The stamp
+       is kept in the card's accessible name so it is still announced and still
+       findable, and it is still drawn in full on the event screen this card
+       opens. But "an absolute date and time" is what the standard asks for on
+       a surface that shows elapsed time, so removing it from view is an
+       owner's call rather than a transcription. One line to restore.
+
+     ⚠ THE TITLE IS ONE LINE HERE AND THE PAGE STILL PASSES THE LONG LABEL.
+       The node's string is the SHORT form, "High flow event", which
+       eventAlertRow produces under `titleForm: 'short'`; the System page asks
+       for `'full'` (SystemPageV2Screen:486) and gets "High Flow Water Event",
+       which cannot fit a 170px measure at 24px. So this variant truncates
+       rather than wraps — the node's own construction — and until that one
+       word changes the title ellipsizes. That line is NOT a mount-site prop,
+       so it is outside this change's grant and is reported instead.
+
+     THE CHEVRON IS DECORATION, NOT A CONTROL, and that is deliberate: the
+     System page already wraps this whole card in a tappable region with an
+     overlaid `Open {title}` button, so a second control for the same action
+     would be a second accessible name for one destination. It is
+     `aria-hidden` and the card's existing tap is what it advertises. A caller
+     that mounts this variant WITHOUT such a wrapper is drawing a promise
+     nothing keeps — see `onAction`. */
+  if (variant === 'mobile-compact') {
+    return shell(SHELL_MOBILE_COMPACT, (
+      <div
+        className="content-stretch flex flex-col items-start justify-center relative shrink-0 w-full"
+        data-node-id="199898:20598"
+      >
+        <div
+          className="content-stretch flex items-start justify-between relative shrink-0 w-full"
+          data-node-id="199898:20599"
+        >
+          <div className="content-stretch flex min-w-0 items-center gap-[11px] relative" data-node-id="199898:20600">
+            <div className={AVATAR_ALERT_LG}>
+              <div className="relative shrink-0 size-[37px]">
+                <Waves size={37} className={`block size-full text-destructive ${WAVES_WEIGHT}`} />
+              </div>
+            </div>
+            <div className="flex min-w-0 flex-row items-center self-stretch" data-node-id="199898:20603">
+              <div className="content-stretch flex h-full min-w-0 flex-col items-start justify-between relative">
+                <p
+                  className={String.raw`font-sans font-medium leading-6 relative shrink-0 text-foreground text-2xl tracking-[-0.6px] truncate w-[170px]`}
+                  dir="auto"
+                  data-node-id="199898:20604"
+                >
+                  {data.title}
+                </p>
+                <div
+                  className="content-stretch flex gap-[3px] items-start relative shrink-0 whitespace-nowrap"
+                  data-node-id="200066:37014"
+                >
+                  {data.value ? (
+                    <div
+                      className={String.raw`content-stretch flex gap-1.5 h-[27px] items-center px-[8px] py-[4px] relative rounded-[12px] shrink-0`}
+                      style={{ backgroundImage: CHIP_SHEEN(166.10511761460668) }}
+                      data-node-id="199898:20605"
+                    >
+                      <p className={String.raw`font-sans font-semibold leading-[26px] relative text-[16px] text-red-700 whitespace-nowrap`}>
+                        {data.value}
+                      </p>
+                      {data.unit ? (
+                        <p className={String.raw`font-sans font-medium leading-5 relative text-[14px] text-slate-500 whitespace-nowrap`}>
+                          {data.unit}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {data.duration ? (
+                    <div
+                      className={String.raw`content-stretch flex gap-1.5 h-[27px] items-center px-[8px] py-[4px] relative rounded-[12px] shrink-0`}
+                      style={{ backgroundImage: CHIP_SHEEN(166.9092352568443) }}
+                      data-node-id="200066:36983"
+                    >
+                      {/* slate/600 #45556c, NOT the red the flow figure takes —
+                          200066:36984's own paint. A duration is a fact, not a
+                          severity. */}
+                      <p className={String.raw`font-sans font-semibold leading-[26px] relative text-[16px] text-slate-600 whitespace-nowrap`}>
+                        {data.duration}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="content-stretch flex h-[61px] flex-col items-end justify-between relative shrink-0"
+            data-node-id="200066:37173"
+          >
+            <Badge
+              className={String.raw`bg-red-500 content-stretch flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0 ${CTRL_SHADOW}`}
+              data-status-pill
+            >
+              <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-ink-on-color text-xs whitespace-nowrap">
+                {data.status}
+              </span>
+            </Badge>
+            {/* 200066:37142. The emit wraps a chevron-LEFT in
+                `-scale-y-100 rotate-180`, which is a chevron pointing RIGHT —
+                the same disc component AppHeaderBar uses for Back, reused and
+                flipped. Drawn here as this file's own ChevronRight rather than
+                as a transform on the wrong glyph. */}
+            <span
+              aria-hidden="true"
+              className="flex size-[30px] shrink-0 items-center justify-center rounded-full border border-solid border-white bg-surface-card pl-[2px] text-muted-foreground"
+              data-node-id="200066:37142"
+            >
+              <span className="block size-[24px]">
+                <ChevronRight className="block size-full" />
+              </span>
+            </span>
+          </div>
+        </div>
+
+        {/* THE ABSOLUTE STAMP, KEPT WHERE THE NODE HAS NO ROOM FOR IT. See the
+            variant's header: the frame drops "Detected <timestamp>" to reach
+            92px, and an absolute date and time is exactly what the copy
+            standard asks for on a surface that shows elapsed time. `sr-only`
+            clips it rather than removing it, so it is still announced and
+            still found by find-in-page, and the event screen this card opens
+            draws it in full. Visible restoration is an owner's call. */}
+        {/* THE STAMP GETS ITS OWN ELEMENT, and that is not cosmetic. Written
+            as one text run (`{label} {stamp}`) the timestamp is not an
+            element's exact text any more, and eventAlertRowShared — the guard
+            that BOTH surfaces name the same instant — looks it up by exact
+            text. It failed on this, correctly: a stamp nothing can address is
+            most of the way to a stamp that is gone. */}
+        <p className="sr-only">
+          <span>{data.detectedLabel}</span> <span>{data.detectedAt}</span>
+        </p>
+      </div>
     ))
   }
 

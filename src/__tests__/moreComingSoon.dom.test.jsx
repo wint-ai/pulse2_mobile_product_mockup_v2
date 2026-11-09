@@ -42,7 +42,7 @@ import { MemoryRouter } from 'react-router-dom'
 import MoreComingSoonScreen from '@/v2/pages/MoreComingSoonScreen'
 import TabBar from '@/components/TabBar'
 import { UserProvider } from '@/context/UserContext'
-import { TAB_BAR_CLEARANCE } from '@/components/tabBarMetrics'
+import { TAB_BAR_CLEARANCE, TAB_BAR_FOOTPRINT } from '@/components/tabBarMetrics'
 
 afterEach(cleanup)
 
@@ -172,14 +172,52 @@ describe('it covers the frame the house way', () => {
 })
 
 describe('the tab bar is the way off it', () => {
-  /* The pill floats over the bottom 77px of every screen. Here the content is
-     centred, so without the clearance the heading sits optically centred
-     UNDER the bar. */
-  it('reserves the pill clearance on its scroller', () => {
+  /* The pill floats over the bottom TAB_BAR_FOOTPRINT of every screen. Here the
+     content is centred, so without the clearance the heading sits optically
+     centred UNDER the bar.
+
+     ⚠ NO LONGER AN EXACT LITERAL — 2026-11-09, AND READ WHY BEFORE TIGHTENING
+       IT BACK. This read `pb-[${TAB_BAR_CLEARANCE}px]`, built from the
+       constant so the two could not drift. When node 200067:39019 moved the
+       bar (footprint 77 -> 88, clearance 93 -> 104) this went red against a
+       screen on which NOTHING WAS WRONG: 93 still cleared the 88px footprint,
+       so no row was ever under the pill - the last one rested 5px above the
+       bar instead of 16. An exact literal turns every re-draw of the bar into
+       a red test on a correct screen, and a red test on a correct screen is
+       how a suite gets relaxed for the wrong reason.
+
+       SO IT PINS THE THING THAT CAN ACTUALLY SHIP BROKEN, at the same bar
+       tabBarFloatingClearance.dom.test.jsx's EXEMPT case uses: the declared
+       padding must be AT LEAST the pill's own footprint. Below that, this
+       screen's bottom rows sit under a bar that is 57% opaque with
+       pointer-events:auto - painted and dead, which is the 2026-11-08 bug.
+       The bound in the OTHER direction is kept too, at TAB_BAR_CLEARANCE: a
+       screen that pays more than the bar reserves grows dead space. The window
+       is [FOOTPRINT, CLEARANCE] rather than one number, and both ends are real
+       failures. Strength is unchanged where it matters; what went is a
+       false-positive the geometry moves every time it is re-drawn.
+
+       AND IT STILL HAS TO DECLARE SOMETHING. A missing class reads as 0 and
+       fails the lower bound, so dropping the padding - which is what the
+       exemption exists to prevent - is caught here, not just in the sweep. */
+  it('reserves at least the pill\'s own footprint on its scroller', () => {
     const { container } = renderScreen()
     const scroller = [...container.querySelectorAll('div')]
       .find((el) => /\boverflow-y-auto\b/.test(el.className))
-    expect(scroller.className).toMatch(new RegExp(`\\bpb-\\[${TAB_BAR_CLEARANCE}px\\]`))
+    const declared = Number(scroller.className.match(/\bpb-\[(\d+)px\]/)?.[1] ?? 0)
+    expect(
+      declared,
+      'the cover is `absolute inset-0`, so reserved column cannot push it and '
+      + `the pill paints over its bottom ${TAB_BAR_FOOTPRINT}px. Anything less `
+      + 'than the footprint leaves the centred block under a 57%-opaque bar '
+      + 'with pointer-events:auto - visible and dead.',
+    ).toBeGreaterThanOrEqual(TAB_BAR_FOOTPRINT)
+    expect(
+      declared,
+      `more than TAB_BAR_CLEARANCE (${TAB_BAR_CLEARANCE}) is dead space: the `
+      + 'bar reserves that strip for every other screen and this one only has '
+      + 'to match it, never beat it.',
+    ).toBeLessThanOrEqual(TAB_BAR_CLEARANCE)
   })
 
   /* THE ONE THAT MATTERS. TabBar's host is z-index:auto on purpose

@@ -50,6 +50,7 @@ import LeakDetail from './screens/leak/LeakDetail';
 import EventHistory from './screens/EventHistory';
 import AccountScreenV2 from './v2/pages/AccountScreenV2';
 import MoreComingSoonScreen from './v2/pages/MoreComingSoonScreen';
+import SearchScreen from './v2/pages/SearchScreen';
 import KPIDetailScreen from './screens/kpi/KPIDetailScreen';
 import TenantPropertiesList from './screens/home/TenantPropertiesList';
 
@@ -193,6 +194,24 @@ function AppRoutes() {
             hides everything, but writes there Coming soon". Until today the
             More tab also went to /account. */}
         <Route path="/more" element={<MoreComingSoonScreen />} />
+
+        {/* SEARCH — the full-screen scope picker, Figma 200047:135517.
+            ADDITIVE, 2026-11-09. Nothing is repointed, so Rule 0 of
+            .claude/skills/v2-page-parity/SKILL.md does not bite: the Search
+            tab is still an ACTION that opens whichever drawer is mounted
+            (src/components/drawerSearch.js), and /search is a NEW door to the
+            same tree as a destination of its own.
+
+            THE SPELLING IS A CONTRACT: exactly `/search`, not `/search/` and
+            not `/scope`. The tab bar is being pointed at that literal path in
+            the same round, so the two have to agree character for character.
+
+            ⚠ ONE PICKER, TWO DOORS — FOR THE OWNER. The standing ruling is
+            "Scope is picked ONLY in the navigation drawer", and this frame
+            moves the picker to a tab. Both are live until he rules: the
+            drawer keeps its tree and this route adds a second. Which one
+            loses scope-picking is his call, not a tidy-up's. */}
+        <Route path="/search" element={<SearchScreen />} />
 
         {/* Default — go to home */}
         <Route path="*" element={<Navigate to="/" replace />} />

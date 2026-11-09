@@ -86,19 +86,37 @@
  * the TOP and cannot be scrolled back to, which at 393x852 is one long
  * Hebrew line away from being real.
  *
- * pb-[93px] is TAB_BAR_CLEARANCE (src/components/tabBarMetrics.js) - the pill
- * covers the bottom 77px of every screen plus a 16px gutter. It keeps the
+ * pb-[104px] is TAB_BAR_CLEARANCE (src/components/tabBarMetrics.js) - the pill
+ * covers the bottom 88px of every screen plus a 16px gutter. It keeps the
  * centred block clear of the bar rather than optically centred under it.
  *
  * *** AND IT IS THE ONE PLACE THAT STILL PAYS IT — 2026-11-08. *** The bar's
- * host became `h-[93px]` that day and now reserves that strip as real column,
+ * host became a real reserved strip that day and now holds that column itself,
  * so every OTHER screen dropped this padding; paying it twice would leave
- * ~186px of dead space. This cover is the exception because it is `absolute
+ * ~208px of dead space. This cover is the exception because it is `absolute
  * inset-0`: it is out of flow, spans the WHOLE frame including the host's
- * column, and the pill still paints over its bottom 77px. Reserved column
- * does not move an out-of-flow box, so this scroller owes the clearance
- * itself. tabBarFloatingClearance.dom.test.jsx lists it as the exemption and
- * moreComingSoon.dom.test.jsx:182 still asserts the class.
+ * column, and the pill still paints over its bottom TAB_BAR_FOOTPRINT.
+ * Reserved column does not move an out-of-flow box, so this scroller owes the
+ * clearance itself. tabBarFloatingClearance.dom.test.jsx lists it as the one
+ * exemption and moreComingSoon.dom.test.jsx asserts it.
+ *
+ * ── THE NUMBERS MOVED AND THIS SCREEN LAGGED THEM — 2026-11-09 ────────────
+ *
+ * Figma node 200067:39019 re-draws the bar 66 tall on a 22px bottom inset, so
+ * TAB_BAR_FOOTPRINT went 77 -> 88 and TAB_BAR_CLEARANCE 93 -> 104 (22 + 66 +
+ * the same 16px gutter). This file kept `pb-[93px]` for a day.
+ *
+ * NOTHING WAS DEAD IN THAT WINDOW, which is why it was reported rather than
+ * hot-fixed from the tab bar's own change: 93 still clears the 88px footprint,
+ * so no row was ever under the pill - the last row simply rested 5px above the
+ * bar instead of 16. Corrected to the current constant here rather than left
+ * to drift further.
+ *
+ * ⚠ THE CLASS CARRIES THE LITERAL, AND IT HAS TO. `pb-[${TAB_BAR_CLEARANCE}px]`
+ *   emits NO CSS AT ALL - Tailwind's scanner reads source text, not values - so
+ *   importing the constant into the class string would silently delete the
+ *   padding and put the centred block back under the bar. tabBarMetrics.js is
+ *   the written-down meaning of the number; this class is the number.
  */
 import { useTranslation } from 'react-i18next'
 import { Hourglass } from 'lucide-react'
@@ -120,12 +138,16 @@ export default function MoreComingSoonScreen() {
        the TOP and the pill hangs off the top of the frame. Measured that way
        in the browser before this class existed, while the host was still
        `h-0`: host [0, 0, 393, 0], pill [16, -77, 361, 65]. With it, and with
-       the host now `h-[93px]` (2026-11-08): host [0, 759, 393, 93], pill
-       [16, 775, 361, 65], which is the geometry TabBar.jsx documents. */
+       the host reserving its strip, measured 2026-11-08 when the strip was 93
+       and the pill 65: host [0, 759, 393, 93], pill [16, 775, 361, 65] - the
+       geometry TabBar.jsx documented that day. Node 200067:39019 has since
+       moved the figures (strip 104, pill 66 at a 22px inset, inset-x 33); the
+       measurement is kept as the dated record of WHY this class exists, and
+       tabBarMetrics.js is where the current numbers live. */
     <div className="relative flex min-h-0 flex-1 flex-col justify-end bg-[image:var(--app-bg)]">
       {/* THE COVER. Opaque, edge to edge, no z-index - see the header. */}
       <div className="absolute inset-0 flex flex-col bg-[image:var(--app-bg)]">
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-[24px] pb-[93px] pt-[24px]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-[24px] pb-[104px] pt-[24px]">
           <div className="m-auto flex flex-col items-center gap-[14px]">
             <span className="flex size-[64px] items-center justify-center rounded-full bg-secondary text-primary">
               <Hourglass className="size-[28px]" aria-hidden="true" />

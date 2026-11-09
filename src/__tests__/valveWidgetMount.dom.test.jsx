@@ -229,12 +229,26 @@ describe('the valve widget is mounted on the live page', () => {
     expectCleanConsole(at(SUMMIT))
   })
 
-  it('sits in the overview card stack, as a direct child so it inherits the 20px gap', () => {
+  it('sits in the overview card stack, as a direct child so it inherits the 16px gap', () => {
     const { container } = renderAt('/')
     const stack = stackIn(container)
     const card = cardIn(container)
     expect(stack, 'the scroller / card stack is gone').toBeTruthy()
-    expect(String(stack.className)).toContain('gap-[20px]')
+    /* 20px → 16px on 2026-11-09, with the Home page's move to 200067:38985,
+       which stacks every card in the frame at a uniform 16.
+
+       THE GAP VALUE IS NOT WHAT THIS TEST GUARDS, and changing the literal
+       does not weaken it. The guarantee is the assertion BELOW: that the
+       valve card is a direct child of the stack, and therefore inherits
+       whatever gap the stack declares rather than carrying spacing of its
+       own. The literal is read here only so that the two cannot drift apart
+       silently - if the page changes its gap again, this line is what says
+       so out loud. */
+    expect(String(stack.className)).toContain('gap-[16px]')
+    expect(
+      String(stack.className),
+      'the stack is declaring two gaps, so what the card inherits is ambiguous',
+    ).not.toMatch(/gap-\[(?!16px)[^\]]+\]/)
     /* A direct child, not merely a descendant: wrapped in a div of its own it
        would stop inheriting the stack's gap and its own w-full would be
        measured against the wrapper instead of the stack
@@ -258,7 +272,12 @@ describe('the valve widget is mounted on the live page', () => {
     const indexOfText = (needle) => kids.findIndex((el) => (el.textContent ?? '').includes(needle))
 
     const valve = kids.indexOf(cardIn(container))
-    const health = indexOfText('Valve errors')
+    /* 'System health', not 'Valve errors' - the fault tiles were removed on
+       2026-11-09 (200067:41981). The heading is unambiguous here even though
+       SystemHealthCard and TriageBand share `data-name="IOT overview"`,
+       because this probe is on TEXT and TriageBand's heading is
+       'Water events'. */
+    const health = indexOfText('System health')
     const consumption = indexOfText('Water consumption')
 
     expect(valve, 'the valve card is not a child of the stack').toBeGreaterThan(-1)
@@ -571,9 +590,16 @@ describe('mounting the widget cost the page nothing', () => {
         container.querySelector('[data-name="Systems overview hero"]'),
         'SystemsOverviewHero is gone',
       ).toBeTruthy()
+      /* The valve TILE was this card's fingerprint until 2026-11-09, when the
+         fault breakdown was removed. The heading and the bar are what is left
+         and they are the card's own, not TriageBand's. */
       expect(
-        container.querySelector('[aria-label^="Valve errors:"]'),
-        'SystemHealthCard’s valve tile is gone',
+        screen.getByText('System health'),
+        'SystemHealthCard is gone',
+      ).toBeTruthy()
+      expect(
+        container.querySelector('[data-name="Progress Bar"], [data-status="clear"]'),
+        'SystemHealthCard rendered neither a bar nor the all-clear row',
       ).toBeTruthy()
       /* TabBar. The `hideAlerts` prop is long gone, so this is the same four
          tabs as everywhere else; Dashboard and the Search tab are sampled.
@@ -626,52 +652,27 @@ describe('mounting the widget cost the page nothing', () => {
   })
 })
 
-describe('the two valve-error numbers on this screen agree', () => {
-  /* THE CONSISTENCY HAZARD, pinned.
-     SystemHealthCard's "Valve errors" tile is fed by computeWidgets
-     (`src/data/systems.js:258`), which counts
-     `s.valve === 'error' && s.comm === 'online'`. The card's own Valve Error
-     row comes from summariseValves, which counts an offline system at its real
-     last-known state. The two therefore describe the same thing by different
-     rules, and two numbers about valve errors on one screen must not disagree.
+/* ── THE TWO-VALVE-ERROR-NUMBERS CROSS-CHECK IS GONE — 2026-11-09 ──────────
+   ⚠ READ THIS BEFORE ASSUMING IT WAS NEVER HERE.
 
-     They agree today, and not by luck: `buildTree.js` assigns AT MOST ONE
-     failed dimension per system (`kind`), so `valve === 'error'` and
-     `comm === 'offline'` are mutually exclusive in this dataset. That is a
-     property of the data generator, not of this page.
+   What stood here compared SystemHealthCard's "Valve errors" TILE count
+   against the valve card's own `[data-valve-row="error"]`, on three routes.
+   It existed because the two numbers come from DIFFERENT sources -
+   computeWidgets() for the tile, the valve scope for the row - and a
+   divergence between them would have shown two different valve-error counts
+   on one screen.
 
-     If this ever goes red the divergence became reachable. Do NOT fix it by
-     editing computeWidgets: it is shared with other callers and the choice
-     between the two counting rules is the owner's. */
-  it.each([['/'], [at(SUMMIT)], [at('Office')]])('at %s', (path) => {
-    const { container } = renderAt(path)
-    const tile = container.querySelector('[aria-label^="Valve errors:"]')
-    expect(tile, 'no valve-errors tile to compare against').toBeTruthy()
-    const tileCount = Number(
-      (tile.getAttribute('aria-label') ?? '').match(/:\s*([\d,]+)/)?.[1]?.replace(/,/g, ''),
-    )
-    expect(Number.isFinite(tileCount)).toBe(true)
+   IT CANNOT BE ASSERTED FROM THIS SCREEN ANY MORE. The owner removed the
+   fault breakdown from SystemHealthCard ("remoive the error type from here /
+   keep onlt the x out of y as in figma", 200067:41981), so the tile is gone
+   and there is now exactly ONE valve-error number rendered on this page. A
+   comparison needs two.
 
-    const card = cardIn(container)
-    expect(card).toBeTruthy()
-    const row = card.querySelector('[data-valve-row="error"]')
-    /* No row means no system in this scope is in Valve Error, so the tile must
-       read zero. Comma-tolerant for the same reason the tile's own regex above
-       already is: every count on this card renders through the house
-       thousands-separator rule (`wint-format-standards.md:24`), so a
-       four-digit scope would otherwise parse as its last three digits. */
-    const rowCount = row
-      ? Number(
-          (row.getAttribute('aria-label') ?? row.textContent ?? '')
-            .match(/Valve Error\D*([\d,]+)/)?.[1]
-            ?.replace(/,/g, ''),
-        )
-      : 0
-
-    expect(
-      rowCount,
-      `SystemHealthCard says ${tileCount} valve errors and the valve card says ${rowCount} at ${path}. ` +
-        'Two numbers about valve errors on one screen have diverged — see the note above this test.',
-    ).toBe(tileCount)
-  })
-})
+   THE INVARIANT ITSELF IS UNCHANGED AND IS STILL WORTH GUARDING - it is a
+   property of the data layer, not of this page, and it should be re-pinned
+   there: computeWidgets()'s valveErrors against the valve scope's error set,
+   over the same scope, with no DOM involved. That is a data test and does not
+   belong in this file. NOT WRITTEN HERE, and reported rather than left
+   silent, because the guard genuinely went away. Do NOT "fix" the divergence
+   by editing computeWidgets: it is shared with other callers and the choice
+   between the two counting rules is the owner's. */

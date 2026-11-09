@@ -204,7 +204,7 @@ const ACCOUNT_GLYPH_REST = '#90A1B9'
  * 46), so this is the regular formula that sits inside 2px of every measured
  * level: 0, 8, 20, 32, 44, 56…
  */
-function indentFor(depth) {
+export function indentFor(depth) {
   return depth <= 0 ? 0 : 8 + 12 * (depth - 1)
 }
 
@@ -225,7 +225,7 @@ function indentFor(depth) {
  * currentColor because this is the one glyph the design tints two ways (the
  * frame only draws the unpinned #90A1B9 state).
  */
-function TablerStar({ size = 16, className, filled = false }) {
+export function TablerStar({ size = 16, className, filled = false }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
       xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
@@ -241,7 +241,7 @@ function TablerStar({ size = 16, className, filled = false }) {
 }
 
 /** Remix arrow-drop-down-line — expanded badge. currentColor: two tints. */
-function ArrowDropDown({ size = 16, className }) {
+export function ArrowDropDown({ size = 16, className }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
       xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
@@ -251,7 +251,7 @@ function ArrowDropDown({ size = 16, className }) {
 }
 
 /** Remix arrow-drop-right-line — collapsed badge. */
-function ArrowDropRight({ size = 16, className }) {
+export function ArrowDropRight({ size = 16, className }) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
       xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true" focusable="false">
@@ -281,7 +281,7 @@ function ArrowDropRight({ size = 16, className }) {
  * wint-logo-white.svg paints the brand dot white too — it is a flat white
  * cut of the whole mark, not a recolour of the wordmark alone.
  */
-function WintLogo() {
+export function WintLogo() {
   return (
     <>
       <img
@@ -321,7 +321,7 @@ function systemIsAlerting(sys) {
  * no system this persona can see. Returns null for a fully-pruned branch.
  * Shape: { id, name, kind, levelType, children, systems, l4Id }
  */
-function buildNode(node, systemById) {
+export function buildNode(node, systemById) {
   if (node.type === 'system') {
     const sys = systemById.get(node.id)
     if (!sys) return null
@@ -351,7 +351,7 @@ function buildNode(node, systemById) {
 }
 
 /** Root accounts → sub-accounts (when present) → hierarchy.js, same shape as v1. */
-function buildTree(systems) {
+export function buildTree(systems) {
   const systemById = new Map(systems.map(s => [s.id, s]))
   const order = []
   const byRoot = new Map()
@@ -400,7 +400,7 @@ function buildTree(systems) {
 }
 
 /** Keep matching nodes (with their full subtree) plus the ancestors of matches. */
-function filterTree(nodes, query) {
+export function filterTree(nodes, query) {
   const out = []
   for (const node of nodes) {
     if (node.name.toLowerCase().includes(query)) { out.push(node); continue }
@@ -411,7 +411,7 @@ function filterTree(nodes, query) {
 }
 
 /** Ancestor ids of every match — so a hit six levels down is actually visible. */
-function collectMatchPath(nodes, query, into) {
+export function collectMatchPath(nodes, query, into) {
   let any = false
   for (const node of nodes) {
     const selfMatch = node.name.toLowerCase().includes(query)

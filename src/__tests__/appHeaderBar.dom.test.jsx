@@ -484,3 +484,225 @@ describe('AppHeaderBar — the collapsing header is gone', () => {
     expect(bar(container).className).toMatch(/px-4/)
   })
 })
+
+/* ── THE SURFACE VARIANTS — 2026-11-09 ─────────────────────────────────────
+   Nodes 200067:38981 (Home), 200047:135462 (General info) and 200067:37938
+   (System). ONE BAR, THREE GROUNDS: the owner's 2026-11-04 ruling is that the
+   header "always needs to be the same", so what varies is the leading slot,
+   the title shape and the ground - never the skeleton, and never a second
+   component. These tests pin that the skeleton really does not move, and that
+   the DEFAULT is still the bar every existing call site already renders. */
+const veil = (c) => c.querySelector('[data-name="app-header-veil"]')
+const leadingGroup = (c) => c.querySelector('[data-name="app-header-leading"]')
+
+describe('AppHeaderBar — the surface is additive, and `ground` is the old bar', () => {
+  /* THE WHOLE POINT OF THE PROP. Seven files import this component and none of
+     them was edited for this change, so `surface` left unset must produce the
+     bar they were written against - not merely a similar one. Asserted as the
+     ABSENCE of every new fingerprint rather than as a snapshot, because a
+     snapshot would go green again the moment someone re-blessed it. */
+  it('defaults to `ground` and adds nothing a call site did not ask for', () => {
+    const { container } = render(<AppHeaderBar {...full()} />)
+    const b = bar(container)
+
+    expect(b.dataset.surface).toBe('ground')
+    expect(veil(container), 'the default bar grew a veil').toBeNull()
+    expect(b.className).not.toMatch(/rounded-full/)
+    expect(b.className).not.toMatch(/backdrop-blur/)
+    expect(b.className, 'the default bar grew a position').not.toMatch(/relative/)
+    /* No inline background: `ground` paints no ground at all, which is what
+       "a plain static bar on the page ground" means. */
+    expect(b.getAttribute('style') || '').not.toMatch(/background/)
+    /* The two inks the shipped bar uses, unchanged. */
+    expect(title(container).className).toMatch(/text-slate-800/)
+    expect(eyebrow(container).className).toMatch(/text-muted-foreground/)
+    /* The outline Badge, not the frames' white pill. */
+    expect(more(container).className).toMatch(/border-slate-600/)
+    expect(more(container).className).not.toMatch(/bg-card/)
+  })
+
+  /* `surface` is spelled by name at three call sites' worth of future pages,
+     so an unknown value must degrade to the safe ground rather than throw or
+     render a half-chip. */
+  it('treats an unknown surface as the ground', () => {
+    const { container } = render(<AppHeaderBar {...full({ surface: 'wat' })} />)
+    expect(bar(container).className).not.toMatch(/rounded-full/)
+    expect(veil(container)).toBeNull()
+    expect(title(container).className).toMatch(/text-slate-800/)
+  })
+
+  it('`onColor` draws the frames\' veil, light ink and white pill', () => {
+    const { container } = render(
+      <AppHeaderBar {...full({ surface: 'onColor', surfaceTint: 'rgba(217,96,100,0.76)' })} />,
+    )
+    const b = bar(container)
+    const v = veil(container)
+
+    expect(b.dataset.surface).toBe('onColor')
+    expect(b.className).toMatch(/rounded-full/)
+    /* The blur is asserted ON THE VEIL below, not here - see "keeps the
+       backdrop filter off the root" for why the root must not carry one. */
+    /* 200067:37938's veil, atom for atom. */
+    expect(v, 'no veil on an onColor surface with a tint').toBeTruthy()
+    expect(v.className).toMatch(/absolute/)
+    expect(v.className).toMatch(/inset-0/)
+    expect(v.className).toMatch(/mix-blend-multiply/)
+    expect(v.style.backgroundColor).toBeTruthy()
+
+    /* ⚠ THE VEIL MUST NOT EAT TAPS. It covers the whole bar, so without
+       `pointer-events-none` the back disc and the More badge both stop
+       answering while a screenshot stays perfect - the same invisible
+       dead-tap the tab bar's opaque strip caused. happy-dom does no hit
+       testing, so this is asserted on the class and on aria-hidden rather
+       than with elementFromPoint; the browser pass is where it was actually
+       clicked. */
+    expect(v.className, 'the veil is a tap sponge over both controls').toMatch(/pointer-events-none/)
+    expect(v.getAttribute('aria-hidden')).toBe('true')
+
+    /* The ink goes light, and the WHOLE text column goes with it - the frame
+       has no muted grey on a tinted hero. */
+    expect(title(container).className).toMatch(/text-ink-on-color/)
+    expect(title(container).className).not.toMatch(/text-slate-800/)
+    expect(eyebrow(container).className).toMatch(/text-ink-on-color/)
+    expect(eyebrow(container).className).not.toMatch(/text-muted-foreground/)
+
+    /* The badge becomes the frames' white pill. */
+    expect(more(container).className).toMatch(/bg-card/)
+    expect(more(container).className).toMatch(/border-transparent/)
+  })
+
+  /* ⚠ THE PAINTING-ORDER FIX, AND IT IS THE ONE THAT LOOKS LIKE TIDINESS.
+     CSS paints positioned descendants after non-positioned ones regardless of
+     DOM order. The veil is absolute; the leading group and the badge are plain
+     flex items. Without `relative` on those two the veil paints OVER them,
+     `mix-blend-multiply` multiplies the white title by the tint, and the title
+     vanishes into the hero. Both Figma frames carry `relative` on their content
+     children for this reason. If anyone strips it as redundant, nothing else
+     in this suite goes red. */
+  it('lifts the content above the veil with position, never with z-index', () => {
+    const { container } = render(
+      <AppHeaderBar {...full({ surface: 'onColor', surfaceTint: '#9dbbd9' })} />,
+    )
+
+    expect(leadingGroup(container).className, 'the text column sank under the veil').toMatch(/relative/)
+    expect(more(container).className, 'the More badge sank under the veil').toMatch(/relative/)
+
+    /* AND NOT WITH A z-index, on any of the three. A positive z-index anywhere
+       in this bar is what silently deletes the floating tab bar, because every
+       positive z-index paints after every auto one regardless of DOM order. */
+    const Z = /(?:^|\s)z-(?:\[\d+px?\]|[1-9]\d*)(?:\s|$)/
+    expect(bar(container).className).not.toMatch(Z)
+    expect(leadingGroup(container).className).not.toMatch(Z)
+    expect(more(container).className).not.toMatch(Z)
+    expect(veil(container).className).not.toMatch(Z)
+  })
+
+  /* ── THE BACKDROP-ROOT TRAP — REGRESSION, FIXED 2026-11-09 ──────────────
+     `backdrop-blur-[3.5px]` was on the CHIP ROOT as well as on the veil for one
+     afternoon, and it silently killed the blend on every on-colour surface.
+     An element with `backdrop-filter` is a BACKDROP ROOT and a stacking
+     context, which ISOLATES a descendant's `mix-blend-mode`: the veil then
+     multiplied against the root's own transparent background and emitted its
+     source colour unchanged, so the bar painted a flat band instead of a tint
+     of the hero.
+
+     ⚠ THIS SUITE DID NOT CATCH IT AND COULD NOT HAVE. Every class name was
+       spelled right and every computed style was right - `mix-blend-multiply`
+       really was `multiply`, the veil really was over the hero. Only the
+       COMPOSITED PIXEL was wrong, and happy-dom composites nothing. Measured
+       in Chromium over HomeAllAccounts' hero, same sample point, one variable:
+
+         hero behind the bar            #3c8ef9
+         predicted multiply(tint, hero) #2568d4
+         root backdrop-filter: none     #2568d3   <- correct, off by 1
+         root backdrop-filter: blur()   #9dbbd9   <- the raw tint, flat
+
+     So what is pinned here is the STRUCTURAL PRECONDITION the pixel depends
+     on: the blur belongs to the blending element, never to an ancestor of it.
+     That is also exactly what nodes 200067:38981 and 200067:37938 do. */
+  it('keeps the backdrop filter off the root, or the veil stops multiplying', () => {
+    const { container } = render(
+      <AppHeaderBar {...full({ surface: 'onColor', surfaceTint: '#9dbbd9' })} />,
+    )
+
+    expect(
+      bar(container).className,
+      'a backdrop filter on the root makes it a backdrop root, which isolates '
+        + 'the veil\'s mix-blend-multiply - the bar then paints the raw tint flat. '
+        + 'The blur belongs on the veil, which already carries it.',
+    ).not.toMatch(/backdrop-blur/)
+
+    /* And nothing is lost: the veil still blurs, and still blends. */
+    expect(veil(container).className).toMatch(/backdrop-blur-\[3\.5px\]/)
+    expect(veil(container).className).toMatch(/mix-blend-multiply/)
+  })
+
+  /* `muted` IS ALLOWED THE ROOT BLUR, and this is not an inconsistency - it is
+     200047:135462, which has NO veil child and NO blend anywhere beneath it, so
+     there is nothing for a backdrop root to isolate. Pinned so the fix above is
+     not "completed" by stripping the blur from this surface too. */
+  it('still blurs on the root for `muted`, which has no blend to isolate', () => {
+    const { container } = render(
+      <AppHeaderBar {...full({ surface: 'muted', surfaceTint: '#dae1eb' })} />,
+    )
+    expect(bar(container).className).toMatch(/backdrop-blur-\[3\.5px\]/)
+    expect(veil(container), '`muted` must have no veil - nothing to isolate').toBeNull()
+    expect(bar(container).className).not.toMatch(/mix-blend/)
+  })
+
+  /* NO TINT, NO COLOUR INVENTED. A missing tint has to look unfinished rather
+     than plausible, so the veil is simply not drawn - the alternative is this
+     file holding a hero colour, which is what "one header" argues against. */
+  it('paints no veil and no background when `surfaceTint` is omitted', () => {
+    const { container } = render(<AppHeaderBar {...full({ surface: 'onColor' })} />)
+    expect(veil(container)).toBeNull()
+    expect(bar(container).getAttribute('style') || '').not.toMatch(/background/)
+    /* The chip geometry still arrives - only the colour is withheld. */
+    expect(bar(container).className).toMatch(/rounded-full/)
+  })
+
+  it('`muted` is an opaque tint with dark ink and no multiply', () => {
+    /* 200047:135462 is the one frame with NO veil child and NO
+       mix-blend-multiply: it paints its #dae1eb directly. Its title ink is
+       #45556c, which is --slate-600 exactly - a third value, neither the
+       shipped slate-800 nor the on-colour white. */
+    const { container } = render(
+      <AppHeaderBar {...full({ surface: 'muted', surfaceTint: '#dae1eb' })} />,
+    )
+
+    expect(bar(container).dataset.surface).toBe('muted')
+    expect(veil(container), '`muted` must not multiply - the frame has no veil').toBeNull()
+    expect(bar(container).style.backgroundColor).toBeTruthy()
+    expect(bar(container).className).toMatch(/rounded-full/)
+    expect(title(container).className).toMatch(/text-slate-600/)
+    expect(more(container).className).toMatch(/bg-card/)
+  })
+
+  /* THE SKELETON DOES NOT MOVE. This is the owner's ruling stated as a test:
+     every surface draws the same three slots, in the same order, with the same
+     vertical padding. If a variant ever starts adding or dropping a slot it has
+     become a second header wearing one name. */
+  it('draws the same skeleton on every surface', () => {
+    for (const surface of ['ground', 'muted', 'onColor']) {
+      cleanup()
+      const { container } = render(
+        <AppHeaderBar {...full({ surface, surfaceTint: '#dae1eb' })} />,
+      )
+      const b = bar(container)
+
+      expect(back(container), `${surface} lost the back disc`).toBeTruthy()
+      expect(eyebrow(container), `${surface} lost the eyebrow`).toBeTruthy()
+      expect(title(container), `${surface} lost the title`).toBeTruthy()
+      expect(more(container), `${surface} lost the More badge`).toBeTruthy()
+      /* Same row, same vertical rhythm. 200067:37938 spells `p-[8px]` and the
+         other two `px-[11px] py-[8px]`; the bar takes py-8 on all three so the
+         height is one number. */
+      expect(b.className, `${surface} changed the bar's vertical padding`).toMatch(/py-\[8px\]/)
+      /* Never absolute or fixed, on any surface: the page places this bar. */
+      expect(b.className, `${surface} paints its own ground`).not.toMatch(/absolute|fixed/)
+      /* And the title stays a readout on every one of them - the 2026-11-04
+         ruling does not have a surface exemption. */
+      expect(title(container).closest('button'), `${surface} made the title pressable`).toBeNull()
+    }
+  })
+})

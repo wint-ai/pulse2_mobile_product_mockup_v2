@@ -29,6 +29,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import HomeAllAccounts from '@/v2/pages/HomeAllAccounts'
 import { UserProvider } from '@/context/UserContext'
 import { MORE_MENU_IDS, MORE_MENU_ROW_MIN_HEIGHT } from '@/v2/components/moreMenuModel'
+import { StatusBarContext } from '@/components/phoneStatusBar'
 
 beforeEach(() => {
   localStorage.clear()
@@ -228,24 +229,85 @@ describe('picking a destination swaps the body, exactly as the tab did', () => {
 
 // ── 3 · The hero card ───────────────────────────────────────────────────────
 
-describe('the hero card — 200013:93101', () => {
-  it('is one shell carrying the hero on top and System health in the body', () => {
+describe('the hero — 200067:38969, full-bleed', () => {
+  /* ── UPDATED 2026-11-09, AND THE REVERSAL IS THE OWNER'S ──────────────────
+     This block used to assert the opposite: one shell with System health
+     welded on as its white body (200013:93101, 2026-11-07), and a hero inset
+     as a rounded card on the page ground. 200067:38969 draws neither. The
+     owner looked at the welded, inset version running and said the upper
+     screen "is not even similar" to the frame.
+
+     So the two assertions that encoded the weld are inverted here, and the
+     bleed is pinned. What did NOT change is everything below: the single
+     raster, the absent "Active" pill, the locations count. Those were
+     separate instructions and they still hold. */
+  it('is a full-bleed hero with NO white body - System health is its own card', () => {
     const { container } = mountAt('/')
     const shell = q(container, '[data-name="hero-card-shell"]')
     expect(shell, 'the page is not using HeroCardShell').toBeTruthy()
-    expect(shell.getAttribute('data-hero-body')).toBe('true')
+    expect(
+      shell.getAttribute('data-hero-body'),
+      'System health is welded back into the hero',
+    ).toBe('false')
+    expect(
+      q(container, '[data-name="hero-card-body"]'),
+      'the white body section is back',
+    ).toBeNull()
 
     const colour = q(container, '[data-name="hero-card-colour"]')
-    const body = q(container, '[data-name="hero-card-body"]')
     expect(colour, 'no coloured section').toBeTruthy()
-    expect(body, 'no white body section').toBeTruthy()
-
-    // The coloured top is the hero's content...
     expect(within(colour).getByText(/systems?$/)).toBeTruthy()
     expect(q(colour, '[data-name="hero-locations"]'), 'the locations eyebrow left the hero').toBeTruthy()
     expect(q(colour, '[data-node-id="199531:80031"]'), 'the system-type chips left the hero').toBeTruthy()
-    // ...and the white body is System health.
-    expect(within(body).getByText('System health')).toBeTruthy()
+
+    /* System health still renders - it MOVED, it was not dropped. Rule 0:
+       only the seat changed, the contents did not. */
+    expect(screen.getByText('System health'), 'System health went missing entirely').toBeTruthy()
+    expect(
+      q(container, '[data-name="hero-card-shell"]').textContent,
+      'System health is still inside the hero',
+    ).not.toMatch(/System health/)
+  })
+
+  it('cancels the page gutter instead of hardcoding a width', () => {
+    /* THE BLEED IS MEASURED IN CLASSES, not pixels, because happy-dom has no
+       layout. The three that carry it:
+         -mx-4        cancels the gutter, which now lives on the SCROLLER
+         w-auto       beats HeroCardShell's own w-full, so stretch can size it
+         self-stretch width = content - marginL - marginR, i.e. the full screen
+       plus rounded-none over the shell's rounded-[22px].
+
+       ⚠ NO 393 AND NO 402. A literal width here is the bug this asserts
+       against: the frame is 402 and the shell is 393. */
+    const { container } = mountAt('/')
+    const cls = q(container, '[data-name="hero-card-shell"]').className
+    expect(cls).toContain('-mx-4')
+    expect(cls, 'w-full would beat the stretch and leave a strip of page ground').toContain('w-auto')
+    expect(cls).toContain('self-stretch')
+    expect(cls, 'a bleeding hero must not keep the card radius').toContain('rounded-none')
+    expect(cls, 'a hardcoded screen width').not.toMatch(/w-\[(393|402|370|361)px\]/)
+  })
+
+  it('moved the gutter to the scroller, so the bleed creates no sideways scroll', () => {
+    /* THE REASON THIS IS PINNED: with `px-4` on the page ROOT, a -mx-4 child
+       overhangs the scroller's CONTENT edge, and Chrome computes scrollable
+       overflow from the border box and ignores the negative right margin.
+       Measured at the frame's 402: scrollWidth 386 vs clientWidth 370 - a
+       16px horizontal scroll, invisible because this scroller hides its
+       scrollbars. With the padding on the scroller the child reaches only
+       into its PADDING box, which `clientWidth` already counts. */
+    const { container } = mountAt('/')
+    const scroller = [...container.querySelectorAll('[style]')].find(
+      (el) => el.style?.overflowY === 'auto' && !el.closest('[role="dialog"]'),
+    )
+    expect(scroller, 'the scroller is gone').toBeTruthy()
+    expect(scroller.className, 'the gutter left the scroller and the bleed will clip').toContain('px-4')
+
+    const root = container.firstElementChild
+    expect(
+      root.className,
+      'the root took the gutter back; a bleeding child now overhangs the content edge',
+    ).not.toMatch(/(?:^|\s)px-4(?:\s|$)/)
   })
 
   it('paints no artwork of its own — the shell owns the raster', () => {
@@ -336,14 +398,24 @@ describe('the hero card — 200013:93101', () => {
   })
 })
 
-describe('the no-progress-bar rule survives the move into the hero body', () => {
+/* SystemHealthCard's own root, found by its CARD class string rather than by
+   a data-name it does not carry. It used to be reachable as the hero's
+   `hero-card-body`; since 2026-11-09 it is a sibling card of its own, so the
+   three assertions below say WHERE they look as well as what they expect. */
+const healthCardIn = (c) =>
+  [...c.querySelectorAll('div')].find(
+    (el) => /gap-\[15px\]/.test(el.className) && /pt-\[12px\]/.test(el.className),
+  ) ?? null
+
+describe('the no-progress-bar rule survives System health leaving the hero', () => {
   /* Owner, 2026-11-04: "When all good, no progress bar. This is the rule you
-     need to". The gate is SystemHealthCard's own, but the card has a new
-     parent now and a chassis that paints a background behind it, so this is
-     re-checked from the page rather than assumed. */
+     need to". The gate is SystemHealthCard's own, but the card has changed
+     parent twice now - into the hero body on 11-07, back out to a standalone
+     card on 11-09 - so this is re-checked from the page rather than assumed. */
   it('draws the bar and the count on a scope that has faults', () => {
     const { container } = mountAt('/')
-    const body = q(container, '[data-name="hero-card-body"]')
+    const body = healthCardIn(container)
+    expect(body, 'the System health card is gone from the page').toBeTruthy()
     expect(q(body, '[data-name^="Progress Bar"]'), 'no bar on a scope with faults').toBeTruthy()
     expect(body.textContent).toMatch(/\d+\s*\/\s*\d+ need attention/)
   })
@@ -352,7 +424,8 @@ describe('the no-progress-bar rule survives the move into the hero body', () => 
     /* `tenant-1apt` is Sofia, one apartment, no faults — the persona the
        scope rule narrows hardest. The all-clear green row stands instead. */
     const { container } = mountAt('/', 'tenant-1apt')
-    const body = q(container, '[data-name="hero-card-body"]')
+    const body = healthCardIn(container)
+    expect(body, 'the System health card is gone from the page').toBeTruthy()
     expect(q(body, '[data-name^="Progress Bar"]'), 'the zero-state bar is back').toBeNull()
     expect(body.textContent, 'the zero-state count is back').not.toMatch(/need attention/)
     expect(body.textContent).toMatch(/Show past alerts/)
@@ -397,7 +470,7 @@ describe('every widget this page carried before the restructure is still here', 
   it('mounts all of them on Overview', () => {
     const { container } = mountAt('/')
     present(container, 'the hero', (c) => q(c, '[data-name="hero-card-shell"]'))
-    present(container, 'System health', (c) => q(c, '[data-name="hero-card-body"]'))
+    present(container, 'System health', (c) => healthCardIn(c))
     present(container, 'the triage band', (c) => q(c, '[data-name="IOT overview"]'))
     present(container, 'the valve widget', (c) => q(c, '[data-name="valve-header"]'))
     present(container, 'Water consumption', () => screen.queryByText('Water consumption'))
@@ -422,5 +495,207 @@ describe('every widget this page carried before the restructure is still here', 
     fireEvent.click(chips[0])
     fireEvent.click(chips[0])
     expect(screen.getByRole('columnheader', { name: 'System' })).toBeTruthy()
+  })
+})
+
+/* ── THE HEADER MOVED ONTO THE HERO — 200067:38981, 2026-11-09 ─────────────
+   200067:38969 paints the bar ON the hero artwork and tints it rather than
+   filling it: a #9dbbd9 veil under `mix-blend-multiply`, white title ink.
+   That is AppHeaderBar's `onColor` surface plus `surfaceTint`.
+
+   THREE OF THESE FOUR ARE INVISIBLE TO A PIXEL CHECK, which is the only
+   reason they are worth a test:
+
+     1. DOM ORDER. HeroWaveArt is `absolute`; a bar inserted as the hero
+        shell's FIRST child is painted over by the raster and renders
+        completely invisible. It has to land after the art, i.e. inside
+        `children`. A screenshot of the broken version looks like "no header"
+        and a screenshot of the fixed one looks like "header" - but nothing
+        in between tells you WHY, so the seat is pinned here.
+     2. `px-0` MUST NOT REACH THE HERO SEAT. `onColor` is a chip surface and
+        AppHeaderBar merges `className` AFTER its own
+        `rounded-full px-[8px]`, so a `px-0` from this page wins through
+        tailwind-merge and silently flattens the chip's padding to zero.
+        Nothing throws; the veil just closes on the glyphs.
+     3. THE GROUND SEAT STILL EXISTS. `heroCard` is overview-only, so Systems
+        and General Info have no artwork to tint. Losing the bar there would
+        leave them with no title, no Back and no More at all - the silent
+        removal Rule 0 forbids - and it would look fine on the one view the
+        frame draws. */
+describe('the header bar - two seats, one definition', () => {
+  const bar = (c) => q(c, '[data-name="app-header-bar"]')
+
+  it('seats the bar INSIDE the hero card on Overview, after the artwork', () => {
+    const { container } = mountAt('/')
+    const seat = q(container, '[data-name="home-hero-header"]')
+    expect(seat, 'the bar is not in the hero card').toBeTruthy()
+
+    const shell = q(container, '[data-name="hero-card-shell"]')
+    expect(shell.contains(seat), 'the bar is outside the hero shell').toBe(true)
+
+    /* AFTER the raster, not before it. HeroWaveArt renders an <img> inside
+       the coloured section; a bar that precedes it is invisible. */
+    const art = shell.querySelector('img')
+    expect(art, 'no hero artwork to sit on').toBeTruthy()
+    expect(
+      art.compareDocumentPosition(seat) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'the bar comes BEFORE the artwork and will render invisible',
+    ).toBeTruthy()
+  })
+
+  it('asks for the on-colour surface and the node’s own tint', () => {
+    const { container } = mountAt('/')
+    const b = bar(container)
+    expect(b.getAttribute('data-surface')).toBe('onColor')
+    const veil = q(container, '[data-name="app-header-veil"]')
+    expect(veil, 'no veil - surfaceTint never reached the bar').toBeTruthy()
+    /* An INLINE style, never a utility: #9dbbd9 is not registered in
+       @theme inline, and in Tailwind v4 a utility naming an unregistered
+       colour emits no CSS and no error. */
+    expect(veil.getAttribute('style')).toMatch(/background-color:\s*(#9dbbd9|rgb\(157,\s*187,\s*217\))/i)
+  })
+
+  it('does NOT pass px-0 on the hero seat, so the chip keeps its 8px', () => {
+    const { container } = mountAt('/')
+    const cls = bar(container).className
+    expect(cls, 'px-0 is back and tailwind-merge has eaten the chip padding').not.toMatch(/\bpx-0\b/)
+    expect(cls, 'the chip padding is gone').toMatch(/px-\[8px\]/)
+  })
+
+  it('keeps the ground seat - and its px-0 - on the views with no hero', () => {
+    for (const dest of [MORE_MENU_IDS.systems, MORE_MENU_IDS.general]) {
+      cleanup()
+      const { container } = mountAt('/')
+      openMenu(container)
+      fireEvent.click(q(container, `[data-menu-item="${dest}"]`))
+
+      expect(
+        q(container, '[data-name="home-hero-header"]'),
+        `${dest} has no hero, so the bar must not claim the hero seat`,
+      ).toBeNull()
+      const chrome = q(container, '[data-name="home-header"]')
+      expect(chrome, `${dest} lost its header bar entirely`).toBeTruthy()
+
+      const b = bar(container)
+      expect(b, `${dest} has no header bar`).toBeTruthy()
+      expect(b.getAttribute('data-surface'), `${dest} tints a hero it does not have`).toBe('ground')
+      expect(b.className).toMatch(/\bpx-0\b/)
+      expect(
+        q(container, '[data-name="app-header-veil"]'),
+        `${dest} paints a multiply veil against the bare page ground`,
+      ).toBeNull()
+    }
+  })
+
+  it('keeps the More badge resolvable by id from EITHER seat', () => {
+    /* MoreMenu finds the badge with getElementById, not a ref, which is the
+       whole reason two seats are safe. If the id stopped resolving the menu
+       would still open and would anchor to the top-left corner. */
+    const { container } = mountAt('/')
+    const onHero = q(container, '[data-name="app-more"]')
+    expect(onHero.id, 'the badge lost its id on the hero seat').toBeTruthy()
+    expect(document.getElementById(onHero.id)).toBeTruthy()
+
+    openMenu(container)
+    fireEvent.click(q(container, `[data-menu-item="${MORE_MENU_IDS.systems}"]`))
+    const onGround = q(container, '[data-name="app-more"]')
+    expect(onGround, 'the badge went missing on the ground seat').toBeTruthy()
+    expect(onGround.id, 'the id changed between seats').toBe(onHero.id)
+    expect(document.getElementById(onGround.id)).toBeTruthy()
+  })
+
+  /* NO SCROLLER-COUNT TEST HERE, deliberately. The bar joined the scroller's
+     subtree on Overview, so "still exactly one scroller, still no
+     paddingBottom" does need to hold - but the suite above already asserts it
+     at `still has exactly one scroller, and it reserves no collapse distance`,
+     mounting the same '/' through the same helper. A second copy with a
+     looser selector (one that forgets the drawer's own `role="dialog"`
+     scroller) does not strengthen the guarantee, it just fails differently. */
+})
+
+/* ── THE STATUS BAND BLEEDS INTO THE HERO — 200067:38971, 2026-11-09 ────────
+   The shell can now drop its 44px status seat so a route paints behind the
+   clock and battery (src/components/phoneStatusBar.js). Home opts in, because
+   200067:38969 runs the artwork under that band and paints its glyphs white.
+
+   WHAT IS PINNED HERE IS THE PAGE'S HALF: the 44px it has to pay back. The
+   shell cannot do it - only the page knows which of its children should not
+   bleed - and getting it wrong puts the clock on top of the header chip,
+/* ── THE STATUS BAND BLEEDS INTO THE HERO — 200067:38971, 2026-11-09 ────────
+   The shell drops its 44px status seat so a route paints behind the clock and
+   battery (src/components/phoneStatusBar.js). Home opts in, because
+   200067:38969 runs the artwork under that band and paints its glyphs white.
+
+   WHAT IS PINNED HERE IS THE PAGE'S HALF: the 44px it has to pay back. Get it
+   wrong and the clock lands on top of the header chip.
+
+   ⚠ REWRITTEN once the shell started reporting `inset`. These drove
+   `window.innerWidth` + a resize event, because the page carried its own copy
+   of Phone's `innerWidth <= 500 || mobile UA` predicate and that was the only
+   way to move it. The predicate is deleted; the shell answers through
+   StatusBarContext now, so these drive the CONTEXT, which is the real
+   contract and does not depend on a viewport the test cannot really change. */
+describe('the status-band inset', () => {
+  const seat = (c) => q(c, '[data-name="home-hero-header"]')
+
+  /* The band as the shell reports it. `bandHeight: 44` is the desktop bezel,
+     0 is MobileLayout, which draws none. `set` is a no-op: what the page puts
+     INTO the context is Phone's business and is tested there; what this file
+     cares about is what the page does with what comes back. */
+  const mountWithBand = (bandHeight) =>
+    render(
+      <StatusBarContext.Provider value={{ set: () => {}, bandHeight }}>
+        <MemoryRouter initialEntries={['/']}>
+          <UserProvider>
+            <Routes>
+              <Route path="/" element={<HomeAllAccounts />} />
+            </Routes>
+          </UserProvider>
+        </MemoryRouter>
+      </StatusBarContext.Provider>,
+    )
+
+  it('pays the band back where one is drawn, and only the node gap where none is', () => {
+    /* THE 11 IS THE NODE'S: 200067:38971 is the StatusBar frame at y=0 and is
+       48 tall; the content frame 200067:38980 starts at y=59, so 59-48 = 11.
+       THE 44 IS THE SHELL'S and is no longer spelled in the page - the
+       expression is `inset + 11`, and `inset` already folds in both the shell
+       path and whether this screen asked to bleed. */
+    const { container } = mountWithBand(44)
+    expect(seat(container).style.paddingTop, 'the band was not paid back').toBe('55px')
+
+    cleanup()
+    /* MobileLayout draws no band, so nothing overlays the top and paying 44px
+       back there would open a band of empty blue above the chip on the primary
+       target. */
+    const { container: mobile } = mountWithBand(0)
+    expect(seat(mobile).style.paddingTop, 'a band was cleared that is not drawn').toBe('11px')
+  })
+
+  it('spells the inset as a style, because a utility could not survive it', () => {
+    /* `pt-[${n}px]` would emit NO CSS: Tailwind scans source text and cannot
+       see a runtime number - the same silent-failure class as a colour utility
+       naming an unregistered colour. The horizontal 16 stays a class because
+       it is constant. */
+    const { container } = mountWithBand(44)
+    const el = seat(container)
+    expect(el.className, 'the constant gutter stopped being a class').toContain('px-[16px]')
+    expect(el.className, 'a computed padding leaked into the class string').not.toMatch(/pt-\[/)
+    expect(el.style.paddingTop).toBeTruthy()
+  })
+
+  it('asks for no bleed on the views with no hero behind the glyphs', () => {
+    /* `--ink-on-color` is WHITE. Systems and General Info render no hero, so a
+       bleeding band there would be the plain page ground with white glyphs on
+       it - invisible. The page gates the bleed on `overview`; what this file
+       can see is the consequence, that neither view has a hero seat at all. */
+    for (const dest of [MORE_MENU_IDS.systems, MORE_MENU_IDS.general]) {
+      cleanup()
+      const { container } = mountAt('/')
+      openMenu(container)
+      fireEvent.click(q(container, `[data-menu-item="${dest}"]`))
+      expect(seat(container), `${dest} grew a hero header seat`).toBeNull()
+      expect(q(container, '[data-name="hero-card-shell"]'), `${dest} grew a hero`).toBeNull()
+    }
   })
 })

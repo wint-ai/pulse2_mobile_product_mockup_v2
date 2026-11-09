@@ -109,6 +109,9 @@
 
 import { useId, useState } from 'react'
 import { ArrowRight, House, PlaneTakeoff } from 'lucide-react'
+/* 24-hour windows, hyphenated — see the module header for why the card does
+   not print `policy.window` through. */
+import { formatPolicyWindow } from '@/v2/components/policyWindow'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -335,7 +338,10 @@ export default function ActivePolicyCard({
       <div className="h-px w-full shrink-0 bg-slate-200" data-node-id="199532:96322" />
 
       {/* ── Body 199532:96319 ────────────────────────────────────────────── */}
-      <div className="flex w-full shrink-0 flex-col items-start gap-[19px] px-[16px] pt-[19px]">
+      {/* 199532:96319 — `gap-[16px] pt-[19px] px-[16px]`. The gap was 19 here
+          and in the settings group below; both are the refetched node's own
+          numbers as of 2026-11-09 (200059:35959), not a re-measure by eye. */}
+      <div className="flex w-full shrink-0 flex-col items-start gap-[16px] px-[16px] pt-[19px]">
         {/* ── POLICY *OR* HOME/AWAY, NEVER BOTH ──────────────────────────
             Owner, 2026-10-26: "they are not working together, Policy or
             Home/Away. Residential is home away."
@@ -383,7 +389,7 @@ export default function ActivePolicyCard({
                       dir="auto"
                       data-node-id="199532:96158"
                     >
-                      {policy.window}
+                      {formatPolicyWindow(policy.window)}
                     </p>
                   </div>
                 ) : null}
@@ -392,7 +398,7 @@ export default function ActivePolicyCard({
           </div>
         ) : null}
 
-        {/* ── The settings rows — 199532:96187, gap 19 ──────────────────────
+        {/* ── The settings rows — 199532:96187, gap 10 ──────────────────────
             THESE WERE PLAIN CHIPS. The card drew two #e2eafc pills holding the
             bare strings "Alerts" and "Valve handling: Auto shut-off " — a
             label with no value, so the card named two settings and reported
@@ -400,7 +406,7 @@ export default function ActivePolicyCard({
             and a Badge carrying its actual state, which is the whole point of
             a policy summary. */}
         {!onModeChange && settings.length ? (
-          <div className="flex w-full shrink-0 flex-col items-start gap-[19px]" data-node-id="199532:96187">
+          <div className="flex w-full shrink-0 flex-col items-start gap-[10px]" data-node-id="199532:96187">
             {settings.map((setting, index) => (
               <div
                 key={setting.id ?? setting.label ?? index}

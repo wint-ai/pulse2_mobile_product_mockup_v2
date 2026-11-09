@@ -896,13 +896,13 @@ describe('the ignored state', () => {
      band that is wrong there. */
   it('greys the hero wave once the event is ignored', () => {
     const live = renderOverlay({ onIgnore: () => {} })
-    const band = () => live.container.querySelector('[data-node-id="199431:138924"]')
+    const band = () => live.container.querySelector('[data-node-id="200067:37396"]')
     expect(band().innerHTML).toMatch(/bg-\[#ff7b7d\]/)
     cleanup()
 
     ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
     const { container } = renderOverlay({ onIgnore: () => {} })
-    const ignoredBand = container.querySelector('[data-node-id="199431:138924"]')
+    const ignoredBand = container.querySelector('[data-node-id="200067:37396"]')
     expect(ignoredBand.innerHTML).toMatch(/bg-slate-500/)
     expect(ignoredBand.innerHTML).not.toMatch(/bg-\[#ff7b7d\]/)
   })
@@ -1040,9 +1040,15 @@ describe('the overlay chrome', () => {
    against it. */
 describe('there is exactly one way out in the header', () => {
   /* Every button in the header bar, by accessible name. The scrim is a
-     sibling of the panel, not of the header, so it is not in here. */
+     sibling of the panel, not of the header, so it is not in here.
+
+     2026-11-09: the hand-rolled <header> is gone — this surface mounts the
+     shared <AppHeaderBar> (200067:38944), so the bar is addressed by its own
+     `data-name` rather than by tag. The GUARANTEE is unchanged and is the
+     reason this helper still exists: exactly one way out is drawn on this
+     row, and it is back or ×, never both. */
   const headerButtonNames = () =>
-    [...screen.getByRole('dialog').querySelectorAll('header button')].map((b) =>
+    [...screen.getByRole('dialog').querySelectorAll('[data-name="app-header-bar"] button')].map((b) =>
       b.getAttribute('aria-label'),
     )
 
@@ -1089,16 +1095,21 @@ describe('there is exactly one way out in the header', () => {
        the × does not inherit the old right-hand position — it inherits the
        back arrow's. First child of the header in both branches, and never
        inside a justify-end wrapper. */
+    /* The slot is now AppHeaderBar's own `app-header-leading` group — the
+       component's documented leading slot, which the × branch reaches through
+       the `leading` prop (it WINS over the back disc) and the back branch
+       through `onBack`. Same slot, same first position, in both branches. */
     renderOverlay()
     const back = screen.getByRole('button', { name: 'Back' })
-    const header = screen.getByRole('dialog').querySelector('header')
-    expect(header.firstElementChild).toBe(back)
+    const lead = screen.getByRole('dialog').querySelector('[data-name="app-header-leading"]')
+    expect(lead.firstElementChild).toBe(back)
     expect(back.closest('.justify-end')).toBeNull()
 
     cleanup()
     renderOverlay({ canGoBack: false })
     const x = screen.getByRole('button', { name: 'Close' })
-    expect(screen.getByRole('dialog').querySelector('header').firstElementChild).toBe(x)
+    const lead2 = screen.getByRole('dialog').querySelector('[data-name="app-header-leading"]')
+    expect(lead2.firstElementChild).toBe(x)
     expect(x.closest('.justify-end')).toBeNull()
   })
 
@@ -1326,7 +1337,7 @@ describe('What should I do', () => {
    arithmetic the handler does with scrollTop, not the geometry the browser
    would do with the result. */
 describe('the red wave collapses with the content', () => {
-  const band = () => document.querySelector('[data-node-id="199431:138924"]')
+  const band = () => document.querySelector('[data-node-id="200067:37396"]')
   const bar = () => document.querySelector('[data-solid]')
   const scroller = () => document.querySelector('[data-ignored]')
 
@@ -1343,7 +1354,7 @@ describe('the red wave collapses with the content', () => {
        querySelector that stops matching returns null rather than failing, so
        without this the rest of the block would pass by not running. */
     renderOverlay()
-    expect(band(), 'the wave band (data-node-id 199431:138924)').toBeTruthy()
+    expect(band(), 'the wave band (data-node-id 200067:37396)').toBeTruthy()
     expect(bar(), 'the pinned header bar (data-solid)').toBeTruthy()
     expect(scroller(), 'the one scrolling region (data-ignored)').toBeTruthy()
   })
@@ -1364,11 +1375,13 @@ describe('the red wave collapses with the content', () => {
   })
 
   it('stops once it is off the top rather than translating for ever', () => {
-    /* HERO_H is 207. An unclamped handler would keep writing -3000px on a long
+    /* HERO_H is 177 since the 2026-11-09 refetch (200067:37396 is 239px tall
+       at top:-62, so its bottom edge is at 177 — it was 207 under the retired
+       199431:138924). An unclamped handler would keep writing -3000px on a long
        timeline, which costs a compositor layer the size of the scroll. */
     renderOverlay()
     scrollTo(3000)
-    expect(band().style.transform).toBe('translate3d(0, -207px, 0)')
+    expect(band().style.transform).toBe('translate3d(0, -177px, 0)')
   })
 
   it('ignores a negative scrollTop (iOS rubber-banding)', () => {
@@ -1380,14 +1393,15 @@ describe('the red wave collapses with the content', () => {
   })
 
   it('the bar goes solid only once the wave has cleared it', () => {
-    /* HERO_H 207 − BAR_H 59 = 148. Before that the discs sit on red and the
-       bar must stay transparent or it would cover the wave it sits on. */
+    /* HERO_H 177 − BAR_H 59 = 118 (was 207 − 59 = 148; see the clamp test for
+       the refetch). Before that the discs sit on red and the bar must stay
+       transparent or it would cover the wave it sits on. */
     renderOverlay()
     scrollTo(100)
     expect(bar().dataset.solid, 'still over the wave').toBe('false')
-    scrollTo(148)
+    scrollTo(118)
     expect(bar().dataset.solid, 'wave bottom exactly at the bar bottom').toBe('false')
-    scrollTo(149)
+    scrollTo(119)
     expect(bar().dataset.solid, 'wave has passed — content would slide under').toBe('true')
   })
 
@@ -1507,16 +1521,23 @@ describe('the claim flow, as the latest frames lay it out', () => {
      The sticky footer is deleted and "Event handling" is replaced by a
      "Manage event" 2-up tile row above the valve. These pin the three things
      the owner ruled on, each of which is a one-line regression. */
-  it('draws Manage event as a two-tile row, and no footer anywhere', () => {
+  it('draws Manage event as two stacked full-width rows, and no footer anywhere', () => {
+    /* WAS a 2-up row (199772:145466). The 2026-11-09 refetch draws
+       I200067:37450;199792:162493 as a `flex flex-col gap-[12px]` — one
+       full-width action per row — because at 393 the two tiles sat at ~175px
+       each and the sub-label rendered as "Mark as e...". The GUARANTEE this
+       test carries is unchanged: the group holds exactly the two actions, and
+       there is no footer anywhere on the surface. */
     renderOverlay({ onIgnore: () => {} })
     expect(screen.getByText('Manage event')).toBeInTheDocument()
     // The eyebrow the full-width card used to carry is gone with the card.
     expect(screen.queryByText('Event handling')).toBeNull()
     expect(document.querySelector('[role="dialog"] footer')).toBeNull()
 
-    const row = document.querySelector('[data-node-id="199772:145466"]')
-    expect(row, 'the tile row').toBeTruthy()
+    const row = document.querySelector('[data-node-id="199792:162493"]')
+    expect(row, 'the action group').toBeTruthy()
     expect(within(row).getAllByRole('button')).toHaveLength(2)
+    expect(row.className, 'stacked, not side by side').toMatch(/flex-col/)
   })
 
   it('labels tile 2 "Assign", not "Ignore" — the frame draws both as Ignore', () => {
@@ -1552,7 +1573,7 @@ describe('the claim flow, as the latest frames lay it out', () => {
 
   it('puts Manage event ABOVE the valve card, which the old card was below', () => {
     renderOverlay({ system: valveSys, onIgnore: () => {} })
-    const row = document.querySelector('[data-node-id="199772:145466"]')
+    const row = document.querySelector('[data-node-id="199792:162493"]')
     const valve = screen.getByRole('region', { name: 'Valve status' })
     // Node.DOCUMENT_POSITION_FOLLOWING === 4: `valve` comes after `row`.
     expect(row.compareDocumentPosition(valve) & 4).toBe(4)
@@ -1571,11 +1592,18 @@ describe('the claim flow, as the latest frames lay it out', () => {
 
   it('the header names the system', () => {
     /* 199703:42952. It was dropped on the reading that the System details
-       card carried it; all three frames put it back, centred, because WHICH
-       system this is, is the first thing you need on a surface you arrive at
-       from a list. */
+       card carried it; all three frames put it back, because WHICH system
+       this is, is the first thing you need on a surface you arrive at from a
+       list.
+
+       2026-11-09: it is still on this row, and that is what this test is for.
+       What changed is WHERE it is drawn from — 200067:38944 puts the text in
+       AppHeaderBar's own title slot (`app-scope`), LEFT-aligned, instead of
+       the absolutely-centred <p> this used to assert. The requirement the
+       2026-10-28 ruling stated is that the name be in the header; the
+       alignment moved with the node and is reported in the component. */
     const { container } = renderOverlay()
-    const title = container.querySelector('[data-node-id="199703:42952"]')
+    const title = container.querySelector('[data-name="app-scope"]')
     expect(title).toBeTruthy()
     expect(title.textContent).toBe(leakSys.name)
   })
@@ -1661,7 +1689,7 @@ describe('reached from the location view, not mounted directly', () => {
    level alpha is applied to the box that contains the card, and the card
    itself opts out of the ignored dim. A human still has to look. */
 describe('the ignored dim never makes the alert card translucent', () => {
-  const wave = () => document.querySelector('[data-node-id="199431:138924"]')
+  const wave = () => document.querySelector('[data-node-id="200067:37396"]')
   const scroller = () => document.querySelector('[data-ignored]')
 
   it('keeps the wave a z-0 sibling painted before the z-10 scroller', () => {
@@ -1720,9 +1748,16 @@ describe('the ignored dim never makes the alert card translucent', () => {
    for one — the tile is dropped, which is the rule the Total tile beside it
    has always followed. */
 describe('the figure tiles name what they actually hold', () => {
+  /* AlertCard's tiles — still what the FAULT branch draws. */
   const row = () => document.querySelector('[data-node-id="199703:42970"]')
   const flowTile = () => document.querySelector('[data-node-id="199703:42971"]')
   const totalTile = () => document.querySelector('[data-node-id="199703:42976"]')
+  /* <EventStatBlock>'s tiles — what a LIVE WATER event draws since
+     2026-11-09. 200067:37413 has no card chrome at all; the white is on the
+     tiles. */
+  const liveRow = () => document.querySelector('[data-node-id="200067:37416"]')
+  const liveFlowTile = () => document.querySelector('[data-node-id="200067:37417"]')
+  const liveTotalTile = () => document.querySelector('[data-node-id="200067:37422"]')
 
   it('draws no Flow Rate tile on a fault, rather than a volume under it', () => {
     expect(faultSys, 'no non-leak fault in the dataset').toBeTruthy()
@@ -1734,12 +1769,18 @@ describe('the figure tiles name what they actually hold', () => {
   })
 
   it('leaves a leak card reading rate beside total, unchanged', () => {
+    /* ON A LIVE WATER EVENT THESE TILES ARE NOW 200067:37416/:37417/:37422 —
+       <EventStatBlock>, the refetched frame's own un-wrapped tiles — and no
+       longer AlertCard's 199703:42970/:42971/:42976. The fault case above
+       still reads the AlertCard ids, because the fault branch still mounts
+       AlertCard; only the live water branch moved. Same two figures, same two
+       captions, same order. */
     expect(leakSys.alert.flowRate, 'fixture carries no rate').toBeTruthy()
     expect(leakSys.alert.volume, 'fixture carries no volume').toBeTruthy()
     renderOverlay()
-    expect(row(), 'the leak tile row disappeared').toBeTruthy()
+    expect(liveRow(), 'the leak tile row disappeared').toBeTruthy()
     const digits = s => String(s).replace(/[^\d,.]/g, '')
-    expect(flowTile().textContent).toBe(`${digits(leakSys.alert.flowRate)}L/HFlow Rate`)
-    expect(totalTile().textContent).toBe(`${digits(leakSys.alert.volume)}LTotal`)
+    expect(liveFlowTile().textContent).toBe(`${digits(leakSys.alert.flowRate)}L/HFlow Rate`)
+    expect(liveTotalTile().textContent).toBe(`${digits(leakSys.alert.volume)}LTotal`)
   })
 })
