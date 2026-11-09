@@ -392,8 +392,8 @@
  * in. Every colour here was checked against all four blocks of `src/index.css`:
  * `:root`, `[data-theme='dark'], .dark`, `[data-theme='sand']`,
  * `[data-theme='contrast']`.
- *   --valve-open / --valve-closed / --valve-error  :390-392, :1265-1267,
- *     :1430-1432, :1565-1567, registered in `@theme inline` at :866-868, so
+ *   --valve-open / --valve-closed / --valve-error  :410-412, :1343-1345,
+ *     :1508-1510, :1680-1682, registered in `@theme inline` at :886-888, so
  *     BOTH `bg-valve-*` AND `stroke-valve-*` resolve in all four — Tailwind v4
  *     generates every colour utility family, `stroke-*` included, off the one
  *     `--color-*` namespace. VERIFIED IN A BROWSER on 2026-11-03 rather than
@@ -848,7 +848,7 @@ function LegendRow({ categoryKey, bucket, onOpen }) {
         >
           <span className="flex w-full items-center gap-1.5">
             {/* THE ONE COLOUR CUE, AND THE WORD BESIDE IT IS MANDATORY.
-                index.css:358-367: --valve-error against --valve-open is dE 7.6
+                index.css:378-387: --valve-error against --valve-open is dE 7.6
                 under deuteranopia, legal ONLY WITH SECONDARY ENCODING, and the
                 WORD is that encoding. `<ValveSwatch>` rather than the full
                 `<ValveStateReadout>` because this row writes the word itself,

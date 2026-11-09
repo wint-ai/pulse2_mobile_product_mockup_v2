@@ -99,6 +99,28 @@ function DesktopFrame({ children, theme }) {
   return (
     <div className="flex items-start justify-center min-h-screen p-6" style={{ background: '#DDE1E8' }}>
       <div style={{
+        /* 393x852 IS THE SCREEN, NOT THE HANDSET — `boxSizing: content-box`
+           is what makes that true, and it is a bug fix.
+
+           Tailwind's preflight sets `box-sizing: border-box` on *, so under
+           the inherited default this 393 was the OUTSIDE of the bezel and the
+           9px border ate into it from both sides: `clientWidth` measured 376,
+           not 393. Every page in this repo is transcribed from a 393-wide
+           Figma frame, so every page was handed 17px less than it was drawn
+           for and the right edge of each screen was silently clipped by
+           `overflow: hidden` below -- "Show all" rendered as "Show", the
+           third fault tile as "No powe", event rows cut mid-address.
+
+           It read as a scroll bug and was not one: because the bezel clips
+           rather than scrolls, a probe that sets `scrollLeft` and reads it
+           back gets 0. The assertion that catches it is
+           `scrollWidth <= clientWidth` -- see
+           src/__tests__/frameClipping.dom.test.jsx.
+
+           content-box over `width: 411` deliberately: the number a reader
+           needs to recognise here is 393, the Figma frame. The handset's
+           outer 411x870 is an implementation detail of the bezel. */
+        boxSizing: 'content-box',
         width: 393, height: 852,
         background: theme.phoneBg,
         borderRadius: 46,

@@ -306,8 +306,42 @@ const BAR_LABEL_ROW = String.raw`content-stretch flex items-center justify-betwe
 const BAR_LABEL = String.raw`[word-break:break-word] font-semibold min-w-px overflow-hidden relative text-red-400 text-lg text-ellipsis tracking-[-0.45px] whitespace-nowrap leading-[0]`
 const BAR_LABEL_RUN = String.raw`leading-[29.25px]`
 
-/* 199323:13029 — the counter row. */
-const TILE_ROW = String.raw`content-stretch flex gap-[12px] items-center relative shrink-0 w-full`
+/* 199323:13029 — the counter row.
+   ── RE-SPACED FOR A CHROME-LESS GROUP, 2026-11-09 ───────────────────────
+   WHAT CHANGED OPTICALLY. The tile's top padding plus the 8px of slack the
+   43px value row holds above the glyph put the first ink 12-13px inside the
+   button. While the tile had a ground that did not matter: what the eye
+   measured off the "12 / 103 need attention" line above was the BOX EDGE,
+   which sat flush at the button's own top. With the ground gone the eye
+   measures the glyph instead, so the same markup suddenly reads ~13px
+   further down and the three counters float away from the line they belong
+   to. The gap below did the same thing: the grey bar's edge was 11px under
+   the tiles, its sentence 21px.
+
+   WHAT IS DONE ABOUT IT. The row is pulled up by the slack the box used to
+   occupy, so the GLYPHS now land where the BOX EDGES did and the block gap
+   above the group is the designed one again. The alternative — retuning
+   `pb-[7px] pt-[3px]`, `h-[43px]` and `mb-[-8px]` until the ink sat higher
+   inside the button — was rejected twice over: that padding IS the hit
+   target (see THE BOX IS GONE, point 2), and those three numbers are a
+   transcription whose arithmetic is load-bearing (43 - 8 = 8 + 27 is why
+   the label row starts exactly at the glyph's baseline edge).
+   12px, not more: it leaves 17px of clear air between this row's top edge
+   and the bottom of the "need attention" button above it, so the tiles'
+   enlarged hit boxes cannot creep over a live control and eat its taps.
+
+   HORIZONTALLY NOTHING MOVES, and that is also a decision. Each tile is
+   `flex-[1_0_0]` and centres its own content, so the three sit on equal
+   thirds of the content column; the `gap-[12px]` between them stopped
+   mattering the moment the grounds went, and what actually separates them
+   now is 56-63px of card surface between the label runs — roughly 2.5x the
+   22px count, which is wide enough to part them and tight enough that the
+   equal thirds still read as one row. Tightening the gap would only shift
+   dead space from between the tiles to the card's gutters. */
+const TILE_ROW = String.raw`content-stretch flex gap-[12px] items-center mt-[-12px] relative shrink-0 w-full`
+/* The solo tile is its own flex item in the same column, so it takes the
+   same correction directly. */
+const TILE_SOLO_PULL = String.raw`mt-[-12px]`
 /* 199323:12960 (valve) / 199323:13099 (offline) / 199323:12973 (no power).
    3 + (43 - 8) + 20 + 7 = 65px tall, comfortably past the 48dp minimum, so no
    tap-target padding is added. */
@@ -318,7 +352,31 @@ const TILE_ROW = String.raw`content-stretch flex gap-[12px] items-center relativ
                                                            Offline / No power)
    Everything else about the two is identical, so the fill is the only switch
    and the tile keeps one set of geometry. */
-const TILE = String.raw`appearance-none border-0 content-stretch cursor-pointer flex flex-[1_0_0] gap-[4px] items-center justify-center min-w-px pb-[7px] pt-[3px] px-0 relative rounded-[18px] text-left`
+/* ── THE BOX IS GONE, 2026-11-09 ─────────────────────────────────────────
+   The owner pointed at the three tiles and the grey row under them and said
+   "remove boxes here"; asked to disambiguate he confirmed: drop the box
+   chrome, keep the data. So the tinted fill, the inset ring and the 18px
+   radius come off TILE / TILE_SOLO, and `bg-slate-100` + `rounded-[16px]`
+   come off OTHER_ROW. Nothing stops being drawn: glyph, count and label all
+   stay, now sitting directly on the card surface.
+
+   WHAT THE BOX WAS CARRYING, AND WHERE EACH PART WENT.
+   1. SEVERITY. "THE TINT IS THE COUNT" below is now "the INK is the count":
+      TILE_HOT/TILE_COLD stopped being grounds and became inks, and the two
+      marks that used to sit ON the tint — the glyph and the 22px count —
+      take it. See TILE_HOT.
+   2. THE TAP TARGET. The box was never the hit box; the button's own
+      geometry is, and it is untouched: 3 + (43 - 8) + 20 + 7 = 65px tall,
+      and at `/` each of the three is ~101px wide (flex-1 of a 329px content
+      column less two 12px gaps). Both axes clear 44px with room, which is
+      why the padding below is kept to the pixel rather than retuned.
+   3. THE FOCUS RING. The box was also the only thing a focused tile drew.
+      It is replaced by this repo's standard ring (ActivePolicyCard's FOCUS,
+      and a dozen controls besides) — `focus-visible:ring-[3px]
+      focus-visible:ring-ring/50`, with the radius moved BEHIND the
+      focus-visible variant so the resting tile has no box radius at all and
+      the ring still reads as a rounded shape when it appears. */
+const TILE = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex flex-[1_0_0] gap-[4px] items-center justify-center min-w-px outline-none pb-[7px] pt-[3px] px-0 relative text-left focus-visible:rounded-[12px] focus-visible:ring-[3px] focus-visible:ring-ring/50`
 /* THE HOT TILE IS A SURFACE TOKEN, NOT A TINT, 2026-10-21.
    `bg-gradient-to-b from-[#fff1f1] to-[#ffe3e3]` is a LIGHT error surface with
    no theme behind it. Dropped onto the dark card it measured 16.3:1 against
@@ -364,10 +422,40 @@ const TILE = String.raw`appearance-none border-0 content-stretch cursor-pointer 
    cost of being themeable and is the same trade the file already took.
    The ink is still --foreground / --slate-600 — neither is red at `light`,
    both already theme — so nothing about contrast moves in any theme. */
-const TILE_HOT = String.raw`bg-alert-surface-critical inset-ring inset-ring-alert-border-critical`
-const TILE_COLD = String.raw`bg-slate-100`
+/* ── THE TINT BECAME THE INK, 2026-11-09 ─────────────────────────────────
+   Everything above this line is the history of the tile's GROUND, and the
+   ground is now gone (see THE BOX IS GONE at TILE). It is kept because the
+   argument it settled did not go away: the card still has to say which
+   counters have something in them, and the answer is still
+   --alert-surface-critical's family, just applied as ink instead of fill.
+
+   --color-alert-ink-critical is the registered token (src/index.css ~795)
+   and it is the SAME red the hot ground was derived from, carried at ink
+   weight: --red-600 #e7000b at `light`, --red-400 #ff6467 in dark where it
+   is measured at 4.98:1. So the severity signal keeps its hue, keeps its
+   theming, and now lands where a signal belongs on a chrome-less layout —
+   on the two marks that carry the meaning, the glyph and the count.
+
+   COLD IS NOT AN ABSENCE. A zero counter used to be slate-100 ground with
+   --foreground ink; it is now --foreground ink with a slate-400 glyph, i.e.
+   exactly the ink pairing the card already uses for a neutral mark
+   (GLYPH_INK). The pair still reads as a switch: red glyph + red number vs
+   slate glyph + ordinary number.
+
+   ONE THING IS NOT SWITCHED, and it predates this change: the valve glyph
+   is <ValveStatus state="error">, which carries its own #FB2C36 paths and
+   is declared non-themeable in that file, so it is red at both counts. It
+   was red inside the slate box too. Flagged, not silently "fixed" — that
+   glyph is the product's valve semantics and is not this card's to recolour. */
+const TILE_HOT = String.raw`text-alert-ink-critical`
+const TILE_COLD = String.raw`text-slate-400`
+/* The 22px count. It used to be pinned to `text-foreground` inside
+   TILE_COUNT; it now takes the hot red or that same --foreground, so the
+   number is half of the severity pair rather than a constant. */
+const TILE_COUNT_HOT = String.raw`text-alert-ink-critical`
+const TILE_COUNT_COLD = String.raw`text-foreground`
 /* 199417:134216 draws the lone kind as ONE tile across the card. */
-const TILE_SOLO = String.raw`appearance-none border-0 content-stretch cursor-pointer flex gap-[4px] items-center justify-center pb-[7px] pt-[3px] px-0 relative rounded-[18px] shrink-0 text-left w-full`
+const TILE_SOLO = String.raw`appearance-none bg-transparent border-0 content-stretch cursor-pointer flex gap-[4px] items-center justify-center outline-none pb-[7px] pt-[3px] px-0 relative shrink-0 text-left w-full focus-visible:rounded-[12px] focus-visible:ring-[3px] focus-visible:ring-ring/50`
 
 /* 199417:131529 — the all-clear row that stands where the tiles would be.
    The ground was a frozen `bg-[#e8f5ff]`: the same class of un-themed light
@@ -470,7 +558,25 @@ const CLEAR_TEXT = String.raw`[word-break:break-word] flex-[1_0_0] font-mono-lab
    `cursor-pointer` chassis; this row has none, no chevron and no arrow glyph,
    so it is a label. It is not made interactive just because the kinds it
    names could be filtered for. */
-const OTHER_ROW = String.raw`bg-slate-100 content-stretch flex items-center justify-center min-h-[43px] px-[11px] py-[7px] relative rounded-[16px] shrink-0 w-full`
+/* ── THE BOX IS GONE HERE TOO, 2026-11-09 ────────────────────────────────
+   This row was inside what the owner pointed at and inside the option he
+   picked, so `bg-slate-100` and `rounded-[16px]` come off with the tiles'.
+   The slate-vs-pink argument above is now moot for the GROUND and is kept
+   only because it still records what each frame measured.
+   The 11px side padding goes with the fill — it was inset from a box edge
+   that no longer exists, and keeping it would indent the sentence off the
+   card's own 20px gutter for no reason. `min-h-[43px]` goes the same way:
+   it was the box's height, and on bare card surface it left the sentence
+   floating in 23px of dead air under the tiles. No rule or hairline takes
+   their place — a divider is chrome too, and "remove boxes" does not mean
+   "swap one piece of chrome for another". Spacing alone does the work, and
+   it is the same correction TILE_ROW makes: the sentence is placed where
+   the grey bar's TOP EDGE used to be rather than where its text was, which
+   is the only reading that does not grow a gap the owner never asked for.
+   That is the parent column's own 10px gap and nothing else, putting the
+   sentence ~18px under the tile labels — close enough to read as a footnote
+   to them, far enough not to crowd them. */
+const OTHER_ROW = String.raw`content-stretch flex items-center justify-center relative shrink-0 w-full`
 /* Same nowrap/shrink-0 swap as CLEAR_TEXT, and here it earns itself: this is
    the longest string the card can draw and every clause in it is live data. */
 const OTHER_TEXT = String.raw`[word-break:break-word] flex-[1_0_0] min-w-px relative text-slate-600 text-center text-sm`
@@ -480,7 +586,9 @@ const TILE_STACK = String.raw`content-stretch flex flex-col h-full items-center 
 const TILE_VALUE_ROW = String.raw`content-stretch flex h-[43px] items-center justify-center mb-[-8px] relative rounded-[16px] shrink-0 w-[89px]`
 const TILE_VALUE_PAIR = String.raw`content-stretch flex gap-[4px] items-center relative shrink-0`
 const TILE_GLYPH_BOX = String.raw`content-stretch flex h-[22px] items-center justify-center px-[15px] relative rounded-[16px] shrink-0 w-[30px]`
-const TILE_COUNT = String.raw`[word-break:break-word] font-semibold relative shrink-0 text-[22px] text-foreground text-center whitespace-nowrap leading-[25px]`
+/* `text-foreground` has moved out to TILE_COUNT_COLD — see THE TINT BECAME
+   THE INK. The colour is now the tile's, not the constant's. */
+const TILE_COUNT = String.raw`[word-break:break-word] font-semibold relative shrink-0 text-[22px] text-center whitespace-nowrap leading-[25px]`
 const TILE_LABEL_ROW = String.raw`content-stretch flex items-center relative shrink-0`
 const TILE_LABEL = String.raw`[word-break:break-word] flex flex-col font-medium justify-center relative shrink-0 text-slate-600 text-sm whitespace-nowrap leading-[0]`
 const TILE_LABEL_RUN = String.raw`leading-5`
@@ -557,7 +665,7 @@ const OTHER_LABEL = {
 function IssueTile({ issue, count, onSelect, solo = false }) {
   const label = ISSUE_LABEL[issue]
   /* `hot` is "this counter has something in it", which is also what decides
-     the red — see THE TINT IS THE COUNT. A solo tile is only ever drawn for a
+     the red — see THE TINT BECAME THE INK. A solo tile is only ever drawn for a
      kind that has something in it, so it is always hot. */
   const hot = solo || clampInt(count) > 0
   return (
@@ -565,7 +673,10 @@ function IssueTile({ issue, count, onSelect, solo = false }) {
       type="button"
       onClick={() => onSelect?.(issue)}
       aria-label={`${ISSUE_NAME[issue] ?? label}: ${fmt(count)}`}
-      className={cn(solo ? TILE_SOLO : TILE, hot ? TILE_HOT : TILE_COLD)}
+      className={cn(
+        solo ? cn(TILE_SOLO, TILE_SOLO_PULL) : TILE,
+        hot ? TILE_HOT : TILE_COLD,
+      )}
     >
       <span className={TILE_INNER}>
         <span className={TILE_STACK}>
@@ -573,16 +684,18 @@ function IssueTile({ issue, count, onSelect, solo = false }) {
             <span className={TILE_VALUE_PAIR}>
               {/* The valve box is `flex flex-col` in the node; the other two
                   are plain `flex`. Everything else about the three is equal. */}
+              {/* No ink of its own any more: it inherits the button's, which
+                  is TILE_HOT or TILE_COLD (slate-400, i.e. GLYPH_INK's own
+                  value, so a cold glyph is unchanged). */}
               <span
-                className={cn(
-                  TILE_GLYPH_BOX,
-                  issue === 'valveErrors' ? 'flex-col' : null,
-                  GLYPH_INK,
-                )}
+                className={cn(TILE_GLYPH_BOX, issue === 'valveErrors' ? 'flex-col' : null)}
               >
                 <IssueGlyph issue={issue} />
               </span>
-              <span className={cn('font-sans', TILE_COUNT)} dir="auto">
+              <span
+                className={cn('font-sans', TILE_COUNT, hot ? TILE_COUNT_HOT : TILE_COUNT_COLD)}
+                dir="auto"
+              >
                 {fmt(count)}
               </span>
             </span>

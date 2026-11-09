@@ -2067,9 +2067,25 @@ export default function HomeAllAccounts({ expanded = false }) {
             `onRefresh` is deliberately a settle with no refetch behind it.
             This dataset is generated and there is nothing to re-fetch; the
             gesture exists so the interaction is right for when there is. */}
+        {/* `w-full` IS LOAD-BEARING — without it this screen clips. The root
+            above is `items-start`, which is `align-items: flex-start` and
+            therefore does NOT stretch its children across the inline axis.
+            `flex-1` governs the BLOCK axis in a column and says nothing about
+            width, so this host sized to fit-content instead:
+            max(min-content, available). Its min-content ran to 415px against
+            an available 344px, so it laid out 415 wide, everything under it
+            was `w-full` of that inflated 415, and the surplus was swallowed by
+            the bezel's `overflow: hidden` -- "Show all" rendered as "Show",
+            event rows cut mid-address.
+
+            `w-full` over flipping the root to `items-stretch`: the root's
+            OTHER child, `home-header`, carries `w-full` already and is correct
+            at 344, and `items-start` is what the Figma frame specifies for
+            200013:93089. Stating the width on the one child that lacked it
+            fixes the child that is wrong rather than restating the parent. */}
         <PullToRefresh
           scrollRef={homeScrollRef}
-          className="flex min-h-0 flex-1 flex-col"
+          className="flex w-full min-h-0 flex-1 flex-col"
           onRefresh={async () => {}}
         >
         <div

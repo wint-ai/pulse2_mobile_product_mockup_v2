@@ -284,9 +284,13 @@ describe('SystemHealthCard — all healthy / empty', () => {
     expect(tiles[0].className).toContain('w-full')
   })
 
-  /* THE TINT IS THE COUNT: red when a counter has something in it, slate when
-     it does not. Both frames that draw three tiles agree on this. */
-  it('tints a counter by whether it has anything in it', () => {
+  /* THE INK IS THE COUNT: red when a counter has something in it, slate when
+     it does not. Both frames that draw three tiles agree on the SWITCH; what
+     carries it stopped being the ground on 2026-11-09, when the owner asked
+     for the boxes off these tiles. The test moved with it rather than being
+     dropped — the switch is the assertion, the ground was only ever how it
+     was drawn. */
+  it('inks a counter by whether it has anything in it', () => {
     const { container } = render(
       <SystemHealthCard total={48} healthy={46} valveErrors={1} offline={1} />,
     )
@@ -305,12 +309,88 @@ describe('SystemHealthCard — all healthy / empty', () => {
        `from-[#fff1f1] to-[#ffe3e3]`, and --alert-surface-critical resolves
        through --red-100 to #ffe2e2 at `light`: that gradient's own end stop.
        The `not.toContain` is the half that matters, and it has swapped sides
-       with its partner -- it fails if anyone repaints these tiles amber. */
-    expect(by('Valve errors: 1').className).toContain('bg-alert-surface-critical')
-    expect(by('Offline systems: 1').className).toContain('bg-alert-surface-critical')
-    expect(by('Valve errors: 1').className).not.toContain('bg-alert-surface-warning')
-    expect(by('Disconnected power: 0').className).toContain('bg-slate-100')
-    expect(by('Disconnected power: 0').className).not.toContain('bg-alert-surface-critical')
+       with its partner -- it fails if anyone repaints these tiles amber.
+
+       2026-11-09: THE GROUND IS GONE, THE SWITCH IS NOT. `bg-*` became
+       `text-*` on the same semantic family -- --alert-ink-critical is the
+       ink-weight sibling of the surface token argued for above, registered
+       as --color-alert-ink-critical in src/index.css -- so every sentence
+       above still holds, one token name over. The amber guard is kept
+       verbatim in its new spelling. */
+    expect(by('Valve errors: 1').className).toContain('text-alert-ink-critical')
+    expect(by('Offline systems: 1').className).toContain('text-alert-ink-critical')
+    expect(by('Valve errors: 1').className).not.toContain('text-alert-ink-warning')
+    expect(by('Disconnected power: 0').className).toContain('text-slate-400')
+    expect(by('Disconnected power: 0').className).not.toContain('text-alert-ink-critical')
+
+    /* The count is the other half of the pair: the ink has to reach the
+       number, not just the glyph, or a chrome-less tile says nothing. */
+    const countOf = (name) => [...by(name).querySelectorAll('span')]
+      .find((s) => s.children.length === 0 && /^[\d,]+$/.test(s.textContent.trim()))
+    expect(countOf('Valve errors: 1').className).toContain('text-alert-ink-critical')
+    expect(countOf('Disconnected power: 0').className).toContain('text-foreground')
+
+    /* AND THE BOX IS REALLY GONE — this is the half of the owner's request a
+       future "restore the Figma chassis" pass would quietly undo. */
+    for (const n of ['Valve errors: 1', 'Offline systems: 1', 'Disconnected power: 0']) {
+      const cls = by(n).className
+      expect(cls).not.toContain('bg-alert-surface-critical')
+      expect(cls).not.toContain('bg-slate-100')
+      expect(cls).not.toContain('inset-ring')
+      expect(cls).not.toContain('rounded-[18px]')
+    }
+  })
+
+  /* THE BOX WAS ALSO THE AFFORDANCE. Removing it is a visual change only, so
+     the three things the box was doing for the control have to survive it:
+     the element is still a button with its handler and its accessible name,
+     it still carries enough padding to be a 44px target once laid out, and
+     it still shows focus. jsdom has no layout, so the target is asserted as
+     the geometry that produces it and measured for real in the browser pass
+     (65px tall x 98px wide on WebKit at 390, 319px wide solo). */
+  it('keeps the control the box used to draw', async () => {
+    const seen = []
+    const { container } = render(
+      <SystemHealthCard
+        total={48}
+        healthy={46}
+        valveErrors={1}
+        offline={1}
+        onSelectIssue={(k) => seen.push(k)}
+      />,
+    )
+    const tiles = [...container.querySelectorAll('button')]
+      .filter((b) => /: \d+$/.test(b.getAttribute('aria-label') || ''))
+    expect(tiles).toHaveLength(3)
+    for (const t of tiles) {
+      expect(t.tagName).toBe('BUTTON')
+      expect(t.getAttribute('type')).toBe('button')
+      // the padding that holds the hit box open now that no ground does
+      expect(t.className).toContain('pt-[3px]')
+      expect(t.className).toContain('pb-[7px]')
+      // a focus state that does not depend on the ground
+      expect(t.className).toContain('focus-visible:ring-[3px]')
+      expect(t.className).toContain('focus-visible:ring-ring/50')
+    }
+    await userEvent.click(tiles[1])
+    expect(seen).toEqual(['offline'])
+  })
+
+  it('keeps the control on the solo tile too', async () => {
+    const seen = []
+    const { container } = render(
+      <SystemHealthCard total={48} healthy={47} offline={5} onSelectIssue={(k) => seen.push(k)} />,
+    )
+    const solo = [...container.querySelectorAll('button')]
+      .find((b) => b.getAttribute('aria-label') === 'Offline systems: 5')
+    expect(solo).toBeTruthy()
+    expect(solo.className).toContain('w-full')
+    expect(solo.className).toContain('focus-visible:ring-[3px]')
+    expect(solo.className).not.toContain('bg-alert-surface-critical')
+    expect(solo.className).not.toContain('rounded-[18px]')
+    expect(solo.className).toContain('text-alert-ink-critical')
+    await userEvent.click(solo)
+    expect(seen).toEqual(['offline'])
   })
 
   it('renders an empty fleet with no bar at all, not a placeholder track', () => {
@@ -886,15 +966,19 @@ describe('SystemHealthCard — the all-clear row and the other-issues row', () =
     expect(container.querySelector('[data-node-id="199323:13029"]')).toBeTruthy()
   })
 
-  it('is slate, centred and not a control', () => {
+  it('is centred, unboxed and not a control', () => {
     const { container } = render(
       <SystemHealthCard total={10} healthy={8} offline={1} valveErrors={1} noRecipients={1} />,
     )
     const row = otherRow(container)
-    // 199417:132878's measured ground, as the token that paints it. The two
-    // frames disagree here and OTHER_ROW records the measurement for both.
-    expect(row.className).toContain('bg-slate-100')
-    expect(row.className).toContain('rounded-[16px]')
+    /* THE GROUND WENT WITH THE TILES', 2026-11-09. This used to pin
+       199417:132878's measured ground (`bg-slate-100`) and its 16px radius.
+       The owner pointed at the tiles AND this bar and asked for the boxes
+       off, so what is pinned now is the absence — the two classes that would
+       come back if the bar did. The row's own text, its node id and its
+       not-a-control rule are asserted unchanged above and below. */
+    expect(row.className).not.toContain('bg-slate-100')
+    expect(row.className).not.toContain('rounded-[16px]')
     expect(row.className).toContain('justify-center')
     // No affordance in the node, so no affordance here.
     expect(row.querySelector('button')).toBeNull()
