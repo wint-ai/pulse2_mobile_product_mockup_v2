@@ -377,7 +377,7 @@ describe('the scroll region cannot squash what is in it', () => {
     expect(title.parentElement.className).toMatch(/\bshrink-0\b/)
 
     // TabBar likewise — it is in the column, below the scroller.
-    const tabBar = screen.getByText('Dashboard').closest('div[class*="shrink-0"]')
+    const tabBar = screen.getByText('Home').closest('div[class*="shrink-0"]')
     expect(tabBar).not.toBeNull()
     expect(region.contains(tabBar)).toBe(false)
   })
@@ -479,18 +479,32 @@ describe('the confirm modal opens inside the phone frame', () => {
 })
 
 describe('My Scope reports the persona real counts', () => {
+  /* ⚠ SCOPED TO THE CARD SINCE 2026-11-09, AND IT HAS TO BE. These three
+     queries were page-wide, which worked only while "Systems" appeared once on
+     this screen. The owner renamed the second bottom tab to "Systems" that day
+     ("add text bellow here / Home ,Systems , Alerts, Profile"), and the bar is
+     mounted on /account like everywhere else - so a page-wide
+     `getByText('Systems')` now finds two elements and throws.
+
+     THE WORD GENUINELY APPEARS TWICE ON THIS SCREEN NOW: the My Scope count
+     label, and the tab. That is a copy observation for the owner, not a bug
+     this test should paper over - different surfaces, same word, which §3a's
+     "one word, one meaning" actually prefers. Scoping to the card is the fix
+     because this test is about the CARD's counts; nothing it guards is
+     relaxed. */
   it('renders the three counts as numbers, not placeholders', () => {
     renderScreen()
+    const scope = sectionCard('My Scope')
 
     for (const label of ['Accounts', 'Locations', 'Systems']) {
-      const cell = screen.getByText(label).parentElement
+      const cell = scope.getByText(label).parentElement
       const count = cell.firstChild.textContent.trim()
       expect(count, `${label} count should be numeric`).toMatch(/^\d+$/)
     }
 
     // The default persona (Wint admin) sees the whole fleet, so Systems is not
     // zero — a 0/0/0 scope card would pass a "renders" test and be wrong.
-    const systemsCell = screen.getByText('Systems').parentElement
+    const systemsCell = scope.getByText('Systems').parentElement
     expect(Number(systemsCell.firstChild.textContent.trim())).toBeGreaterThan(0)
   })
 

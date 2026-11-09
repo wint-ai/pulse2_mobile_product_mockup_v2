@@ -1961,6 +1961,13 @@ export default function EventFocusOverlay({
      second function. */
   const alertRow = {
     ...eventAlertRow(evt, sysId, {
+      /* THIS SURFACE'S OWN CLOCK — 2026-11-09. A live pushed event carries no
+         `age`, so the builder computes the elapsed figure; left to its
+         default it would read Date.now() on every render of a component that
+         mounts a chart, a timeline and a photo grid. This overlay already
+         holds a 30s tick in state for the claim strip, so handing it over
+         makes the duration change when the tick says so and not before. */
+      now,
       /* 199683:24875 is a ONE-LINE 170px title box. "High Flow Water Event"
          wraps to two lines there and pushes the card 25px taller, so this
          surface draws the frame's own shorter "High flow event". The

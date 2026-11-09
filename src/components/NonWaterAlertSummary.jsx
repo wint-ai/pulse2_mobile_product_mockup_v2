@@ -15,15 +15,55 @@
 // non-water alerts yet; the system page is the canonical surface.
 
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '../context/ThemeContext';
 import { getSystemById } from '../data/systems';
 import { formatShortDate, formatDurationShort } from '../utils/locale';
+import { BatteryWarning, PowerOff, TriangleAlert } from 'lucide-react';
+import { WifiDisconnected02 } from '../v2/icons';
+import ValveStatus from '../v2/components/ValveStatus';
 
-function MIcon({ name, size = 18, color, fill, style = {} }) {
+/* ── OFF THE ICON FONT — 2026-11-09 ─────────────────────────────────────────
+   See WaterEventSummary.jsx for the full note; this is the same migration on
+   the fault row. `MIcon`'s signature is unchanged so no call site moves — and
+   here there is only ONE call site, `<MIcon name={preset.icon} …>`, fed by the
+   per-type preset table below.
+
+   THE MAP covers every `icon` that table can produce:
+     valve         → `ValveStatus` (src/v2/components), the app's own valve
+                     mark. This row draws it only for a valve FAULT, so the
+                     'error' state is the literal truth here, not a guess.
+     power_off     → lucide `PowerOff`     — EventFocusOverlay's own choice
+                                             for `power-lost`.
+     wifi_off      → `WifiDisconnected02` (src/v2/icons) — the mark
+                     EventOverlayV2 already uses for an offline system.
+     battery_alert → lucide `BatteryWarning`.
+     error_outline → lucide `TriangleAlert` — the fallback preset's glyph, and
+                     the one EventFocusOverlay uses for an unknown fault.
+
+   A NAME WITH NO MAPPING RENDERS NOTHING rather than throwing, which is the
+   same thing the font did with an unknown ligature. The preset table is the
+   only source of these names, so that path is unreachable today; it is there
+   so adding a preset without a glyph fails quietly in one place instead of
+   taking the Alerts list down. */
+const ICONS = {
+  valve: (p) => <ValveStatus state="error" {...p} />,
+  power_off: PowerOff,
+  wifi_off: WifiDisconnected02,
+  battery_alert: BatteryWarning,
+  error_outline: TriangleAlert,
+};
+
+function MIcon({ name, size = 18, color, style = {} }) {
+  const Glyph = ICONS[name];
+  if (!Glyph) return null;
   return (
-    <span className="material-symbols-outlined"
-      style={{ fontSize: size, color, fontVariationSettings: fill ? "'FILL' 1" : "'FILL' 0", lineHeight: 1, ...style }}
-    >{name}</span>
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: size, height: size, color, lineHeight: 1, flexShrink: 0, ...style,
+      }}
+    >
+      <Glyph size={size} className="block size-full" aria-hidden="true" />
+    </span>
   );
 }
 
@@ -71,12 +111,39 @@ const pillBase = {
   whiteSpace: 'nowrap',
 };
 
-export default function NonWaterAlertSummary({ event, onClick, highlight }) {
+/* ── `flat` — THE ROW INSIDE ONE CARD, 2026-11-09 ───────────────────────────
+   Node 199412:109893 draws the Alerts list as ONE white card holding every
+   row, divided by hairlines — not the card-per-row this component has always
+   drawn. `flat` is the opt-in that lets a page own the surface.
+
+   ⚠ DEFAULT IS TODAY'S RENDERING, DELIBERATELY. Only /alerts has this frame.
+     `EventHistory` (/alerts/system/:id) and `HomeClear` (/home-clear) mount
+     this same component and must not move, so they pass nothing and get the
+     card, the radius, the shadow and the 8px gap exactly as before — measured
+     unchanged in both engines.
+
+   WHAT IT SUPPRESSES, and only this: the background, the border, the shadow
+   and the bottom margin — the four things that make a row look like a card.
+   It keeps the 14px radius, which the node's own row carries, and it changes
+   no padding, no layout and no content, so the row's HEIGHT is identical in
+   both modes. That is the whole point: the page gains a card, the row loses
+   one, and nothing in between reflows.
+
+   WHY A PROP AND NOT A PARENT SELECTOR. Styling these rows from the page with
+   a descendant rule would hard-couple /alerts to this component's internal
+   DOM — the next person to change a wrapper here would silently restyle a
+   page they never opened. The prop is the seam; the page asks and the row
+   answers. */
+export default function NonWaterAlertSummary({ event, onClick, highlight, flat = false }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const fmtDateShort = (iso) => formatShortDate(iso, lang);
   const fmtDuration = (ms) => formatDurationShort(ms, lang);
-  const { theme } = useTheme();
+  /* `useTheme()` is gone — 2026-11-09. Every colour this file drew came
+     from the v1 ThemeContext object; they are registered @theme inline
+     tokens now, so there is nothing left for the context to supply and
+     the subscription (and the re-render it caused on every theme flip)
+     goes with it. */
   const sys = event.system ? getSystemById(event.system) : null;
 
   const isResolved = !!event.resolved && !event.ignored;
@@ -113,12 +180,13 @@ export default function NonWaterAlertSummary({ event, onClick, highlight }) {
   }
 
   return (
-    <div onClick={onClick} style={{
-      background: theme.card,
-      border: `1px solid ${theme.cardBorderColor || '#E5E8EE'}`,
+    <div onClick={onClick} data-name="event-row" data-row-kind="non-water-alert-summary" data-flat={flat ? 'true' : 'false'} style={{
+      /* See the `flat` note above the component. */
+      background: flat ? 'transparent' : 'var(--color-surface-card)',
+      border: flat ? 'none' : `1px solid var(--color-card)`,
       borderRadius: 14,
-      boxShadow: '0 1px 3px rgba(20,21,26,0.05)',
-      marginBottom: 8,
+      boxShadow: flat ? 'none' : '0 1px 3px rgba(20,21,26,0.05)',
+      marginBottom: flat ? 0 : 8,
       cursor: 'pointer',
       overflow: 'hidden',
     }}>
@@ -146,7 +214,7 @@ export default function NonWaterAlertSummary({ event, onClick, highlight }) {
               position: 'absolute', right: -4, bottom: -4,
               width: 14, height: 14, borderRadius: '50%',
               background: '#5C9E1A',
-              border: `2px solid ${theme.card || '#fff'}`,
+              border: `2px solid var(--color-surface-card)`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <span style={{ color: '#fff', fontSize: 9, fontWeight: 900, lineHeight: 1 }}>✓</span>
@@ -155,17 +223,17 @@ export default function NonWaterAlertSummary({ event, onClick, highlight }) {
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{
-            fontSize: 14, fontWeight: 700, color: theme.text,
+            fontSize: 14, fontWeight: 700, color: 'var(--color-foreground)',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{hl(event.systemName || sys?.name || '—')}</div>
           <div style={{
-            fontSize: 12, color: theme.textTertiary, marginTop: 1,
+            fontSize: 12, color: 'var(--color-muted-foreground)', marginTop: 1,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{hl(sys?.address || event.path || '')}</div>
         </div>
         <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
-          {absTime && <div style={{ fontSize: 11, color: theme.textTertiary, whiteSpace: 'nowrap' }}>{absTime}</div>}
-          {relTime && <div style={{ fontSize: 11, fontWeight: 700, color: theme.textSecondary, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{relTime}</div>}
+          {absTime && <div style={{ fontSize: 11, color: 'var(--color-muted-foreground)', whiteSpace: 'nowrap' }}>{absTime}</div>}
+          {relTime && <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-slate-600)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{relTime}</div>}
         </div>
       </div>
 
@@ -188,17 +256,17 @@ export default function NonWaterAlertSummary({ event, onClick, highlight }) {
                 background: AVATAR_COLORS[i % AVATAR_COLORS.length],
                 color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 9, fontWeight: 700,
-                border: `1.5px solid ${theme.card || '#fff'}`,
+                border: `1.5px solid var(--color-surface-card)`,
                 marginLeft: i === 0 ? 0 : -6,
               }}>{initials(c.name)}</div>
             ))}
             {moreCount > 0 && (
               <div style={{
                 width: 22, height: 22, borderRadius: '50%',
-                background: theme.textTertiary || '#717684',
+                background: 'var(--color-muted-foreground)',
                 color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 9, fontWeight: 700,
-                border: `1.5px solid ${theme.card || '#fff'}`,
+                border: `1.5px solid var(--color-surface-card)`,
                 marginLeft: -6,
               }}>+{moreCount}</div>
             )}

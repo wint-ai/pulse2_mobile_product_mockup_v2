@@ -40,7 +40,7 @@
  *   TWICE and leaves ~186px of dead space under the last row.
  *   `tabBarFloatingClearance.dom.test.jsx` fails any screen that does.
  *
- * ⚠ A Tailwind CLASS must carry the literal — `h-[104px]`, never
+ * ⚠ A Tailwind CLASS must carry the literal — `h-[112px]`, never
  *   `h-[${TAB_BAR_CLEARANCE}px]`. The scanner reads source text and emits no
  *   CSS for a template-built class. Style VALUES may be imported; class TEXT
  *   may not.
@@ -60,21 +60,60 @@
  * scroll behaviour; the appearance is the design and the behaviour is the bug
  * that was fixed in b3f5a31.
  *
- * ⚠ ONE SCREEN STILL CARRIES THE OLD LITERAL.
- *   src/v2/pages/MoreComingSoonScreen.jsx:128 is the ONE documented EXEMPT
- *   screen (its scroll region is inside an `absolute inset-0` cover, which
- *   reserved column cannot push) and it spells the clearance as `pb-[93px]`.
- *   That is now 11px short of TAB_BAR_CLEARANCE - still clear of the 88px
- *   footprint, so nothing is under the pill and nothing is dead, but the last
- *   row rests 5px above the bar instead of 16. The one-line fix is
- *   `pb-[93px]` -> `pb-[104px]` there, plus its comment at :89 and the
- *   assertion at moreComingSoon.dom.test.jsx:182 which builds its regex from
- *   this constant. Neither file belongs to the tab bar, so neither was
- *   touched here.
+ * ── THE LABELS CAME BACK, AND THE BAR GREW — 2026-11-09 (later the same day)
+ *
+ * The owner, with a screenshot: *"add text bellow here / Home ,Systems ,
+ * Alerts, Profile"*. That reverses the no-labels reading the bar had carried
+ * since 2026-11-04 (WhatsApp + Material 3) and which node 200067:39019 had
+ * seemed to confirm by holding no text node. A direct instruction outranks
+ * both. The pill therefore has to hold glyph + gap + label again:
+ *
+ *      pill height    66 -> 74        footprint    88 -> 96
+ *      clearance     104 -> 112       gap          16 -> 16  (unchanged)
+ *      side inset     33 -> 33        bottom inset 22 -> 22  (both unchanged)
+ *
+ * The side and bottom insets are still the frame's; only the height moved,
+ * because only the height has to hold anything new.
+ *
+ * ⚠ THE EXEMPT SCREEN TRACKS THIS NUMBER, AND IT IS AT 112.
+ *   src/v2/pages/MoreComingSoonScreen.jsx is the ONE documented EXEMPT screen
+ *   (its scroll region is inside an `absolute inset-0` cover, which reserved
+ *   column cannot push, so it pays its own clearance). It was moved
+ *   `pb-[104px]` -> `pb-[112px]` with this change. 104 was never broken - it
+ *   still cleared the 96px footprint, so nothing was under the pill - but it
+ *   bought only 8px of the 16px gutter, and leaving it would make the next
+ *   clearance change start from a wrong number.
+ *   moreComingSoon.dom.test.jsx asserts a [FOOTPRINT, CLEARANCE] window rather
+ *   than an exact literal, so it stayed green across both values; that is the
+ *   bound working as intended, not the check being loose.
  */
 
-/** The pill's own height. TabBar PILL: `h-[66px]`. */
-export const TAB_BAR_PILL_HEIGHT = 66
+/**
+ * The pill's own height. TabBar PILL: `h-[74px]`.
+ *
+ * IT HOLDS GLYPH + GAP + LABEL AGAIN — 2026-11-09, the owner: *"add text
+ * bellow here / Home ,Systems , Alerts, Profile"*. The arithmetic, outward:
+ *
+ *      28      the glyph (node 200067:39019)
+ *     + 2      the gap
+ *     + 16.5   the label, 11px Figtree at a 16.5px line-height
+ *     ------
+ *      46.5    the content stack
+ *     + 9.5    air, 4.75 above and below
+ *     ------
+ *      56      the item, which is also the active indicator
+ *     + 16     the bar's own p-[8px], which the frame states
+ *     +  2     the 1px ring, which sits inside the box
+ *     ------
+ *      74      the pill
+ *
+ * 56 is deliberately close to the 57px tab the bar carried the last time it
+ * had labels: the glyph grew 21 -> 28, the air shrank, and the frame's padding
+ * arithmetic lands the pill on an even number. It is NOT 66 + 18.5: the
+ * frame's 48px item leaves 10px of air each side of a lone glyph, which is
+ * generous for one glyph and would be 85px of bar once a label joins it.
+ */
+export const TAB_BAR_PILL_HEIGHT = 74
 
 /** How far the pill floats above the frame's bottom edge. PILL: `bottom-[22px]`. */
 export const TAB_BAR_BOTTOM_INSET = 22
@@ -102,7 +141,7 @@ export const TAB_BAR_FOOTPRINT = TAB_BAR_BOTTOM_INSET + TAB_BAR_PILL_HEIGHT
 
 /**
  * The column the bar's HOST reserves in the Phone flex column. TabBar HOST:
- * `h-[104px]`.
+ * `h-[112px]`.
  *
  * The footprint plus a real gap, not a hairline: 16px is this app's own
  * gutter, the same figure the pill is inset by and the same one the home

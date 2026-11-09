@@ -1044,6 +1044,37 @@ export default function AlertCard({
                       <p className={String.raw`font-sans font-semibold leading-[26px] relative text-[16px] text-slate-600 whitespace-nowrap`}>
                         {data.duration}
                       </p>
+                      {/* ── "ago" — THE BAN IS OVERRULED HERE, 2026-11-09 ─────
+                          Owner, on this line: "add 'ago'".
+
+                          ⚠ DO NOT "FIX" THIS BACK. wint-ui-copy §2 bans
+                            relative time past one minute ("Never `2h ago`"),
+                            and that ban is why three passes over these frames
+                            deliberately did NOT transcribe 200066:36983's own
+                            `6h 36m ago` — including mine, twice, in writing.
+                            The owner owns that standard and has overridden it
+                            for THIS chip. The instruction is one word, so one
+                            word is what this is.
+
+                          IT IS ADDITIVE, AND THAT MATTERS. The absolute
+                          `Detected …` stamp is NOT dropped to make room — it
+                          is what makes an elapsed figure interpretable, and it
+                          still travels on this card (sr-only at 92px) and is
+                          drawn in full on the event screen. The figure itself
+                          keeps its `Xh Xm` spelling; only this word is new.
+
+                          SCOPE: this chip only. 200067:37395 — the event
+                          screen — draws `Detected Apr 02, 2026 08:13:15` and a
+                          separate `6h 36m` / `Duration` row, neither carrying
+                          "ago", so nothing there changed. Reported rather than
+                          extended on my own initiative.
+
+                          The second half takes the unit run's type, which is
+                          what 200066:36985 is: Medium 500 / 14 / #62748e, the
+                          same slot `L/H` occupies in the chip beside it. */}
+                      <p className={String.raw`font-sans font-medium leading-5 relative text-[14px] text-slate-500 whitespace-nowrap`}>
+                        ago
+                      </p>
                     </div>
                   ) : null}
                 </div>

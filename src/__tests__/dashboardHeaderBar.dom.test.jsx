@@ -142,9 +142,9 @@ const dashboardTab = (c) => {
   const pill = c.querySelector('[data-name="tabbar-pill"]')
   if (!pill) throw new Error('TabBar is not mounted on this page')
   for (const b of pill.querySelectorAll('button')) {
-    if (b.querySelector('span')?.textContent === 'Dashboard') return b
+    if (b.querySelector('span')?.textContent === 'Home') return b
   }
-  throw new Error('no Dashboard tab in the tab bar')
+  throw new Error('no Home tab in the tab bar')
 }
 
 /** The persona's own systems, by the one rule that narrows a persona. */
@@ -164,11 +164,23 @@ describe('Dashboard tab — the home button, since the house was deleted', () =>
     /* THE HOUSE'S NAME DOES NOT COME WITH THE HOUSE'S JOB, and that is the
        decision rather than an omission. Copy §5 makes a GLYPH-ONLY control
        name its destination, which is why the house was `Go to <scope name>`;
-       this tab has a label, "Dashboard" is locked in wint-ui-copy §1, and a
-       place name is already a destination. An aria-label would also REPLACE
-       the content for name computation — the reason this bar's tabs carry
-       none — and four other suites address these buttons by this name. */
-    expect(tab.textContent).toContain('Dashboard')
+       this tab has a label and a place name is already a destination. An
+       aria-label would also REPLACE the content for name computation — the
+       reason this bar's tabs carry none — and four other suites address these
+       buttons by this name.
+
+       THE LABEL IS "Home" SINCE 2026-11-09, not "Dashboard": the owner asked
+       for visible text under the four glyphs and named them himself ("add text
+       bellow here / Home ,Systems , Alerts, Profile"). The `home` activeTab KEY
+       is untouched, so every screen that mounts the bar lights the same tab.
+
+       ⚠ THE "Dashboard is locked in wint-ui-copy §1" CLAIM THIS NOTE USED TO
+         CARRY IS UNVERIFIED and has been dropped rather than re-pointed at
+         "Home". The skill's own table locks `Alerts` for this bar and lists no
+         Dashboard; the claim may come from the sandbox CLAUDE.md, which is not
+         in this repo and could not be read. His word governs either way, and
+         `Alerts` - the one string the skill does lock here - is unchanged. */
+    expect(tab.textContent).toContain('Home')
     expect(tab.getAttribute('aria-label')).toBeNull()
     // It changes the page; it must not claim to open a dialog.
     expect(tab.getAttribute('aria-haspopup')).toBeNull()
@@ -387,17 +399,29 @@ describe('Dashboard header bar — the drawer, and what the old bar did', () => 
        SCOPED TO `button`, because the door and the field it opens announce
        alike on purpose — once the drawer is open the <input> inside it carries
        the same name. The count is read BEFORE the click as well. */
-    const NAV_DOOR = 'Search locations and systems'
+    /* *** THE HANDLE IS THE VISIBLE LABEL SINCE 2026-11-09. *** The owner put
+       text back under the glyphs and named them, so this tab prints "Systems"
+       and announces as "Systems"; the `Search locations and systems`
+       aria-label went with the change, because with a visible label an
+       aria-label only replaces it (and on Alerts would mute the count badge).
+       The INVARIANT below is untouched - exactly one such control, and it is
+       in the bottom bar. Only what we grab it by changed. */
+    const NAV_DOOR = 'Systems'
     const { container } = mountAt('/', 'wint-admin')
 
-    const doors = container.querySelectorAll(`button[aria-label="${NAV_DOOR}"]`)
+    /* Searched across the WHOLE page, not inside the pill, so the next
+       assertion still means something: the count catches a second control
+       claiming the name anywhere, and the `closest` catches the door drifting
+       back into the header. */
+    const doors = [...container.querySelectorAll('button')]
+      .filter(b => b.querySelector('span')?.textContent === NAV_DOOR)
     expect(
       doors.length,
-      'the accessible name the drawer suites navigate by is not on exactly one control',
+      'the label the drawer suites navigate by is not on exactly one control',
     ).toBe(1)
     expect(
       doors[0].closest('[data-name="tabbar-pill"]'),
-      'the navigation door is not in the tab bar. It is the FOOTER\'s Search tab, '
+      'the navigation door is not in the tab bar. It is the FOOTER\'s Systems tab, '
         + 'not a header control - that is what makes it reachable from every screen.',
     ).toBeTruthy()
 

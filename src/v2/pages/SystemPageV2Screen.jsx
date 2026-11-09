@@ -2168,10 +2168,16 @@ export default function SystemPageV2Screen() {
              "Detected" row. `mobile` measured 138px here, which shows now that
              the card sits on its own over the hero. The ignored branch is
              untouched — the frame covers only the live state. See
-             AlertCard.jsx for the node, and for the two things it reports
-             rather than decides: the absolute stamp is sr-only at this size,
-             and the title needs `titleForm: 'short'` (alertCardsFor, this
-             file) to read as the frame's text instead of ellipsizing. */
+             AlertCard.jsx for the node.
+
+             THE TITLE FITS NOW. This note used to say the title needed
+             `titleForm: 'short'` to stop ellipsizing; `alertCardsFor` above
+             passes exactly that as of 2026-11-09, so the card renders the
+             node's own "High flow event" on one line. Nothing left to do.
+
+             STILL REPORTED RATHER THAN DECIDED: the absolute `Detected …`
+             stamp is sr-only at this size, because the node has no row for it
+             at 92px. */
           variant={heroEvent.ignored ? 'ignored' : 'mobile-compact'}
           event={heroEvent}
           onAction={handleAlertAction}

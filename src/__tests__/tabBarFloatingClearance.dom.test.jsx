@@ -583,17 +583,46 @@ describe('four items share the pill evenly', () => {
     // More left the bar 2026-11-07; Search took the second slot.
     //
     // THE LABELS WENT `sr-only` ON 2026-11-09 (node 200067:39019 holds four
-    // glyphs and no text node) AND THAT IS NOT A DELETION. They are the four
-    // tabs' accessible names and the handle five suites navigate by, so the
-    // span, its position and its text are all still pinned here.
+    // glyphs and no text node) AND CAME BACK VISIBLE THE SAME DAY, when the
+    // owner asked for "text bellow here / Home ,Systems , Alerts, Profile".
+    // They are also the four tabs' accessible names and the handle six suites
+    // navigate by, so the span, its position, its text and now its VISIBILITY
+    // are all pinned here.
     for (const b of document.querySelectorAll('button')) {
       const span = b.querySelector('span');
-      expect(span.textContent).toMatch(/^(Dashboard|Search|Alerts|Profile)$/);
+      expect(span.textContent).toMatch(/^(Home|Systems|Alerts|Profile)$/);
       expect(
         span.className,
-        'the label must be hidden visually, not removed - it is the accessible name',
-      ).toMatch(/(?:^|\s)sr-only(?:\s|$)/);
+        'the label is back to sr-only. The owner asked for visible text under '
+        + 'every glyph on 2026-11-09 - see THE LABELS ARE BACK in TabBar.jsx. '
+        + 'If it is being hidden again, the pill height and TAB_BAR_CLEARANCE '
+        + 'have to come back down with it.',
+      ).not.toMatch(/(?:^|\s)sr-only(?:\s|$)/);
+      // 11px Figtree on a 16.5px line, and the line-height AFTER the size -
+      // twMerge drops a `leading-*` that precedes one.
+      expect(span.className).toMatch(/text-\[11px\]\s+leading-\[16\.5px\]/);
+      // Under the glyph, not above it: the span is first in the DOM for the
+      // six suites that read it, so `order-2` is what puts it back below.
+      expect(span.className).toMatch(/(?:^|\s)order-2(?:\s|$)/);
     }
+  });
+
+  /* THE LABEL HAS TO FIT THE COLUMN IT IS IN. happy-dom cannot measure text,
+     so what is checked here is the pair of numbers the browser measurement
+     rests on: the column the grid gives each label, and the fact that nothing
+     clips it. The widths themselves were measured in Chromium at 393x852 and
+     are recorded in TabBar.jsx's label-width block. */
+  it('leaves the label a column to sit in, and nothing that clips it', () => {
+    renderShell();
+    for (const b of document.querySelectorAll('button')) {
+      const span = b.querySelector('span');
+      // No `truncate`: there is nothing to truncate at these widths, and an
+      // ellipsis that can never fire is dead code (scripts/check-text-overflow).
+      expect(span.className).not.toMatch(/(?:^|\s)truncate(?:\s|$)/);
+    }
+    // The pill must not clip what hangs out of it either - the Alerts badge
+    // is deliberately outside its glyph box.
+    expect(pill().className).not.toMatch(/(?:^|\s)overflow-hidden(?:\s|$)/);
   });
 
   it('gives the active indicator its fill, and only the active one', () => {
@@ -603,7 +632,7 @@ describe('four items share the pill evenly', () => {
     const filled = [...pill().querySelectorAll('button > div')]
       .filter(d => /bg-primary\/16/.test(d.className));
     expect(filled).toHaveLength(1);
-    expect(filled[0].closest('button').querySelector('span').textContent).toBe('Dashboard');
+    expect(filled[0].closest('button').querySelector('span').textContent).toBe('Home');
   });
 
   /* THE GLYPH IS 28, FROM THE FRAME, and the size has to be a literal on the

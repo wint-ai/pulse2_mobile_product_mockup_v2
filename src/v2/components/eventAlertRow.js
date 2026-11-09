@@ -52,7 +52,7 @@
  */
 import { getActiveIncident, getLeakState } from '@/data/incidents'
 import { isIgnored } from '@/data/ignoredIncidents'
-import { formatDate } from '@/utils/format'
+import { formatDate, formatDuration } from '@/utils/format'
 
 /** The two water-event types. The only types that carry water figures. */
 export function isLeakType(type) {
@@ -113,6 +113,50 @@ function figureOf(raw) {
   return raw ? String(raw).replace(/[^\d,.]/g, '') : null
 }
 
+/* ── THE DURATION A LIVE PUSHED EVENT NEVER CARRIED — 2026-11-09 ────────────
+   Owner, on his own System page card: the duration chip was missing. It was
+   missing from the RECORD, not filtered out by the card.
+
+   WHY. `age` is written on exactly one push branch. simulatedAlerts.js states
+   the shape itself — "age: string (how long it ran; written on the ENDED
+   record from the End-of-Leak push's own `duration` param)" — and
+   pushEvents.js:120-139 bears it out: the `Warning` branch stores type, phase,
+   label, flowRate, volume, startedAt and startedAtIso, and NO `age`. So every
+   pushed event that is still running has none, and `duration: alert.age` was
+   simply `undefined`. Generated events are unaffected: buildTree gives all 13
+   of them an `age`, which is why ws-10024 measured two chips and the owner's
+   card measured one.
+
+   THE FIX IS NOT A FALLBACK STRING, IT IS THE SAME FACT COMPUTED. A live
+   event's elapsed time is `now - startedAtIso`, and `detectedInstant` already
+   recovers that instant for the Detected line two fields down. An ended record
+   uses `endedAtIso` instead, so a concluded event reads how long it RAN rather
+   than how long ago it started. `formatDuration` is the project's own
+   `Xd Xh Xm` (utils/format.js:214), so the spelling matches `age`'s exactly
+   and no new format enters the app.
+
+   `now` IS AN ARGUMENT, NOT A `Date.now()` BURIED IN RENDER. This builder runs
+   during render on both surfaces, and this repo's rule is that a component
+   does not read the clock while rendering (react-hooks/purity; EventFocusOverlay
+   keeps its own `now` in state for exactly this). The default evaluates at
+   call time for callers that have no clock of their own, and a caller that
+   does — the event overlay, which already ticks one every 30s — passes it and
+   gets a value that only changes when it means to.
+
+   NO ANCHOR, NO DURATION. A record with neither `age` nor a start instant
+   returns undefined and the chip is not drawn, which is the honest answer and
+   the one the card already handles. It never returns formatDuration(null),
+   which would print an em-dash. */
+function elapsedOf(alert, now) {
+  const start = detectedInstant(alert)
+  if (!start) return undefined
+  const endRaw = alert?.endedAtIso ?? alert?.resolvedAtIso
+  const end = endRaw ? new Date(endRaw) : new Date(now)
+  if (isNaN(end.getTime())) return undefined
+  const seconds = Math.round((end.getTime() - start.getTime()) / 1000)
+  return seconds > 0 ? formatDuration(seconds) : undefined
+}
+
 /**
  * Build the row object <AlertCard> renders, from a live or concluded alert.
  *
@@ -164,6 +208,11 @@ export function eventAlertRow(alert, systemId, opts = {}) {
     titleForm = 'full',
     detectedFormat = 'alert',
     valueFallsBackToVolume = false,
+    /* The clock, for the elapsed figure a live pushed event has to have
+       computed — see elapsedOf. Defaulted here rather than read inside the
+       expression so a caller holding its own tick can pass it and keep the
+       value stable between renders. */
+    now = Date.now(),
   } = opts
 
   const leak = isLeakType(alert.type)
@@ -214,6 +263,10 @@ export function eventAlertRow(alert, systemId, opts = {}) {
        recovers the day it belongs to. See `detectedFormat` for the shape, and
        the module header for why the shape is the caller's call. */
     detectedAt: formatDate(detectedInstant(alert), detectedFormat),
-    duration: alert.age,
+    /* `age` when the record has one (every generated event does); otherwise
+       computed from the event's own instants — see elapsedOf for why this is
+       the same fact rather than a fallback, and for the pushed-Warning record
+       that has no `age` at all. */
+    duration: alert.age ?? elapsedOf(alert, now),
   }
 }

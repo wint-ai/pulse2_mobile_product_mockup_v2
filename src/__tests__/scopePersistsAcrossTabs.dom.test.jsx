@@ -165,8 +165,12 @@ describe('Bottom-tab navigation: Alerts keeps scope, Dashboard drops it', () => 
     const scopeName = pickFirstSystemAsScope();
     expect(exposedCtx.selectedScope?.name).toBe(scopeName);
 
-    // Tap the Dashboard bottom-tab button - the home control now.
-    act(() => { findTabButton('Dashboard').click(); });
+    // Tap the home bottom-tab button - the home control now. ITS LABEL IS
+    // "Home" SINCE 2026-11-09, when the owner asked for visible text under the
+    // four glyphs and named them ("add text bellow here / Home ,Systems ,
+    // Alerts, Profile"). The `home` activeTab KEY is unchanged, so this is the
+    // same control and the same ruling - only the printed word moved.
+    act(() => { findTabButton('Home').click(); });
 
     // The scope is dropped. This is the ruling.
     expect(exposedCtx.selectedScope).toBeFalsy();
@@ -203,8 +207,9 @@ describe('Bottom-tab navigation: Alerts keeps scope, Dashboard drops it', () => 
     const scopeName = pickFirstSystemAsScope();
     expect(exposedCtx.selectedScope?.name).toBe(scopeName);
 
-    // Alerts → Dashboard: the one tab that touches scope.
-    act(() => { findTabButton('Dashboard').click(); });
+    // Alerts → Home: the one tab that touches scope. Labelled "Dashboard"
+    // until 2026-11-09; same tab, same `home` key, new word.
+    act(() => { findTabButton('Home').click(); });
     expect(exposedCtx.selectedScope).toBeFalsy();
 
     // Dashboard → Alerts: still never touches it, so it stays cleared.
@@ -255,13 +260,55 @@ describe('Alerts header is the list title, not a scope control', () => {
   // frame's title - a count badge and a phrase naming what is listed - the
   // absence of BOTH scope controls, and the scope NAME surviving as a readout,
   // which is what the three suites above read off this page.
+  /* ── RE-AIMED AGAIN, 2026-11-09: `app-scope` IS BACK, AND THAT IS CORRECT ─
+     This test used to assert `[data-name="app-scope"]` was NULL on /alerts,
+     using the shared header bar's PRESENCE as a proxy for "a scope control is
+     back on this page". That proxy is stale and the assertion was wrong, not
+     merely outdated:
+
+       · `app-scope` is AppHeaderBar's TITLE, and that title is an inert <p> -
+         no onClick, no role, no tabIndex, no aria-haspopup, not a <button>.
+         appHeaderBar.dom.test.jsx pins exactly that. A title is not a picker,
+         so its presence never implied a scope control.
+       · A refetch of Figma 199532:87604 on 2026-11-09 shows the frame now
+         draws the SHARED header instance (199532:83651) on this very page,
+         with no back chevron, no avatar and no scope chevron.
+       · The owner's standing ruling is "One header component for every
+         surface. It always needs to be the same." His 2026-11-04 ruling about
+         THIS page removed the NAVIGATION, not the component.
+
+     So the assertion is re-aimed at what it actually means: no scope control
+     and no avatar on this page. The name it used to navigate by,
+     `Switch location`, is the thing to look for - it is how the three drawer
+     suites open NavigationDrawer, and it must not answer here.
+
+     `alerts-title-subject` IS NOT DROPPED, IT MOVED. That hook marked the
+     VISIBLE subject phrase; the visible subject is AppHeaderBar's title now,
+     so the assertion follows it to `app-scope` and additionally checks the
+     TEXT, which the old hook never did. Putting the hook on the sr-only <h1>
+     instead would have been the weakening: a regression that hid the visible
+     title would still have passed. `alerts-title-count` is unchanged - the
+     count badge is this page's own, in the bar's `leading` slot. */
   it('Alerts draws the count badge and subject, and neither scope control', () => {
     const { container } = renderApp('/alerts');
     expect(container.querySelector('[data-name="alerts-title-count"]')).toBeTruthy();
-    expect(container.querySelector('[data-name="alerts-title-subject"]')).toBeTruthy();
-    // The bell disc and the shared bar's scope pill are both gone.
+    /* The subject phrase, on the element that actually shows it. */
+    const subject = container.querySelector('[data-name="app-scope"]');
+    expect(subject, 'the header bar no longer renders the list subject').toBeTruthy();
+    expect(subject.textContent).toMatch(/alerts|Water Events/i);
+    /* The bell disc is gone. */
     expect(container.querySelector('[data-name="alerts-drawer-trigger"]')).toBeNull();
-    expect(container.querySelector('[data-name="app-scope"]')).toBeNull();
+    /* AND NEITHER SCOPE CONTROL — the point of this test, asserted directly
+       instead of through the old proxy. */
+    expect(
+      container.querySelectorAll('[aria-label="Switch location"]'),
+      'a scope picker is back on /alerts',
+    ).toHaveLength(0);
+    expect(container.querySelector('[data-name="app-avatar"]')).toBeNull();
+    /* The title is a readout, not a control: the 2026-11-04 ruling in its
+       strongest form. */
+    expect(subject.closest('button'), 'the list subject is inside a control').toBeNull();
+    expect(subject.getAttribute('role')).toBeNull();
     expect(container.textContent).not.toContain('notifications_active');
   });
 

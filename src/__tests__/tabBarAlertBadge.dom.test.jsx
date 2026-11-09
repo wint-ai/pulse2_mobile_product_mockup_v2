@@ -125,7 +125,7 @@ describe('TabBar Alerts count badge', () => {
     // Profile included: its glyph is PersonaAvatar, which renders a <span> of
     // its own for the initials fallback. If that span ever got ahead of the
     // label, the four scope suites would start picking tabs by "RK".
-    for (const label of ['Dashboard', 'Search', 'Alerts', 'Profile']) {
+    for (const label of ['Home', 'Systems', 'Alerts', 'Profile']) {
       expect(tabByLabel(label), `no tab button whose first span is "${label}"`).toBeTruthy();
     }
   });
@@ -175,7 +175,7 @@ describe('the badge counts only what this user can see', () => {
 });
 
 describe('the same tabs, everywhere', () => {
-  it('renders Dashboard / Search / Alerts / Profile on every screen that mounts it', () => {
+  it('renders Home / Systems / Alerts / Profile on every screen that mounts it', () => {
     // `hideAlerts` is gone. Passing it is now inert rather than destructive,
     // which is the point: nothing can drop the tab from the outside any more.
     //
@@ -192,38 +192,52 @@ describe('the same tabs, everywhere', () => {
     renderBar('/');
     const labels = [...document.querySelectorAll('button')]
       .map(b => b.querySelector('span')?.textContent);
-    expect(labels).toEqual(['Dashboard', 'Search', 'Alerts', 'Profile']);
+    expect(labels).toEqual(['Home', 'Systems', 'Alerts', 'Profile']);
   });
 
-  it('gives Search the drawer field s own accessible name, not "Search"', () => {
-    // WCAG 2.5.3 Label in Name: the visible label is "Search", so the
-    // accessible name has to CONTAIN it - which rules out the name this door
-    // used to travel under, `Switch location`. The string is the one the
-    // drawer's own search field already announces (WintSidebarV2.jsx:742),
-    // catalogued as `drawer.search_label` so it can be translated.
-    //
-    // THIS IS THE DOOR. With the header's PanelLeft gone there is no other
-    // control on these routes that opens the navigation drawer, so a
-    // regression here is not a naming nit - it makes the drawer unreachable.
-    //
-    // >> 2026-11-09: IT IS NO LONGER THE DOOR - the tab navigates to /search
-    //    and opens no drawer (see TabBar.jsx, SEARCH IS A DESTINATION NOW).
-    //    THE STRING IS KEPT ANYWAY, and deliberately: it is catalogued,
-    //    approved copy that still describes a surface which searches locations
-    //    and systems, and wint-ui-copy §0 says propose, do not pick. With the
-    //    labels back to sr-only there is no visible label left for Label in
-    //    Name to constrain either. What this now pins is that the name did not
-    //    quietly change and that it is still the file's ONLY aria-label.
+  /* *** THE HISTORY OF THIS ONE TAB'S NAME, because it has moved three times
+         and each move broke a different suite. ***
+       `Switch location`                — v1's header control.
+       `Search locations and systems`   — 2026-11-07, when the tab became the
+         drawer's only door. It had to CONTAIN the visible "Search" (WCAG 2.5.3
+         Label in Name), which is what ruled `Switch location` out. The string
+         is the drawer's own field name, catalogued as `drawer.search_label`.
+       NO aria-label AT ALL                 — 2026-11-09, this test. The tab is
+         a destination (/search) and its visible label is "Systems", so the
+         accessible name is "Systems", from the label, like the other three.
+
+     WHY THE STRING WENT RATHER THAN BEING RE-POINTED. "Systems" IS contained in
+     "Search locations and systems", so the old name was still technically
+     legal - but it leads with a verb this control no longer performs, and an
+     announced name that disagrees with the printed one gives one control two
+     names. An aria-label also REPLACES content for name computation, so one on
+     Alerts would mute its count badge outright; zero of them is the only
+     arrangement where all four tabs announce the same way.
+
+     *** FOUR SUITES USED THAT STRING AS A HANDLE *** - dashboardHeaderBar,
+     drawerLocationHighlight, valveCommitReachable, valveWidgetMount. They are
+     not this file's and are not edited from here. */
+  it('names every tab by its visible label, with no aria-label anywhere', () => {
     renderBar('/');
-    const search = [...document.querySelectorAll('button')]
-      .find(b => b.querySelector('span')?.textContent === 'Search');
-    expect(search, 'the Search tab is missing').toBeTruthy();
-    expect(search.getAttribute('aria-label')).toBe('Search locations and systems');
-    // And it is the ONLY tab with one: an aria-label replaces content for
-    // name computation, so one on Alerts would mute its count badge.
     const labelled = [...document.querySelectorAll('button')]
       .filter(b => b.hasAttribute('aria-label'));
-    expect(labelled).toHaveLength(1);
+    expect(
+      labelled.map(b => b.getAttribute('aria-label')),
+      'an aria-label REPLACES content for name computation, so one here mutes '
+      + "the label it sits on - and on Alerts it would mute the count badge",
+    ).toEqual([]);
+    // So the accessible name of each tab IS its printed label.
+    for (const name of ['Home', 'Systems', 'Alerts', 'Profile']) {
+      expect(
+        screen.getByRole('button', { name: new RegExp(`^${name}`) }),
+        `no tab announces as "${name}"`,
+      ).toBeTruthy();
+    }
+    // And the retired name is not hiding on some other control in the bar.
+    expect(
+      document.querySelectorAll('[aria-label="Search locations and systems"]'),
+      'the drawer-door name is back in the tab bar',
+    ).toHaveLength(0);
   });
 
   /* *** THIS TEST WAS INVERTED ON 2026-11-09, AND THE OLD ONE IS QUOTED HERE
@@ -243,7 +257,7 @@ describe('the same tabs, everywhere', () => {
       cleanup();
       renderBar(at);
       const search = [...document.querySelectorAll('button')]
-        .find(b => b.querySelector('span')?.textContent === 'Search');
+        .find(b => b.querySelector('span')?.textContent === 'Systems');
       expect(search.className, `Search is lit at ${at}`).toMatch(/\btext-muted-foreground\b/);
       expect(
         [...search.querySelectorAll('div')].some(d => /bg-primary\/16/.test(d.className)),
@@ -258,7 +272,7 @@ describe('the same tabs, everywhere', () => {
       </MemoryRouter>,
     );
     const search = [...document.querySelectorAll('button')]
-      .find(b => b.querySelector('span')?.textContent === 'Search');
+      .find(b => b.querySelector('span')?.textContent === 'Systems');
     expect(search.className, 'Search is not lit on its own route').toMatch(/\btext-primary\b/);
     expect(
       [...search.querySelectorAll('div')].some(d => /bg-primary\/16/.test(d.className)),
@@ -279,7 +293,7 @@ describe('the same tabs, everywhere', () => {
     const lit = [...document.querySelectorAll('button')]
       .filter(b => /\btext-primary\b/.test(b.className))
       .map(b => b.querySelector('span')?.textContent);
-    expect(lit, 'exactly one tab may be lit, and it is Search').toEqual(['Search']);
+    expect(lit, 'exactly one tab may be lit, and it is Systems').toEqual(['Systems']);
   });
 
   /* THE OLD KEYS STILL ANSWER. ~25 files mount this bar and pass one of
@@ -299,7 +313,7 @@ describe('the same tabs, everywhere', () => {
         .filter(b => /\btext-primary\b/.test(b.className))
         .map(b => b.querySelector('span')?.textContent);
     };
-    expect(lit('home'), 'HomeUnified and 12 others').toEqual(['Dashboard']);
+    expect(lit('home'), 'HomeUnified and 12 others').toEqual(['Home']);
     expect(lit('events'), 'EventsScreen, tabBarAlertBadge').toEqual(['Alerts']);
     expect(lit('profile'), 'AccountScreenV2').toEqual(['Profile']);
     // Never matched a tab, and still must not - EventHistory, L4Screen,

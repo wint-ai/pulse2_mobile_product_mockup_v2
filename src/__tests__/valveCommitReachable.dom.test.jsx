@@ -296,6 +296,13 @@ describe('the bulk commit control clears the floating tab bar', () => {
    drawerLocationHighlight.dom.test.jsx:140 made the same move and carries the
    long version of this note.
 
+   *** AND IT MOVED AGAIN ON 2026-11-09, TO THE VISIBLE LABEL. *** The owner
+   asked for text under the four glyphs and named them - Home, Systems,
+   Alerts, Profile - so this tab prints `Systems`, announces as `Systems`, and
+   carries no aria-label at all. `drawer.search_label` is off the bar entirely
+   (it is still the drawer field's own name inside WintSidebarV2). The handle
+   below is that label; the contract it guards did not move with it.
+
    `Switch location` now answers on NO v2 route. It survives on `/v1/` and
    `/systems`, where v1's ScopeHeader still hangs it on its badge; both are v1
    reference routes and neither is this screen.
@@ -378,8 +385,19 @@ describe('/valves draws the current header', () => {
      rather than the drawer (see the note above the describe), but it is still
      the one control that gets a user off this screen and the one accessible
      name four suites navigate by. */
-  const NAV_DOOR = 'Search locations and systems'
-  const doors = (c) => c.querySelectorAll(`button[aria-label="${NAV_DOOR}"]`)
+  /* *** THE HANDLE IS THE VISIBLE LABEL SINCE 2026-11-09. *** The owner put
+     text back under the four glyphs and named them, so this tab prints
+     "Systems" and announces as "Systems" - it carries no `aria-label` any
+     more, and nor does any other tab, because with a visible label an
+     aria-label only replaces it (and on Alerts it would mute the count badge).
+     WHAT THIS GUARDS IS UNCHANGED and is not about the string: exactly one
+     control per route gets a user off this screen, and it lives in the tab
+     bar. The button scope and the last-match rule that the old aria-label
+     needed are gone with it - the drawer's <input> wore that same name, and an
+     input has no <span> to collide through. */
+  const NAV_DOOR = 'Systems'
+  const doors = (c) => [...c.querySelectorAll('button')]
+    .filter((b) => b.querySelector('span')?.textContent === NAV_DOOR)
   const drawer = (c) => c.querySelector('[role="dialog"][aria-label="Locations menu"]')
   const drawerIsOpen = (c) => drawer(c)?.getAttribute('aria-hidden') === 'false'
 
@@ -389,14 +407,14 @@ describe('/valves draws the current header', () => {
     const found = doors(container)
     expect(
       found.length,
-      'exactly one element per route may answer to the navigation door\'s name - it '
+      'exactly one element per route may carry the navigation door\'s label - it '
         + 'is what drawerLocationHighlight.dom.test.jsx navigates by, taking the LAST '
         + 'match. A second one hands that suite a different control without failing '
         + 'anything, which is how a contract name rots quietly.',
     ).toBe(1)
     expect(
       found[0].closest('[data-name="tabbar-pill"]'),
-      'the navigation door is not in the tab bar. It is the FOOTER\'s Search tab, '
+      'the navigation door is not in the tab bar. It is the FOOTER\'s Systems tab, '
         + 'not a header control - that is what makes it reachable from every screen.',
     ).not.toBeNull()
 

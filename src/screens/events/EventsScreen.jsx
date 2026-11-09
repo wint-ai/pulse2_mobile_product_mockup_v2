@@ -1,8 +1,11 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { Fragment, useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import TabBar from '../../components/TabBar';
-import PipesHeader, { GLOW_PAGE_BG } from '../../components/PipesHeader';
+/* Only the page-ground token is taken from PipesHeader now; the component
+   itself is no longer mounted here - see THE CHROME SEAT below. GLOW_PAGE_BG
+   is `var(--app-bg)`, a registered token, so it stays. */
+import { GLOW_PAGE_BG } from '../../components/PipesHeader';
 import EventRow from '../../components/EventRow';
 import CompactBreadcrumb from '../../components/CompactBreadcrumb';
 /* THE SHARED HEADER BAR IS NO LONGER MOUNTED HERE, 2026-11-04. Owner, looking
@@ -12,19 +15,23 @@ import CompactBreadcrumb from '../../components/CompactBreadcrumb';
    title, and both the scope chevron and the Avatar are hidden in that frame.
    See the title-row block below for what replaced it, and for the two
    readouts that were deliberately kept. */
+/* THE shared header bar, reused as-is. See THE SHARED HEADER BAR IS MOUNTED
+   AGAIN below for why it is back on this page and what is suppressed. */
+import AppHeaderBar from '../../v2/components/AppHeaderBar';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import FilterSheet, { FilterSheetTrigger } from '../../v2/components/FilterSheet';
 import { countActiveFilters } from '../../v2/components/filterSheetModel';
 import { Button } from '../../components/ui/button';
 import { badgeVariants } from '../../components/ui/badge';
-import { ChevronLeft } from 'lucide-react';
+/* lucide is the v2 surfaces' glyph set, and it replaces this file's one
+   Material Symbols call - see the note where MIcon used to be. */
+import { ChevronLeft, CircleCheck } from 'lucide-react';
 import { Funnel } from '../../v2/icons';
 import { cn } from '../../lib/utils';
 import { getAncestorScopes } from '../../utils/ancestorScopes';
 import { CURRENT_EVENTS, HISTORY_EVENTS, computeIgnoredEvents, computePusherResolvedEvents, scopeActiveAlerts } from '../../data/events';
 import { useAlertScope, useScopedActiveAlerts } from '../../hooks/useActiveAlerts';
 import { useUserContext } from '../../context/UserContext';
-import { useTheme } from '../../context/ThemeContext';
 import { useDataRefresh } from '../../utils/useDataRefresh';
 
 const ALERT_TABS = ['active', 'history'];
@@ -98,7 +105,30 @@ function SwipeableAlertTabs({ children, activeTab, onSwipe }) {
              real column as of 2026-11-08 (src/components/tabBarMetrics.js), so
              this pane already ends above the pill; the `93` that stood here
              would reserve the strip a second time. */
-          <div key={i} style={{ width: `${100 / ALERT_TABS.length}%`, height: '100%', overflowY: 'auto', flexShrink: 0 }}>
+          <div
+            key={i}
+            /* ── THE SCROLLBAR, HIDDEN — 2026-11-09 ─────────────────────────
+               The owner's screenshot of this page shows a native scrollbar
+               down the right edge, and nothing else in this app shows one.
+               `[scrollbar-width:none] [&::-webkit-scrollbar]:hidden` is the
+               pair every v2 scroller already uses (HomeAllAccounts:2554,
+               SystemPageV2Screen:2429, ValveManagementScreen:1545,
+               EventsTimelineCard:329), so this is adopting the convention
+               rather than inventing a rule.
+
+               ⚠ IT IS NOT VISIBLE IN A HEADLESS BROWSER. Chromium and WebKit
+                 both use OVERLAY scrollbars when headless, so
+                 `offsetWidth - clientWidth` measures 0 here whether the bar
+                 paints or not - which is why a screenshot of the fix looks
+                 identical to a screenshot of the bug. The property is what is
+                 checkable: `scrollbar-width` reads `auto` before and `none`
+                 after. The owner is on Windows Chrome, where a classic
+                 scrollbar takes real width, which is why he can see it and
+                 the measurements cannot. */
+            className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            style={{ width: `${100 / ALERT_TABS.length}%`, height: '100%', overflowY: 'auto', flexShrink: 0 }}
+            data-name={`alerts-pane-${ALERT_TABS[i]}`}
+          >
             {child}
           </div>
         ))}
@@ -107,14 +137,106 @@ function SwipeableAlertTabs({ children, activeTab, onSwipe }) {
   );
 }
 
-function MIcon({ name, size = 18, color, fill, style = {} }) {
-  return <span className="material-symbols-outlined" style={{ fontSize: size, color, fontVariationSettings: fill ? "'FILL' 1" : "'FILL' 0", ...style }}>{name}</span>;
+/* ── MIcon IS GONE — 2026-11-09 ───────────────────────────────────────────
+   It rendered `material-symbols-outlined`, i.e. Google's Material Symbols
+   ICON FONT, which is the thing the owner named: "use only icons fonts
+   everything from the new one". This file had exactly ONE call
+   (`check_circle`, in the Active empty state) and it now draws lucide's
+   CircleCheck instead, from the same glyph set the v2 surfaces use.
+
+   ⚠ DELETING THIS HELPER DOES NOT CLEAR MATERIAL SYMBOLS FROM THIS PAGE, and
+     it would be dishonest to imply it does. Measured on /alerts before this
+     change: 235 Material Symbols glyphs rendered, of which this file owned
+     ONE (and only while the list is empty). The other ~234 are drawn by
+     EventRow.jsx and its three summary children - LeakSummary,
+     WaterEventSummary, NonWaterAlertSummary - which this page renders but does
+     not own: EventRow alone has 14 consumers, several of them v2 surfaces.
+     Migrating those is a separate task across all of them. Reported, not
+     papered over. */
+
+/* ── ONE CARD, ROWS DIVIDED BY HAIRLINES — 199412:109893 ────────────────────
+   2026-11-09. The owner said twice that this page is far from Figma, and this
+   was the structural difference: the frame draws ONE white card holding the
+   rows, and we drew a card per row.
+
+   The node, atom for atom (card 199412:109954 "IOT overview"):
+     card  bg #fafbfc, 1px border WHITE, radius 22, pt-[12px] pb-[16px],
+           gap-[20px], w-full
+     body  199511:77999 — flex-col gap-[8px]
+     rule  a 1px full-width line BETWEEN rows, never after the last one
+
+   `gap-[20px]` is carried although the card has a single child and therefore
+   no effect today — it is the node's, and it is the spacing already chosen for
+   whenever a second block joins the card.
+
+   ── ONE COMPONENT, BOTH PANES — the 2026-11-09 ruling ─────────────────────
+   Active is one card. History is one card PER DATE GROUP, with the heading
+   left where it is, above its card. The owner's reasoning, recorded because
+   it is the part a future reader will not be able to reconstruct: the date
+   headings are REAL grouping that already exists, and the frame has no
+   concept of them only because it draws the Active list alone. One card per
+   group keeps that information architecture and applies the new surface to
+   it; folding the headings into a single card as rows would change what the
+   grouping IS, which is inventing structure.
+
+   It is one component rather than two copies of the markup precisely because
+   the two panes must not drift — that is how Active and History came to look
+   like different pages in the first place.
+
+   ── THE DIVIDER IS AN INTERLEAVED SIBLING, NOT A `border-bottom` ──────────
+   Two reasons, both load-bearing:
+     · a border sits INSIDE the row's 14px radius and clips at both ends;
+     · `:last-child` stops meaning "between" the moment a filter reorders or
+       shortens the list.
+   Interleaving makes "never after the last" true by construction rather than
+   by a rule someone can forget: N rows give exactly N-1 dividers, and a
+   one-row group gives none. `aria-hidden`, because a rule between two list
+   items is not information.
+
+   ⚠ IT RENDERS NOTHING FOR AN EMPTY LIST. Both panes gate their empty state
+     BEFORE reaching this, so an empty card cannot be drawn — but a caller
+     that forgets would otherwise get a 28px of padding wrapped around
+     nothing, which reads as a rendering fault. Cheap to guarantee here. */
+function AlertsListCard({ events }) {
+  if (!events?.length) return null;
+  return (
+    <div
+      data-name="alerts-list-card"
+      className="flex w-full flex-col gap-[20px] rounded-[22px] border border-solid border-white bg-surface-card pt-[12px] pb-[16px]"
+    >
+      <div className="flex flex-col gap-[8px]">
+        {events.map((ev, i) => (
+          <Fragment key={ev.id}>
+            {i > 0 && (
+              <div
+                aria-hidden="true"
+                data-name="alerts-row-divider"
+                className="h-px w-full shrink-0 bg-border"
+              />
+            )}
+            {/* `flat` strips the row's own background, border, shadow and
+                bottom margin so this card is the only surface. Default is
+                false, so EventHistory and HomeClear — which mount the same
+                row and pass nothing — are untouched. */}
+            <EventRow event={ev} flat />
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function EventsScreen() {
   const { t } = useTranslation();
   useDataRefresh();
-  const { theme } = useTheme();
+  /* ── useTheme() IS GONE — 2026-11-09 ───────────────────────────────────
+     This screen no longer reads a single value off the v1 ThemeContext object.
+     It was down to three colours in two empty states (`theme.green`,
+     `theme.text`, `theme.textTertiary`), all now registered tokens, so the
+     dependency went with them. That matters beyond tidiness: those literals
+     are frozen under `dark`, `sand` and `contrast` - ThemeContext is the v1
+     engine and knows nothing about data-theme - which is exactly why the two
+     `--v1-scope-ink` custom properties below had to exist. */
   const { visibleSystems = [] } = useUserContext() || {};
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -450,8 +572,25 @@ export default function EventsScreen() {
         }
       `}</style>
 
-      <PipesHeader glow={true}>
-      <div style={{ padding: '0 0 0' }}>
+      {/* ── THE CHROME SEAT — PipesHeader IS GONE, 2026-11-09 ──────────────
+          WAS: `<PipesHeader glow>`, the v1 header shell. With `glow` it
+          already rendered nothing of its own look - no pipes raster, no navy
+          tint, just `background: transparent` - so removing it is visually
+          neutral. What it still brought was worth removing:
+
+            · a dependency on the v1 ThemeContext (it calls `useTheme()` for
+              `theme.glass`), on a page now free of that object;
+            · `z-index: 1` on its inner wrapper. A POSITIVE z-index on a page
+              is the thing this repo guards hardest - CSS paints every
+              positive z-index after every auto one REGARDLESS of DOM order,
+              which is how a page element silently deletes the floating tab
+              bar. Nothing on this screen needed it.
+
+          ⚠ PipesHeader ITSELF IS NOT TOUCHED. It has six consumers
+            (HomeManager, HomeUnified, TenantPropertiesList, SystemDetail,
+            AccountScreenV2 and - until now - this file), so it is not this
+            page's to change; this page simply stops mounting it. */}
+      <div className="relative shrink-0">
         {/* ── THE ALERTS HEADER ────────────────────────────────
             REBUILT 2026-11-04 against Figma 199532:87604, on the owner's
             instruction given while looking at this page:
@@ -495,7 +634,7 @@ export default function EventsScreen() {
                 not also delete the answer to "which systems am I looking at",
                 and three suites read that name off this page. */}
         <div
-          className="flex flex-col gap-[6px] px-[14px] pt-[12px] pb-[10px]"
+          className="flex flex-col gap-[6px] px-[16px] pt-[12px] pb-[10px]"
           data-name="alerts-header"
         >
           {/* 370x59 in the frame. The title is centred in what is LEFT OVER
@@ -503,82 +642,105 @@ export default function EventsScreen() {
               Mobile Header Bar centres its own scope slot, so a drawn back
               arrow shifts the title by half its box exactly as the node
               does. */}
-          <div
-            className="flex h-[59px] w-full items-center gap-[6px]"
-            data-name="alerts-title-row"
-          >
-            {/* THE BACK CHEVRON IS DRAWN ONLY WHERE THERE IS SOMEWHERE TO GO.
-                /alerts is a bottom-tab root, so back from it is normally
-                meaningless and a chevron that does nothing is worse than no
-                chevron at all. It IS meaningful on the one arrival this page
-                already knows about: a Home pill, a Status Overview tap or a
-                push deep-links here with ?filter=..., which is the same
-                condition the slide-in animation plays on.
+          {/* ── THE SHARED HEADER BAR IS MOUNTED AGAIN — 2026-11-09 ─────────
+              AND THE 2026-11-04 RULING STILL HOLDS. That ruling - "Remove the
+              header of like 'My Systems', so the navigation option from this
+              view shouldn't be there, only on the dashboard" - is about
+              NAVIGATION, not about this component. The owner's other standing
+              ruling is "One header component for every surface. It always
+              needs to be the same."
 
-                THE DESTINATION IS THE DASHBOARD, not history.back(). A push
-                can land on this URL with no in-app history behind it and
-                navigate(-1) would then leave the app entirely. Every
-                ?filter= deep link originates on the Dashboard, so / is where
-                back goes. The accessible name NAMES THE DESTINATION rather
-                than the glyph (copy rule 5). NEW COPY - awaiting approval. */}
-            {cameFromDrillDown ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => navigate('/')}
-                aria-label="Dashboard"
-                title="Dashboard"
-                className="flex size-[30px] shrink-0 cursor-pointer items-center justify-center rounded-full p-0 hover:bg-transparent active:opacity-60"
-                data-name="alerts-back"
-              >
-                <ChevronLeft className="size-[24px]" style={{ color: 'var(--v1-scope-ink)' }} aria-hidden="true" />
-              </Button>
-            ) : null}
+              THE FRAME SETTLED IT. A refetch of 199532:87604 on 2026-11-09
+              shows it now draws the SHARED "Header mobile" instance
+              (199532:83651): a left-aligned title and a More badge, with NO
+              back chevron, NO avatar and NO scope chevron. The 2026-11-04
+              comment describing a bare centred title is stale.
 
-            {/* THE TITLE: a count badge and a subject. This page drew the
-                scope name here, which is neither.
+              WHAT IS SUPPRESSED, and it is suppressed by OMISSION rather than
+              by a flag, because this bar draws only what it is given:
+                · no scope pill and no caret - AppHeaderBar has none to give.
+                  Its title is an inert <p>: no onClick, no role, no tabIndex,
+                  no aria-haspopup (pinned by appHeaderBar.dom.test.jsx).
+                · no avatar - the component has no such slot at all.
+                · no drawer trigger - `onOpenNav`/`onOpenDrawer` are not props
+                  of this component and nothing here passes them.
+                · no `onBack` - this page's back chevron is conditional and
+                  goes to the Dashboard, so it lives in `leading` below, where
+                  it keeps its own rule.
+                · NO `onOpenMore`, so no More badge. The frame draws one, but
+                  /alerts has no menu model - the System page's More menu IS
+                  its tab switcher, and this page's tabs are a real tab row
+                  below. A trigger that opens nothing is worse than no
+                  trigger. FLAGGED FOR THE OWNER, not invented.
 
-                IT IS NOT A BUTTON. The frame hides the caret, and the owner
-                moved scope-picking off this view; a tappable title is exactly
-                the header scope control he removed.
+              `px-0` because the seat below already carries the page gutter. */}
+          <AppHeaderBar
+            className="px-0"
+            title={titlePhrase}
+            leading={
+              /* THE `leading` SLOT TAKES BOTH, and it WINS over the back disc
+                 by design (`leading ?? (onBack ? ... : null)`), which is why
+                 `onBack` is not passed: this page's chevron is not the shared
+                 one. Neither child is a scope control. */
+              <div className="flex shrink-0 items-center gap-[6px]" data-name="alerts-title-lead">
+                {/* THE BACK CHEVRON IS DRAWN ONLY WHERE THERE IS SOMEWHERE TO
+                    GO. /alerts is a bottom-tab root, so back is normally
+                    meaningless; it IS meaningful on the one arrival this page
+                    knows about - a Home pill, a Status Overview tap or a push
+                    deep-linking with ?filter=, the same condition the slide-in
+                    plays on. THE DESTINATION IS THE DASHBOARD, not
+                    history.back(): a push can land here with no in-app history
+                    and navigate(-1) would leave the app. The accessible name
+                    names the destination, not the glyph (copy rule 5). */}
+                {cameFromDrillDown ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => navigate('/')}
+                    aria-label="Dashboard"
+                    title="Dashboard"
+                    className="flex size-[30px] shrink-0 cursor-pointer items-center justify-center rounded-full p-0 text-foreground hover:bg-transparent active:opacity-60"
+                    data-name="alerts-back"
+                  >
+                    <ChevronLeft className="size-[24px]" aria-hidden="true" />
+                  </Button>
+                ) : null}
+                {/* THE COUNT BADGE — 199532:96135. In the frame this is
+                    ABSOLUTELY POSITIONED at left-87/top-18 and overlaps its
+                    own title in Figma's render ("Active wa[25]er events"). That
+                    is a placement accident, not a design, so it is placed in
+                    flow before the title instead of transcribed as an overlap.
 
-                THE BADGE IS RED ON ACTIVE ONLY. destructive is the frame's
-                red and on Active it tells the truth - every row beneath it is
-                an open alert. The same pill over History, where every row is
-                resolved or ignored, would be colour saying "wrong" about a
-                list where nothing is, so that tab gets the neutral secondary.
-                The frame draws only Active and cannot settle it; reported.
+                    RED ON ACTIVE ONLY. On Active every row beneath it is an
+                    open alert and red tells the truth; the same pill over
+                    History, where every row is resolved or ignored, would be
+                    colour saying "wrong" about a list where nothing is.
 
-                A SPAN, NOT <Badge>. badge.jsx renders a div and this is a
-                heading; a div inside a heading's text run is invalid nesting
-                that React warns about. Same shadcn recipe via badgeVariants,
-                on a legal element. */}
-            <h1
-              className="flex min-w-0 flex-1 items-center justify-center gap-[8px]"
-              data-name="alerts-title"
-            >
-              <span
-                className={cn(
-                  badgeVariants({ variant: activeTab === 'active' ? 'destructive' : 'secondary' }),
-                  'h-[22px] shrink-0 justify-center px-[8px] text-[13px] leading-[18px] tabular-nums',
-                )}
-                data-name="alerts-title-count"
-              >
-                {num(shownCount)}
-              </span>
-              {/* Two elements, not one string: "25" abutting "Active Water
-                  Events" inside one textContent is the counts-abut trap in
-                  copy rule 4 one element over. */}
-              <span
-                className="min-w-0 truncate text-[16px] font-medium leading-6"
-                style={{ color: 'var(--v1-scope-ink)' }}
-                data-name="alerts-title-subject"
-              >
-                {titlePhrase}
-              </span>
-            </h1>
-          </div>
+                    A SPAN, NOT <Badge>: badge.jsx renders a div, and this sits
+                    in a header's text run. Same shadcn recipe via
+                    badgeVariants, on a legal element. */}
+                <span
+                  className={cn(
+                    badgeVariants({ variant: activeTab === 'active' ? 'destructive' : 'secondary' }),
+                    'h-[22px] shrink-0 justify-center px-[8px] text-[13px] leading-[18px] tabular-nums',
+                  )}
+                  data-name="alerts-title-count"
+                >
+                  {num(shownCount)}
+                </span>
+              </div>
+            }
+          />
+          {/* THE PAGE'S ONE <h1>, SR-ONLY — the convention ValveManagementScreen
+              uses at :1407. AppHeaderBar's title is deliberately a <p> (an
+              inert readout, not a heading), so without this the screen would
+              have no heading at all. It carries no `alerts-title-subject`
+              hook: that hook marked the VISIBLE subject, and putting it on a
+              sr-only node would let a regression that hid the visible title
+              still pass. The visible subject is `app-scope` now, and
+              scopePersistsAcrossTabs is re-aimed at it. */}
+          <h1 className="sr-only">{`${num(shownCount)} ${titlePhrase}`}</h1>
 
           <div className="min-w-0">
             {/* The breadcrumb's crumbs ARE controls - tap an ancestor to
@@ -648,7 +810,7 @@ export default function EventsScreen() {
             both mounted, while TabsContent (even forceMount) hides the
             inactive one outright. Swiping is existing behaviour and keeping it
             working outranks owning the panel element. */}
-        <div className="px-[14px] pb-[10px]">
+        <div className="px-[16px] pb-[10px]">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
               <TabsTrigger value="active">{t('alerts.tabs.active')}</TabsTrigger>
@@ -657,7 +819,6 @@ export default function EventsScreen() {
           </Tabs>
         </div>
       </div>
-      </PipesHeader>
 
       {/* ── THE FILTER ROW ─────────────────────────────────────
           THE STRUCTURAL DIFFERENCE the owner was pointing at. Figma
@@ -698,7 +859,7 @@ export default function EventsScreen() {
           filter was responsible. This readout always draws, and only says
           "(filtered)" when that is true. */}
       <div
-        className="flex shrink-0 items-center justify-between gap-[8px] border-b border-solid border-border px-[14px] pb-[10px]"
+        className="flex shrink-0 items-center justify-between gap-[8px] border-b border-solid border-border px-[16px] pb-[10px]"
         data-name="alerts-filters"
       >
         <FilterSheetTrigger
@@ -727,38 +888,70 @@ export default function EventsScreen() {
       {/* Swipeable list */}
       <SwipeableAlertTabs activeTab={activeTab} onSwipe={setActiveTab}>
         {/* Active */}
-        <div style={{ padding: '10px 14px 12px' }} role="tabpanel" aria-label={t('alerts.tabs.active')}>
+        <div style={{ padding: '10px 16px 12px' }} role="tabpanel" aria-label={t('alerts.tabs.active')}>
           {/* THE FILTER-SCOPE STRIP STOOD HERE and is on the filter row now,
               which is where Figma 199532:87604 draws it - same catalogue
               string, same two numbers, one row up and visible on both tabs
               whether or not a filter is on. Nothing was lost; see the row. */}
           {activeEvents.length === 0 ? (
-            <div style={{ textAlign: 'center', marginTop: 60 }}>
-              <MIcon name="check_circle" size={40} color={theme.green} fill />
-              <div style={{ fontSize: 15, fontWeight: 600, color: theme.text, marginTop: 10 }}>
+            /* ── THE EMPTY STATE, ON THE NEW SYSTEM — 2026-11-09 ──────────
+                WAS: a `material-symbols-outlined` check_circle sized by
+                `fontSize`, over two divs coloured `theme.green` / `theme.text`
+                / `theme.textTertiary` from the v1 ThemeContext object. Those
+                are the exact two things the owner named - an old icon FONT and
+                off-system colour - and they were the last of either that this
+                file owned.
+
+                NOW: lucide's CircleCheck, the glyph set the v2 surfaces draw
+                from, and registered tokens. `text-success` is
+                --color-success in @theme inline (index.css), NOT the v1
+                `theme.green` literal, so it follows all four themes;
+                `text-foreground` and `text-muted-foreground` replace
+                `theme.text` and `theme.textTertiary` for the same reason.
+                The type comes off the --font-sans-stack scale rather than a
+                hardcoded 15px. */
+            <div className="mt-[60px] text-center" data-name="alerts-empty-active">
+              <CircleCheck
+                className="mx-auto size-[40px] text-success"
+                aria-hidden="true"
+                strokeWidth={1.75}
+              />
+              <div className="mt-[10px] font-sans font-semibold text-foreground text-[15px]">
                 {activeFilters.size > 0 && totalActiveAlertsCount > 0 ? 'No matches for this filter' : 'No active alerts'}
               </div>
-              <div style={{ fontSize: 15, color: theme.textTertiary, marginTop: 4 }}>
+              <div className="mt-[4px] font-sans text-muted-foreground text-[15px]">
                 {activeFilters.size > 0 && totalActiveAlertsCount > 0 ? 'Clear filters to see all attention items' : 'All systems operating normally'}
               </div>
             </div>
-          ) : activeEvents.map(ev => <EventRow key={ev.id} event={ev} />)}
+          ) : <AlertsListCard events={activeEvents} />}
         </div>
 
         {/* History */}
-        <div style={{ padding: '10px 14px 12px' }} role="tabpanel" aria-label={t('alerts.tabs.history')}>
+        <div style={{ padding: '10px 16px 12px' }} role="tabpanel" aria-label={t('alerts.tabs.history')}>
           {/* The History copy of that strip stood here. It carried one extra
               condition - historyEvents.length > 0 - so a filter that matched
               no history at all drew a bare "No history" and never said a
               filter was the reason. The row above has no such condition. */}
           {historyGroups.length === 0
-            ? <div style={{ textAlign: 'center', color: theme.textTertiary, fontSize: 15, marginTop: 40 }}>No history</div>
+            ? (
+              /* Tokens, not `theme.textTertiary` — see the Active empty state
+                 above for why the v1 theme object left this file. */
+              <div className="mt-[40px] text-center font-sans text-muted-foreground text-[15px]" data-name="alerts-empty-history">
+                No history
+              </div>
+            )
             : historyGroups.map(({ label, events }) => (
                 <div key={label}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: theme.textTertiary, textTransform: 'uppercase', letterSpacing: '.5px', padding: '12px 0 8px' }}>
+                  {/* The date-group heading. `theme.textTertiary` -> the
+                      --muted-foreground token, and the type comes off the
+                      --font-sans-stack scale. The uppercase treatment and the
+                      0.5px tracking are the existing design and are kept: this
+                      pass is a token and family migration, not a restyle of
+                      something nobody complained about. */}
+                  <div className="pt-[12px] pb-[8px] font-sans font-bold uppercase tracking-[0.5px] text-muted-foreground text-[13px]">
                     {label}
                   </div>
-                  {events.map(ev => <EventRow key={ev.id} event={ev} />)}
+                  <AlertsListCard events={events} />
                 </div>
               ))
           }

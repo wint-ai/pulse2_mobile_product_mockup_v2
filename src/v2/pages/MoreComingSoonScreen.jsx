@@ -86,9 +86,16 @@
  * the TOP and cannot be scrolled back to, which at 393x852 is one long
  * Hebrew line away from being real.
  *
- * pb-[104px] is TAB_BAR_CLEARANCE (src/components/tabBarMetrics.js) - the pill
- * covers the bottom 88px of every screen plus a 16px gutter. It keeps the
+ * pb-[112px] is TAB_BAR_CLEARANCE (src/components/tabBarMetrics.js) - the pill
+ * covers the bottom 96px of every screen plus a 16px gutter. It keeps the
  * centred block clear of the bar rather than optically centred under it.
+ *
+ * 104 -> 112 ON 2026-11-09, when the owner put visible labels back under the
+ * four tab glyphs ("add text bellow here / Home ,Systems , Alerts, Profile").
+ * The pill had to grow to hold glyph + gap + label, 66 -> 74, so the footprint
+ * went 88 -> 96 and the clearance 104 -> 112. 104 was never BROKEN by that -
+ * it still cleared the 96px footprint, so nothing was ever under the pill -
+ * but it bought only 8px of the 16px gutter this figure exists for.
  *
  * *** AND IT IS THE ONE PLACE THAT STILL PAYS IT — 2026-11-08. *** The bar's
  * host became a real reserved strip that day and now holds that column itself,
@@ -147,7 +154,7 @@ export default function MoreComingSoonScreen() {
     <div className="relative flex min-h-0 flex-1 flex-col justify-end bg-[image:var(--app-bg)]">
       {/* THE COVER. Opaque, edge to edge, no z-index - see the header. */}
       <div className="absolute inset-0 flex flex-col bg-[image:var(--app-bg)]">
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-[24px] pb-[104px] pt-[24px]">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-[24px] pb-[112px] pt-[24px]">
           <div className="m-auto flex flex-col items-center gap-[14px]">
             <span className="flex size-[64px] items-center justify-center rounded-full bg-secondary text-primary">
               <Hourglass className="size-[28px]" aria-hidden="true" />

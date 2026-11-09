@@ -602,16 +602,19 @@ describe('mounting the widget cost the page nothing', () => {
         'SystemHealthCard rendered neither a bar nor the all-clear row',
       ).toBeTruthy()
       /* TabBar. The `hideAlerts` prop is long gone, so this is the same four
-         tabs as everywhere else; Dashboard and the Search tab are sampled.
-         SEARCH REPLACED MORE HERE ON 2026-11-07 and the name is its full
-         accessible one, which is deliberately not the visible label - see
-         src/components/TabBar.jsx. It doubles as a door check: with the
-         header's PanelLeft gone, that button is the only thing on this route
-         that opens the navigation drawer. */
-      expect(screen.getByRole('button', { name: 'Dashboard' }), 'TabBar is not mounted').toBeTruthy()
+         tabs as everywhere else; the home tab and the navigation tab are
+         sampled. BOTH NAMES CHANGED ON 2026-11-09, when the owner put visible
+         text back under the glyphs and named all four: `Dashboard` -> `Home`
+         and `Search locations and systems` -> `Systems`. The accessible name
+         IS the visible label on every tab now - no tab carries an aria-label,
+         because with a label an aria-label only replaces it, and on Alerts it
+         would mute the count badge. The second check doubles as a door check:
+         with the header's PanelLeft gone, that button is the only thing on
+         this route that reaches the navigation tree. */
+      expect(screen.getByRole('button', { name: 'Home' }), 'TabBar is not mounted').toBeTruthy()
       expect(
-        screen.getByRole('button', { name: 'Search locations and systems' }),
-        'TabBar is not mounted, or the drawer has lost its only door on this route',
+        screen.getByRole('button', { name: 'Systems' }),
+        'TabBar is not mounted, or the navigation door has gone from this route',
       ).toBeTruthy()
       /* And the control the card lives behind — the More menu since
          2026-11-07, with the same three destinations the tab row carried. */

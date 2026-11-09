@@ -186,3 +186,83 @@ describe('the duplication cannot silently come back', () => {
     }
   })
 })
+
+/* ── THE DURATION A LIVE PUSHED EVENT NEVER CARRIED — 2026-11-09 ────────────
+   Owner, on his own System page card: one chip reading `42 L` and no duration,
+   where the frame (200059:35901) draws two.
+
+   THE SHAPE THESE PIN, which is the one the generated dataset cannot produce.
+   All 13 generated alerts carry an `age`, so ws-10024 measured two chips and
+   nothing in the fixtures reproduced the bug. A PUSHED event is different:
+   simulatedAlerts.js documents `age` as written on the ENDED record only, and
+   pushEvents.js' `Warning` branch stores flowRate/volume/startedAtIso and no
+   `age` at all. Push a Warning with a `volume` and no `flowRate` and you get
+   exactly the owner's card — the flow slot showing a RAW volume (unit baked
+   into the string, `unit` empty) with no duration beside it.
+
+   A test written against the fixtures would have passed throughout. */
+describe('a live pushed event still reports how long it has been running', () => {
+  const START = '2026-11-09T08:00:00.000Z'
+  const NOW = Date.parse('2026-11-09T10:10:00.000Z')   // +2h 10m
+  const warningPush = (extra = {}) => ({
+    type: 'leak-high',
+    phase: 'warning',
+    label: 'High Flow Water Event',
+    volume: '42 L',
+    startedAt: '08:00',
+    startedAtIso: START,
+    ...extra,
+  })
+  const build = (alert, opts = {}) =>
+    eventAlertRow(alert, leakSys.id, {
+      titleForm: 'full', detectedFormat: 'tooltip', valueFallsBackToVolume: true,
+      now: NOW, ...opts,
+    })
+
+  it('computes the duration when the record carries no `age`', () => {
+    const alert = warningPush()
+    expect(alert.age, 'the fixture must reproduce the bug: no stored age').toBeUndefined()
+    expect(build(alert).duration).toBe('2h 10m')
+  })
+
+  it('reproduces the owner\'s card: a raw volume in the flow slot, and a duration beside it', () => {
+    const row = build(warningPush())
+    // The flow slot carries the RAW volume, unit and all — this is why his
+    // chip read "42 L" and not "42 L/H".
+    expect(row.value).toBe('42 L')
+    expect(row.unit).toBe('')
+    // And the second chip is no longer empty, which is the whole bug.
+    expect(row.duration).toBe('2h 10m')
+  })
+
+  it('prefers a stored `age` over the computed one, so no generated event moves', () => {
+    expect(build(warningPush({ age: '9h 99m' })).duration).toBe('9h 99m')
+  })
+
+  it('measures an ENDED record from its end, not from now', () => {
+    const row = build(warningPush({ endedAtIso: '2026-11-09T09:00:00.000Z' }))
+    expect(row.duration, 'one hour of running, not two and a bit since it started').toBe('1h')
+  })
+
+  it('invents nothing when there is no instant to measure from', () => {
+    /* No startedAtIso and no startedAtStamp: the honest answer is one chip.
+       It must NOT fall through to formatDuration(null), which prints an
+       em-dash — a glyph the copy rules allow only as an empty DATA CELL. */
+    const row = build({ type: 'leak-high', volume: '42 L', startedAt: '08:00' })
+    expect(row.duration).toBeUndefined()
+    expect(row.duration).not.toBe('—')
+  })
+
+  it('does not run the clock backwards on a record that starts in the future', () => {
+    const row = build(warningPush({ startedAtIso: '2026-11-09T12:00:00.000Z' }))
+    expect(row.duration).toBeUndefined()
+  })
+
+  it('every generated alert still reports the age its record stores', () => {
+    const withAlerts = SYSTEMS.filter(s => s.alert)
+    expect(withAlerts.length).toBeGreaterThan(0)
+    for (const s of withAlerts) {
+      expect(build(s.alert).duration, `${s.id} lost its stored age`).toBe(s.alert.age)
+    }
+  })
+})

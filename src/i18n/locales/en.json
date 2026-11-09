@@ -12,9 +12,9 @@
     "no": "No"
   },
   "tabs": {
-    "home": "Dashboard",
+    "home": "Home",
     "alerts": "Alerts",
-    "search": "Search",
+    "search": "Systems",
     "more": "More",
     "profile": "Profile",
     "alerts_badge_one": "{{formatted}} active alert",

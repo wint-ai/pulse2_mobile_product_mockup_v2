@@ -63,6 +63,13 @@ import { homeTargetFor } from '../utils/homeTarget';
  *      node at all. The labels go back to `sr-only`, which is where the
  *      2026-11-04 WhatsApp pass had already put them — see FLAG ONE below,
  *      which this frame now SETTLES in favour of no labels.
+ *      >> WRONG, AND SUPERSEDED THE SAME DAY. The owner asked for text under
+ *         every glyph and named all four words. A frame's SILENCE is not a
+ *         statement: 200067:39019 holding no text node meant the labels were
+ *         not drawn in it, not that he did not want them, and reading it as
+ *         agreement with the WhatsApp pass was the mistake. The labels are
+ *         visible, and the pill is 74 rather than this frame's 66 to hold
+ *         them. Every other point in this block still stands.
  *   5. THE FILL ON THE ACTIVE GLYPH IS GONE. The frame draws the active house
  *      and the active magnifier as OUTLINES in --primary on the tinted panel.
  *      M3's "filled icon PLUS indicator" pairing (below) is therefore
@@ -76,6 +83,60 @@ import { homeTargetFor } from '../utils/homeTarget';
  *      draws live tree rows showing through the bar; a Figma frame cannot
  *      express scroll behaviour, and reproducing that literally is the
  *      2026-11-08 dead-tap bug.
+ *
+ * ── THE LABELS ARE BACK, AND HE NAMED THEM — 2026-11-09 ──────────────────
+ *
+ * The owner, with a screenshot of the bar: *"add text bellow here / Home
+ * ,Systems , Alerts, Profile"*. Left to right, under the glyphs:
+ *
+ *      Home · Systems · Alerts · Profile
+ *
+ * *** THIS REVERSES THE NO-LABELS DECISION TWICE OVER, AND BOTH ARE MARKED
+ *     SUPERSEDED RATHER THAN DELETED. *** FLAG ONE below took the labels out
+ * on 2026-11-04 from *"i want this component to be like on whatsapp"* plus the
+ * Material 3 navigation-bar spec, and point 4 of THE 2026-11-09 FRAME read
+ * 200067:39019's complete absence of a text node as the owner's own frame
+ * agreeing. A direct instruction outranks a screenshot of another app, a
+ * third-party spec, and the silence of a frame. Neither record is removed:
+ * they are why the bar looked the way it did, and the next person is going to
+ * find a four-glyph frame and a WhatsApp note and need to know both lost.
+ *
+ * TWO OF THE FOUR WORDS ARE RENAMES, not just newly-visible text:
+ *   `tabs.home`    "Dashboard" -> "Home"
+ *   `tabs.search`  "Search"    -> "Systems"
+ * Changed in en.json and he.json, at the SAME KEYS, because TabBar is the only
+ * consumer of either (`tabs.profile` is shared with AccountScreenV2's title
+ * and is "Profile" in both places already; `tabs.more` belongs to
+ * AppHeaderBar and is untouched).
+ *
+ * *** COPY CONFLICT FOR THE OWNER: "Dashboard" WAS CALLED A LOCKED STRING. ***
+ * This file and dashboardHeaderBar.dom.test.jsx:167 both assert that
+ * "Dashboard" is locked in wint-ui-copy §1. The skill's own table locks
+ * `Alerts` for this bar and does NOT list Dashboard, so the claim looks like
+ * it hardened by repetition - but it may be locked in the sandbox CLAUDE.md,
+ * which is not in this repo and could not be read. HIS WORD WINS EITHER WAY
+ * (§0: the catalogue is the source of truth, and he is the source of the
+ * catalogue), and the conflict is raised rather than resolved here.
+ * `Alerts` and `Profile` are unchanged, so the one string the skill does lock
+ * for this bar is not in question.
+ *
+ * NEW COPY - AWAITING HIM. The Hebrew for two of these is mine, not catalogue:
+ *   tabs.home    he "בית"      (was "לוח בקרה", the dashboard reading)
+ *   tabs.search  he "מערכות"   TRANSCRIBED, not authored - it is the word
+ *                              he.json already uses for "Systems" at
+ *                              scope_counts.systems and systems_health.systems,
+ *                              so the app says one word for one thing.
+ *
+ * "SYSTEMS" IS A RENAMING, NOT A LABEL, and the accessible name moved with it.
+ * The tab navigates to /search, which renders SearchScreen titled "Select
+ * system to show", so the word fits the destination. Its `aria-label` is gone
+ * entirely - see the note at the Button for why, and for the four suites that
+ * used that string as a handle.
+ *
+ * THE `activeTab` KEYS DID NOT MOVE. home / search / events / profile, exactly
+ * as before, so every one of the ~25 screens that mounts this bar lights the
+ * same tab it lit yesterday with zero edits. The visible text and the key are
+ * separate contracts and this change touches only the first.
  *
  * ── SEARCH IS A DESTINATION NOW — 2026-11-09 ─────────────────────────────
  *
@@ -158,6 +219,18 @@ import { homeTargetFor } from '../utils/homeTarget';
  *      NOT deleted - they are the four tabs' accessible names, five suites
  *      pick a tab by `button.querySelector('span').textContent`, and sr-only
  *      is a class, not a removal.
+ *
+ *   >> SUPERSEDED THE SAME DAY, 2026-11-09, BY A DIRECT INSTRUCTION. The
+ *      owner: *"add text bellow here / Home ,Systems , Alerts, Profile"*. The
+ *      labels are visible again and two of them are renamed. Everything above
+ *      in this flag is kept as the record of why they were ever gone; none of
+ *      it is in force. See THE LABELS ARE BACK at the top of this file. The
+ *      revert path this flag described was followed for the SPAN (`order-2
+ *      text-[11px] leading-[16.5px]` and the 600/500 weight pair) and NOT for
+ *      the geometry it named: "h-[65px] with a 32x32 radius-11 indicator" was
+ *      the pre-WhatsApp bar and is stale twice over - 200067:39019 has since
+ *      set a 74px pill (66 plus the label's own box) at a 33px inset with the
+ *      whole 56px item as the indicator.
  *
  * *** FLAG FOR THE OWNER, TWO: M3 SAYS NO SHADOW, AND I KEPT ONE. ***
  * M3 drops M2's elevation because its navigation bar is DOCKED to the screen
@@ -452,9 +525,11 @@ import { homeTargetFor } from '../utils/homeTarget';
  * ring, same shadow — so the floating look is unchanged; 12 + 65 = 77 of the
  * 93 leaves a 16px strip of page background above it.
  *
- * *** THE NUMBERS MOVED ON 2026-11-09 AND THE MODEL DID NOT. *** The frame's
- * pill is `inset-x-[33px] bottom-[22px] h-[66px]`, so 22 + 66 = 88 of a 104px
- * host, and the 16px strip above it is the same 16px strip. THE RESERVED-STRIP
+ * *** THE NUMBERS MOVED TWICE ON 2026-11-09 AND THE MODEL DID NOT. *** The
+ * frame made the pill `inset-x-[33px] bottom-[22px] h-[66px]` (22 + 66 = 88 of
+ * a 104px host); the labels coming back made it `h-[74px]` (22 + 74 = 96 of a
+ * 112px host). Both times the 16px strip above it is the same 16px strip, and
+ * both times the host reserved the whole band. THE RESERVED-STRIP
  * MODEL IS THE WHOLE POINT OF THIS BLOCK AND IT IS NOT NEGOTIABLE: node
  * 200067:39019 draws the pill OVER live tree rows and at 57% opacity, which
  * makes it look like the bar floats above scrolling content. It does not, and
@@ -611,6 +686,7 @@ import { homeTargetFor } from '../utils/homeTarget';
  * the pill has a minimum width - the items are grid fractions and the glyph is
  * 28 - so 77.25 is not tight: 24.6px of air each side of the glyph.
  *
+ * AS DRAWN BY THE FRAME, one glyph row and no label:
  *   host    0, 748, 393, 104      TAB_BAR_CLEARANCE, bottom edge on the
  *                                 frame's bottom edge (748 + 104 = 852)
  *   pill    33, 764, 327, 66      radius 33 (the frame's 120 clamped to half
@@ -620,11 +696,18 @@ import { homeTargetFor } from '../utils/homeTarget';
  *                                 66 - 16 padding - 2 ring = 48 tall
  *   glyph   28                    centred, no label in flow
  *
- * THE 8px PADDING IS WHAT MAKES THE ITEM 48. The frame says `p-[8px]` on the
- * bar and `h-full` on each item: 66 - 8 - 8 - 2 (the ring is inside the box) =
- * 48, which is the frame's own item height to the pixel. It is spelled as
- * padding here for the same reason, so the item height falls out of the pill
- * height instead of being a second number to keep in step.
+ * AS SHIPPED, with the labels the owner asked for later the same day. Only the
+ * HEIGHTS moved; the insets, the column and the glyph are the frame's:
+ *   host    0, 740, 393, 112      748 + 104 and 740 + 112 both land on 852
+ *   pill    33, 756, 327, 74      radius 37, still 22 off the bottom edge,
+ *                                 740 + 16 = 756
+ *   item    77.25 x 56            56 = 28 glyph + 2 gap + 16.5 label + 9.5 air
+ *   glyph   28                    then a 2px gap, then an 11px/16.5px label
+ *
+ * THE 8px PADDING IS WHAT MAKES THE ITEM. The frame says `p-[8px]` on the bar
+ * and `h-full` on each item, so the item height falls out of the pill height
+ * instead of being a second number to keep in step: 66 - 16 - 2 = 48 as drawn,
+ * 74 - 16 - 2 = 56 as shipped.
  *
  * 327 IS NO LONGER THE CONTENT GUTTER, and that is a real loss worth stating:
  * the pill used to be 361 wide, exactly the width of the home screen's cards,
@@ -667,6 +750,30 @@ import { homeTargetFor } from '../utils/homeTarget';
  * 35.83px of air; scrollWidth > clientWidth measured false on all four in
  * both languages, and nothing truncates or collides. Search at 34.42 is the
  * second-widest English label and was never the risk.
+ *
+ * ── RE-MEASURED 2026-11-09, FOR THE RENAMED LABELS IN A NARROWER COLUMN ───
+ *
+ * The column is 77.25 now, not 89.75: the pill went 361 -> 327 wide when node
+ * 200067:39019 moved the side inset 16 -> 33, and (327 - 2 ring - 16 padding)
+ * / 4 = 77.25. Two of the four strings also changed, so the whole table was
+ * taken again in Chromium at 393x852, deviceScaleFactor 2, after
+ * document.fonts.load('600 11px Figtree') AND ('500 11px Figtree') had both
+ * resolved - the correction below is about exactly that omission:
+ *                      @500 inactive   @600 active
+ *   EN  Home                  -            30.22
+ *       Systems             42.56          42.91   <- the widest anywhere now
+ *       Alerts              29.28          29.80
+ *       Profile             31.94          32.53
+ * Home has no @500 figure because the table was taken on `/`, where Home is
+ * the ACTIVE tab - 30.22 is its 600 reading. It cannot matter: 42.91 is the
+ * binding number and Home is the shortest English label in the row.
+ *
+ * The tightest case is Systems ACTIVE at 42.91 inside 77.25, so 34.34px of
+ * air - within a pixel and a half of the 35.83 the old Dashboard had, because
+ * the column and the longest string shrank together. `scrollWidth >
+ * clientWidth` measured FALSE on all four, and the Hebrew strings are shorter
+ * than the English in every slot ("מערכות" is the longest and sits at roughly
+ * the width of "התראות", 35.28/36.72 above), so no locale is at risk either.
  *
  * *** CORRECTION: THE "Dashboard 57.47 @600" THIS BLOCK USED TO CARRY WAS A
  *     BAD READING. *** Every other figure in it reproduces exactly (More
@@ -723,7 +830,10 @@ import { homeTargetFor } from '../utils/homeTarget';
  *      the record only. The frame draws the active glyph as an OUTLINE in
  *      --primary on the tinted panel, so there is no fill left to ease and
  *      `fill` / `transition-[fill]` are removed rather than pinned to a
- *      constant. "Goes semibold" went with the visible label. The stroke is
+ *      constant. "Goes semibold" is BACK IN FORCE from 2026-11-09, when the
+ *      owner restored the visible labels - the active label is 600 and the
+ *      inactive 500, exactly as this paragraph described; only the FILL half
+ *      of it is dead. The stroke is
  *      2, not 1.8: the frame's glyph assets overflow their 28px box by
  *      ~5.4% on each side, which is half a stroke of ~2.3, and 2 is the
  *      nearest round weight that reads the same at 28px as 1.8 did at 21.
@@ -736,8 +846,9 @@ import { homeTargetFor } from '../utils/homeTarget';
  * panel and the Button, whose base class is `transition-all`.
  *
  * LAYOUT CONTRACT: the HOST is a shrink-0 sibling inside the Phone column
- * (393x852, overflow hidden), TAB_BAR_CLEARANCE (104px since 2026-11-09, 93
- * before it) tall. It is NOT fixed
+ * (393x852, overflow hidden), TAB_BAR_CLEARANCE (112px since the labels came
+ * back on 2026-11-09; 104 for the frame's label-less bar earlier the same day,
+ * 93 before that) tall. It is NOT fixed
  * and needs no spacer, and the screens need no bottom padding — the host IS
  * the spacer. The pill inside it is absolute and fully contained — see the
  * arithmetic above.
@@ -774,59 +885,72 @@ import { homeTargetFor } from '../utils/homeTarget';
    whichever ancestor happens to be positioned. `shrink-0` keeps a greedy
    sibling from compressing the strip back to nothing.
 
-   104, NOT 93, SINCE 2026-11-09: the frame's pill is 66 tall and floats 22 up,
-   so the footprint went 77 -> 88 and the clearance 93 -> 104 with the same
-   16px gap above it. tabBarMetrics.js is the statement of that arithmetic and
-   tabBarFloatingClearance.dom.test.jsx checks this literal against it. */
-const HOST = 'relative shrink-0 h-[104px]';
+   112 SINCE THE LABELS CAME BACK, 2026-11-09. It was 93 (pill 65), then 104
+   when node 200067:39019 made the pill 66 at a 22px float, and 112 now that
+   the pill is 74 and holds glyph + gap + label. The float is unchanged: 22 up,
+   16px of page background above. tabBarMetrics.js is the statement of that
+   arithmetic and tabBarFloatingClearance.dom.test.jsx checks this literal
+   against it. */
+const HOST = 'relative shrink-0 h-[112px]';
 
-/* The slab. Absolutely positioned INSIDE the 104px host, which is what keeps
+/* The slab. Absolutely positioned INSIDE the 112px host, which is what keeps
    the floating look while the host does the reserving: 22 up from the frame's
-   bottom edge, 66 tall (TAB_BAR_FOOTPRINT = 88), inset 33 each side. 104 - 88
+   bottom edge, 74 tall (TAB_BAR_FOOTPRINT = 96), inset 33 each side. 112 - 96
    leaves a 16px strip of page background above it — the app's own gutter, and
    the same distance a last row used to rest at when every scroll body paid
    the clearance itself.
 
-   `rounded-[33px]` IS the frame's `rounded-[120px]`. CSS scales a radius down
-   proportionally when opposite radii overflow the box, so 120 on a 66-tall
-   pill paints as 33 — a true stadium. The literal is written at the value it
-   actually renders at, because 120 reads like a number somebody could change
-   the height against.
+   74, NOT THE FRAME'S 66, because the owner put the labels back on 2026-11-09
+   and 66 holds one glyph row only. The full arithmetic is in tabBarMetrics.js;
+   the short version is 56 of item + 16 of padding + 2 of ring.
 
-   `p-[8px]` is the frame's own padding and is what makes each item 48 tall
-   inside the 66: 66 - 16 - 2 (the ring is inside the box) = 48.
+   `rounded-[37px]` IS the frame's `rounded-[120px]`. CSS scales a radius down
+   proportionally when opposite radii overflow the box, so 120 on a 74-tall
+   pill paints as 37 — a true stadium. The literal is written at the value it
+   actually renders at, because 120 reads like a number somebody could change
+   the height against. It was 33 while the pill was 66.
+
+   `p-[8px]` is the frame's own padding and is what makes the item 56 tall
+   inside the 74: 74 - 16 - 2 (the ring is inside the box) = 56.
 
    No `overflow-hidden`: the Alerts badge is deliberately hung off the top-right
    corner of its glyph and pokes a few px past the active panel. */
 const PILL =
-  'absolute inset-x-[33px] bottom-[22px] grid h-[66px] grid-cols-4 items-center ' +
-  'p-[8px] rounded-[33px] border border-border bg-card/57 backdrop-blur-[8px] ' +
+  'absolute inset-x-[33px] bottom-[22px] grid h-[74px] grid-cols-4 items-center ' +
+  'p-[8px] rounded-[37px] border border-border bg-card/57 backdrop-blur-[8px] ' +
   '[box-shadow:var(--shadow-overlay)]';
 
 /* One tab. Built on the shadcn ghost Button so the focus ring and the hover
    handling come from the design system rather than being hand-rolled;
-   `h-[48px]` / `p-0` / `w-full` undo the size="default" preset. font-sans is
+   `h-[56px]` / `p-0` / `w-full` undo the size="default" preset. font-sans is
    Figtree.
 
-   48 AND radius 24 SO IT IS THE SAME BOX AS THE INDICATOR. With the active
-   panel now filling the whole item (2026-11-09), a tab of any other shape
+   56 AND radius 28 SO IT IS THE SAME BOX AS THE INDICATOR. With the active
+   panel filling the whole item (node 200067:39019), a tab of any other shape
    would make the hover highlight and the active state two different shapes on
-   one control. The column direction and the 2px gap are gone with the visible
-   label: the only in-flow child is the indicator, and an sr-only span is
-   position:absolute and out of flow. */
+   one control. The column direction and the 2px gap live on the INDICATOR
+   rather than here, because the label is inside the panel — see below. */
 const TAB =
-  'h-[48px] w-full cursor-pointer rounded-[24px] p-0 font-sans ' +
+  'h-[56px] w-full cursor-pointer rounded-[28px] p-0 font-sans ' +
   'motion-reduce:transition-none';
 
 /* THE ACTIVE INDICATOR IS THE ITEM BOX, from node 200067:39019: the frame's
    active item is `flex-[1_0_0] h-full rounded-[100px]` filled at 16% of
-   --primary, i.e. the full 79.25 x 48 cell rather than a shape inside it.
+   --primary, i.e. the whole cell rather than a shape inside it.
    `w-full` and not a literal width because the cell is a grid fraction and
-   has to stay fluid between the 402 frame and the 393 shell — 77.25 here,
-   79.50 at the frame's own width.
+   has to stay fluid between the 402 frame and the 393 shell — 77.25 at the
+   app's width, 79.50 at the frame's.
 
-   `rounded-[24px]` is the frame's `rounded-[100px]` clamped to half of 48,
-   the same stadium arithmetic as the pill.
+   `rounded-[28px]` is the frame's `rounded-[100px]` clamped to half of 56,
+   the same stadium arithmetic as the pill. It was 24 at a 48px item.
+
+   THE LABEL IS INSIDE THE PANEL, which is why `flex-col` and `gap-[2px]` are
+   here and not on the Button. The owner asked for text under the glyph and
+   said nothing about the panel; the frame's panel is the whole item, so the
+   stack goes in it rather than the panel shrinking back to a capsule around
+   the glyph alone. One consequence worth knowing: the active tab's label sits
+   ON the tint, so its 600 weight and --primary ink are read against
+   bg-primary/16 rather than against bare card.
 
    IT REPLACED A 44x28 CAPSULE, which was read off the owner's WhatsApp
    screenshot on 2026-11-04 and is described in the block above; that reading
@@ -835,7 +959,7 @@ const TAB =
    No `overflow-hidden`: the Alerts badge hangs off its glyph's top-right and
    is allowed to cross the panel's edge. */
 const INDICATOR =
-  'flex h-[48px] w-full items-center justify-center rounded-[24px] ' +
+  'flex h-[56px] w-full flex-col items-center justify-center gap-[2px] rounded-[28px] ' +
   'transition-colors duration-200 motion-reduce:transition-none';
 
 export default function TabBar({ activeTab }) {
@@ -892,7 +1016,9 @@ export default function TabBar({ activeTab }) {
      see the orphaning flag at the top. Its key was 'more' and nothing else in
      the repo passes `activeTab="more"` except MoreComingSoonScreen itself,
      which now lights no tab at all. */
-  const SEARCH = { key: 'search', label: t('tabs.search'), a11yLabel: t('drawer.search_label'), path: '/search', Icon: Search };
+  /* `a11yLabel` IS GONE from this entry — 2026-11-09. The visible label is
+     the accessible name on all four tabs now; the reason is at the Button. */
+  const SEARCH = { key: 'search', label: t('tabs.search'), path: '/search', Icon: Search };
   const PROFILE = { key: 'profile', label: t('tabs.profile'), path: '/account', Avatar: true };
 
   const TABS_FULL = [
@@ -995,18 +1121,29 @@ export default function TabBar({ activeTab }) {
             <Button
               key={tab.key}
               variant="ghost"
-              /* THE ONLY aria-label IN THIS FILE, and still only on Search.
-                 An aria-label REPLACES content for name computation, which is
-                 why the other three must not have one — it would mute the
-                 Alerts badge (see the span below). Search carries no badge
-                 and no count, so there is nothing here for it to swallow.
-                 `Search locations and systems` is kept verbatim through the
-                 2026-11-09 change: it is catalogued copy (drawer.search_label)
-                 that still describes the destination, and wint-ui-copy §0
-                 forbids coining a replacement. WCAG 2.5.3 Label in Name no
-                 longer constrains it either way - with the labels back to
-                 sr-only there is no visible label to contain. */
-              aria-label={tab.a11yLabel}
+              /* NO aria-label ON ANY TAB — and the one that was here is gone.
+                 The Systems tab carried `drawer.search_label`, "Search
+                 locations and systems", from the days it opened the navigation
+                 drawer. Two reasons it went when the labels came back on
+                 2026-11-09:
+                   · WCAG 2.5.3 Label in Name. The visible label is "Systems"
+                     now. "Systems" IS contained in "Search locations and
+                     systems", so the old name was technically legal - but an
+                     announced name that leads with a verb the control no
+                     longer performs gives one control two names, which is the
+                     thing the Dashboard tab's own note at the top of this file
+                     refuses to do.
+                   · An aria-label REPLACES content for name computation. With
+                     four visible labels there is nothing left for one to add
+                     and plenty for it to swallow - on Alerts it would mute the
+                     count badge outright.
+                 So all four names come from the visible label, which is what
+                 the other three always did.
+                 *** THIS BREAKS FOUR SUITES THAT USED THAT STRING AS A HANDLE
+                 to find this tab: dashboardHeaderBar, drawerLocationHighlight,
+                 valveCommitReachable, valveWidgetMount. They are not this
+                 file's and are not edited from here; they are named in the
+                 report and in THE LABELS ARE BACK at the top. *** */
               onClick={() => {
                 // Bottom-tab tap NEVER mutates scope. Scope is owned by the
                 // drawer (set by drill-down) and the breadcrumb (cleared via
@@ -1039,48 +1176,50 @@ export default function TabBar({ activeTab }) {
               }}
               className={cn(TAB, isActive ? 'text-primary' : 'text-muted-foreground')}
             >
-              {/* The label is deliberately the FIRST child and the FIRST <span>
-                  in the button. FIVE DOM suites pick the tab by
-                  `button.querySelector('span').textContent`
-                  (scopePersistsAcrossTabs, scopePersistsThroughDrawer,
-                  systemImplicitScope, drawerLocationHighlight,
-                  accountScreenV2), and the count badge has to live INSIDE the
-                  glyph box to be positioned off its corner — so the glyph box
-                  sits behind the label rather than the badge being bent into
-                  some other element.
-
-                  `sr-only` SINCE 2026-11-09, AND IT IS NOT A DELETION. Node
-                  200067:39019 holds four glyphs and no text node, so the
-                  labels come out of the layout - but they are still the four
-                  tabs' ACCESSIBLE NAMES, which is why there is no `aria-label`
-                  on the Button: an aria-label REPLACES an element's content
-                  for name computation, so the Alerts tab would stop announcing
-                  its count - the badge's own aria-label composes into the name
-                  only while that name comes from content. The strings are
-                  unchanged and still come from the catalogue (`tabs.*`), so
-                  nothing here needs the owner's approval. Making them visible
-                  again is `order-2 text-[11px] leading-[16.5px]` plus the
-                  600/500 weight pair in place of `sr-only` - and line-height
-                  goes AFTER the font size, because twMerge drops a leading-*
-                  that precedes one.
-
-                  sr-only is `position: absolute`, so the span is out of flow
-                  and the indicator below is the button's only in-flow child.
-                  That is what centres the glyph without a flex-col. */}
-              <span className="sr-only">
-                {tab.label}
-              </span>
-              {/* THE ACTIVE INDICATOR, which is now the item box itself —
-                  79.25 x 48 in the frame, h-[48px] w-full here. Drawn ONLY for
-                  the active tab; four indicators would be no active state at
-                  all. The inner 28px box, not this one, stays the badge's
-                  positioning context, so the badge is measured off the GLYPH
-                  and did not have to move when the indicator grew around it. */}
+              {/* THE ACTIVE INDICATOR, which is the item box itself —
+                  h-[56px] w-full. Drawn ONLY for the active tab; four
+                  indicators would be no active state at all. The 28px glyph
+                  box inside it, not this one, stays the badge's positioning
+                  context, so the badge is measured off the GLYPH and did not
+                  have to move when the indicator grew around it. */}
               <div className={cn(INDICATOR, isActive && 'bg-primary/16')}>
+                {/* THE LABEL IS VISIBLE AGAIN — 2026-11-09, the owner: "add
+                    text bellow here / Home ,Systems , Alerts, Profile". It is
+                    deliberately the FIRST child and the FIRST <span> inside the
+                    button; `order-2` is what puts it back UNDER the glyph. SIX
+                    DOM suites pick a tab by
+                    `button.querySelector('span').textContent`
+                    (scopePersistsAcrossTabs, scopePersistsThroughDrawer,
+                    systemImplicitScope, drawerLocationHighlight,
+                    accountScreenV2, dashboardHeaderBar), and the count badge
+                    has to live INSIDE the glyph box to be positioned off its
+                    corner — so the glyph box sits behind the label in the DOM
+                    rather than the badge being bent into some other element.
+
+                    Line-height goes AFTER the font size — twMerge drops a
+                    `leading-*` that precedes one.
+
+                    It is also the tab's ACCESSIBLE NAME, which is why there is
+                    no `aria-label` anywhere in this file any more: an
+                    aria-label REPLACES an element's content for name
+                    computation, so the Alerts tab would stop announcing its
+                    count - the badge's own aria-label composes into the name
+                    only while that name comes from content.
+
+                    THE STRINGS CHANGED WITH THIS, in the catalogue rather than
+                    here: `tabs.home` went "Dashboard" -> "Home" and
+                    `tabs.search` went "Search" -> "Systems", because those are
+                    the words he wrote. The KEYS did not move, and TabBar is
+                    the only consumer of either - see THE LABELS ARE BACK at
+                    the top of this file for the copy conflict that creates and
+                    the suites it breaks. */}
+                <span className={cn('order-2 text-[11px] leading-[16.5px]', isActive ? 'font-semibold' : 'font-medium')}>
+                  {tab.label}
+                </span>
                 {/* size-[28px] also opts the glyph out of the Button preset's
                     `[&_svg:not([class*='size-'])]:size-4`, which would otherwise
                     shrink it to 16px. 28 is the frame's glyph box. */}
-                <div className="relative size-[28px]">
+                <div className="relative order-1 size-[28px]">
                   {/* NO `fill`, AND NO `transition-[fill]` — 2026-11-09.
                       200067:39019 draws the active glyph as an OUTLINE in
                       --primary on the tinted panel, so there is no fill to

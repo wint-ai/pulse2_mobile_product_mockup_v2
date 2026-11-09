@@ -187,17 +187,43 @@ function findTabButton(label) {
    announce alike, so once a v2 drawer is open TWO elements carry this name -
    the tab (a button) and WintSidebarV2's own <input> (a textbox). A bare
    attribute selector would pick whichever came last in the DOM, which is the
-   tab on some screens and the field on others. */
-const DRAWER_DOOR = 'Search locations and systems';
+   tab on some screens and the field on others.
+
+   *** THE HANDLE IS THE VISIBLE LABEL NOW - 2026-11-09. *** The owner put text
+   back under the four glyphs and named them ("add text bellow here / Home
+   ,Systems , Alerts, Profile"), so the tab prints "Systems" and announces as
+   "Systems" - it has no `aria-label` at all any more, and neither does any
+   other tab (an aria-label replaces content for name computation, which on
+   Alerts would mute the count badge). `Search locations and systems` is
+   therefore not on anything in the bar, and a selector for it finds nothing.
+
+   THE AMBIGUITY THAT MADE `button[...]` NECESSARY IS GONE WITH IT. The reason
+   for the button scope and for taking the LAST match was that the drawer's
+   <input> wore the same accessible name. An input has no <span>, so going
+   through `findTabButton` - the first-span-textContent selector every suite in
+   this repo uses - cannot collide with it. The LAST-match behaviour is kept
+   anyway, inside that helper, because it costs nothing and two drawers on one
+   screen is still a thing this file would rather survive than crash on.
+
+   WHAT IS STILL GUARDED IS UNCHANGED: there is exactly one such control, it is
+   in the bottom bar so it is reachable from every screen, and this file
+   reaches the drawer the way a user's finger does rather than by poking state. */
+const DRAWER_DOOR = 'Systems';
 
 function openDrawer() {
-  const triggers = document.querySelectorAll(`button[aria-label="${DRAWER_DOOR}"]`);
-  const trigger = triggers[triggers.length - 1];
+  /* Not `findTabButton`, which throws a generic "not found" of its own and
+     would make the message below unreachable: the whole value of this helper
+     is that a missing door says WHY it matters. Same last-match scan. */
+  let trigger = null;
+  for (const b of document.querySelectorAll('button')) {
+    const span = b.querySelector('span');
+    if (span && span.textContent === DRAWER_DOOR) trigger = b;
+  }
   if (!trigger) {
     throw new Error(
-      `No drawer door on this screen. Nothing answers to "${DRAWER_DOOR}", and `
+      `No navigation door on this screen. No tab is labelled "${DRAWER_DOOR}", and `
       + 'since the header lost its PanelLeft there is no other control that '
-      + 'opens the navigation drawer - so the drawer is unreachable here.'
+      + 'reaches the navigation drawer - so the drawer is unreachable here.'
     );
   }
   act(() => { trigger.click(); });
@@ -334,10 +360,15 @@ describe('Drawer location-highlight parity with system-highlight', () => {
     //     instructions are visibly in tension in the test rather than
     //     invisibly in the app. Removing it would mean a tab that is present
     //     on one screen and absent on another, which is worse.
+    //     (2026-11-09: the handle is the tab's visible label, "Systems" - the
+    //     aria-label this used to read went when the owner put the labels back
+    //     and the tab's printed word became its accessible name. What is
+    //     asserted is unchanged: the door is present on /alerts.)
     expect(
-      document.querySelector('[aria-label="Search locations and systems"]'),
-      'the Search tab is mounted on /alerts because the bar is mounted on every screen',
-    ).not.toBeNull();
+      [...document.querySelectorAll('button')]
+        .find((b) => b.querySelector('span')?.textContent === 'Systems'),
+      'the Systems tab is mounted on /alerts because the bar is mounted on every screen',
+    ).not.toBeUndefined();
 
     // Navigate back to Home. RE-AIMED 2026-11-04: this asserted that the
     // highlight survived the Dashboard tap, and the owner has overruled that
@@ -345,7 +376,7 @@ describe('Drawer location-highlight parity with system-highlight', () => {
     // the home control now and going home drops the drilled-in scope, so
     // there is no selected location left to highlight. Pinned to the NEW
     // rule rather than deleted.
-    act(() => { findTabButton('Dashboard').click(); });
+    act(() => { findTabButton('Home').click(); });
     expect(exposedCtx.selectedScope).toBeFalsy();
     openDrawer();
     const row = findRowByTargetId(picked.id);
@@ -389,13 +420,17 @@ describe('Drawer location-highlight parity with system-highlight', () => {
     expect(exposedCtx.selectedScope?.levelType).toBe('system');
     expect(exposedCtx.selectedScope?.systemIds).toEqual([OFFICE_HIGH_FLOW]);
 
-    // Tap Dashboard in the bottom TabBar. RE-AIMED 2026-11-04: it used to
+    // Tap the home tab in the bottom TabBar. RE-AIMED 2026-11-04: it used to
     // PRESERVE the scope per the 2026-06-15 rule, and this test asserted the
     // drawer then expanded the path and highlighted the system. The owner has
-    // since made the Dashboard tab the home control, and going home drops any
+    // since made that tab the home control, and going home drops any
     // drilled-in scope - including the implicit system scope /system/<id>
     // sets. See the file header for his words and for the cost.
-    act(() => { findTabButton('Dashboard').click(); });
+    //
+    // ITS LABEL IS "Home" SINCE 2026-11-09, not "Dashboard" - the owner named
+    // all four when he asked for visible text under the glyphs. The `home`
+    // activeTab KEY did not change; only the printed word did.
+    act(() => { findTabButton('Home').click(); });
     expect(exposedCtx.selectedScope).toBeFalsy();
 
     // Open the drawer on Home. With no scope there is nothing to highlight.

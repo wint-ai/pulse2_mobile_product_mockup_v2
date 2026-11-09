@@ -1,4 +1,4 @@
-import { useTheme } from '../context/ThemeContext';
+import { Waves } from '../v2/icons';
 import {
   formatDateInTz,
   formatDuration,
@@ -53,7 +53,11 @@ export default function LeakSummary({
   detectionMode,
   onClick,
 }) {
-  const { theme } = useTheme();
+  /* `useTheme()` is gone — 2026-11-09. Every colour this file drew came
+     from the v1 ThemeContext object; they are registered @theme inline
+     tokens now, so there is nothing left for the context to supply and
+     the subscription (and the re-render it caused on every theme flip)
+     goes with it. */
   const lv = LEVEL[level] || LEVEL.high;
   const sp = STATE_PILL[state];
   const valveKey = valveState === null || valveState === undefined ? 'none' : valveState;
@@ -70,9 +74,9 @@ export default function LeakSummary({
     <div
       onClick={onClick}
       style={{
-        background: theme.card,
+        background: 'var(--color-surface-card)',
         borderRadius: 10,
-        border: theme.cardBorder,
+        border: 'var(--color-card)',
         borderLeft: `3px solid ${lv.color}`,
         cursor: onClick ? 'pointer' : 'default',
         padding: '7px 12px 8px',
@@ -80,21 +84,28 @@ export default function LeakSummary({
     >
       {/* Row 1 — title + meta + flow rate. Wraps cleanly on narrow widths. */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 5, flexWrap: 'wrap', rowGap: 2 }}>
-        <span className="material-symbols-outlined" style={{
-          fontSize: 16, color: lv.color, fontVariationSettings: "'FILL' 1",
-          alignSelf: 'center',
-        }}>water_drop</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: theme.text, whiteSpace: 'nowrap' }}>{lv.label}</span>
+        {/* OFF THE ICON FONT — 2026-11-09. Was a Material Symbols
+            `water_drop` ligature at fontSize 16; now the project's own
+            `Waves`, the mark every other water surface draws, in the same
+            16px box so the baseline row does not shift. */}
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 16, height: 16, color: lv.color, lineHeight: 1,
+          alignSelf: 'center', flexShrink: 0,
+        }}>
+          <Waves size={16} className="block size-full" aria-hidden="true" />
+        </span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-foreground)', whiteSpace: 'nowrap' }}>{lv.label}</span>
         {detectedAt && (
-          <span style={{ fontSize: 11, color: theme.textMuted, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 11, color: 'var(--color-muted-foreground)', whiteSpace: 'nowrap' }}>
             {detectedAt}
             {abbrev && <span style={{ color: '#036AB5', fontWeight: 700, marginLeft: 4 }}>{abbrev}</span>}
           </span>
         )}
-        {timeSince && <span style={{ fontSize: 11, color: theme.textMuted, whiteSpace: 'nowrap' }}>· {timeSince}</span>}
+        {timeSince && <span style={{ fontSize: 11, color: 'var(--color-muted-foreground)', whiteSpace: 'nowrap' }}>· {timeSince}</span>}
         {flowRate && (
           <span style={{
-            fontSize: 13, fontWeight: 700, color: theme.text, marginLeft: 'auto',
+            fontSize: 13, fontWeight: 700, color: 'var(--color-foreground)', marginLeft: 'auto',
             letterSpacing: '-0.2px', whiteSpace: 'nowrap',
           }}>{flowRate}</span>
         )}
@@ -105,7 +116,7 @@ export default function LeakSummary({
         {sp && <Pill color={sp.color} bg={sp.bgRgba}>{state}</Pill>}
         {autoShutoff === 'Enabled' && <Pill color="#4F8118" bg="rgba(92,158,26,0.15)">Auto-shutoff</Pill>}
         {autoShutoff === 'Disabled' && <Pill color="#717684" bg="rgba(113,118,132,0.15)">No auto-shutoff</Pill>}
-        <Pill color={theme.text} bg={theme.inputBg} dot={VALVE_DOT[valveKey]}>{VALVE_LABEL[valveKey]}</Pill>
+        <Pill color={'var(--color-foreground)'} bg={'var(--color-accent)'} dot={VALVE_DOT[valveKey]}>{VALVE_LABEL[valveKey]}</Pill>
         {detectionMode && <Pill color="#036AB5" bg="rgba(4,173,239,0.15)">{detectionMode}</Pill>}
       </div>
     </div>

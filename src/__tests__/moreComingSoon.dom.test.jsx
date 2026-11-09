@@ -94,7 +94,12 @@ describe('/more outlives the tab that used to open it', () => {
     const tabs = tabsByLabel()
     expect(tabs.Profile, 'the bar must still carry Profile').not.toBeUndefined()
     expect(tabs.More, 'More was replaced by Search 2026-11-07').toBeUndefined()
-    expect(tabs.Search, 'Search took the slot').not.toBeUndefined()
+    // That slot's label became "Systems" on 2026-11-09, when the owner put
+    // visible text back under the glyphs and named all four. The `search`
+    // activeTab key and the /search destination are unchanged; only the
+    // printed word moved, so what this guards - More's slot is occupied, not
+    // empty - is the same assertion.
+    expect(tabs.Systems, 'Systems took the slot').not.toBeUndefined()
   })
 
   it('still renders, and lights no tab, because no tab owns it', () => {
@@ -106,10 +111,10 @@ describe('/more outlives the tab that used to open it', () => {
     // the alternative - lighting some other tab - would tell the user they
     // are somewhere they are not.
     const filled = [...document.querySelectorAll('button > div')]
-      .filter((d) => /bg-primary\/15/.test(d.className))
+      .filter((d) => /bg-primary\/16/.test(d.className))
     expect(filled, 'no tab owns /more, so no tab may be lit on it').toHaveLength(0)
     // And the way off the screen is still there - the pill is the only one.
-    expect(Object.keys(tabs).sort()).toEqual(['Alerts', 'Dashboard', 'Profile', 'Search'])
+    expect(Object.keys(tabs).sort()).toEqual(['Alerts', 'Home', 'Profile', 'Systems'])
   })
 })
 
@@ -283,7 +288,7 @@ describe('the tab bar is the way off it', () => {
     expect(screen.queryByLabelText('Close')).toBeNull()
     // The three other tabs are present and are real buttons.
     const tabs = tabsByLabel()
-    for (const label of ['Dashboard', 'Alerts', 'Profile']) {
+    for (const label of ['Home', 'Alerts', 'Profile']) {
       expect(tabs[label], `${label} must stay reachable from the placeholder`).not.toBeUndefined()
       expect(tabs[label].tagName).toBe('BUTTON')
     }
