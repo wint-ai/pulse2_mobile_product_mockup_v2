@@ -179,6 +179,10 @@ import { cn } from '@/lib/utils'
    file may export only its component. */
 import { useStatusBarBleed } from '@/components/phoneStatusBar'
 import TabBar from '@/components/TabBar'
+/* The Home tab's "…on overview" signal. This page answers it because it IS a
+   Home destination for single-system tenants — see the listener beside `tab`
+   below, and homeReset.js for the mechanism. */
+import { HOME_RESET_EVENT } from '@/components/homeReset'
 /* `TAB_BAR_CLEARANCE` WAS IMPORTED HERE and is not any more — 2026-11-08. The
    bar reserves its own strip now (TabBar's host is `h-[93px]`), so no screen
    spells the clearance at all; see the scroller below and tabBarMetrics.js. */
@@ -1106,6 +1110,29 @@ export default function SystemPageV2Screen() {
   const [moreOpen, setMoreOpen] = useState(false)
 
   const [tab, setTab] = useState('overview')
+
+  /* ── THE HOME TAB PUTS THIS BACK ON OVERVIEW — 2026-11-10 ────────────────
+     The owner, on the Dashboard: *"home always needs to take me to upper
+     level on overview"*. THIS PAGE IS IN SCOPE BECAUSE IT IS A TOP LEVEL —
+     for the `tenant-1apt` persona, TabBar's Home tab points at
+     `/system/<her one system>` (TabBar.jsx `tenantTabs`, and the same answer
+     homeTargetFor gives her). Pressing Home there is a SAME-PATH press, and
+     that is the only shape of press this signal exists for: the pathname key
+     on AppRoutes' MotionDiv (App.jsx:111) remounts and resets this page on
+     every path CHANGE, but a path that changes to itself remounts nothing
+     and re-runs nothing. Measured at HEAD on 2026-11-10 with `tenant-1apt`:
+     /system/esrt-bldg-A-apt-3, General Info open, press Home -> General Info
+     still open. Managers reach the same state by landing here from Home.
+
+     The signal, and why it is a window event rather than a route `key`
+     (which would also throw away the chart's period, the drill-down trail,
+     the valve sheets and the scroll position), is in
+     src/components/homeReset.js. Only `tab` is reset. */
+  useEffect(() => {
+    const onReset = () => setTab('overview')
+    window.addEventListener(HOME_RESET_EVENT, onReset)
+    return () => window.removeEventListener(HOME_RESET_EVENT, onReset)
+  }, [])
 
   /* Consumption scope. The card draws the controls; the screen owns what they
      mean, because only the screen knows which system is on the route.

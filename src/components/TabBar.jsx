@@ -13,6 +13,14 @@ import PersonaAvatar from '@/v2/components/PersonaAvatar';
    as well, so the signal still works for anyone who sends it. What is gone is
    this file's SEND: the Search tab navigates to /search instead of asking the
    drawer on this route to open. Read drawerSearch.js before restoring it. */
+/* THE OTHER HALF OF "UPPER LEVEL ON OVERVIEW" — 2026-11-10. The destination
+   and the scope clear below take the user to the top LEVEL; this takes the
+   screen that lands there back to its top VIEW. It is drawerSearch.js's
+   window-event shape WITHOUT the cancelable handshake, and homeReset.js says
+   at length why it needs none (a screen that is not mounted is about to be
+   mounted fresh on `overview` anyway) and why neither a route `key` nor
+   router `state` was used. Read it before changing this. */
+import { requestHomeViewReset } from './homeReset';
 import { useAlertScope, useScopedActiveAlerts } from '../hooks/useActiveAlerts';
 import { useUserContext } from '../context/UserContext';
 /* WHERE THIS USER'S TOP LEVEL IS. Moved here from HomeAllAccounts.jsx with
@@ -448,6 +456,33 @@ import { homeTargetFor } from '../utils/homeTarget';
  *      narrowings and v1's screens still set it, so a tab that only changed
  *      the route would land you on "All Accounts" with the body still showing
  *      one location — the page contradicting its own title.
+ *
+ * ── SUPERSEDED IN ONE WORD: "BOTH" IS "ALL THREE" NOW — 2026-11-10 ───────
+ * Everything above stands verbatim and nothing in it was reconsidered; it is
+ * the list that grew. The owner, on the Dashboard's Systems view at All
+ * Accounts scope:
+ *
+ *   "home always needs to take me to upper level on overview"
+ *                                                      — owner, 2026-11-10
+ *
+ *   3. THE VIEW. `requestHomeViewReset()` in onClick below — the Home tab
+ *      now also tells the screen it lands on to show its top view
+ *      (src/components/homeReset.js). (1) and (2) answer "upper level" and
+ *      they already did: measured 2026-11-10, drawer -> Office
+ *      (/location/Office, 53 systems) -> Home -> `/`, All Accounts, 103
+ *      systems, so scope does NOT survive this button and no second scope
+ *      write was needed. What neither could answer is "on overview":
+ *      HomeAllAccounts holds Overview / Systems / General Info in a local
+ *      `tab`, and on the owner's own case `tab.path` is the path he is
+ *      already on — so (1) is a no-op there by construction, and so is the
+ *      pathname key on AppRoutes' MotionDiv (App.jsx:111) that resets that
+ *      state on every path CHANGE. A same-path press re-runs nothing at
+ *      all. Same `tab`, same hole, on SystemPageV2Screen, which is where
+ *      `tenantTabs` below sends the single-system tenant.
+ *      THIS ONE REVERSES NOTHING and breaks no named test: no suite asserts
+ *      that a view selection survives a Home press. Reverting it is one
+ *      line, like (2) — delete the `requestHomeViewReset()` call below —
+ *      and the two listeners then go quiet with nobody sending.
  *
  * *** FLAG FOR THE OWNER: (2) REVERSES THE 2026-06-15 RULE BELOW, AND FOUR
  *     NAMED REGRESSION TESTS PIN IT. *** `scopePersistsAcrossTabs` and
@@ -1172,6 +1207,31 @@ export default function TabBar({ activeTab }) {
                 // the top of this file. Flagged for the owner, not decided
                 // here.
                 if (tab.key === 'home') clearSelectedScope?.();
+                /* AND THE VIEW, NOT ONLY THE LEVEL — 2026-11-10, the owner:
+                   "home always needs to take me to upper level on overview".
+                   The clear above and `tab.path` below both answer "upper
+                   level"; neither one can answer "on overview", because
+                   which of Overview / Systems / General Info is showing is
+                   private to the page — and on the owner's own case (already
+                   on `/`, Systems open) the navigate below changes NOTHING,
+                   so a destination alone could never have fixed it. That
+                   same-path press is the ONLY one that needs this call:
+                   every path CHANGE already remounts the page via the
+                   pathname key at App.jsx:111, and a fresh mount starts on
+                   `overview`. Measured both ways at 9314c83 — homeReset.js.
+
+                   SENT BEFORE THE NAVIGATE, deliberately: dispatchEvent is
+                   synchronous, so a page that is staying mounted has already
+                   set its view by the time the route changes and React
+                   commits both together — the old view never paints. A page
+                   that is about to be replaced simply ignores it; its
+                   successor mounts on `overview` by default.
+
+                   SCOPED TO THIS KEY like the clear above it. Search, Alerts
+                   and Profile are destinations, not "take me home", and the
+                   2026-06-08 mistake recorded above was doing this kind of
+                   thing to every tab at once. */
+                if (tab.key === 'home') requestHomeViewReset();
                 navigate(tab.path);
               }}
               className={cn(TAB, isActive ? 'text-primary' : 'text-muted-foreground')}

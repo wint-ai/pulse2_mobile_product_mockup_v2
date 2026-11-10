@@ -111,6 +111,10 @@ import { useTranslation } from 'react-i18next'
    for the same chevron-left glyph. */
 import { ChevronDown, ChevronLeft } from 'lucide-react'
 import TabBar from '@/components/TabBar'
+/* The Home tab's "…on overview" signal. TabBar sends it; this page is one of
+   the two screens that answer. See the listener beside `tab` below, and
+   homeReset.js for why it is a window event rather than a route key. */
+import { HOME_RESET_EVENT } from '@/components/homeReset'
 import { useStatusBarBleed } from '@/components/phoneStatusBar'
 import ActiveWaterEventsCard from '@/v2/components/ActiveWaterEventsCard'
 /* EventOverlayV2, not EventOverlay. Both were rebuilt from the same five
@@ -1039,6 +1043,39 @@ export default function HomeAllAccounts({ expanded = false }) {
   // holding data the card only displays.
   const [topUsageDays, setTopUsageDays] = useState(30)
   const [tab, setTab] = useState('overview')
+
+  /* ── THE HOME TAB PUTS THIS BACK ON OVERVIEW — 2026-11-10 ────────────────
+     The owner, on the Systems view at All Accounts scope: *"home always needs
+     to take me to upper level on overview"*.
+
+     `tab` ABOVE IS THE WHOLE BUG, BUT ONLY ON A SAME-PATH PRESS, and that
+     distinction is measured rather than assumed. Coming here from
+     /location/Office this state is already reset for us — not by the routing
+     table, but by the `<MotionDiv key={location.pathname}>` that AppRoutes
+     wraps every route in (App.jsx:111) for the page-entry animation, which
+     remounts the subtree on any path change. When the user is ALREADY on `/`
+     — the owner's case — the Home tab's `navigate('/')` changes the path to
+     itself, so that key does not change, nothing remounts, no effect re-runs
+     and the Systems table simply stays. Reproduced at 393x852 on 2026-11-10
+     at 9314c83, both halves: `/location/Office` + Systems -> Home -> Overview
+     (fine); `/` + Systems -> Home -> still the systems table (the bug).
+
+     WHY A WINDOW EVENT AND NOT A ROUTE `key` OR ROUTER `state` is argued in
+     full in src/components/homeReset.js. The short version: a route key
+     CANNOT fix this (the broken case is the one where the path, and so any
+     key derived from it, is unchanged), and one that did fire would reset
+     this view by discarding the scroll position, `systemFilters`, the open
+     disclosures and any overlay mid-flight — rule 0's "never silently drop
+     working functionality" by the back door.
+
+     ONLY `tab`. `systemFilters` is deliberately left alone: it is the
+     selection the user made inside the Systems view, this signal is about
+     WHICH VIEW shows, and the owner asked for Overview, not for a wipe. */
+  useEffect(() => {
+    const onReset = () => setTab('overview')
+    window.addEventListener(HOME_RESET_EVENT, onReset)
+    return () => window.removeEventListener(HOME_RESET_EVENT, onReset)
+  }, [])
 
   /* ── THE STATUS BAND BLEEDS INTO THE HERO — 200067:38971, 2026-11-09 ──────
      200067:38969 runs the artwork BEHIND the clock and battery: its StatusBar
