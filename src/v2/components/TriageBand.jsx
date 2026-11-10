@@ -137,9 +137,15 @@
  * pasted back in from Figma — but no live class string in this file carries
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
+import { useRef } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Waves } from '@/v2/icons'
 import { cn } from '@/lib/utils'
+/* TEMPORARY DIAGNOSTIC — see the header of tapProbeLog.js for how to remove
+   it. The activation path below does not depend on it; `tapProbe` is a no-op
+   unless the URL carries ?debug=tap. */
+import TapProbe from '@/v2/debug/TapProbe'
+import { tapDebugOn, tapProbe } from '@/v2/debug/tapProbeLog'
 import wave from '@/assets/system-hero-wave.png'
 
 /* ----------------------------------------------------------------- type */
@@ -395,8 +401,97 @@ function minutesOf(duration) {
 
 /* ------------------------------------------------------------------- row */
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * HOW A ROW ACTIVATES, AND WHY IT IS NOT JUST `onClick`.
+ *
+ * ⚠ THIS IS HARDENING AGAINST A CLASS OF FAILURE, NOT A VERIFIED FIX FOR A
+ *   REPRODUCED DEFECT. Say so to anyone who asks. The owner reports that these
+ *   rows do not open on their handset; nothing in this repo has ever
+ *   reproduced that. Measured 2026-11-10, Chromium with touch emulation and
+ *   real CDP touch dispatch at 393x852, 390x664 and 402x744, on
+ *   /location/Office and /location/967 Alder Dr: a still tap, a tap drifting
+ *   3px, 9px, sideways and upward, and a 220ms press all opened the overlay
+ *   every time, and the overlay opened exactly once and was never closed
+ *   again. So the two leading theories - a re-render swapping the row's DOM
+ *   node mid-gesture, and an outside-click handler closing the overlay in the
+ *   same frame it opened - are both ruled out here.
+ *
+ * WHAT IS NOT RULED OUT is the whole family those theories belong to: a
+ * browser that delivers `pointerup` and then withholds the synthesized
+ * `click`. That is not hypothetical. It was produced on demand in the harness
+ * - tap a list immediately after flinging it and Chromium sends
+ * `pointerdown touchstart pointerup touchend` and no click at all, because
+ * the tap was spent stopping the momentum. A BARE PAGE WITH ONE PLAIN BUTTON
+ * AND NO APP CODE DOES THE SAME, which is why that is reported as a harness
+ * artefact rather than as this bug - but it is a faithful demonstration of the
+ * shape. iOS withholds the synthesized click for its own reasons too (a tap
+ * that lands during momentum, a node replaced between touchstart and the
+ * click, a gesture the engine reclassifies late).
+ *
+ * In EVERY dead trace measured, `pointerup` still fired on the row. So the row
+ * activates on `pointerup` for touch and pen, and keeps `click` as the path
+ * for mouse and keyboard, with a de-duplication guard so the two can never
+ * both act on one gesture.
+ *
+ * WHAT MUST NOT BREAK, and does not:
+ *   · It is still a real `<button type="button">`. Enter and Space produce a
+ *     `click` with no pointer events in front of it, which takes the click
+ *     path untouched.
+ *   · The accessible name is unchanged.
+ *   · A mouse takes the click path: `pointerdown` with pointerType `mouse`
+ *     deliberately arms nothing, so `pointerup` returns immediately.
+ *   · A DRAG IS NEVER AN ACTIVATION. A scroll the browser takes over arrives
+ *     as `pointercancel` and never reaches `pointerup` - but PullToRefresh
+ *     drives its own gesture in JavaScript and lets `pointerup` through, so
+ *     the travel distance is measured here rather than trusted to the engine.
+ *     Past 10px the gesture is a scroll or a pull, and the row stays shut.
+ * ────────────────────────────────────────────────────────────────────────── */
+const DRAG_SLOP = 10
+/* One synthesized click arrives 0-300ms after its touchend. 700ms covers that
+   with margin and is still far below any plausible deliberate re-tap of the
+   same row - and the overlay covers the row by then anyway. */
+const DEDUPE_MS = 700
+
 function EventRow({ event, onSelect }) {
   const tone = toneFor(event.type)
+  /* The pointer that is down, if it is one we would activate on. Null for a
+     mouse, and cleared the moment the gesture ends either way. */
+  const gesture = useRef(null)
+  const firedAt = useRef(0)
+
+  const activate = via => {
+    if (!onSelect) return
+    const now = Date.now()
+    if (now - firedAt.current < DEDUPE_MS) {
+      tapProbe(`(ignored duplicate ${via})`)
+      return
+    }
+    firedAt.current = now
+    tapProbe(`** HANDLER RAN via ${via}`)
+    onSelect()
+  }
+
+  const onPointerDown = e => {
+    gesture.current = e.pointerType === 'mouse' ? null : { x: e.clientX, y: e.clientY }
+  }
+
+  const onPointerUp = e => {
+    const start = gesture.current
+    gesture.current = null
+    if (!start) return
+    const moved = Math.hypot((e.clientX ?? start.x) - start.x, (e.clientY ?? start.y) - start.y)
+    /* NaN only happens where an environment reports no coordinates at all
+       (happy-dom's synthetic pointer events), and there a gesture that reached
+       pointerup is a tap. `!(moved > slop)` is NaN-safe; `moved <= slop` is
+       not. */
+    if (moved > DRAG_SLOP) {
+      tapProbe(`(skipped: finger moved ${Math.round(moved)}px)`)
+      return
+    }
+    activate('pointerup')
+  }
+
+  const onPointerCancel = () => { gesture.current = null }
 
   /* Figma prints BOTH levels — "San Fransisco · 1775 Washington St, Hanover
      MA 2339" — and the live mapping supplies both. Either can be blank on
@@ -409,7 +504,10 @@ function EventRow({ event, onSelect }) {
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={() => activate('click')}
+      onPointerDown={onSelect ? onPointerDown : undefined}
+      onPointerUp={onSelect ? onPointerUp : undefined}
+      onPointerCancel={onSelect ? onPointerCancel : undefined}
       disabled={!onSelect}
       className={cn(onSelect ? cn(ROW, ROW_HOVER) : ROW_STATIC)}
       /* Opens with the system name and closes with the duration — both are
@@ -629,6 +727,12 @@ export default function TriageBand({
           </div>
         </div>
       )}
+
+      {/* TEMPORARY DIAGNOSTIC. Renders nothing at all unless the URL carried
+          ?debug=tap, is `position: fixed` so it does not sit inside the card's
+          layout, and is `pointer-events: none` so it cannot change what it is
+          measuring. See tapProbe.jsx for how to remove it. */}
+      {tapDebugOn() && <TapProbe />}
     </div>
   )
 }

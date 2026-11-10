@@ -85,7 +85,7 @@ export const ALERT_CARDS = SYSTEMS.filter(s => s.alert !== null);
 
 // Overlay any simulator-written alert onto the static system. Called from
 // every screen, so simulator pushes show up in /alerts, /system, /alert.
-import { getSimulatedAlert, reloadSimulatedAlerts } from './simulatedAlerts';
+import { getSimulatedAlert, getSimulatedAlerts, reloadSimulatedAlerts } from './simulatedAlerts';
 import { getSimulatedEvents } from './simulatedEvents';
 
 /* "Treat the fleet as clean" flag, set by the pusher's Clear button via
@@ -249,6 +249,63 @@ export function applySimOverlay(sys, sim) {
   }
   if (sim.type === 'valve-error') overlaid.valve = 'error';
   return overlaid;
+}
+
+/**
+ * THE FLEET, AS THE PUSHER LEFT IT — the overlaid counterpart to `SYSTEMS`.
+ *
+ * ── WHY THIS EXISTS: THE LOCATION PAGE WAS READING THE OTHER FLEET ───────
+ * `SYSTEMS` is the GENERATOR'S output. It is not what the app shows. What the
+ * app shows is `applySimOverlay(sys, sim)` — the pusher's pushed alerts, its
+ * resolved tombstones, and the "treat the fleet as clean" flag — and every
+ * system-level surface reads the fleet through it: `getSystemById`, the
+ * drawer, `computeActiveEvents`, /alerts, the tab badge.
+ *
+ * `HomeAllAccounts` did not. It built `scopedSystems` straight off `SYSTEMS`,
+ * so the LOCATION level reported the generator's fleet while every SYSTEM
+ * page it linked to reported the overlaid one. Three ways to see it, all
+ * reported by the owner as one complaint ("it feels like everything is
+ * randomly"):
+ *
+ *   · Clear all (`pulse2-mock-suppressed`): /location/Office listed five water
+ *     events; all five of those system pages showed nothing at all.
+ *   · A pushed alert: the system page showed an event the location level had
+ *     never heard of — the same gap running the other way.
+ *   · An End-of-Leak push: the alert is tombstoned on the system page and the
+ *     location level kept listing it as live.
+ *
+ * It felt RANDOM because both stores are sticky in localStorage. A demo that
+ * pushed a few alerts and hit Clear stayed out of step for every session
+ * after, until storage was cleared.
+ *
+ * The header of `isMockSuppressed` above had already called this exact shot:
+ * "applySimOverlay runs on single-system lookups (getSystemById), while
+ * SYSTEMS is the raw generator output, so Home kept reading '12 / 103 need
+ * attention' with the flag set." This is that missing read, named once.
+ *
+ * ── ONE DERIVATION, NOT A SECOND MAPPING ────────────────────────────────
+ * This body is `computeActiveEvents`' own loop, lifted verbatim out of
+ * events.js, which had been the only place in the app that overlaid the WHOLE
+ * fleet. That copy is gone and calls this instead, so extending the overlay
+ * can no longer fix /alerts and miss the location page. It belongs in this
+ * module because this module owns `applySimOverlay`.
+ *
+ * ── NOT MEMOISED, DELIBERATELY ──────────────────────────────────────────
+ * Every call re-reads localStorage, for the reason `useScopedActiveAlerts`
+ * gives about its own list: a push fired from the pusher or another tab
+ * reaches a screen only because nothing cached the answer. Callers that hold
+ * it in a `useMemo` are choosing mount-scoped freshness — which is what
+ * `SystemPageV2Screen` already does on `[systemId]`, so the two levels stay
+ * in step with each other either way.
+ *
+ * IDENTITY IS PRESERVED IN THE COMMON CASE: with no sim and no suppression
+ * `applySimOverlay` returns its argument, so this is `SYSTEMS` itself, record
+ * for record, and the default demo is byte-identical to before.
+ */
+export function getOverlaidSystems() {
+  reloadSimulatedAlerts();
+  const sims = getSimulatedAlerts();
+  return SYSTEMS.map(sys => applySimOverlay(sys, sims[sys.id]));
 }
 
 export function getSystemById(id) {

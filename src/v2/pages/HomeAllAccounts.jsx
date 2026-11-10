@@ -200,7 +200,7 @@ import {
   stepAvailability,
   windowMonthsOf,
 } from '@/v2/lib/consumptionWindow'
-import { SYSTEMS, computeWidgets, computeKPIs, getSystemById } from '@/data/systems'
+import { SYSTEMS, getOverlaidSystems, computeWidgets, computeKPIs, getSystemById } from '@/data/systems'
 /* `useUserContext` was imported here for `clearSelectedScope` and nothing
    else, and it left with the house on 2026-11-04. The clear did not go with
    it — it is the Dashboard tab's now (src/components/TabBar.jsx), because the
@@ -722,7 +722,54 @@ export default function HomeAllAccounts({ expanded = false }) {
 
   const alertScope = useAlertScope()
   const scopedSystems = useMemo(() => {
-    const all = SYSTEMS ?? []
+    /* ── THE OVERLAID FLEET, NOT THE GENERATOR'S — 2026-11-10 ─────────────
+       `SYSTEMS` STOOD HERE, and it is the one thing on this screen that was
+       reading a different fleet from the system pages this screen links to.
+
+       `SYSTEMS` is the GENERATOR'S output. Every system-level surface reads
+       the fleet through `applySimOverlay` instead — getSystemById, the
+       drawer, computeActiveEvents, /alerts, the tab badge — and that overlay
+       is where the pusher's truth lives: pushed alerts, End-of-Leak
+       tombstones, and the "treat the fleet as clean" flag. This page skipped
+       it, so the LOCATION level reported the generated fleet and the SYSTEM
+       level reported the real one.
+
+       The owner, on exactly this: "I can find an alert on specific system on
+       specific location, and when I go to the system, it doesn't exist there
+       ... it feels like everything is randomly." It is not random, it is two
+       fleets; and it persisted across sessions because both stores are sticky
+       in localStorage, so one demo's pushes poisoned every later one.
+
+       Measured at /location/Office with the pusher's Clear flag set: this
+       page listed 5 water events and all 5 of those system pages showed
+       none. With one alert pushed onto a clean system, the system page had an
+       event this page had never heard of. With an End-of-Leak push, this page
+       kept listing a water event the system page had already tombstoned.
+
+       IT NARROWS EVERY CARD, not just the water-event rows, and that is the
+       point: `live` is derived from this one set, so the health gauge, the
+       four issue pills, the valve card, the system-type chips, the table and
+       the consumption chart all move to the overlaid fleet together. A screen
+       that agreed with the system page about leaks and disagreed about valve
+       errors would be the same bug with fewer symptoms.
+
+       NOT A SECOND MAPPING. getOverlaidSystems() is computeActiveEvents' own
+       loop, moved into systems.js beside the overlay it applies, and that
+       function now calls it too — one derivation with two readers rather than
+       two derivations. See its header.
+
+       IDENTICAL IN THE DEFAULT DEMO: with no sim and no suppression
+       applySimOverlay returns its argument, so this is `SYSTEMS` record for
+       record and nothing on this screen moves.
+
+       MOUNT-SCOPED, like the system page. The memo below still keys on
+       [locationName, alertScope], so a push fired while this screen is open
+       is picked up on the next navigation rather than live.
+       SystemPageV2Screen's own memo keys on [systemId] and behaves the same
+       way, so the two levels stay in step with each other, which is the
+       property being fixed. A live store subscription is a bigger change than
+       this one and is reported, not taken. */
+    const all = getOverlaidSystems() ?? []
     const byRoute = (() => {
       if (!locationName) return all
       const name = decodeURIComponent(locationName)

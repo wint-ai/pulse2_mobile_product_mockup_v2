@@ -1,14 +1,17 @@
 // Event data mapped to Pulse 2.0 spreadsheet systems
 // Enriched with event IDs, severity, metadata, notifications, and timeline
 
-import { SYSTEMS, applySimOverlay } from './systems';
+import { SYSTEMS, getOverlaidSystems } from './systems';
 import { getActiveIncident, getNotification } from './incidents';
 /* `getAllIgnored` dropped from this import 2026-11-04: its one consumer was
    `computeIgnoredEvents`, deprecated to a `return []` on 2026-06-15, so the
    import has been dead since. eslint's no-unused-vars is an error in this
    config and this file is being touched. */
 import { isIgnored, getIgnoredInfo } from './ignoredIncidents';
-import { getSimulatedAlerts, reloadSimulatedAlerts } from './simulatedAlerts';
+/* `getSimulatedAlerts` / `reloadSimulatedAlerts` dropped from this import
+   2026-11-10: computeActiveEvents' own overlay loop was their last consumer
+   here and it now calls getOverlaidSystems(), which does both reads inside
+   systems.js. eslint's no-unused-vars is an error in this config. */
 import { getAllSimulatedEvents } from './simulatedEvents';
 import { CURRENT_EVENTS_FROM_UPSTREAM, HISTORY_EVENTS_FROM_UPSTREAM } from './upstream/generateEvents';
 import { displayId } from './upstream/parity';
@@ -228,7 +231,13 @@ function buildActiveEvent(sys) {
  * single place to find everything that needs their attention.
  */
 export function computeConfigurationGaps() {
-  return SYSTEMS
+  /* THE OVERLAID FLEET, for the reason computeActiveEvents gives above: a
+     configuration gap is a row in the same /alerts list, scoped by the same
+     rule, and it must describe the system the system page shows. Under the
+     pusher's "treat the fleet as clean" flag applySimOverlay guarantees at
+     least one recipient, so the gaps go quiet with everything else instead of
+     being the one category that survives a Clear. */
+  return getOverlaidSystems()
     .filter(s => (s.notificationRecipients || 0) === 0)
     .map(s => ({
       id:         `cfg_${s.id}`,
@@ -303,15 +312,17 @@ function buildSecondaryEvent(sys, type) {
  * independently, matching how the Home Systems Health widget counts.
  */
 export function computeActiveEvents() {
-  reloadSimulatedAlerts();
-  const sims = getSimulatedAlerts();
   const out = [];
 
-  for (const sysOrig of SYSTEMS) {
-    // applySimOverlay handles: resolved tombstone, sim alert overlay,
-    // and implicit sys.power/comm/valve overrides for non-water sims.
-    // Single source of truth shared with getSystemById + UserContext.
-    const sys = applySimOverlay(sysOrig, sims[sysOrig.id]);
+  /* THE OVERLAID FLEET — `getOverlaidSystems()`, not `SYSTEMS`.
+     This loop used to do the overlay itself (reloadSimulatedAlerts +
+     getSimulatedAlerts + applySimOverlay over SYSTEMS) and was the ONLY place
+     in the app that applied it fleet-wide. HomeAllAccounts' `scopedSystems`
+     therefore read the generator's raw fleet while this list read the
+     pusher's — the location level and the system level disagreeing about the
+     same alert. Extracted to systems.js so there is one answer to "what is
+     the fleet right now" and both levels ask it. Same records, same order. */
+  for (const sys of getOverlaidSystems()) {
     const primaryType = sys.alert?.type || null;
     const isWaterAlert = primaryType === 'leak-high' || primaryType === 'leak-low';
     const waterIgnored = isWaterAlert && isIgnored(sys.id);
