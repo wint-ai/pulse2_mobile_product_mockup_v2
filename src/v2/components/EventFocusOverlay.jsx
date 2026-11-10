@@ -485,6 +485,75 @@ const HERO_ART = {
   height: 239,
 }
 
+/* ── THE HEADER CHIP'S VEIL, ONE PER HERO TINT — 2026-11-10 ────────────────
+   THE RULING THAT PUT THESE HERE. Owner, on the event screen: "if event is
+   ignored, so we have a different view layout. It's not a view, it's a
+   completely different layout for ignored and completely different layout
+   for the regular one. So ignored is just a state of the same page. Which
+   different components and different stuff, but layout needs to be always
+   the same in all screens."
+
+   WHAT THAT OVERRULED. The header used to be seated differently per state:
+   `surface={ignored || isEnded ? 'ground' : 'onColor'}`, so a live event wore
+   the frame's chip ON the hero artwork and an ignored or ended one dropped to
+   a plain bar on the page ground, 47px of second header bar under it. The
+   recorded reason was that "no frame in this set draws the chip over grey —
+   so those two branches keep the plain ground surface". That reasoning is the
+   one the ruling above rejects: the absence of a frame for a state is not
+   evidence that the state looks different. The chip is the page skeleton, and
+   the skeleton does not vary. Only the colour on it does, which is what these
+   two constants are.
+
+   ALERT is 200067:38944's own veil, unchanged and still the live event's.
+
+   MUTED'S HUE AND SATURATION ARE DERIVED; ITS LEVEL IS MEASURED. Neither
+   half is a guess, and they come from different places, so both are written
+   down.
+
+   THE HUE AND SATURATION are slate-500's, because an ignored or ended hero is
+   the SAME wave art under ONE tint, `bg-slate-500 mix-blend-color`
+   (199754:28590 — see the band below). The veil that belongs over it is the
+   alert veil put through that very blend: `color` keeps the source's hue and
+   saturation and takes the backdrop's luminosity, i.e.
+   SetLum(slate-500, Lum(#d96064)).
+
+       Lum(C)      = 0.30R + 0.59G + 0.11B          (the CSS compositing spec)
+       #d96064     -> 0.30*217 + 0.59*96  + 0.11*100 = 132.74
+       slate-500   -> 0.30*98  + 0.59*116 + 0.11*142 = 113.46   (#62748e)
+       d = 132.74 - 113.46 = 19.28, added to each channel, nothing clips
+       (98,116,142) + 19.28 = (117,135,161) = #7587a1
+
+   THE LEVEL IS LOWER THAN THAT, AND MEASUREMENT IS WHY. #7587a1 at 0.76 was
+   implemented first and measured at 3.35:1 under the title — the same order
+   as the live chip's own 3.26:1, and under AA's 4.5 for 18px/600, which does
+   NOT qualify for the large-text exemption (that starts at 18.66px bold).
+   Darkening along the same hue to (84,97,116) takes it to 5.00:1 with the
+   worst backdrop pixel in the pad at rgb(95,110,132). The ratio of the three
+   channels is unchanged from the derivation above; only the luminosity moved,
+   and it moved to the number the measurement asked for.
+
+   ⚠ THE LIVE CHIP IS AT 3.26:1 AND IS NOT TOUCHED HERE. The same measurement
+     says the red veil fails the same threshold, and worse. It is a
+     pre-existing defect of the `onColor` seat rather than anything this
+     change introduced, and the brief for this change requires the regular
+     state to come out visually unchanged, so it is REPORTED and left. If the
+     owner wants it fixed, HERO_VEIL_ALERT takes the same treatment and the
+     live hero gets darker.
+
+   ⚠ CONTRAST OVER ARTWORK CANNOT BE ASSERTED IN A UNIT TEST. happy-dom
+     composites nothing, so a class-string or computed-style assertion here
+     would pass over a header that is illegible. Every number above was taken
+     in Chromium against the real composite, with the text spans hidden so
+     each sampled pixel is genuine backdrop, no brightness threshold and no
+     channel mask (antialiasing halos run through every intermediate value and
+     the artwork's own highlight is itself near-white, so either would throw
+     away exactly the worst pixels), and `--ink-on-color` resolved through a
+     canvas because it computes as oklch — with fillStyle primed first, since
+     assigning an unparseable colour is a silent no-op. The guard is that
+     pixel pass, not a test. */
+const HERO_VEIL_ALERT = 'rgba(217,96,100,0.76)'
+const HERO_VEIL_MUTED = 'rgba(84,97,116,0.76)'
+
 /* ── Pure helpers (module-local: a component file may only export its
       component, per the react-refresh rule this repo lints with) ─────────── */
 
@@ -1169,10 +1238,53 @@ function SectionLabel({ children, nodeId }) {
 
    NOT A BUTTON. Nothing in 200067:37406 is interactive and nothing here is
    given a handler — it is the event's identity, drawn on the red. */
-function EventHeroMark({ title, glyph }) {
+/* `className` IS A PASS-THROUGH FOR ONE CLASS AND ONE REASON — 2026-11-10.
+   The ignored state now draws this mark too (see the mount), and it is the
+   child of the scroller that overlaps the hero band, so it has to carry the
+   `opacity-100!` opt-out from `[&>*]:opacity-70` that the alert card carried
+   before it. A literal string here rather than cn(): see THE cn() TRAP in the
+   module header — this node's classes include no `leading-*`, but neither did
+   the ones tailwind-merge ate. */
+/* ── `status` — THE STATUS SLOT, ADDED 2026-11-10 ON THE OWNER'S RULING ────
+   The ONE new prop this change needs, and it is the narrowest that works.
+
+   WHY IT EXISTS. Unifying the ENDED state onto this mark is what the owner
+   ruled ("ignored is just a state of the same page … layout needs to be
+   always the same in all screens"), and the thing that stopped the previous
+   pass was that AlertCard's status pill — the ONLY statement on that screen
+   that the event is over — had nowhere to go once the card went away. The
+   owner was shown the choice and picked: unify, and MOVE the existing pill
+   here.
+
+   NOTHING IS INVENTED. The string is `alertRow.status`, which is the literal
+   'Ended' SystemPageV2Screen:669 already builds for a resolved row on this
+   very card and EventsTimelineCard's BADGE_TONE.ended already carries — see
+   the note on the row builder below. The chassis is AlertCard.jsx:793 atom
+   for atom (bg-red-500 / h-[24px] / px-2.5 / py-0 / rounded-[26px], the label
+   12/500 on text-ink-on-color), which is the pill this screen drew yesterday.
+   A Badge for the same reason AlertCard uses one: it is a status report, not
+   a destination, so it gets no role, no tab stop and no handler.
+
+   ⚠ THE RED IS CARRIED OVER, NOT CHOSEN, and it is the open question this
+     change hands back. AlertCard's `overlay` pill is painted `destructive`
+     whatever the label, so a concluded event has always read "Ended" in red —
+     flagged at the row builder on 2026-11-09 and still flagged. The hero band
+     under it is DESATURATED for exactly the opposite reason (red means a live
+     event), so the pill is now the one red thing on a deliberately grey band.
+     Muting it is one word here (`bg-slate-200` + `text-slate-700`, the pair
+     AlertCard's own `ignored-overlay` pill already uses) and is NOT done on
+     my own authority: "move the existing pill" is what was ruled, and
+     recolouring it would be designing a variant the owner did not ask for.
+
+   NO SLOT IS SPENT WHEN THERE IS NO STATUS. A live event's `alertRow.status`
+   is 'Ongoing' and is deliberately NOT passed — the node renders exactly what
+   it rendered before, so the regular and ignored states are pixel-unchanged.
+   The outer node's own `gap-[10px]` spaces the pill; no gap is invented for
+   it, because 200067:37406 already declares that gap for a second child. */
+function EventHeroMark({ title, glyph, status = null, className = '' }) {
   return (
     <div
-      className="flex w-full shrink-0 flex-col items-center justify-center gap-[10px]"
+      className={`flex w-full shrink-0 flex-col items-center justify-center gap-[10px] ${className}`}
       data-node-id="200067:37406"
     >
       <div className="flex flex-col items-center justify-center gap-[11px]">
@@ -1189,6 +1301,28 @@ function EventHeroMark({ title, glyph }) {
           {title}
         </p>
       </div>
+      {status ? (
+        <Badge
+          variant="destructive"
+          /* AlertCard.jsx:793's string, minus its CTRL_SHADOW — that constant
+             is module-local to AlertCard and a component file in this repo may
+             only export its own component (the react-refresh rule), so it
+             cannot be imported. It is a drop-shadow of two FULLY TRANSPARENT
+             shadows (`0px_0px_0px_transparent` twice, AlertCard.jsx:194): it
+             paints nothing and its absence changes no pixel. Spelled out here
+             rather than re-declared, the way ActiveWaterEventsCard.jsx:584
+             already handles the same constant. */
+          className="bg-red-500 content-stretch flex gap-1 h-[24px] items-center justify-center px-2.5 py-0 relative rounded-[26px] shrink-0"
+          data-node-id="199683:24876"
+          data-status-pill=""
+        >
+          {/* ON ONE LINE, for AlertCard.jsx:805's reason: check-text-overflow.mjs
+              reads line by line and needs `className=`, `shrink-0` and
+              `whitespace-nowrap` together on one of them. Splitting this, or
+              hoisting the string to a const, takes the node out of its view. */}
+          <span className="[word-break:break-word] font-sans font-medium leading-3 relative shrink-0 text-ink-on-color text-xs whitespace-nowrap">{status}</span>
+        </Badge>
+      ) : null}
     </div>
   )
 }
@@ -1947,14 +2081,20 @@ export default function EventFocusOverlay({
      event that is over, because `getLeakState` only knows the three ACTIVE
      states ("Resolved goes to history", incidents.js:46).
 
-     FLAGGED, NOT INVENTED AROUND: the `overlay` variant paints that pill
-     `destructive` red whatever the label, so a concluded event reads "Ended"
-     in red. There is no frame for a concluded event and AlertCard's one muted
-     pill is hard-wired to the literal "Ignored", so giving this its own tone
-     would be designing a variant rather than reusing one. The hero band is
-     already desaturated below for the same reason the ignored frame
-     desaturates it. One line in AlertCard if the owner wants the pill muted
-     too. */
+     FLAGGED, NOT INVENTED AROUND, AND STILL FLAGGED AFTER THE MOVE: the
+     `overlay` variant painted that pill `destructive` red whatever the label,
+     so a concluded event read "Ended" in red. There is no frame for a
+     concluded event and AlertCard's one muted pill is hard-wired to the
+     literal "Ignored", so giving this its own tone would be designing a
+     variant rather than reusing one. The hero band is already desaturated
+     below for the same reason the ignored frame desaturates it.
+
+     2026-11-10: the pill has MOVED onto the hero mark (owner's ruling — see
+     <EventHeroMark>'s `status` note and the mount), and it moved WITH that
+     red, because "move the existing pill" is what was ruled. The oddity is
+     therefore unchanged and more visible: one red chip on a band that is grey
+     precisely because the event is not live. Muting it is now one line HERE
+     rather than one line in AlertCard. */
   /* THE SHARED BUILDER, WITH THIS SURFACE'S OPTIONS. Every one of these was a
      difference between the two copies of this mapping; none of them is a
      difference in what the record MEANS, so they are arguments and not a
@@ -2368,6 +2508,100 @@ export default function EventFocusOverlay({
      simply hands it that height; the scroller's own pb-[12px] is what keeps
      the timeline off the frame's bottom edge. */
 
+  /* ── EVENT IGNORED — 199755:29744 ────────────────────────────────────────
+     The ignored state's state announcement, and it REPLACES the orange
+     "Ignored by {name}" banner that stood below the alert card. That banner
+     was LeakDetail.jsx:305-319 carried forward: an amber strip with a flag
+     glyph, the actor's name in bold, and PRD 15's captured cause under it.
+     199754:28589 draws none of that. It draws a slate/900 pill at 47px,
+     backdrop-blurred over the wave, centred, holding a 17px message-blocked
+     glyph and the words "Event Ignored" — and nothing else.
+
+     SO THE ACTOR AND THE CAUSE ARE NOT DRAWN ANY MORE, and neither is stated
+     anywhere else on this surface. That is the frame transcribed rather than
+     a judgement that they do not matter: the standing rule is that this
+     project writes no string the frame does not contain, and "Ignored by
+     Marcus Ellery" is such a string. Both values are still in
+     ignoredIncidents and both are one line to restore. Reported rather than
+     quietly re-homed, the same way Detection was when the fact strip went.
+
+     ── IT MOVED OUT OF THE PINNED HEADER — 2026-11-10 ──────────────────────
+     IT USED TO LIVE IN THE HEADER, and the reason recorded for that was
+     199755:33270: a `flex-col gap-[10px]` holding the header bar and then
+     this strip. Two things were said to follow — that it would not take the
+     body's `opacity: 0.7` ignored dim ("muting the announcement OF the mute
+     reads as a rendering fault"), and that it could not scroll away from a
+     surface whose whole message is its state. The admitted cost was 47px of
+     pinned height "only while the event is ignored".
+
+     THAT COST IS THE FORK THE OWNER RULED AGAINST. Measured in Chromium at
+     402px: the pinned header was 46px on a live event and 103px on an
+     ignored one, and every card below it sat 57px lower on one state than on
+     the other. "Ignored is just a state of the same page ... layout needs to
+     be always the same in all screens." A header that is a different height
+     in one state is a second header, which is exactly what 2592 called it.
+
+     THE FIRST REASON SURVIVES INTACT AND IS NOT TRADED AWAY: the strip keeps
+     `opacity-100!`, the same opt-out the alert card has carried since
+     2026-11-02 and for the same measured reason — it overlaps the hero band,
+     and a slate/900 pill composited at 70% over the wave reads maroon. It is
+     the second child of the scroller, so it dims only if that class is
+     dropped.
+
+     THE SECOND REASON IS THE ONE COST OF THE MOVE AND IS REPORTED, NOT
+     HIDDEN: the strip now scrolls with the body. It is 24px below the hero
+     mark that carries the event's own name, which scrolls away too, so the
+     state and the identity leave together rather than one of them being
+     pinned over a page the other has left. The ruling is still the owner's to
+     reverse — putting it back is this block moving up into the shrink-0
+     header again, and the header's height fork comes back with it.
+
+     IT SITS BELOW THE HERO MARK, NOT ABOVE IT, AND THAT IS LOAD-BEARING
+     rather than a preference. The hero mark's title is `--ink-on-color`
+     (#fafbfc) and is legible only ON the 177px hero band; inserting a 47px
+     strip plus a 24px gap above it pushes the title off the band onto
+     --background #f4f6f9, where white-on-near-white is invisible. Measured,
+     not reasoned: the mark sits at y=70..144 with the band ending at 177, so
+     71px of insertion above it lands the title at y=215. The strip goes under
+     the mark instead, where the frame's own order (state announcement above
+     the summary) is still kept.
+
+     THE GROUND IS `bg-foreground` + `text-background`, NOT the frame's
+     literal slate/900 on #fafbfc, and this is the pair ValveStatusCard.jsx
+     :220-245 already measured and declared for the inverted-button pattern.
+     In :root `--foreground: var(--slate-900)` so under `light` the frame is
+     transcribed byte for byte — but --slate-900 is the INK ramp and it
+     INVERTS: under `dark` it is zinc-50, which made this strip a near-white
+     pill carrying near-white text. Measured there at 1.01:1 before this
+     changed; bg-foreground + text-background clears AA in all four (light
+     16.47, dark 19.05, sand 18.92, contrast 4.95). The pill is OPAQUE, so
+     those four numbers are unaffected by which hero is behind it.
+
+     ONE VARIANT ONLY. 199754:28589 is the "Auto Shut Off Enabled" drawing,
+     like every node in this set. It is not evidence about what the disabled
+     variant draws here, so nothing is removed on its authority beyond the
+     banner it directly replaces. */
+  /* THE GUTTER IS THE SCROLLER'S NOW. In the header this sat in its own
+     `px-[12px]` wrapper, 378px wide inside a 402 frame; as a child of the
+     body it is `w-full` at the scroller's own px-[16px], 370px — the width
+     every other card on this screen takes. "Cards on the same rhythm and
+     gutters" is half of what the ruling asks for, and a strip 8px wider than
+     the card under it would have been the visible half of the old fork
+     surviving the move. */
+  const ignoredStateStrip = isWater && ignored ? (
+    <div
+      className="flex h-[47px] w-full shrink-0 items-center justify-center gap-[5px] rounded-[35px] bg-foreground px-[8px] opacity-100! backdrop-blur-[3px]"
+      data-node-id="199755:29744"
+    >
+      <span className="flex size-[28px] shrink-0 items-center justify-center text-background">
+        <MessageBlocked size={17} />
+      </span>
+      <p className="text-[20px] font-semibold leading-[32.5px] text-background">
+        Event Ignored
+      </p>
+    </div>
+  ) : null
+
   return (
     <div
       /* FULL OVERLAY, 2026-10-25. Owner: "it needs to be full overlay, not
@@ -2465,8 +2699,61 @@ export default function EventFocusOverlay({
               is wrong there, not the card. An event that has ENDED is not
               alerting either. Same one tint, same blend, same geometry - the
               existing drawing is reused, not a new one. */}
+          {/* ── THE GREY BAND GAINED THE SECOND LAYER — 2026-11-10 ──────────
+              IT IS NOW TWO LAYERS, NOT ONE, and that is a real change to a
+              drawing the owner has already seen. It is reported, not slipped
+              in, and it is one line to revert (delete the multiply div).
+
+              WHY. Until today nothing white was drawn on this band in the
+              ignored state: the header sat on the page ground below it and
+              the summary was a bordered card. The owner's 2026-11-10 ruling
+              ("ignored is just a state of the same page ... layout needs to
+              be always the same in all screens") puts BOTH the header chip
+              and the hero mark's #fafbfc title back onto this artwork, and
+              with one tint they are not legible on it. MEASURED in Chromium
+              on the real composite, text hidden, every pixel of the glyph
+              box counted, ink resolved through a canvas because
+              --ink-on-color computes as oklch:
+
+                  hero-mark title, one tint   2.54:1   (24px needs 3.0)  FAIL
+                  header title,    one tint   2.67:1   (18px needs 4.5)  FAIL
+
+              `mix-blend-color` is why: it takes the SOURCE's hue and
+              saturation and the BACKDROP's luminosity, so slate-500 over the
+              wave leaves the art's own (light) luminance map untouched. What
+              darkens the LIVE band enough for white ink is its SECOND layer,
+              the red/500 multiply — and the ignored band had no equivalent.
+
+              THE LAYER IS DERIVED, NOT PICKED, by the identical arithmetic
+              that produced HERO_VEIL_MUTED: the live band's multiply colour
+              put through the very slate-500 `mix-blend-color` this band
+              already carries.
+
+                  #fb2c36   -> 0.30*251 + 0.59*44  + 0.11*54  = 107.20
+                  slate-500 -> 0.30*98  + 0.59*116 + 0.11*142 = 113.46
+                  d = -6.26 on each channel; nothing clips
+                  (98,116,142) - 6.26 = (92,110,136)
+
+              Same alpha (0.57), same blend, same geometry. The band is now
+              the live band desaturated LAYER FOR LAYER rather than layer
+              minus one — which is what the note above already claims of it
+              ("the art, the geometry and the blend modes are untouched; only
+              the tint changes") and was not yet true.
+
+              ⚠ WHAT THE FRAME SAYS, STATED PLAINLY. 199754:28590 draws ONE
+                tint. This adds a second. The frame is a drawing of the OLD
+                ignored layout, where no white text touched this band, so it
+                is not evidence about a band that now carries two pieces of
+                white text — but it is the frame, and this departs from it.
+                The owner's alternatives, if they want the single tint back:
+                dark ink on the hero mark (which fails on the band's own dark
+                regions) or the hero mark off the artwork (which is the
+                layout fork again). Flagged for a ruling. */}
           {ignored || isEnded ? (
-            <div className="absolute inset-0 bg-slate-500 mix-blend-color" />
+            <>
+              <div className="absolute inset-0 bg-slate-500 mix-blend-color" />
+              <div className="absolute inset-0 bg-[rgba(92,110,136,0.57)] mix-blend-multiply" />
+            </>
           ) : (
             <>
               <div className="absolute inset-0 bg-[#ff7b7d] mix-blend-color" />
@@ -2548,19 +2835,33 @@ export default function EventFocusOverlay({
             THE CHIP IS THE LIVE STATE'S ONLY. 200067:38944's veil is
             `bg-[rgba(217,96,100,0.76)] backdrop-blur-[3.5px]
             mix-blend-multiply rounded-[120px]`, which is AppHeaderBar's
-            `surface="onColor"` + `surfaceTint` exactly. An IGNORED or ENDED
-            event's hero is the GREY band (slate/500, see the tint note above),
-            and no frame in this set draws the chip over grey — so those two
-            branches keep the plain ground surface they draw today rather than
-            wear an invented grey tint. Reported.
+            `surface="onColor"` + `surfaceTint` exactly.
+
+            ⚠ SUPERSEDED, 2026-11-10, AND KEPT so nobody re-derives it from
+              the same frames a third time. This block read: "An IGNORED or
+              ENDED event's hero is the GREY band (slate/500) and no frame in
+              this set draws the chip over grey — so those two branches keep
+              the plain ground surface they draw today rather than wear an
+              invented grey tint." The owner has overruled exactly that:
+              "ignored is just a state of the same page ... layout needs to be
+              always the same in all screens." The absence of a frame for a
+              state is not evidence that the state looks different.
+
+            SO THE CHIP IS UNCONDITIONAL and only its colour branches, between
+            HERO_VEIL_ALERT and HERO_VEIL_MUTED — the second taking its hue
+            and saturation from the same slate-500 `mix-blend-color` the
+            ignored band itself carries, and its LEVEL from a pixel
+            measurement under the title. Neither is picked. Both halves, and
+            why the contrast can only be measured in a browser, are at those
+            two constants.
 
             THE 16px GUTTER IS THE WRAPPER'S, NOT THE BAR'S. The chip carries
             its own `px-[8px]`; passing px-[16px] as className would let
             tailwind-merge drop that 8 and flatten the chip's inset. */}
         <div className="px-[16px]">
           <AppHeaderBar
-            surface={ignored || isEnded ? 'ground' : 'onColor'}
-            surfaceTint={ignored || isEnded ? undefined : 'rgba(217,96,100,0.76)'}
+            surface="onColor"
+            surfaceTint={ignored || isEnded ? HERO_VEIL_MUTED : HERO_VEIL_ALERT}
             eyebrow={sys.parentName || undefined}
             title={sys.name}
             onBack={canGoBack ? onClose : undefined}
@@ -2588,65 +2889,18 @@ export default function EventFocusOverlay({
           {breadcrumb ? `, ${breadcrumb}` : ''}
         </h2>
 
-        {/* ── EVENT IGNORED — 199755:29744 ──────────────────────────────────
-            The ignored state's second header bar, and it REPLACES the orange
-            "Ignored by {name}" banner that stood below the alert card. That
-            banner was LeakDetail.jsx:305-319 carried forward: an amber strip
-            with a flag glyph, the actor's name in bold, and PRD 15's captured
-            cause under it. 199754:28589 draws none of that. It draws a
-            slate/900 pill at 47px, backdrop-blurred over the wave, centred,
-            holding a 17px message-blocked glyph and the words "Event
-            Ignored" — and nothing else.
+        {/* ── THE "EVENT IGNORED" STRIP IS NO LONGER PINNED HERE ───────────
+            2026-11-10. 199755:29744 used to render inside this shrink-0 block,
+            under the bar, which made the pinned header 46px on a live event
+            and 103px on an ignored one — a SECOND HEADER BAR that only one
+            state has, and the thing that moved every card under it down by
+            57px. That is the fork the owner's ruling names.
 
-            SO THE ACTOR AND THE CAUSE ARE NOT DRAWN ANY MORE, and neither is
-            stated anywhere else on this surface. That is the frame
-            transcribed rather than a judgement that they do not matter: the
-            standing rule is that this project writes no string the frame does
-            not contain, and "Ignored by Marcus Ellery" is such a string. Both
-            values are still in ignoredIncidents and both are one line to
-            restore. Reported rather than quietly re-homed, the same way
-            Detection was when the fact strip went.
-
-            IT BELONGS TO THE HEADER, NOT TO THE BODY. 199755:33270 is a
-            `flex-col gap-[10px]` holding the header bar and then this strip,
-            above the alert card — so it is rendered inside the pinned bar
-            here rather than as the scroller's first child. Two things follow
-            from that and both are the reason for it: the strip does not take
-            the body's `opacity: 0.7` ignored dim (muting the announcement OF
-            the mute reads as a rendering fault), and it cannot scroll away
-            from a surface whose whole message is its state. The cost is 47px
-            of pinned height, and only while the event is ignored.
-
-            THE GROUND IS `bg-foreground` + `text-background`, NOT the
-            frame's literal slate/900 on #fafbfc, and this is the pair
-            ValveStatusCard.jsx:220-245 already measured and declared for the
-            inverted-button pattern. In :root `--foreground: var(--slate-900)`
-            so under `light` the frame is transcribed byte for byte — but
-            --slate-900 is the INK ramp and it INVERTS: under `dark` it is
-            zinc-50, which made this strip a near-white pill carrying
-            near-white text. Measured there at 1.01:1 before this changed;
-            bg-foreground + text-background clears AA in all four (light
-            16.47, dark 19.05, sand 18.92, contrast 4.95).
-
-            ONE VARIANT ONLY. 199754:28589 is the "Auto Shut Off Enabled"
-            drawing, like every node in this set. It is not evidence about
-            what the disabled variant draws here, so nothing is removed on its
-            authority beyond the banner it directly replaces. */}
-        {isWater && ignored ? (
-          <div className="px-[12px] pb-[10px]">
-            <div
-              className="flex h-[47px] w-full items-center justify-center gap-[5px] rounded-[35px] bg-foreground px-[8px] backdrop-blur-[3px]"
-              data-node-id="199755:29744"
-            >
-              <span className="flex size-[28px] shrink-0 items-center justify-center text-background">
-                <MessageBlocked size={17} />
-              </span>
-              <p className="text-[20px] font-semibold leading-[32.5px] text-background">
-                Event Ignored
-              </p>
-            </div>
-          </div>
-        ) : null}
+            The strip itself is NOT removed and nothing about it changed: it
+            moved into the scroller, where it draws between the hero mark and
+            the stat block. See `ignoredStateStrip` and its note for why that
+            is a safe home (it keeps `opacity-100!`, so it does not take the
+            ignored dim) and for the one cost of the move. */}
       </div>
 
       {/* Body — the one scrolling region. The header and the footer are
@@ -2725,55 +2979,158 @@ export default function EventFocusOverlay({
             the red, and then three un-wrapped tiles on the page ground. See
             <EventHeroMark> and <EventStatBlock> for both nodes atom for atom.
 
-            ⚠ ALERTCARD IS STILL MOUNTED FOR EVERY OTHER BRANCH, and that is
-              deliberate rather than tidiness. The frame I have is the LIVE
-              "Auto Shut Off Enabled" variant and says nothing about an ignored
-              or a concluded event. `ignored-overlay` is a real drawing of a
-              real state (slate/500 border, slate avatar and chips, an
-              `Ignored` pill) and the fault branch has its own summary; binning
+            ⚠ SUPERSEDED, 2026-11-10 — THE IGNORED BRANCH NOW DRAWS THIS TOO.
+              This block read: "ALERTCARD IS STILL MOUNTED FOR EVERY OTHER
+              BRANCH ... The frame I have is the LIVE 'Auto Shut Off Enabled'
+              variant and says nothing about an ignored or a concluded event.
+              `ignored-overlay` is a real drawing of a real state ... binning
               them on the authority of a frame that does not cover them would
-              be exactly the silent removal Rule 0 forbids. So the frame's new
-              block is drawn where the frame speaks — a LIVE water event — and
-              the card keeps every other case.
+              be exactly the silent removal Rule 0 forbids."
 
-              The two `overlay` variants in AlertCard.jsx are therefore now
-              reached only by the ignored branch. They are NOT deleted. */}
-        {alertRow && isWater && !ignored && !isEnded ? (
+              WHY THAT NO LONGER HOLDS FOR `ignored`. The owner's 2026-11-10
+              ruling is that a state is a state of ONE page: "ignored is just
+              a state of the same page. Which different components and
+              different stuff, but layout needs to be always the same in all
+              screens." The precedent is explicit — on SystemPageV2Screen the
+              new full-bleed hero was gated behind `waterAlerting` so a calm
+              system kept the old design, and the verdict was "Why is system
+              page still shows the old version of Figma?".
+
+              THE TWO DRAWINGS ARE TWO GENERATIONS, NOT TWO STATES, and that
+              is the whole argument. 199754:28589 / 199772:144341 (the ignored
+              card) are 199xxx nodes; 200067:37406 / :37413 (the hero mark and
+              the un-wrapped tiles) are the 2026-11-09 refetch that REPLACED
+              that construction for the live event. The designer has not
+              redrawn the ignored frame yet, which is precisely the "many
+              screens are not updated" the ruling is about. Measured at 402px,
+              the fork was a 202px bordered card against a 74px mark plus a
+              160px tile block — not a different component in the same slot, a
+              different page.
+
+              NOTHING IS DROPPED BY THE SWAP, item by item: the title is the
+              same `alertRow.title` the card drew, in the hero mark; the Flow
+              Rate / Total / Duration figures, the Detected line and the Event
+              ID with its copy button are the same `alertRow` in the stat
+              block; and the card's `Ignored` pill is the "Event Ignored"
+              strip directly above, which says the same word larger and is the
+              frame's own drawing of that announcement.
+
+              ⚠ SUPERSEDED IN TURN, 2026-11-10 — THE ENDED BRANCH IS IN TOO.
+                This block read: "`isEnded` IS DELIBERATELY STILL ON THE CARD,
+                and this is the one place this change STOPS rather than
+                unifies ... The hero mark has no status slot, and giving it one
+                would be inventing a slot for a state no frame covers; writing
+                'Event Ended' into the strip above would be inventing a string
+                ... the ended branch is REPORTED as an open question for the
+                owner rather than resolved here. Flipping it is this gate
+                losing its `&& !isEnded`, once the owner says where 'Ended'
+                goes."
+
+                THE OWNER SAID WHERE IT GOES. Shown the choice, they ruled:
+                unify the ended state, and MOVE the existing `Ended` pill into
+                this block. Their reason bounds the change — the pill reuses a
+                string that ALREADY SHIPS, so nothing is invented. So the gate
+                has lost its `&& !isEnded`, <EventHeroMark> has grown the one
+                `status` prop that was missing (see its note for the chassis,
+                which is AlertCard.jsx:793 atom for atom, and for the red that
+                is carried over rather than chosen), and the pill now sits
+                under the title on the hero.
+
+                WHAT THAT COST, ITEM BY ITEM — the whole of AlertCard's
+                `overlay` body, accounted for:
+                  · the Waves avatar (199683:24873)  -> the mark's 39px glyph
+                  · the title (199683:24875)         -> the mark's title
+                  · the `Ended` pill (199683:24876)  -> the mark's status slot
+                  · Flow Rate / Total (199703:42971,:42976) -> the block's tiles
+                  · Duration (199703:42981)          -> the block's wide row
+                  · Detected + stamp (199683:24888)  -> the block's meta row
+                  · Event ID + copy (199683:24892)   -> the block's meta row
+                  · SHELL_OVERLAY's bordered white card -> dropped, which is
+                    the generational swap this whole note is about.
+                The captions are the SAME LITERALS either way: AlertCard's
+                FALLBACK (:401-408) spells 'Flow Rate' / 'Total' / 'Duration' /
+                'Event ID' and <EventStatBlock> spells the same four.
+
+                ONE THING IMPROVES BY ITSELF. AlertCard's OVERLAY_ID_PILL
+                (:259) is a FIXED `w-[58px]` with `overflow: visible`, and this
+                app's ids are 10 characters: measured at both 402 and 393, the
+                ended card painted `LK-6367609` 78px wide in that 58px box —
+                10px out of its own pill and 6px INTO the copy glyph.
+                <EventStatBlock>'s pill is `min-w-[58px] max-w-[120px]` with
+                `truncate`, which is the fix the live branch already had.
+
+              So `overlay` is now reached only by a FAULT (which is the only
+              event left that is `!isWater` and still builds an alertRow), and
+              `ignored-overlay` only by a fault on a system that ALSO carries
+              an ignore — `alertRow.ignored` is `isIgnored(systemId)` off the
+              store (eventAlertRow.js:238) with no water gate of its own, so
+              that combination is reachable but odd. Both variants stay in
+              AlertCard.jsx. They are NOT deleted, and the ended path reaching
+              them is REPORTED rather than quietly accepted. */}
+        {alertRow && isWater ? (
           <>
+            {/* `opacity-100!` for the reason the alert card carried it: this
+                is a child that OVERLAPS the hero wave (y 70..144 against a
+                177px band), and `[&>*]:opacity-70` would composite its
+                #fafbfc title at 70% over the wave. The stat block below it
+                starts at y=168 and its first painted pixel — the tile row —
+                is at 180, clear of the band, so it dims with everything
+                else. */}
             <EventHeroMark
               title={alertRow.title}
               glyph={<Waves size={24} aria-hidden="true" />}
+              /* `alertRow.status` and ONLY when the event is over. A live
+                 event's status is 'Ongoing' and the frame draws no pill for
+                 it, so passing it would add a chip to a state the owner has
+                 asked be left pixel-identical. `isEnded` is also what PUT
+                 'Ended' on the row (see the builder), so the two cannot
+                 disagree about when the word applies. */
+              status={isEnded ? alertRow.status : null}
+              className="opacity-100!"
             />
+            {ignoredStateStrip}
             <EventStatBlock row={alertRow} />
           </>
         ) : alertRow ? (
-          <AlertCard
-            /* 'overlay', not 'mobile'. The 2026-10-25 redraw is THIS
-               surface's only; SystemPageV2Screen keeps `mobile`.
+          <>
+            {/* `ignoredStateStrip` is `isWater && ignored`, so on THIS branch
+                — which is now reached only by a `!isWater` event — it is
+                always null. It is left mounted rather than deleted because it
+                costs nothing when null and because deleting it would be the
+                one way this branch could silently lose the strip if the gate
+                above ever narrows again. It read: "An event that is BOTH
+                ignored and ended keeps the card, so the strip still has to be
+                drawn beside it — above it, which is where 199755:33270 puts
+                it." That case now draws the unified block instead. */}
+            {ignoredStateStrip}
+            <AlertCard
+              /* 'overlay', not 'mobile'. The 2026-10-25 redraw is THIS
+                 surface's only; SystemPageV2Screen keeps `mobile`.
 
-               AND 'ignored-overlay', not 'ignored', since 2026-10-29. The
-               ignored card now has an overlay drawing of its own
-               (199772:144341 / 199754:28589 — the overlay geometry on a
-               slate/500 border) beside the System page's. A CALL-SITE FLIP is
-               the only way to pick it: both surfaces pass actions={false} and
-               an event whose `.ignored` is true, so AlertCard has no signal
-               of its own to tell them apart. It is the same split the
-               existing `mobile` / `overlay` pair already makes. */
-            variant={alertRow.ignored ? 'ignored-overlay' : 'overlay'}
-            event={alertRow}
-            actions={false}
-            /* `opacity-100!` — the one child that opts out of the ignored
-               dim, because it is the one child that overlaps the hero wave.
-               See the scroller's note above: at 70% the wave shows THROUGH
-               this card. It loses nothing by opting out — `ignored-overlay`
-               is already the frame's own muted drawing (slate/500 border,
-               slate avatar and chips, an `Ignored` pill), so the alpha on top
-               of it was a second mute on the only card that could not afford
-               one. `!` because the dim is emitted as `[&>*]:opacity-70` on
-               the parent and the two rules are otherwise same-specificity. */
-            className="w-full! shrink-0 opacity-100!"
-          />
-        ) : null}
+                 AND 'ignored-overlay', not 'ignored', since 2026-10-29. The
+                 ignored card now has an overlay drawing of its own
+                 (199772:144341 / 199754:28589 — the overlay geometry on a
+                 slate/500 border) beside the System page's. A CALL-SITE FLIP is
+                 the only way to pick it: both surfaces pass actions={false} and
+                 an event whose `.ignored` is true, so AlertCard has no signal
+                 of its own to tell them apart. It is the same split the
+                 existing `mobile` / `overlay` pair already makes. */
+              variant={alertRow.ignored ? 'ignored-overlay' : 'overlay'}
+              event={alertRow}
+              actions={false}
+              /* `opacity-100!` — the one child that opts out of the ignored
+                 dim, because it is the one child that overlaps the hero wave.
+                 See the scroller's note above: at 70% the wave shows THROUGH
+                 this card. It loses nothing by opting out — `ignored-overlay`
+                 is already the frame's own muted drawing (slate/500 border,
+                 slate avatar and chips, an `Ignored` pill), so the alpha on top
+                 of it was a second mute on the only card that could not afford
+                 one. `!` because the dim is emitted as `[&>*]:opacity-70` on
+                 the parent and the two rules are otherwise same-specificity. */
+              className="w-full! shrink-0 opacity-100!"
+            />
+          </>
+        ) : ignoredStateStrip}
 
         {/* ── WHAT IGNORING COST — 199768:87266 ────────────────────────────
             The ignored frame's one line of prose, between the alert card and

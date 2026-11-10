@@ -34,11 +34,12 @@ beforeEach(() => { localStorage.clear() })
 afterEach(cleanup)
 
 /* A system with a LIVE WATER EVENT, because that is the state this frame
-   describes and the state the hero seat is gated on: `surfaceTint` is the tint
-   of the RED hero, and the page deliberately keeps the bar on the page ground
-   where the hero is the calm BLUE raster. The id is taken from the dataset
-   rather than spelled here — the fixtures are generated and a literal id goes
-   stale silently.
+   describes. It is NO LONGER the state the hero seat is gated on — the owner
+   took `&& waterAlerting` off on 2026-11-10 ("It needs to be the same version
+   as we have in location screen") — so the calm fixture below now asserts the
+   same seat with its own tint and ink rather than the opposite seat. The id is
+   taken from the dataset rather than spelled here — the fixtures are generated
+   and a literal id goes stale silently.
 
    `leak-high` / `leak-low` is the page's own `isWaterEvent`; a FAULT alert is
    not a water event and does not turn the hero red. */
@@ -142,25 +143,48 @@ describe('System page header, seated on the hero', () => {
     expect(scrollers[0].contains(bar)).toBe(true)
   })
 
-  /* ── THE CALM SYSTEM — the regression this gate exists for ───────────────
-     `surfaceTint` is the RED hero's tint and 200059:35848 is the alert state;
-     there is no calm node for this screen. A calm system draws HeroWaveArt's
-     `calm` BLUE raster, so seating the same red veil on it would multiply red
-     over blue — a colour nobody designed, on the state that is most of the
-     fleet. The bar stays on the page ground there, which is what shipped
-     before this frame and what still ships. */
-  it('leaves a calm system on the ground surface, with no veil', () => {
+  /* ── THE CALM SYSTEM — 2026-11-10, AND THIS GATE IS REVERSED ─────────────
+     It used to assert the OPPOSITE: that a calm system kept its bar on the
+     page ground, because `surfaceTint` was the RED hero's tint and there is
+     no calm node for this screen. The owner overruled that, verbatim: "Why is
+     system page still shows the old version of Figma? ... It needs to be the
+     same version as we have in location screen." So a calm system takes the
+     same seat, and what is pinned here instead is that it takes it with its
+     OWN veil — a red veil multiplied over blue artwork is still a colour
+     nobody designed, and that failure now looks plausible rather than absent.
+
+     THE VALUE IS NOT ASSERTED, ONLY THAT THE TWO TONES DIFFER. #2c7cdc is
+     measured off composited pixels, which happy-dom cannot produce; pinning
+     the literal here would make this suite the authority on a number only a
+     browser can check. The pixel script owns the number. */
+  it('seats a calm system on the hero too, with a tint of its own', () => {
     const { container } = renderPage(CALM.id)
     const bar = container.querySelector('[data-name="app-header-bar"]')
     expect(bar).toBeTruthy()
-    expect(bar.getAttribute('data-surface')).toBe('ground')
-    expect(container.querySelector('[data-name="app-header-veil"]')).toBeNull()
+    expect(bar.getAttribute('data-surface')).toBe('onColor')
 
-    // On the ground seat the page's own `px-0` is back, and the bar is OUTSIDE
-    // the hero rather than inside its coloured section.
-    expect(bar.className).toMatch(/(^|\s)px-0(\s|$)/)
+    const veil = container.querySelector('[data-name="app-header-veil"]')
+    expect(veil).toBeTruthy()
+    expect(veil.className).toMatch(/mix-blend-multiply/)
+
+    // The page's own `px-0` must NOT reach this seat either.
+    expect(bar.className).not.toMatch(/(^|\s)px-0(\s|$)/)
     const colour = container.querySelector('[data-name="hero-card-colour"]')
-    if (colour) expect(colour.contains(bar)).toBe(false)
+    expect(colour).toBeTruthy()
+    expect(colour.contains(bar)).toBe(true)
+  })
+
+  it('does not paint the red veil over the blue raster', () => {
+    const calmVeil = renderPage(CALM.id).container
+      .querySelector('[data-name="app-header-veil"]')
+      .getAttribute('style')
+    cleanup()
+    const alertVeil = renderPage().container
+      .querySelector('[data-name="app-header-veil"]')
+      .getAttribute('style')
+    expect(calmVeil).toBeTruthy()
+    expect(alertVeil).toBeTruthy()
+    expect(calmVeil).not.toBe(alertVeil)
   })
 
   it('paints the calm hero blue, not the red raster', () => {
@@ -263,16 +287,61 @@ describe('System page hero, full-bleed with an overlapping event card', () => {
     expect(content.className).toMatch(/gap-\[16px\]/)
   })
 
-  it('leaves a calm system on the inset card with its white body', () => {
+  /* ── THE CALM SYSTEM BLEEDS TOO — 2026-11-10 ────────────────────────────
+     The reverse of what this asserted. It read "leaves a calm system on the
+     inset card with its white body", on the reasoning that the calm state had
+     no node and must not be guessed at from the event frame. The owner ruled
+     on it instead of the node. */
+  it('bleeds a calm system exactly as it bleeds an event one', () => {
     const { container } = renderPage(CALM.id)
     const hero = container.querySelector('[data-name="hero-card-shell"]')
     expect(hero).toBeTruthy()
-    // No bleed, no reset radius: the calm state has no node and must not be
-    // guessed at from the event frame.
-    expect(hero.className).not.toMatch(/-mx-4/)
-    expect(hero.className).not.toMatch(/rounded-none/)
+    expect(hero.className).toMatch(/-mx-4/)
+    expect(hero.className).toMatch(/self-stretch/)
+    expect(hero.className).toMatch(/w-auto/)
+    expect(hero.className).toMatch(/rounded-none/)
     const content = container.querySelector('[data-name="system-content"]')
-    expect(content?.className ?? '').not.toMatch(/-mt-\[87px\]/)
+    expect(content?.className ?? '').toMatch(/-mt-\[87px\]/)
+  })
+
+  /* ── THE SYSTEM TYPE CARD FLOATS, IN BOTH STATES — 2026-11-10 ───────────
+     Owner: "In Figma, the system type is floating card that float on the
+     image. And here is not. Fix it." It used to be HeroCardShell's white
+     `body` on a calm system — one tall card whose lower half was white. The
+     frame agrees with the owner: 200067:37898 "IOT overview" is a child of the
+     stack 200059:35902, `w-[370px]`, rounded on all four corners, joined to
+     nothing.
+
+     ⚠ RULE 0 is the real subject here: the move must not have dropped the
+     card or doubled it. The OVERLAP itself is a painted fact and is measured
+     in a browser — happy-dom lays nothing out — so what is pinned is the
+     class that causes it and the card's continued existence. */
+  it('gives the hero no white body in either state', () => {
+    for (const id of [CALM.id, SYS.id]) {
+      const { container } = renderPage(id)
+      const hero = container.querySelector('[data-name="hero-card-shell"]')
+      expect(hero.getAttribute('data-hero-body')).toBe('false')
+      expect(container.querySelector('[data-name="hero-card-body"]')).toBeNull()
+      expect(container.querySelector('[data-name="hero-body-type"]')).toBeNull()
+      cleanup()
+    }
+  })
+
+  it('draws the System type card once, in the stack, on a calm system', () => {
+    const { container } = renderPage(CALM.id)
+    const stack = container.querySelector('[data-node-id="200059:35902"]')
+    expect(stack).toBeTruthy()
+    const labels = [...container.querySelectorAll('*')]
+      .filter(e => e.children.length === 0 && e.textContent.trim() === 'System type')
+    expect(labels).toHaveLength(1)
+    expect(stack.contains(labels[0])).toBe(true)
+  })
+
+  it('keeps the Show more disclosure on the moved card', () => {
+    const { container } = renderPage(CALM.id)
+    const toggle = [...container.querySelectorAll('button')]
+      .find(b => /show more|show less/i.test(b.textContent || ''))
+    expect(toggle).toBeTruthy()
   })
 })
 
@@ -308,17 +377,19 @@ describe('System page status-band bleed', () => {
     expect(container.innerHTML).not.toMatch(/mobile-shell/)
   })
 
-  it('does not pay it on a calm system, which keeps the seat', () => {
+  /* It PAYS IT ON A CALM SYSTEM NOW — the reverse of what this asserted. The
+     calm band bleeds as of 2026-11-10, so the calm seat owes the same inset
+     through the same mechanism. Outside Phone.jsx there is no
+     StatusBarContext, so `inset` is 0 and the node's own 11 is the whole
+     number; the 44 only exists on the DesktopFrame path and is checked in a
+     browser. */
+  it('pays the band back on a calm system too, from the same number', () => {
     const { container } = renderPage(CALM.id)
     const seat = container.querySelector('[data-name="system-hero-header"]')
-    // A calm system seats its bar on the page ground, so there is no hero
-    // header slot at all — and nothing has been pushed up to pay back.
-    if (seat) {
-      expect(seat.className).not.toMatch(/pt-\[55px\]/)
-      expect(seat.className).not.toMatch(/mobile-shell/)
-    } else {
-      expect(container.querySelector('[data-name="app-header-bar"]')).toBeTruthy()
-    }
+    expect(seat).toBeTruthy()
+    expect(seat.style.paddingTop).toBe('11px')
+    expect(seat.className).not.toMatch(/pt-\[55px\]/)
+    expect(seat.className).not.toMatch(/mobile-shell/)
   })
 })
 

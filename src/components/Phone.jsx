@@ -43,12 +43,47 @@ function MobileLayout({ children, bgSolid }) {
       <style>{`
         .mobile-shell {
           width: 100vw;
+          /* ── THE ORDER OF THESE SIX LINES IS THE WHOLE POINT ───────────────
+             Least-capable FIRST, most-correct LAST. These are equal-specificity
+             declarations of the same property, so the last one an engine
+             understands is the one that wins:
+
+               100vh                   the floor. Every engine has it, and on
+                                       iOS it is the LARGE viewport - too tall
+                                       whenever a toolbar is showing.
+               -webkit-fill-available  the LEGACY FALLBACK, the pre-dvh
+                                       workaround for exactly that. Kept
+                                       because iOS before 15.4 has no dvh.
+               100dvh                  the CORRECT MODERN VALUE: the dynamic
+                                       viewport, which is what is actually
+                                       visible while Safari's toolbars are out.
+
+             ⚠ DO NOT "TIDY" -webkit-fill-available BACK TO LAST. It was last
+               here until 2026-11-10, which is backwards: the legacy hack then
+               overrode the modern value on every engine that supports both,
+               and on iOS Safari -webkit-fill-available resolves to the LARGE
+               viewport (toolbars retracted) where 100dvh resolves to the
+               dynamic one. A shell taller than the visible area puts the
+               tab-bar host and the last rows of the scroller behind the
+               browser's bottom toolbar, where a tap reaches browser chrome
+               rather than the page - the same invisible dead-tap shape as the
+               tab-bar pill floating over live rows.
+
+             ⚠ WHAT THIS ORDER IS NOT EVIDENCE FOR. No harness in this repo can
+               see the difference. Desktop WebKit and Chromium have no browser
+               toolbars, so all three declarations resolve to the SAME number
+               there - measured before and after this reorder: 664px at
+               390x664, 752px at 390x752, 844px at 390x844/402x844, 852px at
+               393x852. So this is a correctness fix ON THE SPECIFICATION, not
+               a confirmed diagnosis of any reported tap failure. Only a real
+               handset can settle that, and nothing here should be written up
+               as if it already had. */
           height: 100vh;
-          height: 100dvh;
           height: -webkit-fill-available;
+          height: 100dvh;
           max-height: 100vh;
-          max-height: 100dvh;
           max-height: -webkit-fill-available;
+          max-height: 100dvh;
           display: flex;
           flex-direction: column;
           overflow: hidden;

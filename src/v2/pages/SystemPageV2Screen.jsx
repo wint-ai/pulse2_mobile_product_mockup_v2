@@ -253,7 +253,7 @@ import {
   windowMonthsOf,
 } from '@/v2/lib/consumptionWindow'
 import { getSystemById } from '@/data/systems'
-import { INSIGHT_KIND, insightValueLabel } from '@/data/upstream/insightsModel'
+import { INSIGHT_KIND, insightValueLabel, insightLitersLabel } from '@/data/upstream/insightsModel'
 import { getCurrentActor } from '@/data/currentUser'
 /* `getLeakState` is no longer imported here: the only call was inside
    `alertCardsFor`'s old body, which now lives in `eventAlertRow`. The
@@ -302,14 +302,78 @@ import { LocationDot } from '@/v2/icons'
    gone. Do not bring either back — an id React does not own is an id React
    can overwrite, and the three things MoreMenu needs it for all fail SILENTLY
    (see `moreBadgeId` in AppHeaderBar for the list). */
-/* The veil over the RED hero, 200059:35860's own fill. A RAW CSS COLOUR in an
-   inline style, never a Tailwind utility: v4 emits NO CSS and NO error for a
-   utility naming a colour that is not registered as `--color-<name>` in
-   `@theme inline`, and this value is not registered. The page owns it rather
-   than AppHeaderBar because the veil is a tint OF THIS PAGE'S hero — blue on
-   Home, red here — and a header that hard-codes two hero colours knows about
-   screens, which is what "one header" argues against. */
-const HERO_HEADER_TINT = 'rgba(217,96,100,0.76)'
+/* ── THE VEIL OVER THE HERO, PER TONE ─────────────────────────────────────
+   BOTH ARE RAW CSS COLOURS in an inline style, never a Tailwind utility: v4
+   emits NO CSS and NO error for a utility naming a colour that is not
+   registered as `--color-<name>` in `@theme inline`, and neither of these is
+   registered. (`--wint-blue-accent` is not registered either, which is why
+   nothing here reaches for it.) The page owns them rather than AppHeaderBar
+   because the veil is a tint OF THIS PAGE'S hero, and a header that hard-codes
+   hero colours knows about screens, which is what "one header" argues against.
+
+   `alert` IS 200059:35860's OWN FILL, byte for byte, and did not move.
+
+   ── `calm` IS DERIVED FROM THE CALM RASTER — 2026-11-10 ─────────────────
+   There is still no calm node for this screen. The owner ruled the LAYOUT
+   ("It needs to be the same version as we have in location screen"), and a
+   layout ruling hands over no colour, so this one is measured rather than
+   transcribed.
+
+   ⚠ IT IS NOT HomeAllAccounts' #9dbbd9, AND COPYING THAT ACROSS IS THE TRAP.
+   That value was measured against HeroWaveArt's `brand` raster, which is what
+   Home passes (`tone="brand"`). This page's calm hero is the `calm` raster —
+   the designer's own, lighter under the chip. Composited and measured at
+   1280x900 with the bar's text hidden:
+
+     location /location/Office   chip #1352d4  on bare artwork #1d6ff9
+     system   calm, bare                       on bare artwork #6ba8f6
+
+   so #9dbbd9 over #6ba8f6 lands on #437cd1 — a pale chip, and #fafbfc on it
+   measures 4.06:1, under the 4.5 the 18px/600 title needs. Same tint, lighter
+   ground, failing result.
+
+   WHAT IS MATCHED IS THE COMPOSITED CHIP, which is what "the same version as
+   the location screen" means to the eye: solve #1352d4 = #6ba8f6 x M per
+   channel, giving M = 0.173 / 0.488 / 0.863 and, opaque, #2c7cdc. Measured
+   back: #fafbfc on the result is 5.59-6.12:1 at every pad, eyebrow and title.
+
+   NO ALPHA, unlike the red. `alert`'s 0.76 keeps 24% of the backdrop, so its
+   effective multiplier floors at 0.24 per channel; the red channel here needs
+   0.173, which no alpha above zero can reach. Opaque is not a style choice,
+   it is the only way to land the number.
+
+   ⚠ JUDGEMENT CALL, REPORTED. Matching the chip's ABSOLUTE colour is one of
+   two readings of the ruling; matching its RELATIVE darkening is the other,
+   and that one IS #9dbbd9 — which fails AA here. So this reading is the one
+   that is both defensible and legible, but it is a reading. A calm node would
+   settle it in one call. */
+const HERO_HEADER_TINT = {
+  alert: 'rgba(217,96,100,0.76)',
+  calm: '#2c7cdc',
+}
+/* ── THE STATUS-BAR INK, PER TONE — the other half of the pair ────────────
+   ⚠ THE TWO VALUES COINCIDE AND THAT IS A MEASUREMENT, NOT A SHORTHAND. They
+   are reached from different evidence and either could move alone, so they
+   are written twice rather than collapsed to one constant:
+
+     alert  200059:35849 paints the clock and battery #1e2a3b, and
+            `--color-slate-800` is #1d293d — within 2 per channel. A NODE.
+     calm   no node. White was the candidate, because that is the polarity
+            the location screen ships over its own full-bleed hero, and it
+            FAILS: #fafbfc measures 3.63 / 3.67 at pad 0 against the calm
+            raster's pale highlights (worst #6486b1), with Phone.jsx's
+            darkening scrim already in the sample. Dark ink on the same band
+            measures 8.44 / 8.35. So the calm band keeps DARK glyphs and the
+            system page's status bar deliberately does NOT match the location
+            screen's white ones. Reported — see `useStatusBarBleed`.
+
+   Neither is `--status-bar-ink` (#0f172b), which is the shell default the
+   hook restores when `ink` is `undefined`. */
+const STATUS_BAR_INK = {
+  alert: 'var(--color-slate-800)',
+  calm: 'var(--color-slate-800)',
+}
+
 const MORE_MENU_ID = 'system-more-menu'
 const MORE_BADGE_ID = 'system-more-badge'
 
@@ -1775,11 +1839,6 @@ export default function SystemPageV2Screen() {
      with one card it never swiped. */
   const heroEvent = (system.alerts ?? [])[0] ?? null
 
-  /* Does the System type card belong to the hero this render? Only when
-     nothing more urgent does. Declared here, above `cardOrder`, because the
-     stack has to know whether to draw it a second time. */
-  const typeCardInHero = !heroEvent && loopDevices.length > 0
-
   /* THE STACK'S ORDER IS 200013:91524's, read off the node, not guessed:
        IOT overview      200013:91538   the System type card
        Topology          200013:91578   Valve status
@@ -1795,13 +1854,17 @@ export default function SystemPageV2Screen() {
      somewhere once timeline and chart swap, and last is the only position the
      frame does not contradict.
 
-     'type' LEAVES THIS LIST WHEN IT IS IN THE HERO. On a calm system the
-     System type card IS the hero's white body (200013:91602), so listing it
-     here too would draw it twice. See `heroBody`. */
-  const cardOrder = [
-    ...(typeCardInHero ? [] : ['type']),
-    'valve', 'policy', 'timeline', 'chart', 'insights',
-  ]
+     'type' IS ALWAYS IN THIS LIST NOW — 2026-11-10. It used to leave on a
+     calm system, because the System type card was the hero's white BODY there
+     (200013:91602) and listing it here as well would have drawn it twice. The
+     owner killed that arrangement: "In Figma, the system type is floating card
+     that float on the image. And here is not. Fix it." So there is one System
+     type card, in this stack, in both states — which is also what 200059:35848
+     draws: `200067:37898` "IOT overview" is a child of the stack
+     (200059:35902), `w-[370px]`, `rounded-[var(--rounded-3xl,22px)]`,
+     `bg-[#fafbfc]` with a white border, attached to nothing. See
+     `body` at the hero for the half of the change that removed the slot. */
+  const cardOrder = ['type', 'valve', 'policy', 'timeline', 'chart', 'insights']
 
   /* One optimistic valve state for the whole system, which is what the new
      card models. The per-device `closedValves` map stays underneath it — the
@@ -2187,14 +2250,6 @@ export default function SystemPageV2Screen() {
     </div>
   ) : null
 
-  /* The hero's white body is the System type card on a CALM system and
-     nothing at all on an event one — see the event card above and the note at
-     `body={heroBody}`. `typeCardInHero` is already `!heroEvent && …`, so the
-     two states cannot both be true. */
-  const heroBody = typeCardInHero ? (
-    <div className="p-[4px]" data-name="hero-body-type">{systemTypeCard}</div>
-  ) : undefined
-
   /* ── ONE BAR, TWO SEATS — 2026-11-09, Figma 200059:35860 ────────────────
      `onHero` picks the seat and the seat picks everything about the surface.
      One definition, so the two seats cannot drift apart in what they name,
@@ -2244,25 +2299,35 @@ export default function SystemPageV2Screen() {
      seated on that instead. The frame's band is recorded as a conflict for the
      owner, not acted on. HomeAllAccounts.jsx made the identical call against
      its own frame on the same day. */
-  /* ── WHICH SEAT, AND WHY IT IS GATED ON THE RED HERO ────────────────────
-     Two conditions, both necessary:
+  /* ── WHICH SEAT — ONE CONDITION NOW, AND THE SECOND ONE CAME OFF ────────
+     OVERVIEW, and nothing else. The hero renders on Overview only
+     (2026-11-08), so General Info has no artwork to seat a bar on: 200047:
+     135450 draws its hero raster `hidden="true"` and puts the bar on the
+     page ground with a back chevron, which is exactly what the `false` branch
+     already renders. That half stands.
 
-       · OVERVIEW. The hero renders on Overview only (2026-11-08), so General
-         Info has no artwork to tint.
-       · THE HERO MUST BE **RED**. `surfaceTint` is the tint of THIS frame's
-         hero and the frame is "System with event" — 200059:35848 is the ALERT
-         state and there is no calm node for this screen. On a calm system
-         SystemHeroCard paints the `calm` BLUE raster, and multiplying a red
-         veil over blue artwork is a colour nobody designed. `waterAlerting`
-         is the same predicate that chooses the red raster one screen down, so
-         the veil and the artwork under it cannot disagree about which hero is
-         on screen.
+     ⚠ `&& waterAlerting` WAS HERE AND THE OWNER TOOK IT OFF — 2026-11-10.
+     This line used to require a RED hero, because 200059:35848 is the ALERT
+     state and there is no calm node for this screen; the note it replaces
+     said in as many words that a full-bleed calm hero was a guess until a
+     calm node said so. The owner has now answered the question the note was
+     holding open, verbatim: "Why is system page still shows the old version
+     of Figma? ... It needs to be the same version as we have in location
+     screen." HomeAllAccounts serves both `/` and `/location/:name` and gates
+     its own bleed on `tab === 'overview'` with NO state term
+     (HomeAllAccounts.jsx `heroBleeds`), so "the same version" is that
+     predicate, and this is now it.
 
-     A calm system therefore keeps the bar exactly where it has always been,
-     as chrome on the page ground, and nothing about that view changes. When a
-     calm node arrives, this is the line that takes its tint — not a guessed
-     blue. */
-  const heroSeatsHeader = tab !== 'general' && waterAlerting
+     ⚠ WHAT THE RULING DID *NOT* HAND OVER IS THE COLOUR. It is a layout
+     instruction; it names no tint and no ink. The calm veil and the calm
+     status-bar ink are therefore DERIVED and measured here, per tone — see
+     `HERO_HEADER_TINT` and `STATUS_BAR_INK`. Still no calm node. */
+  const heroSeatsHeader = tab !== 'general'
+
+  /* WHICH HERO IS ON SCREEN. One name for the predicate that picks the
+     raster, the veil over it and the status-bar ink above it, so the three
+     cannot disagree about which hero they are painting on. */
+  const heroTone = waterAlerting ? 'alert' : 'calm'
 
   /* ── THE STATUS BAND IS THIS PAGE'S HERO NOW — 200059:35849 ──────────────
      The node puts NO background on the strip and paints the clock and battery
@@ -2273,22 +2338,41 @@ export default function SystemPageV2Screen() {
      rather than being covered by it.
 
      ⚠ ONE PREDICATE WITH THE VEIL AND THE BLEED, deliberately. Off Overview
-     there is no hero at all, and on a calm system the hero is the BLUE calm
-     raster with the bar on the page ground above it — dropping the seat in
-     either case pulls the route up under the clock with nothing behind it.
-     `heroSeatsHeader` already answers exactly that question for the veil, so
-     it answers it here too and the two cannot disagree. Resetting is the
-     hook's own job: it restores the seat on unmount and whenever `bleed`
-     goes false, so leaving Overview or clearing the event puts the band back.
+     there is no hero at all — a More pick replaces the whole body — so
+     dropping the seat there would pull the route up under the clock with
+     nothing behind it. `heroSeatsHeader` already answers exactly that
+     question for the veil, so it answers it here too and the two cannot
+     disagree. Resetting is the hook's own job: it restores the seat on
+     unmount and whenever `bleed` goes false, so leaving Overview puts the
+     band back.
 
-     ⚠ INK IS PER SCREEN. `--color-slate-800` is #1d293d against the node's
-     #1e2a3b — within 2 per channel. It is NOT `--status-bar-ink` (#0f172b),
-     which is the default the hook restores. Home's equivalent node paints the
-     same glyphs WHITE, which is why this is a parameter and not a constant.
+     ⚠ INK IS PER SCREEN **AND PER TONE** — `STATUS_BAR_INK`, 2026-11-10.
+     This used to be one value because only one tone ever bled. Both tones bled
+     after the gate came off, so both had to be measured, and the numbers are
+     at the constant. The short version: `alert` keeps the node's dark glyphs,
+     and `calm` gets dark glyphs TOO — not the location screen's white ones.
 
-     ⚠ DARK GLYPHS ON A RED HERO IS THE RISKY PAIRING and the shell cannot
-     check it — nothing there knows what is behind them. Measured from this
-     side instead; see the report. */
+     ⚠ WHITE WAS THE OBVIOUS GUESS AND IT FAILS. "The same version as the
+     location screen" is a layout ruling, and the location screen's ink does
+     not travel with it: #fafbfc over the calm raster's pale highlights
+     measured 3.63 (clock) and 3.67 (right cluster) at pad 0, WITH Phone.jsx's
+     darkening scrim already in the sample. These glyphs are 14px/600 and
+     WCAG's large-text exemption starts at 18.66px bold, so the bar is 4.5 and
+     3.63 is a failure, not a near miss. Dark ink on the same pixels measures
+     8.44 / 8.35. Polarity was measured, not assumed, in both directions.
+
+     ⚠ CONTRAST OVER ARTWORK CANNOT BE ASSERTED IN A UNIT TEST. happy-dom
+     composites nothing, so no .dom.test can see these pixels; the guard is a
+     pixel script that hides the glyph spans and samples the real backdrop.
+     The shell cannot check it either — nothing in Phone.jsx knows what is
+     behind the clock. Measured from this side; numbers in the report.
+
+     ⚠ THE SCRIM IS ALREADY INK-AWARE and needed nothing added here. Phone.jsx
+     picks `STATUS_SCRIM_DARKEN` for light ink and `STATUS_SCRIM_LIGHTEN` for
+     dark, flat through the top 58% and then faded, so the lightening one is
+     what the calm band gets and it is in every number above. A scrim hard-
+     coded to DARKEN would help white glyphs and HURT these, which is why
+     nothing here makes it unconditional. */
   const { inset: statusBarInset } = useStatusBarBleed({
     bleed: heroSeatsHeader,
     /* ⚠ THE INK IS GATED TOO, AND IT HAS TO BE. Passing it unconditionally
@@ -2298,14 +2382,14 @@ export default function SystemPageV2Screen() {
        to move its colour off the shell's own `--status-bar-ink` (#0f172b).
        Measured: the clock read #1d293d on every state, including the two that
        do not bleed. `undefined` is what makes the hook restore the default. */
-    ink: heroSeatsHeader ? 'var(--color-slate-800)' : undefined,
+    ink: heroSeatsHeader ? STATUS_BAR_INK[heroTone] : undefined,
   })
 
   const renderHeaderBar = onHero => (
         <AppHeaderBar
           className={onHero ? undefined : 'px-0'}
           surface={onHero ? 'onColor' : 'ground'}
-          surfaceTint={onHero ? HERO_HEADER_TINT : undefined}
+          surfaceTint={onHero ? HERO_HEADER_TINT[heroTone] : undefined}
           eyebrow={system.parentName || undefined}
           title={system.title || system.parentName || 'System'}
           onBack={system.parentName
@@ -2367,10 +2451,15 @@ export default function SystemPageV2Screen() {
             itself, so it is passed bare; `title` names the current scope. */}
         {/* ── THE GROUND SEAT ──────────────────────────────────────────────
             `shrink-0` chrome above the scroller, exactly where this page's bar
-            has always been and exactly what it has always rendered. It is what
-            General Info gets, and what a CALM system gets; see
-            `heroSeatsHeader` and the ⚠ at `renderHeaderBar` for why this
-            branch may not be deleted. */}
+            has always been and exactly what it has always rendered. It is
+            what GENERAL INFO gets — and, until 2026-11-10, what a calm system
+            got too; that second case is gone (see `heroSeatsHeader`), so this
+            branch now has exactly one caller. It is still NOT dead code and
+            still may not be deleted: 200047:135450 draws General Info's hero
+            raster `hidden="true"` and its bar on the page ground, and
+            `onColor` without a hero is meaningless by AppHeaderBar's own note
+            — `mix-blend-multiply` over the plain page ground just darkens the
+            page. See the ⚠ at `renderHeaderBar`. */}
         {/* `px-4 pt-2` is the padding that used to be on the root. It moved
             here because the bleeding hero needs the SCROLLER to own the
             gutter (see the scroller) and because this is now the only child
@@ -2478,11 +2567,13 @@ export default function SystemPageV2Screen() {
               NOTHING IS REMOVED, and the component is untouched: same props,
               same data, same handlers. On Overview — the tab this page opens
               on — it draws exactly what it drew before.
-              ⚠ ON ALERT, the white body is the live water event (see
-              `heroBody`), so General Info no longer shows that card. It is
+              ⚠ ON ALERT, the live water event is drawn beside the hero on
+              Overview only, so General Info does not show that card. It is
               reachable from Overview and from the alerts overlay, and this is
               the direct consequence of "replaced the entire screen below";
-              flagged for the owner rather than carved out. */}
+              flagged for the owner rather than carved out. The same now goes
+              for the System type card, which left the hero on 2026-11-10 and
+              is a member of the Overview card stack. */}
           {tab === 'general' ? null : (
           <SystemHeroCard
             /* ── FULL-BLEED ON THE EVENT STATE — 200059:35848, 2026-11-09 ───
@@ -2516,12 +2607,22 @@ export default function SystemPageV2Screen() {
                cannot reach it. Verified by measuring the event card's painted
                height, not assumed.
 
-               ⚠ GATED ON THE EVENT STATE, like the veil. 200059:35848 is
-               "System with event" and there is no calm node for this screen;
-               a calm system keeps the inset card, its white System type body
-               and its ground-seat header, all byte-identical to what shipped.
-               Reported, because a full-bleed calm hero is a guess until a calm
-               node says so.
+               ⚠ NO LONGER GATED ON THE EVENT STATE — 2026-11-10. It was, and
+               the note here said a full-bleed calm hero was a guess until a
+               calm node said so. The owner answered instead of the node:
+               "It needs to be the same version as we have in location
+               screen." There is still no calm frame; what changed is that the
+               LAYOUT no longer needs one. `heroSeatsHeader` carries the whole
+               ruling and the quote.
+
+               ⚠ THE WHITE BODY IS GONE FROM THIS PAGE, and that is the
+               owner's second ruling, not a side effect of this one: "In Figma,
+               the system type is floating card that float on the image." The
+               hero is now the coloured section alone in BOTH states, and the
+               System type card is a rounded card in the stack that overlaps
+               it. See `body` below and THE OVERLAP in the content column.
+               Nothing is dropped — `systemTypeCard` is one definition and
+               `cardOrder` draws it; Rule 0's full accounting is at `body`.
 
                ⚠ WHAT THIS CANNOT REACH: THE STATUS BAR. The node runs the red
                BEHIND the clock and battery. Phone.jsx renders its own status
@@ -2585,7 +2686,7 @@ export default function SystemPageV2Screen() {
                (splitPeriodLabel) and would be broken by a bare range. Same
                window, two spellings for two readers. */
             rangeLabel={consumptionView.labelRange ?? consumptionView.label}
-            tone={waterAlerting ? 'alert' : 'calm'}
+            tone={heroTone}
             /* NO `expanded`, because there is nothing to expand: the chart
                is always mounted below and this control only takes you there.
                The hero draws "See more" and nothing else, and carries no
@@ -2611,15 +2712,34 @@ export default function SystemPageV2Screen() {
               setTab('overview')
               jumpToChartFromHero()
             }}
-            /* ── THE EVENT CARD IS NOT IN HERE ANY MORE — 2026-11-09 ───────
-               `heroBody` is the System type card on a calm system and NOTHING
-               on an event one: 200059:35899 draws the event card as a FLOW
-               SIBLING below the hero, overlapping the red backdrop, not as a
-               white section welded under it. That reverses contract §6 for
-               this screen, on the owner's instruction and against this frame;
-               the line this file's old note called "the line that changes" is
-               this one. See THE OVERLAPPING EVENT CARD below. */
-            body={heroBody}
+            /* ── NO `body`, IN EITHER STATE — 2026-11-10 ───────────────────
+               HeroCardShell's white body slot is UNUSED by this page now, and
+               that is the whole of the owner's second ruling: "In Figma, the
+               system type is floating card that float on the image. And here
+               is not. Fix it."
+
+               The event card left the slot on 2026-11-09 (200059:35899 draws
+               it as a FLOW SIBLING below the hero, overlapping the backdrop,
+               not as a white section welded under it). The System type card
+               has now followed it, for the same reason and out of the same
+               frame: 200067:37898 is a child of the card stack 200059:35902,
+               `w-[370px]` inside a 402 frame, rounded on all four corners,
+               `bg-[#fafbfc]` with a white border — a card of its own, joined
+               to nothing. Both states therefore reverse contract §6 for this
+               screen, on the owner's instruction.
+
+               ⚠ RULE 0: NOTHING WAS DROPPED, ONLY RE-PARENTED. `systemTypeCard`
+               is one definition and it has always been rendered either here or
+               by `cardOrder`; it is now always the latter, with the same props,
+               the same `expanded`/`onToggle` pair and the same `loopExpanded`
+               state, which lives on the PAGE and so survives the move. The
+               label, the value, the Supply row and its SN, the device chips,
+               the artwork and the "Show more" disclosure are the same elements.
+               Verified open as well as closed in the browser pass.
+
+               ⚠ AND THE SLOT ITSELF IS NOT DELETED. HeroCardShell and
+               SystemHeroCard still take `body`; Home still passes one. Only
+               this page stopped filling it. */
           />
           )}
 
@@ -2644,15 +2764,39 @@ export default function SystemPageV2Screen() {
                    stack. Without an event card there is only the stack, so the
                    gap has nothing to measure and the stack's own 14 governs. */
                 eventCard ? 'gap-[16px]' : 'gap-[14px]',
-                /* ── THE OVERLAP ────────────────────────────────────────────
-                   65px of the event card sits on the red (see `eventCard`),
-                   and the scroller's own `gap-[22px]` stands between this
-                   column and the hero, so the pull is 22 + 65. `relative` is
-                   what makes this column paint OVER the hero: both are
-                   positioned at z-index auto, so they paint in document order
-                   and this one comes second. No z-index — a positive one here
-                   would paint over the floating tab bar. */
-                eventCard ? '-mt-[87px]' : null,
+                /* ── THE OVERLAP — BOTH TONES NOW, 2026-11-10 ───────────────
+                   The hero pays 78px of colour below the consumption copy
+                   (SystemHeroCard's `layout: 'bleed'`), the scroller's own
+                   `gap-[22px]` stands between this column and the hero, and
+                   this pull of 22 + 65 lands the column's first card over 65
+                   of that 78. `relative` is what makes the column paint OVER
+                   the hero: both are positioned at z-index auto, so they paint
+                   in document order and this one comes second. No z-index — a
+                   positive one here would paint over the floating tab bar.
+
+                   ⚠ IT IS GATED ON THE BLEED, NOT ON THE EVENT CARD. It used
+                   to be `eventCard ? … : null`, because only an event hero
+                   bled and only the event card overlapped. Both tones bleed
+                   now, so both pay the 78 and both must spend it; leaving this
+                   on `eventCard` would have left a calm hero with 78px of
+                   empty blue under the figure and a card sitting below it.
+                   `heroSeatsHeader` is the predicate that put the 78 there, so
+                   it is the one that takes it back, and the two cannot drift.
+
+                   ⚠ WHAT THE FRAME SAYS, MEASURED, AND WHERE IT STOPS. In
+                   200059:35848 (get_metadata on 200059:35858, 2026-11-10) the
+                   artwork 200059:35859 is y=-75 h=323, so its bottom edge is
+                   content-y 248. The event card 200059:35901 sits at 66+107+10
+                   = 183, i.e. 65 of its 92px on the colour — which is where
+                   the 65 came from and it checks out. The STACK 200059:35902
+                   sits at 66+107+118 = 291, forty-three pixels BELOW the
+                   artwork, so in the ALERT frame the System type card does NOT
+                   overlap anything. The overlap on a CALM system is therefore
+                   the OWNER'S ruling ("floating card that float on the image"),
+                   not the frame's, and it is the event card's own 65 because
+                   on a calm system nothing else is occupying that position.
+                   REPORTED as such: a calm node would settle it. */
+                heroSeatsHeader ? '-mt-[87px]' : null,
               )}
               data-node-id={eventCard ? '200059:35899' : '198379:80459'}
               data-name="system-content"
@@ -2667,12 +2811,12 @@ export default function SystemPageV2Screen() {
                 data-node-id="200059:35902"
               >
                   {/* THE ALERT CAROUSEL IS GONE — 2026-11-07. The event it
-                      drew is the HERO'S WHITE BODY now (see `heroBody`), which
-                      is what 200013:91524 draws and what contract §6 rules.
-                      Nothing was lost in the move: `system.alerts` never held
-                      more than one entry, so the row never swiped, and the tap
-                      target, the keyboard opener and handleAlertAction all
-                      travelled with the card. */}
+                      drew is `eventCard` above now, a flow sibling that
+                      overlaps the hero (200059:35899). Nothing was lost in the
+                      move: `system.alerts` never held more than one entry, so
+                      the row never swiped, and the tap target, the keyboard
+                      opener and handleAlertAction all travelled with the
+                      card. */}
 
 
                   {/* THE CARD STACK — ordered by state, see `cardOrder`.
@@ -2924,7 +3068,27 @@ export default function SystemPageV2Screen() {
                             kind: row.label,
                             delta: row.kind === INSIGHT_KIND.BACKGROUND_FLOW ? null : insightValueLabel(row),
                             deltaTone: row.kind === INSIGHT_KIND.USAGE_UP ? 'bad' : 'good',
-                            value: insightValueLabel(row),
+                            /* TWO QUANTITIES, NOT ONE PRINTED TWICE. `delta`
+                               is the badge (a percentage); `value` is the
+                               line under it, which the frame draws as a
+                               signed litre count. Both slots used to call
+                               insightValueLabel(), so a usage-change row said
+                               "+18.9%" in the badge and "+18.9%" again
+                               directly beneath it. HomeAllAccounts carried
+                               the identical bug and was fixed first; this is
+                               the same one line, so the two screens cannot
+                               drift.
+
+                               THE LITRE FIGURE IS NOT NEW DATA. insightsModel
+                               has carried `liters` on every row since the
+                               port — detailsFor() computes it — and nothing
+                               read it. Background flow has no baseline to
+                               have moved against, so insightLitersLabel()
+                               returns null for it and the row keeps its flow
+                               rate, which is what the frame's second row
+                               draws. That is what the `??` is for; it is not
+                               a defensive fallback. */
+                            value: insightLitersLabel(row) ?? insightValueLabel(row),
                             systemId: row.systemId,
                             series: row.series,
                             baseline: row.baseline,

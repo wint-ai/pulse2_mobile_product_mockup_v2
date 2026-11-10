@@ -196,7 +196,10 @@ describe('the list layout is untouched', () => {
     cleanup()
     const empty = render(<InsightsCard rows={[]} />)
     expect(String(rootOf(empty.container).className)).toContain('w-full')
-    expect(empty.getByText('View all')).toBeTruthy()
+    // "Show all", not "View all": 200067:39017 writes the same word the Water
+    // events and System health headers above it do. See the button in
+    // InsightsCard's list header for why the 57px "View all" had to go.
+    expect(empty.getByText('Show all')).toBeTruthy()
   })
 
   it('still turns rows into real buttons when given a handler', () => {
@@ -235,12 +238,28 @@ describe('the empty state (list layout)', () => {
     expect(getByText('Your first insights are coming soon.')).toBeTruthy()
   })
 
-  it('keeps "View all" - an empty card does not drop a working control', () => {
+  it('keeps "Show all" - an empty card does not drop a working control', () => {
     // Rule 0: removing a live affordance needs the owner's word. On the
     // Dashboard this one navigates to /kpi/insights and it survives the
     // empty state untouched.
     const { getByRole } = render(<InsightsCard rows={[]} onViewAll={() => {}} />)
-    expect(getByRole('button', { name: 'View all' })).toBeTruthy()
+    // The accessible name is the DESTINATION, not the frame's shorthand.
+    expect(getByRole('button', { name: 'Show all insights' })).toBeTruthy()
+  })
+
+  it('fits the action on one line, at the frame\'s 99x36', () => {
+    // THE DEFECT, 2026-11-10. The action was a 57px box holding "View all" at
+    // 14px/20, so the label wrapped to two lines and overflowed its own 32px
+    // button in the top-right of the card. 200067:39017 draws it 99x36 with
+    // the label nowrap, which is also TriageBand's ACTION box.
+    const { getByRole } = render(<InsightsCard rows={[]} onViewAll={() => {}} />)
+    const cls = String(getByRole('button', { name: 'Show all insights' }).className)
+    expect(cls).toContain('w-[99px]')
+    expect(cls).toContain('h-[36px]')
+    expect(cls).not.toContain('w-[57px]')
+    // whitespace-nowrap sits on the label atom, which is what stops the wrap.
+    const label = getByRole('button', { name: 'Show all insights' }).querySelector('span')
+    expect(String(label.className)).toContain('whitespace-nowrap')
   })
 
   it('paints its type with tokens, so all four themes reach it', () => {

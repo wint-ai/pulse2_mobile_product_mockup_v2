@@ -40,6 +40,7 @@
  */
 
 import { useId } from 'react'
+import { ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DropletDown, DropletShare, Droplets } from '@/v2/icons'
 import wave from '@/assets/system-hero-wave.png'
@@ -293,8 +294,10 @@ function Sparkline({ tone, series, baseline, kind }) {
  * The comp states the figure as a number plus a separately-muted unit
  * (I198328:88624;101006:7299;198328:88564). Callers pass one already-formatted
  * string, and that string stays the source of truth — this only splits it for
- * display, on the last space. "16.1 L/h" becomes 16.1 + L/h; a bare "+12.5%"
- * from insightValueLabel() has no unit and is left whole.
+ * display, on the last space. "16.1 L/h" becomes 16.1 + L/h, and so does
+ * "-13,564 L" (insightLitersLabel, the litre delta the Home frame states under
+ * the percentage badge). A string with no space — a bare "+12.5%" from
+ * insightValueLabel() — has no unit and is left whole.
  */
 function splitValue(value) {
   const s = String(value ?? '').trim()
@@ -763,7 +766,7 @@ export default function InsightsCard({
             opposite are what make the header 62px rather than the title's own
             line height. flex-1/min-w-0 is the node's own `flex-[1_0_0]
             min-w-px` on the Title-and-desc wrapper: the title takes the slack
-            and the View-all pill keeps its 57px. */}
+            and the action keeps its 99px (200067:39017 — see the button). */}
         <div className={String.raw`min-w-0 flex-1 py-1.5`}>
           <div
             className={String.raw`w-full truncate font-semibold tracking-[-0.45px] text-lg leading-[18px] text-slate-800`}
@@ -772,18 +775,60 @@ export default function InsightsCard({
           </div>
         </div>
         {onViewAll ? (
+          /* 2026-11-10 — THE HOME FRAME'S OWN BUTTON, and the sibling idiom,
+             which here are the same thing. This slot used to be a 57px box
+             holding "View all" at 14px/20: the label does not fit 57px, so it
+             WRAPPED — "View" over "all", two lines inside an h-32 box — in the
+             top-right of the card on Home. A real, visible defect.
+
+             200067:39017 is the Home frame's Insights node and nothing in this
+             file had been derived from it (the header above still cites
+             198328:88624 / 199296:50344 / 199323:12261). Its header action is
+             I200067:39017;199532:87332: "Show all" + a Lucide arrow-right in a
+             99x36 button, gap 6, justify-end, radius 10, slate/600 at 14/20.
+
+             That is byte-for-byte TriageBand's ACTION (h-36, gap-1.5, w-99,
+             justify-end) — the Water events card directly above this one on
+             Home — so matching the frame and matching the sibling are one
+             move, not two. SystemHealthCard draws the same control at 99x32
+             with a 2px gap on its OWN newer node (199922:85244); that is its
+             documented ruling and is left alone.
+
+             `after:` grows the tap target to 99x48 without moving a pixel,
+             exactly as the siblings do: 36 centred in the 38px content box
+             runs y 1..37, and -6px each side gives 48. */
           <button
             type="button"
             onClick={onViewAll}
-            className={String.raw`flex h-[32px] w-[57px] shrink-0 cursor-pointer items-center justify-center rounded-lg px-2.5 font-medium text-sm leading-5 text-muted-foreground outline-none hover:bg-[rgba(0,0,0,0.04)] focus-visible:ring-[3px] focus-visible:ring-ring/50`}
+            /* The arrow is a promise; the accessible name keeps the
+               destination (/kpi/insights) rather than the frame's shorthand -
+               wint-ui-copy section 5, and the same move SystemHealthCard makes
+               ("Show all" / "Show all alerts"). */
+            aria-label="Show all insights"
+            className={String.raw`appearance-none bg-transparent border-0 flex gap-1.5 h-[36px] w-[99px] shrink-0 cursor-pointer items-center justify-end px-0 py-0 relative rounded-[10px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 after:absolute after:content-[''] after:inset-x-0 after:inset-y-[-6px]`}
+            data-name="Button"
+            data-node-id="I200067:39017;199532:87332"
           >
-            View all
+            <span
+              className={String.raw`[word-break:break-word] font-sans font-medium relative shrink-0 text-slate-600 text-sm whitespace-nowrap leading-5`}
+            >
+              Show all
+            </span>
+            <span
+              className={String.raw`content-stretch flex flex-col items-center justify-center overflow-clip relative shrink-0 size-[16px] text-slate-600`}
+              data-name="Icon Placeholder"
+            >
+              <ArrowRight size={16} strokeWidth={2} aria-hidden="true" focusable="false" />
+            </span>
           </button>
         ) : (
           /* Inert when the caller names no destination — Rule 0 forbids
-             inventing a route. See .claude/skills/v2-page-parity. */
-          <span className="h-[32px] inline-flex items-center text-sm font-medium text-slate-500" aria-disabled="true">
-            View all
+             inventing a route. See .claude/skills/v2-page-parity. The label
+             follows the button above so the card says one word for one thing,
+             but it keeps NO arrow: an arrow here would promise a journey this
+             branch deliberately does not have. */
+          <span className="h-[36px] inline-flex items-center text-sm font-medium leading-5 text-slate-500" aria-disabled="true">
+            Show all
           </span>
         )}
       </div>

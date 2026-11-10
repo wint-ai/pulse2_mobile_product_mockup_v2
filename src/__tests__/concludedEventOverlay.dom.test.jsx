@@ -46,6 +46,7 @@ import { PUSH_CATALOG } from '@/data/pushCatalog'
 import { firePushCard } from '@/lib/pushSimFire'
 import { getSimulatedAlert } from '@/data/simulatedAlerts'
 import { startInvestigating } from '@/data/investigatingStore'
+import { ignoreIncident } from '@/data/ignoredIncidents'
 
 /* PushNotifications opens the ntfy.sh bridge on mount and happy-dom ships no
    EventSource. Stubbed inert, exactly as pushTagToSheet.dom.test.jsx does —
@@ -124,6 +125,41 @@ describe('the concluded-event layout', () => {
     expect(
       within(container).queryByText('Ongoing'),
       'a finished event may not still report itself as ongoing',
+    ).toBeNull()
+  })
+
+  /* ── WHERE "Ended" SITS — 2026-11-10 ────────────────────────────────────
+     The assertion above only asks that the word is on the screen somewhere,
+     which it was when AlertCard drew it and still is now that the hero mark
+     does. This one pins WHICH node, because the owner's ruling is about the
+     layout and not about the word: the ended state draws the same hero mark
+     and stat block the live and ignored states draw, with the existing pill
+     moved into the mark's `status` slot. If a later pass moves the pill back
+     into a card, the layouts fork again and this fails. */
+  it('draws the frame’s hero mark and tiles, with Ended in the mark', () => {
+    const { container } = mountOverlay(quiet)
+    const mark = container.querySelector('[data-node-id="200067:37406"]')
+    expect(mark, 'the hero mark').toBeTruthy()
+    expect(container.querySelector('[data-node-id="200067:37413"]'), 'the stat block').toBeTruthy()
+    expect(
+      container.querySelector('[data-node-id="199683:24869"]'),
+      'the ended event is still drawing the superseded bordered card',
+    ).toBeNull()
+    expect(mark.querySelector('[data-node-id="199683:24876"]').textContent).toBe('Ended')
+  })
+
+  /* A live event's row carries `status: 'Ongoing'` and the frame draws no
+     pill for it, so the slot must stay EMPTY on the other two states — which
+     is what keeps them pixel-identical to before this change. The live case
+     is pinned in eventFocusOverlay.dom.test.jsx beside the ignored one; here
+     it is the fixture that proves the gate is `isEnded` and not "always". */
+  it('spends no status slot on an event that has not ended', () => {
+    const { container } = mountOverlay(leaky)
+    const mark = container.querySelector('[data-node-id="200067:37406"]')
+    expect(mark, 'the hero mark').toBeTruthy()
+    expect(
+      mark.querySelector('[data-node-id="199683:24876"]'),
+      'a running event grew a status pill',
     ).toBeNull()
   })
 
@@ -297,6 +333,111 @@ describe('?action=tag lands on the event, not on the bare System page', () => {
        mounted in the owner's order and not as measured z-order. The sheet is
        `absolute inset-0 z-50` at page level, mounted after the frame root that
        holds the overlay at z-40, and reads nothing outside itself. */
+  })
+})
+
+/* ── WHERE `ignored-overlay` LIVES NOW — 2026-11-10 ────────────────────────
+   THE LAYOUT RULING MOVED IT. On 2026-11-10 the owner ruled that a state is a
+   state of one page ("ignored is just a state of the same page ... layout
+   needs to be always the same in all screens"), and an IGNORED LIVE event
+   stopped drawing AlertCard: it draws the frame's hero mark + stat block, the
+   same block a live event draws. AlertCard's `ignored-overlay` shell is NOT
+   deleted — 199772:144341 is a real drawing of a real state — and this is the
+   branch that still reaches it: an event that is BOTH ignored and ENDED.
+
+   WHY ENDED STILL CARRIES THE CARD AT ALL, and this is the one place that
+   change deliberately STOPPED rather than unified: a concluded row carries
+   `status: 'Ended'`, and AlertCard's status pill is the only thing on this
+   surface that says the event is over (the test above pins exactly that).
+   The hero mark has no status slot; giving it one would invent a slot for a
+   state no frame covers, and writing "Event Ended" into the ignored strip
+   would invent a string. Both are Rule 0 / no-invented-state-labels. It is an
+   OPEN QUESTION for the owner, not a settled design — and the moment they say
+   where "Ended" goes, the component's gate loses its `&& !isEnded` and this
+   test is the one that will notice. */
+describe('an ignored AND ended event draws the unified block too', () => {
+  /* ── REWRITTEN 2026-11-10, AND THE FAILURE WAS THE POINT ────────────────
+     This test was the tripwire the note above promised ("the moment they say
+     where 'Ended' goes, the component's gate loses its `&& !isEnded` and this
+     test is the one that will notice"). The owner has ruled, the gate has
+     lost it, and this file fired exactly as designed.
+
+     WHAT IT USED TO ASSERT, kept verbatim so the swap is auditable:
+
+       describe('an ignored AND ended event keeps the ignored-overlay shell')
+         it('draws the card, its ignored shell, and the Event Ignored strip')
+           expect(container.querySelector('[data-node-id="199772:144519"]'),
+             'the ignored-overlay shell became unreachable').toBeTruthy()
+           expect(container.querySelector('[data-node-id="200067:37406"]'),
+             'the ended branch quietly adopted the hero mark and dropped the
+              Ended pill').toBeNull()
+
+     Both are now inverted, and the second one's WORRY is what this version
+     pins instead: the hero mark was adopted, and the Ended pill was NOT
+     dropped — it moved into the mark's new `status` slot. That is the whole
+     of the owner's ruling, and it is asserted positively below rather than
+     left to the absence of the card. */
+  it('draws the hero mark and the stat block, not the ignored-overlay card', () => {
+    ignoreIncident(quiet.id, { ignoredBy: 'Marcus Ellery' })
+    const { container } = mountOverlay(quiet)
+    expect(overlayIsOpen()).toBe(true)
+    expect(container.querySelector('[data-node-id="200067:37406"]'), 'the hero mark').toBeTruthy()
+    expect(container.querySelector('[data-node-id="200067:37413"]'), 'the stat block').toBeTruthy()
+    /* 199772:144519 is AlertCard's own marker for the overlaid shell. */
+    expect(
+      container.querySelector('[data-node-id="199772:144519"]'),
+      'the ignored+ended event is still drawing the superseded bordered card',
+    ).toBeNull()
+    /* The strip is unmoved — it is still a scroller child at the gutter,
+       where 199755:33270 puts it. Only the thing beside it changed. */
+    const strip = container.querySelector('[data-node-id="199755:29744"]')
+    expect(strip, 'the Event Ignored strip').toBeTruthy()
+    expect(strip.textContent).toBe('Event Ignored')
+  })
+
+  /* THE THING THE OLD TEST WAS PROTECTING. It would not let the ended branch
+     adopt the hero mark because doing so dropped the only statement on the
+     screen that the event is over. It is not dropped; this is where it went,
+     and this assertion is what stops it being lost in some later pass. */
+  it('still says the event is over, from inside the hero mark', () => {
+    ignoreIncident(quiet.id, { ignoredBy: 'Marcus Ellery' })
+    const { container } = mountOverlay(quiet)
+    const mark = container.querySelector('[data-node-id="200067:37406"]')
+    const pill = mark.querySelector('[data-node-id="199683:24876"]')
+    expect(pill, 'the Ended pill is not in the hero mark').toBeTruthy()
+    /* THE EXACT STRING, not a match. "Ended" already ships — it is
+       SystemPageV2Screen:669's label for a resolved row and
+       EventsTimelineCard's BADGE_TONE.ended — and the ruling turned on the
+       pill reusing it rather than anything new being written. A regex here
+       would let "Event Ended" or "Ended 3d ago" through, and either would be
+       the invented state label wint-ui-copy forbids. */
+    expect(pill.textContent).toBe('Ended')
+    /* And it is the ONLY one, on a screen that no longer draws the card. */
+    expect(within(container).queryAllByText('Ended')).toHaveLength(1)
+  })
+
+  /* ── RULE 0: WHERE `ignored-overlay` WENT ───────────────────────────────
+     It is NOT deleted — AlertCard.jsx still carries it and this change edited
+     no line of that file. What changed is which events reach it. `ignored` on
+     this surface is `isWater && isIgnored(id)`, and the water branch now
+     draws the unified block in every one of its three states, so no WATER
+     event reaches the shell any more.
+
+     THE PATH THAT REMAINS is a FAULT on a system that also carries an ignore:
+     `alertRow.ignored` is `isIgnored(systemId)` read straight off the store
+     (eventAlertRow.js:238) with no water gate of its own, while the call site
+     picks the variant from that field. Pinned here so the claim is measured
+     rather than asserted in a comment — and FLAGGED in the report, because a
+     fault wearing an ignored shell because of a previous WATER event is odd
+     on its face and is the owner's call, not this change's. */
+  it('leaves ignored-overlay reachable — by a fault on an ignored system', () => {
+    ignoreIncident(faulted.id, { ignoredBy: 'Marcus Ellery' })
+    const { container } = mountOverlay(faulted)
+    expect(overlayIsOpen()).toBe(true)
+    expect(
+      container.querySelector('[data-node-id="199772:144519"]'),
+      'the ignored-overlay shell is now unreachable from anywhere',
+    ).toBeTruthy()
   })
 })
 

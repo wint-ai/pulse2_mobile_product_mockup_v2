@@ -226,3 +226,35 @@ export function insightValueLabel(row) {
   const sign = row.kind === INSIGHT_KIND.USAGE_UP ? '+' : '-';
   return `${sign}${row.deltaPct.toFixed(1)}%`;
 }
+
+/**
+ * The litre delta a usage-change row moved by — the figure the card states
+ * UNDER the percentage badge, not a second copy of the badge.
+ *
+ * 2026-11-10. The Home frame's Insights node (200067:39017) stacks two
+ * different quantities in its 55px figure column: a percentage in the Badge
+ * (I…;199532:86107) and a signed litre count in the Unit wrapper beneath it
+ * (I…;199532:86108 — "-13,564" + "L"). The card was passing
+ * insightValueLabel() to BOTH, so a usage-change row printed "+18.9%" twice,
+ * once in the badge and once on the line directly below it.
+ *
+ * NOTHING IS INVENTED HERE. `liters` is already on every row and has been
+ * since the model was ported: detailsFor() computes it as
+ * `|round(actual - baselineUsage) * daysAgo|` — the daily delta against the
+ * row's own baseline, over the row's own window — and this file's header has
+ * always said a usage change is "reported as a percentage AND a litre delta,
+ * and signed". It was simply never read by anything. The sign is the kind's,
+ * the same way insightValueLabel() takes it, so the two lines always agree
+ * about the direction and differ only in unit.
+ *
+ * Background flow has no baseline to have moved against (`baseline: null`),
+ * so it has no delta to state: this returns null and the caller keeps the
+ * flow rate there, which is what the frame's second row draws (16.1 L/H, and
+ * no badge above it).
+ */
+export function insightLitersLabel(row) {
+  if (!row || row.kind === INSIGHT_KIND.BACKGROUND_FLOW) return null;
+  if (!Number.isFinite(row.liters)) return null;
+  const sign = row.kind === INSIGHT_KIND.USAGE_UP ? '+' : '-';
+  return `${sign}${Math.abs(Math.round(row.liters)).toLocaleString('en-US')} L`;
+}

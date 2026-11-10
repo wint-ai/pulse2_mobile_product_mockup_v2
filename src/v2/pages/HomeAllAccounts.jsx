@@ -232,7 +232,7 @@ import { useAlertScope } from '@/hooks/useActiveAlerts'
 import { getAccountById } from '@/data/accounts'
 import { getConsumption } from '@/data/consumption'
 import { getFleetConsumptionSeries } from '@/data/consumptionSeries'
-import { getInsightRows, insightValueLabel, INSIGHT_KIND } from '@/data/upstream/insightsModel'
+import { getInsightRows, insightValueLabel, insightLitersLabel, INSIGHT_KIND } from '@/data/upstream/insightsModel'
 import { computeSystemHealth } from '@/utils/systemHealth'
 
 // ── Mock data ──────────────────────────────────────────────────────────────
@@ -1011,7 +1011,16 @@ export default function HomeAllAccounts({ expanded = false }) {
         kind: row.label,
         delta: row.kind === INSIGHT_KIND.BACKGROUND_FLOW ? null : insightValueLabel(row),
         deltaTone: row.kind === INSIGHT_KIND.USAGE_UP ? 'bad' : 'good',
-        value: insightValueLabel(row),
+        /* TWO QUANTITIES, NOT ONE PRINTED TWICE. `delta` is the badge (a
+           percentage); `value` is the line under it, which 200067:39017 draws
+           as a signed litre count. Both lines used to call
+           insightValueLabel(), so a usage-change row said "+18.9%" in the
+           badge and "+18.9%" again directly beneath it. The litre figure is
+           not new data - insightsModel already carried `liters` on every row
+           and nothing read it. Background flow has no litre delta, so it
+           falls back to the flow rate, which is what the frame's second row
+           shows. */
+        value: insightLitersLabel(row) ?? insightValueLabel(row),
         systemId: row.systemId,
         series: row.series,
         baseline: row.baseline,
@@ -2839,10 +2848,51 @@ export default function HomeAllAccounts({ expanded = false }) {
         initialTab={overlayTab}
         events={overlayEvents}
         /* PRD 05a: "Tapping any row opens that system's page." The overlay
-           closes first so the page behind it is not left covered. */
+           closes first so the page behind it is not left covered.
+
+           ?focus=event, AND WHY THE BARE URL WAS A BUG — 2026-11-10. Owner:
+           "I can just redirect from active water events when I go to system
+           page, nothing there. So once clicking there, it needs to open the
+           event page." This navigated to `/system/${id}` with no query, so the
+           row closed the list and landed on a system page with its event
+           surface SHUT — the tap "worked" and showed nothing, which is exactly
+           how it was reported. Measured on /location/Office, all five rows,
+           WebKit iPhone 14 and Chromium 1280x900: url /system/ws-… , zero
+           dialogs.
+
+           This makes the page's TWO event openers agree. TriageBand's row
+           (`onSelectEvent` above) already opens the event itself, over this
+           page; the list's row is the same gesture on the same data and must
+           not end somewhere quieter.
+
+           THE PARAM IS NOT A NEW CONTRACT. The system page already answers it
+           — SystemPageV2Screen.jsx:1666, behind `eventFocusAllowed` — and it
+           is read and stripped on arrival, so the URL left in history is still
+           `/system/:id`.
+
+           ⚠ THE ROW'S OWN TYPE GATES IT, AND THE PAGE'S GUARD IS NOT ENOUGH.
+           `eventFocusAllowed` asks about the SYSTEM, not about the row that
+           sent you, and this overlay also runs on the `alerts` dataset, where
+           a fault row and a water row can name the SAME system. Measured
+           before this gate existed, WebKit iPhone 14, "Show all alerts" on
+           /location/Office: the row "Domestic Hot Water — Zone 2 — AC
+           Unplugged" opened the LOW FLOW WATER EVENT overlay for ws-15062,
+           because that system happens to be leaking too. That is a device
+           fault reaching the event screen, which is precisely what the owner
+           ruled out on 2026-11-03 ("this is not a possible option"), and it
+           lands the user on an event they did not tap. The other eight fault
+           rows in that list, whose systems are not leaking, were unaffected —
+           so the system-level guard hides this rather than catching it.
+
+           The predicate is the leak pair and nothing else, the same one
+           `overlayEvents` builds the water rows from (:1259) and the same one
+           the timeline's `water` uses (:2083). A fault row keeps exactly its
+           old behaviour: the system page, nothing opened. */
         onSelectEvent={ev => {
           setOverlay(null)
-          if (ev.systemId) navigate(`/system/${ev.systemId}`)
+          if (!ev.systemId) return
+          const water = ev.type === 'leak-high' || ev.type === 'leak-low'
+          navigate(`/system/${ev.systemId}${water ? '?focus=event' : ''}`)
         }}
       />
 

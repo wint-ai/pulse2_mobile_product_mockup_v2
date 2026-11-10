@@ -829,22 +829,98 @@ describe('the ignored state', () => {
     expect(screen.queryByText('Manage event')).toBeNull()
   })
 
-  /* The strip belongs to the HEADER, not to the body — 199755:33270 groups
-     it with the header bar. Two things depend on that and both were a real
-     rendering fault before it moved: inside the scroller it took the ignored
-     body's `opacity: 0.7` (a slate/900 pill at 70% over the red hero reads as
-     maroon, which is what the AlertCard agent saw and reported), and it
-     scrolled away from a surface whose whole message is its state. */
-  it('draws the strip OUTSIDE the dimmed body, with the header', () => {
+  /* ── THE STRIP MOVED INTO THE BODY — 2026-11-10 ────────────────────────
+     WHAT THIS TEST USED TO PIN, kept because the repo's convention is that a
+     withdrawn ruling stays visible: 'draws the strip OUTSIDE the dimmed body,
+     with the header'. It asserted `scroller.contains(strip) === false` on the
+     reasoning that 199755:33270 groups the strip with the header bar, and
+     that two things depended on it — the strip not taking the body's
+     `opacity: 0.7`, and the strip not scrolling away.
+
+     WHY IT CHANGED. Pinning the strip to the header made the pinned header
+     46px tall on a live event and 103px on an ignored one, so every card
+     below sat 57px lower in one state than the other. The owner ruled on
+     2026-11-10 that a state is a state of ONE page: "ignored is just a state
+     of the same page ... layout needs to be always the same in all screens."
+     A header with two heights is the second header bar that ruling names.
+
+     THE FIRST OF THE TWO REASONS IS NOT TRADED AWAY and is what this test now
+     pins instead: the strip is a child of the dimmed scroller and opts OUT of
+     the dim with `opacity-100!`, the same escape the alert card has carried
+     since 2026-11-02. If that class is ever dropped, the pill composites at
+     70% over the hero and reads maroon — the exact fault that moved it into
+     the header in the first place.
+
+     THE SECOND REASON IS THE ADMITTED COST: it scrolls now. That is not
+     asserted either way, because freezing it would make the owner's next
+     reversal harder, which is the same reason a33aee8 refused to pin the
+     actor and the cause. */
+  it('draws the strip INSIDE the body, opted out of the ignored dim', () => {
     ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
     const { container } = renderOverlay({ onIgnore: () => {} })
     const strip = container.querySelector('[data-node-id="199755:29744"]')
     const scroller = container.querySelector('[data-ignored="true"]')
     expect(scroller, 'the one scrolling region').toBeTruthy()
-    expect(scroller.contains(strip), 'the strip is inside the dimmed body').toBe(false)
-    // ...and still above it in the document.
-    // DOCUMENT_POSITION_FOLLOWING === 4
-    expect(strip.compareDocumentPosition(scroller) & 4).toBe(4)
+    expect(scroller.contains(strip), 'the strip left the body again').toBe(true)
+    expect(strip.className, 'a slate/900 pill at 70% over the hero reads maroon')
+      .toMatch(/\bopacity-100!/)
+    /* It is a DIRECT child, because `[&>*]:opacity-70` only reaches those —
+       nested one level deeper it would be dimmed by its wrapper and the
+       `opacity-100!` above would be measuring nothing. */
+    expect(strip.parentElement).toBe(scroller)
+  })
+
+  /* ── ONE PINNED HEADER, THE SAME HEIGHT IN BOTH STATES ─────────────────
+     The structural half of the 2026-11-10 ruling, and the half a DOM test can
+     actually hold: the shrink-0 block above the scroller contains the header
+     bar and nothing else, whatever the state. happy-dom computes no layout,
+     so this cannot assert 46px — what it can assert is that the ignored state
+     adds no second element to that block, which is what made it taller. */
+  it('puts nothing but the bar in the pinned header, ignored or not', () => {
+    /* The bar sits in its own px-[16px] gutter wrapper inside the pinned
+       shrink-0 block, so the block is the grandparent. */
+    const barBlockOf = (c) =>
+      c.querySelector('[data-name="app-header-bar"]').parentElement.parentElement
+
+    const live = renderOverlay({ onIgnore: () => {} })
+    const liveBlock = barBlockOf(live.container)
+    expect(liveBlock, 'the header bar is not in a pinned block any more').toBeTruthy()
+    const liveKinds = [...liveBlock.children].map(e => e.tagName)
+    cleanup()
+
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    const ign = renderOverlay({ onIgnore: () => {} })
+    const ignBlock = barBlockOf(ign.container)
+    expect([...ignBlock.children].map(e => e.tagName), 'the ignored header grew a second row')
+      .toEqual(liveKinds)
+    expect(ignBlock.querySelector('[data-node-id="199755:29744"]'), 'the strip is back in the header')
+      .toBeNull()
+  })
+
+  /* ── THE HEADER IS SEATED ON THE HERO IN EVERY STATE ───────────────────
+     The named "single clearest violation" of the 2026-11-10 ruling: the bar
+     used to pass `surface="ground"` while ignored or ended and `"onColor"`
+     otherwise, so the header physically moved off the artwork onto the page
+     ground when the state changed. Both states now pass `onColor`; only the
+     veil COLOUR branches, which is a content difference the ruling allows.
+
+     ⚠ THE COLOUR ITSELF IS NOT ASSERTED HERE AND CANNOT BE. happy-dom
+       composites nothing: a veil's contrast over artwork is a pixel
+       measurement, and the numbers that chose HERO_VEIL_MUTED were taken in
+       Chromium with the text hidden. This pins the SEAT. */
+  it('seats the header on the hero in the ignored state too', () => {
+    const live = renderOverlay({ onIgnore: () => {} })
+    const liveBar = live.container.querySelector('[data-name="app-header-bar"]')
+    expect(liveBar.getAttribute('data-surface')).toBe('onColor')
+    cleanup()
+
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    const ign = renderOverlay({ onIgnore: () => {} })
+    const ignBar = ign.container.querySelector('[data-name="app-header-bar"]')
+    expect(ignBar.getAttribute('data-surface'), 'the ignored header dropped off the hero again')
+      .toBe('onColor')
+    expect(ignBar.querySelector('[data-name="app-header-veil"]'), 'no veil — the chip would be untinted')
+      .toBeTruthy()
   })
 
   /* 199768:87266 — the ignored frame's one line of prose, and the ONLY
@@ -907,23 +983,96 @@ describe('the ignored state', () => {
     expect(ignoredBand.innerHTML).not.toMatch(/bg-\[#ff7b7d\]/)
   })
 
-  /* AlertCard grew an `ignored-overlay` shell — the overlay's geometry on a
-     slate/500 border, 199772:144341. Both surfaces pass actions={false} and
-     an event whose `.ignored` is true, so the card cannot tell them apart;
-     the call site picks, exactly as the mobile / overlay split already does.
-     Without this flip the new shell is unreachable.
+  /* ── THE IGNORED SUMMARY IS THE FRAME'S NEW BLOCK — 2026-11-10 ─────────
+     WHAT THIS TEST USED TO PIN: 'mounts AlertCard as ignored-overlay, not the
+     System page shell'. AlertCard grew an `ignored-overlay` shell (the
+     overlay geometry on a slate/500 border, 199772:144341), the call site
+     flipped to it, and this asserted 199772:144519 — AlertCard's own marker
+     for the overlaid shell — so that the new shell could not become
+     unreachable.
 
-     199772:144519 is AlertCard's own marker for the overlaid shell — it
-     renders that node id only when `overlaid` is true (AlertCard.jsx, search
-     `const overlaid`). Asserted on the ID rather than on geometry so this
-     does not depend on that component's class strings. */
-  it('mounts AlertCard as ignored-overlay, not the System page shell', () => {
+     WHY IT CHANGED. 199772:144341 / 199754:28589 and 200067:37406 / :37413
+     are not two STATES, they are two GENERATIONS: the 2026-11-09 refetch
+     replaced the bordered summary card with a hero mark on the artwork plus
+     un-wrapped tiles, and only the live branch was moved onto it because no
+     frame redraws the ignored one. The owner's 2026-11-10 ruling is that the
+     missing frame is not the argument — "ignored is just a state of the same
+     page" — with the SystemPageV2Screen precedent spelled out ("Why is system
+     page still shows the old version of Figma?"). So the ignored branch draws
+     the same block the live branch does.
+
+     NOTHING WENT MISSING WITH THE CARD: the title is the hero mark's, the
+     figures / Detected / Event ID are the stat block's (asserted in 'the
+     figure tiles name what they actually hold'), and the card's `Ignored`
+     pill is the "Event Ignored" strip directly above it.
+
+     `ignored-overlay` IS STILL REACHABLE and is still asserted below, on the
+     branch that now owns it: an event that is BOTH ignored and ended. The
+     shell is not deleted and this test does not let it rot.
+
+     ⚠ THAT LAST PARAGRAPH IS SUPERSEDED, 2026-11-10. The owner ruled the
+       ENDED state in too (the pill it was holding back for now sits in the
+       hero mark's new `status` slot), so ignored+ended draws the unified
+       block as well and no WATER event reaches `ignored-overlay` any more.
+       The shell is STILL not deleted and is STILL asserted — the branch that
+       owns it is now a FAULT on a system carrying an ignore, which
+       concludedEventOverlay.dom.test.jsx pins under 'leaves ignored-overlay
+       reachable'. Flagged there as odd and left for the owner. */
+  it('draws the frame’s hero mark and tiles once ignored, not the card', () => {
     ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
     const { container } = renderOverlay({ onIgnore: () => {} })
+    expect(container.querySelector('[data-node-id="200067:37406"]'), 'the hero mark').toBeTruthy()
+    expect(container.querySelector('[data-node-id="200067:37413"]'), 'the stat block').toBeTruthy()
     expect(
       container.querySelector('[data-node-id="199772:144519"]'),
-      'the ignored card is still the System page shell — variant not flipped',
-    ).toBeTruthy()
+      'the ignored event is still drawing the superseded bordered card',
+    ).toBeNull()
+    /* The same event's name, in the same words the card carried. */
+    expect(container.querySelector('[data-node-id="200067:37411"]').textContent.trim()).toBeTruthy()
+  })
+
+  /* ── THE STATUS SLOT STAYS EMPTY WHILE THE EVENT RUNS — 2026-11-10 ─────
+     <EventHeroMark> grew a `status` prop so the ENDED state could keep the
+     `Ended` pill AlertCard used to carry (owner's ruling; see the component).
+     The call site passes it only `isEnded ? alertRow.status : null`, and a
+     live row's status is the literal 'Ongoing' — so passing it unconditionally
+     would have put an "Ongoing" chip on a frame that draws none, and moved
+     every tile below it down by 34px on the two states the owner asked be
+     left alone. These two pin the slot empty on both of them. */
+  it('draws no status pill while the event is live', () => {
+    const { container } = renderOverlay({ onIgnore: () => {} })
+    const mark = container.querySelector('[data-node-id="200067:37406"]')
+    expect(mark, 'the hero mark').toBeTruthy()
+    expect(
+      mark.querySelector('[data-node-id="199683:24876"]'),
+      'a running event grew a status pill',
+    ).toBeNull()
+    expect(within(container).queryByText('Ended'), 'a running event is not ended').toBeNull()
+  })
+
+  it('draws no status pill once ignored either', () => {
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    const { container } = renderOverlay({ onIgnore: () => {} })
+    const mark = container.querySelector('[data-node-id="200067:37406"]')
+    expect(
+      mark.querySelector('[data-node-id="199683:24876"]'),
+      'ignoring an event is not the same as ending it',
+    ).toBeNull()
+    /* The ignored announcement is the strip, which is unchanged and is NOT a
+       status — see the component's note on why the ended state does not get
+       one and the ignored state does not get a pill. */
+    expect(container.querySelector('[data-node-id="199755:29744"]')).toBeTruthy()
+  })
+
+  /* The hero mark is the child that OVERLAPS the hero band (the alert card
+     was, before it), so it inherits the alert card's `opacity-100!`. Without
+     it the #fafbfc title composites at 70% over the wave. */
+  it('keeps the ignored hero mark opaque over the wave', () => {
+    ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
+    const { container } = renderOverlay({ onIgnore: () => {} })
+    const mark = container.querySelector('[data-node-id="200067:37406"]')
+    expect(mark.className).toMatch(/\bopacity-100!/)
+    expect(mark.parentElement).toBe(container.querySelector('[data-ignored="true"]'))
   })
 
   /* DELIBERATE DEPARTURE from how PRD 04a:146-154 has been read — see the
@@ -1679,8 +1828,12 @@ describe('reached from the location view, not mounted directly', () => {
 
    THIS SURFACE HAS HIT IT ONCE BEFORE: the "Event Ignored" strip read maroon
    over the red hero for exactly this reason and was moved out of the scroller
-   (see 'draws the strip OUTSIDE the dimmed body'). The alert card was the one
-   child left that overlaps the hero.
+   entirely. 2026-11-10: the strip is back INSIDE the scroller — the layout
+   ruling cost it its pinned seat — and it is safe there only because it
+   carries `opacity-100!` ('draws the strip INSIDE the body, opted out of the
+   ignored dim' is the guard). Three children now overlap the hero band in one
+   state or another: the hero mark, the strip, and (on an ignored AND ended
+   event) the alert card. Every one of them opts out.
 
    WHAT THESE TESTS CAN AND CANNOT DO. happy-dom computes no layout and does
    no compositing, so NOTHING here proves what the screen looks like. What it
@@ -1716,16 +1869,23 @@ describe('the ignored dim never makes the alert card translucent', () => {
       .not.toMatch(/(^|\s)opacity-\d/)
   })
 
-  it('dims the ignored body child by child, with the alert card opted out', () => {
+  /* ⚠ THE CHILD THAT OVERLAPS THE WAVE IS NO LONGER THE ALERT CARD — the
+     2026-11-10 layout ruling put the frame's hero mark there instead (see
+     'draws the frame's hero mark and tiles once ignored'). The RULE is
+     unchanged and is what this still pins: whatever sits first, it overlaps
+     the hero band and must opt out of the dim, or it composites at 70% over
+     the wave. Asserted on position rather than on which component it is, so
+     the next thing to land in that slot inherits the guard. */
+  it('dims the ignored body child by child, with the top child opted out', () => {
     ignoreIncident(leakSys.id, { ignoredBy: 'Marcus Ellery' })
     renderOverlay({ onIgnore: () => {} })
     /* The dim is still THERE — this is not a quiet removal of the muted
        ignored body, only a move off the box and onto its children. */
     expect(scroller().className, 'the ignored body stopped being muted')
       .toMatch(/\[&>\*\]:opacity-70/)
-    const card = scroller().firstElementChild
-    expect(card, 'the alert card is no longer the first child').toBeTruthy()
-    expect(card.className, 'the one child that overlaps the wave must stay opaque')
+    const top = scroller().firstElementChild
+    expect(top, 'the scroller has no first child at all').toBeTruthy()
+    expect(top.className, 'the one child that overlaps the wave must stay opaque')
       .toMatch(/\bopacity-100!/)
   })
 
