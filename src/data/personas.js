@@ -230,12 +230,39 @@ export const PERSONAS = [
  * PERSONAS so the two can never drift, and so a persona is shown or hidden in
  * exactly one place.
  *
- * The order is the owner's, not the array's: widest scope first (a facility,
- * then an account, then one apartment), which is also the order he wrote them
- * in. PERSONAS itself is grouped tenants-then-managers and must not be
- * reordered — getPersonaById and the simulator's dropdown both read it.
+ * ── THE ORDER IS THE SCOPE HIERARCHY, WIDEST FIRST — corrected 2026-11-10 ──
+ * Owner, over a screenshot of the picker: "we need to fix the order here.
+ * Account is the first one, after facility, after the tenant."
+ *
+ *     account  ->  location  ->  unit
+ *     Account Manager (Meridian Realty Group)
+ *     Facility Manager (100 Meridian Plaza)
+ *     Tenant (Apartment 3 · Building A)
+ *
+ * THIS IS A RULE, NOT A LIST. It is the same containment the rest of the app
+ * already walks — the drawer's tree, the scope picker, homeTargetFor,
+ * `l1 > l2 > l3 > l4` in the upstream data — so a reader choosing a profile
+ * descends the same hierarchy the app will then show them. Anyone tempted to
+ * "tidy" this back to alphabetical or to PERSONAS' own order should move the
+ * ids to match the hierarchy instead.
+ *
+ * ⚠ THE PREVIOUS COMMENT HERE CLAIMED THIS AND GOT IT BACKWARDS. It read
+ * "widest scope first (a facility, then an account, then one apartment)" over
+ * a list that put the facility before the account — which is not widest
+ * first, because an account CONTAINS locations. The rule was right and the
+ * list did not follow it; this is the list catching up.
+ *
+ * ── SCOPE OF THE CHANGE: THE PICKER, AND ONLY THE PICKER ──────────────────
+ * This constant exists so the order can move without the model moving.
+ * `PERSONAS` itself is grouped tenants-then-managers and must NOT be
+ * reordered — getPersonaById reads it by id (order-independent) but
+ * ControlPanel's simulator dropdown renders `[DEFAULT_PERSONA, ...PERSONAS]`
+ * in array order, and the test fixtures find personas by id. Nothing in the
+ * repo indexes either array by position (checked: no `PERSONAS[n]` or
+ * `LISTED_PERSONAS[n]` anywhere), so this sort changes the two demo pickers
+ * and nothing else.
  */
-const PICKER_ORDER = ['location-manager', 'account-manager-subaccount', 'tenant-1apt'];
+const PICKER_ORDER = ['account-manager-subaccount', 'location-manager', 'tenant-1apt'];
 
 export const LISTED_PERSONAS = PERSONAS
   .filter(p => p.listed)

@@ -98,7 +98,7 @@ const openEscapeHatch = () => {
    the slide no longer dispatches, it ARMS this button, and the acknowledgement
    behind the escape hatch arms the same one. So this helper no longer has to
    reveal anything - what changes is whether the button is INERT. */
-const commitButton = (name = /^Close 31 valves$/) => screen.getByRole('button', { name })
+const commitButton = (name = /^Dangerously close 31 valves$/) => screen.getByRole('button', { name })
 
 /* `aria-disabled`, NOT `disabled`: the reason a control is unavailable has to
    reach assistive tech, and `disabled` is skipped outright by some of it
@@ -228,7 +228,7 @@ describe('BulkValveConfirmSheet — one number, one meaning', () => {
     render(<BulkValveConfirmSheet {...props({ action: 'open', willActCount: 8 })} />)
     expect(screen.getByText('8')).toBeInTheDocument()
     expect(screen.getByText('valves will open')).toBeInTheDocument()
-    const confirm = commitButton(/^Open 8 valves$/)
+    const confirm = commitButton(/^Dangerously open 8 valves$/)
     /* Opening resumes flow — it is not destructive, and the red button would
        be a lie about which direction is dangerous. */
     expect(confirm.getAttribute('data-variant')).toBe('default')
@@ -736,8 +736,15 @@ describe('BulkValveConfirmSheet — there is no cancel window, at any tier', () 
     ]) {
       const onConfirm = vi.fn()
       render(<BulkValveConfirmSheet {...props({ onConfirm, ...over })} />)
+      /* WAS, UNTIL 2026-11-10:
+           `^${over.action === 'open' ? 'Open' : 'Close'} ${num(...)} valves?$`
+         THIS SHEET IS THE ONE SURFACE THAT CARRIES "Dangerously". The owner
+         asked for the word, then placed it here rather than on the page's
+         selection strip: the strip is a chooser showing two operations at
+         once, this is the single committed operation. The strip's own suite
+         still asserts the plain labels, deliberately. */
       const name = new RegExp(
-        `^${over.action === 'open' ? 'Open' : 'Close'} ${num(over.willActCount)} valves?$`,
+        `^Dangerously ${over.action === 'open' ? 'open' : 'close'} ${num(over.willActCount)} valves?$`,
       )
       tapCommit(name)
 
@@ -834,7 +841,7 @@ describe('BulkValveConfirmSheet — there is no cancel window, at any tier', () 
     // a fresh decision, back on the review with nothing armed
     expect(screen.queryByText(/^Sent to/)).toBeNull()
     expect(slideControl().getAttribute('data-armed')).toBe('false')
-    expect(inert(commitButton(/^Open 31 valves$/))).toBe(true)
+    expect(inert(commitButton(/^Dangerously open 31 valves$/))).toBe(true)
     expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 })
@@ -879,7 +886,7 @@ describe('BulkValveConfirmSheet — friction scales to blast radius', () => {
     expect(screen.queryByRole('checkbox')).toBeNull()
     expect(slideControl().getAttribute('aria-disabled')).toBeNull()
 
-    slideCommit(/^Close 7 valves$/)
+    slideCommit(/^Dangerously close 7 valves$/)
     expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 
@@ -912,7 +919,7 @@ describe('BulkValveConfirmSheet — the top-tier gate', () => {
      interaction kind, which does not. They were never the same control. */
   it('holds the commit inert until the row is tapped', () => {
     render(<BulkValveConfirmSheet {...props({ willActCount: 412 })} />)
-    const confirm = commitButton(/^Close 412 valves$/)
+    const confirm = commitButton(/^Dangerously close 412 valves$/)
     expect(inert(confirm)).toBe(true)
 
     // the tick alone is the GATE here, not an arm: the slide is still required
@@ -952,7 +959,7 @@ describe('BulkValveConfirmSheet — the top-tier gate', () => {
     render(<BulkValveConfirmSheet {...props({ willActCount: 412, onConfirm })} />)
 
     fireEvent.click(screen.getByRole('checkbox'))
-    fireEvent.click(commitButton(/^Close 412 valves$/))
+    fireEvent.click(commitButton(/^Dangerously close 412 valves$/))
     expect(onConfirm).not.toHaveBeenCalled()
 
     // but the same tick DOES arm it once the non-drag path is opened
@@ -961,7 +968,7 @@ describe('BulkValveConfirmSheet — the top-tier gate', () => {
        already on screen as the gate, so opening the disclosure would otherwise
        reveal nothing and read as a broken control. */
     expect(screen.getByText('The box above also enables the button.')).toBeInTheDocument()
-    fireEvent.click(commitButton(/^Close 412 valves$/))
+    fireEvent.click(commitButton(/^Dangerously close 412 valves$/))
     expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 
@@ -1038,7 +1045,7 @@ describe('BulkValveConfirmSheet — the top-tier gate', () => {
      of it, so the reason never arrives. */
   it('points the inert button at that reason for a screen reader', () => {
     render(<BulkValveConfirmSheet {...props({ willActCount: 412 })} />)
-    const confirm = commitButton(/^Close 412 valves$/)
+    const confirm = commitButton(/^Dangerously close 412 valves$/)
     const describedBy = confirm.getAttribute('aria-describedby')
     expect(describedBy).toBeTruthy()
     expect(document.getElementById(describedBy).textContent).toMatch(/Tick the box above/)
@@ -1299,7 +1306,7 @@ describe('BulkValveConfirmSheet — the slide ARMS, the button COMMITS', () => {
     fireEvent.click(commitButton())
     expect(onConfirm).toHaveBeenCalledTimes(1)
     // the sheet is on its result now; nothing left to press twice
-    expect(screen.queryByRole('button', { name: /^Close 31 valves$/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Dangerously close 31 valves$/ })).toBeNull()
     expect(screen.getAllByText('Sent to 31 valves')).toHaveLength(2)
   })
 
@@ -1339,8 +1346,8 @@ describe('BulkValveConfirmSheet — the slide ARMS, the button COMMITS', () => {
 
     rerender(<BulkValveConfirmSheet {...props({ onConfirm, willActCount: 44 })} />)
     expect(slideControl().getAttribute('data-armed')).toBe('false')
-    expect(inert(commitButton(/^Close 44 valves$/))).toBe(true)
-    fireEvent.click(commitButton(/^Close 44 valves$/))
+    expect(inert(commitButton(/^Dangerously close 44 valves$/))).toBe(true)
+    fireEvent.click(commitButton(/^Dangerously close 44 valves$/))
     expect(onConfirm).not.toHaveBeenCalled()
   })
 
@@ -1400,7 +1407,7 @@ describe('BulkValveConfirmSheet — the slide ARMS, the button COMMITS', () => {
        single pointer interactions." */
     fireEvent.click(screen.getByRole('button', { name: /^Cannot slide/ }))
     fireEvent.click(screen.getByRole('checkbox'))
-    const confirm = commitButton(/^Open 31 valves$/)
+    const confirm = commitButton(/^Dangerously open 31 valves$/)
     expect(inert(confirm)).toBe(false)
     fireEvent.click(confirm)
 
@@ -1414,7 +1421,7 @@ describe('BulkValveConfirmSheet — the slide ARMS, the button COMMITS', () => {
     for (const willActCount of [7, 31, 412]) {
       const onConfirm = vi.fn()
       render(<BulkValveConfirmSheet {...props({ willActCount, onConfirm })} />)
-      const confirm = commitButton(new RegExp(`^Close ${willActCount} valves$`))
+      const confirm = commitButton(new RegExp(`^Dangerously close ${willActCount} valves$`))
       expect(inert(confirm)).toBe(true)
       fireEvent.click(confirm)
       expect(onConfirm).not.toHaveBeenCalled()
@@ -1434,7 +1441,7 @@ describe('BulkValveConfirmSheet — the slide ARMS, the button COMMITS', () => {
       expect(slideControl().getAttribute('data-armed')).toBe('true')
       // arming is not committing
       expect(onConfirm).not.toHaveBeenCalled()
-      fireEvent.click(commitButton(/^Open 31 valves$/))
+      fireEvent.click(commitButton(/^Dangerously open 31 valves$/))
       expect(onConfirm).toHaveBeenCalledTimes(1)
       cleanup()
     }
@@ -1561,7 +1568,7 @@ describe('BulkValveConfirmSheet — the copy register', () => {
      framing for this feature is "around 1000 valve", so this is live. */
   it('separates thousands everywhere a count is printed', () => {
     render(<BulkValveConfirmSheet {...props({ willActCount: 1200, scopeKind: 'account' })} />)
-    expect(commitButton(/^Close 1,200 valves$/)).toBeInTheDocument()
+    expect(commitButton(/^Dangerously close 1,200 valves$/)).toBeInTheDocument()
     expect(screen.getByText('1,200')).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/\b1200\b/)
   })
@@ -1620,11 +1627,11 @@ describe('BulkValveConfirmSheet — the slide is the only advertised path', () =
     expect(hatch.getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByRole('checkbox')).toBeInTheDocument()
     // revealing it is neither arming nor committing
-    expect(inert(commitButton(/^Open 31 valves$/))).toBe(true)
+    expect(inert(commitButton(/^Dangerously open 31 valves$/))).toBe(true)
     expect(onConfirm).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('checkbox'))
-    expect(inert(commitButton(/^Open 31 valves$/))).toBe(false)
+    expect(inert(commitButton(/^Dangerously open 31 valves$/))).toBe(false)
     expect(onConfirm).not.toHaveBeenCalled()
   })
 
@@ -1662,7 +1669,7 @@ describe('BulkValveConfirmSheet — the slide is the only advertised path', () =
     expect(screen.getByRole('checkbox')).toBeInTheDocument()
     expect(slideControl().getAttribute('aria-disabled')).toBe('true')
     // and the one commit control is there, inert
-    expect(inert(commitButton(/^Close 412 valves$/))).toBe(true)
+    expect(inert(commitButton(/^Dangerously close 412 valves$/))).toBe(true)
   })
 
   it('never draws two acknowledgement rows, at any tier', () => {

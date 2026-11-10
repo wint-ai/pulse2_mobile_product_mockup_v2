@@ -201,6 +201,11 @@ import {
   windowMonthsOf,
 } from '@/v2/lib/consumptionWindow'
 import { SYSTEMS, getOverlaidSystems, computeWidgets, computeKPIs, getSystemById } from '@/data/systems'
+/* THE PUSHER'S "TREAT THE FLEET AS CLEAN" FLAG, read so this screen can SAY
+   it is set rather than merely obey it. `getOverlaidSystems()` above already
+   applies it; what was missing was anyone telling the user. See
+   `fleetSuppressed` below and src/data/fleetState.js. */
+import { chooseFleetState, isMockSuppressed, FLEET_LIVE } from '@/data/fleetState'
 /* `useUserContext` was imported here for `clearSelectedScope` and nothing
    else, and it left with the house on 2026-11-04. The clear did not go with
    it — it is the Dashboard tab's now (src/components/TabBar.jsx), because the
@@ -780,6 +785,48 @@ export default function HomeAllAccounts({ expanded = false }) {
     })()
     return scopeActiveAlerts(byRoute.map(s => ({ system: s.id, s })), alertScope).map(x => x.s)
   }, [locationName, alertScope])
+
+  /* ── IS THIS FLEET EMPTY, OR MERELY HIDDEN? — 2026-11-10 ──────────────
+     `pulse2-mock-suppressed` is the pusher's Clear-all flag. While it is set,
+     applySimOverlay rewrites EVERY system to alert: null / valve: open /
+     comm: online / power: ac, so `scopedSystems` above comes back uniformly
+     clean and every card on this screen draws its nothing-wrong state. The
+     owner hit exactly that - "when I logged in, and asked the app to show
+     systems with errors and leaks, so I still doesn't see no error and not
+     leaks" - carrying the flag in his browser from an earlier demo session.
+
+     The flag was doing its job. The defect was that NOTHING ON SCREEN SAID
+     SO, and SystemHealthCard in particular drew its approved green
+     "All of your systems are running!" over a fleet nobody had checked.
+
+     SAME DEPS AS `scopedSystems`, deliberately: the two are one read of one
+     store, taken at the same instant, so the flag this screen reports and the
+     fleet it drew can never come from different moments. Mount-scoped
+     freshness, for the reason getOverlaidSystems' header gives about its own.
+
+     IT IS READ ONCE, IN A MEMO, NOT IN RENDER. A component that reaches into
+     localStorage on every render is the storage version of reading the clock
+     in render - the same prohibition, the same reason. */
+  /* The deps are NOT unnecessary, whatever the rule computes. `isMockSuppressed`
+     reads localStorage, which the linter cannot see, so to it this memo has no
+     inputs at all; to the screen it has exactly the two `scopedSystems` has,
+     because the point is that the flag and the fleet are read at the same
+     moments. Dropping them would pin the answer to first mount and leave a
+     stale "hidden" notice on a later route. */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fleetSuppressed = useMemo(() => isMockSuppressed(), [locationName, alertScope])
+
+  /* The one-tap way out, handed to SystemHealthCard's suppressed row.
+     `chooseFleetState(FLEET_LIVE)` is the SAME call the sign-in screen's
+     fleet-state control makes, so the two cannot leave different states
+     behind: it clears the pusher's flag and sets the mode to `live`
+     together. It reloads for the reason that control reloads -
+     src/data/upstream/buildTree.js reads the mode once, at module scope, so
+     anything short of a reload leaves a stale tree beside a changed flag. */
+  const showSuppressedFleet = () => {
+    chooseFleetState(FLEET_LIVE)
+    window.location.reload()
+  }
 
   /* `homeTarget` was derived here, off `alertScope.visibleIds`, for the
      header's house. It is `homeTargetFor(visibleIds)` in
@@ -1863,6 +1910,13 @@ export default function HomeAllAccounts({ expanded = false }) {
          string the card already relabels itself to in the all-clear state
          (199417:131563). Transcription, not new copy. */
       onShowPast={() => openOverlay('alerts', { tab: 'history' })}
+      /* ⚠ NOT DERIVED FROM THE COUNTS, and it cannot be: a suppressed fleet
+         and a genuinely healthy one both arrive at the card as
+         `healthy === total`. Only this page knows which it is looking at,
+         which is why the card takes it as a prop. A healthy fleet passes
+         false here and keeps the approved all-clear row unchanged. */
+      suppressed={fleetSuppressed}
+      onShowFleet={showSuppressedFleet}
       /* ⚠ `onSelectIssue` STOOD HERE, and its removal is the one real cost
          of the 2026-11-09 ruling. It was every fault tile's onClick and it
          opened the alerts overlay PRE-FILTERED to that kind:

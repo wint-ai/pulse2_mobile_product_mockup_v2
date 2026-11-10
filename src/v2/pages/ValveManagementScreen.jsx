@@ -64,6 +64,10 @@
  *    scope visually and the user arrived by pressing "Manage valves", so a
  *    second visible title was 24px of restatement — but a screen whose title
  *    has no heading role is a screen a rotor cannot find, so the role stays.
+ *    ⚠ SUPERSEDED 2026-11-10: the owner asked for a visible page title, so
+ *      the heading is no longer `sr-only`. The paragraph above is kept as the
+ *      record of the ruling that was reversed; the reversal is argued at the
+ *      `<h1>` itself.
  *
  * 2. ROWS ARE `src/components/ui/item.jsx` — the shadcn list-row primitive,
  *    ported 2026-11-02. `<Item size="sm">` is `gap-2.5 px-4 py-3`, inside an
@@ -461,7 +465,10 @@ import TabBar from '@/components/TabBar'
 /* THE header — one bar on every screen, 2026-11-04 (owner: "It always needs
    to be the same"). Replaces MobileHeaderBar, which is left on disk unused.
    This screen's `<h1>` is still the sr-only one below; the bar names the
-   scope, exactly as the bar it replaced did. */
+   scope, exactly as the bar it replaced did.
+   ⚠ SUPERSEDED 2026-11-10: the `<h1>` below is VISIBLE now. The second half
+     still holds and is the reason the title had to be a separate node - the
+     bar names the SCOPE, not the page. */
 import AppHeaderBar from '@/v2/components/AppHeaderBar'
 /* One key, `home.switch_location`, for the title slot's accessible name. */
 import { useTranslation } from 'react-i18next'
@@ -1404,13 +1411,6 @@ export default function ValveManagementScreen() {
       data-name="valve-management-screen"
     >
       <div className="relative flex w-full flex-col gap-2 px-4 py-2" style={{ flex: 1, minHeight: 0 }}>
-        {/* THE PAGE'S ONE <h1>, SR-ONLY. `AppHeaderBar` names the scope
-            visually and the user arrived from a "Manage valves" button, so a
-            second visible title was restatement — but the document still owes
-            a heading, and a screen whose title has no heading role is a screen
-            a rotor cannot find. */}
-        <h1 className="sr-only">Valve management</h1>
-
         {/* FIXED CHROME — a shrink-0 sibling of the scroller, not a sticky
             child. BACK, not X: this screen is pushed from the overview.
 
@@ -1462,6 +1462,73 @@ export default function ValveManagementScreen() {
             onOpenNav={() => setDrawerOpen(true)}
           />
         </div>
+
+        {/* ── THE PAGE'S ONE <h1>. VISIBLE SINCE 2026-11-10 ────────────────
+            THE RULING THIS REVERSES, KEPT VERBATIM. It was written here when
+            the heading was `sr-only`, and it is the argument the owner has now
+            overruled:
+
+              "THE PAGE'S ONE <h1>, SR-ONLY. `AppHeaderBar` names the scope
+               visually and the user arrived from a "Manage valves" button, so a
+               second visible title was restatement — but the document still owes
+               a heading, and a screen whose title has no heading role is a screen
+               a rotor cannot find."
+
+            ⚠ SUPERSEDED 2026-11-10. The owner, on a screenshot of /valves:
+              "I think in this page, we need to add a title. What this page is.
+              For example, valve management. Just below the header. Completely
+              not clear what page is it."
+
+              The premise of the old note was that the bar's title restates the
+              page. IT DOES NOT: the bar's title is the SCOPE (`All Accounts`,
+              a location, an account) and it is the same string on /, on
+              /system/:id and here, so on this screen the only text in the
+              chrome named WHERE you are and nothing named WHAT you are
+              looking at. The heading is therefore promoted, not duplicated.
+
+            EXACTLY ONE <h1>, AND ITS VISIBLE TEXT IS ITS ACCESSIBLE NAME.
+            The sr-only node is GONE rather than kept beside this one - two
+            headings naming one screen is a screen a rotor reads twice. There
+            is no `aria-label` here and none on any ancestor: the standing
+            project rule is that no `aria-label` is used where a visible label
+            exists, precisely so the visible label IS the accessible name
+            (the tab bar was rebuilt on that rule on 2026-11-09).
+
+            THE STRING IS UNCHANGED - `Valve management`, exactly what the
+            sr-only node carried, which is also the owner's own example word.
+            It is not new copy, and §3b sentence case already held.
+
+            THE TREATMENT IS SearchScreen.jsx:616's, THE APP'S ONLY SHIPPED
+            PAGE TITLE: 18px semibold, leading 24.75, tracking -0.45,
+            `text-slate-600`, drawn as fixed chrome above that page's one
+            scroller (Figma node 200047:135524). Nothing is invented from the
+            screenshot and there is no frame for this title.
+
+              WHY NOT THE OTHER CANDIDATE. EventFocusOverlay's `SectionLabel`
+              (16px medium / lh 26 / -0.4 / slate-500 - `Manage event`,
+              `Event details`) is the idiom for naming a SECTION INSIDE a
+              page's content, and its own header says so. This is the page,
+              not a section of it.
+
+              slate-600 AND NOT THE BAR'S slate-800 IS THE HIERARCHY. Both are
+              18px semibold, so the ink is what separates them: the scope name
+              stays the loudest thing in the chrome and the page name sits one
+              step quieter under it, which is the order SearchScreen already
+              uses under its wordmark.
+
+            IT IS FIXED CHROME, NOT THE FIRST ROW OF THE SCROLLER. The owner
+            said "just below the header", and a title that scrolls away is a
+            title you cannot check once you have started reading. So it is a
+            `shrink-0` sibling between the bar and the Filters control, inside
+            the root's own 16px gutter, and it costs the scroller ~33px -
+            measured, with the bottom-pinned selection strip and the last rows
+            still reachable. */}
+        <h1
+          className="w-full shrink-0 overflow-hidden text-ellipsis whitespace-nowrap text-[18px] font-semibold leading-[24.75px] tracking-[-0.45px] text-slate-600"
+          data-name="valve-page-title"
+        >
+          Valve management
+        </h1>
 
         {/* ── ONE DOOR ───────────────────────────────────────────────────
             The owner, 2026-11-04: "I want to hide everything under filters. I
@@ -1934,6 +2001,16 @@ export default function ValveManagementScreen() {
                     <span className="text-muted-foreground">{` · ${excludedSentence(blockedSelected)}`}</span>
                   ) : null}
                 </p>
+                {/* ONE ROW, NO WRAP, AND IT IS MEASURED. Both buttons are
+                    `shrink-0`, so a pair of labels wider than the slot would
+                    overflow the strip to the right rather than reflow. The
+                    worst case is the fleet's largest count on both sides:
+                    `Close 1,200 valves` + `Open 1,200 valves` is ~318px plus
+                    the 8px gap inside a 361px slot at 393x852. It fits, and
+                    the Open button gaining its noun on 2026-11-10 cost ~45px
+                    of that headroom. A longer label than this needs the row
+                    to wrap, not the buttons to shrink - `ml-auto` is what
+                    keeps the two apart and a column would make it inert. */}
                 <div className="flex w-full items-center gap-2">
                   <Button
                     type="button"
@@ -1971,7 +2048,39 @@ export default function ValveManagementScreen() {
                        `aria-hidden`, so the accessible name stays exactly
                        `Close N valves`. And the LINE ABOVE already states the
                        selection and every exclusion before the sheet is ever
-                       opened. */
+                       opened.
+
+                       ── THE WORD "Dangerously" IS NOT ON THIS BUTTON, AND
+                          THAT IS A RULING - 2026-11-10 ───────────────────
+                       It was here for part of one afternoon and the owner
+                       took it off, looking at `Dangerously close 0 valves`
+                       beside `Dangerously open 3 valves` under `3 selected`:
+
+                         "We don't need here the dangerously close. Zero
+                          valves and three valves, only in the next step. When
+                          we only have one operation. Because here it looks
+                          very odd. Here I just want open three valves, close
+                          three valves, that's it."
+
+                       THE RULE BEHIND IT, which is why this is written down
+                       rather than just reverted: THIS STRIP IS A CHOOSER. It
+                       shows TWO MUTUALLY EXCLUSIVE operations at once and the
+                       user has committed to neither. A danger word on both is
+                       noise, and on the one sitting disabled at `0 valves` it
+                       is nonsense. `BulkValveConfirmSheet` is the point of
+                       commitment - ONE operation on screen, a count that
+                       cannot be zero - and that is where the word lives. See
+                       its `confirmLabel`.
+
+                       ⚠ DO NOT PROMOTE IT BACK HERE on the strength of the
+                         earlier quote ("Dangerously close X valves,
+                         dangerously open Y valves"). That instruction was
+                         about the bulk flow, and the owner placed it one step
+                         later the same day once he saw it here.
+
+                       THE THREE NON-COLOUR CUES ARE UNCHANGED BY ANY OF THIS:
+                       the count in the label, the `DropletOff` glyph, the
+                       line above. */
                     variant="destructive"
                     size="sm"
                     className="shrink-0"
@@ -1996,7 +2105,16 @@ export default function ValveManagementScreen() {
                     disabled={openTargets.willAct.length === 0}
                     onClick={() => setPending({ action: 'open' })}
                   >
-                    {`Open ${num(openTargets.willAct.length)}`}
+                    {/* NEW COPY. WAS THE BARE `Open ${n}` until 2026-11-10;
+                        this button alone used to drop the noun, for width.
+                        The owner spelled both labels out as a pair - "I just
+                        want open three valves, close three valves, that's
+                        it" - so it carries `valve`/`valves` like its twin.
+                        That is the ONLY part of the 2026-11-10 pass that
+                        survived on this strip; the danger word did not (see
+                        the close button). The count is still this action's
+                        own `willAct`, never the selection. */}
+                    {`Open ${num(openTargets.willAct.length)} ${plural(openTargets.willAct.length, 'valve', 'valves')}`}
                   </Button>
                 </div>
               </div>

@@ -149,7 +149,7 @@
  * pasted back in from Figma — but no live class string in this file carries
  * one now, and a fresh paste should resolve the fallback hex to a utility.
  */
-import { ArrowRight, PowerOff } from 'lucide-react'
+import { ArrowRight, EyeOff, PowerOff } from 'lucide-react'
 import { LocationDot, PhotoSensor3, WifiDisconnected02 } from '@/v2/icons'
 import ValveStatus from '@/v2/components/ValveStatus'
 import { cn } from '@/lib/utils'
@@ -532,6 +532,53 @@ const CLEAR_ROW = String.raw`bg-alert-surface-success content-stretch flex gap-[
    is in the atom and not at the call site. */
 const CLEAR_TEXT = String.raw`[word-break:break-word] flex-[1_0_0] font-mono-label font-semibold min-w-px relative text-slate-600 text-sm leading-[20px]`
 
+/* ─── THE SUPPRESSED ROW — 2026-11-10 ─────────────────────────────────────
+ *
+ * ⚠ THIS IS NOT A SECOND ALL-CLEAR STATE, AND THE DIFFERENCE IS THE POINT.
+ *
+ * The owner reported, having logged in: "when I logged in, and asked the app
+ * to show systems with errors and leaks, so I still doesn't see no error and
+ * not leaks". The cause was `pulse2-mock-suppressed` — the pusher's Clear-all
+ * flag, sticky in localStorage, which rewrites EVERY system to alert: null /
+ * valve: open / comm: online / power: ac (src/data/systems.js,
+ * applySimOverlay). His browser was carrying it from an earlier demo session.
+ *
+ * With it set, `attention` is 0 over the whole fleet, so `allClear` is true
+ * and this card drew the approved green row: "All of your systems are
+ * running!" — a sentence that was FALSE and that he would have shown a
+ * customer. The behaviour was working as designed; the design was the defect.
+ *
+ * So a SUPPRESSED fleet gets this row and a HEALTHY fleet keeps the green one
+ * untouched. They are distinguishable in code (`suppressed`, a prop the host
+ * passes, never derived from the counts) and on screen (different ground,
+ * different glyph, different sentence, and this one carries a control).
+ *
+ * THE GROUND IS --muted, NOT A SEVERITY COLOUR. Nothing is wrong with the
+ * water here; something is wrong with what the app is being allowed to say.
+ * Red is reserved for shut-off in this project and would be a category error,
+ * and the success green is the very claim being withdrawn. A neutral panel is
+ * the honest third thing. Colour is not the cue either way — the SENTENCE is
+ * (wint-ui-copy §5), and it is still there with the colour removed.
+ *
+ * Same geometry as CLEAR_ROW so the card's height does not jump between the
+ * two states: min-h-[43px], rounded-[16px], the same 11/7 padding. */
+const SUPPRESSED_ROW = String.raw`bg-muted content-stretch flex flex-wrap gap-x-[8px] gap-y-[8px] items-center min-h-[43px] px-[11px] py-[9px] relative rounded-[16px] shrink-0 w-full`
+/* `basis-full`, NOT CLEAR_TEXT's `flex-[1_0_0] min-w-px`. The clear row has
+   one child beside its glyph and can let the sentence take the remainder;
+   this row has two, and at 393 the button is ~170px of a ~307px line, so a
+   shrink-to-fit sentence came out three words wide and four lines tall.
+   Measured in chromium at 393x852. Full-basis puts the sentence on its own
+   line and wraps the button under it, which is also the reading order. */
+const SUPPRESSED_TEXT = String.raw`[word-break:break-word] basis-full flex-[1_0_100%] font-mono-label font-semibold min-w-px relative text-slate-600 text-sm leading-[20px]`
+/* The undo. It is a real <button> and it is the whole reason this row exists
+   rather than a bare sentence: the brief's requirement is that the state be
+   reversible in one tap, without devtools. The label names its OUTCOME
+   (wint-ui-copy §3b.5) and it names it in the words the fleet-state control
+   on the sign-in screen already uses for this exact fleet — `login
+   .fleet_state_live`, "Leaks and faults" — so no third vocabulary for the
+   same thing enters the app (§0: never invent a state label). */
+const SUPPRESSED_CTA = String.raw`cursor-pointer rounded-[10px] border border-solid border-border-strong bg-surface-card px-[10px] py-[5px] font-mono-label font-semibold text-slate-700 text-[13px] leading-[18px] shrink-0 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50`
+
 /* ───────────────────────────────── 199338:52997 — the other-issues row.
    "14 other issues · 10 no power, 4 no recipients", full width under the
    tiles. Measured off 199417:132878: bg --colors/slate/100 (#f1f5f9, i.e.
@@ -880,6 +927,37 @@ export default function SystemHealthCard({
      in the render, and IssueTile / ISSUE_ORDER / OTHER_ORDER below, which are
      DELIBERATELY KEPT for that. */
   unitLabel = 'systems',
+  /**
+   * @param {boolean} suppressed   TRUE when the fleet this card is reporting
+   *                               on has been emptied by the pusher's
+   *                               "treat the fleet as clean" flag
+   *                               (`pulse2-mock-suppressed`) rather than by
+   *                               being healthy.
+   *
+   *                               IT IS A PROP, NOT A DERIVATION, and that is
+   *                               deliberate twice over. This component must
+   *                               not read localStorage — it takes four
+   *                               counts and draws them, and a card that
+   *                               reached past its props for a second opinion
+   *                               would be the same class of mistake as
+   *                               reading the clock in render. And the two
+   *                               states are INDISTINGUISHABLE from the
+   *                               counts: a suppressed fleet and a genuinely
+   *                               healthy one both arrive here as
+   *                               `healthy === total`. Only the host knows
+   *                               which it is.
+   *
+   *                               Default false, so every existing caller and
+   *                               every test keeps the behaviour it had.
+   * @param {Function} onShowFleet fires when the undo on the suppressed row
+   *                               is pressed. The host owns what "undo" means
+   *                               — see HomeAllAccounts. With no handler the
+   *                               row still draws its sentence and simply
+   *                               carries no control, because a dead button
+   *                               is worse than an absent one.
+   */
+  suppressed = false,
+  onShowFleet,
   onShowAll,
   onShowPast,
   onSelectHealth,
@@ -1163,8 +1241,18 @@ export default function SystemHealthCard({
               it rendered empty - and an empty flex child still takes the
               card's `gap-[15px]`. Measured at 393x852: the card came out
               144px against 200067:41981's 118. Gating it closes that gap
-              instead of leaving a block of air under the attention line. */}
-          {allClear ? (
+              instead of leaving a block of air under the attention line.
+
+              `|| suppressed` — 2026-11-10. The suppressed row is the block's
+              second possible child and it is NOT gated on `allClear`. In
+              practice suppression forces `allClear` true, because it zeroes
+              every count; but the pusher can push an alert ON TOP of a
+              suppressed fleet (applySimOverlay's sim path overrides the clean
+              baseline), and then `attention > 0` while the rest of the fleet
+              is still hidden. Gating on `allClear` alone would drop the only
+              notice of that, exactly in the case where the screen has started
+              telling a half-truth instead of a whole one. */}
+          {allClear || suppressed ? (
           <div className={GAP_10_COL} data-node-id="199360:129786">
             {/* ------------------------------------------------- the variants
                 Three of them, and which one shows is decided by the data:
@@ -1227,7 +1315,20 @@ export default function SystemHealthCard({
                 the declaration) and it stays fixed. The chassis and the glyph
                 are the pre-rework ones, not origin/dev's success-green
                 `STATUS_ROW`; see the merge note at CLEAR_ROW. */}
-            {allClear ? (
+            {/* ⚠ `!suppressed` — 2026-11-10. THE APPROVED ALL-CLEAR STATE IS
+                UNCHANGED AND THIS IS THE LINE THAT KEEPS IT SO. Everything
+                about this row — the green `bg-alert-surface-success`, the
+                27px LocationDot, "All of your systems are running!", the
+                absent bar — is what 200047:132992 / 199922:85244 were
+                approved as, and a genuinely healthy fleet still gets exactly
+                it, byte for byte, because `suppressed` is false there.
+
+                All this conjunct does is stop the row firing for a fleet that
+                is not healthy but merely hidden. Without it the two states
+                are the same pixels, which is the defect: the sentence is a
+                claim about the water, and under suppression the app has no
+                grounds for it. See SUPPRESSED_ROW's declaration. */}
+            {allClear && !suppressed ? (
               <div className={CLEAR_ROW} data-node-id="199417:131574" data-status="clear">
                 {/* THE GLYPH IS THE LOCATION DOT, 2026-11-04. 199922:85244
                     draws the 27px location-dot here, which this repo owns as
@@ -1250,6 +1351,58 @@ export default function SystemHealthCard({
                 <p className={CLEAR_TEXT} dir="auto">
                   All of your systems are running!
                 </p>
+              </div>
+            ) : null}
+
+            {/* ── THE SUPPRESSED FLEET SAYS SO — 2026-11-10 ─────────────────
+                The honest counterpart to the row above. It draws INSTEAD of
+                it, never beside it: the two conditions are exclusive by
+                construction (`allClear && !suppressed` / `suppressed`), so
+                the card can never show a green all-clear and a "this is
+                hidden" notice at the same time.
+
+                NEW COPY — both strings below are proposed, not approved, and
+                the owner should see them before this goes to a customer.
+                They are written to invent as little as possible:
+
+                  · "Leaks and faults" is lifted verbatim from
+                    `login.fleet_state_live`, the label of the control that
+                    turns this state off. The same fleet has one name in both
+                    places (wint-ui-copy §0).
+                  · "a demo setting" names what it actually is without
+                    coining a state label for it. The alternative drafts
+                    ("Demo mode: cleared", "Fleet suppressed") both minted a
+                    new noun for a concept the app does not otherwise have.
+                  · Everyday register (§3b): no water stops or starts here, so
+                    this is Microsoft style, not ASD-STE100. Sentence case,
+                    a contraction would be fine, no "please", the button is
+                    named for its outcome, and the hyphen rule is moot
+                    because there is no dash in either string.
+
+                THE BUTTON IS THE ONE-TAP UNDO and it is why the row is not
+                just a sentence. `onShowFleet` is the host's; with no handler
+                the sentence still draws and no dead control appears. */}
+            {suppressed ? (
+              <div className={SUPPRESSED_ROW} data-status="suppressed">
+                {/* EyeOff, not a severity glyph. Nothing is wrong with the
+                    water - something is being hidden from the reader. It is
+                    aria-hidden for the reason §5 gives: the meaning is in the
+                    sentence beside it, not in the picture, so announcing the
+                    picture would only repeat it. */}
+                <p className={SUPPRESSED_TEXT} dir="auto">
+                  {/* Inline with the sentence, not a sibling of it: the row
+                      wraps, and a glyph on a line of its own above a
+                      paragraph reads as a bullet. */}
+                  <span className={cn('relative me-[6px] inline-block align-[-4px] size-[18px]', GLYPH_INK)} aria-hidden="true">
+                    <EyeOff className="absolute inset-0 block size-full" />
+                  </span>
+                  Leaks and faults are hidden by a demo setting.
+                </p>
+                {onShowFleet ? (
+                  <button type="button" className={SUPPRESSED_CTA} onClick={onShowFleet}>
+                    Show leaks and faults
+                  </button>
+                ) : null}
               </div>
             ) : null}
 

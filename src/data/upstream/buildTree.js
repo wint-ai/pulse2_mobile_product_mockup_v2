@@ -87,6 +87,90 @@ function relativeAge(hoursAgo) {
   return `${days}d ${Math.round(hoursAgo % 24)}h`;
 }
 
+/* -- THE SIX-HOUR CEILING ON EVERY GENERATED DURATION -- 2026-11-10 ---------
+   Owner, on an event card reading "1d 12h 11m" under Duration: "in the data
+   simulation on the events, I want to see maximum six hours. Not more than
+   that. In the mock data,". A leak that has been running for a day and a half
+   is not a scenario this demo should put in front of a customer.
+
+   IT IS APPLIED AT THE ROLL, AND NOWHERE ELSE. Clamping in a display helper
+   would have recreated the exact defect the 2026-11-04 one-record change
+   removed: a card printing "6h 00m" over a record that still says 36 hours,
+   beside a Detected stamp from yesterday and a timeline that agrees with
+   neither. Every surface in the app computes its duration from `durationSec`
+   and `detectedAtIso` on the record below, so capping the record caps all of
+   them by construction -- the hero card, the location rows, the "View all"
+   overlay, the event overlay's stat block, both Events Timelines, /alerts and
+   the `ago` chip.
+
+   DETERMINISTIC, AND STILL VARIED. The spread comes out of the same
+   `stableHash` the rest of the record is built from -- no `Math.random()`, and
+   no `Date.now()` at generation or at render -- and the minutes term keeps
+   every event on its own value rather than parking the whole fleet on a flat
+   "6h 00m", which would look broken in a new way. */
+export const MAX_EVENT_HOURS = 6;
+
+/* Whole-hour buckets below the ceiling: 1h..5h. */
+const SPAN_HOURS = MAX_EVENT_HOURS - 1;
+
+/**
+ * How long a generated event has been running, in hours: deterministic in `h`,
+ * varied to the minute, and strictly below MAX_EVENT_HOURS (1h 00m .. 5h 59m).
+ *
+ * THE ONE SPAN. Water events and device faults both come through here, so
+ * there is one ceiling to move rather than four scattered literals -- the
+ * water event rolled `1 + (h % 11) + (h % 60) / 60` (up to 11h 59m) and the
+ * three fault kinds rolled `1 + (h % 40)`, `1 + (h % 30)` and `1 + (h % 12)`
+ * (up to 40h, 30h and 12h) in `buildEventFor` below. The salts stay where they
+ * were, so the kinds still land on different values.
+ */
+function spanHours(h) {
+  return 1 + (h % SPAN_HOURS) + (h % 60) / 60;
+}
+
+/**
+ * `resolvedVariant` with the six-hour ceiling applied to the CLOSED event it
+ * describes -- the one producer of "how long did this system's resolved water
+ * event run".
+ *
+ * WHY THE CAP REACHES HISTORY TOO. The owner's sentence is "in the mock data",
+ * which does not distinguish the active event from the resolved one, and a
+ * three-day resolved leak is exactly as unrealistic in a demo as a three-day
+ * active one -- it is drawn in the same rows, by the same components, from the
+ * same `durationSec`. Narrowing this back to active events only is a one-line
+ * change here (drop this wrapper and hand `resolvedVariant` straight through).
+ *
+ * IT LIVES HERE, NOT IN parity.js. That file is a VERBATIM port of the web
+ * app's own functions and its header says so; diverging it would silently
+ * break the side-by-side comparison it exists for. The ceiling is this app's
+ * demo-realism decision, so it is applied where this app builds its record.
+ *
+ * ONE FIX RIDES ALONG. `resolvedHoursAgo` used to subtract `durationHours`
+ * only, discarding `durationMins`, so the seconds every consumer derived from
+ * the two instants were hour-aligned while the `totalDuration` STRING printed
+ * beside them carried the minutes: `ws-9578` read "2h 10m" on the card over a
+ * record that said exactly 2h. Same two-spellings-of-one-fact defect as the
+ * rest of this module's history. The minutes are in the instant now, so the
+ * derived duration and the printed one are the same number.
+ */
+export function cappedResolvedVariant(id) {
+  const v = resolvedVariant(id);
+  /* The same `stableHash(systemId)` resolvedVariant itself rolls, so the
+     capped duration is a function of the same seed and nothing else moves. */
+  const h = stableHash(id);
+  const durationHours = 1 + (h % SPAN_HOURS); // was 1 + (h % 11) -- up to 11h 59m
+  const durationMins = h % 60;
+  const totalHours = durationHours + durationMins / 60;
+  return {
+    ...v,
+    resolvedHoursAgo: Math.max(1, v.detectedHoursAgo - totalHours),
+    /* Volume follows the duration it was accumulated over, or the card would
+       caption a six-hour event with a day and a half of water. */
+    totalVolume: Math.round(v.flowLph * totalHours),
+    totalDuration: `${durationHours}h ${String(durationMins).padStart(2, '0')}m`,
+  };
+}
+
 /**
  * -- THE CANONICAL EVENT RECORD ----------------------------------------------
  *
@@ -130,8 +214,10 @@ function buildEventRecord(id, leak, valve) {
   const h = stableHash(`active:${id}`);
   /* THE ONE ROLL. `active:` survives because it is the seed the alert card -
      the surface most people look at - already used, so unifying on it moves
-     the fewest numbers on screen. */
-  const hoursAgo = 1 + (h % 11) + (h % 60) / 60;
+     the fewest numbers on screen.
+     It read `1 + (h % 11) + (h % 60) / 60` until 2026-11-10, which ran to
+     11h 59m; `spanHours` is the same formula under the six-hour ceiling. */
+  const hoursAgo = spanHours(h);
   const flowLph = leak === 'high' ? 120 + (h % 480) : 18 + (h % 34);
   const volumeL = Math.round(flowLph * hoursAgo);
   const detectedAtMs = BUILD_NOW - hoursAgo * 3600000;
@@ -217,9 +303,15 @@ const FAULT_ID_PREFIX = { offline: 'CM', 'valve-error': 'VE', 'power-lost': 'PW'
  * a bare clock. Each fault kind already had exactly one salt, so there was no
  * three-way split here to collapse; what is new is the ISO instant.
  */
-function faultRecord(id, type, label, salt, span) {
+function faultRecord(id, type, label, salt) {
   const h = stableHash(`${salt}:${id}`);
-  const hoursAgo = span(h);
+  /* The `span` CALLBACK IS GONE -- 2026-11-10. Each kind used to carry its own
+     whole-hour range (offline `1 + (h % 40)`, power `1 + (h % 30)`, valve
+     `1 + (h % 12)`), which is how a comms loss came to be announced as "1d 9h"
+     old. A fault is an event and the owner's ceiling is on events, so it rolls
+     the same capped span a water event does. The kind still varies because the
+     SALT still varies. */
+  const hoursAgo = spanHours(h);
   const detectedAtIso = new Date(BUILD_NOW - hoursAgo * 3600000).toISOString();
   return {
     eventId: displayId(FAULT_ID_PREFIX[type], id),
@@ -275,9 +367,9 @@ function alertFromRecord(rec) {
  */
 function buildEventFor(id, leak, valve, comm, power) {
   if (leak) return buildEventRecord(id, leak, valve);
-  if (comm === 'offline') return faultRecord(id, 'offline', 'System Offline', 'offline', h => 1 + (h % 40));
-  if (valve === 'error') return faultRecord(id, 'valve-error', 'Valve error', 'valve', h => 1 + (h % 12));
-  if (power === 'ac-lost') return faultRecord(id, 'power-lost', 'AC Power Lost', 'power', h => 1 + (h % 30));
+  if (comm === 'offline') return faultRecord(id, 'offline', 'System Offline', 'offline');
+  if (valve === 'error') return faultRecord(id, 'valve-error', 'Valve error', 'valve');
+  if (power === 'ac-lost') return faultRecord(id, 'power-lost', 'AC Power Lost', 'power');
   return null;
 }
 
@@ -734,7 +826,7 @@ for (const rec of pending) {
         meterType: node.system?.meterType ?? null,
         residential: isResidential,
       },
-      resolvedIncident: resolvedVariant(id),
+      resolvedIncident: cappedResolvedVariant(id),
 
       /* The fourth PRD 09 protection check, and the one that cannot pass by
          default: `computeSystemHealth` reads `(sys?.notificationRecipients || 0)

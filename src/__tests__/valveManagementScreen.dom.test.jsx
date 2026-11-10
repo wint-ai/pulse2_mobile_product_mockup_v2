@@ -269,6 +269,25 @@ describe('ValveManagementScreen — routing and scope', () => {
     const { container } = renderAt('/valves')
     expect(screen.getByRole('heading', { name: 'Valve management' })).toBeTruthy()
     expect(screen.getAllByText('All Accounts').length).toBeGreaterThan(0)
+    /* THE TITLE IS VISIBLE - 2026-11-10, AND THAT IS THE NEW INVARIANT.
+       The old one was only that the heading EXISTED; it was `sr-only` and
+       nothing asserted so, which is why the suite went on passing while the
+       owner could not tell what screen he was on ("Completely not clear what
+       page is it"). The three halves below are the whole contract:
+         1. exactly ONE <h1>, so promoting it did not leave a hidden twin;
+         2. it is NOT `sr-only`, i.e. it is the visible title;
+         3. it carries NO `aria-label`, so its visible text IS its accessible
+            name - the standing project rule that a visible label is never
+            overridden by an invented one.
+       jsdom loads no stylesheet, so `toBeVisible` cannot see `sr-only` here
+       (eventFocusOverlay.dom.test.jsx:1713 records the same limit); the class
+       is the assertable thing, exactly as tabBarFloatingClearance:600 does
+       it. */
+    const h1s = container.querySelectorAll('h1')
+    expect(h1s.length, 'exactly one <h1> on /valves').toBe(1)
+    expect(h1s[0].textContent).toBe('Valve management')
+    expect(String(h1s[0].className)).not.toMatch(/(?:^|\s)sr-only(?:\s|$)/)
+    expect(h1s[0].getAttribute('aria-label')).toBeNull()
     // Paged, not unbounded — and it SAYS what it is not drawing.
     expect(rows(container).length).toBeLessThan(SYSTEMS.length)
     expect(screen.getByText(new RegExp(`Showing \\d+ of ${SYSTEMS.length}\\b`))).toBeTruthy()
@@ -514,8 +533,15 @@ describe('ValveManagementScreen — the number rule', () => {
     expect(within(bar).getByRole('button', { name: 'Close 1 valve' })).toBeTruthy()
     expect(within(bar).queryByRole('button', { name: 'Close 2 valves' })).toBeNull()
     // and the secondary says its own willAct, which here is 0 and disabled
-    const openBtn = within(bar).getByRole('button', { name: /^Open \d+$/ })
-    expect(openBtn.textContent).toBe('Open 0')
+    /* WAS, UNTIL 2026-11-10: `/^Open \d+$/` and `toBe('Open 0')`. The
+       secondary used to drop the noun for width; the owner spelled the pair
+       out - "I just want open three valves, close three valves, that's it" -
+       so it carries `valve`/`valves` like its twin. The DANGER WORD is NOT
+       here: it went to the confirm sheet, one step later. The invariant under
+       test is unchanged - the number is this action's own willAct (0 here),
+       not the selection (2). */
+    const openBtn = within(bar).getByRole('button', { name: /^Open \d+ valves?$/ })
+    expect(openBtn.textContent).toBe('Open 0 valves')
     expect(openBtn.disabled).toBe(true)
     // and the difference is stated on the bar's own face, before the sheet
     expect(bar.textContent).toContain('1 offline')
@@ -558,7 +584,7 @@ describe('ValveManagementScreen — the number rule', () => {
        tick, then press. */
     fireEvent.click(within(sheet).getByRole('button', { name: 'Cannot slide?' }))
     fireEvent.click(within(sheet).getByRole('checkbox'))
-    fireEvent.click(within(sheet).getByRole('button', { name: /^Close 1 valve/ }))
+    fireEvent.click(within(sheet).getByRole('button', { name: /^Dangerously close 1 valve/ }))
     spendTheCancelWindow(container)
 
     const banner = container.querySelector('[data-name="valve-result"]')
@@ -1295,7 +1321,8 @@ describe('ValveManagementScreen - the action bar has a real hierarchy', () => {
        identical to every other action in the app. */
     expect(close.getAttribute('data-variant')).toBe('destructive')
 
-    const open = within(bar).getByRole('button', { name: /^Open \d+$/ })
+    // WAS, UNTIL 2026-11-10: `/^Open \d+$/`.
+    const open = within(bar).getByRole('button', { name: /^Open \d+ valves?$/ })
     expect(open.getAttribute('data-variant')).toBe('outline')
     expectNoReactError()
   })
@@ -1385,7 +1412,7 @@ describe('ValveManagementScreen - the sheet is told it is acting over a SELECTIO
        tick, then press. */
     fireEvent.click(within(sheet).getByRole('button', { name: 'Cannot slide?' }))
     fireEvent.click(within(sheet).getByRole('checkbox'))
-    fireEvent.click(within(sheet).getByRole('button', { name: /^Close 1 valve/ }))
+    fireEvent.click(within(sheet).getByRole('button', { name: /^Dangerously close 1 valve/ }))
     spendTheCancelWindow(container)
 
     const [batch] = getBulkValveHistory()
@@ -1691,7 +1718,7 @@ function commitClose(container, { systems = [] } = {}) {
   const sheet = screen.getByRole('alertdialog')
   fireEvent.click(within(sheet).getByRole('button', { name: 'Cannot slide?' }))
   fireEvent.click(within(sheet).getByRole('checkbox'))
-  fireEvent.click(within(sheet).getByRole('button', { name: /^Close \d+ valves?/ }))
+  fireEvent.click(within(sheet).getByRole('button', { name: /^Dangerously close \d+ valves?/ }))
   /* Spend the cancel window, stopping at the FIRST thing the screen draws —
      which is now the progress banner, not the result. */
   for (let i = 0; i < 40; i += 1) {

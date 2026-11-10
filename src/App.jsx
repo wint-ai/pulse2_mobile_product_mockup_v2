@@ -14,8 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { PersonaPickerList } from './components/PersonaPicker';
-import { cn } from '@/lib/utils';
-import { readFleetState, setFleetState, FLEET_CLEAR, FLEET_LIVE } from './data/fleetState';
+import FleetStateChoice from './components/FleetStateChoice';
+/* `cn` left with FleetStatePicker on 2026-11-10 - it was that block's only
+   caller in this file. It is imported by the component that replaced it. */
+
 import { UserProvider, useUserContext } from './context/UserContext';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -599,7 +601,7 @@ function LoginGate({ children }) {
         {/* Fleet-state choice — healthy fleet or today's fleet. Sits ABOVE the
             profile cards because it reframes every one of them: the same three
             personas, the same entities, a different present. */}
-        <FleetStatePicker />
+        <FleetStateChoice />
 
         <PersonaPickerList onSelect={handlePickPersona} />
 
@@ -620,78 +622,27 @@ function LoginGate({ children }) {
   );
 }
 
-/**
- * The fleet-state choice on the sign-in screen.
+/* THE FLEET-STATE PICKER MOVED OUT — 2026-11-10.
  *
- * NEW COPY — `login.fleet_state_*` in en.json / he.json are proposed, not
- * approved. Options were put to the owner alongside this; swap the strings,
- * not the mechanism.
+ * `function FleetStatePicker()` stood here, ~60 lines of markup and a
+ * `window.location.reload()`. It is src/components/FleetStateChoice.jsx now,
+ * unchanged in appearance and in what it does, for one reason:
  *
- * WHY IT RELOADS. src/data/upstream/buildTree.js reads the mode at module
- * scope and builds the whole tree once, at import. Flipping the flag without a
- * reload would leave a stale in-memory fleet beside a changed flag — the worst
- * of the three possible outcomes, because it looks like it worked. So the
- * handler writes and reloads, full stop. Nothing is lost: this is the sign-in
- * screen, the password gate and any captured deep link live in sessionStorage,
- * and both survive a reload.
+ *   Owner, 2026-11-10: "every time I'm logged out, and I'm choosing the user
+ *   roles, I want to see this flag if I want to see clear or with error. And
+ *   currently it's not the situation."
  *
- * NOT A SEGMENTED CONTROL COMPONENT. There is no shared one in src/v2 and this
- * screen renders before the app gate, so it uses the same token set as the
- * cards below it (`bg-surface-card`, `border-card`, `bg-secondary`/`text-primary`
- * for the selected seat). Check it with `?theme=contrast`.
- */
-function FleetStatePicker() {
-  const { t } = useTranslation();
-  const [mode, setMode] = useState(readFleetState);
-
-  const pick = (next) => {
-    if (next === mode) return;
-    setFleetState(next);
-    setMode(next);
-    // Hard reload — see the note above. The flag is already written, so the
-    // reloaded page builds its tree in the mode just picked.
-    window.location.reload();
-  };
-
-  const options = [
-    { value: FLEET_CLEAR, label: t('login.fleet_state_clear') },
-    { value: FLEET_LIVE, label: t('login.fleet_state_live') },
-  ];
-
-  return (
-    <div className="mb-[14px] rounded-[12px] border border-solid border-card bg-surface-card px-3 py-[10px]">
-      <div className="font-bold text-slate-900 text-[12.5px] leading-[17px]">
-        {t('login.fleet_state_label')}
-      </div>
-      <div
-        role="radiogroup"
-        aria-label={t('login.fleet_state_label')}
-        className="mt-2 flex gap-2"
-      >
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={mode === o.value}
-            onClick={() => pick(o.value)}
-            className={cn(
-              'flex-1 cursor-pointer rounded-[9px] border border-solid px-2 py-[7px] text-center font-bold text-[12.5px] leading-[17px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-              mode === o.value
-                ? 'border-primary bg-secondary text-primary'
-                : 'border-border-strong bg-transparent text-slate-500',
-            )}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
-      <div className="mt-[6px] text-slate-500 text-[11px] leading-[15px]">
-        {t('login.fleet_state_hint')}
-      </div>
-    </div>
-  );
-}
+ * There are TWO role-selection screens and this control was only on this one.
+ * The other is screens/PersonaSelect.jsx at /select — which is where "Sign
+ * out" actually lands (AccountScreenV2.switchProfile clears the persona and
+ * navigates there without clearing `pulse2-auth`), and so is the screen the
+ * owner was looking at. Sharing the component is the same move PersonaPicker
+ * already is, and for the same reason: two near-duplicate pickers drifted
+ * once already.
+ *
+ * The component also now writes the PUSHER's flag alongside the mode, which
+ * is the substance of the fix rather than the move. See its header and
+ * `chooseFleetState` in src/data/fleetState.js. */
 
 /**
  * The wordmark on the sign-in screen, themed.

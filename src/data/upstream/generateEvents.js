@@ -23,7 +23,13 @@
  * The exported SHAPES are unchanged, so no consumer moved.
  */
 import { SYSTEMS } from '../systems';
-import { BUILD_NOW, displayId, stableHash, resolvedVariant } from './parity';
+import { BUILD_NOW, displayId, stableHash } from './parity';
+/* `resolvedVariant` is NOT imported from parity any more -- 2026-11-10. The
+   six-hour ceiling is applied once, in buildTree.js, and reading the raw
+   variant here would put an uncapped duration on the history row beside the
+   capped one the system already carries. One producer, as everywhere else in
+   this file. */
+import { cappedResolvedVariant } from './buildTree';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const HOUR_MS = 3600000;
@@ -161,7 +167,7 @@ function buildHistoryEvent(sys) {
      its figures are deliberately NOT forced to match it. What it shares with
      the active one is only the anchor: BUILD_NOW, so the two advance together
      rather than on separate `Date.now()` reads. */
-  const v = sys.resolvedIncident || resolvedVariant(sys.id);
+  const v = sys.resolvedIncident || cappedResolvedVariant(sys.id);
   const h = stableHash(`history:${sys.id}`);
   const detected = new Date(BUILD_NOW - v.detectedHoursAgo * HOUR_MS);
   const resolvedAt = new Date(BUILD_NOW - v.resolvedHoursAgo * HOUR_MS);

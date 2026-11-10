@@ -118,18 +118,27 @@ import { getSimulatedEvents } from './simulatedEvents';
    "12 / 103 need attention" with the flag set. The fleet-state flag works at
    the generator instead, which is why it needs no overlay at all.
 
-   Leave this one to its original job. */
-const MOCK_SUPPRESSED_KEY = 'pulse2-mock-suppressed';
-export function isMockSuppressed() {
-  try { return localStorage.getItem(MOCK_SUPPRESSED_KEY) === '1'; }
-  catch { return false; }
-}
-export function setMockSuppressed(yes) {
-  try {
-    if (yes) localStorage.setItem(MOCK_SUPPRESSED_KEY, '1');
-    else localStorage.removeItem(MOCK_SUPPRESSED_KEY);
-  } catch { /* ignore */ }
-}
+   Leave this one to its original job.
+
+   ── WHERE THE TWO ACCESSORS LIVE NOW — 2026-11-10 ────────────────────────
+   `isMockSuppressed` / `setMockSuppressed` are DECLARED in fleetState.js and
+   re-exported from here, unchanged, so `import { isMockSuppressed } from
+   '@/data/systems'` keeps working everywhere it already appears.
+
+   The move is not a change of ownership — this module is still the only
+   place that ACTS on the flag — it is what let the sign-in picker become
+   honest. The picker has to answer "what will the user see?", that answer
+   reads BOTH flags, and fleetState.js is imported by buildTree.js at module
+   scope, so a fleetState -> systems import would close a cycle. The
+   comparison above was already written in fleetState.js's header; the two
+   accessors now sit under it. See `readEffectiveFleetState` there.
+
+   THE PARAGRAPH ABOVE STILL STANDS IN FULL. The flags are still not wired
+   together in the DATA layer: nothing here delegates one to the other, and
+   the history this flag deletes is still deleted. The only new coupling is
+   at the picker, where a deliberate human choice writes both. */
+import { isMockSuppressed, setMockSuppressed } from './fleetState';
+export { isMockSuppressed, setMockSuppressed };
 
 /**
  * Has the pusher touched this system? True if there's a sim alert OR any

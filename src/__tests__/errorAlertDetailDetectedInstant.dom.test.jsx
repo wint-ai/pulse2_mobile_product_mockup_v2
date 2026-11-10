@@ -25,7 +25,7 @@
 // The month table and the padding are spelled out here on purpose: the test
 // must not reach for the production formatter it is checking.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import LeakDetail from '../screens/leak/LeakDetail';
@@ -58,6 +58,13 @@ const FAULT_SYSTEMS = (() => {
   return [...seen.entries()];
 })();
 
+/* A day on from the newest fault in the fleet, at the same hour the records
+   already sit on. Derived from the data rather than written as a literal, so
+   it cannot drift away from it. */
+const RENDER_DAY = new Date(
+  Math.max(...FAULT_SYSTEMS.map(([, s]) => Date.parse(s.alert.startedAtIso))) + 24 * 3600 * 1000,
+);
+
 function mountAlertRoute(systemId) {
   return render(
     <MemoryRouter initialEntries={[`/alert/${systemId}`]}>
@@ -88,17 +95,39 @@ describe('the fault fixtures themselves', () => {
 
   /* WITHOUT THIS THE SUITE BELOW CAN PASS VACUOUSLY. If every generated fault
      happened to have started today, "Today · HH:MM" would have been RIGHT and
-     nothing here would have caught the missing day. At least one fixture must
-     have been detected on a different calendar day from the render. */
-  it('include at least one fault detected on an earlier day than today', () => {
-    const today = new Date().toDateString();
-    const older = FAULT_SYSTEMS.filter(
-      ([, s]) => new Date(s.alert.startedAtIso).toDateString() !== today,
-    );
-    expect(
-      older.length,
-      'every fault started today — the wrong-day defect is untestable on this dataset',
-    ).toBeGreaterThanOrEqual(1);
+     nothing here would have caught the missing day. The render has to land on
+     a different calendar day from the record.
+
+     ── IT USED TO ASK THE FLEET FOR THAT DAY — 2026-11-10 ─────────────────
+     The assertion read, verbatim:
+
+       it('include at least one fault detected on an earlier day than today', ...
+         const today = new Date().toDateString();
+         const older = FAULT_SYSTEMS.filter(
+           ([, s]) => new Date(s.alert.startedAtIso).toDateString() !== today,
+         );
+         expect(older.length,
+           'every fault started today — the wrong-day defect is untestable on this dataset',
+         ).toBeGreaterThanOrEqual(1);
+
+     and it held only because a device fault could be rolled up to 40 hours
+     old. The owner capped every generated duration at six hours on 2026-11-10
+     (buildTree.js MAX_EVENT_HOURS), so whether any fault crosses midnight now
+     depends on THE HOUR THE SUITE RUNS — true shortly after midnight, false by
+     the evening. A gate that goes red by wall clock is the flaky-gate failure
+     this repo has been bitten by twice already (vitest.config.js says so at
+     length), and keeping one fault long enough to satisfy it would put the
+     dataset back over the ceiling to please a test.
+
+     THE DAY DIFFERENCE IS CONSTRUCTED INSTEAD. The records stay where the
+     generator put them and the RENDER is moved a day forward. That is the same
+     situation from the user's side — opening the screen on a later calendar
+     day than the event began — and it holds at every hour of the day. */
+  it('is checked against a render day that differs from every record day', () => {
+    expect(FAULT_SYSTEMS.length).toBeGreaterThanOrEqual(1);
+    for (const [, sys] of FAULT_SYSTEMS) {
+      expect(new Date(sys.alert.startedAtIso).toDateString()).not.toBe(RENDER_DAY.toDateString());
+    }
   });
 });
 
@@ -162,15 +191,26 @@ describe.each(FAULT_SYSTEMS)(
    started today. This one picks a fault that did NOT and checks the rendered
    day is the instant's day and not the render's, which is the only form of
    the bug a user ever saw. */
-describe('a fault older than a day is dated to the day it began', () => {
-  const older = FAULT_SYSTEMS.find(
-    ([, s]) => new Date(s.alert.startedAtIso).toDateString() !== new Date().toDateString(),
-  );
+describe('a fault seen on a later day is dated to the day it began', () => {
+  /* ONLY `Date` IS FAKED. Faking the timers too deadlocks @testing-library's
+     async queue in this suite, and nothing here needs them — the screen is
+     rendered once and read synchronously. */
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(RENDER_DAY);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
-  it('names the detection day, not today', () => {
-    expect(older, 'no fixture older than today — see the fixture guard above').toBeTruthy();
-    const sys = getSystemById(older[1].id);
+  /* EVERY fault kind, not the one the old `find` happened to land on. */
+  it.each(FAULT_SYSTEMS)('names the detection day, not today (%s)', (type, fixture) => {
+    const sys = getSystemById(fixture.id);
     const at = new Date(sys.alert.startedAtIso);
+    /* The record was fixed at module evaluation; only the render moved. */
+    expect(at.toDateString(), 'the record must predate the render day').not.toBe(
+      RENDER_DAY.toDateString(),
+    );
 
     mountAlertRoute(sys.id);
 

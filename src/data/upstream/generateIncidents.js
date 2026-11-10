@@ -21,7 +21,11 @@
  * its own figures — it only shares the `BUILD_NOW` anchor.
  */
 import { SYSTEMS } from '../systems';
-import { BUILD_NOW, resolvedVariant } from './parity';
+import { BUILD_NOW } from './parity';
+/* The CAPPED variant, for the reason generateEvents.js states at its own
+   import: the six-hour ceiling is applied once, in buildTree.js, and this
+   timeline draws the same closed event the history row does. */
+import { cappedResolvedVariant } from './buildTree';
 
 const HOUR_MS = 3600000;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -122,7 +126,7 @@ function buildActiveIncident(sys) {
 // ── Resolved incident ────────────────────────────────────────────────────────
 
 function buildResolvedIncident(sys) {
-  const v = sys.resolvedIncident || resolvedVariant(sys.id);
+  const v = sys.resolvedIncident || cappedResolvedVariant(sys.id);
   const detected = new Date(BUILD_NOW - v.detectedHoursAgo * HOUR_MS);
   const resolved = new Date(BUILD_NOW - v.resolvedHoursAgo * HOUR_MS);
   const mid = new Date((detected.getTime() + resolved.getTime()) / 2);

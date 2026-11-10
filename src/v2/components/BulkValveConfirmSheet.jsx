@@ -843,10 +843,46 @@ export default function BulkValveConfirmSheet({
 
   /* NEW COPY. Named by OUTCOME and carrying the count, which is also what
      makes the button text different on every invocation. THIS IS NOW THE ONE
-     COMMIT CONTROL - both arming gestures lead to this single button. */
+     COMMIT CONTROL - both arming gestures lead to this single button.
+
+     ⚠ THE WORD "Dangerously" - NEW COPY, 2026-11-10, AND THIS IS THE ONE
+       SURFACE THAT CARRIES IT.
+
+       WAS, UNTIL 2026-11-10:
+         closing ? `Close ${num(willActCount)} ...` : `Open ${num(...)} ...`
+
+       THE OWNER ASKED FOR IT FIRST: "Dangerously close X valves, dangerously
+       open Y valves. I want the user to understand what they are doing is
+       dangerous and affecting a lot of system, but still keep it very short
+       and easy." The word therefore rides IN the label and not in a warning
+       line - "very short and easy" rules out a sentence of explanation, and
+       the blast-radius lines above this button already carry the facts.
+
+       THEN HE PLACED IT, the same day, after seeing it on the page's
+       selection strip as `Dangerously close 0 valves` beside `Dangerously
+       open 3 valves`: "We don't need here the dangerously close ... only in
+       the next step. When we only have one operation. Because here it looks
+       very odd."
+
+       SO THE RULE IS: THE WORD BELONGS WHERE THE COMMITMENT IS. This sheet
+       shows exactly ONE operation, with a count that cannot be zero. The
+       strip is a CHOOSER showing two mutually exclusive operations at once,
+       one of them routinely disabled at 0, and the word reads as noise there.
+       ⚠ DO NOT "restore consistency" by putting it back on
+         `ValveManagementScreen`'s two buttons; that file records the same
+         ruling from the other side.
+
+       THE SLIDE LABEL BELOW DELIBERATELY DOES NOT TAKE THE WORD EITHER. It
+       names a GESTURE that arms this button; it sends nothing. "Slide to
+       dangerously close 8 valves" also makes a mouthful of the one control a
+       user must physically complete (ASD-STE100 asks for 10 words or fewer in
+       an instruction). Flagged for the owner rather than decided quietly.
+
+       ASD-STE100 otherwise holds: active voice, one instruction, 4 words, no
+       contraction. The adverb is the owner's own word, transcribed. */
   const confirmLabel = closing
-    ? `Close ${num(willActCount)} ${plural(willActCount, 'valve', 'valves')}`
-    : `Open ${num(willActCount)} ${plural(willActCount, 'valve', 'valves')}`
+    ? `Dangerously close ${num(willActCount)} ${plural(willActCount, 'valve', 'valves')}`
+    : `Dangerously open ${num(willActCount)} ${plural(willActCount, 'valve', 'valves')}`
 
   /* NEW COPY - THE SLIDE. Named by OUTCOME and carrying the count, so the
      track is polymorphic rather than a generic "Confirm", and the handle

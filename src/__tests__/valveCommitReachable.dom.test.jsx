@@ -120,6 +120,14 @@ const lastInColumn = (c) => {
 }
 const strip = (c) => c.querySelector('[data-name="valve-selection-strip"]')
 const scroller = (c) => c.querySelector('[data-name="valve-rows"]')
+/* UNCHANGED, AND THAT IS WORTH A LINE. On 2026-11-10 both strip labels
+   briefly took the owner's word "Dangerously" and this pattern was
+   `/^Dangerously (close|open) /` for the length of that afternoon. He then
+   placed the word one step later, on the confirm sheet only, so the strip is
+   back to `Close N valves` / `Open N valves` and so is this. The pattern
+   matches EXACTLY the two commit controls and nothing else in the bar - the
+   "N hidden by the filter" link is a `variant="link"` button whose text
+   starts with a number. */
 const commitButtons = (c) =>
   [...c.querySelectorAll('[data-name="valve-action-bar"] button')].filter((b) =>
     /^(Close|Open) /.test(b.textContent || ''),
